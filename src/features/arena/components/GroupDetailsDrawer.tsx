@@ -32,6 +32,8 @@ import { deriveGroupPageView } from './group-details/utils/group-page-view';
 import { useGroupSheetMotion } from './group-details/hooks/useGroupSheetMotion';
 import { useGroupInviteCode } from './group-details/hooks/useGroupInviteCode';
 import { useNextSessionBooking } from './group-details/hooks/useNextSessionBooking';
+import { isLastGroupAdmin } from './group-details/services/last-admin';
+import { useGroupFixesV1 } from '@/lib/group-fixes/useGroupFixesV1';
 import { useWeekSessions } from './group-details/hooks/useWeekSessions';
 import { useGroupMembers } from './group-details/hooks/useGroupMembers';
 import { useGroupJoinActions } from './group-details/hooks/useGroupJoinActions';
@@ -130,8 +132,10 @@ export default function GroupDetailsDrawer({
   const nsd = nextSessionData?.date ?? '';
   const nst = nextSessionData?.time ?? '';
 
+  const groupFixes = useGroupFixesV1();
   const { attendance, isBooked, isWaitlisted, bookingLoading, handleBookSession } = useNextSessionBooking({
     isOpen, groupId, nsd, nst, nextSlot, userId, userName, userPhoto,
+    groupFixes, onError: () => showToast('error', t('group.booking.error')),
   });
   const { whoTab, setWhoTab, weekSessions, weekLoading, loadWeekSessions } = useWeekSessions(groupId, group);
   const members = useGroupMembers(isOpen, groupId);
@@ -140,7 +144,8 @@ export default function GroupDetailsDrawer({
   const fallbackLiveSession = useGroupLiveSession(group, isOpen && !liveSession);
   const effectiveLiveSession = liveSession ?? fallbackLiveSession;
 
-  const join = useGroupJoinActions({ group, userId, userName, userPhoto, effectiveLiveSession, onJoin, onLeave, onClose, showToast });
+  const leaveBlocked = groupFixes && isLastGroupAdmin({ userId, createdBy: group?.createdBy, members: members.groupMembers });
+  const join = useGroupJoinActions({ group, userId, userName, userPhoto, effectiveLiveSession, onJoin, onLeave, onClose, showToast, leaveBlocked });
 
   // ── Early return AFTER all hooks ──────────────────────────────
   if (!group) return null;

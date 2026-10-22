@@ -214,3 +214,21 @@ export function disambiguateDuplicateNames(items: DisambiguationItem[], features
   }
   return out;
 }
+
+/**
+ * "שביל אדום 10340 · נחל שורק" → "שביל אדום · נחל שורק" (owner 22.10.2026: no
+ * OSM/ITC marking codes in names). Only a standalone 4–5 digit token in a name
+ * that starts with "שביל "; short numbers ("מסלול 5") and other names are
+ * untouched. A "· 10340" tail left by the duplicate-name rule is dropped too.
+ */
+export function stripOsmCode(name: string): string {
+  const n = String(name ?? '');
+  if (!/^שביל\s/.test(n)) return n;
+  return n
+    .replace(/(^|\s)\d{4,5}(?=\s|·|$)/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/(\s*·)+\s*$/g, '')
+    .replace(/·\s*·/g, '·')
+    .replace(/\s+·/g, ' ·')
+    .trim();
+}

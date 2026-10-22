@@ -420,7 +420,19 @@ src/features/workout-engine/summary/components/shared/SummaryStatsGrid.tsx
 src/features/workout-engine/summary/components/shared/SummaryHeader.tsx
 src/features/workout-engine/summary/components/running/
 src/features/workout-engine/summary/blocks/segment-rail.util.ts
-
+# wave 2 batch ai (namespace player) — shared strength cards + summary blocks. Listed per file: the folders also
+# hold busy files and Hebrew-returning helpers (summary-v2.mapping / phase-summary / useGoalEvaluation have outside callers).
+src/features/workout-engine/components/SwapIcon.tsx
+src/features/workout-engine/components/cards/StrengthExerciseCard.tsx
+src/features/workout-engine/components/strength/components/WeeklyAchievementsGrid.tsx
+src/features/workout-engine/components/strength/components/GainBreakdownCard.tsx
+src/features/workout-engine/components/strength/components/SummaryStatsRow.tsx
+src/features/workout-engine/components/strength/components/ExerciseBreakdownCard.tsx
+src/features/workout-engine/components/strength/components/summary-atoms/ExerciseRow.tsx
+src/features/workout-engine/components/strength/components/summary-atoms/PersonalRecords.tsx
+# wave 2 batch ae (namespace onboarding, keys programPath.page.*) — the strength program-path page's own copy.
+# The other targets of this batch were already migrated or are dead (HistoryStep, SummaryStep).
+src/app/onboarding-new/program-path/
 # wave 2 batch ah (namespace map, keys caloriesChip.* / mapLoading.* / routeLoader.* / workoutPrefs.*) — the remaining
 # quiet leftovers of src/features/parks/core/components. Left Hebrew on purpose (manual list in the PR): NavigationHub
 # (v1-only search overlay, enable_home_v2 on), HybridJourneyAxis (uncommitted work in another worktree), hybrid-format.ts /

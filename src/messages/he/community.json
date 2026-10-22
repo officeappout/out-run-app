@@ -92,6 +92,8 @@
   "group.scheduleManager.add": "הוספת מפגש",
   "group.scheduleManager.toast.removed": "מפגש הוסר",
   "group.scheduleManager.toast.saveError": "שגיאה בשמירה",
+  "group.leave.lastAdmin": "לפני היציאה צריך למנות מנהל נוסף לקבוצה",
+  "group.booking.error": "ההרשמה לא הצליחה. אפשר לנסות שוב.",
   "group.slotEditor.titleEdit": "עריכת מפגש",
   "group.slotEditor.titleAdd": "הוספת מפגש",
   "group.slotEditor.day": "יום בשבוע",

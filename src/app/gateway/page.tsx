@@ -21,6 +21,8 @@ import {
   consumePendingGroupInvite,
   consumePendingSessionInvite,
 } from '@/features/user/onboarding/services/run-explore-map-flow';
+import { consumePendingInvites } from '@/features/user/onboarding/services/consume-pending-invites';
+import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
 import { legacyGatewayRedirect } from '@/lib/landing-fallback/fallback-routes';
 
@@ -208,6 +210,18 @@ export default function GatewayPage() {
           // already exists (MAP_ONLY → /explorer, COMPLETED → /home) get routed
           // away and consumeSessionInvitation() is never called — user_memberships
           // is never written and presence reads stay PERMISSION-DENIED forever.
+          // enable_group_fixes_v1: the shared consumer (session token or group id —
+          // an invite code already went to the express identity screen above).
+          if (typeof window !== 'undefined' && await readFeatureFlagOnce('enable_group_fixes_v1')) {
+            const pendingRedirect = await consumePendingInvites({
+              uid: user.uid, displayName: user.displayName, photoURL: user.photoURL,
+            });
+            if (retiredRef.current) return;
+            if (pendingRedirect) {
+              router.push(pendingRedirect);
+              return;
+            }
+          }
           if (typeof window !== 'undefined' && localStorage.getItem('pending_session_token')) {
             const sessionRedirect = await consumePendingSessionInvite(
               user.uid,
@@ -330,6 +344,17 @@ export default function GatewayPage() {
       if (localStorage.getItem('pending_invite_code')) {
         router.push('/onboarding-new/profile?context=express');
         return;
+      }
+
+      // enable_group_fixes_v1: the shared consumer (in-flight guard, group-page landing).
+      if (await readFeatureFlagOnce('enable_group_fixes_v1')) {
+        const pendingRedirect = await consumePendingInvites({
+          uid: user.uid, displayName: user.displayName, photoURL: user.photoURL,
+        });
+        if (pendingRedirect) {
+          router.push(pendingRedirect);
+          return;
+        }
       }
 
       // If user came from a group invite deep link (non-join-page paths),

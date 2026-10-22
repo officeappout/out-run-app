@@ -15,10 +15,10 @@ describe('quota', () => {
     expect(quotaForAuthority({ population: 300_000 }).total).toEqual({ min: 25, max: 40 });
     expect(quotaForAuthority({ type: 'regional_council' }).cycling).toEqual({ min: 2, max: 5 });
   });
-  it('regional councils: 20-40 (owner 22.10.2026), named constants; other classes unchanged', () => {
+  it('regional councils: 20-100 (owner 22.10.2026), named constants; other classes unchanged', () => {
     expect(REGIONAL_TOTAL_MIN).toBe(20);
-    expect(REGIONAL_TOTAL_MAX).toBe(40);
-    expect(quotaForAuthority({ type: 'regional_council' }).total).toEqual({ min: 20, max: 40 });
+    expect(REGIONAL_TOTAL_MAX).toBe(100);
+    expect(quotaForAuthority({ type: 'regional_council' }).total).toEqual({ min: 20, max: 100 });
     expect(QUOTAS.medium.total).toEqual({ min: 15, max: 25 });
     expect(QUOTAS.small.total).toEqual({ min: 8, max: 15 });
     expect(QUOTAS.regional.parkLoops).toEqual({ min: 0, max: 3 });

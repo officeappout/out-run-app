@@ -69,6 +69,8 @@ import {
   type MusclePackageKey,
 } from '@/features/user/onboarding/constants/program-path.constants';
 import { genderArg } from '@/lib/i18n/core/i18n-core';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 
 /**
@@ -95,6 +97,7 @@ function persistToStorage(
 
 export default function ProgramPathPage() {
   const router = useRouter();
+  const t = useT(onboarding);
   // enable_home_v2 — v2 view below reuses every state/handler of this page.
   const v2 = useOnboardingV2();
 
@@ -552,7 +555,7 @@ export default function ProgramPathPage() {
         onBack={() => setV2Step('goal')}
         onContinue={handleContinue}
         canContinue={canContinue}
-        continueLabel={showRecommendation ? (isFemale ? 'המשיכי בכל זאת' : 'המשך בכל זאת') : 'המשך למבחן הרמה'}
+        continueLabel={showRecommendation ? t('programPath.page.continue.anyway') : t('programPath.page.continue.toTest')}
       />
     );
   }
@@ -580,8 +583,8 @@ export default function ProgramPathPage() {
         canContinue={goal === 'skills' ? true : canContinue}
         continueLabel={
           showMuscleRecommendation
-            ? (isFemale ? 'המשיכי בכל זאת' : 'המשך בכל זאת')
-            : 'המשך למבחן הרמה'
+            ? t('programPath.page.continue.anyway')
+            : t('programPath.page.continue.toTest')
         }
       />
     );
@@ -597,8 +600,8 @@ export default function ProgramPathPage() {
       canContinue={canContinue}
       continueLabel={
         showRecommendation || showMuscleRecommendation
-          ? (isFemale ? 'המשיכי בכל זאת' : 'המשך בכל זאת')
-          : (isFemale ? 'המשכי' : 'המשך')
+          ? t('programPath.page.continue.anyway')
+          : t('programPath.page.continue.default')
       }
     >
       <div className="w-full max-w-md mx-auto px-4 py-6 flex flex-col">
@@ -612,10 +615,10 @@ export default function ProgramPathPage() {
             className="text-2xl font-black mb-2"
             style={{ color: '#182236' }}
           >
-            מה הכי בא לך להשיג?
+            {t('programPath.page.title')}
           </h1>
           <p className="text-sm text-slate-500">
-            {isFemale ? 'בחרי את הכיוון שתרצי להתמקד בו' : 'בחר את הכיוון שתרצה להתמקד בו'}
+            {t('programPath.page.subtitle')}
           </p>
         </motion.div>
 
@@ -644,7 +647,7 @@ export default function ProgramPathPage() {
             <div className="flex-1 text-right">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
-                  מתחילים
+                  {t('programPath.page.health.badge')}
                 </span>
               </div>
               <p
@@ -652,10 +655,10 @@ export default function ProgramPathPage() {
                   selectedCards.includes('health') ? 'text-[#182236]' : 'text-slate-700'
                 }`}
               >
-                בריאות, כוח ואנרגיה
+                {t('programPath.page.health.title')}
               </p>
               <p className="text-sm text-slate-500 leading-snug">
-                מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף.
+                {t('programPath.page.health.sub')}
               </p>
             </div>
             {selectedCards.includes('health') && (
@@ -691,13 +694,13 @@ export default function ProgramPathPage() {
               >
                 <div className="px-5 pb-6">
                   <p className="text-[13px] text-slate-500 text-right mb-3 leading-relaxed">
-                    מסלול מקיף לשמירה על חיוניות, תנועה נכונה ואנרגיה גבוהה.
+                    {t('programPath.page.health.intro')}
                   </p>
                   <ul className="space-y-2">
                     {[
-                      'אימוני כוח לכל הגוף (Full Body) לבניית בסיס איתן',
-                      'שילוב מסלולי הליכה מותאמים ויעדי ספירת צעדים יומית',
-                      'דגש על שיפור טווחי תנועה, גמישות ויציבה',
+                      t('programPath.page.health.item1'),
+                      t('programPath.page.health.item2'),
+                      t('programPath.page.health.item3'),
                     ].map((item) => (
                       <li key={item} className="flex items-start gap-2.5 text-right">
                         <CheckCircle2
@@ -742,7 +745,7 @@ export default function ProgramPathPage() {
             <div className="flex-1 text-right">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
-                  לכל רמה
+                  {t('programPath.page.body.badge')}
                 </span>
               </div>
               <p
@@ -750,10 +753,10 @@ export default function ProgramPathPage() {
                   selectedCards.includes('body_focus') ? 'text-[#182236]' : 'text-slate-700'
                 }`}
               >
-                עיצוב ושרירים
+                {t('programPath.page.body.title')}
               </p>
               <p className="text-sm text-slate-500 leading-snug">
-                מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף.
+                {t('programPath.page.body.sub')}
               </p>
             </div>
             {selectedCards.includes('body_focus') && (
@@ -788,7 +791,7 @@ export default function ProgramPathPage() {
               >
                 <div className="px-5 pb-8">
                   <p className="text-[13px] text-slate-500 text-right mb-3">
-                    {isFemale ? 'בחרי את האזורים שתרצי לפתח' : 'בחר את האזורים שתרצה לפתח'}
+                    {t('programPath.page.body.pick')}
                   </p>
 
                   {/* ── Coach's note: complementary-muscle recommendation ── */}
@@ -828,7 +831,7 @@ export default function ProgramPathPage() {
                         className={isFullBodySelected ? 'text-[#00BAF7]' : 'text-slate-400'}
                         strokeWidth={1.5}
                       />
-                      <span className="text-[14px] text-slate-800">כל הגוף</span>
+                      <span className="text-[14px] text-slate-800">{t('programPath.page.body.fullBody')}</span>
                     </motion.button>
 
                     {/* 4 package sections — always open, no collapse. The
@@ -854,7 +857,7 @@ export default function ProgramPathPage() {
                             <button
                               type="button"
                               onClick={() => selectPackage(pkg.muscles)}
-                              aria-label={`בחר את כל השרירים בקבוצת ${pkg.nameHe}`}
+                              aria-label={t('programPath.page.body.selectAllAria', { name: pkg.nameHe })}
                               className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all shrink-0 ${
                                 fullySelected
                                   ? 'bg-[#00BAF7] border-[#00BAF7]'
@@ -925,7 +928,7 @@ export default function ProgramPathPage() {
                                   }`}
                                 />
                                 <span className="text-[13px] font-medium text-slate-500">
-                                  רוצה לבחור תרגילים להשתפר בהם?
+                                  {t('programPath.page.body.wishlistPrompt')}
                                 </span>
                               </button>
                               <AnimatePresence>
@@ -1013,7 +1016,7 @@ export default function ProgramPathPage() {
             <div className="flex-1 text-right">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
-                  מתקדמים
+                  {t('programPath.page.skills.badge')}
                 </span>
               </div>
               <p
@@ -1021,13 +1024,13 @@ export default function ProgramPathPage() {
                   selectedCards.includes('skills') ? 'text-[#182236]' : 'text-slate-700'
                 }`}
               >
-                לומדים תרגילי קליסטניקס מתקדמים
+                {t('programPath.page.skills.title')}
               </p>
               <p className="text-sm text-slate-500 leading-snug">
-                מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה.
+                {t('programPath.page.skills.sub')}
               </p>
               <p className="text-[12px] text-slate-400 mt-1 leading-snug">
-                עוד לא שם? נבנה לך את הבסיס עד לשם.
+                {t('programPath.page.skills.note')}
               </p>
             </div>
             {selectedCards.includes('skills') && (
@@ -1062,9 +1065,7 @@ export default function ProgramPathPage() {
               >
                 <div className="px-5 pb-8">
                   <p className="text-[13px] text-slate-500 text-right mb-3">
-                    {isFemale
-                      ? 'בחרי אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)'
-                      : 'בחר אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)'}
+                    {t('programPath.page.skills.pick')}
                   </p>
 
                   {/* ── Orange Flow: complementary-skill coach tip ── */}
@@ -1081,7 +1082,7 @@ export default function ProgramPathPage() {
                         aria-live="polite"
                       >
                         <p className="text-[13px] font-semibold leading-relaxed">
-                          בחרת בסקיל עוצמתי! כדי למנוע פציעות כתפיים ולפתח כוח סימטרי, קלי המאמן הווירטואלי ממליץ לך לסמן לפחות אלמנט משלים אחד מהקבוצה המודגשת בכתום (דחיפה/משיכה).
+                          {t('programPath.page.skills.tip')}
                         </p>
                       </motion.div>
                     )}
@@ -1155,7 +1156,7 @@ export default function ProgramPathPage() {
                           </div>
                           {isNotReady && (
                             <span className="absolute top-1 right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500">
-                              בקרוב
+                              {t('programPath.page.skills.soon')}
                             </span>
                           )}
                         </motion.button>

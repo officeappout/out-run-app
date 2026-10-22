@@ -16,7 +16,7 @@ type Key = keyof typeof he;
 
 describe('community (he) group.* — byte-identical to the pre-extraction literals', () => {
   it('owns exactly the group.* keys this test pins (count per prefix, not the namespace total)', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('group.')).length).toBe(105);
+    expect(Object.keys(he).filter((k) => k.startsWith('group.')).length).toBe(107);
   });
 
   it('plain strings', () => {
@@ -93,6 +93,9 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
       ["group.scheduleManager.add", "הוספת מפגש"],
       ["group.scheduleManager.toast.removed", "מפגש הוסר"],
       ["group.scheduleManager.toast.saveError", "שגיאה בשמירה"],
+      // group fixes (enable_group_fixes_v1, 22.10.2026) — new copy, not an extraction.
+      ["group.leave.lastAdmin", "לפני היציאה צריך למנות מנהל נוסף לקבוצה"],
+      ["group.booking.error", "ההרשמה לא הצליחה. אפשר לנסות שוב."],
       ["group.slotEditor.titleEdit", "עריכת מפגש"],
       ["group.slotEditor.titleAdd", "הוספת מפגש"],
       ["group.slotEditor.day", "יום בשבוע"],

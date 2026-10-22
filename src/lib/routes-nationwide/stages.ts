@@ -37,7 +37,7 @@ export const QUOTA_GATED_STAGES: ReadonlySet<StageKey> = new Set<StageKey>(['gen
 /**
  * Regional councils — real trails only (owner, 22.10.2026, on PR #720): the
  * synthetic stages never run for a regional council, whether or not its quota
- * is met. The quota (20–40) is a ceiling: a council with fewer real trails just
+ * is met. The quota (20–100) is a ceiling: a council with fewer real trails just
  * gets fewer, it is never padded with generated loops.
  */
 export const REGIONAL_SKIPPED_STAGES: ReadonlySet<StageKey> = new Set<StageKey>(['generated', 'neighbourhood', 'settlement_loops']);
@@ -112,6 +112,12 @@ export interface RunStagesOptions {
    */
   regionalSkip?: ReadonlySet<StageKey>;
   settlementLoopsEnabled?: boolean;
+  /**
+   * Cross-authority duplicate check (owner 22.10.2026): returns the id of a route in ANOTHER authority
+   * that is the same trail by geometry (≥60% overlap), or null. A new candidate that has one is dropped
+   * (counted as droppedDuplicate). Never called for existing routes.
+   */
+  externalDuplicate?: (r: CandidateRoute) => Promise<string | null>;
 }
 
 export async function runAuthorityStages(
@@ -154,6 +160,7 @@ export async function runAuthorityStages(
       const coords = parsePath(r.data?.path);
       const box = bbox(coords);
       if (key !== 'existing' && geo.some((g) => boxesMeet(box, g.box) && isDuplicate(coords, g.coords))) { dropped++; continue; }
+      if (key !== 'existing' && r.isNew && options.externalDuplicate && (await options.externalDuplicate(r))) { dropped++; continue; }
       const extra = await options.enrich?.(r);
       pool.push({ ...r, stage: key, ...(extra ? { opts: { ...(r.opts ?? {}), ...extra } } : {}) });
       geo.push({ coords, box });

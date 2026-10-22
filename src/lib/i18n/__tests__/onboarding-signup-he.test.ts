@@ -18,7 +18,7 @@ describe('onboarding — signup v2 / what-now / program-path keys', () => {
     const keys = Object.keys(he);
     expect(keys.filter((k) => k.startsWith('signup.'))).toHaveLength(115);
     expect(keys.filter((k) => k.startsWith('whatNow.'))).toHaveLength(9);
-    expect(keys.filter((k) => k.startsWith('programPath.'))).toHaveLength(28);
+    expect(keys.filter((k) => k.startsWith('programPath.'))).toHaveLength(54);
   });
 
   it('plain strings', () => {
@@ -149,11 +149,44 @@ describe('onboarding — signup v2 / what-now / program-path keys', () => {
       ['programPath.skills.tip.label', 'טיפ מהמאמן: '],
       ['programPath.skills.tip.push', 'כדי לשמור על כתפיים מאוזנות, כדאי להוסיף גם אלמנט אחד מקבוצת הדחיפה.'],
       ['programPath.skills.tip.pull', 'כדי לשמור על כתפיים מאוזנות, כדאי להוסיף גם אלמנט אחד מקבוצת המשיכה.'],
+      // program-path PAGE (batch ae)
+      ['programPath.page.continue.toTest', 'המשך למבחן הרמה'],
+      ['programPath.page.title', 'מה הכי בא לך להשיג?'],
+      ['programPath.page.health.badge', 'מתחילים'],
+      ['programPath.page.health.title', 'בריאות, כוח ואנרגיה'],
+      ['programPath.page.health.sub', 'מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף.'],
+      ['programPath.page.health.intro', 'מסלול מקיף לשמירה על חיוניות, תנועה נכונה ואנרגיה גבוהה.'],
+      ['programPath.page.health.item1', 'אימוני כוח לכל הגוף (Full Body) לבניית בסיס איתן'],
+      ['programPath.page.health.item2', 'שילוב מסלולי הליכה מותאמים ויעדי ספירת צעדים יומית'],
+      ['programPath.page.health.item3', 'דגש על שיפור טווחי תנועה, גמישות ויציבה'],
+      ['programPath.page.body.badge', 'לכל רמה'],
+      ['programPath.page.body.title', 'עיצוב ושרירים'],
+      ['programPath.page.body.sub', 'מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף.'],
+      ['programPath.page.body.fullBody', 'כל הגוף'],
+      ['programPath.page.body.wishlistPrompt', 'רוצה לבחור תרגילים להשתפר בהם?'],
+      ['programPath.page.skills.badge', 'מתקדמים'],
+      ['programPath.page.skills.title', 'לומדים תרגילי קליסטניקס מתקדמים'],
+      ['programPath.page.skills.sub', 'מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה.'],
+      ['programPath.page.skills.note', 'עוד לא שם? נבנה לך את הבסיס עד לשם.'],
+      ['programPath.page.skills.tip', 'בחרת בסקיל עוצמתי! כדי למנוע פציעות כתפיים ולפתח כוח סימטרי, קלי המאמן הווירטואלי ממליץ לך לסמן לפחות אלמנט משלים אחד מהקבוצה המודגשת בכתום (דחיפה/משיכה).'],
+      ['programPath.page.skills.soon', 'בקרוב'],
     ];
     for (const [key, old] of cases) expect(t(key)).toBe(old);
   });
 
   it('values: the old templates, verbatim', () => {
+    // program-path page (batch ae): the old isFemale ternaries, every gender
+    for (const gender of ['female', 'male', 'other'] as const) {
+      const f = gender === 'female';
+      expect(t('programPath.page.continue.default', { gender })).toBe(f ? 'המשכי' : 'המשך');
+      expect(t('programPath.page.continue.anyway', { gender })).toBe(f ? 'המשיכי בכל זאת' : 'המשך בכל זאת');
+      expect(t('programPath.page.subtitle', { gender })).toBe(f ? 'בחרי את הכיוון שתרצי להתמקד בו' : 'בחר את הכיוון שתרצה להתמקד בו');
+      expect(t('programPath.page.body.pick', { gender })).toBe(f ? 'בחרי את האזורים שתרצי לפתח' : 'בחר את האזורים שתרצה לפתח');
+      expect(t('programPath.page.skills.pick', { gender })).toBe(
+        f ? 'בחרי אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)' : 'בחר אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)',
+      );
+    }
+    expect(t('programPath.page.body.selectAllAria', { name: 'משיכה' })).toBe(`בחר את כל השרירים בקבוצת ${'משיכה'}`);
     const letter = 'ג';
     expect(t('signup.days.progress', { done: String(2), total: String(3) })).toBe(`${2} מתוך ${3}`);
     expect(t('signup.days.windowAria', { letter })).toBe(`שעה ביום ${letter}׳`);

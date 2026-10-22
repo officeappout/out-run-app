@@ -66,9 +66,11 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
 }));
 vi.mock('@/features/user', () => ({ useUserStore: () => ({ profile: null }) }));
 vi.mock('@/features/arena/services/group-invitation.service', () => ({
-  validateSessionInvitation: () => S.validate,
   consumeSessionInvitation: async () => ({}),
 }));
+// The session page reads the invite through the server preview (group fixes P1-1).
+vi.mock('@/lib/group-fixes/session-preview-client', () => ({ fetchSessionPreview: () => S.validate }));
+vi.mock('@/lib/group-fixes/useGroupFixesV1', () => ({ useGroupFixesV1: () => false }));
 vi.mock('@/features/workout-engine/core/store/useSharedSession', () => ({
   useSharedSession: { getState: () => ({ joinViaDeepLink: () => {}, setMembershipReady: () => {} }) },
 }));
@@ -218,7 +220,7 @@ describe('/session/[token]', () => {
     ['run-walking', { source: 'run-invite', activityType: 'walking' }],
     ['group-session', { source: 'group', sessionDate: '21.10', sessionTime: '19:00' }],
   ])('valid: %s', async (name, extra) => {
-    const m = await mountSession({ valid: true, doc: { groupName: 'הקבוצה שלי', ...extra } });
+    const m = await mountSession({ valid: true, invitation: { groupName: 'הקבוצה שלי', ...extra } });
     await expect(m.html()).toMatchFileSnapshot(snap(`session-valid-${name}`));
   });
 });

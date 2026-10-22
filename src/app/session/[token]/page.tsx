@@ -5,11 +5,11 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2, AlertCircle, Users, Calendar, Clock } from 'lucide-react';
-import {
-  validateSessionInvitation,
-  consumeSessionInvitation,
-  type GroupInvitationDoc,
-} from '@/features/arena/services/group-invitation.service';
+import { consumeSessionInvitation } from '@/features/arena/services/group-invitation.service';
+import { fetchSessionPreview } from '@/lib/group-fixes/session-preview-client';
+import type { SessionInvitePreview } from '@/lib/group-fixes/session-preview';
+import { useGroupFixesV1 } from '@/lib/group-fixes/useGroupFixesV1';
+import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { onAuthStateChange } from '@/lib/auth.service';
 import { useT } from '@/hooks/useT';
@@ -23,21 +23,24 @@ export default function SessionTokenPage() {
   const t = useT(player);
   const token = typeof params.token === 'string' ? params.token : '';
 
-  const [invitation, setInvitation] = useState<GroupInvitationDoc | null>(null);
+  const [invitation, setInvitation] = useState<SessionInvitePreview | null>(null);
   const [error, setError] = useState<'not_found' | 'expired' | 'max_uses_reached' | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const { enabled: realFallback } = useLandingRealFallback();
+  const groupFixes = useGroupFixesV1();
 
   useEffect(() => {
     if (!token) { setError('not_found'); setLoading(false); return; }
 
     localStorage.setItem('pending_session_token', token);
 
-    validateSessionInvitation(token)
+    // Server preview (Admin SDK): the rules need auth to read group_invitations,
+    // so the client read answered "invalid link" to every signed-out invitee.
+    fetchSessionPreview(token)
       .then((result) => {
         if (result.valid) {
-          setInvitation(result.doc);
+          setInvitation(result.invitation);
         } else {
           setError(result.reason);
         }
@@ -92,7 +95,8 @@ export default function SessionTokenPage() {
           );
           useSharedSession.getState().setMembershipReady();
 
-          router.push(`/community?groupId=${groupId}`);
+          // enable_group_fixes_v1: every join lands on the group page by id.
+          router.push(groupFixes ? resolveJoinLanding(groupId, { joined: false }) : `/community?groupId=${groupId}`);
         }
       } catch (err) {
         console.error('[SessionTokenPage] consume failed:', err);

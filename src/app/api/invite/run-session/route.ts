@@ -23,6 +23,7 @@ import { addScheduleEntryAdmin } from '@/lib/addScheduleEntryAdmin';
 import { sanitizePlannedRun } from '@/lib/planned-run';
 import { APP_ORIGIN } from '@/lib/config/domain';
 import { DEMO_ACTOR_TARGET_ERROR, demoActorTargetBlocked, demoScopedId, isDemoActorClaims } from '@/lib/demo-actor';
+import { attendanceIdFromClientNow } from '@/lib/group-fixes/run-invite';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -119,6 +120,8 @@ export async function POST(request: NextRequest) {
     scheduledFor?: string;
     /** Scheduled only: the drawer's goal + settings (re-validated below). */
     plannedRun?: unknown;
+    /** "now" only (enable_group_fixes_v1 clients): the device's local 'YYYY-MM-DDTHH:mm'. */
+    clientNow?: unknown;
   };
   try {
     body = await request.json();
@@ -160,7 +163,11 @@ export async function POST(request: NextRequest) {
     // B1 demo sandbox: a demo actor's ephemeral group gets a demo- id (+ isDemo) so it
     // stays inside the demo world. Real callers: unchanged random id, no extra field.
     groupId      = demoScopedId(actorIsDemo, db.collection('community_groups').doc().id, 'run');
-    attendanceId = scheduledFor ? parseScheduledFor(scheduledFor).attendanceId : nowAttendanceId();
+    // A "now" invite from a group-fixes client carries its local time — the
+    // server clock is UTC, so nowAttendanceId() showed invitees the wrong hour.
+    attendanceId = scheduledFor
+      ? parseScheduledFor(scheduledFor).attendanceId
+      : attendanceIdFromClientNow(body.clientNow, Date.now()) ?? nowAttendanceId();
 
     const [datePart, timePart] = attendanceId.split('_');
     const timeForDisplay = (timePart ?? '').replace('-', ':');

@@ -13,6 +13,9 @@ import { auth } from '@/lib/firebase';
 import type { CommunityGroup } from '@/types/community.types';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { useGroupFixesV1 } from '@/lib/group-fixes/useGroupFixesV1';
+import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
+import { profileReadyForJoin } from '@/lib/group-fixes/join-profile';
 
 // The category label is the `join.category` select (onboarding namespace) — same keys, `other` = fallback.
 const CATEGORY_CONFIG: Record<string, { icon: string; gradient: string }> = {
@@ -38,6 +41,8 @@ export default function JoinPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState(false);
+  const groupFixes = useGroupFixesV1();
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -59,6 +64,7 @@ export default function JoinPage() {
   const handleJoinClick = () => {
     if (!group || joining) return;
     setJoining(true);
+    setJoinError(false);
 
     const unsub = onAuthStateChange(async (user) => {
       unsub();
@@ -67,7 +73,12 @@ export default function JoinPage() {
       // by /api/user/complete-profile server-side). If either is missing, route
       // through the express identity screen first — it collects name/gender/DOB,
       // then B3 routing returns here once identity is complete.
-      const hasProfile = Boolean(user && profile?.core?.ageGroup);
+      // enable_group_fixes_v1: a signed-in user whose profile is still loading
+      // (store not hydrated / not fetched yet) is NOT sent to the identity
+      // screen — wait for the store, then refresh from Firestore once.
+      const hasProfile = groupFixes && user
+        ? await profileReadyForJoin(useUserStore)
+        : Boolean(user && profile?.core?.ageGroup);
       if (!user || !hasProfile) {
         // Ensure an anonymous auth session exists before routing to the express
         // identity screen. Without this, the profile page finds no auth.currentUser
@@ -113,9 +124,11 @@ export default function JoinPage() {
         const { groupId } = await res.json() as { groupId: string };
         localStorage.removeItem('pending_invite_code');
         // joined=true triggers the PostJoinSuccessDrawer on /community.
-        router.push(`/community?groupId=${groupId}&joined=true`);
+        // enable_group_fixes_v1: the ONE join landing (group page by id).
+        router.push(groupFixes ? resolveJoinLanding(groupId) : `/community?groupId=${groupId}&joined=true`);
       } catch (e) {
         console.error('[JoinPage] confirm failed:', e);
+        if (groupFixes) setJoinError(true);
         setJoining(false);
       }
     });
@@ -257,6 +270,11 @@ export default function JoinPage() {
             </>
           )}
         </button>
+        {joinError && (
+          <p role="alert" className="text-center text-xs font-bold text-red-500 mt-2.5">
+            {t('join.error.generic')}
+          </p>
+        )}
         <p className="text-center text-[11px] text-gray-400 mt-2.5">
           {t('join.redirectNote')}
         </p>

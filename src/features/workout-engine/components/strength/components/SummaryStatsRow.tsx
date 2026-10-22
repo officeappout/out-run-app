@@ -6,6 +6,8 @@ import AnimatedFlame from '@/components/ui/AnimatedFlame';
 import type { ActivityType } from '@/features/activity/types/activity.types';
 
 import { StatBox } from './summary-atoms';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * SummaryStatsRow — three-up calories / duration / streak strip.
@@ -34,24 +36,25 @@ export default function SummaryStatsRow({
   streakFlameType,
   streakChainReady,
 }: SummaryStatsRowProps) {
+  const t = useT(player);
   return (
     <div className="flex justify-between items-center text-center px-2">
       <StatBox
-        label="קלוריות"
+        label={t('summaryStats.calories')}
         value={calories}
         icon={<Flame className="w-4 h-4" />}
         iconColor="text-orange-500"
         showTrend={false}
       />
       <StatBox
-        label="זמן"
+        label={t('summaryStats.duration')}
         value={formattedDuration}
         icon={<Clock className="w-4 h-4" />}
         iconColor="text-slate-800 dark:text-white"
         hasBorder
       />
       <div className="flex flex-col">
-        <span className="text-xs text-slate-500 font-medium">אימונים ברצף</span>
+        <span className="text-xs text-slate-500 font-medium">{t('summaryStats.streak')}</span>
         <div className="flex items-center justify-center gap-1">
           <span className="text-lg font-bold text-slate-800 dark:text-white">{streak}</span>
           {streakChainReady ? (
