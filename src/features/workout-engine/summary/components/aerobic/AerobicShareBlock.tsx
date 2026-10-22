@@ -4,6 +4,8 @@ import React from 'react';
 import { Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
 import type { GroupSummaryCtx } from '@/features/workout-engine/summary/hooks/useGroupSummaryCtx';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface Props {
   distanceKm: number;
@@ -17,13 +19,17 @@ interface Props {
  * too; it moved to the drawer's pinned footer (one explicit action).
  */
 export default function AerobicShareBlock({ distanceKm, groupCtx, wasSaved = true }: Props) {
+  const t = useT(summary);
   const handleShare = async () => {
-    const distanceStr = distanceKm > 0 ? `${distanceKm.toFixed(2)} ק״מ` : '';
+    const distanceStr = distanceKm > 0 ? t('share.distance', { km: distanceKm.toFixed(2) }) : '';
     const groupPart =
       groupCtx && groupCtx.participantCount > 1
-        ? ` | ${groupCtx.participantCount} אנשים · ${groupCtx.collectiveDistanceKm.toFixed(1)} ק״מ יחד`
+        ? t('share.group', {
+            count: String(groupCtx.participantCount),
+            km: groupCtx.collectiveDistanceKm.toFixed(1),
+          })
         : '';
-    const text = `סיימתי אימון ב-OUT! ${distanceStr}${groupPart} 💪`;
+    const text = t('share.text', { distance: distanceStr, group: groupPart });
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
@@ -38,12 +44,12 @@ export default function AerobicShareBlock({ distanceKm, groupCtx, wasSaved = tru
     <div>
       {!wasSaved && (
         <div className="mb-2 py-1.5 text-center text-[12px] font-semibold text-v2-muted">
-          אימון קצר מדי — לא נשמר
+          {t('share.tooShort')}
         </div>
       )}
       <Button variant="ghost" size="md" block onClick={handleShare}>
         <Share2 size={17} strokeWidth={2.4} aria-hidden />
-        שתף
+        {t('share.cta')}
       </Button>
     </div>
   );

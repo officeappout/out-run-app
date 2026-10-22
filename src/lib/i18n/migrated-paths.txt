@@ -399,3 +399,14 @@ src/app/profile/[userId]/
 # i18n wave 2 batch ac (map, parkDetail.*) — park page sections + equipment categorizer
 src/features/parks/client/components/park-detail/sections/
 src/features/parks/client/components/park-detail/utils/park-detail-logic.ts
+# wave 2 batch ad (namespace summary — new) — the aerobic summary's child blocks. Listed per file: AerobicSummaryView /
+# AerobicSummaryShell / HybridSummary / WorkoutSummaryPage are busy, SummaryOrchestrator's fallback blocks are left for
+# a later batch. Slash form kept verbatim: participants.you " (את/ה)".
+src/features/workout-engine/summary/components/run-type/
+src/features/workout-engine/summary/components/shared/LapSpeedList.tsx
+src/features/workout-engine/summary/components/shared/LapPaceChart.tsx
+src/features/workout-engine/summary/components/shared/DopamineStreakBlock.tsx
+src/features/workout-engine/summary/components/aerobic/ParticipantsBlock.tsx
+src/features/workout-engine/summary/components/aerobic/AerobicShareBlock.tsx
+src/features/workout-engine/summary/components/aerobic/AerobicStatRingsBlock.tsx
+src/features/workout-engine/summary/components/aerobic/TogetherBlock.tsx
