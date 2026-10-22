@@ -373,6 +373,14 @@ export const FLAG_DEFS = [
   // Off = byte-identical routing.
   { key: 'enableLandingRealFallback', firestoreKey: 'enable_landing_real_fallback', defaultValue: false, superAdminValue: false },
   { key: 'enableStrengthQuizHintV2', firestoreKey: 'enable_strength_quiz_hint_v2', defaultValue: false, superAdminValue: true },
+  // Onboarding step funnel (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md
+  // open question 9). On = every onboarding step's real completion point also writes ONE
+  // `onboarding_step_completed` analytics event (same schema: step_name/step_index/time_spent,
+  // plus source:'funnel_v1'), at most once per step per app session — so drop-off can be measured
+  // step to step instead of only as a users.onboardingStep snapshot. Read synchronously via
+  // readLiveFlag (src/features/analytics/onboarding-funnel.ts), so superAdminValue FALSE: admins and
+  // users record the same thing. Fail-closed. Off = byte-identical (no extra event, no storage).
+  { key: 'enableOnboardingStepFunnel', firestoreKey: 'enable_onboarding_step_funnel', defaultValue: false, superAdminValue: false },
   // Run / walk live players — map first (21.10.2026, owner — agent-briefs/run-player-drawer-brief.md).
   // Inside the enable_home_v2 run / walk players (free, route, walk, planned intervals, continuous):
   // the metrics card becomes a drawer (compact time · distance · pace ⇄ today's full card; further

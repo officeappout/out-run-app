@@ -10,6 +10,7 @@ import {
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
@@ -471,6 +472,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
     });
 
     await Analytics.logOnboardingStepComplete('SCHEDULE', 0);
+    logOnboardingFunnelStep('SCHEDULE'); // enable_onboarding_step_funnel (off = no-op)
     onNext();
   };
 

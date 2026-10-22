@@ -19,6 +19,7 @@ import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { computeBaseLevel } from '@/features/home/utils/dailyStrengthTarget';
 import { resolveScheduleSeed, type ScheduleSeedProfileInput } from '@/features/schedule/services/scheduleSeed.service';
 import type { TimeWindow } from '@/features/schedule/engine-v2/types';
@@ -167,6 +168,7 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
   const save = async (saved: StrengthWeekRecommendation = week) => {
     updateData(buildStrengthScheduleWrite({ week: saved, historyFrequency: history }));
     await Analytics.logOnboardingStepComplete('SCHEDULE', 0);
+    logOnboardingFunnelStep('SCHEDULE'); // enable_onboarding_step_funnel (off = no-op)
   };
 
   // enable_week_builder_v1: a complex week (split, several programs, 5+ days) gets the week

@@ -76,6 +76,7 @@ interface FlagState {
   enable_jit_identity_v1: boolean;
   enable_entry_intro_v1: boolean;
   enable_strength_quiz_hint_v2: boolean;
+  enable_onboarding_step_funnel: boolean;
   enable_landing_real_fallback: boolean;
   enable_run_player_drawer_v1: boolean;
   enable_week_builder_v1: boolean;
@@ -544,6 +545,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'שאלון כוח: הדרכת גרירה חדשה',
     description: 'בלי טשטוש: השורה מדגימה את עצמה בקטגוריה הראשונה, תזכורת קצרה בשאר, וההדרכה נשארת עד הגרירה הראשונה.',
+  },
+  // Analytics — onboarding step funnel (22.10.2026).
+  {
+    key: 'enable_onboarding_step_funnel',
+    icon: ListChecks,
+    iconBg: 'bg-slate-50',
+    iconColor: 'text-slate-600',
+    title: 'אנליטיקה: משפך שלבי הרשמה',
+    description: 'כל שלב באונבורדינג שהושלם נרשם פעם אחת (אירוע onboarding_step_completed), כדי למדוד נטישה בין שלב לשלב ולא רק "איפה אנשים עומדים עכשיו". בלי מיקום ובלי פרטים אישיים, כ-10 כתיבות למשתמש לכל ההרשמה.',
   },
   // Run / walk live players — map first, metrics drawer, attached story bars (21.10.2026).
   {
