@@ -410,3 +410,6 @@ src/features/workout-engine/summary/components/aerobic/ParticipantsBlock.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicShareBlock.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicStatRingsBlock.tsx
 src/features/workout-engine/summary/components/aerobic/TogetherBlock.tsx
+# wave 2 batch ae (namespace onboarding, keys programPath.page.*) — the strength program-path page's own copy.
+# The other targets of this batch were already migrated or are dead (HistoryStep, SummaryStep).
+src/app/onboarding-new/program-path/

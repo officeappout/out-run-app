@@ -80,6 +80,7 @@ vi.mock('@/features/user/onboarding/components/program-path/ProgramPathSkillsSte
 
 import { mount, type Mounted } from '@/features/user/onboarding/components/steps/__tests__/i18n-dom-harness';
 import ProgramPathPage from '../page';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 const snap = (name: string) => `./__snapshots__/program-path-page-i18n/${name}.html`;
 let m: Mounted | null = null;
@@ -88,6 +89,8 @@ async function open(gender: 'male' | 'female' | null, v2 = false) {
   S.v2 = v2;
   sessionStorage.clear();
   if (gender) sessionStorage.setItem('onboarding_personal_gender', gender);
+  // LocaleSync (not mounted here) copies the onboarding gender into the store that useT() reads.
+  useLocaleStore.setState({ gender: gender ?? 'other' });
   m = await mount(<ProgramPathPage />);
   // let the mount-time async reads (foundation exercises, skill readiness) settle
   await m.advance(0);
