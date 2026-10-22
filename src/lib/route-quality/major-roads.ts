@@ -3,8 +3,8 @@ import { angleBetween, cumulative, headingRad, pointAt, pointSegDist, projectorF
 import { SegmentGrid } from './grid';
 
 /** Route samples within this distance of a parallel major-road centerline are "on" it. */
-const ON_ROAD_TOL_M = 10;
-const ON_ROAD_PARALLEL_RAD = (25 * Math.PI) / 180;
+export const ON_ROAD_TOL_M = 10;
+export const ON_ROAD_PARALLEL_RAD = (25 * Math.PI) / 180;
 /** A route that meets a road at a shallower angle than this is running along it, not crossing it. */
 const MIN_CROSS_ANGLE_RAD = (35 * Math.PI) / 180;
 /** Crossings closer than this are one street crossing (dual carriageways, junction arms). */

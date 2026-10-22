@@ -6,12 +6,13 @@
 import { computeRouteComposition } from '../../../scripts/lib/route-composition-classify';
 import { hasLampWithin } from '../lighting/lamps';
 import { LIT_LAMP_RADIUS_M } from '../lighting/constants';
-import { pathLengthM, pointSegDist, resampleXY } from '../route-quality/geo';
-import { majorRoadCrossings, majorRoadShare } from '../route-quality/major-roads';
+import { angleBetween, headingRad, pathLengthM, pointSegDist, resampleXY } from '../route-quality/geo';
+import { majorRoadCrossings, majorRoadShare, ON_ROAD_PARALLEL_RAD, ON_ROAD_TOL_M } from '../route-quality/major-roads';
 import type { OsmRoadLayer } from '../route-quality/types';
 import { litFromTags } from '../trail-graph/tags';
 import {
-  AMENITY_RADIUS_M, COMPOSITION_MIN_MATCHED_PCT, LIGHTING_MIN_KNOWN, URBAN_ON_WAY_M, URBAN_SAMPLE_STEP_M,
+  AMENITY_RADIUS_M, COMPOSITION_MIN_MATCHED_PCT, LIGHTING_MIN_KNOWN, ROAD_SIDEWALK_KEYS, ROAD_SIDEWALK_VALUES, SEPARATED_WALKWAY_M,
+  URBAN_ON_WAY_M, URBAN_SAMPLE_STEP_M,
 } from './constants';
 import { amenityCellKey, type UrbanLayer } from './layer';
 import {
@@ -82,6 +83,48 @@ export function measureAmenities(path: LngLat[], layer: UrbanLayer, radiusM = AM
   return { has, counts };
 }
 
+const isParallel = (h: number, a: [number, number], b: [number, number]) => {
+  const ang = angleBetween(h, headingRad(a, b));
+  return ang <= ON_ROAD_PARALLEL_RAD || ang >= Math.PI - ON_ROAD_PARALLEL_RAD;
+};
+
+/** True when a major road's own tags say it has a sidewalk (sidewalk / sidewalk:both|left|right = both/left/right/separate/yes). */
+export function roadHasSidewalkTag(tags: Record<string, string> | undefined): boolean {
+  if (!tags) return false;
+  return ROAD_SIDEWALK_KEYS.some((k) => ROAD_SIDEWALK_VALUES.has(String(tags[k] ?? '')));
+}
+
+/**
+ * Q-D (RC10): share (0..1) of the route length that runs "on" a tertiary+
+ * road — the same test as route-quality's majorRoadShare (≤ 10 m, parallel
+ * within 25°) — while the walker is on a SEPARATED walkway: a parallel
+ * walkway way (footway incl. footway=sidewalk, path, pedestrian, cycleway …,
+ * foot not "no") within SEPARATED_WALKWAY_M, or the road itself tagged with a
+ * sidewalk. 0 when the layer has no major roads.
+ */
+export function measureSeparatedMajorShare(path: LngLat[], layer: UrbanLayer): number {
+  if (path.length < 2 || !layer.majorRoads.length) return 0;
+  const { pts } = resampleXY(path.map(layer.proj.toXY), URBAN_SAMPLE_STEP_M);
+  if (pts.length < 2) return 0;
+  let separated = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const h = headingRad(pts[i], pts[i + 1]);
+    let onMajor = false;
+    let roadSidewalk = false;
+    for (const s of layer.majorGrid.near(pts[i], ON_ROAD_TOL_M)) {
+      if (pointSegDist(pts[i], s.a, s.b).d > ON_ROAD_TOL_M || !isParallel(h, s.a, s.b)) continue;
+      onMajor = true;
+      if (roadHasSidewalkTag(layer.ways[s.data]?.tags)) { roadSidewalk = true; break; }
+    }
+    if (!onMajor) continue;
+    if (roadSidewalk) { separated++; continue; }
+    for (const s of layer.walkwayGrid.near(pts[i], SEPARATED_WALKWAY_M)) {
+      if (pointSegDist(pts[i], s.a, s.b).d <= SEPARATED_WALKWAY_M && isParallel(h, s.a, s.b)) { separated++; break; }
+    }
+  }
+  return separated / (pts.length - 1);
+}
+
 /** Major-road share + crossings of tertiary+ roads, marked vs unmarked (route-quality v1 on the PBF road layer). */
 export function measureCrossings(path: LngLat[], layer: UrbanLayer): UrbanCrossings | null {
   if (path.length < 2) return null;
@@ -102,8 +145,12 @@ export function measureCrossings(path: LngLat[], layer: UrbanLayer): UrbanCrossi
   const marks = osm.roads.length ? majorRoadCrossings(path, osm) : [];
   const count = (c: string) => marks.filter((x) => x.control === c).length;
   const unmarked = count('unmarked');
+  const majorRoadPct = osm.roads.length ? Math.round(majorRoadShare(path, osm) * 1000) / 1000 : 0;
+  // Q-D: never more than the major-road share itself (the two use their own projections).
+  const separatedMajorPct = majorRoadPct > 0 ? Math.min(majorRoadPct, Math.round(measureSeparatedMajorShare(path, layer) * 1000) / 1000) : 0;
   return {
-    majorRoadPct: osm.roads.length ? Math.round(majorRoadShare(path, osm) * 1000) / 1000 : 0,
+    majorRoadPct,
+    separatedMajorPct,
     total: marks.length,
     signalled: count('signalled'),
     marked: count('marked'),
@@ -130,13 +177,13 @@ export function urbanScoreOptions(m: UrbanMeasurement): {
   composition?: { sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number };
   litCoveragePct?: number;
   amenitiesHas?: Record<UrbanAmenityKind, boolean>;
-  osmSafety?: { majorRoadPct: number; unmarkedPerKm: number };
+  osmSafety?: { majorRoadPct: number; unmarkedPerKm: number; separatedMajorPct: number };
 } {
   return {
     ...(m.composition ? { composition: { sidewalkPct: m.composition.sidewalkPct, genuinePct: m.composition.genuinePct, ordinaryPct: m.composition.ordinaryPct, otherPct: m.composition.otherPct } } : {}),
     ...(m.lighting ? { litCoveragePct: m.lighting.litPct } : {}),
     ...(m.amenities ? { amenitiesHas: { ...m.amenities.has } } : {}),
-    ...(m.crossings ? { osmSafety: { majorRoadPct: m.crossings.majorRoadPct, unmarkedPerKm: m.crossings.unmarkedPerKm } } : {}),
+    ...(m.crossings ? { osmSafety: { majorRoadPct: m.crossings.majorRoadPct, unmarkedPerKm: m.crossings.unmarkedPerKm, separatedMajorPct: m.crossings.separatedMajorPct } } : {}),
   };
 }
 

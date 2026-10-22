@@ -9,7 +9,7 @@ import { makeProjector, type Projector, type XY } from '../route-quality/geo';
 import { SegmentGrid } from '../route-quality/grid';
 import { isMajorHighway } from '../route-quality/osm-layer';
 import type { CrossingNode, MajorRoad } from '../route-quality/types';
-import { AMENITY_RADIUS_M, COMPOSITION_HIGHWAYS, COMPOSITION_ROAD_HIGHWAYS } from './constants';
+import { AMENITY_RADIUS_M, COMPOSITION_HIGHWAYS, COMPOSITION_ROAD_HIGHWAYS, SEPARATED_WALKWAY_HIGHWAYS } from './constants';
 import type { LngLat, UrbanAmenityKind, UrbanLayerInput, UrbanWay } from './types';
 
 export interface UrbanLayer {
@@ -24,6 +24,10 @@ export interface UrbanLayer {
   amenityCells: Map<string, Array<{ kind: UrbanAmenityKind; xy: XY }>>;
   amenityCount: number;
   majorRoads: MajorRoad[];
+  /** Q-D: tertiary+ road segments, projected. Data = index into `ways` (tags: sidewalk=*). */
+  majorGrid: SegmentGrid<number>;
+  /** Q-D: walkway segments (footway / path / pedestrian / cycleway … with foot not "no"), projected. Data = index into `ways`. */
+  walkwayGrid: SegmentGrid<number>;
   crossings: CrossingNode[];
   composition: {
     waysById: Map<number, WayInfo>;
@@ -45,9 +49,17 @@ export function buildUrbanLayer(input: UrbanLayerInput): UrbanLayer {
   const proj = makeProjector(layerOrigin(input));
   const ways = input.ways.filter((w) => w.coords.length >= 2);
   const wayGrid = new SegmentGrid<number>(50);
+  const majorGrid = new SegmentGrid<number>(50);
+  const walkwayGrid = new SegmentGrid<number>(50);
   ways.forEach((w, i) => {
     const xy = w.coords.map(proj.toXY);
-    for (let k = 1; k < xy.length; k++) wayGrid.add(xy[k - 1], xy[k], i);
+    const major = isMajorHighway(w.highway);
+    const walkway = SEPARATED_WALKWAY_HIGHWAYS.has(w.highway) && w.tags.foot !== 'no';
+    for (let k = 1; k < xy.length; k++) {
+      wayGrid.add(xy[k - 1], xy[k], i);
+      if (major) majorGrid.add(xy[k - 1], xy[k], i);
+      if (walkway) walkwayGrid.add(xy[k - 1], xy[k], i);
+    }
   });
 
   const amenityCells = new Map<string, Array<{ kind: UrbanAmenityKind; xy: XY }>>();
@@ -79,6 +91,8 @@ export function buildUrbanLayer(input: UrbanLayerInput): UrbanLayer {
     amenityCells,
     amenityCount: input.amenities.length,
     majorRoads: ways.filter((w) => isMajorHighway(w.highway)).map((w) => ({ id: w.id, highway: w.highway, ...(w.tags.name ? { name: w.tags.name } : {}), coords: w.coords })),
+    majorGrid,
+    walkwayGrid,
     crossings: input.crossings,
     composition: {
       waysById,
