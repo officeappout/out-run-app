@@ -43,6 +43,9 @@ export const METRIC_DEFS: MetricDef[] = [
   { id: 'first_workout_road', nameHe: 'הדרך לאימון הראשון', def: 'of the signups: how many reached recommendation_shown → workout_detail_viewed → workout_start_pressed → workout_session_started → workout_complete within 7 days', source: 'journey-activation' },
   { id: 'push_delivered_opened_acted', nameHe: 'ביצועי פוש', def: 'cascading: delivered/sent, opened/delivered, acted/opened; acted = post_push_outcome.goalCompleted in the open-anchored window; unmeasured push types = not measured', window: 'optional date range', source: 'push-performance-summary' },
   { id: 'push_started_workout', nameHe: 'פוש → אימון', def: 'sent → delivered → opened → started a workout from the push', window: 'all time', source: 'push-funnel-summary' },
+  { id: 'route_overview', nameHe: 'סקירת מסלול', def: 'one official/curated route: authority, status from published/status (curated has no workflow), distance km, route_scores score + band, analytics.usageCount = workouts SAVED from the guided route (a completion; absent = not measured; starts/views are not recorded)', window: 'now (snapshot)', source: 'official_routes, curated_routes, route_scores' },
+  { id: 'park_overview', nameHe: 'סקירת פארק', def: 'one park: authority, status from published/contentStatus, equipment + amenity summary, ratingAvg/reviewCount (organic reviews), sessions = saved workouts detected at the park (total, last 30 days, distinct users <5 masked), creator/origin credit', window: 'now (snapshot)', source: 'parks, sessions' },
+  { id: 'content_leaderboard', nameHe: 'דירוג מסלולים / פארקים', def: 'top N: routes by analytics.usageCount (saved guided workouts) or createdAt; parks by sessions per park, ratingAvg (reviewCount>0) or createdAt; routes have no user ratings', window: 'now (snapshot)', source: 'official_routes, parks, sessions' },
 ];
 
 const BY_ID = new Map(METRIC_DEFS.map((d) => [d.id, d]));
