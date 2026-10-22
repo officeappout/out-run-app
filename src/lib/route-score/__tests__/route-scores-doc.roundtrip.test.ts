@@ -77,7 +77,7 @@ describe('route_scores round trip (axioms §31)', () => {
     const b = await readRouteScoreDoc(db, 'B');
     expect(a!.shade).toEqual({ status: 'measured', shadeShare: 0.31, shadedPct: 62.5, coverage: 0.93, source: 'technion_v1' });
     expect(b!.shade).toEqual({ status: 'low_coverage', shadeShare: null, shadedPct: null, coverage: 0.2, source: 'technion_v1' });
-    expect(a!.scoreVersion).toBe('v1.3');
+    expect(a!.scoreVersion).toBe('v1.4');
     expect(a!.components.comfort.max).toBe(15);
   });
 });

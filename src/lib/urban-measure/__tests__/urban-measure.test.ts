@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildUrbanLayer } from '../layer';
 import {
-  isUrbanCandidate, measureAmenities, measureComposition, measureCrossings, measureLighting, measureUrbanRoute, urbanScoreOptions,
+  isUrbanCandidate, measureAmenities, measureComposition, measureCrossings, measureLighting, measureSeparatedMajorShare, measureUrbanRoute, roadHasSidewalkTag, urbanScoreOptions,
 } from '../measure';
 import type { LngLat, UrbanLayerInput, UrbanWay } from '../types';
 
@@ -85,7 +85,42 @@ describe('measureCrossings', () => {
   });
   it('a route walking ON a primary road has a high major-road share', () => {
     const l = layer({ ways: [way(9, 'primary', lineE(0, 0, 1000))] });
-    expect(measureCrossings(lineE(0, 0, 1000), l)!.majorRoadPct).toBeGreaterThan(0.9);
+    const m = measureCrossings(lineE(0, 0, 1000), l)!;
+    expect(m.majorRoadPct).toBeGreaterThan(0.9);
+    expect(m.separatedMajorPct).toBe(0);
+  });
+});
+
+describe('Q-D — separated walkway beside a major road (RC10)', () => {
+  const road = way(9, 'primary', lineE(0, 0, 1000));
+  it('OSM footway=sidewalk 7 m off the centerline: on the major road, but separated', () => {
+    const l = layer({ ways: [road, way(2, 'footway', lineE(7, 0, 1000), { footway: 'sidewalk' })] });
+    const m = measureCrossings(lineE(7, 0, 1000), l)!;
+    expect(m.majorRoadPct).toBeGreaterThan(0.9);
+    expect(m.separatedMajorPct).toBeGreaterThan(0.9);
+    expect(m.separatedMajorPct).toBeLessThanOrEqual(m.majorRoadPct);
+    expect(measureSeparatedMajorShare(lineE(7, 0, 1000), l)).toBeGreaterThan(0.9);
+  });
+  it('a road tagged sidewalk=both counts even when the route line sits on the centerline', () => {
+    const l = layer({ ways: [way(9, 'primary', lineE(0, 0, 1000), { sidewalk: 'both' })] });
+    expect(measureCrossings(lineE(0, 0, 1000), l)!.separatedMajorPct).toBeGreaterThan(0.9);
+    expect(roadHasSidewalkTag({ 'sidewalk:right': 'yes' })).toBe(true);
+    expect(roadHasSidewalkTag({ sidewalk: 'no' })).toBe(false);
+    expect(roadHasSidewalkTag({ sidewalk: 'none' })).toBe(false);
+  });
+  it('an untagged parallel footway within 15 m counts; one 30 m away or crossing at right angles does not', () => {
+    const near = layer({ ways: [road, way(2, 'footway', lineE(12, 0, 1000))] });
+    expect(measureSeparatedMajorShare(lineE(0, 0, 1000), near)).toBeGreaterThan(0.9);
+    const far = layer({ ways: [road, way(2, 'footway', lineE(30, 0, 1000))] });
+    expect(measureSeparatedMajorShare(lineE(0, 0, 1000), far)).toBe(0);
+    const across = layer({ ways: [road, way(2, 'footway', [at(500, -200), at(500, 200)])] });
+    expect(measureSeparatedMajorShare(lineE(0, 0, 1000), across)).toBeLessThan(0.05);
+  });
+  it('foot=no walkways and residential roads never count; off a major road there is nothing to separate', () => {
+    const noFoot = layer({ ways: [road, way(2, 'cycleway', lineE(6, 0, 1000), { foot: 'no' })] });
+    expect(measureSeparatedMajorShare(lineE(0, 0, 1000), noFoot)).toBe(0);
+    const quiet = layer({ ways: [way(9, 'residential', lineE(0, 0, 1000), { sidewalk: 'both' }), way(2, 'footway', lineE(7, 0, 1000))] });
+    expect(measureCrossings(lineE(7, 0, 1000), quiet)!).toMatchObject({ majorRoadPct: 0, separatedMajorPct: 0 });
   });
 });
 
@@ -97,7 +132,7 @@ describe('measureUrbanRoute + urbanScoreOptions', () => {
     expect(o.composition?.genuinePct).toBeGreaterThan(95);
     expect(o.litCoveragePct).toBeUndefined();
     expect(o.amenitiesHas).toBeUndefined();
-    expect(o.osmSafety).toEqual({ majorRoadPct: 0, unmarkedPerKm: 0 });
+    expect(o.osmSafety).toEqual({ majorRoadPct: 0, unmarkedPerKm: 0, separatedMajorPct: 0 });
   });
 });
 

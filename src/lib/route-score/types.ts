@@ -59,8 +59,13 @@ export interface RouteScoreInput {
    * from the stored doc. Informational — lands in the component notes.
    */
   measuredBy?: Partial<Record<'composition' | 'lighting' | 'amenities' | 'safety', 'osm_urban_measure'>>;
-  /** From route-quality v1 with an OSM road layer; null when not measured. */
-  osmSafety: { majorRoadPct: number; unmarkedPerKm: number } | null;
+  /**
+   * From route-quality v1 with an OSM road layer; null when not measured.
+   * `separatedMajorPct` (v1.4, Q-D): the part of majorRoadPct (0..1 of the
+   * length) that runs on a walkway separated from the road — urban-measure only;
+   * absent = not measured (v1.3 behaviour).
+   */
+  osmSafety: { majorRoadPct: number; unmarkedPerKm: number; separatedMajorPct?: number } | null;
   /** Geometry facts (computed from `path` by the adapter, or supplied). */
   /**
    * turnsPerKm / zigzagIndex (route-quality turns.ts, v1.2): optional so older

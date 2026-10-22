@@ -6,7 +6,10 @@
  */
 import { LOOP_QUALITY_THRESHOLDS } from '../route-quality/acceptance';
 import type { ComponentScore, RouteScoreInput } from './types';
-import { GEOMETRY_TURNS, SCORE_WEIGHTS, SHADE_SI_FULL, SHADE_SI_ZERO, SOURCE_TIER_POINTS } from './weights';
+import {
+  GEOMETRY_TURNS, SCORE_WEIGHTS, SEPARATED_WALKWAY_ACTIVITIES, SEPARATED_WALKWAY_SAFETY_SHARE, SEPARATED_WALKWAY_SURFACE_WEIGHT,
+  SHADE_SI_FULL, SHADE_SI_ZERO, SOURCE_TIER_POINTS,
+} from './weights';
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -15,13 +18,31 @@ function missing(max: number, note: string): ComponentScore {
   return { points: max / 2, max, coverage: 0, notes: [note] };
 }
 
-/** Surface / composition (25): genuine path + ½ quiet street + ¼ sidewalk, minus ½ unclassified. */
+/**
+ * Q-D (v1.4): the share (0..1) of an ON-FOOT route that runs on a walkway
+ * separated from a major road; 0 for bike routes, unmeasured routes and v1.3
+ * inputs (no separatedMajorPct). Never more than the major-road share.
+ */
+export function separatedWalkwayShare(i: RouteScoreInput): number {
+  const s = i.osmSafety;
+  if (!s || s.separatedMajorPct == null || !SEPARATED_WALKWAY_ACTIVITIES.has(String(i.activityType ?? ''))) return 0;
+  return Math.max(0, Math.min(s.majorRoadPct, s.separatedMajorPct));
+}
+
+/**
+ * Surface / composition (25): genuine path + ½ quiet street + ¼ sidewalk, minus ½ unclassified.
+ * v1.4 (Q-D): on foot, the sidewalk that is a separated walkway beside a major
+ * road counts at SEPARATED_WALKWAY_SURFACE_WEIGHT (full) — capped at the
+ * composition's own sidewalk share.
+ */
 export function scoreSurface(i: RouteScoreInput): ComponentScore {
   const max = SCORE_WEIGHTS.surface;
   const c = i.composition;
   if (!c) return missing(max, 'no composition');
-  const raw = c.genuinePct + 0.5 * c.ordinaryPct + 0.25 * c.sidewalkPct - 0.5 * c.otherPct;
+  const upgraded = Math.min(c.sidewalkPct, separatedWalkwayShare(i) * 100);
+  const raw = c.genuinePct + 0.5 * c.ordinaryPct + 0.25 * (c.sidewalkPct - upgraded) + SEPARATED_WALKWAY_SURFACE_WEIGHT * upgraded - 0.5 * c.otherPct;
   const notes = i.compositionIsProxy ? ['proxy: trail share'] : i.measuredBy?.composition ? ['measured: OSM ways'] : [];
+  if (upgraded > 0) notes.push(`separated sidewalk beside a major road ${Math.round(upgraded)}% at full weight`);
   return { points: round1(max * clamp01(raw / 100)), max, coverage: i.compositionIsProxy ? 0.5 : 1, notes };
 }
 
@@ -77,9 +98,17 @@ export function scoreSafety(i: RouteScoreInput): ComponentScore {
   const max = SCORE_WEIGHTS.safety;
   const s = i.osmSafety;
   if (s) {
-    let pts = max * (1 - clamp01(s.majorRoadPct / 0.3));
+    // v1.4 (Q-D): on foot, the separated-walkway part of the major-road share
+    // loses only (1 − SEPARATED_WALKWAY_SAFETY_SHARE) of what an on-road stretch
+    // loses — a route entirely on such a walkway keeps half the points instead of
+    // 0. Bike routes and unmeasured separation: sep = 0 → exactly the v1.3 rule.
+    const sep = separatedWalkwayShare(i);
+    const onRoad = Math.max(0, s.majorRoadPct - sep);
+    let pts = max * (1 - clamp01(onRoad / 0.3) - (1 - SEPARATED_WALKWAY_SAFETY_SHARE) * clamp01(sep / 0.3));
     pts -= Math.min(6, s.unmarkedPerKm * 6);
-    return { points: round1(Math.max(0, pts)), max, coverage: 1, notes: i.measuredBy?.safety ? ['measured: OSM roads + crossings'] : [] };
+    const notes = i.measuredBy?.safety ? ['measured: OSM roads + crossings'] : [];
+    if (sep > 0) notes.push(`separated walkway beside a major road ${Math.round(sep * 100)}%`);
+    return { points: round1(Math.max(0, pts)), max, coverage: 1, notes };
   }
   if (i.composition) {
     const pts = max * (1 - clamp01(i.composition.sidewalkPct / 60));
