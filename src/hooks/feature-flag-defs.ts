@@ -424,6 +424,16 @@ export const FLAG_DEFS = [
   { key: 'enableLocaleEn', firestoreKey: 'enable_locale_en', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleRu', firestoreKey: 'enable_locale_ru', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleDe', firestoreKey: 'enable_locale_de', defaultValue: false, superAdminValue: false },
+  // App-session signal (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md open
+  // question 10): "came back to the app without tapping a push". The old app_open/session_start
+  // event types were removed (#171) because nothing ever fired them — not for cost or noise — so
+  // this is a NEW, aggregated signal, not a raw event stream: ONE doc per user per Israel day
+  // (app_sessions_daily/{uid}_{date}: sessions + pushSessions counters, platform, lastAt) — one
+  // write per session (≥30 min in the background = new session), capped at 12 a day. No location,
+  // no PII; honours the analytics opt-out. Read synchronously via readLiveFlag
+  // (src/features/analytics/app-session.ts) → superAdminValue FALSE. Fail-closed. Needs the
+  // app_sessions_daily rules (firestore.rules) deployed BEFORE it is switched on.
+  { key: 'enableAppSessionSignal', firestoreKey: 'enable_app_session_signal', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

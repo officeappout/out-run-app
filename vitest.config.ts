@@ -111,6 +111,8 @@ export default defineConfig({
       'tests/firestore-admin-costs.rules.test.ts',
       // city_inventory/** server-only lockdown (RC4 I2 map-health card) — emulator :8089.
       'tests/firestore-city-inventory.rules.test.ts',
+      // app_sessions_daily (enable_app_session_signal, 22.10.2026) — emulator on 8089.
+      'tests/firestore-app-sessions-daily.rules.test.ts',
       // demo_registry server-only lockdown + users.core.demo stamp lock (demo world PR 1) — emulator :8089.
       'tests/firestore-demo-registry.rules.test.ts',
       // demo actor sandbox (B1: uid demo_* / claim demo writes only to demo targets) — emulator :8089.
