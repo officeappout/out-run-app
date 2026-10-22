@@ -22,6 +22,10 @@ import {
 } from '@/lib/admin-analytics/product-metrics.server';
 import type { NorthStarFilters } from '@/lib/admin-analytics/north-star.server';
 import { getAuthorityOverview } from '@/lib/admin-analytics/authority-overview.server';
+import { compareAuthorities, resolveOneAuthority } from '@/lib/admin-analytics/authority-compare.server';
+import { getAuthoritiesRanking, type RankingDirection, type RankingKind, type RankingMetric } from '@/lib/admin-analytics/authority-ranking.server';
+import { computeCrmTimeline } from '@/lib/admin-analytics/crm-timeline.server';
+import { getFinanceOverview } from '@/lib/admin-analytics/finance-overview.server';
 import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
 import { validateAdminToolInput } from './tools';
 import { capToolResult, numbersIn, wrapToolData } from './tool-result';
@@ -77,6 +81,11 @@ export async function authorityLinks(ctx: AdminToolContext, authorityId: string,
     if (built.ok) out.push({ href: built.href, title: `ניהול רשות · ${name}`, pageId: crm.id });
   }
   return out;
+}
+
+function plainResult(obj: unknown): AdminToolExecution {
+  const json = JSON.stringify(obj);
+  return { content: wrapToolData(json), isError: false, resultChars: json.length, truncated: false };
 }
 
 function dataResult(tool: string, res: MetricResult<unknown>): AdminToolExecution {
@@ -170,6 +179,38 @@ export async function executeAdminTool(ctx: AdminToolContext, name: string, rawI
       }
       case 'get_push_funnel':
         return dataResult(name, await getPushFunnel(ctx.db, { now: ctx.now }));
+      case 'compare_authorities': {
+        const { ids_or_names } = v.input as { ids_or_names: string[] };
+        const found = await compareAuthorities(ctx.db, ids_or_names, { now: ctx.now });
+        if (found.kind === 'unavailable') return errorResult(`${name}: could not be computed right now (this is NOT zero)`);
+        if (found.kind === 'too_few') return plainResult({ compared: false, note: found.note });
+        if (found.kind === 'unresolved') {
+          return plainResult({ compared: false, problems: found.problems, note: 'some names are ambiguous or unknown — ask the admin which authority they mean (use the candidates), then call again with ids' });
+        }
+        return dataResult(name, found.result);
+      }
+      case 'get_authorities_ranking': {
+        const a = v.input as { by: RankingMetric; kind: RankingKind | null; direction: RankingDirection | null; limit: number | null };
+        return dataResult(name, await getAuthoritiesRanking(ctx.db, a, { now: ctx.now }));
+      }
+      case 'get_crm_authority_timeline': {
+        const { query } = v.input as { query: string };
+        const r = await resolveOneAuthority(ctx.db, query);
+        if (r.kind === 'ambiguous') return plainResult({ resolved: false, candidates: r.candidates, note: 'several authorities match — ask the admin which one, or call again with the id' });
+        if (r.kind === 'none') return plainResult({ resolved: false, candidates: [], note: 'no authority with this name — ask the admin to check the spelling' });
+        const res = await computeCrmTimeline(ctx.db, r.row.id, ctx.now);
+        if (!res) return plainResult({ resolved: false, candidates: [], note: 'no authority with this name — ask the admin to check the spelling' });
+        const links = (await authorityLinks(ctx, r.row.id, r.row.name).catch(() => [] as AdminToolLink[])).filter((l) => l.pageId === 'admin/authorities/[id]');
+        const out = dataResult(name, { ...res, value: { matchedBy: r.matchedBy, ...res.value!, buttonsShownToUser: links.map((l) => l.title) } });
+        return links.length ? { ...out, links } : out;
+      }
+      case 'get_finance_overview': {
+        const { months } = v.input as { months: number | null };
+        const out = dataResult(name, await getFinanceOverview(ctx.db, months, { now: ctx.now }));
+        const page = adminPageById('admin/finance/expenses');
+        const built = page && canRoleSee(page, ctx.role) ? buildAdminHref(page, {}) : null;
+        return !out.isError && page && built?.ok ? { ...out, links: [{ href: built.href, title: page.title, pageId: page.id }] } : out;
+      }
       default:
         return errorResult(`unknown tool ${name}`);
     }

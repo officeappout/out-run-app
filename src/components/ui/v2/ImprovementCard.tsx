@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { ExerciseThumb } from './ExerciseSetsTable';
 import { deltaLabel, improvementHeadline, type ImprovementUnit } from './summary';
@@ -26,13 +27,17 @@ export interface ImprovementCardProps {
   items: ImprovementItem[];
   /** Context line; default "N תרגילים השתפרו". */
   context?: string;
+  /** Optional node at the end of the header row (enable_workout_insights_v1: Kelly's AI-star). */
+  headerAction?: ReactNode;
+  /** Optional node under the header, above the rows (enable_workout_insights_v1: Kelly's line). */
+  footer?: ReactNode;
 }
 
 const GREEN = '#10b981';
 const GREEN_TEXT = '#047857';
 const GREEN_SUB = '#065f46';
 
-export default function ImprovementCard({ items, context }: ImprovementCardProps) {
+export default function ImprovementCard({ items, context, headerAction, footer }: ImprovementCardProps) {
   const head = improvementHeadline(items);
   if (!head) return null;
   const line = context ?? (items.length === 1 ? 'תרגיל אחד השתפר' : `${items.length} תרגילים השתפרו`);
@@ -58,7 +63,9 @@ export default function ImprovementCard({ items, context }: ImprovementCardProps
             {head.unit}
           </div>
         </div>
+        {headerAction}
       </div>
+      {footer}
       {items.map((it) => (
         <div
           key={it.key}
