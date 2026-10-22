@@ -1,0 +1,18 @@
+{
+  "title": "🔥 הצטרפו לאימון שלי: אימון הבוקר | Out",
+  "description": "אימון קשה של 35 דקות. לחצו לצפייה בתרגילים ותתחילו להתאמן!",
+  "metadataBase": "https://outrun.co.il/",
+  "openGraph": {
+    "title": "🔥 הצטרפו לאימון שלי: אימון הבוקר | Out",
+    "description": "אימון קשה של 35 דקות. לחצו לצפייה בתרגילים ותתחילו להתאמן!",
+    "type": "website",
+    "siteName": "Out",
+    "locale": "he_IL",
+    "url": "https://outrun.co.il/workouts/w1"
+  },
+  "twitter": {
+    "card": "summary_large_image",
+    "title": "🔥 הצטרפו לאימון שלי: אימון הבוקר | Out",
+    "description": "אימון קשה של 35 דקות. לחצו לצפייה בתרגילים ותתחילו להתאמן!"
+  }
+}
