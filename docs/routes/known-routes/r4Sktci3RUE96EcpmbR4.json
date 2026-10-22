@@ -1,0 +1,5 @@
+{"authorityId":"r4Sktci3RUE96EcpmbR4","city":"מועצה אזורית גולן","researchedAt":"2026-10-22","routes":[
+{"name":"סינגל מרום גולן","aliases":["סינגל מרום גולן - בשבילם"],"kind":"bike","lengthKm":5.5,"inPark":null,"description":"סינגל מעגלי קצר ליד קיבוץ מרום גולן בצפון הגולן, נרכב נגד כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/2620/","title":"סינגל מרום גולן - בשבילם - קק\"ל"}]},
+{"name":"נחל יהודיה","aliases":["שביל נחל יהודיה"],"kind":"walk","lengthKm":3,"inPark":"יהודיה","description":"מסלול משמורת יהודיה אל מפל יהודיה ובריכתו, בגרסה מעגלית ארוכה עם קטע רטוב או קצרה הלוך-חזור","sources":[{"url":"https://www.tiuli.com/tracks/85/%D7%A0%D7%97%D7%9C-%D7%99%D7%94%D7%95%D7%93%D7%99%D7%94","title":"נחל יהודיה - טיולי"}]},
+{"name":"קצרין ונחל זוויתן עליון","aliases":["קצרין-זויתן-חניון יהודיה"],"kind":"walk","lengthKm":8,"inPark":null,"description":"מסלול קווי מגשר נחל זוויתן ליד קצרין במורד הנחל, עובר במפל זוויתן ומסתיים בחניון יהודיה","sources":[{"url":"https://www.tiuli.com/tracks/98","title":"קצרין ונחל זוויתן עליון - טיולי"}]}
+]}

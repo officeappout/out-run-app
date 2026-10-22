@@ -1,0 +1,6 @@
+{"authorityId":"goZznzyUjIw7dBeOyzz7","city":"מרום הגליל","researchedAt":"2026-10-22","routes":[
+{"name":"סינגל כפר חנניה ענבר","aliases":["סינגל כפר חנניה"],"kind":"bike","lengthKm":14,"inPark":null,"description":"סינגל מעגלי בין כפר חנניה לקיבוץ ענבר, בתפר בין הגליל העליון לתחתון, רכיבה עם כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/2848/","title":"סינגל כפר חנניה ענבר - קק\"ל"}]},
+{"name":"סינגל יער ביריה ומצוקי דלתון","aliases":["סינגל ביריה"],"kind":"bike","lengthKm":29,"inPark":null,"description":"סינגל מעגלי ארוך ביער ביריה ובאזור מצוקי דלתון, צפונית לצפת","sources":[{"url":"https://www.kkl.org.il/bike/trips/1963/","title":"סינגל יער ביריה ומצוקי דלתון - קק\"ל"}]},
+{"name":"סינגל חזון","aliases":["סינגל הר חזון"],"kind":"bike","lengthKm":30,"inPark":null,"description":"סינגל מעגלי בין נחל צלמון להר חזון, ליד מושב חזון וכפר חנניה, רכיבה עם כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/19613/","title":"סינגל חזון - קק\"ל"}]},
+{"name":"סינגל נחל לימונים","aliases":[],"kind":"bike","lengthKm":29,"inPark":null,"description":"מערכת של שלוש לולאות מעל נחל עמוד במערב יער ביריה, עם אפשרויות קיצור; רכיבה נגד כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/2994/","title":"סינגל נחל לימונים - קק\"ל"}]}
+]}
