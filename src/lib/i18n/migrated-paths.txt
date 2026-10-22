@@ -420,6 +420,16 @@ src/features/workout-engine/summary/components/shared/SummaryStatsGrid.tsx
 src/features/workout-engine/summary/components/shared/SummaryHeader.tsx
 src/features/workout-engine/summary/components/running/
 src/features/workout-engine/summary/blocks/segment-rail.util.ts
+# wave 2 batch ai (namespace player) — shared strength cards + summary blocks. Listed per file: the folders also
+# hold busy files and Hebrew-returning helpers (summary-v2.mapping / phase-summary / useGoalEvaluation have outside callers).
+src/features/workout-engine/components/SwapIcon.tsx
+src/features/workout-engine/components/cards/StrengthExerciseCard.tsx
+src/features/workout-engine/components/strength/components/WeeklyAchievementsGrid.tsx
+src/features/workout-engine/components/strength/components/GainBreakdownCard.tsx
+src/features/workout-engine/components/strength/components/SummaryStatsRow.tsx
+src/features/workout-engine/components/strength/components/ExerciseBreakdownCard.tsx
+src/features/workout-engine/components/strength/components/summary-atoms/ExerciseRow.tsx
+src/features/workout-engine/components/strength/components/summary-atoms/PersonalRecords.tsx
 # wave 2 batch ag (namespace profile, dashboard.* / favorites.* / editProfile.* / personalInfo.* / records.* / parentProgram.*)
 # — the profile screen's DashboardTab, edit-profile screen, saved sheet, records card, parent-program sheet and the
 # edit hook's save toasts. Listed per file: records/record-tiles.ts (pure label builder, outside caller

@@ -66,6 +66,8 @@ import { assertOsmium, ensureIsraelPbf } from '../trails/lib/pilot-osm.node';
 import { loadAdminRelations } from './lib/admin-index.node';
 import { DatasetCatalog, TrailsRun, existingProvider, type AuthorityCtx } from './lib/providers.node';
 import { AuthorityOsmSlice } from './lib/authority-osm.node';
+import { readExistingIdsAuthority } from '../lib/route-collections-read.node';
+import { crossCouncilDuplicate } from './lib/cross-council-duplicate.node';
 import { authorityGh, createRunnerGhClient } from './lib/gh-client.node';
 import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider, settlementLoopsProvider } from './lib/gh-stages.node';
 import { KNOWN_ROUTES_DIR, KnownRoutesStage } from './lib/known-routes.node';
@@ -219,7 +221,7 @@ async function main() {
         }
       }
       const ctx: AuthorityCtx = { id: a.id, name: a.name, knownAuthorityIds };
-      const trails = new TrailsRun(ctx, relationId, relationNote, TRAILS_OUT, !SKIP_OSM);
+      const trails = new TrailsRun(ctx, relationId, relationNote, TRAILS_OUT, !SKIP_OSM, (ids) => readExistingIdsAuthority(target.db, ids));
       const stored = SKIP_OSM ? null : boundaryFromStored((await target.db.collection('authorities').doc(a.id).get()).get('boundaryGeoJSON'));
       const slice = new AuthorityOsmSlice(a, stored, relationId, path.join(OUT, 'parks'));
       const ghA = SKIP_OSM ? null : authorityGh(gh.client, path.join(OUT, 'cache', 'gh'), a.id, GH_MAX_CALLS);
@@ -241,7 +243,7 @@ async function main() {
           // Regional councils: settlement loops — kept in the code, OFF (SETTLEMENT_LOOPS_ENABLED); runAuthorityStages
           // skips generated / neighbourhood / settlement_loops for every regional council (real trails only, owner 22.10.2026).
           ...(SKIP_OSM || a.type !== 'regional_council' || !SETTLEMENT_LOOPS_ENABLED ? [] : [settlementLoopsProvider(ctx, slice, ghA, batch)]),
-        ], new Date(), { enrich: combineEnrichers(shade.enrich, urban.enrich) });
+        ], new Date(), { enrich: combineEnrichers(shade.enrich, urban.enrich), externalDuplicate: crossCouncilDuplicate(target.db, a.id, a.name) });
       } finally {
         slice.cleanup();
       }

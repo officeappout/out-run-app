@@ -3,6 +3,8 @@
 import React from 'react';
 import { Sparkles } from 'lucide-react';
 import type { CompletedExercise } from '../../utils/summary.utils';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * PersonalRecords — sky-tinted trophy card listing newly-set personal records.
@@ -23,6 +25,7 @@ export interface PersonalRecordsProps {
 }
 
 export default function PersonalRecords({ exercises }: PersonalRecordsProps) {
+  const t = useT(player);
   const records = exercises.filter((ex) => ex.isPersonalRecord);
 
   if (records.length === 0) return null;
@@ -31,7 +34,7 @@ export default function PersonalRecords({ exercises }: PersonalRecordsProps) {
     <div className="bg-v2-tint dark:bg-sky-900/30 rounded-v2-card p-4">
       <div className="flex items-center justify-between mb-3">
         <Sparkles className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-        <h3 className="text-sky-600 dark:text-sky-400 font-bold text-base">שיא חדש!</h3>
+        <h3 className="text-sky-600 dark:text-sky-400 font-bold text-base">{t('personalRecords.title')}</h3>
       </div>
       <div className="space-y-2">
         {records.map((ex) => (
