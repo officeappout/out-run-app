@@ -16,16 +16,16 @@
 
 ## 1. Israel Hiking Map (IHM)
 
-**מה זה:** אתר ואפליקציה לניווט וטיולים, פרויקט קוד-פתוח `IsraelHikingMap/Site` ב-GitHub, מופעל ע"י "Israel Hiking Map" (הרוויה מזור ואחרים). [V]
+**מה זה:** אתר ואפליקציה לניווט וטיולים, פרויקט קוד-פתוח `IsraelHikingMap/Site` ב-GitHub, מופעל ע"י "Israel Hiking Map" (הראל מזור ואחרים). [V]
 
 **רישיון:** `LICENSE.md` בריפו: *Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported (CC BY-NC-SA 3.0)*, "Copyright (c) 2013-2025 Israel Hiking Map", "unless otherwise specified". הקובץ מפנה ליצירת קשר עם המחברים לרישוי מסחרי, ודורש ש"כל ה-output" ירושה באותו רישיון. [V] https://raw.githubusercontent.com/IsraelHikingMap/Site/main/LICENSE.md
 ה-FAQ של הפרויקט אומר שהאתר, האפליקציה והמפות תחת אותו רישיון, ושימוש מסחרי מחייב פנייה למחברים; הטמעת מפה באתר אחר (iframe) מותרת "בתיאום עם המחברים". [V, מסוכם] https://github.com/IsraelHikingMap/Site/wiki/Israel-Hiking-Maps-FAQ
 דף Attribution: אריחים = "Israel Hiking" CC BY-NC-SA 3.0; נתוני מפה = OpenStreetMap contributors ODbL; שכבות נקודות ומסלולי הליכה מ-iNature ו-Nakeb "בהרשאה" (by permission); מסלולי 4WD מ-Jeepolog "בהרשאה". [V, מסוכם] https://github.com/IsraelHikingMap/Site/wiki/Attribution
 
 **משמעות לנו:**
-- אריחים כרקע באפליקציה שלנו, או API ניתוב/שרת האריחים שלהם: **NC** חוסם, האפליקציה שלנו מסחרית (B2G). נדרש אישור כתוב. מעבר לזה, סטטוס שימוש ב-tile server שלהם כעומס על תשתית של מתנדבים (בקשה ישנה מ-2016 לא לעשות הורדה אוטומטית, [?] https://community.openstreetmap.org/t/tile-data-for-http-osm-org-il/71336) - לא מונח משפטי אבל סיבה לא לעשות זאת.
+- אריחים כרקע באפליקציה שלנו, או API ניתוב/שרת האריחים שלהם: **NC** חוסם, האפליקציה שלנו מסחרית (B2G). נדרש אישור כתוב. מעבר לזה, שימוש ב-tile server שלהם הוא עומס על תשתית של מתנדבים (בקשה ישנה מ-2016 לא לעשות הורדה אוטומטית, [?] https://community.openstreetmap.org/t/tile-data-for-http-osm-org-il/71336) - לא מונח משפטי אבל סיבה לא לעשות זאת.
 - קוד הלקוח/שרת: הכל באותו רישיון NC-SA לפי LICENSE.md ([?] לא ברור אם יש רישיון נפרד לקוד; הדף לא מבחין). לא להעתיק קוד.
-- **לא לא לקחת את מסלולי iNature/Nakeb/Jeepolog דרכם**: הם קיבלו הרשאה לעצמם, ההרשאה לא עוברת אלינו. אבל זה תקדים מצוין לגישת שותפות (ראו סעיף 9).
+- **לא לקחת את מסלולי iNature/Nakeb/Jeepolog דרכם**: הם קיבלו הרשאה לעצמם, ההרשאה לא עוברת אלינו. אבל זה תקדים מצוין לגישת שותפות (ראו סעיף 9).
 - מה שכן חופשי: ה-DEM (גבהים, מבוסס ASTER מתוקן ע"י 4cast) מוגדר ב-FAQ כ"פתוח לשימוש חופשי"; SRTM 30m בריפו. [V, מסוכם] ([?] כדאי לאמת את הרישיון המדויק לפני שימוש.)
 - אפשר להשתמש ב-**איך** הם בונים (Overpass, Valhalla, OpenMapTiles) כהשראה: אלה פתוחים ונפרדים.
 
