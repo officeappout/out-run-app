@@ -6,7 +6,8 @@
  * one at a time: existing routes → known routes from web research (names +
  * citations matched to OSM geometry) → open datasets (W1.5) → OSM route relations
  * (pipeline B on the local Geofabrik PBF) → named OSM paths/promenades stitched
- * into named corridors → park loops around big parks (W5:
+ * into named corridors → walking/running corridors beside bike paths (RC9:
+ * MoT bph_infra_exist + OSM cycleways with a walkway) → park loops around big parks (W5:
  * known → perimeter → inner via GraphHopper) → pipeline B's generated loops →
  * GraphHopper foot_turns neighbourhood loops (named after the park / streets /
  * neighbourhood they pass). Every finding source always runs; the two
@@ -19,7 +20,7 @@
  *   npx tsx scripts/routes-nationwide/run.ts --city=חיפה --city=ערד   # by authority name (repeatable)
  *   npx tsx scripts/routes-nationwide/run.ts --authority=<id>         # by id (repeatable)
  *   … --kind=municipal|regional  --limit=N  --pause-ms=2000
- *   … --datasets-dir=<dir>   (ofneidan.zip, bicycle_jer_2019.zip … downloaded by hand)
+ *   … --datasets-dir=<dir>   (ofneidan.zip, bicycle_jer_2019.zip, bph_infra_exist.zip … downloaded by hand)
  *   … --skip-osm             (no PBF work — existing + datasets only, fast)
  *   … --graphhopper-url=https://graphhopper-….run.app   (live GH: park inner loops + neighbourhood loops;
  *                              ID token from the Firebase Admin SA in .env.local; without it both are skipped)
@@ -67,6 +68,7 @@ import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider } from './l
 import { KNOWN_ROUTES_DIR, KnownRoutesStage } from './lib/known-routes.node';
 import { createShadeLoaders, shadeEnricher, type ShadeLoaders } from './lib/shade-enrich.node';
 import { urbanEnricher } from './lib/urban-enrich.node';
+import { bikeAdjacentProvider } from './lib/bike-adjacent.node';
 
 const argv = process.argv.slice(2);
 const flagAll = (name: string) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3)).filter(Boolean);
@@ -221,7 +223,7 @@ async function main() {
           known.provider(),
           datasets.provider(ctx),
           trails.osm(),
-          ...(SKIP_OSM ? [] : [namedWaysProvider(ctx, slice, batch), parkLoopsProvider(ctx, slice, ghA, batch)]),
+          ...(SKIP_OSM ? [] : [namedWaysProvider(ctx, slice, batch), bikeAdjacentProvider(ctx, slice, datasets, batch), parkLoopsProvider(ctx, slice, ghA, batch)]),
           trails.generated(),
           ...(SKIP_OSM ? [] : [neighbourhoodProvider(ctx, slice, ghA, batch)]),
         ], new Date(), { enrich: combineEnrichers(shade.enrich, urban.enrich) });

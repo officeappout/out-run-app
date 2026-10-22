@@ -37,6 +37,20 @@ export interface DatasetSpec {
   stitchBy: 'name' | 'network';
   /** Route-name prefix, e.g. 'אופנידן'. */
   routeNamePrefix: string;
+  /** Used when `nameField` is empty on a feature (e.g. MoT: STREETNAME, else ROADNAME). */
+  nameFallbackField?: string;
+  /** Features whose `field` holds one of `values` are not lines of the network (e.g. MoT bike crossings) — skipped. */
+  excludeWhere?: { field: string; values: string[] };
+  /** Attribute fields copied onto each DatasetLine (`attrs`) for later stages (tree shade hint, walkway beside). */
+  keepFields?: string[];
+  /**
+   * End-to-end join tolerance when stitching (default JOIN_TOLERANCE_M = 30).
+   * The MoT layer cuts every section at a road crossing (crossings are their
+   * own, excluded features), so its gaps are a carriageway wide — 50 m.
+   */
+  joinToleranceM?: number;
+  /** Licence clearance: 'live' (default) or 'pending_licence' (never imported). */
+  licenceStatus?: 'live' | 'pending_licence';
 }
 
 /** One line feature after reading + reprojection + status filter. */
@@ -45,6 +59,8 @@ export interface DatasetLine {
   name: string;
   status: string | null;
   coords: LngLat[];
+  /** The spec's keepFields, as trimmed strings (absent fields omitted). */
+  attrs?: Record<string, string>;
 }
 
 /** A continuous stitched corridor (one route candidate). */

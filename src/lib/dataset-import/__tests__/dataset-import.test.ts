@@ -15,8 +15,10 @@ const OFN = DATASETS.ofneidan;
 const JER = DATASETS.bicycle_jer_2019;
 
 describe('registry', () => {
-  it('only CC-BY datasets are registered (owner decision Q11)', () => {
-    for (const d of Object.values(DATASETS)) expect(d.license).toBe('CC-BY-4.0');
+  it('only cleared licences are registered (owner Q11 + RC9: MoT bph_infra_exist is other-open, live)', () => {
+    for (const d of Object.values(DATASETS)) expect(['CC-BY-4.0', 'other-open (data.gov.il)']).toContain(d.license);
+    expect(DATASETS.bph_infra_exist.licenceStatus).toBe('live');
+    expect(DATASETS.bph_infra_exist.attribution).toBe('משרד התחבורה והבטיחות בדרכים — data.gov.il');
     expect(() => getDataset('bicycle_track-br7')).toThrow(/unknown dataset/);
   });
 });

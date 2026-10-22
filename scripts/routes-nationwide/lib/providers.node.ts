@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Firestore } from 'firebase-admin/firestore';
-import { DATASETS, planDatasetImport, readShapefileZip, type AuthorityBoundary } from '../../../src/lib/dataset-import';
+import { DATASETS, planDatasetImport, readShapefileZip, type AuthorityBoundary, type DatasetLine } from '../../../src/lib/dataset-import';
 import { buildSegmentIndex, parsePath, surfaceMixFromSegments, type SurfaceSegment } from '../../../src/lib/route-score';
 import type { CandidateRoute, StageProvider } from '../../../src/lib/routes-nationwide';
 import type { TrailRoute } from '../../../src/lib/trail-graph/types';
@@ -49,7 +49,7 @@ export function existingProvider(db: Firestore | null, a: AuthorityCtx, opts: { 
 
 /** Datasets (W1.5): planned once per run for the whole country, then sliced per authority. */
 export class DatasetCatalog {
-  private plans: Array<{ key: string; routes: Array<{ id: string; data: Record<string, unknown>; authorityId: string }> }> | null = null;
+  private plans: Array<{ key: string; routes: Array<{ id: string; data: Record<string, unknown>; authorityId: string; shadeHint: number | null }>; lines: DatasetLine[] }> | null = null;
   constructor(private dir: string | null, private boundaries: () => Promise<{ boundaries: AuthorityBoundary[]; cityByAuthority: Record<string, string> }>, private log: (s: string) => void) {}
 
   private async load() {
@@ -58,14 +58,21 @@ export class DatasetCatalog {
     if (!this.dir) return this.plans;
     const { boundaries, cityByAuthority } = await this.boundaries();
     for (const spec of Object.values(DATASETS)) {
+      if (spec.licenceStatus === 'pending_licence') { this.log(`  [dataset] ${spec.key}: licence pending — skipped`); continue; }
       const file = ['zip', 'geojson', 'json'].map((ext) => path.join(this.dir!, `${spec.key}.${ext}`)).find((f) => fs.existsSync(f));
       if (!file) { this.log(`  [dataset] ${spec.key}: no file in ${this.dir} — skipped`); continue; }
       const raw = file.endsWith('.zip') ? await readShapefileZip(new Uint8Array(fs.readFileSync(file))) : JSON.parse(fs.readFileSync(file, 'utf8'));
       const plan = planDatasetImport(raw, spec, { boundaries, cityByAuthority, existing: [], snapshot: null, importBatchId: `nationwide-${spec.key}` });
       this.log(`  [dataset] ${spec.key}: ${plan.routes.length} corridor route(s), ${plan.skipped.length} skipped`);
-      this.plans.push({ key: spec.key, routes: plan.routes.map((r) => ({ id: r.id, data: r.data, authorityId: r.authorityId })) });
+      this.plans.push({ key: spec.key, routes: plan.routes.map((r) => ({ id: r.id, data: r.data, authorityId: r.authorityId, shadeHint: r.shadeHint })), lines: plan.lines });
     }
     return this.plans;
+  }
+
+  /** The normalized sections (with kept attributes) of one dataset — [] when its file is absent. */
+  async lines(key: string): Promise<DatasetLine[]> {
+    if (!this.dir) return [];
+    return (await this.load()).find((p) => p.key === key)?.lines ?? [];
   }
 
   provider(a: AuthorityCtx): StageProvider {
@@ -74,7 +81,10 @@ export class DatasetCatalog {
       run: async () => {
         if (!this.dir) return { routes: [], note: 'no --datasets-dir' };
         const plans = await this.load();
-        const routes: CandidateRoute[] = plans.flatMap((p) => p.routes.filter((r) => r.authorityId === a.id).map((r) => ({ id: r.id, data: r.data as Record<string, any>, stage: 'dataset' as const, isNew: true })));
+        const routes: CandidateRoute[] = plans.flatMap((p) => p.routes.filter((r) => r.authorityId === a.id).map((r) => ({
+          id: r.id, data: r.data as Record<string, any>, stage: 'dataset' as const, isNew: true,
+          ...(r.shadeHint != null ? { opts: { shadeHint: r.shadeHint } } : {}),
+        })));
         return { routes, note: `${routes.length} from ${plans.map((p) => p.key).join(', ') || 'no dataset files'}` };
       },
     };
