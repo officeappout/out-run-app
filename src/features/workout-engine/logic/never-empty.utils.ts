@@ -55,6 +55,8 @@ export interface NeverEmptyOptions {
   minMain: number;
   difficulty: DifficultyLevel;
   activeProgramId?: string;
+  /** Adaptive progression switches (3d true-skill ceiling on rescued exercises). */
+  progressionPolicy?: import('./adaptive/policy').ProgressionPolicy;
 }
 
 export function methodFits(method: ExecutionMethod | null | undefined, location: ExecutionLocation, available: string[]): boolean {
@@ -128,7 +130,7 @@ export function rescueEmptyMainBlock(workout: GeneratedWorkout, opts: NeverEmpty
 
   const take = picked.slice(0, Math.max(1, opts.minMain));
   const mains: WorkoutExercise[] = take.map(c => {
-    const d = rederiveVolumeForSwappedExercise(c.ex, c.delta, opts.difficulty);
+    const d = rederiveVolumeForSwappedExercise(c.ex, c.delta, opts.difficulty, undefined, undefined, opts.progressionPolicy);
     return {
       exercise: c.ex,
       method: c.method,
@@ -208,7 +210,7 @@ export function topUpVarietyReserve(workout: GeneratedWorkout, opts: NeverEmptyO
       if (baseIds.has(c.ex.base_movement_id)) continue;
       baseIds.add(c.ex.base_movement_id);
     }
-    const d = rederiveVolumeForSwappedExercise(c.ex, c.delta, opts.difficulty);
+    const d = rederiveVolumeForSwappedExercise(c.ex, c.delta, opts.difficulty, undefined, undefined, opts.progressionPolicy);
     added.push({
       exercise: c.ex, method: c.method, mechanicalType: d.mechanicalType,
       sets: 2, reps: d.reps, repsRange: d.repsRange, isTimeBased: d.isTimeBased, restSeconds: d.restSeconds,

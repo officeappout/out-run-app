@@ -69,6 +69,7 @@ interface FlagState {
   enable_route_time_aware: boolean;
   enable_route_shade_tag: boolean;
   enable_levelup_v2: boolean;
+  enable_skill_cap_true_skills: boolean;
   enable_unified_search: boolean;
   enable_entry_whatnow_v1: boolean;
   enable_generation_review: boolean;
@@ -485,6 +486,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-700',
     title: 'מסך עליית אחוזים חדש',
     description: 'אחרי אימון כוח: התוצאה מופיעה מיד (מחושבת במכשיר באותן נוסחאות של השמירה), השמירה רצה ברקע ("שומר…" ← "נשמר") ואם המספר השמור שונה הוא מתעדכן בשקט. מספר אחד = בדיוק מה שנשמר (בתוכנית-אם: הממוצע השמור של תתי-התוכניות). טבעת בלבד, הבונוסים מופיעים אחד אחרי השני ודוחפים אותה; עלייה ברמה = חגיגה עם הרמה החדשה. אימון התאוששות / בלי אחוזים / תקלה: מצב רגוע מיד, הכפתורים פעילים מיד. מנהלי-על רואים אותו גם כשהוא כבוי. כבוי = המסך הקיים.',
+  },
+  // Adaptive progression 3d (22.10.2026).
+  {
+    key: 'enable_skill_cap_true_skills',
+    icon: Dumbbell,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-500',
+    title: 'תקרת 5 חזרות רק לסקילים אמיתיים',
+    description: 'תקרת 5 חזרות ו-12 שניות החזקה רק לסקילים אמיתיים: מתח יד אחת, פרונט/בק לבר, פלאנץ׳, שכיבות סמיכה בעמידת ידיים, עליית כוח, דגל אנושי ופיסטול. תרגיל רגיל (מתח, מקבילים, שכיבות) ברמה אחת מעל המתאמן מקבל 3-6 חזרות, ושתי רמות ומעלה 2-5 (במקום 1-3), כך שיעד כמו "10 מתח" בר-השגה. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Unified search (19.10.2026).
   {

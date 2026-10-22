@@ -419,6 +419,7 @@ export function substituteExercise(
   difficulty: DifficultyLevel,
   levelProgressPercent?: number,
   intentMode?: WorkoutGenerationContext['intentMode'],
+  policy?: WorkoutGenerationContext['progressionPolicy'],
 ): Pick<WorkoutExercise, 'exercise' | 'method' | 'mechanicalType' | 'isTimeBased' | 'reps' | 'repsRange' | 'restSeconds' | 'tier'
   | 'pyramidSequence' | 'repsSequence' | 'pairedWith' | 'supersetType'> {
   // Re-derive isTimeBased/mechanicalType/tier/reps/repsRange/restSeconds for
@@ -429,7 +430,7 @@ export function substituteExercise(
   // (and their own levelDelta/programLevel/isOverLevel fields) in sync with
   // the swap instead of describing the pre-swap exercise.
   let { isTimeBased: newIsTimeBased, mechanicalType, reps, repsRange, restSeconds, tier } =
-    rederiveVolumeForSwappedExercise(newEx, levelDelta, difficulty, levelProgressPercent, intentMode);
+    rederiveVolumeForSwappedExercise(newEx, levelDelta, difficulty, levelProgressPercent, intentMode, policy);
 
   // Skill-Rep Guard: unilateral high-skill exercises (One-Arm Pull-up, Pistol Squat,
   // etc.) must NEVER inherit a tier-computed rep count.  Discard it entirely
@@ -1179,6 +1180,7 @@ export class WorkoutGenerator {
               ...substituteExercise(
                 workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
                 sub.level - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+                context.progressionPolicy,
               ),
               programLevel: sub.level,
               isOverLevel: sub.level > domainLevel,

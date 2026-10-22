@@ -13,6 +13,7 @@ import type { ScoredExercise } from './contextual-engine.types';
 import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constants';
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
+import { aboveLevelRepRange, isTrueSkillExercise, repCeilingFor, trueSkillHoldCap } from './adaptive/true-skill';
 import {
   DifficultyLevel,
   ExercisePriority,
@@ -686,6 +687,11 @@ export function assignVolume(
     // match/easy/flow branches were). getStaircaseRange returns null for these
     // two tiers specifically so the fallback below can apply TIER_TABLE's range.
     const isAboveLevelTier = tierName === 'hard' || tierName === 'elite';
+    // 3d (enable_skill_cap_true_skills): the 1–3 range and the 5-rep / 12 s ceiling stay for
+    // TRUE skills only; a regular above-level exercise gets its own range. Off → tier.reps.
+    const trueSkillCapOn = context.progressionPolicy?.trueSkillCap === true;
+    const trueSkill = trueSkillCapOn && isTrueSkillExercise(exercise);
+    const aboveTierReps = (trueSkillCapOn ? aboveLevelRepRange(tierName, trueSkill, tier.reps) : null) ?? tier.reps;
 
     // Merge: sets/reps/hold from DIFFICULTY_VOLUME; rest unchanged from TIER_TABLE
     const volumeTier: TierConfig = {
@@ -746,7 +752,9 @@ export function assignVolume(
     // closure so both the reps scalar block and the repsRange Smart Range
     // Compression block below can share the same value without hitting a
     // block-scope ReferenceError (fixing the crash reported at line ~705).
-    const holdCap = getIsometricTimeCap(exercise);
+    const holdCap = trueSkillCapOn
+      ? trueSkillHoldCap(getIsometricTimeCap(exercise), trueSkill)
+      : getIsometricTimeCap(exercise);
 
     if (timeBased) {
       reps = calculateHoldTimeTier(exercise, volumeTier, tierName);
@@ -763,7 +771,7 @@ export function assignVolume(
       // low-rep tier values since the user is in over-level territory.
       const staircaseRange = getStaircaseRange(tierName, isHorizontalMatch, context.levelProgressPercent);
       const repRange = staircaseRange
-        ?? (isAboveLevelTier ? tier.reps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
+        ?? (isAboveLevelTier ? aboveTierReps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
 
       const mg = exercise.movementGroup ?? '';
       const isPushPull = PUSH_PULL_MG.has(mg);
@@ -831,7 +839,7 @@ export function assignVolume(
     // tier range for hard/elite tiers (where staircase returns null).
     const staircaseDisplayRange = getStaircaseRange(tierName, isHorizontalMatch, context.levelProgressPercent);
     const effectiveRepRange = staircaseDisplayRange
-      ?? (isAboveLevelTier ? tier.reps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
+      ?? (isAboveLevelTier ? aboveTierReps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
     // Phase 3.6 — Smart Range Compression.
     // For time-based exercises, build the initial range from the difficulty
     // table then compress it when the table overshoots the physiological cap.
@@ -887,21 +895,25 @@ export function assignVolume(
     // seconds and the static skill cap (≤15s for straight-arm) already handles
     // those upstream.
     if (!timeBased) {
-      const SKILL_REP_CEILING = 5;
-      const isSkillPriority = priority === 'skill';
-      const isHighIntensityTier = tierName === 'hard' || tierName === 'elite';
-      if (isSkillPriority || isHighIntensityTier) {
-        if (reps > SKILL_REP_CEILING) {
+      // 3d: flag off → 5 for skill priority or hard/elite (today); on → see repCeilingFor.
+      const repCeiling = repCeilingFor({
+        flagOn: trueSkillCapOn,
+        trueSkill,
+        isSkillPriority: priority === 'skill',
+        isAboveLevelTier,
+      });
+      if (repCeiling != null) {
+        if (reps > repCeiling) {
           console.log(
             `[assignVolume] SkillCeiling "${getLocalizedText(scored.exercise.name) || exerciseId}":` +
-            ` ${reps} → ${SKILL_REP_CEILING} reps (priority=${priority}, tier=${tierName})`,
+            ` ${reps} → ${repCeiling} reps (priority=${priority}, tier=${tierName}, trueSkill=${trueSkill})`,
           );
-          reps = SKILL_REP_CEILING;
+          reps = repCeiling;
         }
-        if (repsRange.max > SKILL_REP_CEILING) {
+        if (repsRange.max > repCeiling) {
           repsRange = {
-            min: Math.min(repsRange.min, SKILL_REP_CEILING),
-            max: SKILL_REP_CEILING,
+            min: Math.min(repsRange.min, repCeiling),
+            max: repCeiling,
           };
         }
       }
@@ -1017,6 +1029,8 @@ export function rederiveVolumeForSwappedExercise(
   difficulty: DifficultyLevel,
   levelProgressPercent?: number,
   intentMode?: WorkoutGenerationContext['intentMode'],
+  /** Adaptive progression switches (3d true-skill ceiling). Absent = today's rules. */
+  policy?: WorkoutGenerationContext['progressionPolicy'],
 ): Pick<WorkoutExercise, 'isTimeBased' | 'mechanicalType' | 'reps' | 'repsRange' | 'restSeconds' | 'tier'> {
   const isTimeBased = isTimeBasedExercise(newExercise);
   const mechanicalType = (newExercise.mechanicalType || 'none') as MechanicalType;
@@ -1026,12 +1040,17 @@ export function rederiveVolumeForSwappedExercise(
   const diffVol = DIFFICULTY_VOLUME[difficulty];
   const volumeTier: TierConfig = { sets: diffVol.sets, reps: diffVol.reps, hold: diffVol.holdSeconds, rest: tier.rest };
   const isAboveLevelTier = tierName === 'hard' || tierName === 'elite';
+  const trueSkillCapOn = policy?.trueSkillCap === true;
+  const trueSkill = trueSkillCapOn && isTrueSkillExercise(newExercise);
+  const aboveTierReps = (trueSkillCapOn ? aboveLevelRepRange(tierName, trueSkill, tier.reps) : null) ?? tier.reps;
 
   let reps: number;
   let repsRange: { min: number; max: number };
 
   if (isTimeBased) {
-    const holdCap = getIsometricTimeCap(newExercise);
+    const holdCap = trueSkillCapOn
+      ? trueSkillHoldCap(getIsometricTimeCap(newExercise), trueSkill)
+      : getIsometricTimeCap(newExercise);
     reps = Math.min(calculateHoldTimeTier(newExercise, volumeTier, tierName), holdCap);
     repsRange = volumeTier.hold.max > holdCap
       ? { min: Math.max(5, holdCap - 5), max: holdCap }
@@ -1041,18 +1060,22 @@ export function rederiveVolumeForSwappedExercise(
     const isHorizontalMatch = tierName === 'match' && movementGroup != null && HORIZONTAL_MOVEMENT_GROUPS.has(movementGroup);
     const staircaseRange = getStaircaseRange(tierName, isHorizontalMatch, levelProgressPercent);
     const repRange = staircaseRange
-      ?? (isAboveLevelTier ? tier.reps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
+      ?? (isAboveLevelTier ? aboveTierReps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
     reps = repRange.min + Math.floor(Math.random() * (repRange.max - repRange.min + 1));
     repsRange = { min: repRange.min, max: repRange.max };
 
-    // ABSOLUTE SKILL CEILING mirror (assignVolume ~768-801): hard/elite and
-    // skill-priority exercises never exceed 5 reps.
-    const isSkillPriority = classifyPriority(newExercise) === 'skill';
-    if (isSkillPriority || isAboveLevelTier) {
-      const SKILL_REP_CEILING = 5;
-      if (reps > SKILL_REP_CEILING) reps = SKILL_REP_CEILING;
-      if (repsRange.max > SKILL_REP_CEILING) {
-        repsRange = { min: Math.min(repsRange.min, SKILL_REP_CEILING), max: SKILL_REP_CEILING };
+    // ABSOLUTE SKILL CEILING mirror (assignVolume): flag off → hard/elite and skill-priority
+    // exercises never exceed 5 reps; 3d on → see repCeilingFor.
+    const repCeiling = repCeilingFor({
+      flagOn: trueSkillCapOn,
+      trueSkill,
+      isSkillPriority: classifyPriority(newExercise) === 'skill',
+      isAboveLevelTier,
+    });
+    if (repCeiling != null) {
+      if (reps > repCeiling) reps = repCeiling;
+      if (repsRange.max > repCeiling) {
+        repsRange = { min: Math.min(repsRange.min, repCeiling), max: repCeiling };
       }
     }
     const coreFloor = applyCoreRepFloor(newExercise, classifyPriority(newExercise), false, reps, repsRange);

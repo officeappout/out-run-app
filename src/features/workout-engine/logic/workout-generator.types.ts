@@ -599,6 +599,11 @@ export interface WorkoutGenerationContext {
    */
   exerciseHistoryMap?: Record<string, number[]>;
   /**
+   * Adaptive progression switches (logic/adaptive/policy.ts), resolved once per generation.
+   * Absent = every switch off = today's engine.
+   */
+  progressionPolicy?: import('./adaptive/policy').ProgressionPolicy;
+  /**
    * @deprecated  Phase 3 — the modular pipeline is now the only path.
    *
    * Historically toggled the legacy inline budget caps (Steps 4b/4c/4c-prime),
