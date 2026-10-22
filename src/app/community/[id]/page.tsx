@@ -34,6 +34,7 @@ import type {
 import EventCard from '@/features/arena/components/EventCard';
 import SessionDrawer from '@/features/arena/components/SessionDrawer';
 import MapCard from '@/features/arena/components/MapCard';
+import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 
 const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const FREQ_LABELS: Record<string, string> = {
@@ -101,17 +102,24 @@ export default function CommunityHubPage() {
     load();
   }, [id]);
 
+  // enable_group_fixes_v1: push links (/community/<groupId>) open the ONE
+  // group landing — the group page by id on /home (owner, 22.10).
+  useEffect(() => {
+    if (flagsLoading || !id || !featureFlags.enableGroupFixesV1) return;
+    router.replace(resolveJoinLanding(id, { joined: false }));
+  }, [flagsLoading, id, featureFlags.enableGroupFixesV1, router]);
+
   // Route guard — group-type-aware: league-type groups (groupType set, created
   // via /arena/create) need enableLeagues; plain groups (no groupType, created
   // via the admin panel) need enableCommunityFeed. Waits for the group to load
   // since the type isn't known until then.
   useEffect(() => {
-    if (flagsLoading || loading || !group) return;
+    if (flagsLoading || loading || !group || featureFlags.enableGroupFixesV1) return;
     const isAllowed = group.groupType ? featureFlags.enableLeagues : featureFlags.enableCommunityFeed;
     if (!isAllowed) {
       router.replace('/home');
     }
-  }, [flagsLoading, loading, group, featureFlags.enableLeagues, featureFlags.enableCommunityFeed, router]);
+  }, [flagsLoading, loading, group, featureFlags.enableLeagues, featureFlags.enableCommunityFeed, featureFlags.enableGroupFixesV1, router]);
 
   const openSessionDrawer = useCallback(
     async (event: CommunityEvent) => {

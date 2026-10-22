@@ -15,13 +15,17 @@ interface UseNextSessionBookingArgs {
   userId: string;
   userName: string;
   userPhoto: string | null;
+  /** enable_group_fixes_v1: transactional RSVP, re-read count, errors surfaced. */
+  groupFixes?: boolean;
+  /** Called (fixes on) when a book / cancel / waitlist action fails. */
+  onError?: () => void;
 }
 
 /**
  * The next session's attendance (one read per open/session change) and the
  * viewer's book / waitlist / cancel toggle, with optimistic count updates.
  */
-export function useNextSessionBooking({ isOpen, groupId, nsd, nst, nextSlot, userId, userName, userPhoto }: UseNextSessionBookingArgs) {
+export function useNextSessionBooking({ isOpen, groupId, nsd, nst, nextSlot, userId, userName, userPhoto, groupFixes = false, onError }: UseNextSessionBookingArgs) {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [attendance, setAttendance] = useState<SessionAttendance | null>(null);
   const [isBooked, setIsBooked] = useState(false);
@@ -66,7 +70,9 @@ export function useNextSessionBooking({ isOpen, groupId, nsd, nst, nextSlot, use
           userId, userName, userPhoto,
           nextSlot?.maxParticipants,
           nextSlot?.workoutGoal,
+          { transactional: groupFixes },
         );
+        if (!result.success && groupFixes) onError?.();
         if (result.success) {
           if (result.waitlisted) {
             setIsWaitlisted(true);
@@ -85,12 +91,19 @@ export function useNextSessionBooking({ isOpen, groupId, nsd, nst, nextSlot, use
           }
         }
       }
+      // Fixes on: the optimistic count is replaced by the real doc (other
+      // members' RSVPs, joins via a session link).
+      if (groupFixes) {
+        const fresh = await getSessionAttendance(groupId, nsd, nst);
+        if (fresh) setAttendance(fresh);
+      }
     } catch (err) {
       console.error('[GroupDetailsDrawer] booking failed:', err);
+      if (groupFixes) onError?.();
     } finally {
       setBookingLoading(false);
     }
-  }, [userId, userName, userPhoto, groupId, nsd, nst, bookingLoading, isBooked, isWaitlisted, nextSlot]);
+  }, [userId, userName, userPhoto, groupId, nsd, nst, bookingLoading, isBooked, isWaitlisted, nextSlot, groupFixes, onError]);
 
   return { attendance, isBooked, isWaitlisted, bookingLoading, handleBookSession };
 }

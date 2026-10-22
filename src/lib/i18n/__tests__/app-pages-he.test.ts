@@ -37,6 +37,7 @@ describe('onboarding · /join/[inviteCode], /join, /onboarding (he)', () => {
     ['join.cta', 'הצטרף לקבוצה'],
     ['join.redirectNote', 'תועבר לאפליקציית OutRun כדי להשלים את ההצטרפות'],
     ['join.referral.redirecting', 'מעביר אותך...'],
+    ['join.error.generic', 'ההצטרפות לא הצליחה. אפשר לנסות שוב.'], // group fixes — new copy
     ['legacyRedirect.redirecting', 'מעביר לאיזור האישי...'],
   ];
   const special: Key[] = ['join.category', 'join.schedule.slot', 'join.members'];
