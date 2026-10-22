@@ -19,6 +19,8 @@ import { parseTimedBlockRecords, toTimedBlockRecord } from '../src/features/work
 import type { TimedBlockSpec } from '../src/features/workout-engine/engines/timed/timed.types';
 import { workoutHistoryEntryToStrengthSummaryProps } from '../src/features/workout-engine/components/strength/strength-history-adapter';
 import { amrapSummaryModel } from '../src/features/workout-engine/components/strength/utils/timed-summary.model';
+import { makeT } from '../src/lib/i18n/t';
+import { player } from '../src/messages/ns/player';
 
 const PROJECT_ID = 'appout-1-audit-test';
 let env: RulesTestEnvironment;
@@ -94,7 +96,7 @@ describe('workouts.timedBlocks (write + read back)', () => {
     expect(records).toEqual([amrapRecord()]);
     const props = workoutHistoryEntryToStrengthSummaryProps({ ...(data as object), id: 'w1' } as never);
     expect(props.savedTimedBlocks).toEqual(records);
-    expect(amrapSummaryModel(records[0])?.extraLine).toBe('ועוד 5 חזרות בסבב השני');
+    expect(amrapSummaryModel(makeT('he', player), records[0])?.extraLine).toBe('ועוד 5 חזרות בסבב השני');
   });
 
   it('[DENY] another user cannot read it, nor write timedBlocks on a doc they do not own', async () => {

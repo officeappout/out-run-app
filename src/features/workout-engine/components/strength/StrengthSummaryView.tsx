@@ -42,6 +42,8 @@ import type { PhaseSummary, SessionTotals } from './utils/phase-summary';
 import { levelRingModel } from './utils/level-ring.util';
 import { programRingModel, type ProgramProgressItem, type WeekDot } from '@/components/ui/v2';
 import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerT } from '@/messages/ns/player';
 
 /** Home-v2 (enable_home_v2) data. Absent ⇒ today's summary, unchanged. */
 export interface StrengthSummaryV2Data {
@@ -60,7 +62,7 @@ export interface StrengthSummaryV2Data {
  * % inside the level, and today's gain (progressionResult) is the green arc.
  * Without a progression result (e.g. it failed) the ring shows no gain.
  */
-export function strengthProgramItem(args: {
+export function strengthProgramItem(t: PlayerT, args: {
   programName: string;
   programId?: string;
   liveLevel: number;
@@ -68,7 +70,7 @@ export function strengthProgramItem(args: {
   maxLevel: number;
   progressionResult: ReturnType<typeof useProgressionSync>['progressionResult'];
 }): ProgramProgressItem {
-  const m = levelRingModel(args.liveLevel, args.maxLevel, args.livePercent);
+  const m = levelRingModel(t, args.liveLevel, args.maxLevel, args.livePercent);
   const gain = args.progressionResult?.success ? args.progressionResult.activeProgramGain : null;
   return {
     key: args.programId ?? 'program',
@@ -150,6 +152,7 @@ export default function StrengthSummaryView({
   v2,
   feedShareSlot,
 }: StrengthSummaryViewProps) {
+  const t = useT(player);
   // Secondary stat derived from data the screen already shows (exercise breakdown).
   const totalSets = completedExercises.reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0);
 
@@ -165,7 +168,7 @@ export default function StrengthSummaryView({
       >
         <IconTile icon={Trophy} tone="accent" size="md" />
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-extrabold text-v2-deep mb-0.5">סיכום אימון</p>
+          <p className="text-[13px] font-extrabold text-v2-deep mb-0.5">{t('strengthSummary.header.title')}</p>
           <h1 className="text-[20px] font-black !tracking-v2-tight text-v2-ink dark:text-white line-clamp-3 break-words leading-snug">
             {programName}
           </h1>
@@ -204,8 +207,8 @@ export default function StrengthSummaryView({
 
           {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
             <ProgramCardV2
-              item={strengthProgramItem({
-                programName: programName ?? 'תוכנית אימון',
+              item={strengthProgramItem(t, {
+                programName: programName ?? t('strengthSummary.programFallback'),
                 programId,
                 liveLevel: analytics.liveLevel,
                 livePercent: analytics.livePercent ?? 0,
@@ -225,7 +228,7 @@ export default function StrengthSummaryView({
 
           {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} />}
 
-          <h2 className="px-1 pt-2 text-[17px] font-black text-v2-ink">פירוט התרגילים</h2>
+          <h2 className="px-1 pt-2 text-[17px] font-black text-v2-ink">{t('strengthSummary.exercisesTitle')}</h2>
           <PhaseBreakdownV2 phases={v2.phases} />
         </div>
       ) : (
@@ -238,16 +241,16 @@ export default function StrengthSummaryView({
             value={0}
             format={() => analytics.formattedDuration}
             size="hero"
-            label="זמן אימון"
+            label="זמן אימון" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           />
           <div className="mt-4 grid grid-cols-3 gap-2">
             <CardTile className="px-3 py-3">
               <IconTile icon={Flame} tone="accent" size="sm" className="mb-2" />
-              <StatNumber value={analytics.calories} size="sm" label="קלוריות" />
+              <StatNumber value={analytics.calories} size="sm" label="קלוריות" /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */ />
             </CardTile>
             <CardTile className="px-3 py-3">
               <IconTile icon={Layers} tone="accent" size="sm" className="mb-2" />
-              <StatNumber value={totalSets} size="sm" label="סטים" />
+              <StatNumber value={totalSets} size="sm" label="סטים" /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */ />
             </CardTile>
             <CardTile className="px-3 py-3">
               {/* Dopamine chain step 3: the static flag swaps for the animated
@@ -259,7 +262,7 @@ export default function StrengthSummaryView({
                   <IconTile icon={Flag} tone="accent" size="sm" />
                 )}
               </span>
-              <StatNumber value={analytics.streak} size="sm" label="אימונים ברצף" />
+              <StatNumber value={analytics.streak} size="sm" label="אימונים ברצף" /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */ />
             </CardTile>
           </div>
         </Card>
@@ -278,7 +281,7 @@ export default function StrengthSummaryView({
             would otherwise show a made-up fallback level. */}
         {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
           <LevelRingCard
-            programName={programName ?? 'תוכנית אימון'}
+            programName={programName ?? t('strengthSummary.programFallback')}
             currentLevel={analytics.liveLevel}
             maxLevel={maxLevel ?? 25}
             progressPercent={analytics.livePercent ?? 0}
@@ -347,7 +350,7 @@ export default function StrengthSummaryView({
             variant="ghost"
             size="lg"
             onClick={onDelete}
-            aria-label="מחק אימון"
+            aria-label={t('strengthSummary.footer.deleteAria')}
             className="!px-5 !text-v2-down"
           >
             <Trash2 size={20} strokeWidth={2.4} aria-hidden />
@@ -360,7 +363,11 @@ export default function StrengthSummaryView({
           disabled={!isReadOnly && isFinishing}
           className="flex-1"
         >
-          {isReadOnly ? 'סגור' : isFinishing ? 'שומר...' : 'תודה על האימון!'}
+          {isReadOnly
+            ? t('strengthSummary.footer.close')
+            : isFinishing
+              ? t('strengthSummary.footer.saving')
+              : t('strengthSummary.footer.thanks')}
         </Button>
       </div>
 

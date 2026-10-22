@@ -33,6 +33,8 @@ import {
   type SummaryPhase,
 } from '../../utils/phase-summary';
 import { exerciseRows, heroSetGroups, improvementItems } from '../../utils/summary-v2.mapping';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerKey, type PlayerT } from '@/messages/ns/player';
 
 // ── Hero ────────────────────────────────────────────────────────────────────
 
@@ -48,6 +50,7 @@ const RING_STROKE = 8;
 const RING_R = RING / 2 - RING_STROKE / 2 - 1;
 
 function CompletionRing({ percent }: { percent: number }) {
+  const t = useT(player);
   const gid = useId().replace(/:/g, '');
   const c = 2 * Math.PI * RING_R;
   const off = c * (1 - Math.max(0, Math.min(100, percent)) / 100);
@@ -76,7 +79,7 @@ function CompletionRing({ percent }: { percent: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[19px] font-black leading-none tabular-nums text-v2-ink">{percent}%</span>
-        <span className="mt-0.5 whitespace-nowrap text-[11px] font-bold text-v2-muted">הושלם</span>
+        <span className="mt-0.5 whitespace-nowrap text-[11px] font-bold text-v2-muted">{t('strengthSummary.hero.done')}</span>
       </div>
     </div>
   );
@@ -90,24 +93,29 @@ const MINI_TONE: Record<SetTile['tone'], string> = {
 
 /** "17/18 סטים · 168 חזרות" + one small box per set, grouped by exercise. */
 function SetsStrip({ totals, phases }: { totals: SessionTotals; phases: PhaseSummary[] }) {
+  const t = useT(player);
   const groups = heroSetGroups(phases);
   if (groups.length === 0) return null;
   const setsLabel = totals.setsPlanned !== null ? `${totals.setsDone}/${totals.setsPlanned}` : String(totals.setsDone);
   const second =
-    totals.reps > 0 ? `${totals.reps} חזרות` : totals.workSeconds > 0 ? `זמן עבודה ${formatWorkSeconds(totals.workSeconds)}` : null;
+    totals.reps > 0
+      ? t('strengthSummary.hero.reps', { reps: String(totals.reps) })
+      : totals.workSeconds > 0
+        ? t('strengthSummary.hero.workTime', { time: formatWorkSeconds(totals.workSeconds) })
+        : null;
   const tones = tonesPresent(groups.flat());
   return (
     <div className="mt-4 border-t border-v2-hairline pt-4">
       <div className="flex items-baseline gap-1.5">
         <span className="text-[22px] font-black leading-none tabular-nums tracking-[-0.03em] text-v2-ink">{setsLabel}</span>
-        <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">סטים</span>
+        <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{t('strengthSummary.hero.sets')}</span>
         {second && <span className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">· {second}</span>}
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-[7px] gap-y-1.5" aria-hidden>
         {groups.map((g, gi) => (
           <span key={gi} className="inline-flex gap-[3px]">
-            {g.map((t, i) => (
-              <span key={i} className={`h-3.5 w-3.5 rounded-[4px] ${MINI_TONE[t.tone]}`} />
+            {g.map((tile, i) => (
+              <span key={i} className={`h-3.5 w-3.5 rounded-[4px] ${MINI_TONE[tile.tone]}`} />
             ))}
           </span>
         ))}
@@ -120,13 +128,14 @@ function SetsStrip({ totals, phases }: { totals: SessionTotals; phases: PhaseSum
 }
 
 export function SummaryHeroV2({ formattedDuration, calories, totals, phases }: SummaryHeroV2Props) {
+  const t = useT(player);
   return (
     <Card padding="lg">
       <div className="flex items-center gap-4">
         <div className="min-w-0 flex-1">
-          <StatNumber value={0} format={() => formattedDuration} size="hero" label="זמן אימון" />
+          <StatNumber value={0} format={() => formattedDuration} size="hero" label={t('strengthSummary.hero.duration')} />
           {calories > 0 && (
-            <p className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">≈ {calories} קלוריות (הערכה)</p>
+            <p className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">{t('strengthSummary.hero.calories', { calories: String(calories) })}</p>
           )}
         </div>
         {totals.completionPercent !== null && <CompletionRing percent={totals.completionPercent} />}
@@ -150,11 +159,11 @@ export interface WeekCardV2Props {
   whoMinutes: number;
 }
 
-export function weekBars(week: WeekCardV2Props | null): StreakWeekBar[] | undefined {
+export function weekBars(t: PlayerT, week: WeekCardV2Props | null): StreakWeekBar[] | undefined {
   if (!week) return undefined;
   return [
     { label: week.categoryLabel, value: week.sessions, max: week.plannedSessions },
-    { label: 'דקות פעילות', value: week.minutes, max: week.whoMinutes },
+    { label: t('strengthSummary.week.activeMinutes'), value: week.minutes, max: week.whoMinutes },
   ];
 }
 
@@ -169,7 +178,8 @@ export function StreakCardV2({
   days: WeekDot[];
   week: WeekCardV2Props | null;
 }) {
-  return <StreakDotsStrip streak={streak} best={best} days={days} bars={weekBars(week)} />;
+  const t = useT(player);
+  return <StreakDotsStrip streak={streak} best={best} days={days} bars={weekBars(t, week)} />;
 }
 
 // ── Program progress + improvements ─────────────────────────────────────────
@@ -187,50 +197,57 @@ export function ImprovementsCardV2({ phases }: { phases: PhaseSummary[] }) {
 
 // ── Phase breakdown (F-3g exercise table) ───────────────────────────────────
 
-const PHASE_META: Record<SummaryPhase, { label: string; icon: typeof Flame }> = {
-  warmup: { label: 'חימום', icon: Flame },
-  main: { label: 'חלק עיקרי', icon: Dumbbell },
-  cooldown: { label: 'שחרור ומתיחות', icon: Wind },
+const PHASE_META: Record<SummaryPhase, { labelKey: PlayerKey; icon: typeof Flame }> = {
+  warmup: { labelKey: 'strengthSummary.phase.warmup', icon: Flame },
+  main: { labelKey: 'strengthSummary.phase.main', icon: Dumbbell },
+  cooldown: { labelKey: 'strengthSummary.phase.cooldown', icon: Wind },
 };
 
-const PROTOCOL_LABEL: Record<string, string> = {
-  superset: 'סופר סט',
-  pyramid: 'פירמידה',
-  tabata: 'טבטה',
-  emom: 'EMOM',
-  amrap: 'AMRAP',
+const PROTOCOL_LABEL: Record<string, PlayerKey> = {
+  superset: 'strengthSummary.protocol.superset',
+  pyramid: 'strengthSummary.protocol.pyramid',
+  tabata: 'strengthSummary.protocol.tabata',
+  emom: 'strengthSummary.protocol.emom',
+  amrap: 'strengthSummary.protocol.amrap',
 };
 
-function blockTitle(phase: SummaryPhase, b: PhaseSummary['blocks'][number]): string {
-  const count = `${b.exercises.length} ${b.exercises.length === 1 ? 'תרגיל' : 'תרגילים'}`;
+function blockTitle(t: PlayerT, phase: SummaryPhase, b: PhaseSummary['blocks'][number]): string {
+  const n = b.exercises.length;
+  const count = t('strengthSummary.phase.exerciseCount', { count: n, n: String(n) });
   if (phase !== 'main') return count;
-  const proto = b.protocol ? PROTOCOL_LABEL[b.protocol] : undefined;
+  const protoKey =
+    b.protocol && Object.prototype.hasOwnProperty.call(PROTOCOL_LABEL, b.protocol) ? PROTOCOL_LABEL[b.protocol] : undefined;
+  const proto = protoKey ? t(protoKey) : undefined;
   const parts = [b.title, proto].filter((x): x is string => !!x && x.length > 0);
   return parts.length > 0 ? parts.join(' · ') : count;
 }
 
 function PhaseCard({ phase }: { phase: PhaseSummary }) {
+  const t = useT(player);
   const meta = PHASE_META[phase.phase];
-  const t = phase.totals;
-  const setsChip = t.setsPlanned !== null ? `${t.setsDone}/${t.setsPlanned} סטים` : `${t.setsDone} סטים`;
+  const tot = phase.totals;
+  const setsChip =
+    tot.setsPlanned !== null
+      ? t('strengthSummary.phase.setsOf', { done: String(tot.setsDone), planned: String(tot.setsPlanned) })
+      : t('strengthSummary.phase.sets', { done: String(tot.setsDone) });
   return (
     <Card padding="none" className="px-3.5 pb-3.5 pt-4">
       <div className="mb-3 flex items-center gap-2.5">
         <IconTile icon={meta.icon} tone="accent" size="sm" />
-        <h3 className="min-w-0 flex-1 truncate text-[17px] font-black text-v2-ink">{meta.label}</h3>
+        <h3 className="min-w-0 flex-1 truncate text-[17px] font-black text-v2-ink">{t(meta.labelKey)}</h3>
         <div className="flex shrink-0 items-center gap-1.5">
           <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full bg-v2-tint px-3 text-[12px] font-extrabold tabular-nums text-v2-deep">
             {setsChip}
           </span>
-          {t.workSeconds > 0 ? (
+          {tot.workSeconds > 0 ? (
             <span className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-full bg-white px-3 text-[12px] font-extrabold tabular-nums text-v2-ink-2 shadow-v2-ring">
               <Timer size={13} strokeWidth={2.6} aria-hidden />
-              {formatWorkSeconds(t.workSeconds)}
+              {formatWorkSeconds(tot.workSeconds)}
             </span>
           ) : (
-            t.reps > 0 && (
+            tot.reps > 0 && (
               <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full bg-white px-3 text-[12px] font-extrabold tabular-nums text-v2-ink-2 shadow-v2-ring">
-                {t.reps} חזרות
+                {t('strengthSummary.phase.reps', { reps: String(tot.reps) })}
               </span>
             )
           )}
@@ -238,7 +255,7 @@ function PhaseCard({ phase }: { phase: PhaseSummary }) {
       </div>
       <div className="space-y-3.5">
         {phase.blocks.map((b) => (
-          <ExerciseSetsTable key={b.id} title={blockTitle(phase.phase, b)} rows={exerciseRows(b.exercises)} />
+          <ExerciseSetsTable key={b.id} title={blockTitle(t, phase.phase, b)} rows={exerciseRows(b.exercises)} />
         ))}
       </div>
     </Card>
@@ -246,10 +263,11 @@ function PhaseCard({ phase }: { phase: PhaseSummary }) {
 }
 
 export function PhaseBreakdownV2({ phases }: { phases: PhaseSummary[] }) {
+  const t = useT(player);
   if (phases.length === 0) {
     return (
       <Card padding="lg">
-        <p className="text-center text-[14px] font-bold text-v2-muted">אין תרגילים להצגה</p>
+        <p className="text-center text-[14px] font-bold text-v2-muted">{t('strengthSummary.breakdown.empty')}</p>
       </Card>
     );
   }

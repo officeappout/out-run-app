@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { levelRingModel, ringDashOffset } from '../utils/level-ring.util';
+import { levelRingModel as levelRingModelT, ringDashOffset } from '../utils/level-ring.util';
+import { makeT } from '@/lib/i18n/t';
+import { player } from '@/messages/ns/player';
+
+// The copy comes from the `player` catalog (strengthSummary.levelRing.*) through the caller's translator.
+const t = makeT('he', player);
+const levelRingModel = (level: number, max: number, pct: number) => levelRingModelT(t, level, max, pct);
 
 describe('levelRingModel', () => {
   it('matches ProgramProgressCard copy: level/max and remaining % to next', () => {

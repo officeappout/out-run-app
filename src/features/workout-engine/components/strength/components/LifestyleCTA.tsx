@@ -3,6 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Calendar } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * LifestyleCTA — post-workout "let's schedule the week" upsell card.
@@ -25,6 +27,7 @@ export interface LifestyleCTAProps {
 }
 
 export default function LifestyleCTA({ onSchedule, onDismiss }: LifestyleCTAProps) {
+  const t = useT(player);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -38,21 +41,21 @@ export default function LifestyleCTA({ onSchedule, onDismiss }: LifestyleCTAProp
             <Calendar className="w-6 h-6 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white">עבודה מעולה!</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300">בוא נשמור על המומנטום הזה</p>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white">{t('strengthSummary.lifestyle.title')}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300">{t('strengthSummary.lifestyle.subtitle')}</p>
           </div>
         </div>
         <button
           onClick={onSchedule}
           className="w-full py-3 bg-gradient-to-r from-[#5BC2F2] to-[#3BA4D8] text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-all"
         >
-          בואו נקבע לו״ז
+          {t('strengthSummary.lifestyle.cta')}
         </button>
         <button
           onClick={onDismiss}
           className="w-full mt-2 py-2 text-sm text-slate-500 hover:text-slate-700 font-medium"
         >
-          אולי מאוחר יותר
+          {t('strengthSummary.lifestyle.later')}
         </button>
       </div>
     </motion.div>
