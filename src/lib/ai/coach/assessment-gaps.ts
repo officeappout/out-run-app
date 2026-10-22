@@ -11,6 +11,7 @@
  * Only programs the mini assessment can actually run are kept: the four base categories
  * (body_focus path) and the skill ladders (skills path).
  */
+import { isHiddenProgram } from '@/lib/hidden-programs';
 import { PROGRAM_NAME_HE } from '@/features/workout-engine/services/coach-note';
 import {
   bucketForProgressHub,
@@ -91,12 +92,17 @@ export function deriveAssessmentGaps(i: AssessmentGapInput): AssessmentGap[] {
     catalog: [],
     gates: {},
     resolveSlug,
-    isHidden: () => false,
+    isHidden: isHiddenProgram,
   });
+  // Hidden skills (lib/hidden-programs) are never suggested for a level check
+  // unless the user has that program ACTIVE themselves (owner's exception) —
+  // a hidden child of an active parent is not enough.
+  const activeSlugs = new Set(activeIds.map(resolveSlug));
 
   const out: AssessmentGap[] = [];
   for (const item of needsAssessment) {
     if (!isAssessableSlug(item.slug)) continue;
+    if (isHiddenProgram(item.slug) && !activeSlugs.has(item.slug)) continue;
     const name = PROGRAM_NAME_HE[item.slug];
     if (!name) continue;
     const partOf = item.parentId ? (PROGRAM_NAME_HE[resolveSlug(item.parentId)] ?? null) : null;

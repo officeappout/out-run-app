@@ -20,6 +20,7 @@ import {
 } from '../store/useExerciseLibraryStore';
 import type { Exercise } from '../../core/exercise.types';
 import type { Program } from '@/features/content/programs/core/program.types';
+import { isHiddenSkillExercise } from '@/lib/hidden-programs';
 
 /**
  * Initial batch size + increment for "Load More". 12 keeps the first paint
@@ -377,6 +378,9 @@ export function useExerciseLibraryFilters() {
     }
 
     const result = allExercises.filter((ex) => {
+      // Hidden skills (lib/hidden-programs) — exercises that belong only to
+      // a hidden program are not listed or searchable.
+      if (isHiddenSkillExercise(ex)) return false;
       // Text query — name only (he + en)
       if (q) {
         const he = (ex.name?.he ?? '').toLowerCase();

@@ -89,6 +89,7 @@ import type { GearDefinition } from '@/features/content/equipment/gear/core/gear
 import type { MuscleGroup } from '../../core/exercise.types';
 import { resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useT } from '@/hooks/useT';
+import { isHiddenProgram } from '@/lib/hidden-programs';
 import { library } from '@/messages/ns/library';
 
 const DEFAULT_MAX_LEVELS = 20;
@@ -234,7 +235,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
   // already tagged to one of these doesn't silently stop matching; they
   // just aren't offered as a new selection here.
   const visiblePrograms = useMemo(
-    () => programs.filter((p) => !EXCLUDED_TRACK_NAMES.has(p.name.trim())),
+    () => programs.filter((p) => !EXCLUDED_TRACK_NAMES.has(p.name.trim()) && !isHiddenProgram(p.id)),
     [programs],
   );
 

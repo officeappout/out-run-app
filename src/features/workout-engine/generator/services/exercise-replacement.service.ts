@@ -12,6 +12,7 @@ import { withoutTestExercises } from '../../shared/utils/test-exercise.utils';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { selectExecutionMethodWithBrand } from './execution-method-selector.service';
+import { isHiddenSkillExercise } from '@/lib/hidden-programs';
 
 export interface AlternativeExerciseOption {
   exercise: Exercise;
@@ -61,6 +62,12 @@ function debugMethodLocations(exercise: Exercise): string {
       return `[${i}] location="${loc}" mapping=[${mapping}] gear=${m.requiredGearType || '?'}`;
     })
     .join(' | ');
+}
+
+/** Hidden skills (lib/hidden-programs) are never offered as a swap — unless
+ *  the exercise being replaced is itself one (the user trains that skill). */
+function isOfferableSwap(ex: Exercise, current: Exercise): boolean {
+  return !isHiddenSkillExercise(ex) || isHiddenSkillExercise(current);
 }
 
 // ── Smart Select 3 ──
@@ -157,6 +164,7 @@ export async function getExerciseVariations(
   for (const ex of allExercises) {
     if (ex.id === currentExercise.id) continue;
     if (ex.base_movement_id !== currentExercise.base_movement_id) continue;
+    if (!isOfferableSwap(ex, currentExercise)) continue;
 
     familyCount++;
     const exLevel = getExerciseLevel(ex, activeProgramId);
@@ -239,6 +247,7 @@ export async function getAlternativeExercises(
     if (ex.id === currentExercise.id) continue;
     if (excludeIds?.has(ex.id)) continue;
     if (ex.movementGroup !== currentExercise.movementGroup) continue;
+    if (!isOfferableSwap(ex, currentExercise)) continue;
 
     groupCount++;
     const exLevel = getExerciseLevel(ex, activeProgramId);

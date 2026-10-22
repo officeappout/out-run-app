@@ -97,6 +97,7 @@ interface FlagState {
   enable_locale_de: boolean;
   enable_app_session_signal: boolean;
   admin_ai_assistant_v1: boolean;
+  pyramid_injection_off: boolean;
 }
 
 // ============================================================================
@@ -750,6 +751,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-violet-600',
     title: 'פאנל: עוזר AI ("שאל את OUT")',
     description: 'צ׳אט בתוך פאנל הניהול לסופר-אדמין ולמנהלי השורש בלבד: ניווט לעמודים (בלי מודל), תשובות מהירות ושאלות על נתוני הפאנל. קריאה בלבד. התקציב היומי נקבע ב-app_config/ai (adminAiBudgetUsd). לא נדלק אוטומטית לסופר-אדמין.',
+  },
+  // Pyramid kill switch (22.10.2026) — only pyramids; other protocols stay as configured.
+  {
+    key: 'pyramid_injection_off',
+    icon: Dumbbell,
+    iconBg: 'bg-rose-50',
+    iconColor: 'text-rose-500',
+    title: 'פירמידות כבויות',
+    description: 'דלוק = המחולל לא מכניס פירמידה לאף אימון: היא יורדת מרשימת הפרוטוקולים של כל תוכנית ורמה, האפשרות ה"עצימה" לא מקבלת פירמידה כפויה, ולכן גם אימוני פארק משולבים לא יכילו שלבי פירמידה. סופרסטים, EMOM וטבטה ממשיכים כפי שהוגדרו. נקרא פעם אחת בכל יצירת אימון. כבוי = כמו היום.',
   },
 ];
 

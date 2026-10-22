@@ -489,6 +489,12 @@ export const FLAG_DEFS = [
   // §32) — not a reuse of ai_coach_*. superAdminValue false: the panel toggle is the one switch,
   // and the server always reads the real value, so the drawer and the routes never disagree.
   { key: 'adminAiAssistantV1', firestoreKey: 'admin_ai_assistant_v1', defaultValue: false, superAdminValue: false },
+  // Pyramid kill switch (22.10.2026, owner: only pyramids are not accurate yet). ON = the home
+  // generator never injects a pyramid — dropped from the protocol list, no forced pyramid on
+  // the intense option, so no pyramid steps in hybrid sessions built from the trio either.
+  // Supersets / EMOM / tabata stay as configured. Read once per generation (readLiveFlag).
+  // superAdminValue false: one switch, same for everyone.
+  { key: 'pyramidInjectionOff', firestoreKey: 'pyramid_injection_off', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

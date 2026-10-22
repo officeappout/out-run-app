@@ -34,3 +34,25 @@ export function isHiddenProgram(idOrSlug: string | null | undefined): boolean {
   const looksLikeDocId = idOrSlug.length > 15 && !idOrSlug.includes('_');
   return looksLikeDocId && HIDDEN_PROGRAM_SLUGS.has(resolveToSlug(idOrSlug));
 }
+
+/** Minimal exercise shape — keeps this module free of a content-domain import. */
+export interface ProgramTaggedExercise {
+  targetPrograms?: ReadonlyArray<{ programId?: string | null } | null> | null;
+  programIds?: ReadonlyArray<string | null> | null;
+}
+
+/**
+ * An exercise that belongs ONLY to hidden programs (e.g. tagged muscle_up and
+ * nothing else). Same "exclusive" rule as the generator's skill gate: an
+ * exercise shared with any visible program (muscle_up + pull) stays visible,
+ * and an untagged exercise is never hidden.
+ */
+export function isHiddenSkillExercise(ex: ProgramTaggedExercise | null | undefined): boolean {
+  if (!ex) return false;
+  const ids = [
+    ...(ex.targetPrograms ?? []).map((tp) => tp?.programId),
+    ...(ex.programIds ?? []),
+  ].filter((id): id is string => typeof id === 'string' && id.length > 0);
+  if (ids.length === 0) return false;
+  return ids.every((id) => isHiddenProgram(id));
+}
