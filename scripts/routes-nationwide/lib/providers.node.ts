@@ -9,7 +9,7 @@ import * as path from 'path';
 import type { Firestore } from 'firebase-admin/firestore';
 import { DATASETS, planDatasetImport, readShapefileZip, type AuthorityBoundary, type DatasetLine } from '../../../src/lib/dataset-import';
 import { buildSegmentIndex, parsePath, surfaceMixFromSegments, type SurfaceSegment } from '../../../src/lib/route-score';
-import { disambiguateByKm, type CandidateRoute, type StageProvider } from '../../../src/lib/routes-nationwide';
+import { disambiguateByKm, dropLegacyIdCandidates, type CandidateRoute, type StageProvider } from '../../../src/lib/routes-nationwide';
 import type { TrailRoute } from '../../../src/lib/trail-graph/types';
 import { readAllOfficialRoutes, readStreetSegmentSurfaces } from '../../lib/route-collections-read.node';
 import { runBuildSegmentGraph } from '../../trails/build-segment-graph';
@@ -98,7 +98,7 @@ export class DatasetCatalog {
  */
 export class TrailsRun {
   private result: Promise<{ named: CandidateRoute[]; generated: CandidateRoute[]; note: string }> | null = null;
-  constructor(private a: AuthorityCtx, private relationId: number | null, private relationNote: string, private outRoot: string, private enabled: boolean) {}
+  constructor(private a: AuthorityCtx, private relationId: number | null, private relationNote: string, private outRoot: string, private enabled: boolean, private legacyLookup: ((ids: string[]) => Promise<Map<string, string>>) | null = null) {}
 
   private run() {
     if (!this.result) this.result = this.exec();
@@ -132,8 +132,16 @@ export class TrailsRun {
         isNew: true,
       }));
     };
+    let namedCands = toCand(validatedRouteDocs(named.routes, auth, ctx), 'osm');
+    // Re-run guard: the pre-change doc id osm_rel_<id> may exist (any status, archived too) — don't re-create it.
+    if (this.legacyLookup) {
+      const legacyIds = namedCands.map((c) => /^(osm_rel_\d+)__/.exec(c.id)?.[1]).filter((x): x is string => !!x);
+      const { kept, dropped } = dropLegacyIdCandidates(namedCands, await this.legacyLookup(legacyIds), this.a.id);
+      if (dropped.length) console.log(`  [osm] ${dropped.length} candidate(s) skipped — legacy-id doc already exists for this authority`);
+      namedCands = kept;
+    }
     return {
-      named: toCand(validatedRouteDocs(named.routes, auth, ctx), 'osm'),
+      named: namedCands,
       generated: toCand(validatedRouteDocs(gen.routes, auth, ctx), 'generated'),
       note: `relation ${this.relationId} (${this.relationNote})`,
     };

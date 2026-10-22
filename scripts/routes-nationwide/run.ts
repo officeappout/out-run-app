@@ -66,6 +66,7 @@ import { assertOsmium, ensureIsraelPbf } from '../trails/lib/pilot-osm.node';
 import { loadAdminRelations } from './lib/admin-index.node';
 import { DatasetCatalog, TrailsRun, existingProvider, type AuthorityCtx } from './lib/providers.node';
 import { AuthorityOsmSlice } from './lib/authority-osm.node';
+import { readExistingIdsAuthority } from '../lib/route-collections-read.node';
 import { crossCouncilDuplicate } from './lib/cross-council-duplicate.node';
 import { authorityGh, createRunnerGhClient } from './lib/gh-client.node';
 import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider, settlementLoopsProvider } from './lib/gh-stages.node';
@@ -220,7 +221,7 @@ async function main() {
         }
       }
       const ctx: AuthorityCtx = { id: a.id, name: a.name, knownAuthorityIds };
-      const trails = new TrailsRun(ctx, relationId, relationNote, TRAILS_OUT, !SKIP_OSM);
+      const trails = new TrailsRun(ctx, relationId, relationNote, TRAILS_OUT, !SKIP_OSM, (ids) => readExistingIdsAuthority(target.db, ids));
       const stored = SKIP_OSM ? null : boundaryFromStored((await target.db.collection('authorities').doc(a.id).get()).get('boundaryGeoJSON'));
       const slice = new AuthorityOsmSlice(a, stored, relationId, path.join(OUT, 'parks'));
       const ghA = SKIP_OSM ? null : authorityGh(gh.client, path.join(OUT, 'cache', 'gh'), a.id, GH_MAX_CALLS);

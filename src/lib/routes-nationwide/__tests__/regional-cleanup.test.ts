@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { disambiguateByKm, geometryOverlap, isTrueDuplicate, planCleanup, shortAuthorityName, stripOsmCode, type CleanupDoc } from '../dedupe';
+import { dropLegacyIdCandidates, makeCrossCouncilDuplicate } from '../cross-council';
 import { runAuthorityStages, type CandidateRoute, type StageProvider } from '../stages';
 
 const line = (lng0: number, n: number, lat = 31): [number, number][] => Array.from({ length: n }, (_, i) => [lng0 + i * 0.0005, lat] as [number, number]); // ≈ 47 m / step
@@ -70,5 +71,36 @@ describe('runAuthorityStages externalDuplicate + regional cap', () => {
     const r = await runAuthorityStages({ id: 'A', type: 'regional_council' }, [prov([cand('t1', 1), cand('t2', 2)])], new Date(), { externalDuplicate: async (c) => (c.id === 't2' ? 'other' : null) });
     expect(r.pool.map((p) => p.id)).toEqual(['t1']);
     expect(r.stages.find((s) => s.key === 'osm')!.droppedDuplicate).toBe(1);
+  });
+});
+
+describe('cross-council hook resilience', () => {
+  const c = (name = 'שביל ישראל'): CandidateRoute => ({ id: 'osm_rel_1__A', stage: 'osm', isNew: true, data: { name, path: line(34, 40) } });
+  it('a failing reader logs a warning and keeps the candidate (no throw)', async () => {
+    const warns: string[] = [];
+    const hook = makeCrossCouncilDuplicate({ readByName: async () => { throw new Error('RESOURCE_EXHAUSTED'); }, authorityName: 'מועצה אזורית גולן', warn: (s) => warns.push(s) });
+    const cand = c();
+    await expect(hook(cand)).resolves.toBeNull();
+    expect(warns).toHaveLength(1);
+    expect(cand.data.name).toBe('שביל ישראל');
+  });
+  it('true duplicate elsewhere is dropped; different section is renamed by council', async () => {
+    const dup = makeCrossCouncilDuplicate({ readByName: async () => [{ id: 'x', data: { status: 'pending', path: line(34, 40) } }], authorityName: 'מועצה אזורית גולן' });
+    expect(await dup(c())).toBe('x');
+    const sec = makeCrossCouncilDuplicate({ readByName: async () => [{ id: 'x', data: { status: 'pending', path: line(34.5, 40) } }], authorityName: 'מועצה אזורית גולן' });
+    const cand = c();
+    expect(await sec(cand)).toBeNull();
+    expect(cand.data.name).toBe('שביל ישראל · קטע גולן');
+  });
+});
+
+describe('legacy id re-run guard', () => {
+  const cands = [{ id: 'osm_rel_7__A' }, { id: 'osm_rel_8__A' }, { id: 'osm_rel_9__A' }, { id: 'gen_1_1' }];
+  it('drops candidates whose OLD-format doc exists for the same authority — pending and archived alike; other authority/none kept', () => {
+    // legacy map comes from an any-status lookup: 7 = pending doc, 8 = archived doc, 9 = belongs to another council
+    const legacy = new Map([['osm_rel_7', 'A'], ['osm_rel_8', 'A'], ['osm_rel_9', 'B']]);
+    const r = dropLegacyIdCandidates(cands, legacy, 'A');
+    expect(r.dropped).toEqual(['osm_rel_7__A', 'osm_rel_8__A']);
+    expect(r.kept.map((x) => x.id)).toEqual(['osm_rel_9__A', 'gen_1_1']);
   });
 });
