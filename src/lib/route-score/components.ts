@@ -21,7 +21,8 @@ export function scoreSurface(i: RouteScoreInput): ComponentScore {
   const c = i.composition;
   if (!c) return missing(max, 'no composition');
   const raw = c.genuinePct + 0.5 * c.ordinaryPct + 0.25 * c.sidewalkPct - 0.5 * c.otherPct;
-  return { points: round1(max * clamp01(raw / 100)), max, coverage: i.compositionIsProxy ? 0.5 : 1, notes: i.compositionIsProxy ? ['proxy: trail share'] : [] };
+  const notes = i.compositionIsProxy ? ['proxy: trail share'] : i.measuredBy?.composition ? ['measured: OSM ways'] : [];
+  return { points: round1(max * clamp01(raw / 100)), max, coverage: i.compositionIsProxy ? 0.5 : 1, notes };
 }
 
 /**
@@ -78,7 +79,7 @@ export function scoreSafety(i: RouteScoreInput): ComponentScore {
   if (s) {
     let pts = max * (1 - clamp01(s.majorRoadPct / 0.3));
     pts -= Math.min(6, s.unmarkedPerKm * 6);
-    return { points: round1(Math.max(0, pts)), max, coverage: 1, notes: [] };
+    return { points: round1(Math.max(0, pts)), max, coverage: 1, notes: i.measuredBy?.safety ? ['measured: OSM roads + crossings'] : [] };
   }
   if (i.composition) {
     const pts = max * (1 - clamp01(i.composition.sidewalkPct / 60));
@@ -99,15 +100,20 @@ export function scoreSource(i: RouteScoreInput): ComponentScore {
 }
 
 /**
- * Comfort (15): lighting (8) + amenities (7: water 3, bench 3, other 1).
+ * Comfort (15): lighting (8) + amenities (7: water 3, bench 3, other 1 —
+ * court / dog park / toilets / fitness station).
  * When shade was measured (`shadeShare` — Technion SI, only when the layer
  * covers ≥ 50% of the route), the split becomes lighting 6 + amenities 5 +
- * shade 4, linear from SI 0.10 (0 pts) to 0.35 (full). Unmeasured shade is
- * simply absent — no penalty, and it does not lower coverage.
+ * shade 4, linear from SI 0.10 (0 pts) to 0.35 (full). Without Technion, a
+ * dataset tree hint (`shadeHint`, v1.3) takes the same 4 points at half
+ * coverage. Unmeasured shade is simply absent — no penalty, and it does not
+ * lower coverage.
  */
 export function scoreComfort(i: RouteScoreInput): ComponentScore {
   const max = SCORE_WEIGHTS.comfort;
-  const hasShade = i.shadeShare != null;
+  const shadeValue = i.shadeShare ?? i.shadeHint ?? null;
+  const hintOnly = i.shadeShare == null && shadeValue != null;
+  const hasShade = shadeValue != null;
   const LIGHT = hasShade ? 6 : 8;
   const AMEN = hasShade ? 5 : 7;
   const SHADE = hasShade ? 4 : 0;
@@ -117,22 +123,25 @@ export function scoreComfort(i: RouteScoreInput): ComponentScore {
   if (i.litCoveragePct != null) {
     pts += LIGHT * clamp01(i.litCoveragePct / 80);
     measured += LIGHT;
+    if (i.measuredBy?.lighting) notes.push('lighting measured: OSM lit + lamps');
   } else {
     pts += LIGHT / 2;
     notes.push('lighting not computed');
   }
   const a = i.amenitiesHas;
   if (a) {
-    const raw = (a.drinking_water ? 3 : 0) + (a.bench ? 3 : 0) + (a.court || a.dog_park ? 1 : 0);
+    const raw = (a.drinking_water ? 3 : 0) + (a.bench ? 3 : 0) + (a.court || a.dog_park || a.toilets || a.fitness_station ? 1 : 0);
     pts += (raw / 7) * AMEN;
     measured += AMEN;
+    if (i.measuredBy?.amenities) notes.push('amenities measured: OSM points ≤ 50 m');
   } else {
     pts += AMEN / 2;
     notes.push('amenities not computed');
   }
   if (hasShade) {
-    pts += SHADE * clamp01(((i.shadeShare as number) - SHADE_SI_ZERO) / (SHADE_SI_FULL - SHADE_SI_ZERO));
-    measured += SHADE;
+    pts += SHADE * clamp01(((shadeValue as number) - SHADE_SI_ZERO) / (SHADE_SI_FULL - SHADE_SI_ZERO));
+    measured += hintOnly ? SHADE / 2 : SHADE;
+    if (hintOnly) notes.push('shade: tree hint (dataset)');
   }
   return { points: round1(pts), max, coverage: measured / max, notes, ...(i.hourlyShade ? { hourlyShade: i.hourlyShade } : {}) };
 }
