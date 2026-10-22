@@ -397,6 +397,14 @@ export const FLAG_DEFS = [
   // a compact park card; layers panel toggles for parks and routes. Fail-closed; super admins
   // preview it. Off = byte-identical map.
   { key: 'enableMapPolishV1', firestoreKey: 'enable_map_polish_v1', defaultValue: false, superAdminValue: true },
+  // Measure every push type (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md
+  // §5 data gaps). Read ONLY by Cloud Functions (functions/src/services/push-measure-all.ts, 60s
+  // cache): on = every push sender — not just the ones that already pass `measurement` — writes
+  // push_sent to push_events and stamps messageId, so opens (push_opened), landings and the
+  // open-anchored outcome (post_push_outcome) are recorded for all push types, each record with
+  // `typeId`. superAdminValue FALSE (server-side, no viewer). Fail-closed. Off = byte-identical
+  // sends (same FCM payloads, no extra push_events writes).
+  { key: 'enablePushMeasureAll', firestoreKey: 'enable_push_measure_all', defaultValue: false, superAdminValue: false },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default

@@ -51,6 +51,8 @@ import { sendPush } from './services/push.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
 import { isDemoUid, restrictToDemoWorld } from './lib/demo';
 import { loadDemoViewerUids } from './lib/demo-world';
+import { PUSH_TYPE_IDS, accumulateUidDelivery, isPushMeasureAllEnabled, mintPushId } from './services/push-measure-all';
+import { writeLegacyPushSentEvents } from './services/push-events.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -169,6 +171,7 @@ export const chatMessageNotification = onDocumentCreated(
       const result = await sendPush({
         toUids: recipientUids,
         channel: 'chat',
+        measurementTypeId: PUSH_TYPE_IDS.chatMessage, // enable_push_measure_all (off = ignored)
         title: senderName,
         body: bodyText || '💬 הודעה חדשה',
         deepLink: `/chat/${chatId}`,
@@ -227,6 +230,10 @@ export const chatMessageNotification = onDocumentCreated(
       return;
     }
 
+    // enable_push_measure_all (off = no pushId, no messageId, no push_events writes — as before).
+    const legacyPushId = (await isPushMeasureAllEnabled()) ? mintPushId() : undefined;
+    const uidDelivered = new Map<string, boolean>();
+
     // ── Step 4: Build FCM multicast message ────────────────────────────────
     // (bodyText computed above, shared with the routed path)
     const messageBase: admin.messaging.MulticastMessage = {
@@ -239,6 +246,7 @@ export const chatMessageNotification = onDocumentCreated(
         chatId,
         deepLink: `/chat/${chatId}`,
         channel: 'chat',
+        ...(legacyPushId ? { messageId: legacyPushId } : {}),
       },
       apns: {
         payload: {
@@ -264,6 +272,7 @@ export const chatMessageNotification = onDocumentCreated(
       const batch = tokenList.slice(i, i + MULTICAST_BATCH_SIZE);
       try {
         const response = await messaging.sendEachForMulticast({ ...messageBase, tokens: batch });
+        if (legacyPushId) accumulateUidDelivery(uidDelivered, batch, tokenOwners, response.responses.map((r) => r.success));
         response.responses.forEach((resp, idx) => {
           if (resp.success) {
             deliveredCount += 1;
@@ -281,8 +290,13 @@ export const chatMessageNotification = onDocumentCreated(
         });
       } catch (e: unknown) {
         failedCount += batch.length;
+        if (legacyPushId) accumulateUidDelivery(uidDelivered, batch, tokenOwners, null);
         logger.warn('[chatMessageNotification] batch send failed', e);
       }
+    }
+
+    if (legacyPushId) {
+      await writeLegacyPushSentEvents({ pushId: legacyPushId, channel: 'chat', typeId: PUSH_TYPE_IDS.chatMessage, uidDelivered });
     }
 
     // ── Step 5: Prune dead tokens ───────────────────────────────────────────
