@@ -131,3 +131,5 @@ export { default as ScreenSkeleton } from './ScreenSkeleton';
 export type { ScreenSkeletonProps } from './ScreenSkeleton';
 // Bottom chrome math: nav / FAB offsets and the end padding a scroll container needs.
 export * from './bottom-chrome';
+export { default as WheelPicker } from './WheelPicker';
+export type { WheelPickerProps, WheelColumn, WheelOption, WheelValue } from './WheelPicker';

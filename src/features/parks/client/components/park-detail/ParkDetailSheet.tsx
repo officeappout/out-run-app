@@ -114,7 +114,8 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
   useParkScrollProgressSync(motion.scrollRef, isOpen, motion.scrollYMV);
 
-  // enable_map_polish_v1: navigate → the in-app destination flow; the shelter tag lives here.
+  // enable_map_polish_v1: navigate → the in-app destination flow; the shelter tag lives here;
+  // "אני מגיע…" opens the wheel sheet (ArrivalWheelSheet) instead of the slider.
   const polish = useMapPolishV1();
   const navigateTo = useNavigateTo();
   const handleNavigate = useCallback(() => {
@@ -191,6 +192,8 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   onTimeRangeChange={arrival.setTimeRangeMinutes}
                   publishing={arrival.publishingSession}
                   onPublish={arrival.handlePublishArrival}
+                  wheel={polish}
+                  onPublishAt={arrival.handlePublishArrivalAt}
                 />
               }
             />
