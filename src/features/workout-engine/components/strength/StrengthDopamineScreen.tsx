@@ -18,6 +18,8 @@ import { motion, AnimatePresence, useMotionValue, useTransform, animate as anima
 import { Trophy, Share2, ArrowRight, Sparkles, Flame, Target, CheckCircle2 } from 'lucide-react';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { playTick, playSuccessChime } from '@/lib/sound';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 
 // ============================================================================
 // TYPES
@@ -80,12 +82,13 @@ const ANIMATION_DELAYS = {
 /** If bonuses prop never arrives, complete gracefully after this many ms. */
 const DATA_TIMEOUT_MS = 12000;
 
+/** Status line per step — `player` keys, translated at render. */
 const STATUS_MESSAGES = {
-  analyzing: 'מנתח ביצועים...',
-  step1: 'סחטיין על הביצוע!',
-  step2: 'ממשיכים להתקדם!',
-  complete: 'האימון הסתיים!',
-};
+  analyzing: 'dopamine.status.analyzing',
+  step1: 'dopamine.status.step1',
+  step2: 'dopamine.status.step2',
+  complete: 'dopamine.status.complete',
+} as const satisfies Record<string, PlayerKey>;
 
 // SVG circle constants
 const CIRCLE_RADIUS = 70;
@@ -310,13 +313,14 @@ function LevelProgressBar({
   level: number; 
   percentage: number;
 }) {
+  const t = useT(player);
   return (
     <div className="flex flex-row-reverse items-center justify-between gap-4 w-full">
       {/* Level badge */}
       <div className="flex items-center gap-2">
         <Trophy className="w-5 h-5 text-slate-800 dark:text-white" />
         <span className="text-lg font-bold text-slate-800 dark:text-white">
-          רמה {level}
+          {t('dopamine.level', { level: String(level) })}
         </span>
       </div>
       
@@ -353,16 +357,17 @@ export default function StrengthDopamineScreen({
   programName,
   bonuses,
   volumeBreakdown,
-  celebrationMessage = 'כל הכבוד, איזה אנרגיה! קיבלתם אחוזים שמקדמים אתכם בדרך לרמה הבאה. המשיכו כך – וכשתגיעו ל-100%, תעלו רמה!',
+  celebrationMessage,
   onShare,
   onBack,
   enableHaptics = true,
 }: StrengthDopamineScreenProps) {
+  const t = useT(player);
   // Current displayed percentage (animated)
   const [displayPercent, setDisplayPercent] = useState(initialProgress);
 
   // Current status message
-  const [statusMessage, setStatusMessage] = useState(STATUS_MESSAGES.analyzing);
+  const [statusMessage, setStatusMessage] = useState<PlayerKey>(STATUS_MESSAGES.analyzing);
 
   // Which bonus steps are visible
   const [visibleBonuses, setVisibleBonuses] = useState<string[]>([]);
@@ -487,7 +492,7 @@ export default function StrengthDopamineScreen({
             animate={{ opacity: 1, y: 0 }}
             className="text-3xl font-black text-slate-900 dark:text-white mb-8 text-center"
           >
-            {statusMessage}
+            {t(statusMessage)}
           </motion.h1>
           
           {/* Info Card */}
@@ -502,7 +507,7 @@ export default function StrengthDopamineScreen({
             </h2>
             
             <p className="text-slate-600 dark:text-slate-400 text-center text-lg leading-relaxed mb-8">
-              {celebrationMessage}
+              {celebrationMessage ?? t('dopamine.celebrationDefault')}
             </p>
             
             {/* Divider */}
@@ -529,7 +534,7 @@ export default function StrengthDopamineScreen({
             className="w-full bg-primary py-4 rounded-2xl text-white font-bold text-lg shadow-lg shadow-primary/20 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <Share2 className="w-5 h-5" />
-            שיתוף התקדמות
+            {t('dopamine.share')}
           </button>
           
           <button 
@@ -538,7 +543,7 @@ export default function StrengthDopamineScreen({
             className="w-full bg-transparent py-4 rounded-2xl text-slate-500 dark:text-slate-400 font-bold text-lg active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <ArrowRight className="w-5 h-5" />
-            חזרה ללוח בקרה
+            {t('dopamine.back')}
           </button>
         </div>
       </div>

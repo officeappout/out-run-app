@@ -6,16 +6,16 @@
  * so both paths draw the exact same cards.
  */
 import type { TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
+import type { PlayerT } from '@/messages/ns/player';
 
 const clock = (sec: number) => {
   const s = Math.max(0, Math.round(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-const ORDINAL = ['', 'הראשון', 'השני', 'השלישי', 'הרביעי', 'החמישי', 'השישי', 'השביעי', 'השמיני', 'התשיעי', 'העשירי'];
-/** "בסבב החמישי" (1-based round). */
-export function roundOrdinal(n: number): string {
-  return ORDINAL[n] ? `בסבב ${ORDINAL[n]}` : `בסבב ה-${n}`;
+/** "בסבב החמישי" (1-based round; ordinal words for 1–10, "בסבב ה-N" after). */
+export function roundOrdinal(t: PlayerT, n: number): string {
+  return t('strengthSummary.timed.roundOrdinal', { n: String(n) });
 }
 
 const minutesTitle = (name: string, sec: number) => `${name} ${Math.max(1, Math.round(sec / 60))}′`;
@@ -30,15 +30,17 @@ export interface AmrapSummaryModel {
   partial: { label: string; fraction: number } | null;
 }
 
-export function amrapSummaryModel(r: TimedBlockRecord): AmrapSummaryModel | null {
+export function amrapSummaryModel(t: PlayerT, r: TimedBlockRecord): AmrapSummaryModel | null {
   if (!r.amrap) return null;
   const { fullRounds, partialReps, partialTarget, roundTimesSec } = r.amrap;
   const hasExtra = partialReps > 0;
   return {
     title: minutesTitle('AMRAP', r.plannedSec),
     fullRounds,
-    extraLine: hasExtra ? `ועוד ${partialReps} חזרות ${roundOrdinal(fullRounds + 1)}` : null,
-    rounds: roundTimesSec.map((t, i) => ({ key: `r${i}`, label: `סבב ${i + 1}`, time: clock(t) })),
+    extraLine: hasExtra
+      ? t('strengthSummary.timed.amrap.extra', { reps: String(partialReps), ordinal: roundOrdinal(t, fullRounds + 1) })
+      : null,
+    rounds: roundTimesSec.map((sec, i) => ({ key: `r${i}`, label: t('strengthSummary.timed.amrap.roundLabel', { n: String(i + 1) }), time: clock(sec) })),
     partial: hasExtra
       ? {
           label: partialTarget > 0 ? `${partialReps}/${partialTarget}` : String(partialReps),
@@ -64,7 +66,7 @@ export interface EmomSummaryModel {
   note: string | null;
 }
 
-export function emomSummaryModel(r: TimedBlockRecord): EmomSummaryModel | null {
+export function emomSummaryModel(t: PlayerT, r: TimedBlockRecord): EmomSummaryModel | null {
   if (!r.emom) return null;
   const minutes = r.emom.minutes;
   const total = minutes.length;
@@ -87,11 +89,17 @@ export function emomSummaryModel(r: TimedBlockRecord): EmomSummaryModel | null {
       tone: m.status,
       fraction: m.status === 'done' ? Math.min(1, (m.workSec ?? intervalSec) / intervalSec) : m.status === 'partial' ? 1 : 0.06,
     })),
-    note: p ? `דקה ${pIdx + 1} (כתום): ${p.reps ?? 0}${p.target ? ` מתוך ${p.target}` : ''} חזרות` : null,
+    note: p
+      ? p.target
+        ? t('strengthSummary.timed.emom.noteWithTarget', { minute: String(pIdx + 1), reps: String(p.reps ?? 0), target: String(p.target) })
+        : t('strengthSummary.timed.emom.note', { minute: String(pIdx + 1), reps: String(p.reps ?? 0) })
+      : null,
   };
 }
 
 /** Tabata: "8/8 אינטרוולים". */
-export function tabataSummaryLine(r: TimedBlockRecord): string | null {
-  return r.tabata ? `${r.tabata.intervals}/${r.tabata.intervalsTotal} אינטרוולים` : null;
+export function tabataSummaryLine(t: PlayerT, r: TimedBlockRecord): string | null {
+  return r.tabata
+    ? t('strengthSummary.timed.tabata.line', { done: String(r.tabata.intervals), total: String(r.tabata.intervalsTotal) })
+    : null;
 }
