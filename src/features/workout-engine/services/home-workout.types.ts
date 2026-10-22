@@ -145,6 +145,11 @@ export interface HomeWorkoutOptions {
   remainingScheduleDays?: number;
   /** Exercise IDs from last 2 sessions (for Variety Guard anti-boredom). */
   recentExerciseIds?: string[];
+  /**
+   * 3e (enable_goal_presence_v1): domain → exercise ids of the last 2 sessions that trained
+   * that domain (useWeeklyVolumeStore sessionLogs). Plain data — ignored while the flag is off.
+   */
+  recentExerciseIdsByDomain?: Record<string, string[]>;
 
   /**
    * Restrict generated exercises to these movement domains.

@@ -412,6 +412,7 @@ export default function StrengthSummaryPage({
       progression={progression}
       email={email}
       evaluatedGoals={evaluatedGoals}
+      goalCelebration={flags.enableGoalPresenceV1 === true}
       visibleSuggestions={visibleSuggestions}
       onAcceptSuggestion={handleAcceptSuggestion}
       onDismissSuggestion={handleDismissSuggestion}

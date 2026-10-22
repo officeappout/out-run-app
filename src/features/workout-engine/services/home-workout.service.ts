@@ -152,6 +152,7 @@ import { resolveProgressionPolicy } from '../logic/adaptive/policy';
 import type { AdaptiveState } from '../logic/adaptive/double-progression';
 import { buildVariationBonus, type ScoreBonusMap } from '../logic/adaptive/selection-bonus';
 import { isProgressHoldSession } from '../logic/adaptive/session-gates';
+import { goalPresenceBoostIds as goalPresenceBoostIdsFor } from '../logic/adaptive/goal-presence';
 import { isBudgetLightModeEnabled } from '../budget-light/flag';
 import { applyBudgetLightToTrio, resolveTrioBudgetGate } from '../budget-light/trio-gate';
 import type {
@@ -3244,6 +3245,29 @@ async function _buildSharedPipeline(
   }
   genPerfMark('#7 exercise-history (fan-out getDoc)');
 
+  // 3e goal presence: a goal exercise missing from the recent sessions of its area gets a score
+  // boost (never forced in). Nothing on deload / heat / calm return / recovery.
+  let goalPresenceBoostIds: Set<string> | undefined;
+  if (
+    progressionPolicy.goalPresence
+    && goalExerciseIds?.size
+    && !isProgressHoldSession({
+      periodizationWeek: sessionPolicy.periodizationWeek,
+      heat: isHeatLike(weather),
+      calmReturnLightened: !!calmReturn?.isLightened,
+      isRecovery: effectiveIsRecovery,
+    })
+  ) {
+    const byId = new Map<string, { id: string; movementGroup?: string | null }>();
+    for (const ex of allExercises) byId.set(ex.id, ex);
+    goalPresenceBoostIds = goalPresenceBoostIdsFor({
+      goalIds: goalExerciseIds,
+      exercisesById: byId,
+      recentByDomain: options.recentExerciseIdsByDomain,
+      recentIds: recentExerciseIds,
+    });
+  }
+
   // Adaptive selection nudges (3a variation step) — score deltas only, never forced in.
   const adaptiveScoreBonus: ScoreBonusMap = new Map();
   if (progressionPolicy.adaptiveReps) {
@@ -3402,6 +3426,7 @@ async function _buildSharedPipeline(
     progressionPolicy,
     ...(progressionPolicy.adaptiveReps ? { adaptiveStates } : {}),
     ...(adaptiveScoreBonus.size > 0 ? { adaptiveScoreBonus } : {}),
+    ...(goalPresenceBoostIds?.size ? { goalPresenceBoostIds } : {}),
   };
 
   // ── Build metadata context base for per-option title/description resolution ─

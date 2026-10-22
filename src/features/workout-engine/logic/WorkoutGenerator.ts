@@ -111,6 +111,7 @@ import { createBudgetDistributor } from '../core/pipeline/BudgetDistributor';
 
 // GuaranteePassRunner — Tier-2 coverage guarantees (Phase 3b)
 import { runAllGuarantees } from '../core/pipeline/GuaranteePassRunner';
+import { GOAL_SCORE_BOOST } from './adaptive/adaptive.config';
 
 // ============================================================================
 // PYRAMID TARGET SELECTION
@@ -1864,6 +1865,10 @@ export class WorkoutGenerator {
       if (adaptiveNudge && adaptiveNudge.delta !== 0) {
         bonus += adaptiveNudge.delta;
         reasoning.push(`adaptive:${adaptiveNudge.reason}`);
+      }
+      if (context.goalPresenceBoostIds?.has(ex.exercise.id) && context.difficulty !== 1) {
+        bonus += GOAL_SCORE_BOOST;
+        reasoning.push(`goal_presence:+${GOAL_SCORE_BOOST}`);
       }
 
       if (bonus === 0) return ex;

@@ -410,6 +410,8 @@
   "strengthSummary.goals.title": "יעדי רמה",
   "strengthSummary.goals.progress": "{best}/{target} {unit, select, reps {חזרות} other {שניות}}",
   "strengthSummary.goals.total": "סה״כ יעדים באימון",
+  "strengthSummary.goals.reached": "הגעת ליעד",
+  "strengthRunner.goalReached": "הגעת ליעד! {unit, select, reps {{value} {name}} other {{name} {value} שניות}} ✓",
   "strengthSummary.suggestions.titleOne": "נראה שאתם מוכנים לעוד תוכנית",
   "strengthSummary.suggestions.titleMany": "נראה שאתם מוכנים לעוד כמה תוכניות",
   "strengthSummary.suggestions.accept": "בואו נבדוק",

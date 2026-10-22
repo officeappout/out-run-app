@@ -441,6 +441,12 @@ export const FLAG_DEFS = [
   // (additive, same doc, same reads). Placement inside the range is deterministic. Default OFF;
   // super admins preview it.
   { key: 'enableAdaptiveRepsV1', firestoreKey: 'enable_adaptive_reps_v1', defaultValue: false, superAdminValue: true },
+  // Adaptive progression 3e (22.10.2026, owner). ON = goal exercises: a score boost when the goal
+  // hasn't appeared in the last 2 sessions of its area (never forced; not on D1 / deload / heat /
+  // recovery), a performance-driven ramp instead of "30 % of the goal", and a small in-workout
+  // celebration + summary row when a set reaches the goal (once per goal per session). The %
+  // bonus once per goal is progression_rules_from_admin (#688). Default OFF; super admins preview.
+  { key: 'enableGoalPresenceV1', firestoreKey: 'enable_goal_presence_v1', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default

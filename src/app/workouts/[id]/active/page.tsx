@@ -11,6 +11,8 @@ import { clearWorkoutCheckpoint, restoreCheckpoint, type WorkoutCheckpoint } fro
 import { mapToCompletedExercises } from '@/features/workout-engine/players/strength/logic/summary-mapping';
 import { buildExerciseProgramLookup, buildWorkoutExerciseResults, planExerciseIds } from '@/features/workout-engine/players/strength/logic/exercise-results';
 import { buildAdaptiveSessionMeta } from '@/features/workout-engine/players/strength/logic/adaptive-session-meta';
+import type { GoalTargetLite } from '@/features/workout-engine/players/strength/logic/goal-reached';
+import { useGoalsForProgram } from '@/features/user/progression/hooks/useGoalsForProgram';
 import LevelUpScreen from '@/features/workout-engine/components/strength/levelup-v2/LevelUpScreen';
 import { useLevelUpV2 } from '@/features/workout-engine/components/strength/levelup-v2/useLevelUpV2';
 // Mid-workout modals are code-split + mounted on first open (drop-in replacements).
@@ -979,6 +981,22 @@ export default function ActiveWorkoutPage() {
   // 3a (enable_adaptive_reps_v1): read at save time through a ref (the save runs in an async chain).
   const adaptiveRepsOnRef = useRef(false);
   adaptiveRepsOnRef.current = tourFlags.enableAdaptiveRepsV1 === true;
+  // 3e (enable_goal_presence_v1): the level goals the runner celebrates in-workout (off → no fetch).
+  const goalCelebrationOn = !tourFlagsLoading && tourFlags.enableGoalPresenceV1 === true;
+  const { goals: levelGoalsForRunner } = useGoalsForProgram(
+    goalCelebrationOn ? { templateId: userProgression.programId, currentLevel: userProgression.currentLevel } : null,
+  );
+  const runnerGoalTargets = useMemo<GoalTargetLite[] | undefined>(
+    () => (goalCelebrationOn && levelGoalsForRunner.length > 0
+      ? levelGoalsForRunner.map((g) => ({
+          exerciseId: g.exerciseId,
+          exerciseName: g.exerciseName,
+          targetValue: g.targetValue,
+          unit: g.unit === 'seconds' ? 'seconds' : 'reps',
+        }))
+      : undefined),
+    [goalCelebrationOn, levelGoalsForRunner],
+  );
   const playerToursOn = !tourFlagsLoading && firstRunToursEnabled(tourFlags);
   // enable_home_v2 — styling only, for this page's own loading/error screens (the player
   // itself reads the flag in StrengthRunner).
@@ -1927,6 +1945,7 @@ export default function ActiveWorkoutPage() {
           onResume={handleResume}
           onSwapExercise={handleSwapExercise}
           exerciseHistoryMap={exerciseHistoryMap}
+          goalTargets={runnerGoalTargets}
           firstRunTour={playerTourEligible}
           onFirstRunTourClose={() => setPlayerTourUnseen(false)}
           initialCheckpoint={
