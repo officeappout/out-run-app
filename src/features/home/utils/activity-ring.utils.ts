@@ -50,7 +50,14 @@ interface BuildActivityRingInput {
  *  • missed workout but steps  → still partial (steps ⇒ activity minutes ⇒ not zero)
  *  • no activity               → active:false → faded/empty track only
  */
-export function buildActivityRingData(input: BuildActivityRingInput): ActivityRingData {
+export function buildActivityRingData(
+  input: BuildActivityRingInput,
+  /**
+   * Category → hex override (the shared v2 track map, CATEGORY_TRACK_COLORS) — passed only
+   * where the v2 planner is on (useTrackRingColors); absent = the classic ACTIVITY_COLORS.
+   */
+  colors?: Partial<Record<ActivityCategory, string>>,
+): ActivityRingData {
   const totalMinutes = Math.max(0, Math.round(input.totalMinutes || 0));
   const active = totalMinutes > 0;
 
@@ -67,7 +74,7 @@ export function buildActivityRingData(input: BuildActivityRingInput): ActivityRi
 
   const color =
     active && dominant
-      ? ACTIVITY_COLORS[dominant]?.hex ?? ACTIVITY_COLORS.strength.hex
+      ? colors?.[dominant] ?? ACTIVITY_COLORS[dominant]?.hex ?? ACTIVITY_COLORS.strength.hex
       : ACTIVITY_RING_EMPTY_COLOR;
 
   const percentage = Math.min(
