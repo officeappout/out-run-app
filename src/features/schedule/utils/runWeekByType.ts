@@ -20,6 +20,7 @@ import { resolveRunningLevel } from '../engine/runningLevel';
 import type { RunSlot, TrainingLevel } from '../engine-v2/types';
 import { recommendRunWeek } from './runWeekRecommendation';
 import { normalizeLongRunDay } from './longRunDay';
+import { normalizeRunMoves, type RunDateMove } from './runWeekMoves';
 
 export { normalizeLongRunDay };
 
@@ -40,6 +41,12 @@ export interface RunPlacementContext {
   targetDistance?: string | null;
   /** The user's long-run day (0 = Sunday), when known. Else: the last run day. */
   preferredLongRunDay?: number | null;
+  /**
+   * enable_week_builder_v1: this week's per-date run moves (running.runMoves, runWeekMoves.ts).
+   * Read only by date-aware resolvers (resolveRunningDayState, materializePlanned); the
+   * weekday mappers below ignore it.
+   */
+  runMoves?: readonly RunDateMove[];
 }
 
 export interface RunWeekMapOptions extends RunPlacementContext {
@@ -170,6 +177,8 @@ export interface RunPlacementProfile {
   generatedProgramTemplate?: { targetDistance?: string } | null;
   /** enable_home_v2: the user's long-run day (signup / schedule builder). */
   longRunDay?: number | null;
+  /** enable_week_builder_v1: per-date run moves (runWeekMoves.ts). */
+  runMoves?: unknown;
 }
 
 /**
@@ -184,5 +193,6 @@ export function runPlacementOf(running: RunPlacementProfile | null | undefined):
     level: resolveRunningLevel(running),
     targetDistance: running?.generatedProgramTemplate?.targetDistance ?? null,
     preferredLongRunDay: normalizeLongRunDay(running?.longRunDay),
+    ...(Array.isArray(running?.runMoves) && running.runMoves.length ? { runMoves: normalizeRunMoves(running.runMoves) } : {}),
   };
 }

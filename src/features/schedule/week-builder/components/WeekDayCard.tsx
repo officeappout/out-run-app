@@ -31,8 +31,11 @@ export interface WeekDayCardProps {
 
 export default function WeekDayCard({ day, date, tab, hovered, highlighted = false, rowRef, onEdit, onDragMove, onDrop }: WeekDayCardProps) {
   const t = useT(schedule);
-  const shown = day.sessions.filter((s) => inTab(tab, s.track));
-  const total = day.sessions.length;
+  // Owner 22.10: a past day shows only what was done — a session that did not happen is not
+  // shown (the calm "נסדר לך את שאר השבוע" suggestion is the one way it moves).
+  const visible = day.past ? day.sessions.filter((s) => s.status !== 'missed') : day.sessions;
+  const shown = visible.filter((s) => inTab(tab, s.track));
+  const total = visible.length;
   return (
     <div
       ref={rowRef}
@@ -55,7 +58,7 @@ export default function WeekDayCard({ day, date, tab, hovered, highlighted = fal
                 session={s}
                 dow={day.dow}
                 past={day.past}
-                counterHe={total > 1 ? t('weekBuilder.double', { n: String(day.sessions.indexOf(s) + 1), total: String(total) }) : null}
+                counterHe={total > 1 ? t('weekBuilder.double', { n: String(visible.indexOf(s) + 1), total: String(total) }) : null}
                 draggable={!s.locked}
                 onDragMove={onDragMove}
                 onDrop={(y) => onDrop(s.id, y)}

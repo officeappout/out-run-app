@@ -20,6 +20,7 @@ import {
   type CalmSurface,
 } from '@/lib/calm-return';
 import { startCalmReturnEpisode } from '@/lib/calm-return/calm-return.write';
+import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
 
 /** Episodes this JS session already started — a second hook instance never re-writes one. */
 const startedEpisodes = new Set<string>();
@@ -39,6 +40,9 @@ export function useCalmReturn(
 ): UseCalmReturnResult {
   const { rawFlags } = useFeatureFlags();
   const on = rawFlags.enableCalmReturnV1 === true;
+  // enable_week_builder_v1: the running plan's return is the catch-up's (useRunCatchUp — it asks
+  // after a long break); the episode then leaves the running program alone.
+  const runCatchUpOwnsPlan = useWeekBuilderV1();
   // "Now" for this open — read once at the edge, passed to the pure policy.
   const nowRef = useRef<Date>(new Date());
 
@@ -60,10 +64,12 @@ export function useCalmReturn(
     void startCalmReturnEpisode({
       uid: profile.id,
       episode: state.episode,
-      runningProgram: profile.running?.activeProgram as Parameters<typeof startCalmReturnEpisode>[0]['runningProgram'],
+      runningProgram: runCatchUpOwnsPlan
+        ? null
+        : (profile.running?.activeProgram as Parameters<typeof startCalmReturnEpisode>[0]['runningProgram']),
       now: nowRef.current,
     });
-  }, [opts.manageEpisode, state, profile?.id, profile?.running?.activeProgram]);
+  }, [opts.manageEpisode, state, profile?.id, profile?.running?.activeProgram, runCatchUpOwnsPlan]);
 
   const surface: CalmSurface = !state
     ? { kind: 'none' }

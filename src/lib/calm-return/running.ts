@@ -56,8 +56,11 @@ export function resolveResumeWeek(schedule: FreshWeekScheduleEntry[]): number {
 export function buildFreshWeekRunningProgram<E extends FreshWeekScheduleEntry>(
   program: FreshWeekProgramInput<E>,
   now: Date,
+  /** enable_week_builder_v1: the running catch-up's target week (run-catch-up.ts); omitted = the week reached. */
+  resumeAt?: number,
 ): FreshWeekProgramResult<E> {
-  const resumeWeek = resolveResumeWeek(program.schedule);
+  const maxWeek = program.schedule.length ? Math.max(...program.schedule.map((e) => e.week)) : 1;
+  const resumeWeek = resumeAt != null ? Math.min(maxWeek, Math.max(1, Math.round(resumeAt))) : resolveResumeWeek(program.schedule);
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (resumeWeek - 1) * 7);
   const schedule = program.schedule.map((entry) => {
     if (entry.week < resumeWeek) return entry;

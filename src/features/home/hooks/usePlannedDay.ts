@@ -62,7 +62,7 @@ export function usePlannedDay(
         resolveRunningCurrentWeek(startDate, running?.activeProgram?.currentWeek, date) ?? 1,
         date,
         startDate,
-        { byType: true, level: placement.level, targetDistance: placement.targetDistance, preferredLongRunDay: placement.preferredLongRunDay },
+        { byType: true, level: placement.level, targetDistance: placement.targetDistance, preferredLongRunDay: placement.preferredLongRunDay, runMoves: placement.runMoves },
       );
       const e = state.todayEntry;
       if (state.isRunDay && e && e.status !== 'skipped') run = e;

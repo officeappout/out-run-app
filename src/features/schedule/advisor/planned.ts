@@ -24,6 +24,7 @@ import { classifyStrengthId, type ResolveSlug } from '../engine/strengthVocabula
 import { calculateCurrentWeek } from '@/lib/running-current-week';
 import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
 import { mapRunWeekByType, runPlacementOf } from '../utils/runWeekByType';
+import { runSourceDate } from '../utils/runWeekMoves';
 import { plannedActivityOf, walkGoalOf, walkNameHe } from './plannedActivity';
 import type { ScheduleItemId } from '../types/smartSchedule.types';
 import type {
@@ -135,6 +136,20 @@ function plannedRunFor(profile: AdvisorProfile, key: string, opts: MaterializeOp
   };
 }
 
+/**
+ * enable_week_builder_v1 — with runsByType, per-date run moves (running.runMoves, runWeekMoves.ts):
+ * the run on `key` is the plan run of its source day, re-dated to `key`. No moves = plannedRunFor.
+ */
+function plannedRunOn(profile: AdvisorProfile, key: string, opts: MaterializeOptions): PlannedEntry | null {
+  const moves = opts.runsByType ? runPlacementOf(profile.running).runMoves : undefined;
+  const src = runSourceDate(key, moves);
+  if (src === key) return plannedRunFor(profile, key, opts);
+  const run = plannedRunFor(profile, src, opts);
+  if (!run) return null;
+  const dow = dayOfWeekOfKey(key);
+  return { ...run, date: key, dayOfWeek: dow, runDay: run.runDay ? { ...run.runDay, dayOfWeek: dow } : run.runDay };
+}
+
 export function materializePlanned(
   profile: AdvisorProfile,
   keys: string[],
@@ -204,7 +219,7 @@ export function materializePlanned(
         completedAtSource: strengthPlanned.completed,
       });
     }
-    const run = plannedRunFor(profile, key, opts);
+    const run = plannedRunOn(profile, key, opts);
     if (run && !(restOverride && (!runFromDoc || !strengthPlanned))) out.push(run);
     if (walkPlanned) {
       out.push({
