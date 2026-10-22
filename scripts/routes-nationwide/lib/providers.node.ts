@@ -9,7 +9,7 @@ import * as path from 'path';
 import type { Firestore } from 'firebase-admin/firestore';
 import { DATASETS, planDatasetImport, readShapefileZip, type AuthorityBoundary, type DatasetLine } from '../../../src/lib/dataset-import';
 import { buildSegmentIndex, parsePath, surfaceMixFromSegments, type SurfaceSegment } from '../../../src/lib/route-score';
-import type { CandidateRoute, StageProvider } from '../../../src/lib/routes-nationwide';
+import { disambiguateByKm, type CandidateRoute, type StageProvider } from '../../../src/lib/routes-nationwide';
 import type { TrailRoute } from '../../../src/lib/trail-graph/types';
 import { readAllOfficialRoutes, readStreetSegmentSurfaces } from '../../lib/route-collections-read.node';
 import { runBuildSegmentGraph } from '../../trails/build-segment-graph';
@@ -118,8 +118,20 @@ export class TrailsRun {
     const gen = read('generated-routes.json');
     const auth = { id: this.a.id, name: this.a.name, knownAuthorityIds: this.a.knownAuthorityIds };
     const ctx = { osmTimestamp: named.meta?.osmTimestamp ?? null, importBatchId: `nationwide-trails-${this.a.id}` };
-    const toCand = (docs: Array<{ id: string; data: Record<string, unknown> }>, stage: 'osm' | 'generated'): CandidateRoute[] =>
-      docs.map((d) => ({ id: d.id, data: d.data as Record<string, any>, stage, isNew: true }));
+    // A named relation crossing several councils is clipped per council but kept the SAME doc id (osm_rel_<id>),
+    // so create-only silently skipped every council after the first (first regional run: 859 selected → 762 ids).
+    // Per-council suffix keeps each council's section; a re-run of the first council is dropped by the
+    // existing-geometry dedupe against its already-written osm_rel_<id> doc.
+    const perCouncilId = (id: string) => (/^osm_rel_\d+$/.test(id) ? `${id}__${this.a.id}` : id);
+    const toCand = (docs: Array<{ id: string; data: Record<string, unknown> }>, stage: 'osm' | 'generated'): CandidateRoute[] => {
+      const renamed = disambiguateByKm(docs.map((d) => ({ id: d.id, name: String(d.data.name ?? ''), km: Number(d.data.distance) || 0 })));
+      return docs.map((d) => ({
+        id: stage === 'osm' ? perCouncilId(d.id) : d.id,
+        data: { ...(d.data as Record<string, any>), ...(renamed.has(d.id) ? { name: renamed.get(d.id) } : {}) },
+        stage,
+        isNew: true,
+      }));
+    };
     return {
       named: toCand(validatedRouteDocs(named.routes, auth, ctx), 'osm'),
       generated: toCand(validatedRouteDocs(gen.routes, auth, ctx), 'generated'),

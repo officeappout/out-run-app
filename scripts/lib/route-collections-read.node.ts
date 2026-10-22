@@ -44,3 +44,9 @@ export async function readStreetSegmentSurfaces(db: Firestore, authorityId: stri
   }
   return out;
 }
+
+/** official_routes with exactly this name (single-field equality, no index needed), minus one authority — for the cross-council duplicate check. */
+export async function readOfficialRoutesByName(db: Firestore, name: string, exceptAuthorityId: string): Promise<RawDoc[]> {
+  const snap = await db.collection('official_routes').where('name', '==', name).limit(60).get();
+  return snap.docs.filter((d) => d.get('authorityId') !== exceptAuthorityId).map((d) => ({ id: d.id, data: d.data() }));
+}

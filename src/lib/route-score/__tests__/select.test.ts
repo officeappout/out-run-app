@@ -39,6 +39,11 @@ describe('selectTopN', () => {
     expect(res.counts.selected).toBe(15);
     expect(res.counts.candidate).toBe(15);
   });
+  it('regional council: ceiling is 100 — 70 good real trails are all selected, 130 are cut at 100', () => {
+    const regional = quotaForAuthority({ type: 'regional_council' });
+    expect(selectTopN(Array.from({ length: 70 }, (_, k) => route({ score: 71 + (k % 20), km: [2, 5, 10, 14][k % 4], tier: 'official' })), regional).counts.selected).toBeGreaterThan(40);
+    expect(selectTopN(Array.from({ length: 130 }, (_, k) => route({ score: 71 + (k % 20), km: [2, 5, 10, 14][k % 4], tier: 'official' })), regional).counts.selected).toBe(100);
+  });
   it('a small pool gives a small set — no padding', () => {
     const res = selectTopN([route({ score: 90 }), route({ score: 40 })], small);
     expect(res.counts.selected).toBe(1);

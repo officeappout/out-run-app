@@ -19,11 +19,11 @@ export interface AuthorityQuota {
 
 /**
  * Regional councils (owner 22.10.2026): many good marked trails and singles —
- * 20–40, raised from 10–20. Their settlement loops (routes-nationwide/
+ * 20–100 (ceiling raised from 40 on 22.10.2026 - with no synthetic padding the cap only cut real trails), raised from 10–20. Their settlement loops (routes-nationwide/
  * settlement-loops.ts) come on top of this range, not out of it.
  */
 export const REGIONAL_TOTAL_MIN = 20;
-export const REGIONAL_TOTAL_MAX = 40;
+export const REGIONAL_TOTAL_MAX = 100;
 
 export const QUOTAS: Record<AuthoritySizeClass, Omit<AuthorityQuota, 'sizeClass' | 'populationKnown'>> = {
   large: { total: { min: 25, max: 40 }, parkLoops: { min: 6, max: 10 }, cycling: { min: 4, max: 8 } },
