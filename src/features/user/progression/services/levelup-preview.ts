@@ -20,6 +20,7 @@ import type { LevelGoal } from '@/types/workout';
 import {
   applyGainToTrack,
   averageMasterChildren,
+  calculatePerformanceRatio,
   classifyExerciseToChild,
   computeGoalBonus,
   computeSessionGain,
@@ -27,6 +28,17 @@ import {
   type MasterChildEntry,
   type SessionGainRule,
 } from './progression-calc';
+import { computeAdminSessionGain, type ResolvedAdminRule } from './progression-admin-rules';
+
+/** A rule as loaded — with the admin bonus fields when admin rules are ON. */
+export type PreviewRule = SessionGainRule &
+  Partial<Pick<ResolvedAdminRule, 'firstSessionBonus' | 'persistenceBonusConfig' | 'rpeBonusConfig' | 'maxSets'>>;
+
+/** Session context the admin bonuses need (defaults: now, no RPE). */
+export interface PreviewSessionOpts {
+  now?: Date;
+  sessionRpe?: number;
+}
 
 export interface LevelPoint {
   level: number;
@@ -38,16 +50,22 @@ export interface TrackSnapshot {
   percent: number;
   completedGoalIds?: string[];
   totalWorkoutsCompleted?: number;
+  /** Admin-rules counters (progression_rules_from_admin). */
+  levelSessions?: number;
+  monthKey?: string;
+  monthSessions?: number;
 }
 
 export interface LeafLevelUpInputs {
   kind: 'leaf';
   programId: string;
   track: TrackSnapshot;
-  rule: SessionGainRule & { linkedPrograms?: { targetProgramId: string; multiplier: number }[] };
+  rule: PreviewRule & { linkedPrograms?: { targetProgramId: string; multiplier: number }[] };
   goals: LevelGoal[];
-  /** PROGRESSION_RULES_FROM_ADMIN_V1 — goal bonus once per level. */
+  /** Admin rules ON — goal bonus once per level. */
   oneTimeGoals: boolean;
+  /** Admin rules ON (progression_rules_from_admin) — the service's admin-rules calc. */
+  adminRules?: boolean;
 }
 
 export interface MasterLevelUpInputs {
@@ -55,7 +73,9 @@ export interface MasterLevelUpInputs {
   programId: string;
   childSlugs: string[];
   childTracks: Record<string, TrackSnapshot | undefined>;
-  childRules: Record<string, SessionGainRule>;
+  childRules: Record<string, PreviewRule>;
+  /** Admin rules ON (progression_rules_from_admin) — the service's admin-rules calc per child. */
+  adminRules?: boolean;
   exerciseLookup: Map<string, Exercise>;
   idToSlug: Map<string, string> | null;
   /** tracks[activeProgramId] before the session (undefined = never written). */
@@ -142,6 +162,32 @@ export interface LevelUpOutcome {
 const EPS = 1e-9;
 const DEFAULT_TRACK: TrackSnapshot = { currentLevel: 1, percent: 0 };
 
+/**
+ * Base + bonus for one program, exactly as processWorkoutCompletion computes it:
+ * admin rules OFF → computeSessionGain; ON → computeAdminSessionGain, with the
+ * firstSession / persistence / RPE extras folded into `bonusGain` (the service
+ * folds them the same way for master children; the leaf "performance" chip shows them).
+ */
+function sessionGainFor(
+  exercises: WorkoutExerciseResult[],
+  rule: PreviewRule,
+  track: TrackSnapshot,
+  adminRules: boolean | undefined,
+  opts: PreviewSessionOpts | undefined,
+): { setsPerformed: number; baseGain: number; bonusGain: number } {
+  const g = computeSessionGain(exercises, rule);
+  if (!adminRules) return g;
+  const a = computeAdminSessionGain({
+    rule,
+    setsPerformed: g.setsPerformed,
+    performanceRatio: calculatePerformanceRatio(exercises),
+    track,
+    completedAt: opts?.now ?? new Date(),
+    sessionRpe: opts?.sessionRpe,
+  });
+  return { setsPerformed: g.setsPerformed, baseGain: a.baseGain, bonusGain: a.bonusGain + a.extrasGain };
+}
+
 function leafChips(parts: { base: number; bonus: number; goals: number; mastery: number }): GainChip[] {
   return [
     { id: 'completion', kind: 'completion' as const, gain: parts.base, pushesRing: true },
@@ -151,9 +197,9 @@ function leafChips(parts: { base: number; bonus: number; goals: number; mastery:
   ].filter((c) => c.gain > EPS);
 }
 
-function computeLeaf(inputs: LeafLevelUpInputs, exercises: WorkoutExerciseResult[]): LevelUpOutcome {
+function computeLeaf(inputs: LeafLevelUpInputs, exercises: WorkoutExerciseResult[], opts?: PreviewSessionOpts): LevelUpOutcome {
   const track = inputs.track;
-  const { baseGain, bonusGain } = computeSessionGain(exercises, inputs.rule);
+  const { baseGain, bonusGain } = sessionGainFor(exercises, inputs.rule, track, inputs.adminRules, opts);
   const { goalBonusGain } = computeGoalBonus({
     goals: inputs.goals,
     exercises,
@@ -198,6 +244,7 @@ export function masterBefore(inputs: MasterLevelUpInputs): LevelPoint {
 export function computeChildGains(
   inputs: MasterLevelUpInputs,
   exercises: WorkoutExerciseResult[],
+  opts?: PreviewSessionOpts,
 ): { childId: string; gain: number; sets: number; base: number; bonus: number; newLevel: number; newPercent: number }[] {
   const buckets: Record<string, WorkoutExerciseResult[]> = {};
   for (const slug of inputs.childSlugs) buckets[slug] = [];
@@ -212,9 +259,9 @@ export function computeChildGains(
     const rule = inputs.childRules[childId];
     const childExercises = buckets[childId] ?? [];
     if (!rule || childExercises.length === 0) continue;
-    const { setsPerformed, baseGain, bonusGain } = computeSessionGain(childExercises, rule);
-    if (setsPerformed === 0) continue;
     const track = inputs.childTracks[childId] ?? DEFAULT_TRACK;
+    const { setsPerformed, baseGain, bonusGain } = sessionGainFor(childExercises, rule, track, inputs.adminRules, opts);
+    if (setsPerformed === 0) continue;
     const applied = applyGainToTrack(track, baseGain + bonusGain);
     out.push({
       childId,
@@ -260,9 +307,9 @@ function domainChips(children: { childId: string; gain: number }[]): GainChip[] 
     .map((c) => ({ id: `domain:${c.childId}`, kind: 'domain' as const, programId: c.childId, gain: c.gain, pushesRing: true }));
 }
 
-function computeMaster(inputs: MasterLevelUpInputs, exercises: WorkoutExerciseResult[]): LevelUpOutcome {
+function computeMaster(inputs: MasterLevelUpInputs, exercises: WorkoutExerciseResult[], opts?: PreviewSessionOpts): LevelUpOutcome {
   const before = masterBefore(inputs);
-  const children = computeChildGains(inputs, exercises);
+  const children = computeChildGains(inputs, exercises, opts);
   const after = masterAfter(inputs, children);
   return {
     kind: 'master',
@@ -280,9 +327,10 @@ function computeMaster(inputs: MasterLevelUpInputs, exercises: WorkoutExerciseRe
 export function computeLevelUpPreview(
   inputs: LevelUpInputs,
   exercises: WorkoutExerciseResult[],
+  opts?: PreviewSessionOpts,
 ): LevelUpOutcome | null {
-  if (inputs.kind === 'leaf') return computeLeaf(inputs, exercises);
-  if (inputs.kind === 'master') return computeMaster(inputs, exercises);
+  if (inputs.kind === 'leaf') return computeLeaf(inputs, exercises, opts);
+  if (inputs.kind === 'master') return computeMaster(inputs, exercises, opts);
   return null;
 }
 
@@ -341,7 +389,13 @@ export function outcomeFromStored(
     leveledUp: g.leveledUp,
     totalGain: g.totalGain,
     chips: [
-      ...leafChips({ base: g.baseGain, bonus: g.bonusGain, goals: g.goalBonusGain, mastery: g.masteryBonusGain }),
+      ...leafChips({
+        base: g.baseGain,
+        // admin-rules extras ride the performance chip, as in the preview
+        bonus: g.bonusGain + (g.adminBonuses ? g.adminBonuses.firstSessionBonus + g.adminBonuses.persistenceBonus + g.adminBonuses.rpeBonus : 0),
+        goals: g.goalBonusGain,
+        mastery: g.masteryBonusGain,
+      }),
       ...linked,
     ],
     isFirstWorkout: leafInputs ? !(leafInputs.track.totalWorkoutsCompleted ?? 0) : false,

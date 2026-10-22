@@ -51,6 +51,7 @@ import {
   saveProgramLevelSettings,
 } from '@/features/content/programs/core/programLevelSettings.service';
 import type { ProgramLevelSettings, MovementPattern } from '@/features/content/programs/core/program.types';
+import { AdminRulesBanner, GainPreview, RuleLiveBadge, buildAdminRuleInputs, useAdminRulesSwitch } from './AdminRuleLive';
 
 const PROGRESSION_RULES_COLLECTION = 'progression_rules';
 
@@ -695,6 +696,9 @@ export default function ProgressionManagerPage() {
 
   // Generate levels 1-20 for display
   const displayLevels = Array.from({ length: selectedProgram?.maxLevels || 20 }, (_, i) => i + 1);
+  // What the engine will actually use (same pure resolver as the workout engine).
+  const adminRuleInputs = React.useMemo(() => buildAdminRuleInputs(rules, levelSettingsMap), [rules, levelSettingsMap]);
+  const adminRulesSwitch = useAdminRulesSwitch();
 
   if (loading && programs.length === 0) {
     return (
@@ -926,6 +930,12 @@ export default function ProgressionManagerPage() {
             </div>
           )}
 
+          {/* Live: what the engine uses + gain preview */}
+          <div className="space-y-2">
+            <AdminRulesBanner on={adminRulesSwitch} />
+            <GainPreview inputs={adminRuleInputs} maxLevel={displayLevels.length} />
+          </div>
+
           {/* Timeline View */}
           <div className="relative">
             {/* Timeline connector */}
@@ -965,7 +975,10 @@ export default function ProgressionManagerPage() {
                         )}
                         
                         <div>
-                          <h3 className="font-bold text-gray-900">רמה {level}</h3>
+                          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                            רמה {level}
+                            <RuleLiveBadge level={level} inputs={adminRuleInputs} />
+                          </h3>
                           {rule ? (
                             <p className="text-sm text-gray-500">
                               {getBaseGain(level)}% בסיס | {rule.bonusPercent}% בונוס | {rule.requiredSetsForFullGain || getDefaultRequiredSets(level)} סטים

@@ -79,6 +79,15 @@ export interface DomainTrackProgress {
    * Resets when the user levels up (new level = new goals).
    */
   completedGoalIds?: string[];
+  /**
+   * Admin-rules counters (flag progression_rules_from_admin, written only while ON).
+   * levelSessions: sessions finished at the current level (0 right after a level-up →
+   * the next session earns firstSessionBonus). monthKey/monthSessions: sessions in this
+   * program this calendar month ('YYYY-MM') → persistenceBonusConfig.
+   */
+  levelSessions?: number;
+  monthKey?: string;
+  monthSessions?: number;
 }
 
 /**
@@ -101,6 +110,8 @@ export interface WorkoutCompletionData {
   exercises: WorkoutExerciseResult[];
   totalDuration: number; // In minutes
   completedAt: Date;
+  /** Session RPE 1–10 when the user logged one — pays rpeBonusConfig (admin rules ON). */
+  sessionRpe?: number;
 }
 
 /**
@@ -163,6 +174,8 @@ export interface WorkoutCompletionResult {
     newLevel?: number;
     /** Goal IDs that were newly achieved in this session */
     newlyCompletedGoalIds?: string[];
+    /** Admin-panel bonuses included in totalGain (only while progression_rules_from_admin is ON). */
+    adminBonuses?: AdminBonusBreakdown;
   };
   linkedProgramGains: {
     programId: string;
@@ -208,6 +221,19 @@ export interface ChildDomainGain {
   leveledUp: boolean;
   newLevel?: number;
   newPercent: number;
+  /** Admin-panel bonuses — already folded into bonusGain/totalGain (admin rules ON only). */
+  adminBonuses?: AdminBonusBreakdown;
+}
+
+/** firstSession / persistence / RPE % paid from the admin panel's programLevelSettings. */
+export interface AdminBonusBreakdown {
+  firstSessionBonus: number;
+  persistenceBonus: number;
+  rpeBonus: number;
+  /** Where the base rule came from: progression_rules | programLevelSettings | default. */
+  ruleSource: 'progression_rules' | 'programLevelSettings' | 'default';
+  /** Sets that counted after the maxSets cap. */
+  countedSets: number;
 }
 
 /** Individual goal progress entry for the session */

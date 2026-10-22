@@ -80,6 +80,18 @@ import type { LevelGoal } from '@/types/workout';
 import { getUserAccessLevel, hasAssessedStrengthDomain } from '../../identity/services/access-control.service';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 import { PROGRESSION_RULES_FROM_ADMIN_V1 } from '@/config/feature-flags';
+import {
+  loadAdminRuleForLevel,
+  loadLevelSettingsForGoals,
+  progressionRuleIdCandidates,
+  resolveAdminRulesFlag,
+} from './progression-admin-rules.loader';
+import {
+  computeAdminSessionGain,
+  nextAdminTrackCounters,
+  type AdminSessionGain,
+  type ResolvedAdminRule,
+} from './progression-admin-rules';
 /**
  * Progression v2 Phase 2 — deliberate cross-domain reuse of progression-map's
  * gating logic, NOT a Law 7 violation-by-oversight: Phase 1 built
@@ -112,6 +124,7 @@ import { resolveToSlug, ensureIdSlugMapWarm } from '@/features/workout-engine/se
 import {
   KNOWN_MASTER_PROGRAMS,
   averageMasterChildren,
+  calculatePerformanceRatio,
   calculateTotalSetsPerformed,
   calculateVolumeBreakdown,
   classifyExerciseToChild,
@@ -1171,41 +1184,14 @@ export interface ProgressionRuleResult {
   linkedPrograms: LinkedProgramConfig[];
 }
 
-/**
- * Candidate `progression_rules` doc ids for a program + level, in lookup order.
- *
- * Bug fix (coach-note PR): the admin panel saves progression rules keyed by the
- * program's Firestore DOC ID (e.g. `J0fLpmJhG0KDN2tQouxh_level_3`), but every
- * caller here passes a SLUG (`push`/`pull`/`legs`/`core` — the master flow's
- * childSlugs and the leaf flow's slug activeProgramId). The old single lookup
- * `${slug}_level_${n}` therefore always missed, and DEFAULT_PROGRESSION_BY_LEVEL
- * silently replaced every admin-tuned rule.
- *
- * Order: doc id first (where the admin writes), then the slug-keyed id (legacy /
- * hand-made docs), then the raw input if it is neither. Deduped.
- */
-export function progressionRuleIdCandidates(
-  programId: string,
-  level: number,
-  slugMap: Pick<ProgramSlugMap, 'idToSlug' | 'slugToId'> | null,
-): string[] {
-  const docId =
-    slugMap?.slugToId.get(programId) ??
-    (slugMap?.idToSlug.has(programId) ? programId : undefined);
-  const slug = slugMap?.idToSlug.get(programId) ?? programId;
-  const out: string[] = [];
-  for (const key of [docId, slug, programId]) {
-    if (!key) continue;
-    const id = `${key}_level_${level}`;
-    if (!out.includes(id)) out.push(id);
-  }
-  return out;
-}
+// Candidate ids (doc id → slug → raw) now live in the admin-rules loader; re-exported
+// so existing imports keep working.
+export { progressionRuleIdCandidates };
 
 /** Short-lived cache: one completion resolves the same (program, level) rule
  *  for several children; admins rarely edit rules, 5 minutes is plenty fresh. */
 const RULE_CACHE_TTL_MS = 5 * 60 * 1000;
-const ruleCache = new Map<string, { at: number; value: Promise<ProgressionRuleResult> }>();
+const ruleCache = new Map<string, { at: number; value: Promise<ProgressionRuleResult & Partial<ResolvedAdminRule>> }>();
 let lazySlugMap: Promise<ProgramSlugMap | null> | null = null;
 
 /** Test-only: drop cached rules + the lazily built slug map. */
@@ -1229,25 +1215,38 @@ function ruleFromData(
 
 /**
  * Get progression rule for a specific program and level.
- * Behind PROGRESSION_RULES_FROM_ADMIN_V1, `programId` may be a slug or a
- * Firestore doc id — both are resolved (see progressionRuleIdCandidates).
- * Falls back to defaults if no rule is defined.
+ * Admin rules ON (`opts.adminRules`, default = the PROGRESSION_RULES_FROM_ADMIN_V1
+ * constant; the completion flow passes the runtime flag `progression_rules_from_admin`):
+ * `programId` may be a slug or a doc id — resolved by both, last configured level
+ * carries upward, programLevelSettings bonus fields attached (resolveAdminRule).
+ * OFF: today's single raw lookup → defaults.
  */
 export async function getProgressionRuleForLevel(
   programId: string,
   level: number,
   slugMap?: ProgramSlugMap | null,
-): Promise<ProgressionRuleResult> {
+  opts?: { adminRules?: boolean },
+): Promise<ProgressionRuleResult & Partial<ResolvedAdminRule>> {
   // Flag off (today): the original single `${programId}_level_${level}`
   // lookup, no slug→id resolution, no cache — so admin rules keyed by doc id
   // keep being missed and the defaults apply, exactly as before.
-  if (!PROGRESSION_RULES_FROM_ADMIN_V1) {
+  if (!(opts?.adminRules ?? PROGRESSION_RULES_FROM_ADMIN_V1)) {
     return loadProgressionRuleForLevel(programId, level, null, [`${programId}_level_${level}`]);
   }
   const cacheKey = `${programId}|${level}`;
   const hit = ruleCache.get(cacheKey);
   if (hit && Date.now() - hit.at < RULE_CACHE_TTL_MS) return hit.value;
-  const value = loadProgressionRuleForLevel(programId, level, slugMap);
+  const value = (async () => {
+    let map: ProgramSlugMap | null = slugMap ?? null;
+    if (!map) {
+      lazySlugMap ??= buildProgramSlugMap().catch(() => null);
+      map = await lazySlugMap;
+    }
+    const resolved = await loadAdminRuleForLevel(programId, level, map);
+    console.log(`[Progression] Admin rule for "${programId}" L${level}: ${resolved.source}` +
+      (resolved.carriedFromLevel != null ? ` (from L${resolved.carriedFromLevel})` : ''), resolved);
+    return resolved;
+  })();
   ruleCache.set(cacheKey, { at: Date.now(), value });
   // Never pin a failure: a thrown load is evicted so the next call retries.
   value.catch(() => ruleCache.delete(cacheKey));
@@ -1727,6 +1726,7 @@ async function processBottomUpMasterCompletion(
   progression: NonNullable<UserFullProfile['progression']>,
   slugMap: ProgramSlugMap | null,
   exerciseLookup: Map<string, Exercise>,
+  adminRules = false,
 ): Promise<WorkoutCompletionResult> {
   const { userId, activeProgramId, exercises, completedAt } = data;
   const childProgramIds = masterProgram.subPrograms!;
@@ -1777,7 +1777,7 @@ async function processBottomUpMasterCompletion(
     const childExercises = childBuckets[childId] || [];
     const childTrack = updatedTracks[childId] || getDefaultTrackProgress();
     const childLevel = childTrack.currentLevel;
-    const childRule = await getProgressionRuleForLevel(childId, childLevel, slugMap);
+    const childRule = await getProgressionRuleForLevel(childId, childLevel, slugMap, { adminRules });
 
     const childSets = childExercises.reduce((s, e) => s + e.setsCompleted, 0);
     totalSetsPerformed += childSets;
@@ -1801,11 +1801,28 @@ async function processBottomUpMasterCompletion(
 
     // Pay-as-you-go: linear (Completed/Target) × baseGain (+ capped, volume-scaled
     // performance bonus) — the shared pure formula in progression-calc.ts.
-    const {
-      volumeRatio: childVolumeRatio,
-      baseGain: childBaseGain,
-      bonusGain: childBonusGain,
-    } = computeSessionGain(childExercises, childRule);
+    const sessionGain = computeSessionGain(childExercises, childRule);
+    const childVolumeRatio = sessionGain.volumeRatio;
+    let childBaseGain = sessionGain.baseGain;
+    let childBonusGain = sessionGain.bonusGain;
+    const childPerfRatio = calculatePerformanceRatio(childExercises);
+
+    // Admin rules ON: shared pure calc (maxSets cap + firstSession / persistence / RPE).
+    // The extras are folded into the child's bonusGain so the volume-weighted master
+    // gain and the summary screen (which sums child gains) include them unchanged.
+    let childAdminGain: AdminSessionGain | null = null;
+    if (adminRules) {
+      childAdminGain = computeAdminSessionGain({
+        rule: childRule,
+        setsPerformed: childSets,
+        performanceRatio: childPerfRatio,
+        track: childTrack,
+        completedAt,
+        sessionRpe: data.sessionRpe,
+      });
+      childBaseGain = childAdminGain.baseGain;
+      childBonusGain = childAdminGain.bonusGain + childAdminGain.extrasGain;
+    }
 
     const childTotalGain = childBaseGain + childBonusGain;
 
@@ -1823,6 +1840,7 @@ async function processBottomUpMasterCompletion(
         lastWorkoutDate: completedAt,
         totalWorkoutsCompleted: (childTrack.totalWorkoutsCompleted || 0) + 1,
         completedGoalIds: [],
+        ...(adminRules ? nextAdminTrackCounters(childTrack, completedAt, true) : {}),
       };
     } else {
       updatedTracks[childId] = {
@@ -1830,6 +1848,7 @@ async function processBottomUpMasterCompletion(
         percent: childNewPercent,
         lastWorkoutDate: completedAt,
         totalWorkoutsCompleted: (childTrack.totalWorkoutsCompleted || 0) + 1,
+        ...(adminRules ? nextAdminTrackCounters(childTrack, completedAt, false) : {}),
       };
     }
 
@@ -1845,6 +1864,17 @@ async function processBottomUpMasterCompletion(
       leveledUp: childLeveledUp,
       newLevel: childLeveledUp ? childNewLevel : undefined,
       newPercent: childLeveledUp ? childNewPercent - 100 : childNewPercent,
+      ...(childAdminGain
+        ? {
+            adminBonuses: {
+              firstSessionBonus: childAdminGain.firstSessionBonus,
+              persistenceBonus: childAdminGain.persistenceBonus,
+              rpeBonus: childAdminGain.rpeBonus,
+              ruleSource: childRule.source ?? 'default',
+              countedSets: childAdminGain.countedSets,
+            },
+          }
+        : {}),
     });
 
     console.log(
@@ -2129,6 +2159,10 @@ export async function processWorkoutCompletion(
     // Ensure tracks are initialized
     ensureTracksInitialized(progression);
 
+    // Admin rules (panel flag progression_rules_from_admin; super admins preview it).
+    // OFF → every branch below behaves exactly as before.
+    const adminRules = await resolveAdminRulesFlag(userData.core?.isSuperAdmin === true);
+
     // ── SHARED: exercise docs + program slug map ───────────────────────────
     // Hoisted out of the master-only branch (Progression v2 Phase 2) — both
     // the master and leaf flows now share one fetch instead of the master
@@ -2157,7 +2191,7 @@ export async function processWorkoutCompletion(
 
     if (masterProgram?.isMaster && masterProgram.subPrograms?.length) {
       console.log(`[Progression] "${activeProgramId}" is a MASTER → delegating to bottom-up flow`);
-      return processBottomUpMasterCompletion(data, userData, masterProgram, progression, slugMap, exerciseLookup);
+      return processBottomUpMasterCompletion(data, userData, masterProgram, progression, slugMap, exerciseLookup, adminRules);
     }
 
     // ── LEAF PROGRAM FLOW (unchanged) ─────────────────────────────────────
@@ -2166,7 +2200,7 @@ export async function processWorkoutCompletion(
     const currentLevel = currentTrack.currentLevel;
     
     // Get progression rule for this level
-    const rule = await getProgressionRuleForLevel(activeProgramId, currentLevel, slugMap);
+    const rule = await getProgressionRuleForLevel(activeProgramId, currentLevel, slugMap, { adminRules });
     
     // Calculate total sets performed
     const setsPerformed = calculateTotalSetsPerformed(exercises);
@@ -2178,7 +2212,26 @@ export async function processWorkoutCompletion(
     // Pay-as-you-go: strictly linear — (Completed Sets / Target Sets) × Total Possible Gain,
     // plus the capped, volume-scaled bonus for exceeding target reps. Shared pure formula
     // (progression-calc.ts) — the level-up screen computes the same numbers instantly.
-    const { volumeRatio, baseGain, bonusGain } = computeSessionGain(exercises, rule);
+    const sessionGain = computeSessionGain(exercises, rule);
+    const volumeRatio = sessionGain.volumeRatio;
+    let baseGain = sessionGain.baseGain;
+    let bonusGain = sessionGain.bonusGain;
+
+    // Admin rules ON: the admin-rules pure calc (progression-admin-rules.ts) overrides it —
+    // same formula plus the admin's maxSets cap and firstSession / persistence / RPE bonuses.
+    let adminGain: AdminSessionGain | null = null;
+    if (adminRules) {
+      adminGain = computeAdminSessionGain({
+        rule,
+        setsPerformed,
+        performanceRatio: calculatePerformanceRatio(exercises),
+        track: currentTrack,
+        completedAt,
+        sessionRpe: data.sessionRpe,
+      });
+      baseGain = adminGain.baseGain;
+      bonusGain = adminGain.bonusGain;
+    }
     
     // ── MANUAL WEIGHTED PROGRESS: Each goal carries its own admin-defined progressBonus ──
     // Strict logic: actualValue >= targetValue → add the exact progressBonus.
@@ -2188,16 +2241,19 @@ export async function processWorkoutCompletion(
     let newlyCompletedGoalIds: string[] = [];
 
     try {
-      const levelSettings = await getProgramLevelSetting(activeProgramId, currentLevel);
+      // Admin rules ON: goals by program doc id first (where the admin saves), then slug.
+      const levelSettings = adminRules
+        ? await loadLevelSettingsForGoals(activeProgramId, currentLevel, slugMap)
+        : await getProgramLevelSetting(activeProgramId, currentLevel);
       const levelGoals: LevelGoal[] = levelSettings?.targetGoals || [];
       // Strict per-goal evaluation (met → exact progressBonus, default 5%; not met → 0).
-      // Behind PROGRESSION_RULES_FROM_ADMIN_V1 the bonus is one-time per goal per level;
-      // flag off (today) it is re-added on every session that repeats the goal.
+      // With admin rules ON the bonus is one-time per goal per level;
+      // OFF (today) it is re-added on every session that repeats the goal.
       ({ goalBonusGain, newlyCompletedGoalIds } = computeGoalBonus({
         goals: levelGoals,
         exercises,
         completedGoalIds: currentTrack.completedGoalIds,
-        oneTimeGoals: PROGRESSION_RULES_FROM_ADMIN_V1,
+        oneTimeGoals: adminRules,
       }));
 
       if (goalBonusGain > 0) {
@@ -2239,7 +2295,7 @@ export async function processWorkoutCompletion(
       }
     }
 
-    const totalGain = baseGain + bonusGain + goalBonusGain + masteryBonusGain;
+    const totalGain = baseGain + bonusGain + goalBonusGain + masteryBonusGain + (adminGain?.extrasGain ?? 0);
     
     // Update active program track
     const updatedTracks = { ...progression.tracks };
@@ -2264,6 +2320,7 @@ export async function processWorkoutCompletion(
         lastWorkoutDate: completedAt,
         totalWorkoutsCompleted: (currentTrack.totalWorkoutsCompleted || 0) + 1,
         completedGoalIds: [], // Fresh slate for new level
+        ...(adminRules ? nextAdminTrackCounters(currentTrack, completedAt, true) : {}),
       };
     } else {
       updatedTracks[activeProgramId] = {
@@ -2272,6 +2329,7 @@ export async function processWorkoutCompletion(
         lastWorkoutDate: completedAt,
         totalWorkoutsCompleted: (currentTrack.totalWorkoutsCompleted || 0) + 1,
         completedGoalIds: mergedCompletedGoalIds,
+        ...(adminRules ? nextAdminTrackCounters(currentTrack, completedAt, false) : {}),
       };
     }
     
@@ -2468,7 +2526,10 @@ export async function processWorkoutCompletion(
     // ✅ LEVEL GOAL PROGRESS: Persist detailed goal performance so the Home
     //    dashboard can render real checkmarks (not just track-level IDs).
     try {
-      const levelSettings = await getProgramLevelSetting(activeProgramId, leveledUp ? currentLevel : newLevel);
+      const goalsLevel = leveledUp ? currentLevel : newLevel;
+      const levelSettings = adminRules
+        ? await loadLevelSettingsForGoals(activeProgramId, goalsLevel, slugMap)
+        : await getProgramLevelSetting(activeProgramId, goalsLevel);
       const allGoals: LevelGoal[] = levelSettings?.targetGoals || [];
       if (allGoals.length > 0) {
         const goalProgressEntries = allGoals.map((goal) => {
@@ -2585,7 +2646,9 @@ export async function processWorkoutCompletion(
     // 2. Goal Progress — detailed per-goal breakdown
     const goalProgress: import('../../core/types/progression.types').GoalProgressEntry[] = [];
     try {
-      const levelSettingsForGoals = await getProgramLevelSetting(activeProgramId, currentLevel);
+      const levelSettingsForGoals = adminRules
+        ? await loadLevelSettingsForGoals(activeProgramId, currentLevel, slugMap)
+        : await getProgramLevelSetting(activeProgramId, currentLevel);
       const goalsForReport: LevelGoal[] = levelSettingsForGoals?.targetGoals || [];
       for (const goal of goalsForReport) {
         const match = exercises.find(
@@ -2628,6 +2691,17 @@ export async function processWorkoutCompletion(
         leveledUp,
         newLevel: leveledUp ? newLevel : undefined,
         newlyCompletedGoalIds: newlyCompletedGoalIds.length > 0 ? newlyCompletedGoalIds : undefined,
+        ...(adminGain
+          ? {
+              adminBonuses: {
+                firstSessionBonus: adminGain.firstSessionBonus,
+                persistenceBonus: adminGain.persistenceBonus,
+                rpeBonus: adminGain.rpeBonus,
+                ruleSource: rule.source ?? 'default',
+                countedSets: adminGain.countedSets,
+              },
+            }
+          : {}),
       },
       linkedProgramGains,
       volumeBreakdown,
