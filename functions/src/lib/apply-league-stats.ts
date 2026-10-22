@@ -6,6 +6,7 @@
  * written in the same transaction).
  */
 import type { firestore } from 'firebase-admin';
+import { isEphemeralGroup } from './group-lifecycle';
 import {
   distanceMetersOfDay,
   isCountedMember,
@@ -24,6 +25,24 @@ type Bucket = { credit: number; members: number };
 
 export type ApplyResult = 'applied' | 'already' | 'no-credit' | 'no-scope' | 'no-user';
 
+/**
+ * The author's group ids that have a group board (group audit P1-14): every
+ * run-invite adds its ephemeral group to social.groupIds, so each later
+ * workout wrote stats docs for every throw-away run group the user ever
+ * joined. Ephemeral groups are dropped (one batched read of the groups).
+ */
+export async function boardGroupIds(db: firestore.Firestore, raw: unknown): Promise<string[]> {
+  const ids = Array.isArray(raw) ? Array.from(new Set(raw.filter((g): g is string => typeof g === 'string' && !!g))) : [];
+  if (!ids.length) return [];
+  const snaps = await db.getAll(...ids.map((id) => db.collection('community_groups').doc(id)));
+  return keepBoardGroups(ids, snaps.map((sn) => (sn.exists ? sn.data() : undefined)));
+}
+
+/** Pure half of boardGroupIds: same order, ephemeral groups removed (missing docs kept, as before). */
+export function keepBoardGroups(ids: string[], docs: (Record<string, unknown> | undefined)[]): string[] {
+  return ids.filter((_, i) => !isEphemeralGroup(docs[i]));
+}
+
 export async function applyWorkoutToLeagueStats(
   db: firestore.Firestore,
   serverTimestamp: () => firestore.FieldValue,
@@ -41,7 +60,7 @@ export async function applyWorkoutToLeagueStats(
   const u = (await db.collection('users').doc(uid).get()).data() ?? {};
   const core = (u.core ?? {}) as Record<string, unknown>;
   // Demo world guard: a demo user counts toward demo scopes only.
-  const targets = demoSafeScopeTargets(uid, core, scopeTargetsFor(core, (u.social as { groupIds?: unknown } | undefined)?.groupIds ?? []));
+  const targets = demoSafeScopeTargets(uid, core, scopeTargetsFor(core, await boardGroupIds(db, (u.social as { groupIds?: unknown } | undefined)?.groupIds)));
   if (!targets.length) return 'no-scope';
   const gender = core.gender === 'male' || core.gender === 'female' ? core.gender : null;
 
@@ -141,7 +160,7 @@ export async function applyStepsToLeagueStats(
   if (!u) return 'no-user';
   const core = (u.core ?? {}) as Record<string, unknown>;
   // Demo world guard: a demo user counts toward demo scopes only.
-  const targets = demoSafeScopeTargets(uid, core, scopeTargetsFor(core, (u.social as { groupIds?: unknown } | undefined)?.groupIds ?? []));
+  const targets = demoSafeScopeTargets(uid, core, scopeTargetsFor(core, await boardGroupIds(db, (u.social as { groupIds?: unknown } | undefined)?.groupIds)));
   if (!targets.length) return 'no-scope';
   const gender = core.gender === 'male' || core.gender === 'female' ? core.gender : null;
   // Midday in Israel on that date → the right week / month keys.

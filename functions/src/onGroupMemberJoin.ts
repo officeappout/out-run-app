@@ -40,6 +40,7 @@ import type { PushGender } from './shared/push-library.core';
 import { isDemoUid, restrictToDemoWorld } from './lib/demo';
 import { loadDemoViewerUids } from './lib/demo-world';
 import { PUSH_TYPE_IDS } from './services/push-measure-all';
+import { isEphemeralGroup } from './lib/group-lifecycle';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -86,6 +87,14 @@ export const onGroupMemberJoin = onDocumentCreated(
         return;
       }
       const group = groupSnap.data() as Record<string, unknown>;
+      // Ephemeral run-invite groups (group audit P1-13): the joiner is already
+      // in the run (lobby / presence) and the host sees them live; a "joined
+      // the group" welcome + admin alert pointed at /community/<id>, a group
+      // page that never lists ephemeral groups.
+      if (isEphemeralGroup(group)) {
+        logger.info(`[onGroupMemberJoin] group ${groupId} is ephemeral — skip push`);
+        return;
+      }
       groupName = String(group.name ?? '');
       // Resolve admin: leaderUserId > createdBy
       const leader = group.leaderUserId as string | undefined;

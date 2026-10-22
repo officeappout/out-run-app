@@ -5,16 +5,20 @@
  *
  * Two jobs:
  *  1. Keep memberCount on the parent group in sync.
- *  2. Activate group (isActive = true) when memberCount >= minimumMembers.
+ *  2. Activate a PENDING group (never activated, minimumMembers > 1) when
+ *     memberCount >= minimumMembers — never a group an admin deactivated or
+ *     moderation removed (lib/group-lifecycle.ts, group audit P1-5).
  *
- * Anti-ghost scheduled function (deleteZombieGroups) runs once per day
- * and deletes groups where isActive=false and createdAt < 24h ago.
+ * Anti-ghost scheduled function (deleteZombieGroups) runs once per day and
+ * deletes PENDING groups created more than 24 h ago — deactivated groups are
+ * kept (they used to be hard-deleted).
  */
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { isZombieGroup, shouldAutoActivate } from './lib/group-lifecycle';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -43,7 +47,6 @@ export const onGroupMemberWrite = onDocumentWritten(
     if (!groupSnap.exists) return;
 
     const group = groupSnap.data()!;
-    const minimumMembers: number = group.minimumMembers ?? 1;
 
     const updates: Record<string, unknown> = {
       memberCount: count,
@@ -51,9 +54,10 @@ export const onGroupMemberWrite = onDocumentWritten(
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    if (!group.isActive && count >= minimumMembers) {
+    if (shouldAutoActivate(group, count)) {
       updates.isActive = true;
-      logger.info(`[onGroupMemberWrite] Activating group ${groupId} (${count}/${minimumMembers} members)`);
+      updates.activatedAt = admin.firestore.FieldValue.serverTimestamp();
+      logger.info(`[onGroupMemberWrite] Activating group ${groupId} (${count}/${group.minimumMembers} members)`);
     }
 
     await groupRef.update(updates);
@@ -78,15 +82,18 @@ export const deleteZombieGroups = onSchedule(
       .where('createdAt', '<', cutoff)
       .get();
 
-    if (zombies.empty) {
-      logger.info('[deleteZombieGroups] No zombie groups found.');
+    // Only PENDING groups (never activated) — an admin-deactivated or
+    // moderation-removed group is inactive too, and must survive.
+    const doomed = zombies.docs.filter((doc) => isZombieGroup(doc.data()));
+    if (!doomed.length) {
+      logger.info(`[deleteZombieGroups] No zombie groups found (${zombies.size} inactive kept).`);
       return;
     }
 
     const batch = db.batch();
-    zombies.docs.forEach((doc) => batch.delete(doc.ref));
+    doomed.forEach((doc) => batch.delete(doc.ref));
     await batch.commit();
 
-    logger.info(`[deleteZombieGroups] Deleted ${zombies.size} zombie groups.`);
+    logger.info(`[deleteZombieGroups] Deleted ${doomed.length} zombie groups (${zombies.size - doomed.length} deactivated kept).`);
   },
 );
