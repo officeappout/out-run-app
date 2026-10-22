@@ -6,17 +6,19 @@
  * and the month grid.
  */
 
+import { MAINTENANCE_COLOR, TRACK_COLORS, TRACK_RGB } from './track-colors';
+
 export type FlameTone = 'strength' | 'cardio' | 'steps' | 'maintenance';
 
 /** Display order when a day blends several activities. */
 export const FLAME_TONE_ORDER: FlameTone[] = ['strength', 'cardio', 'steps', 'maintenance'];
 
-/** rgb (for soft washes), hex (dots/strokes), Hebrew label. Aligned with CATEGORY_COLORS. */
+/** rgb (for soft washes), hex (dots/strokes), Hebrew label. Hexes from the shared track map (track-colors). */
 export const FLAME_TONES: Record<FlameTone, { rgb: string; hex: string; label: string }> = {
-  strength: { rgb: '0,186,247', hex: '#00baf7', label: 'כוח' },
-  cardio: { rgb: '132,204,22', hex: '#84cc16', label: 'אירובי' },
-  steps: { rgb: '249,140,22', hex: '#f59e0b', label: 'צעדים' },
-  maintenance: { rgb: '168,85,247', hex: '#a855f7', label: 'גמישות' },
+  strength: { rgb: TRACK_RGB.strength, hex: TRACK_COLORS.strength, label: 'כוח' },
+  cardio: { rgb: TRACK_RGB.run, hex: TRACK_COLORS.run, label: 'אירובי' },
+  steps: { rgb: TRACK_RGB.walk, hex: TRACK_COLORS.walk, label: 'צעדים' },
+  maintenance: { rgb: '168,85,247', hex: MAINTENANCE_COLOR, label: 'גמישות' },
 };
 
 /** Recoloured copies of the app's LottieFiles flame (public/assets/animations/flames). */

@@ -27,6 +27,7 @@ import {
   type DayDisplayProps,
   type DaySessionInput,
 } from '@/features/home/utils/day-display.utils';
+import { useTrackRingColors } from '@/features/home/hooks/useTrackRingColors';
 import { capsuleBackground, streakRuns, FLAME_TONES, type FlameTone, type StreakCell } from '@/components/ui/v2/streak';
 import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
@@ -969,6 +970,7 @@ export default function SmartWeeklySchedule({
   // Centralized day-status brain — encapsulates the Completion Bridge and
   // icon-priority logic. Returns a stable getter to use inside useMemo.
   const getDayStatus = useDayStatus();
+  const ringColors = useTrackRingColors();
 
   // Subscribe to the global midnight clock so the weekly strip's "today"
   // index advances at 00:00 without a hard refresh.
@@ -1497,7 +1499,7 @@ export default function SmartWeeklySchedule({
         totalMinutes: dayData.totalMinutes,
         categories: dayData.categories,
         dominantCategory: dayData.dominantCategory,
-      });
+      }, ringColors);
       // props are required by DayIconCell but ignored when activityRing is set;
       // pass minimal valid state so the cell can echo today/selection if needed.
       // isRecoveryCompletion intentionally NOT threaded here: isRest and

@@ -28,6 +28,7 @@ import { runPlacementOf, slotsOfEntries } from '../../utils/runWeekByType';
 import { DEFAULT_STRENGTH_WINDOW } from '../../utils/strengthWeekRecommendation';
 import { detailLineHe, emptyWeek, runMinutes, runTitleHe } from '../adapters/shared';
 import { explainWeek } from '../explain';
+import { sessionTimeOf } from './plannedTime';
 import type { WbRules, WbSession, WbTrack, WbWeek } from '../types';
 
 export interface PlannerWbData {
@@ -38,6 +39,11 @@ export interface PlannerWbData {
   entryIds: string[];
   /** The ids it trains (entry programIds, or the template's strength ids). */
   programIds: string[];
+  /**
+   * Planner v2: the planned time of its entries (the existing userSchedule `startTime`,
+   * 'HH:MM'); null = none / a template day without a doc yet. Optional, display only.
+   */
+  startTime?: string | null;
 }
 
 export type PlannerWeek = WbWeek<PlannerWbData>;
@@ -146,7 +152,7 @@ export function buildPlannerWeek(i: PlannerWeekInput): PlannerWeekModel {
         locked: status === 'done',
         homeDow: dow,
         status,
-        data: { kind: 'strength', date: p.date, entryIds: fromDoc.entryIds, programIds },
+        data: { kind: 'strength', date: p.date, entryIds: fromDoc.entryIds, programIds, startTime: sessionTimeOf(docEntries.filter((e) => isStrengthEntry(e, i.resolveSlug))) },
       };
     } else {
       const minutes = p.walkGoal?.type === 'time' ? p.walkGoal.value : undefined;
@@ -159,7 +165,7 @@ export function buildPlannerWeek(i: PlannerWeekInput): PlannerWeekModel {
         locked: status === 'done',
         homeDow: dow,
         status,
-        data: { kind: 'walk', date: p.date, ...idsOf(docEntries.filter(isWalkEntry)) },
+        data: { kind: 'walk', date: p.date, ...idsOf(docEntries.filter(isWalkEntry)), startTime: sessionTimeOf(docEntries.filter(isWalkEntry)) },
       };
     }
     // Nothing to write a move to (no entry, no template ids) → locked context.
