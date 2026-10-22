@@ -725,7 +725,8 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'שפה: גרמנית',
     description: 'משתמשים שבחרו גרמנית (או שהמכשיר שלהם בגרמנית) יקבלו את האפליקציה בגרמנית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
     parentKey: 'enable_i18n',
-  },  // Analytics — app-session signal (22.10.2026).
+  },
+  // Analytics — app-session signal (22.10.2026).
   {
     key: 'enable_app_session_signal',
     icon: Users,
@@ -733,15 +734,6 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-slate-600',
     title: 'אנליטיקה: כניסות לאפליקציה',
     description: 'מונה יומי לכל משתמש: כמה פעמים נכנס לאפליקציה וכמה מהכניסות היו מהקשה על פוש — כדי לדעת מי חוזר בלי פוש. בלי מיקום ובלי פרטים אישיים, כתיבה אחת לכניסה (עד 12 ביום). להדליק רק אחרי פריסת חוקי Firestore.',
-  },
-  // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
-  {
-    key: 'admin_ai_assistant_v1',
-    icon: Bot,
-    iconBg: 'bg-violet-50',
-    iconColor: 'text-violet-600',
-    title: 'פאנל: עוזר AI ("שאל את OUT")',
-    description: 'צ׳אט בתוך פאנל הניהול לסופר-אדמין ולמנהלי השורש בלבד: ניווט לעמודים (בלי מודל), תשובות מהירות ושאלות על נתוני הפאנל. קריאה בלבד. התקציב היומי נקבע ב-app_config/ai (adminAiBudgetUsd). לא נדלק אוטומטית לסופר-אדמין.',
   },
   // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
   {
