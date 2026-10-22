@@ -4,6 +4,8 @@ import React from 'react';
 import { Coins, Dumbbell, Flag, Timer, Medal } from 'lucide-react';
 
 import { AchievementBadge } from './summary-atoms';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * WeeklyAchievementsGrid — the 4-up badges card + optional XP-status footer slot.
@@ -43,39 +45,40 @@ export default function WeeklyAchievementsGrid({
   weeklyMinutes,
   xpStatusSlot,
 }: WeeklyAchievementsGridProps) {
+  const t = useT(player);
   return (
     <div className="bg-white dark:bg-slate-800 rounded-v2-card p-4 shadow-v2-card">
       <div className="flex items-center justify-between mb-4">
         <Medal className="w-5 h-5 text-slate-700 dark:text-slate-300" />
-        <h3 className="text-slate-800 dark:text-white font-bold text-base">הישגים שבועיים</h3>
+        <h3 className="text-slate-800 dark:text-white font-bold text-base">{t('weeklyAchievements.title')}</h3>
       </div>
       <div className="grid grid-cols-4 gap-2">
         <AchievementBadge
           icon={<Coins className="w-5 h-5 text-primary" />}
           current={coins}
           total={500}
-          label="מטבעות"
+          label={t('weeklyAchievements.coins')}
           progress={(coins / 500) * 360}
         />
         <AchievementBadge
           icon={<Dumbbell className="w-5 h-5 text-primary" />}
           current={weeklyStrengthSessions}
           total={weeklyGoalSessions}
-          label="אימוני כוח"
+          label={t('weeklyAchievements.strengthSessions')}
           progress={(weeklyStrengthSessions / weeklyGoalSessions) * 360}
         />
         <AchievementBadge
           icon={<Flag className="w-5 h-5 text-primary" />}
           current={daysWithActivity}
           total={5}
-          label="ימים פעילים"
+          label={t('weeklyAchievements.activeDays')}
           progress={(daysWithActivity / 5) * 360}
         />
         <AchievementBadge
           icon={<Timer className="w-5 h-5 text-primary" />}
           current={Math.round(weeklyMinutes)}
           total={150}
-          label="דקות שבועיות"
+          label={t('weeklyAchievements.minutes')}
           progress={(weeklyMinutes / 150) * 360}
         />
       </div>

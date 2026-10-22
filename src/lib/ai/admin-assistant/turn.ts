@@ -12,6 +12,7 @@
  *   - stop_reason 'refusal' → a fixed Hebrew line, no more calls.
  *   - max_tokens: 400 on a call that may still use tools, 900 on the final answer.
  */
+import { auditInput } from './audit-input';
 import type Anthropic from '@anthropic-ai/sdk';
 import {
   ADMIN_AI_MAX_MODEL_CALLS,
@@ -127,7 +128,7 @@ export async function runAdminTurn(input: TurnInput, deps: TurnDeps): Promise<Tu
         deps.emit({ type: 'tool', name: tu.name, status: 'start' });
         const r = await deps.executeTool(tu.name, tu.input);
         deps.emit({ type: 'tool', name: tu.name, status: r.isError ? 'error' : 'done' });
-        out.tools.push({ name: tu.name, input: JSON.stringify(tu.input ?? {}).slice(0, 300), resultChars: r.resultChars, isError: r.isError, truncated: r.truncated });
+        out.tools.push({ name: tu.name, input: auditInput(tu.name, tu.input), resultChars: r.resultChars, isError: r.isError, truncated: r.truncated });
         for (const link of [...(r.link ? [r.link] : []), ...(r.links ?? [])]) {
           out.links.push(link);
           deps.emit({ type: 'link', ...link });
