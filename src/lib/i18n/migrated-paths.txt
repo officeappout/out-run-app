@@ -351,6 +351,7 @@ src/features/home/components/day-preview/
 
 # enable_map_polish_v1 (21.10.2026, namespace map) — new files, no hard-coded Hebrew.
 src/features/parks/core/map-polish/
+src/features/parks/core/dest-planner/
 src/features/parks/client/components/park-preview/ParkCardCompact.tsx
 # wave 2 batch z (namespace player, keys strengthSummary.* / dopamine.*) — the strength post-workout screens. Listed per
 # file: StrengthSummaryPage / XpStatusRow / hooks are busy in other work; GainBreakdownCard, WeeklyAchievementsGrid,
@@ -410,5 +411,24 @@ src/features/workout-engine/summary/components/aerobic/ParticipantsBlock.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicShareBlock.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicStatRingsBlock.tsx
 src/features/workout-engine/summary/components/aerobic/TogetherBlock.tsx
+# wave 2 batch af (namespace summary) — the legacy SummaryOrchestrator fallback and its blocks + segment-rail labels.
+# Listed per file: WorkoutSummaryPage / HybridSummary / SummaryDrawerShell are busy; summary-gender-copy.ts (consumer
+# WorkoutSummaryPage is busy) and run-type.mapping.ts / v2-summary.mapping.ts (Hebrew label builders called from busy
+# AerobicSummaryView / HybridSummary and from out-of-folder fmt helpers) are left for a later batch.
+src/features/workout-engine/summary/components/SummaryOrchestrator.tsx
+src/features/workout-engine/summary/components/shared/SummaryStatsGrid.tsx
+src/features/workout-engine/summary/components/shared/SummaryHeader.tsx
+src/features/workout-engine/summary/components/running/
+src/features/workout-engine/summary/blocks/segment-rail.util.ts
+# wave 2 batch ai (namespace player) — shared strength cards + summary blocks. Listed per file: the folders also
+# hold busy files and Hebrew-returning helpers (summary-v2.mapping / phase-summary / useGoalEvaluation have outside callers).
+src/features/workout-engine/components/SwapIcon.tsx
+src/features/workout-engine/components/cards/StrengthExerciseCard.tsx
+src/features/workout-engine/components/strength/components/WeeklyAchievementsGrid.tsx
+src/features/workout-engine/components/strength/components/GainBreakdownCard.tsx
+src/features/workout-engine/components/strength/components/SummaryStatsRow.tsx
+src/features/workout-engine/components/strength/components/ExerciseBreakdownCard.tsx
+src/features/workout-engine/components/strength/components/summary-atoms/ExerciseRow.tsx
+src/features/workout-engine/components/strength/components/summary-atoms/PersonalRecords.tsx
 src/app/legal/credits/page.tsx
 src/features/parks/client/components/route-preview/RouteOsmSourceLine.tsx

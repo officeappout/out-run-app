@@ -4,6 +4,8 @@ import React from 'react';
 import { Target, Package, Dumbbell } from 'lucide-react';
 import WorkoutCardWrapper from './WorkoutCardWrapper';
 import SwapIcon from '../SwapIcon';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 // Simple className utility function
 const cn = (...classes: (string | undefined | null | false)[]): string => {
@@ -59,13 +61,18 @@ export default function StrengthExerciseCard({
   symmetry,
   isSwapped,
 }: StrengthExerciseCardProps) {
-  const perSide = symmetry === 'unilateral' ? ' (לכל צד)' : '';
+  const t = useT(player);
   // Build range-based display string (no sets prefix -- sets shown in session structure)
   const rangeDisplay = (() => {
     if (repsRange && repsRange.min !== repsRange.max) {
-      const unit = isTimeBased ? 'שניות' : 'חזרות';
-      const targetSuffix = rampedTarget ? ` (יעד: ${rampedTarget})` : '';
-      return `${repsRange.min}-${repsRange.max} ${unit}${perSide}${targetSuffix}`;
+      return t('exerciseCard.range', {
+        min: String(repsRange.min),
+        max: String(repsRange.max),
+        unit: isTimeBased ? 'seconds' : 'reps',
+        side: symmetry === 'unilateral' ? 'unilateral' : 'both',
+        hasTarget: rampedTarget ? 'yes' : 'no',
+        target: rampedTarget ? String(rampedTarget) : '',
+      });
     }
     return null;
   })();
@@ -90,21 +97,21 @@ export default function StrengthExerciseCard({
             {title}
           </h3>
           {isTargetGoal && (
-            <span className="flex items-center gap-1 px-2 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] font-bold rounded-full border border-cyan-200 flex-shrink-0" title="יעד רמה">
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] font-bold rounded-full border border-cyan-200 flex-shrink-0" title={t('exerciseCard.badge.targetTitle')}>
               <Target size={10} />
-              יעד
+              {t('exerciseCard.badge.target')}
             </span>
           )}
           {matchesGoal && !isTargetGoal && (
-            <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full border border-green-200 flex-shrink-0" title="תואם למטרה שלך">
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full border border-green-200 flex-shrink-0" title={t('exerciseCard.badge.goalTitle')}>
               <Target size={10} />
-              מטרה
+              {t('exerciseCard.badge.goal')}
             </span>
           )}
           {matchesUserEquipment && (
-            <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full border border-blue-200 flex-shrink-0" title="מתאים לציוד שלך">
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full border border-blue-200 flex-shrink-0" title={t('exerciseCard.badge.equipmentTitle')}>
               <Package size={10} />
-              ציוד
+              {t('exerciseCard.badge.equipment')}
             </span>
           )}
         </div>

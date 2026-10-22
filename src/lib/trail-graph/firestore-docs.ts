@@ -10,6 +10,7 @@
 import { stripUndefined } from '@/lib/route-collections';
 import type { SurfaceType } from '@/lib/route-collections/surface-type';
 import { COPERNICUS_DEM_ATTRIBUTION_SHORT } from '@/lib/dem-tile-cache/copernicus-glo30';
+import { stripOsmCode } from './naming';
 import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type TrailRoute, type TrailSegment } from './types';
 
 /** The app's persisted Route.routeShape vocabulary (route.types.ts RouteShape). */
@@ -97,7 +98,7 @@ export function routeDocPayload(r: TrailRoute, ctx: RouteDocContext): { id: stri
   const shape = toRouteShape(r.shape);
   const offroad = r.stats.trailPct >= 50;
   const raw = {
-    name: r.name,
+    name: stripOsmCode(r.name),
     description: r.kind === 'osm_relation' ? `מסלול מסומן${r.osm?.operator ? ` (${r.osm.operator})` : ''} — מתוך OpenStreetMap` : `מסלול מוצע מ${r.settlement ?? ctx.city} — נבנה מרשת השבילים של OpenStreetMap`,
     distance: km,
     duration: Math.max(1, Math.round(r.stats.lengthM / PACE_M_PER_MIN[r.activity])),

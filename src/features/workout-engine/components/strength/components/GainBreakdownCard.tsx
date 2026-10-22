@@ -4,6 +4,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Star, Calendar } from 'lucide-react';
 import type { WorkoutCompletionResult } from '@/features/user/core/types/progression.types';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * GainBreakdownCard — the three-row progression-breakdown card.
@@ -32,6 +34,7 @@ export default function GainBreakdownCard({
   weeklyStrengthSessions,
   weeklyGoalSessions,
 }: GainBreakdownCardProps) {
+  const t = useT(player);
   if (!progressionResult?.success) return null;
 
   const completionPct = progressionResult.sessionCompletionPercent;
@@ -47,13 +50,13 @@ export default function GainBreakdownCard({
       transition={{ delay: 0.3 }}
       className="bg-white dark:bg-slate-800 rounded-v2-card p-4 shadow-v2-card"
     >
-      <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 mb-3">פירוט התקדמות</h3>
+      <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 mb-3">{t('gainBreakdown.title')}</h3>
       <div className="space-y-2">
         {/* Completion */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-cyan-500" />
-            <span className="text-sm text-slate-700 dark:text-slate-200">השלמת אימון</span>
+            <span className="text-sm text-slate-700 dark:text-slate-200">{t('gainBreakdown.completion')}</span>
           </div>
           <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400 tabular-nums">
             {(Math.round(completionPct * 10) / 10).toFixed(1)}%
@@ -66,7 +69,7 @@ export default function GainBreakdownCard({
             <div className="flex items-center gap-2">
               <Star className="w-4 h-4 text-amber-500" />
               <span className="text-sm text-slate-700 dark:text-slate-200">
-                יעדים שהושגו ({metGoals}/{totalGoals})
+                {t('gainBreakdown.goals', { met: String(metGoals), total: String(totalGoals) })}
               </span>
             </div>
             <span className="text-sm font-bold text-amber-600 dark:text-amber-400 tabular-nums">
@@ -80,7 +83,7 @@ export default function GainBreakdownCard({
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-purple-500" />
             <span className="text-sm text-slate-700 dark:text-slate-200">
-              עקביות שבועית ({weeklyStrengthSessions}/{weeklyGoalSessions})
+              {t('gainBreakdown.consistency', { done: String(weeklyStrengthSessions), goal: String(weeklyGoalSessions) })}
             </span>
           </div>
           <span className={`text-sm font-bold tabular-nums ${
@@ -88,13 +91,13 @@ export default function GainBreakdownCard({
               ? 'text-green-600 dark:text-green-400'
               : 'text-slate-400 dark:text-slate-500'
           }`}>
-            {consistencyBonus ? '✓ בונוס' : `עוד ${weeklyGoalSessions - weeklyStrengthSessions}`}
+            {consistencyBonus ? t('gainBreakdown.bonus') : t('gainBreakdown.remaining', { n: String(weeklyGoalSessions - weeklyStrengthSessions) })}
           </span>
         </div>
 
         {/* Total Gain */}
         <div className="border-t border-slate-100 dark:border-slate-700 pt-2 mt-2 flex items-center justify-between">
-          <span className="text-sm font-bold text-slate-800 dark:text-white">סה״כ התקדמות</span>
+          <span className="text-sm font-bold text-slate-800 dark:text-white">{t('gainBreakdown.total')}</span>
           <span className="text-base font-black text-cyan-600 dark:text-cyan-400 tabular-nums">
             +{progressionResult.activeProgramGain.totalGain.toFixed(1)}%
           </span>

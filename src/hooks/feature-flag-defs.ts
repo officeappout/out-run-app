@@ -570,6 +570,13 @@ export const FLAG_DEFS = [
   // adult + AI entitlement + kill switch / daily budget). Fail-closed; super admins preview it.
   // Off = byte-identical summary and level-up screens, no request.
   { key: 'enableWorkoutInsightsV1', firestoreKey: 'enable_workout_insights_v1', defaultValue: false, superAdminValue: true },
+  // Destination planner (22.10.2026, owner-approved design M-2a…M-2e — agent-briefs/dest-planner-brief.md).
+  // Inside enable_home_v2's map: after an address pick / "נווט לכאן" (every entry into the commute
+  // flow), a planner sheet replaces the commute carousel — mode tabs with minutes (default = last
+  // activity), preference chips, up to 2 options (via a nearby fitness park / shortest) with
+  // data-only tags, one start button → the existing commute player. Fail-closed; super admins
+  // preview it. Off = byte-identical commute flow.
+  { key: 'enableDestinationPlannerV1', firestoreKey: 'enable_destination_planner_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
