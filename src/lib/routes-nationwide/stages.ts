@@ -1,12 +1,15 @@
 /**
  * One authority, sources in the plan's order (§3.1 / §3.4):
- *   existing → known_routes → dataset → osm → named_ways → bike_adjacent_walk → park_loops → generated → neighbourhood
+ *   existing → known_routes → dataset → osm → named_ways → bike_adjacent_walk → park_loops → generated → neighbourhood → settlement_loops
  * (`known_routes` = names from web research matched to OSM geometry — first, so a
  *  matched relation / park loop keeps its citation and the later copy is the duplicate;
  *  `named_ways` = same-name OSM paths/promenades stitched into named corridors;
  *  `bike_adjacent_walk` = walking/running corridors beside bike paths (RC9 — MoT layer + OSM);
  *  `generated` = pipeline B's offline trail loops; `neighbourhood` =
- * GraphHopper foot_turns round trips from a few well-spread seeds — RC8.)
+ * GraphHopper foot_turns round trips from a few well-spread seeds — RC8;
+ *  `settlement_loops` = regional councils only: 2–3 short GraphHopper loops
+ *  (3–8 km) from the council's settlements — owner 22.10.2026. NOT quota-gated:
+ *  it always runs, and the selection adds its loops on top of the top-N set.)
  * After every stage the whole pool (existing + new) is scored and the top-N
  * selection re-run (src/lib/route-score). Every FINDING source (datasets, OSM
  * relations, named corridors, park loops — real, named routes) always runs
@@ -26,7 +29,7 @@ import { isDuplicate } from '../dataset-import/overlap';
 import { parsePath, type FromDocOptions } from '../route-score/from-route-doc';
 import { scoreAuthorityRoutes, type AuthorityScoreRun } from '../route-score/score-authority';
 
-export const STAGE_ORDER = ['existing', 'known_routes', 'dataset', 'osm', 'named_ways', 'bike_adjacent_walk', 'park_loops', 'generated', 'neighbourhood'] as const;
+export const STAGE_ORDER = ['existing', 'known_routes', 'dataset', 'osm', 'named_ways', 'bike_adjacent_walk', 'park_loops', 'generated', 'neighbourhood', 'settlement_loops'] as const;
 export type StageKey = (typeof STAGE_ORDER)[number];
 /** Stages that invent geometry — run only while the quota minimum is unmet. */
 export const QUOTA_GATED_STAGES: ReadonlySet<StageKey> = new Set<StageKey>(['generated', 'neighbourhood']);
@@ -77,8 +80,10 @@ function bbox(c: [number, number][]): Box | null {
 const boxesMeet = (p: Box | null, q: Box | null) => !!p && !!q && p[0] <= q[2] && q[0] <= p[2] && p[1] <= q[3] && q[1] <= p[3];
 
 export function quotaMet(run: AuthorityScoreRun): boolean {
-  // Only ≥70 selections count: routes the urban floor let in (RC9) never stop the generating stages.
-  return run.selection.counts.selected - (run.selection.counts.urbanFloor ?? 0) >= run.quota.total.min;
+  // Only ≥70 selections count: routes the urban floor let in (RC9) never stop the generating stages,
+  // and neither do settlement loops (always-added extras, owner 22.10.2026).
+  const c = run.selection.counts;
+  return c.selected - (c.urbanFloor ?? 0) - (c.settlementLoops ?? 0) >= run.quota.total.min;
 }
 
 export interface RunStagesOptions {

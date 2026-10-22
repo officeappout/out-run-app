@@ -75,6 +75,8 @@ export interface RouteScoreInput {
   sourceTier: SourceTier;
   /** RC9: a NAMED urban route (urban floor eligible) — null for everything else. Optional for older callers. */
   urbanKind?: UrbanRouteKind | null;
+  /** A regional council's settlement loop (generator.pipeline SETTLEMENT_LOOP_PIPELINE) — selected as an extra, outside the quota. */
+  settlementLoop?: boolean;
   /** Share (0..1) of the length inside a park / green / beach — trails PilotContext. Null when not measured. */
   greenShare: number | null;
   parkRef: ParkRef | null;

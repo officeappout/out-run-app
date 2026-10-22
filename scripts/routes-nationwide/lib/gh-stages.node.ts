@@ -12,6 +12,9 @@
  *                   GraphHopper (budgeted). At most MAX_PARKS parks.
  *   neighbourhood — GraphHopper foot_turns loops from a few well-spread seeds;
  *                   the runner only reaches it while the quota is still short.
+ *   settlement_loops — regional councils only (owner 22.10.2026): 2–3 short
+ *                   (3–8 km) GraphHopper foot_turns loops from the council's
+ *                   settlements, ALWAYS (not quota-gated), same GH budget.
  */
 import { loopsForPark, parkLoopDoc, pointInRing, type LngLat } from '../../../src/lib/park-loops';
 import { buildValidatedDoc } from '../../../src/lib/route-collections/validate';
@@ -20,6 +23,7 @@ import type { CandidateRoute, StageProvider } from '../../../src/lib/routes-nati
 import { corridorDoc, namedCorridors } from '../../../src/lib/routes-nationwide/named-corridors';
 import { nameGeneratedLoop } from '../../../src/lib/routes-nationwide/route-naming';
 import { generateNeighbourhoodLoops, neighbourhoodLoopDoc, spreadSeeds, NEIGHBOURHOOD_PROFILE } from '../../../src/lib/routes-nationwide/neighbourhood-loops';
+import { generateSettlementLoops, rankSettlements, settlementLoopDoc } from '../../../src/lib/routes-nationwide/settlement-loops';
 import type { AuthorityGh } from './gh-client.node';
 import { ghViaRouter } from './gh-via-router.node';
 import type { AuthorityOsmSlice } from './authority-osm.node';
@@ -107,6 +111,25 @@ export function neighbourhoodProvider(a: AuthorityCtx, slice: AuthorityOsmSlice,
       const v = validated(a, docs, 'neighbourhood');
       const notes = [...res.notes, ...(v.invalid.length ? [`${v.invalid.length} invalid (${v.invalid[0]})`] : [])];
       return { routes: v.routes, note: `${seeds.length} seed(s) → ${v.routes.length} loop(s)${notes.length ? ` [${notes.join(' · ')}]` : ''} · ${ghNote(gh)}` };
+    },
+  };
+}
+
+export function settlementLoopsProvider(a: AuthorityCtx, slice: AuthorityOsmSlice, gh: AuthorityGh | null, importBatchId: string): StageProvider {
+  return {
+    key: 'settlement_loops',
+    async run() {
+      if (!gh) return { routes: [], note: 'GraphHopper not configured (--graphhopper-url) — skipped' };
+      const osm = await slice.get();
+      if (!osm) return { routes: [], note: 'no boundary — skipped' };
+      const ranked = rankSettlements(osm.settlements, osm.seeds);
+      if (!ranked.length) return { routes: [], note: `${osm.settlements.length} settlement(s), none with streets nearby` };
+      const res = await generateSettlementLoops(gh.client, ranked, { isBudgetSpent: gh.spent });
+      gh.flush();
+      const docs = res.loops.map((l) => settlementLoopDoc(l, { authorityId: a.id, city: a.name, importBatchId, profile: NEIGHBOURHOOD_PROFILE }));
+      const v = validated(a, docs, 'settlement_loops');
+      const notes = [...res.notes, ...(v.invalid.length ? [`${v.invalid.length} invalid (${v.invalid[0]})`] : [])];
+      return { routes: v.routes, note: `${osm.settlements.length} settlement(s), tried ${ranked.length} → ${v.routes.length} loop(s)${notes.length ? ` [${notes.join(' · ')}]` : ''} · ${ghNote(gh)}` };
     },
   };
 }

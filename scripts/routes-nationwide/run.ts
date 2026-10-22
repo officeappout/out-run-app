@@ -10,7 +10,9 @@
  * MoT bph_infra_exist + OSM cycleways with a walkway) → park loops around big parks (W5:
  * known → perimeter → inner via GraphHopper) → pipeline B's generated loops →
  * GraphHopper foot_turns neighbourhood loops (named after the park / streets /
- * neighbourhood they pass). Every finding source always runs; the two
+ * neighbourhood they pass) → regional councils only: 2–3 short (3–8 km) loops
+ * from their settlements ("לולאת <יישוב> · N ק״מ", always, on top of the quota).
+ * Every finding source always runs; the two
  * generating stages run ONLY if the quota is still short. Each step is scored (routeScore v1.3: shade where the city
  * has a layer, turns/zigzag on loops; urban candidates measured on the OSM slice — composition, lighting,
  * amenities ≤ 50 m, road crossings — src/lib/urban-measure) and the top-N set re-selected
@@ -64,7 +66,7 @@ import { loadAdminRelations } from './lib/admin-index.node';
 import { DatasetCatalog, TrailsRun, existingProvider, type AuthorityCtx } from './lib/providers.node';
 import { AuthorityOsmSlice } from './lib/authority-osm.node';
 import { authorityGh, createRunnerGhClient } from './lib/gh-client.node';
-import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider } from './lib/gh-stages.node';
+import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider, settlementLoopsProvider } from './lib/gh-stages.node';
 import { KNOWN_ROUTES_DIR, KnownRoutesStage } from './lib/known-routes.node';
 import { createShadeLoaders, shadeEnricher, type ShadeLoaders } from './lib/shade-enrich.node';
 import { urbanEnricher } from './lib/urban-enrich.node';
@@ -235,6 +237,8 @@ async function main() {
           ...(SKIP_OSM ? [] : [namedWaysProvider(ctx, slice, batch), bikeAdjacentProvider(ctx, slice, datasets, batch), parkLoopsProvider(ctx, slice, ghA, batch)]),
           trails.generated(),
           ...(SKIP_OSM ? [] : [neighbourhoodProvider(ctx, slice, ghA, batch)]),
+          // Regional councils: 2–3 short loops from their settlements, always (owner 22.10.2026).
+          ...(SKIP_OSM || a.type !== 'regional_council' ? [] : [settlementLoopsProvider(ctx, slice, ghA, batch)]),
         ], new Date(), { enrich: combineEnrichers(shade.enrich, urban.enrich) });
       } finally {
         slice.cleanup();
