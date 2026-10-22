@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { Clock, MapPin, Flame, Gauge, TrendingUp } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 
 export interface SummaryStatsGridProps {
@@ -24,6 +26,7 @@ export default function SummaryStatsGrid({
   pace,
   elevationGain,
 }: SummaryStatsGridProps) {
+  const t = useT(summary);
   const formatTime = (seconds: number) => {
     const s = Math.max(0, Math.floor(seconds));
     const hours = Math.floor(s / 3600);
@@ -45,14 +48,14 @@ export default function SummaryStatsGrid({
 
   const stats: Stat[] = [
     {
-      label: 'מרחק',
-      value: `${distance.toFixed(2)} ק"מ`,
+      label: t('fallback.stats.distance.label'),
+      value: t('fallback.stats.distance.value', { km: distance.toFixed(2) }),
       icon: MapPin,
       color: 'text-[#00ADEF]',
       bgColor: 'bg-cyan-50',
     },
     {
-      label: 'זמן',
+      label: t('fallback.stats.time.label'),
       value: formatTime(time),
       icon: Clock,
       color: 'text-[#FF8C00]',
@@ -60,7 +63,7 @@ export default function SummaryStatsGrid({
     },
     ...(pace && pace > 0
       ? ([{
-          label: 'קצב ממוצע',
+          label: t('fallback.stats.pace.label'),
           value: formatPace(pace),
           icon: Gauge,
           color: 'text-blue-600',
@@ -68,7 +71,7 @@ export default function SummaryStatsGrid({
         }] as Stat[])
       : []),
     {
-      label: 'קלוריות',
+      label: t('fallback.stats.calories.label'),
       value: `${Math.floor(calories)}`,
       icon: Flame,
       color: 'text-red-500',
@@ -76,8 +79,8 @@ export default function SummaryStatsGrid({
     },
     ...(elevationGain && elevationGain > 0
       ? ([{
-          label: 'עלייה',
-          value: `${Math.round(elevationGain)} מ'`,
+          label: t('fallback.stats.elevation.label'),
+          value: t('fallback.stats.elevation.value', { m: String(Math.round(elevationGain)) }),
           icon: TrendingUp,
           color: 'text-green-600',
           bgColor: 'bg-green-50',

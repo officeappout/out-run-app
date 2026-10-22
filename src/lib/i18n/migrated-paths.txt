@@ -410,3 +410,12 @@ src/features/workout-engine/summary/components/aerobic/ParticipantsBlock.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicShareBlock.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicStatRingsBlock.tsx
 src/features/workout-engine/summary/components/aerobic/TogetherBlock.tsx
+# wave 2 batch af (namespace summary) — the legacy SummaryOrchestrator fallback and its blocks + segment-rail labels.
+# Listed per file: WorkoutSummaryPage / HybridSummary / SummaryDrawerShell are busy; summary-gender-copy.ts (consumer
+# WorkoutSummaryPage is busy) and run-type.mapping.ts / v2-summary.mapping.ts (Hebrew label builders called from busy
+# AerobicSummaryView / HybridSummary and from out-of-folder fmt helpers) are left for a later batch.
+src/features/workout-engine/summary/components/SummaryOrchestrator.tsx
+src/features/workout-engine/summary/components/shared/SummaryStatsGrid.tsx
+src/features/workout-engine/summary/components/shared/SummaryHeader.tsx
+src/features/workout-engine/summary/components/running/
+src/features/workout-engine/summary/blocks/segment-rail.util.ts
