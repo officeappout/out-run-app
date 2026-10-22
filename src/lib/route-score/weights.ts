@@ -68,6 +68,17 @@ export const URBAN_FLOOR_CALIBRATION = [62, 65, 70] as const;
 /** Hard bar for the urban floor: stored distance within this share of the measured path length. */
 export const URBAN_FLOOR_MAX_DISTANCE_ERROR = 0.15;
 
+/**
+ * Settlement loops (owner 22.10.2026): short GraphHopper loops from a regional
+ * council's settlements (routes-nationwide/settlement-loops.ts) are marked with
+ * this `generator.pipeline` and selected ON TOP of the top-N set — at most
+ * SETTLEMENT_LOOPS_SELECT_MAX per authority, never displacing a ranked route,
+ * never counting toward the quota. They already passed the route-quality v1
+ * bars at generation; the selection only drops a red-band one.
+ */
+export const SETTLEMENT_LOOP_PIPELINE = 'gh-settlement-loops';
+export const SETTLEMENT_LOOPS_SELECT_MAX = 3;
+
 /** Official-dataset routes scoring 55-70 are flagged for manual review, never auto-selected. */
 export const MANUAL_REVIEW_MIN_SCORE = 55;
 

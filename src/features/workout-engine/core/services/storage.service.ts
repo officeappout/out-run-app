@@ -1,6 +1,7 @@
 // Workout Storage Service - Saves workout history to Firestore
 import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import type { TimedBlockRecord } from '../../engines/timed/timed-record';
+import type { StrengthSummarySnapshot } from '../../components/strength/history/summary-snapshot.types';
 // NOTE: getStepsTrend lives in activity-history.service.ts (queries dailyActivity collection).
 import { db, auth } from '@/lib/firebase';
 import { clearHomeStartupCaches } from '@/lib/fast-startup/daily-record-cache';
@@ -28,13 +29,15 @@ export type SessionSegmentKind = 'aerobic' | 'strength';
  * 1:1, but this type is storage-service-owned rather than a re-export —
  * same pattern as RoutePoint above — so the persisted schema stays
  * decoupled from that player-internal type's name/shape over time.
- * segmentId is deliberately dropped: it's an internal state-machine id with
- * no display value, and this array is already scoped to one segment via its
- * parent SessionSegmentRecord.index.
+ * segmentId was dropped until 22.10.2026; it is now kept (optional) so the
+ * history summary can put each exercise back in its plan block (history
+ * parity) — older docs have none.
  */
 export interface SegmentExerciseDetail {
   exerciseId: string;
   exerciseName: string;
+  /** The plan segment (block) id this was logged under. Optional — absent before 22.10.2026. */
+  segmentId?: string;
   confirmedReps: number[];
   targetReps: number;
   /** Per-side reps for unilateral exercises (right side / ימין). */
@@ -78,6 +81,7 @@ export function toSegmentExerciseDetail(log: ExerciseResultLog[]): SegmentExerci
   return log.map((entry) => ({
     exerciseId: entry.exerciseId,
     exerciseName: entry.exerciseName,
+    ...(entry.segmentId ? { segmentId: entry.segmentId } : {}),
     confirmedReps: entry.confirmedReps,
     targetReps: entry.targetReps,
     ...(entry.confirmedRepsRight ? { confirmedRepsRight: entry.confirmedRepsRight } : {}),
@@ -330,6 +334,16 @@ export interface WorkoutHistoryEntry {
    * history summary (strength-history-adapter) to redraw the format cards.
    */
   timedBlocks?: TimedBlockRecord[];
+
+  // ── History parity (22.10.2026) — additive, optional, strength docs ────
+  /** Active program the workout counted toward (the level ring's program). */
+  programId?: string;
+  /**
+   * What the post-workout summary showed and can't be recomputed later
+   * (compact plan, "vs last time", level ring, streak card). Read back only
+   * under enable_history_summary_parity — see history/summary-snapshot.ts.
+   */
+  summarySnapshot?: StrengthSummarySnapshot;
 }
 
 /**
@@ -667,6 +681,10 @@ function mapFullWorkoutDoc(id: string, data: Record<string, unknown>): WorkoutHi
     commuteLabel: data.commuteLabel,
     groupId: data.groupId,
     attendanceId: data.attendanceId,
+    // Strength history summary (format cards / history parity) — optional.
+    timedBlocks: Array.isArray(data.timedBlocks) ? data.timedBlocks : undefined,
+    programId: typeof data.programId === 'string' ? data.programId : undefined,
+    summarySnapshot: data.summarySnapshot && typeof data.summarySnapshot === 'object' ? data.summarySnapshot : undefined,
   } as WorkoutHistoryEntry;
 }
 
