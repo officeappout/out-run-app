@@ -3,7 +3,8 @@
  * (NATIONWIDE-PLAN.md W3, §3.4). DRY-RUN BY DEFAULT.
  *
  * For every authority (clients → big cities → regional councils → the rest),
- * one at a time: existing routes → open datasets (W1.5) → OSM route relations
+ * one at a time: existing routes → known routes from web research (names +
+ * citations matched to OSM geometry) → open datasets (W1.5) → OSM route relations
  * (pipeline B on the local Geofabrik PBF) → named OSM paths/promenades stitched
  * into named corridors → park loops around big parks (W5:
  * known → perimeter → inner via GraphHopper) → pipeline B's generated loops →
@@ -23,6 +24,7 @@
  *                              ID token from the Firebase Admin SA in .env.local; without it both are skipped)
  *   … --gh-max-calls=30      (hard cap of live GH requests per authority; answers cached in <out>/cache/gh)
  *   … --no-shade             (do not load the Technion / hourly shade layers)
+ *   … --known-routes-dir=<dir> (web-research name files, default docs/routes/known-routes/<authorityId>.json)
  *   … --fresh                (ignore the checkpoint, start over)  --retry-errors
  *   … --out=<dir>            (default scripts/output/nationwide-<YYYY-MM-DD>)
  *   … --apply --project appout-1 [--write-candidates]   # OWNER ONLY
@@ -60,6 +62,7 @@ import { DatasetCatalog, TrailsRun, existingProvider, type AuthorityCtx } from '
 import { AuthorityOsmSlice } from './lib/authority-osm.node';
 import { authorityGh, createRunnerGhClient } from './lib/gh-client.node';
 import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider } from './lib/gh-stages.node';
+import { KNOWN_ROUTES_DIR, KnownRoutesStage } from './lib/known-routes.node';
 import { createShadeLoaders, shadeEnricher, type ShadeLoaders } from './lib/shade-enrich.node';
 
 const argv = process.argv.slice(2);
@@ -79,6 +82,7 @@ const TRAILS_OUT = path.join(OUT, 'trails');
 const GH_URL = flagValue(argv, 'graphhopper-url') ?? process.env.GRAPHHOPPER_URL ?? null;
 const GH_MAX_CALLS = Math.max(0, Number(flagValue(argv, 'gh-max-calls') ?? 30) || 0);
 const NO_SHADE = argv.includes('--no-shade');
+const KNOWN_DIR = flagValue(argv, 'known-routes-dir') ?? KNOWN_ROUTES_DIR;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let stopRequested = false;
@@ -204,10 +208,12 @@ async function main() {
       const shade = await shadeEnricher(shadeLoaders, a.name);
       console.log(`  ${shade.note}`);
       const batch = `nationwide-${a.id}`;
+      const known = new KnownRoutesStage(ctx, KNOWN_DIR, slice, trails, batch, !SKIP_OSM);
       let result;
       try {
         result = await runAuthorityStages(a, [
           existingProvider(target.db, ctx, { surfaceJoin: !NO_SURFACE_JOIN }),
+          known.provider(),
           datasets.provider(ctx),
           trails.osm(),
           ...(SKIP_OSM ? [] : [namedWaysProvider(ctx, slice, batch), parkLoopsProvider(ctx, slice, ghA, batch)]),
@@ -217,7 +223,7 @@ async function main() {
       } finally {
         slice.cleanup();
       }
-      const summary = { ...summarizeAuthority(result, { name: a.name, tier: a.tier }), gh: ghA?.stats() ?? null, shade: shade.note };
+      const summary = { ...summarizeAuthority(result, { name: a.name, tier: a.tier }), gh: ghA?.stats() ?? null, shade: shade.note, knownRoutes: known.report };
       writeJson(path.join(OUT, 'authorities', `${a.id}.json`), summary);
       printAuthority(summary);
 

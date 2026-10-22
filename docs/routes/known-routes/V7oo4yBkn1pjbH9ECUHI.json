@@ -1,0 +1,25 @@
+{
+  "authorityId": "V7oo4yBkn1pjbH9ECUHI",
+  "city": "בני ברק",
+  "researchedAt": "2026-10-22",
+  "routes": [
+    {
+      "name": "שביל ההליכה והאופניים בני ברק – פארק הירקון",
+      "aliases": [
+        "מסלול אופניים בני ברק – נחל הירקון"
+      ],
+      "kind": "mixed",
+      "lengthKm": 3,
+      "inPark": null,
+      "description": "שביל הליכה ורכיבה מואר ומוצל המחבר את העיר לנחל הירקון, עם פינות ישיבה",
+      "sources": [
+        {
+          "url": "https://www.kikar.co.il/israel-news/116981",
+          "title": "מסלול אופניים חדש נחנך בין בני ברק לפארק הירקון"
+        }
+      ],
+      "nameIsDescriptive": true
+    }
+  ],
+  "notes": "Path has no formal name in the source (descriptive name used); exact endpoints not stated. A planned ~320-dunam Bnei Brak park on the Yarkon banks with walking/cycling paths (JDN) is unconfirmed as open, so omitted."
+}
