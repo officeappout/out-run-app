@@ -383,3 +383,16 @@ src/features/workouts/components/workout-preview-drawer/components/
 src/features/workouts/components/workout-preview-drawer/hooks/useFavoritesActions.ts
 src/features/workouts/components/workout-preview-drawer/utils/timed-preview.utils.ts
 src/features/workouts/components/workout-preview-drawer/utils/exercise-display.utils.ts
+
+# wave 2 batch ab (namespace library, keys sharedWorkout.*) — the shared-workout web page (/workouts/[id]): metadata,
+# OG image (both server-side, makeT(SOURCE_LOCALE): crawlers carry no locale) and WorkoutPreviewClient. Listed per
+# file: active/page.tsx is busy (open PRs #696/#697 + worktrees), overview/page.tsx has no live caller (not migrated).
+# Marked i18n-allow-hebrew: the stored segment titles (חימום / שחרור / סופרסט) matched to find sections / supersets (data).
+src/app/workouts/[id]/page.tsx
+src/app/workouts/[id]/opengraph-image.tsx
+src/app/workouts/[id]/WorkoutPreviewClient.tsx
+src/app/workouts/[id]/shared-workout-loader.ts
+# wave 2 batch ab (namespace profile, keys publicProfile.*) — the public profile page (/profile/[userId]).
+# Marked i18n-allow-hebrew: the fallback sender / member names handed to openDM / the report sheet (stored, data),
+# the v1 (enable_home_v2 off) loading line. src/app/profile/page.tsx is in open PR #268 — not migrated.
+src/app/profile/[userId]/

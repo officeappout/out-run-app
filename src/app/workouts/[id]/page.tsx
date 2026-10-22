@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { fetchSharedWorkoutMeta } from './shared-workout-loader';
 import WorkoutPreviewClient from './WorkoutPreviewClient';
 import { APP_ORIGIN } from '@/lib/config/domain';
+import { makeT } from '@/lib/i18n/t';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { library } from '@/messages/ns/library';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +12,9 @@ export const dynamic = 'force-dynamic';
 // Dynamic Metadata (OG tags for WhatsApp / Instagram / Twitter previews)
 // ---------------------------------------------------------------------------
 
-const DIFFICULTY_HE: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
+// Crawlers (WhatsApp / Instagram / Twitter) carry no user, cookie or app locale: the share preview is
+// rendered in the source locale, like the other server pages (privacy / accessibility / delete-data).
+const pageT = () => makeT(SOURCE_LOCALE, library);
 
 interface PageProps {
   params: { id: string };
@@ -17,17 +22,20 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const meta = await fetchSharedWorkoutMeta(params.id);
+  const t = pageT();
 
   if (!meta) {
     return {
-      title: 'אימון | Out',
-      description: 'צפו באימון וקפצו להתאמן!',
+      title: t('sharedWorkout.meta.fallbackTitle'),
+      description: t('sharedWorkout.meta.fallbackDescription'),
     };
   }
 
-  const diffLabel = DIFFICULTY_HE[meta.difficulty] || 'בינוני';
-  const title = `🔥 הצטרפו לאימון שלי: ${meta.title} | Out`;
-  const description = `אימון ${diffLabel} של ${meta.estimatedDuration} דקות. לחצו לצפייה בתרגילים ותתחילו להתאמן!`;
+  const title = t('sharedWorkout.meta.title', { title: meta.title });
+  const description = t('sharedWorkout.meta.description', {
+    difficulty: String(meta.difficulty),
+    minutes: String(meta.estimatedDuration),
+  });
 
   return {
     title,

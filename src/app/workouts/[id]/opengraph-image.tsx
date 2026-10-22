@@ -1,32 +1,28 @@
 import { ImageResponse } from 'next/og';
 import { fetchSharedWorkoutMeta } from './shared-workout-loader';
+import { makeT } from '@/lib/i18n/t';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { library } from '@/messages/ns/library';
 
 export const runtime = 'edge';
 export const alt = 'Out — Workout Preview';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const DIFFICULTY_HE: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
-
-const MUSCLE_HE: Record<string, string> = {
-  chest: 'חזה', back: 'גב', shoulders: 'כתפיים', biceps: 'ביצפס',
-  triceps: 'טרייצפס', core: 'ליבה', abs: 'בטן', quads: 'ארבע ראשי',
-  hamstrings: 'אחורי ירך', glutes: 'ישבן', calves: 'שוקיים',
-  legs: 'רגליים', forearms: 'אמות', lats: 'גב רחב',
-  upper_back: 'גב עליון', lower_back: 'גב תחתון', full_body: 'כל הגוף',
-  obliques: 'אלכסוניים', traps: 'טרפז', hip_flexors: 'כופפי ירך',
-};
+// Crawlers carry no user / app locale: the OG image is rendered in the source locale (see page.tsx).
+const ogT = () => makeT(SOURCE_LOCALE, library);
 
 export default async function OGImage({ params }: { params: { id: string } }) {
   const meta = await fetchSharedWorkoutMeta(params.id);
+  const t = ogT();
 
-  const title = meta?.title || 'אימון כוח';
-  const diffLabel = meta ? (DIFFICULTY_HE[meta.difficulty] || 'בינוני') : 'בינוני';
+  const title = meta?.title || t('sharedWorkout.og.fallbackTitle');
+  const diffLabel = t('sharedWorkout.og.difficulty', { difficulty: meta ? String(meta.difficulty) : '' });
   const duration = meta?.estimatedDuration || 0;
   const exerciseCount = meta?.exerciseCount || 0;
   const muscles = (meta?.muscles || [])
     .slice(0, 4)
-    .map((m) => MUSCLE_HE[m] || m);
+    .map((m) => t('sharedWorkout.og.muscle', { muscle: String(m ?? '') }));
 
   return new ImageResponse(
     (
@@ -138,7 +134,7 @@ export default async function OGImage({ params }: { params: { id: string } }) {
                   <circle cx="12" cy="12" r="10" />
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
-                <span style={{ fontSize: '20px', color: '#ffffff', fontWeight: 600 }}>{duration} דק׳</span>
+                <span style={{ fontSize: '20px', color: '#ffffff', fontWeight: 600 }}>{t('sharedWorkout.og.minutes', { minutes: String(duration) })}</span>
               </div>
             )}
             {exerciseCount > 0 && (
@@ -158,7 +154,7 @@ export default async function OGImage({ params }: { params: { id: string } }) {
                   <path d="M6 12h12" /><path d="M2 8h4" /><path d="M2 16h4" />
                   <path d="M18 8h4" /><path d="M18 16h4" />
                 </svg>
-                <span style={{ fontSize: '20px', color: '#ffffff', fontWeight: 600 }}>{exerciseCount} תרגילים</span>
+                <span style={{ fontSize: '20px', color: '#ffffff', fontWeight: 600 }}>{t('sharedWorkout.og.exercises', { count: String(exerciseCount) })}</span>
               </div>
             )}
           </div>
