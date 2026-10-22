@@ -29,27 +29,29 @@ export async function GET(request: NextRequest) {
     const inventories = invSnap.docs
       .map((d) => readCityInventoryDoc(d.id, d.data()))
       .filter((x): x is CityInventory => x !== null);
-    const authorities = new Map<string, OverviewAuthority>();
-    if (inventories.length) {
-      const refs = inventories.map((i) => db.collection('authorities').doc(i.authorityId));
-      const snaps = await db.getAll(...refs, { fieldMask: ['name', 'type', 'population'] });
-      for (const s of snaps) {
-        if (!s.exists) continue;
+    // Maps are built from entry lists (no Map writes in this read-only route file).
+    const snaps = inventories.length
+      ? await db.getAll(...inventories.map((i) => db.collection('authorities').doc(i.authorityId)), { fieldMask: ['name', 'type', 'population'] })
+      : [];
+    const authorities = new Map<string, OverviewAuthority>(
+      snaps.filter((s) => s.exists).map((s) => {
         const a = s.data() ?? {};
-        authorities.set(s.id, {
+        return [s.id, {
           name: typeof a.name === 'string' ? a.name : null,
           type: typeof a.type === 'string' ? a.type : null,
           population: typeof a.population === 'number' && Number.isFinite(a.population) ? a.population : null,
-        });
-      }
-    }
+        }];
+      }),
+    );
     const published = await db.collection('official_routes').where('published', '==', true).select('authorityId', 'city').get();
-    const cityToAuthority = new Map<string, string>();
-    for (const i of inventories) {
-      cityToAuthority.set(normCity(i.city), i.authorityId);
-      const n = authorities.get(i.authorityId)?.name;
-      if (n) cityToAuthority.set(normCity(n), i.authorityId);
-    }
+    const cityToAuthority = new Map<string, string>(
+      inventories.flatMap((i) => {
+        const n = authorities.get(i.authorityId)?.name;
+        const pairs: Array<[string, string]> = [[normCity(i.city), i.authorityId]];
+        if (n) pairs.push([normCity(n), i.authorityId]);
+        return pairs;
+      }),
+    );
     const approved = countApprovedByAuthority(published.docs.map((d) => d.data()), cityToAuthority);
     return NextResponse.json({ rows: buildCityOverviewRows(inventories, authorities, approved) });
   } catch (err) {
