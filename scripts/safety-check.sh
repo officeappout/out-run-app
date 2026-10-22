@@ -185,6 +185,17 @@ AUTHORIZED_ROUTE_WRITERS=(
   # No write verb in the file; also on the migrated list below so any future write
   # there must use buildValidatedDoc.
   "src/lib/admin-analytics/pending-approvals.server.ts"
+  # Approval-center "no status" list (22.10.2026): READ-ONLY projected scan of
+  # official_routes for docs with no `published` field (live for users, invisible to
+  # `published == false`). No write verb; also on the migrated list below.
+  "src/lib/admin-routes/no-status-routes.server.ts"
+  # Publish-status backfill (22.10.2026): field-level {published?, status?} fill on
+  # official_routes docs where those keys are absent — buildValidatedDoc update mode at
+  # the write site, updateTime precondition, never creates/deletes. Owner-run only.
+  "scripts/routes-nationwide/lib/publish-status-apply.node.ts"
+  # …and its CLI: reads official_routes (projected) to plan; every write goes through
+  # the lib above. No write verb in the file; also on the migrated list below.
+  "scripts/routes-nationwide/backfill-route-publish-status.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -210,6 +221,9 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
   "src/lib/admin-analytics/pending-approvals.server.ts"
+  "src/lib/admin-routes/no-status-routes.server.ts"
+  "scripts/routes-nationwide/lib/publish-status-apply.node.ts"
+  "scripts/routes-nationwide/backfill-route-publish-status.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"
