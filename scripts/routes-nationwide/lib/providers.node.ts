@@ -117,6 +117,11 @@ export class TrailsRun {
     };
   }
 
+  /** Named relation candidates (runs pipeline B once; shared with the osm stage). */
+  async namedCandidates(): Promise<CandidateRoute[]> {
+    return (await this.run()).named;
+  }
+
   osm(): StageProvider {
     return { key: 'osm', run: async () => { const r = await this.run(); return { routes: r.named, note: `${r.named.length} named — ${r.note}` }; } };
   }

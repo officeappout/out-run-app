@@ -10,6 +10,7 @@ import {
   initialWheelTime,
   parsePlannedTime,
   sessionTimeOf,
+  shownPlannedTime,
   snapToQuarter,
   withPlannedTime,
 } from '../plannedTime';
@@ -81,5 +82,27 @@ describe('buildPlannerWeek carries the planned time', () => {
     });
     expect(m.week.days[1].sessions[0].data).toMatchObject({ entryIds: ['e1'], startTime: '18:30' });
     expect(m.week.days[3].sessions[0].data).toMatchObject({ entryIds: [], startTime: null });
+  });
+});
+
+describe('shownPlannedTime — only a meaningful time shows', () => {
+  it('any time other than the 07:00 fallback shows', () => {
+    expect(shownPlannedTime('18:30', null)).toBe('18:30');
+    expect(shownPlannedTime('6:45', {})).toBe('06:45');
+  });
+
+  it('07:00 with no reminder / training time behind it is the bare fallback → hidden', () => {
+    expect(shownPlannedTime('07:00', null)).toBeNull();
+    expect(shownPlannedTime('07:00', { strengthTime: '', runningTime: undefined })).toBeNull();
+  });
+
+  it('07:00 when the user set a reminder time is theirs → shown', () => {
+    expect(shownPlannedTime('07:00', { strengthTime: '07:00' })).toBe('07:00');
+    expect(shownPlannedTime('07:00', { runningTime: '19:00' })).toBe('07:00');
+  });
+
+  it('nothing / an invalid value → hidden', () => {
+    expect(shownPlannedTime(undefined, { strengthTime: '07:00' })).toBeNull();
+    expect(shownPlannedTime('x', null)).toBeNull();
   });
 });

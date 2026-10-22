@@ -11,7 +11,8 @@
  *               offer, day rows with drag
  *
  * Kelly's proposal opens "סידור השבוע" with its moves applied (nothing saves until the
- * user confirms there). No extra screens.
+ * user confirms there). No extra screens. Tap a day → the day drawer (rings, done, planned);
+ * tap a planned session → its sheet (planned time on the wheel, move, open).
  */
 import { useCallback, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
@@ -37,6 +38,11 @@ import { planLineOf, sundayOfKey } from '../lib/weekSummary';
 import KellyStarButton from './KellyStarButton';
 import PlannerMonthStrip, { type PlannerView } from './PlannerMonthStrip';
 import PlannerWeekSection from './PlannerWeekSection';
+import PlannerDayDrawer from './PlannerDayDrawer';
+import PlannedSessionSheet from './PlannedSessionSheet';
+import type { ProgressWorkout } from '@/features/progression-hub/v2/utils/progress-model';
+
+const NO_WORKOUTS: ProgressWorkout[] = [];
 
 export interface PlannerV2Props {
   userId: string;
@@ -70,6 +76,8 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
   const [weekSunday, setWeekSunday] = useState(currentSunday);
   const [selectedIso, setSelectedIso] = useState<string | null>(todayKey);
   const [sheet, setSheet] = useState<SheetRequest | null>(null);
+  const [dayIso, setDayIso] = useState<string | null>(null);
+  const [sessionSheet, setSessionSheet] = useState<{ session: WbSession<PlannerWbData>; iso: string } | null>(null);
 
   const months = useMemo(() => stripMonths(new Date(`${todayKey}T00:00:00`)), [todayKey]);
   const monthsData = usePlannerMonths(userId, months, refreshKey);
@@ -99,14 +107,23 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
   const openDay = useCallback((iso: string) => {
     setSelectedIso(iso);
     setWeekSunday(sundayOfKey(iso));
+    setDayIso(iso);
   }, []);
 
+  // Done → that workout's summary; planned → its sheet (time / move / open).
   const openSession = useCallback(
     (s: WbSession<PlannerWbData>, iso: string) => {
       if (s.status === 'done') onStartWorkout?.(iso);
+      else setSessionSheet({ session: s, iso });
     },
     [onStartWorkout],
   );
+
+  const daySessions = useMemo(() => {
+    if (!dayIso || !model) return [];
+    const dow = weekState.keys.indexOf(dayIso);
+    return dow < 0 ? [] : model.week.days[dow].sessions;
+  }, [dayIso, model, weekState.keys]);
 
   const viewOptions = useMemo(
     () => [
@@ -179,6 +196,35 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
           </ErrorBoundary>
         </div>
       </div>
+
+      <ErrorBoundary fallback={null}>
+        <PlannerDayDrawer
+          iso={dayIso}
+          todayKey={todayKey}
+          workouts={dayIso ? monthsData.workoutsByDate[dayIso] ?? NO_WORKOUTS : NO_WORKOUTS}
+          day={dayIso ? monthsData.daysByDate[dayIso] : undefined}
+          stepGoal={monthsData.stepGoal}
+          sessions={daySessions}
+          onClose={() => setDayIso(null)}
+          onOpenWorkout={(iso) => onStartWorkout?.(iso)}
+          onOpenSession={openSession}
+        />
+        <PlannedSessionSheet
+          session={sessionSheet?.session ?? null}
+          iso={sessionSheet?.iso ?? todayKey}
+          isPast={!!sessionSheet && sessionSheet.iso < todayKey}
+          userId={userId}
+          onClose={() => setSessionSheet(null)}
+          onSaved={handleSaved}
+          onMove={() => {
+            const iso = sessionSheet?.iso;
+            setSessionSheet(null);
+            setDayIso(null);
+            if (iso) setSheet({ sunday: sundayOfKey(iso), mode: 'arrange', initialMoves: null });
+          }}
+          onOpenWorkout={onStartWorkout && sessionSheet ? () => onStartWorkout(sessionSheet.iso, true) : undefined}
+        />
+      </ErrorBoundary>
 
       <ErrorBoundary fallback={null}>
         <PlannerWeekSheet
