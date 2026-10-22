@@ -27,7 +27,7 @@ interface FakeContribution {
 }
 interface FakeUser {
   id: string;
-  core?: { name?: string };
+  core?: { name?: string; ageGroup?: string };
 }
 
 // A simple square around [34.8, 32.0] (lng, lat) — far enough from
@@ -457,5 +457,55 @@ describe('computeContributionReject — the same core compute as approve, not a 
     expect(auditRow).toBeDefined();
     expect(auditRow?.data.actionType).toBe('REJECT');
     expect(auditRow?.data.targetEntity).toBe('Contribution');
+  });
+});
+
+// 22.10.2026 — enable_park_mapped_by_credit: approving a new_location stamps
+// who mapped the park, in the same park create write. The contributor's uid
+// lands on the (public) park doc ONLY for a confirmed adult.
+describe('computeContributionApprove — mappedBy credit on new_location', () => {
+  async function approveFor(users: FakeUser[], userId: unknown = 'citizen-1') {
+    const db = makeFakeDb({
+      users,
+      contributions: [{ id: 'c1', type: 'new_location', status: 'pending', userId, location: OUTSIDE_ANY_BOUNDARY, parkName: 'New Spot' }],
+    });
+    const result = await computeContributionApprove(db, ROOT_CALLER, 'c1', {}, CTX);
+    expect(result.status).toBe(200);
+    if (result.status !== 200) throw new Error('approve failed');
+    return db.created.find((c) => c.collection === 'parks' && c.id === result.body.approvedParkId)?.data.mappedBy;
+  }
+
+  it('adult contributor → community credit with their uid + contributionId', async () => {
+    expect(await approveFor([{ id: 'citizen-1', core: { ageGroup: 'adult' } }])).toEqual({ kind: 'community', uid: 'citizen-1', contributionId: 'c1' });
+  });
+
+  it('minor contributor → anonymous community credit, uid key absent', async () => {
+    const m = await approveFor([{ id: 'citizen-1', core: { ageGroup: 'minor' } }]);
+    expect(m).toEqual({ kind: 'community', contributionId: 'c1' });
+    expect(Object.prototype.hasOwnProperty.call(m, 'uid')).toBe(false);
+  });
+
+  it('legacy account without ageGroup → anonymous', async () => {
+    expect(await approveFor([{ id: 'citizen-1', core: { name: 'X' } }])).toEqual({ kind: 'community', contributionId: 'c1' });
+  });
+
+  it('contributor users doc missing → anonymous (approval never blocked on it)', async () => {
+    expect(await approveFor([])).toEqual({ kind: 'community', contributionId: 'c1' });
+  });
+
+  it('contribution without a userId → anonymous', async () => {
+    expect(await approveFor([], undefined)).toEqual({ kind: 'community', contributionId: 'c1' });
+  });
+
+  it('approving a suggest_edit never touches mappedBy on the existing park', async () => {
+    const db = makeFakeDb({
+      users: [{ id: 'citizen-1', core: { ageGroup: 'adult' } }],
+      parks: [{ id: 'park-1', authorityId: 'city-haifa', name: 'P', mappedBy: { kind: 'team' } }],
+      contributions: [{ id: 'c2', type: 'suggest_edit', status: 'pending', userId: 'citizen-1', linkedParkId: 'park-1', editDiff: { featureTags: ['shade'] } }],
+    });
+    const result = await computeContributionApprove(db, ROOT_CALLER, 'c2', {}, CTX);
+    expect(result.status).toBe(200);
+    const parkUpdate = db.updates.find((u) => u.collection === 'parks' && u.id === 'park-1');
+    expect(Object.prototype.hasOwnProperty.call(parkUpdate?.data ?? {}, 'mappedBy')).toBe(false);
   });
 });

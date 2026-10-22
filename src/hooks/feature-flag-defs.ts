@@ -495,6 +495,13 @@ export const FLAG_DEFS = [
   // Supersets / EMOM / tabata stay as configured. Read once per generation (readLiveFlag).
   // superAdminValue false: one switch, same for everyone.
   { key: 'pyramidInjectionOff', firestoreKey: 'pyramid_injection_off', defaultValue: false, superAdminValue: false },
+  // Park "mapped by" credit (22.10.2026, owner request): a small "מופה על ידי …" line on the
+  // park sheet — the approved contributor's photo + name (tap → profile) when their profile is
+  // public and they are an adult, "קהילת OUT" otherwise, "צוות OUT" for parks the team created.
+  // The parks.mappedBy stamp is written at approval/create time regardless of this flag (data
+  // only, invisible); this flag gates ONLY the line. Off = the sheet's markup is byte-identical
+  // (park-detail-mapped-by.test.tsx). Fail-closed; superAdminValue true like the other map UI flags.
+  { key: 'enableParkMappedByCredit', firestoreKey: 'enable_park_mapped_by_credit', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

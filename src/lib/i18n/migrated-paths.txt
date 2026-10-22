@@ -396,3 +396,5 @@ src/app/workouts/[id]/shared-workout-loader.ts
 # Marked i18n-allow-hebrew: the fallback sender / member names handed to openDM / the report sheet (stored, data),
 # the v1 (enable_home_v2 off) loading line. src/app/profile/page.tsx is in open PR #268 — not migrated.
 src/app/profile/[userId]/
+# Park "mapped by" credit (enable_park_mapped_by_credit, 22.10.2026) — new folder, namespace map, keys mappedBy.*.
+src/features/parks/core/mapped-by/

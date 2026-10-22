@@ -42,6 +42,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
 import { computeNeedsFacilityDetails } from '../utils/park-completeness.util';
+import { directCreateMappedBy, type ParkMappedBy } from '../mapped-by/mapped-by';
 
 // ── Caller resolution ───────────────────────────────────────────────────
 
@@ -82,6 +83,11 @@ const ALWAYS_SERVER_CONTROLLED_FIELDS = new Set<string>([
   // (ctx.allowUnresolvedAuthority's fallback), same "computed, never
   // hand-written" precedent as needsFacilityDetails just above.
   'needsAuthorityTagging',
+  // 22.10.2026 (enable_park_mapped_by_credit) — who mapped the park. Stamped
+  // below on create only (ctx.mappedBy from the contribution chokepoint, else
+  // team/authority by caller kind); immutable after that, for every caller.
+  // A ParkForm/LocationEditor body can never forge or rewrite the credit.
+  'mappedBy',
 ]);
 
 /**
@@ -257,6 +263,13 @@ export interface ParkCreateContext {
    * axiom §23 requirement unchanged.
    */
   allowUnresolvedAuthority?: boolean;
+  /**
+   * 22.10.2026 (enable_park_mapped_by_credit) — the credit stamp for a park
+   * created by approving a citizen contribution (buildCommunityMappedBy).
+   * Omitted by the direct create route → team (root) / authority
+   * (authority_manager). Server-built only; never read from a request body.
+   */
+  mappedBy?: ParkMappedBy;
 }
 
 export async function computeParkCreate(
@@ -315,6 +328,7 @@ export async function computeParkCreate(
     published: true,
     origin: caller.kind === 'root' ? 'super_admin' : 'authority_admin',
     createdByUser: caller.uid,
+    mappedBy: ctx.mappedBy ?? directCreateMappedBy(caller.kind),
     createdAt: new Date(),
     updatedAt: new Date(),
   };

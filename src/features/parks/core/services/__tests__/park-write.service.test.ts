@@ -391,3 +391,54 @@ describe('computeParkUpdate — the mandatory denial scenarios', () => {
     expect((auditRow?.data.oldValue as string)?.includes('Old Name')).toBe(true);
   });
 });
+
+// 22.10.2026 — enable_park_mapped_by_credit: the "mapped by" stamp is
+// server-derived on create and immutable afterwards, for every caller.
+describe('mappedBy stamp (park "mapped by" credit)', () => {
+  it('root direct create → mappedBy team', async () => {
+    const db = makeFakeDb({ authorities: [{ id: 'city-haifa' }] });
+    const result = await computeParkCreate(db, { kind: 'root', uid: 'root-uid' }, { name: 'P', location: { lat: 32.8, lng: 34.9 }, authorityId: 'city-haifa' }, CTX);
+    expect(result.status).toBe(200);
+    expect(db.created.find((c) => c.collection === 'parks')?.data.mappedBy).toEqual({ kind: 'team' });
+  });
+
+  it('authority_manager direct create → mappedBy authority', async () => {
+    const db = makeFakeDb({ authorities: [{ id: 'city-haifa', managerIds: ['am-uid'] }] });
+    const caller = { kind: 'authority_manager' as const, uid: 'am-uid', authorityId: 'city-haifa' };
+    const result = await computeParkCreate(db, caller, { name: 'P', location: { lat: 32.8, lng: 34.9 } }, CTX);
+    expect(result.status).toBe(200);
+    expect(db.created.find((c) => c.collection === 'parks')?.data.mappedBy).toEqual({ kind: 'authority' });
+  });
+
+  it('a forged mappedBy in the create body (even from root) is dropped — the server stamp wins', async () => {
+    const db = makeFakeDb({ authorities: [{ id: 'city-haifa' }] });
+    const forged = { kind: 'community', uid: 'someone-else' };
+    const result = await computeParkCreate(db, { kind: 'root', uid: 'root-uid' }, { name: 'P', location: { lat: 32.8, lng: 34.9 }, authorityId: 'city-haifa', mappedBy: forged }, CTX);
+    expect(result.status).toBe(200);
+    expect(db.created.find((c) => c.collection === 'parks')?.data.mappedBy).toEqual({ kind: 'team' });
+  });
+
+  it('ctx.mappedBy (the contribution chokepoint) is used as given', async () => {
+    const db = makeFakeDb({ authorities: [{ id: 'city-haifa' }] });
+    const result = await computeParkCreate(db, { kind: 'root', uid: 'root-uid' }, { name: 'P', location: { lat: 32.8, lng: 34.9 }, authorityId: 'city-haifa' }, { ...CTX, mappedBy: { kind: 'community', uid: 'citizen-1', contributionId: 'c1' } });
+    expect(result.status).toBe(200);
+    expect(db.created.find((c) => c.collection === 'parks')?.data.mappedBy).toEqual({ kind: 'community', uid: 'citizen-1', contributionId: 'c1' });
+  });
+
+  it('update can never set or rewrite mappedBy (root or authority_manager) — silently dropped, rest proceeds', async () => {
+    for (const caller of [
+      { kind: 'root' as const, uid: 'root-uid' },
+      { kind: 'authority_manager' as const, uid: 'am-uid', authorityId: 'city-haifa' },
+    ]) {
+      const db = makeFakeDb({
+        authorities: [{ id: 'city-haifa', managerIds: ['am-uid'] }],
+        parks: [{ id: 'park-1', authorityId: 'city-haifa', name: 'Old', mappedBy: { kind: 'team' } }],
+      });
+      const result = await computeParkUpdate(db, caller, 'park-1', { name: 'New', mappedBy: { kind: 'community', uid: 'x' } }, CTX);
+      expect(result.status).toBe(200);
+      const parkUpdate = db.updates.find((u) => u.collection === 'parks' && u.id === 'park-1');
+      expect(parkUpdate?.data.name).toBe('New');
+      expect(Object.prototype.hasOwnProperty.call(parkUpdate?.data ?? {}, 'mappedBy')).toBe(false);
+    }
+  });
+});

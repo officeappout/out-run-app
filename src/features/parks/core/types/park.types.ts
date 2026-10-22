@@ -327,6 +327,11 @@ export interface Park {
   createdByUser?: string;
   /** Origin of the park record — 'authority_admin' = pending review, 'super_admin' = published directly */
   origin?: 'authority_admin' | 'super_admin';
+  /** Who put this park on the map (enable_park_mapped_by_credit). Server-stamped by
+   *  computeParkCreate / the contribution approval chokepoint — never client-settable.
+   *  Absent on every park created before 22.10.2026 → unknown, no credit line.
+   *  See src/features/parks/core/mapped-by/mapped-by.ts for the privacy rules. */
+  mappedBy?: import('@/features/parks/core/mapped-by/mapped-by').ParkMappedBy;
 
   /** Set by `onOsmAmenityWrite` (functions/src) on a park it auto-created or
    *  auto-linked from an approved fitness_station osm_amenity — the park is

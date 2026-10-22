@@ -316,3 +316,18 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
     expect(mine.length).toBe(126);
   });
 });
+
+// enable_park_mapped_by_credit (22.10.2026) — new copy, no "old" literal:
+// pinned to the owner's wording. No viewer-gender select (passive voice).
+describe('map — mappedBy.* (park "mapped by" credit)', () => {
+  const tm = makeT('he', map);
+  it('every key, exact text', () => {
+    expect(tm('mappedBy.team')).toBe('מופה על ידי צוות OUT');
+    expect(tm('mappedBy.community')).toBe('מופה על ידי קהילת OUT');
+    expect(tm('mappedBy.openProfile', { name: 'דנה כהן' })).toBe('מופה על ידי דנה כהן. פתיחת הפרופיל');
+    expect(tm.rich<string>('mappedBy.person', { name: 'דנה', b: (c: unknown) => `[${String(c)}]` }).join('')).toBe('מופה על ידי [דנה]');
+  });
+  it('the prefix holds 4 keys', () => {
+    expect(Object.keys(he).filter((k) => k.startsWith('mappedBy.')).length).toBe(4);
+  });
+});

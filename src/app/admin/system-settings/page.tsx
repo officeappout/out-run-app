@@ -98,6 +98,7 @@ interface FlagState {
   enable_app_session_signal: boolean;
   admin_ai_assistant_v1: boolean;
   pyramid_injection_off: boolean;
+  enable_park_mapped_by_credit: boolean;
 }
 
 // ============================================================================
@@ -760,6 +761,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'פירמידות כבויות',
     description: 'דלוק = המחולל לא מכניס פירמידה לאף אימון: היא יורדת מרשימת הפרוטוקולים של כל תוכנית ורמה, האפשרות ה"עצימה" לא מקבלת פירמידה כפויה, ולכן גם אימוני פארק משולבים לא יכילו שלבי פירמידה. סופרסטים, EMOM וטבטה ממשיכים כפי שהוגדרו. נקרא פעם אחת בכל יצירת אימון. כבוי = כמו היום.',
+  },
+  // Park "mapped by" credit (22.10.2026).
+  {
+    key: 'enable_park_mapped_by_credit',
+    icon: MapIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'מפה: "מופה על ידי" בעמוד הגינה',
+    description: 'שורה קטנה בעמוד הגינה: גינה שמשתמש הציע ואושרה מציגה את התמונה והשם שלו (הקשה פותחת את הפרופיל) — רק אם הפרופיל שלו ציבורי והוא בגיר, אחרת "מופה על ידי קהילת OUT". גינה שהצוות יצר: "מופה על ידי צוות OUT". גינות ישנות (לפני 22.10.2026) לא מציגות שורה.',
   },
 ];
 
