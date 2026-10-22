@@ -53,5 +53,7 @@
   "planner.scope.cancel": "ביטול",
   "planner.calm.title": "שבוע עמוס?",
   "planner.calm.body": "נסדר לך את שאר השבוע",
-  "planner.calm.cta": "לסדר"
+  "planner.calm.cta": "לסדר",
+  "planner.tellKelly.title": "או לספר לקלי מה השתנה",
+  "planner.tellKelly.placeholder": "למשל: ברביעי יש לי יום ארוך"
 }

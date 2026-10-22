@@ -58,6 +58,8 @@ export interface WeekBuilderProps<P> {
   onWindow?: (dow: number, w: TimeWindow) => void;
   /** Under the list, above the "למה?" line (e.g. add-track's "keep it as it was"). */
   extra?: ReactNode;
+  /** Above the list, given the week on screen and the controls (planner v2's "tell Kelly" row). */
+  lead?: (week: WbWeek<P>, ctl: WeekBuilderControls) => ReactNode;
   error?: string | null;
   confirmLabel?: string;
   confirmDisabled?: boolean;
@@ -138,6 +140,8 @@ export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
         <p role="status" aria-live="polite" className={notice ? 'mb-2 rounded-[14px] bg-amber-50 px-3.5 py-2.5 text-[13px] font-bold text-amber-800' : 'sr-only'}>
           {notice ? t('weekBuilder.refused', { reason: notice }) : ''}
         </p>
+
+        {p.lead?.(p.week, controls)}
 
         <div className="rounded-[22px] bg-white shadow-v2-card">
           <ErrorBoundary fallback={null}>
