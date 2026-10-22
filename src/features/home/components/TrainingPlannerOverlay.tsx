@@ -29,6 +29,8 @@ import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { DayCellV2Context } from '@/features/home/utils/day-display.utils';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
+import PlannerWeekBuilderHost from '@/features/schedule/week-builder/planner/components/PlannerWeekBuilderHost';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -136,6 +138,9 @@ export default function TrainingPlannerOverlay({
   const [isCalendarCollapsed, setIsCalendarCollapsed] = useState(true);
   const v2 = useHomeV2();
   const t = useT(home);
+  // enable_week_builder_v1 (phase 2): "סידור השבוע" per week + the missed-sessions card.
+  const weekBuilder = useWeekBuilderV1();
+  const [arrangeSunday, setArrangeSunday] = useState<string | null>(null);
   // The month grid is 5 or 6 rows (+ month and weekday headers), and v2's
   // flame cells sit taller — a fixed 310px cut the last row. Measure it.
   const calInnerRef = useRef<HTMLDivElement>(null);
@@ -521,6 +526,16 @@ export default function TrainingPlannerOverlay({
                 <div className={`w-12 h-1.5 rounded-full mx-auto ${v2 ? 'bg-v2-pill-border' : 'bg-gray-300 dark:bg-gray-700'}`} />
               </div>
 
+              {weekBuilder && (
+                <PlannerWeekBuilderHost
+                  userId={userId}
+                  request={arrangeSunday}
+                  onRequestDone={() => setArrangeSunday(null)}
+                  refreshKey={refreshKey}
+                  onSaved={handleSaved}
+                />
+              )}
+
               {/* Ultra-thin hairline divider between handle row and agenda */}
               {!v2 && <div className="flex-shrink-0 h-[1px] bg-gray-100/70" />}
 
@@ -556,6 +571,7 @@ export default function TrainingPlannerOverlay({
                     onPreviewEntry={onPreviewEntry}
                     onCommunityTap={onCommunityTap}
                     scrollPickedDate={scrollPicked}
+                    onArrangeWeek={weekBuilder ? setArrangeSunday : undefined}
                   />
                 </div>
               </div>

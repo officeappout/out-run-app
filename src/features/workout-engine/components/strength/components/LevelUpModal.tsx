@@ -3,6 +3,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, ChevronRight } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * LevelUpModal — celebration overlay shown when the active program levels up.
@@ -32,6 +34,7 @@ export default function LevelUpModal({
   newLevel,
   onClose,
 }: LevelUpModalProps) {
+  const t = useT(player);
   return (
     <AnimatePresence>
       {isOpen && newLevel != null && (
@@ -66,7 +69,7 @@ export default function LevelUpModal({
               transition={{ delay: 0.3 }}
               className="text-2xl font-black text-slate-900 dark:text-white mb-1"
             >
-              עלית רמה!
+              {t('strengthSummary.levelUp.title')}
             </motion.h2>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -82,7 +85,7 @@ export default function LevelUpModal({
               transition={{ delay: 0.5 }}
               className="text-4xl font-black text-slate-900 dark:text-white mb-6"
             >
-              רמה {newLevel}
+              {t('strengthSummary.levelUp.level', { level: String(newLevel) })}
             </motion.p>
 
             <motion.button
@@ -92,7 +95,7 @@ export default function LevelUpModal({
               onClick={onClose}
               className="w-full py-3.5 rounded-xl bg-gradient-to-l from-[#00C9F2] to-[#00E5FF] text-white font-bold text-base shadow-lg shadow-cyan-500/20 active:scale-[0.97] transition-transform flex items-center justify-center gap-2"
             >
-              <span>המשך לרמה הבאה</span>
+              <span>{t('strengthSummary.levelUp.cta')}</span>
               <ChevronRight className="w-5 h-5" />
             </motion.button>
           </motion.div>

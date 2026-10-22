@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X } from 'lucide-react';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import type { PendingProgramSuggestion } from '@/features/user/core/types/progression.types';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * ProgramSuggestionCard — post-workout "you might like to add this" card.
@@ -57,6 +59,7 @@ function SuggestionRow({
   onAccept: (targetProgramId: string) => void;
   onDismiss: (ruleId: string) => void;
 }) {
+  const t = useT(player);
   const programName = useProgramName(suggestion.targetProgramId);
   return (
     <motion.div
@@ -76,12 +79,12 @@ function SuggestionRow({
         onClick={() => onAccept(suggestion.targetProgramId)}
         className="px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm font-bold rounded-xl shadow-sm active:scale-95 transition-transform"
       >
-        בואו נבדוק
+        {t('strengthSummary.suggestions.accept')}
       </button>
       <button
         onClick={() => onDismiss(suggestion.ruleId)}
         className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-        aria-label="דחה הצעה"
+        aria-label={t('strengthSummary.suggestions.dismissAria')}
       >
         <X className="w-4 h-4" />
       </button>
@@ -90,6 +93,7 @@ function SuggestionRow({
 }
 
 export default function ProgramSuggestionCard({ suggestions, onAccept, onDismiss }: ProgramSuggestionCardProps) {
+  const t = useT(player);
   if (suggestions.length === 0) return null;
 
   return (
@@ -101,7 +105,9 @@ export default function ProgramSuggestionCard({ suggestions, onAccept, onDismiss
       dir="rtl"
     >
       <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">
-        {suggestions.length === 1 ? 'נראה שאתם מוכנים לעוד תוכנית' : 'נראה שאתם מוכנים לעוד כמה תוכניות'}
+        {suggestions.length === 1
+          ? t('strengthSummary.suggestions.titleOne')
+          : t('strengthSummary.suggestions.titleMany')}
       </h3>
       <div className="space-y-2">
         <AnimatePresence initial={false}>
