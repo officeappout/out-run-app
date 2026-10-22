@@ -18,7 +18,7 @@ const MEASURED = {
 };
 
 describe('routeScore v1.3 — urban measurements fill the gaps', () => {
-  it('version', () => expect(ROUTE_SCORE_VERSION).toBe('v1.3'));
+  it('version (v1.4 since RC10 Q-D — v1.3 inputs score exactly as before)', () => expect(ROUTE_SCORE_VERSION).toBe('v1.4'));
 
   it('a measured corridor scores on measurements, with full coverage, no certificate', () => {
     const bare = routeScore(routeScoreInputFromDoc('c', corridor()));

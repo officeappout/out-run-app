@@ -61,6 +61,13 @@ export interface UrbanAmenities {
 export interface UrbanCrossings {
   /** Share (0..1) of the length running ON a tertiary+ centerline. */
   majorRoadPct: number;
+  /**
+   * Q-D (RC10): share (0..1) of the length that is "on" a tertiary+ road
+   * (counted in majorRoadPct) but on a walkway separated from it — a parallel
+   * footway / OSM footway=sidewalk within 15 m, or a road tagged sidewalk=*.
+   * Always ≤ majorRoadPct.
+   */
+  separatedMajorPct: number;
   total: number;
   signalled: number;
   marked: number;

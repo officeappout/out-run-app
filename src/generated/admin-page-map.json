@@ -999,6 +999,28 @@
       "synonyms": []
     },
     {
+      "href": "/admin/city-mapping/hub",
+      "path": "/admin/city-mapping/hub",
+      "title": "מרכז מיפוי ערים",
+      "titleSource": "override",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": "/admin/city-mapping/hub — city-mapping hub (docs/admin/CITY-MAPPING-HUB-DESIGN.md), behind enable_city_mapping_hub (default OFF, the live value — no super-ad…",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/city-mapping/hub",
+      "synonyms": [
+        "מרכז מיפוי",
+        "האב מיפוי",
+        "מפת רשויות",
+        "פערי מיפוי"
+      ]
+    },
+    {
       "href": "/admin/community-groups-overview",
       "path": "/admin/community-groups-overview",
       "title": "כל הקבוצות במערכת",
