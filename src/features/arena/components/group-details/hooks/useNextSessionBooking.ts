@@ -65,13 +65,11 @@ export function useNextSessionBooking({ isOpen, groupId, nsd, nst, nextSlot, use
           prev ? { ...prev, waitlist: (prev.waitlist ?? []).filter((w) => w !== userId) } : null,
         );
       } else {
-        const result = await bookSession(
-          groupId, nsd, nst,
-          userId, userName, userPhoto,
-          nextSlot?.maxParticipants,
-          nextSlot?.workoutGoal,
-          { transactional: groupFixes },
-        );
+        const slotArgs = [nextSlot?.maxParticipants, nextSlot?.workoutGoal] as const;
+        // Flag off: the exact legacy 8-argument call (parity-pinned).
+        const result = groupFixes
+          ? await bookSession(groupId, nsd, nst, userId, userName, userPhoto, ...slotArgs, { transactional: true })
+          : await bookSession(groupId, nsd, nst, userId, userName, userPhoto, ...slotArgs);
         if (!result.success && groupFixes) onError?.();
         if (result.success) {
           if (result.waitlisted) {
