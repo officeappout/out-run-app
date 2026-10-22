@@ -3,6 +3,8 @@
 import { Star, Loader2 } from 'lucide-react';
 import { XP_REWARDS } from '@/types/contribution.types';
 import StarRatingWidget from '../../contribution-wizard/StarRatingWidget';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface ParkRatingSectionProps {
   open: boolean;
@@ -28,6 +30,7 @@ export default function ParkRatingSection({
   submitting,
   onSubmit,
 }: ParkRatingSectionProps) {
+  const t = useT(mapNs);
   return (
     <section className="mb-6">
       <button
@@ -35,13 +38,13 @@ export default function ParkRatingSection({
         className="w-full flex items-center justify-center gap-2 py-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-amber-600 text-sm font-bold active:scale-[0.98] transition-transform"
       >
         <Star size={16} />
-        דרג את המקום
+        {t('parkDetail.rating.cta')}
       </button>
       {open && (
         <div className="mt-3 bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4">
           {done ? (
             <div className="flex items-center justify-center gap-2 py-2">
-              <span className="text-emerald-500 text-sm font-bold">תודה! +{XP_REWARDS.review} XP</span>
+              <span className="text-emerald-500 text-sm font-bold">{t('parkDetail.rating.thanks', { xp: String(XP_REWARDS.review) })}</span>
             </div>
           ) : (
             <>
@@ -52,7 +55,7 @@ export default function ParkRatingSection({
                     type="text"
                     value={comment}
                     onChange={e => onCommentChange(e.target.value)}
-                    placeholder="תגובה (לא חובה)..."
+                    placeholder={t('parkDetail.rating.placeholder')}
                     className="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 outline-none"
                   />
                   <button
@@ -60,7 +63,7 @@ export default function ParkRatingSection({
                     disabled={submitting}
                     className="px-5 py-2 rounded-xl bg-amber-500 text-white text-sm font-bold active:scale-95 transition-transform disabled:opacity-50"
                   >
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : 'שלח'}
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : t('parkDetail.rating.send')}
                   </button>
                 </div>
               )}

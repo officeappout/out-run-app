@@ -1,9 +1,12 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { Park } from '@/features/parks/core/types/park.types';
 import EquipmentCard from '../../equipment-detail/EquipmentCard';
 import type { EquipmentSection } from '../utils/park-detail-logic';
 import { sectionTitleClass } from './section-styles';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface ParkEquipmentSectionProps {
   park: Park;
@@ -19,17 +22,20 @@ interface ParkEquipmentSectionProps {
  * park's brand so the drawer lands on the right brand variant.
  */
 export default function ParkEquipmentSection({ park, v2, sections, onSelect }: ParkEquipmentSectionProps) {
+  const t = useT(mapNs);
   return (
     <section className="mb-6">
       <h3 className={sectionTitleClass(v2)}>
-        מתקנים
-        <span className="text-gray-400 dark:text-gray-500 font-medium"> ({park.gymEquipment?.length ?? 0})</span>
+        {t.rich('parkDetail.equipment.title', {
+          count: String(park.gymEquipment?.length ?? 0),
+          muted: (chunks: ReactNode) => <span className="text-gray-400 dark:text-gray-500 font-medium">{chunks}</span>,
+        })}
       </h3>
       <div className="space-y-4">
         {sections.map((section) => (
           <div key={section.key}>
             <h4 className="text-[13px] font-bold text-gray-500 dark:text-gray-400 mb-2">
-              {section.label}
+              {t('parkDetail.equipment.section', { section: section.key })}
             </h4>
             <div className="grid grid-cols-2 gap-2">
               {section.items.map((eq) => {

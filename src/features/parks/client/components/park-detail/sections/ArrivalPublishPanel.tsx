@@ -1,6 +1,8 @@
 'use client';
 
 import { Calendar, Users } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 import DualRangeSlider from '@/features/partners/components/DualRangeSlider';
 import type { DayFilter } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import { minutesToLabel, RANGE_MIN, RANGE_MAX, RANGE_STEP_MIN } from '../utils/park-detail-format';
@@ -50,14 +52,15 @@ export default function ArrivalPublishPanel({
   wheel = false,
   onPublishAt,
 }: ArrivalPublishPanelProps) {
+  const t = useT(mapNs);
   return (
     <div className={v2 ? 'mb-2 overflow-hidden rounded-[20px] bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2'}>
       <div className={v2 ? 'flex items-center gap-3 px-3.5 py-3' : 'flex items-center gap-3 py-2.5 px-3'}>
         <Users size={16} className={v2 ? 'flex-shrink-0 text-v2-deep' : 'text-emerald-500 flex-shrink-0'} />
         <span className={v2 ? 'flex-1 text-[14px] font-bold text-v2-ink-2' : 'text-xs text-emerald-700 font-bold flex-1'}>
           {!hasSessions
-            ? 'אף אחד עוד לא פרסם שהוא מגיע...'
-            : 'גם אתה מתכנן להגיע?'}
+            ? t('parkDetail.arrival.empty')
+            : t('parkDetail.arrival.prompt')}
         </span>
         <button
           onClick={onToggleTimePicker}
@@ -67,7 +70,8 @@ export default function ArrivalPublishPanel({
               : 'flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform'
           }
         >
-          {wheel ? <ArrivalWheelCtaLabel /> : v2 ? 'אני מגיע…' : 'אני מגיע ב...'}
+          {wheel ? <ArrivalWheelCtaLabel /> : v2 ? t('parkDetail.arrival.cta')
+            : 'אני מגיע ב...' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
         </button>
       </div>
       {wheel && (
@@ -101,7 +105,7 @@ export default function ArrivalPublishPanel({
           <div className="px-1">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] font-bold text-emerald-700">
-                חלון הגעה
+                {t('parkDetail.arrival.window')}
               </span>
               <span
                 className="text-[12px] font-black text-emerald-600"
@@ -117,8 +121,8 @@ export default function ArrivalPublishPanel({
               values={timeRangeMinutes}
               onChange={onTimeRangeChange}
               formatLabel={minutesToLabel}
-              ariaLabelMin="שעת התחלה"
-              ariaLabelMax="שעת סיום"
+              ariaLabelMin={t('parkDetail.arrival.startAria')}
+              ariaLabelMax={t('parkDetail.arrival.endAria')}
             />
           </div>
 
@@ -128,7 +132,7 @@ export default function ArrivalPublishPanel({
               disabled={publishing}
               className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-[11px] font-bold transition-colors"
             >
-              {publishing ? '...' : 'פרסם'}
+              {publishing ? '...' : t('parkDetail.arrival.publish')}
             </button>
           </div>
         </div>

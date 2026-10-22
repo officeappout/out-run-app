@@ -10,8 +10,8 @@ import type { UserContribution } from '@/types/contribution.types';
 import { RANGE_STEP_MIN } from './park-detail-format';
 
 export interface EquipmentSection {
-  key: string;
-  label: string;
+  /** Rendered through map.json `parkDetail.equipment.section`. */
+  key: 'aerobic' | 'functional' | 'hydraulic';
   items: GymEquipment[];
 }
 
@@ -28,11 +28,12 @@ export function categorizeParkEquipment(parkEquipment: GymEquipment[]): Equipmen
   const aerobic = parkEquipment.filter((eq) => eq.isCardio === true);
   const functional = parkEquipment.filter((eq) => eq.isCardio !== true && eq.isFunctional === true);
   const hydraulic = parkEquipment.filter((eq) => eq.isCardio !== true && eq.isFunctional !== true);
-  return [
-    { key: 'aerobic', label: 'אירובי', items: aerobic },
-    { key: 'functional', label: 'פונקציונלי', items: functional },
-    { key: 'hydraulic', label: 'הידראולי', items: hydraulic },
-  ].filter((section) => section.items.length > 0);
+  const sections: EquipmentSection[] = [
+    { key: 'aerobic', items: aerobic },
+    { key: 'functional', items: functional },
+    { key: 'hydraulic', items: hydraulic },
+  ];
+  return sections.filter((section) => section.items.length > 0);
 }
 
 /**

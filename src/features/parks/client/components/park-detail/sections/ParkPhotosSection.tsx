@@ -1,6 +1,8 @@
 'use client';
 
 import { sectionTitleClass } from './section-styles';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface ParkPhotosSectionProps {
   v2: boolean;
@@ -10,9 +12,10 @@ interface ParkPhotosSectionProps {
 
 /** PHOTOS — park images + review snapshots (horizontal strip). */
 export default function ParkPhotosSection({ v2, photos, onOpenPhoto }: ParkPhotosSectionProps) {
+  const t = useT(mapNs);
   return (
     <section className="mb-6">
-      <h3 className={sectionTitleClass(v2)}>תמונות</h3>
+      <h3 className={sectionTitleClass(v2)}>{t('parkDetail.photos.title')}</h3>
       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-hide">
         {photos.map((url, i) => (
           <button
