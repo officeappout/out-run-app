@@ -47,6 +47,7 @@ GROUP_8089=(
   tests/military-panel-adversarial-audit.rules.test.ts
   tests/firestore-fix-agents-lockdown.rules.test.ts
   tests/firestore-admin-costs.rules.test.ts
+  tests/firestore-admin-ai-assistant.rules.test.ts
   tests/firestore-city-inventory.rules.test.ts
   tests/firestore-app-sessions-daily.rules.test.ts
   tests/firestore-demo-registry.rules.test.ts

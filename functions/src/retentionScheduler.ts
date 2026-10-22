@@ -127,6 +127,7 @@ import {
   trackConditions,
   type PushTrack,
 } from './lib/push-lifecycle';
+import { PUSH_TYPE_IDS } from './services/push-measure-all';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -551,6 +552,7 @@ export const retentionScheduler = onSchedule(
         const result = await sendPush({
           toUids: [c.uid],
           channel: 'retention',
+          measurementTypeId: PUSH_TYPE_IDS.retention, // enable_push_measure_all (off = ignored)
           title: copy.title,
           body: copy.body,
           deepLink: copy.deepLink,

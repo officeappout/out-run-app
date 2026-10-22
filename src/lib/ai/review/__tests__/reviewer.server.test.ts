@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type Anthropic from '@anthropic-ai/sdk';
 
 const st = vi.hoisted(() => ({
-  config: { dailyBudgetUsd: 5, killSwitch: false, rateLimitPerHour: 20, rateLimitPerDay: 40, reviewBudgetUsd: 2 },
+  config: { dailyBudgetUsd: 5, killSwitch: false, rateLimitPerHour: 20, rateLimitPerDay: 40, reviewBudgetUsd: 2, adminAiBudgetUsd: 0.5 },
   budgetError: null as null | { reason: string },
   usage: [] as any[],
 }));
@@ -187,7 +187,7 @@ function graderReply(): Anthropic.Message {
 }
 
 beforeEach(() => {
-  st.config = { dailyBudgetUsd: 5, killSwitch: false, rateLimitPerHour: 20, rateLimitPerDay: 40, reviewBudgetUsd: 2 };
+  st.config = { dailyBudgetUsd: 5, killSwitch: false, rateLimitPerHour: 20, rateLimitPerDay: 40, reviewBudgetUsd: 2, adminAiBudgetUsd: 0.5 };
   st.budgetError = null;
   st.usage = [];
 });

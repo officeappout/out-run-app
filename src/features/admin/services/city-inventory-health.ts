@@ -14,6 +14,7 @@
  */
 import { readCityInventoryDoc, readCityInventoryRunDoc } from '@/lib/city-inventory/doc';
 import type { CityInventory, CityInventoryRun } from '@/lib/city-inventory/types';
+import { parseCityOverviewRow, type CityOverviewRow } from '@/lib/city-inventory/overview';
 
 export interface CityInventoryHealth {
   authorityId: string;
@@ -56,4 +57,15 @@ export async function loadCityInventoryHealth(
     throw new CityInventoryHealthError(msg, res.status);
   }
   return parseCityInventoryHealth(id, json);
+}
+
+// ── All cities (RC8 step 5) ────────────────────────────────────────────────
+
+/** Every city_inventory doc as one overview row — GET /api/admin/city-mapping/inventory/all (Admin SDK). */
+export async function loadCityInventoryOverview(fetchImpl: typeof fetch = fetch): Promise<CityOverviewRow[]> {
+  const res = await fetchImpl('/api/admin/city-mapping/inventory/all', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new CityInventoryHealthError((json as { error?: string })?.error ?? `HTTP ${res.status}`, res.status);
+  const rows = Array.isArray((json as { rows?: unknown }).rows) ? (json as { rows: unknown[] }).rows : [];
+  return rows.map(parseCityOverviewRow).filter((r): r is CityOverviewRow => r !== null);
 }

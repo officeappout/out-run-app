@@ -124,6 +124,8 @@ import {
 } from './services/push-copy.service';
 import type { PushAudience } from './shared/push-library.core';
 import { isDemoUid } from './lib/demo';
+import { PUSH_TYPE_IDS, isPushMeasureAllEnabled, mintPushId } from './services/push-measure-all';
+import { writeLegacyPushSentEvents } from './services/push-events.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -482,6 +484,7 @@ export const onboardingDropoffDispatcher = onSchedule(
         const result = await sendPush({
           toUids: [user.uid],
           channel: 'onboarding_dropoff',
+          measurementTypeId: PUSH_TYPE_IDS.onboardingDropoff, // enable_push_measure_all (off = ignored)
           title,
           body,
           deepLink,
@@ -504,11 +507,15 @@ export const onboardingDropoffDispatcher = onSchedule(
       } else {
         // ── Legacy path — direct FCM, active while pushRouting_onboardingDropoff
         // is false.
+        // enable_push_measure_all (off = no pushId, no messageId, no push_events writes — as before).
+        const legacyPushId = (await isPushMeasureAllEnabled()) ? mintPushId() : undefined;
+        let anyDelivered = false;
         const fcmMessage: admin.messaging.MulticastMessage = {
           tokens: [],
           notification: { title, body },
           data: {
             channel: 'training_reminder',
+            ...(legacyPushId ? { messageId: legacyPushId } : {}),
             triggerType: 'Inactivity',
             deepLink,
             onboardingStep: user.onboardingStep ?? '',
@@ -539,6 +546,7 @@ export const onboardingDropoffDispatcher = onSchedule(
             userDelivered += result.delivered;
             userFailed += result.failed;
             userDeadTokens.push(...result.deadTokens);
+            if (result.delivered > 0) anyDelivered = true;
           } catch (err: any) {
             userFailed += batch.length;
             logger.warn(`[dropoff] FCM batch failed for uid=${user.uid}:`, err?.message);
@@ -555,6 +563,15 @@ export const onboardingDropoffDispatcher = onSchedule(
           `[dropoff] uid=${user.uid} — delivered=${userDelivered} ` +
             `failed=${userFailed} deadPruned=${userDeadTokens.length}`,
         );
+
+        if (legacyPushId) {
+          await writeLegacyPushSentEvents({
+            pushId: legacyPushId,
+            channel: 'training_reminder', // the channel this legacy payload actually carries
+            typeId: PUSH_TYPE_IDS.onboardingDropoff,
+            uidDelivered: new Map([[user.uid, anyDelivered]]),
+          });
+        }
       }
 
       // Stamp audit field on user doc — unconditional, both paths.

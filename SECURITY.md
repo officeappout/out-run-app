@@ -249,19 +249,37 @@ the one-time Hebrew-ID migration has been run on production data.
 
 ---
 
-## 7. AI surface — fully removed
+## 7. AI surface — server-only, budgeted, fail-closed
 
-The previous `ai-coach.service.ts` shipped an **OpenAI key in
-`NEXT_PUBLIC_AI_API_KEY`**, meaning the secret was downloaded by every
-visitor. As part of the Fortress Phase:
-- `ai-coach.service.ts` and `ChatDrawer.tsx` were deleted.
-- All AI-related state and handlers were stripped from
-  `useSearchNavigation.ts` and `useMapLogic.ts`.
-- `NEXT_PUBLIC_AI_API_KEY` was removed from `.env.local` with a
-  tombstone comment.
-- **Action required:** the leaked OpenAI key MUST be revoked at
-  `https://platform.openai.com/api-keys` before any further deploy.
-  Treat it as compromised.
+> Updated 22.10.2026. The old heading ("AI surface — fully removed") described the
+> Fortress-Phase state and is no longer true: AI is back, built server-side only.
+
+**History (still relevant):** the previous `ai-coach.service.ts` shipped an
+**OpenAI key in `NEXT_PUBLIC_AI_API_KEY`**, downloaded by every visitor. It was
+deleted with `ChatDrawer.tsx`, the AI state in `useSearchNavigation.ts` /
+`useMapLogic.ts`, and the env var. That key MUST stay revoked (treat as
+compromised). Lesson kept as a rule below: no AI key ever has a `NEXT_PUBLIC_` name.
+
+**Today's AI surface (all calls go through `src/lib/ai/anthropic.server.ts`, `server-only`):**
+
+| Surface | Caller gate | Key (server env only) | Budget |
+|---|---|---|---|
+| "קלי AI" app chat + proactive/memory/review agents | `verifyAiRequest` (`src/lib/ai/verify-ai-request.server.ts`): Firebase ID token, adult, flags + entitlement, rate limit | `ANTHROPIC_API_KEY` | `app_config/ai`: `killSwitch`, `dailyBudgetUsd`, `reviewBudgetUsd` |
+| Admin-panel assistant ("שאל את OUT", plan `docs/admin/ADMIN-AI-ASSISTANT-PLAN.md`) | `requireAdminAiCaller` (`src/lib/ai/admin-assistant/gate.server.ts`): a **person** who is root (david@/office@) or `core.isSuperAdmin` — **no agent-key path** — plus flag `admin_ai_assistant_v1` (default false) | `ANTHROPIC_API_KEY_ADMIN` (separate Console workspace "admin", $10/month cap). Missing → 503, **never** falls back to `ANTHROPIC_API_KEY` | global switch + budget **and** `app_config/ai.adminAiBudgetUsd` ($0.50/day), per-question cap $0.05, ≤3 model calls/question |
+
+**Rules that hold for every AI surface:**
+- Keys live only in server env (Vercel / `.env.local`), never `NEXT_PUBLIC_*`, never
+  logged, never returned to a client.
+- Every call is costed by `estimateCostUsd` (`src/lib/ai/ai-pricing.ts`) and booked in
+  `ai_usage/{uid}_{day}` + `ai_usage_global/{day}` (Admin SDK only). Every model the code
+  can run has its own price row; the admin tier **refuses** a model with no row instead of
+  estimating it (an unpriced Opus was previously costed at Sonnet's price — under-counted).
+- Budget/config read errors fail **closed** (no call). Rate limits fail closed.
+- AI collections (`ai_coach_*`, `ai_usage*`, `admin_ai_*`) are Admin-SDK only; client
+  rules are `if false` (plus owner read of one's own Kelly thread). Note the root-admin
+  catch-all `match /{document=**}` in `firestore.rules` still ORs in for root.
+- Tool calls are re-scoped server-side to the verified caller; a tool name the model
+  invents is never executed. v1 admin tools are read-only aggregates — no PII, no writes.
 
 ---
 
@@ -295,6 +313,8 @@ without it, audited streak claims would not match recorded activity.
 | `NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN` | `.env.local` (dev only)          | No                    | Per-developer debug token; never set in prod.                                      |
 | `SESSION_COOKIE_SECRET`             | host env (Vercel/Hosting)        | **No**                | ≥32-char random; HMAC key for the admin session cookie.                            |
 | `FIREBASE_SERVICE_ACCOUNT_KEY`      | host env (Vercel/Hosting)        | **No**                | JSON service account for the Next.js Admin SDK (or use ADC on GCP-hosted).         |
+| `ANTHROPIC_API_KEY`                 | host env (Vercel)                | **No**                | Kelly / app AI (§7). Server-only.                                                  |
+| `ANTHROPIC_API_KEY_ADMIN`           | host env (Vercel)                | **No**                | Admin-panel assistant only, Console workspace "admin" ($10/month cap). Missing → assistant answers 503; no fallback to `ANTHROPIC_API_KEY` (§7). |
 | OpenAI API key                      | *removed (Apr 2026)*             | No                    | Was committed; **must be revoked**.                                                |
 | `MIGRATION_SECRET`                  | *removed (Apr 2026)*             | No                    | Replaced by ID-token + admin check.                                                |
 | Firebase Admin SDK service account  | not in repo; injected at runtime | No                    | Cloud Functions get implicit credentials; tooling uses GCP application-default.   |

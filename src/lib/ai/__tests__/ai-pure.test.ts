@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { canUseAi, isAiEntitlementActive } from '../ai-entitlement';
-import { AI_PRICE_TABLE, estimateCostUsd, usageFromSdk, priceFor } from '../ai-pricing';
+import { AI_MODEL_DEFAULTS, AI_PRICE_TABLE, estimateCostUsd, isPricedModel, usageFromSdk, priceFor } from '../ai-pricing';
 import { DEFAULT_AI_CONFIG, parseAiConfig } from '../ai-config';
 import { FLAG_DEFS } from '@/hooks/feature-flag-defs';
 
@@ -79,7 +79,26 @@ describe('estimateCostUsd', () => {
   });
 
   it('an unknown model is costed at the most expensive row (never under-counts)', () => {
-    expect(priceFor('claude-something-new')).toBe(AI_PRICE_TABLE['claude-sonnet-5-5']);
+    // Opus 5.5 is the most expensive row since 22.10.2026 (was Sonnet → Opus under-counted).
+    expect(priceFor('claude-something-new')).toBe(AI_PRICE_TABLE['claude-opus-5-5']);
+  });
+
+  it('opus-5-5 has its own row: $4 / $20 per M, cache read $0.20, cache write $5', () => {
+    expect(
+      estimateCostUsd('claude-opus-5-5', { inputTokens: 1_000_000, outputTokens: 1_000_000, cacheReadTokens: 1_000_000, cacheWriteTokens: 1_000_000 }),
+    ).toBeCloseTo(4 + 20 + 0.2 + 5, 10);
+  });
+
+  it('a dated snapshot id resolves to its base row (transcript service: haiku-4-5)', () => {
+    expect(priceFor('claude-haiku-4-5-20251001')).toBe(AI_PRICE_TABLE['claude-haiku-4-5']);
+    expect(isPricedModel('claude-haiku-4-5-20251001')).toBe(true);
+  });
+
+  it('isPricedModel: every default tier model is priced, an unknown id is not', () => {
+    for (const m of Object.values(AI_MODEL_DEFAULTS)) expect(isPricedModel(m)).toBe(true);
+    expect(isPricedModel('claude-opus-5-5')).toBe(true);
+    expect(isPricedModel('claude-something-new')).toBe(false);
+    expect(isPricedModel('')).toBe(false);
   });
 
   it('usageFromSdk maps nullable cache fields to 0', () => {
@@ -99,13 +118,17 @@ describe('parseAiConfig', () => {
   it('reads valid fields and ignores invalid ones', () => {
     expect(
       parseAiConfig({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 'lots' }),
-    ).toEqual({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 40, reviewBudgetUsd: 2 });
+    ).toEqual({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 40, reviewBudgetUsd: 2, adminAiBudgetUsd: 0.5 });
     expect(parseAiConfig({ dailyBudgetUsd: -1, rateLimitPerHour: 0 }).dailyBudgetUsd).toBe(DEFAULT_AI_CONFIG.dailyBudgetUsd);
     expect(parseAiConfig({ dailyBudgetUsd: 0 }).dailyBudgetUsd).toBe(0);
     // review agent budget: default $2, 0 = off, invalid → default
     expect(parseAiConfig(undefined).reviewBudgetUsd).toBe(2);
     expect(parseAiConfig({ reviewBudgetUsd: 0 }).reviewBudgetUsd).toBe(0);
     expect(parseAiConfig({ reviewBudgetUsd: 'x' }).reviewBudgetUsd).toBe(2);
+    // admin assistant budget: default $0.50, 0 = assistant's model path off, invalid → default
+    expect(parseAiConfig(undefined).adminAiBudgetUsd).toBe(0.5);
+    expect(parseAiConfig({ adminAiBudgetUsd: 0 }).adminAiBudgetUsd).toBe(0);
+    expect(parseAiConfig({ adminAiBudgetUsd: -3 }).adminAiBudgetUsd).toBe(0.5);
   });
 });
 

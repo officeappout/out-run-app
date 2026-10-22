@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
@@ -1055,6 +1056,7 @@ export default function VisualAssessmentPage() {
         console.warn('[Assessment] Profile refresh after onboarding failed (non-fatal):', refreshErr);
       }
 
+      logOnboardingFunnelStep('ASSESSMENT'); // enable_onboarding_step_funnel (off = no-op)
       firePhaseConfetti();
       // enable_home_v2 (journey J4): a runner adding strength (declaration already signed)
       // goes to the combined add-track week; everyone else → health, exactly as before.

@@ -33,6 +33,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { PUSH_TYPE_IDS } from './services/push-measure-all';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -112,6 +113,7 @@ export const onKellyThreadMessage = onDocumentCreated(
         ? {
             toUids: [uid],
             channel: 'coach',
+            measurementTypeId: PUSH_TYPE_IDS.coachMessage, // enable_push_measure_all (off = ignored)
             title: KELLY_PUSH_TITLE,
             body: kellyPushBody(String(msg!.text)),
             deepLink: KELLY_PUSH_DEEP_LINK,
@@ -123,6 +125,7 @@ export const onKellyThreadMessage = onDocumentCreated(
         : {
             toUids: [uid],
             channel: 'coach',
+            measurementTypeId: PUSH_TYPE_IDS.coachMessage, // enable_push_measure_all (off = ignored)
             title: KELLY_PUSH_TITLE,
             body: kellyPushBody(String(msg!.text)),
             deepLink: KELLY_PUSH_DEEP_LINK,

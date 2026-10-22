@@ -18,6 +18,7 @@ import AccessCodeStep from './steps/AccessCodeStep';
 import { syncOnboardingToFirestore } from '../services/onboarding-sync.service';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import { auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
@@ -231,6 +232,8 @@ export default function OnboardingWizard() {
       const accepted = hasAcceptedHealthDeclaration(p as any);
       if (accepted) {
         updateData({ healthDeclarationAccepted: true } as any);
+        // enable_onboarding_step_funnel: passed (signed earlier) counts as done.
+        if (!isJIT) logOnboardingFunnelStep('HEALTH_DECLARATION');
         setStep('ACCOUNT_SECURE');
         // Stays "checking" — currentStep is about to change away from
         // HEALTH_DECLARATION, so the form is never shown for this step.
@@ -258,6 +261,7 @@ export default function OnboardingWizard() {
         termsAcceptedAt: new Date(),
       } as any);
       // Jump straight to PROCESSING so they still see the WOW screen
+      if (!isJIT) logOnboardingFunnelStep('ACCOUNT_SECURE'); // enable_onboarding_step_funnel
       syncCompleted();
       setStep('PROCESSING');
     }
@@ -275,6 +279,8 @@ export default function OnboardingWizard() {
 
   // ── Navigation ─────────────────────────────────────────────────────
   const handleNext = (nextStepId?: OnboardingStepId, coinReward?: number) => {
+    // enable_onboarding_step_funnel: the step on screen was just finished (JIT edits aren't signup).
+    if (!isJIT) logOnboardingFunnelStep(currentStep);
     if (IS_COIN_SYSTEM_ENABLED) {
       addCoins(coinReward || 10);
     }
@@ -434,6 +440,7 @@ export default function OnboardingWizard() {
                 } as any);
               }
               // Save to Firestore and go to processing screen
+              if (!isJIT) logOnboardingFunnelStep('ACCOUNT_SECURE'); // enable_onboarding_step_funnel
               syncCompleted();
               setStep('PROCESSING');
             }}
@@ -443,6 +450,7 @@ export default function OnboardingWizard() {
                 accountStatus: 'unsecured',
                 accountMethod: 'unsecured',
               } as any);
+              if (!isJIT) logOnboardingFunnelStep('ACCOUNT_SECURE'); // enable_onboarding_step_funnel
               syncCompleted();
               setStep('PROCESSING');
             }}
@@ -453,6 +461,7 @@ export default function OnboardingWizard() {
         return (
           <ProcessingStep
             onNext={async () => {
+              if (!isJIT) logOnboardingFunnelStep('PROCESSING'); // enable_onboarding_step_funnel
               useOnboardingStore.getState().setMajorRoadmapStep(2);
 
               await syncOnboardingToFirestore('COMPLETED', data).catch(() => {});

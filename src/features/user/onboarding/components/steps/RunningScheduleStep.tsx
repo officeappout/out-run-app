@@ -26,6 +26,7 @@ import { Footprints, Clock, Check, RefreshCw, Bell, Timer, AlertCircle, Dumbbell
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { auth } from '@/lib/firebase';
 import { completeRunningScheduleFirstChoice } from '@/features/workout-engine/core/services/running-schedule-write.service';
@@ -321,6 +322,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
     } as any);
 
     await Analytics.logOnboardingStepComplete('SCHEDULE', 0);
+    logOnboardingFunnelStep('SCHEDULE'); // enable_onboarding_step_funnel (off = no-op)
     onNext();
   };
 

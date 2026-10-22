@@ -369,3 +369,4 @@ src/features/workout-engine/components/strength/components/LifestyleCTA.tsx
 src/features/workout-engine/components/strength/components/ProgramSuggestionCard.tsx
 src/features/workout-engine/components/strength/utils/level-ring.util.ts
 src/features/workout-engine/components/strength/utils/timed-summary.model.ts
+src/features/workout-engine/components/strength/levelup-v2/

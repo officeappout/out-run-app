@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc } from 'firebase/firestore';
@@ -512,6 +513,8 @@ export default function ProgramPathPage() {
     const toPersist = toPersistedMuscleFocus(selectedMuscles);
     persistToStorage(selectedCards, toPersist, selectedSkills, wishlist);
     if (v2) persistGoalNote();
+    // enable_onboarding_step_funnel (off = no-op): the goal choice — journey's PERSONA ('בחירת מטרה').
+    logOnboardingFunnelStep('PERSONA');
     router.push('/onboarding-new/assessment-visual');
   };
 
