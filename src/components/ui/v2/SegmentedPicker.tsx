@@ -12,6 +12,7 @@
  */
 
 import type { ReactNode } from 'react';
+import { hapticTap } from '@/lib/haptics';
 
 export interface SegmentedOption<K extends string> {
   key: K;
@@ -34,7 +35,7 @@ export default function SegmentedPicker<K extends string>({ options, value, onCh
       {options.map((o) => {
         const active = o.key === value;
         return (
-          <button key={o.key} type="button" onClick={() => onChange(o.key)} aria-pressed={active}
+          <button key={o.key} type="button" onClick={() => { if (!active) hapticTap('selection'); onChange(o.key); }} aria-pressed={active}
             className={`flex flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1.5 py-[7px] transition-all duration-150 ease-v2 active:scale-[0.97] ${
               active ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-transparent'
             }`}>

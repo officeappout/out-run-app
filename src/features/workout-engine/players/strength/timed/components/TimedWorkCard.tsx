@@ -8,6 +8,7 @@
  */
 import React from 'react';
 import { Check } from 'lucide-react';
+import { hapticTap } from '@/lib/haptics';
 import { Button } from '@/components/ui/v2';
 import type { TimedItem } from '@/features/workout-engine/engines/timed/timed.types';
 import { itemTarget } from '../logic/timed-labels';
@@ -87,7 +88,7 @@ export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, 
           ב-{item.distanceM} מ׳ ה-GPS מעביר אוטומטית לבא
         </p>
       ) : null}
-      <Button variant="cta" size="lg" block onClick={onDone} className="mb-2">
+      <Button variant="cta" size="lg" block onClick={() => { hapticTap('impact'); onDone(); }} className="mb-2">
         סיימתי
         <Check size={22} strokeWidth={2.75} aria-hidden />
       </Button>

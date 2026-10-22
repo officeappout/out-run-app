@@ -9,6 +9,7 @@
  */
 import React from 'react';
 import { Info, Play } from 'lucide-react';
+import { hapticTap } from '@/lib/haptics';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import type { CartRingItem } from '@/components/ui/v2';
 import type { SegmentBars } from '../logic/timed-header';
@@ -75,7 +76,7 @@ export default function TimedHeader(p: TimedHeaderProps) {
           <div className="flex w-[100px] justify-end">
             <button
               type="button"
-              onClick={p.onTogglePause}
+              onClick={() => { hapticTap('impact'); p.onTogglePause(); }}
               aria-label={pickGendered(gender, p.isPaused ? GENDERED_COPY.resumeWorkout : GENDERED_COPY.stopWorkout)}
               className="flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >

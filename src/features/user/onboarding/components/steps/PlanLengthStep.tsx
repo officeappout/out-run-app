@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { hapticTap } from '@/lib/haptics';
 import { SlidersHorizontal, Calendar, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { WEEKS_LOOKUP } from '../../data/running-improvement-branch.draft';
 import { DEFAULT_PLAN_WEEKS, type GeneratorTargetDistance } from '@/features/workout-engine/core/services/plan-generator.service';
@@ -470,7 +471,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                           min={4}
                           max={52}
                           value={sliderWeeks}
-                          onChange={(e) => setSliderWeeks(Number(e.target.value))}
+                          onChange={(e) => { const w = Number(e.target.value); if (w !== sliderWeeks) hapticTap('selection'); setSliderWeeks(w); }}
                           aria-label={t('steps.planLength.custom.aria')}
                           className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
                           style={{
@@ -619,7 +620,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                   min={4}
                   max={52}
                   value={sliderWeeks}
-                  onChange={(e) => setSliderWeeks(Number(e.target.value))}
+                  onChange={(e) => { const w = Number(e.target.value); if (w !== sliderWeeks) hapticTap('selection'); setSliderWeeks(w); }}
                   className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
                   style={{
                     background: `linear-gradient(to right, #00BAF7 ${((sliderWeeks - 4) / 48) * 100}%, #e2e8f0 ${((sliderWeeks - 4) / 48) * 100}%)`,
