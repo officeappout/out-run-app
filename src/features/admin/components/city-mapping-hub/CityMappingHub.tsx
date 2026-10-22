@@ -37,6 +37,7 @@ import type { ModeratorInfo } from '@/features/admin/services/moderation.service
 import HubActionPopover from './HubActionPopover';
 import HubBulkBar, { bulkTargets } from './HubBulkBar';
 import HubBulkConfirm from './HubBulkConfirm';
+import HubBulkAllDialog from './HubBulkAllDialog';
 import { useHubModeration } from './useHubModeration';
 
 export interface CityMappingHubProps {
@@ -65,6 +66,7 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
   const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bulkAllOpen, setBulkAllOpen] = useState(false);
 
   // The loader is read through a ref: an inline loader must not re-trigger the initial load.
   const loadRowsRef = useRef(loadRows);
@@ -141,6 +143,12 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
         <Link href="/admin/city-mapping" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] font-bold hover:bg-slate-50">
           <Plus className="h-4 w-4" /> הוספה והרצה
         </Link>
+        {admin && (
+          <button type="button" onClick={() => setBulkAllOpen(true)} data-testid="hub-bulkall-open"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] font-bold text-emerald-800 hover:bg-emerald-100">
+            אשר ממתינים בכל הארץ
+          </button>
+        )}
         <button type="button" onClick={refresh} disabled={loading} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] font-bold hover:bg-slate-50 disabled:opacity-60">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} רענון
         </button>
@@ -220,6 +228,9 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
           </div>
         </section>
       </main>
+      {bulkAllOpen && admin && (
+        <HubBulkAllDialog admin={admin} onClose={() => setBulkAllOpen(false)} onDone={refresh} />
+      )}
       {mod.bulk && selected && (
         <HubBulkConfirm
           authorityName={selected.name}

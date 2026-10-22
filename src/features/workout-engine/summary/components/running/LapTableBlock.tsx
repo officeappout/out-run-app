@@ -1,6 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 import { Lap } from '@/features/workout-engine/core/types/session.types';
 
 interface LapTableBlockProps {
@@ -8,6 +10,7 @@ interface LapTableBlockProps {
 }
 
 export default function LapTableBlock({ laps }: LapTableBlockProps) {
+  const t = useT(summary);
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -38,7 +41,7 @@ export default function LapTableBlock({ laps }: LapTableBlockProps) {
       className="bg-white rounded-xl shadow-sm p-6 mb-6"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
-      <h3 className="text-xl font-black text-gray-900 mb-4">הקפות</h3>
+      <h3 className="text-xl font-black text-gray-900 mb-4">{t('fallback.laps.title')}</h3>
       <div className="space-y-3">
         {completedLaps.map((lap) => (
           <div
@@ -59,7 +62,7 @@ export default function LapTableBlock({ laps }: LapTableBlockProps) {
                 {lap.lapNumber}
               </span>
               <span className="text-xs text-gray-500 font-bold me-2 uppercase">
-                הקפה
+                {t('fallback.laps.lap')}
               </span>
             </div>
 
@@ -68,7 +71,7 @@ export default function LapTableBlock({ laps }: LapTableBlockProps) {
               <div className="text-lg font-black text-gray-900">
                 {(lap.distanceMeters / 1000).toFixed(2)}
               </div>
-              <div className="text-xs text-gray-500 font-bold uppercase">ק"מ</div>
+              <div className="text-xs text-gray-500 font-bold uppercase">{t('fallback.laps.km')}</div>
             </div>
 
             {/* Avg Pace */}
@@ -76,7 +79,7 @@ export default function LapTableBlock({ laps }: LapTableBlockProps) {
               <div className="text-lg font-black text-gray-900">
                 {formatPace(lap.splitPace)}
               </div>
-              <div className="text-xs text-gray-500 font-bold uppercase">קצב</div>
+              <div className="text-xs text-gray-500 font-bold uppercase">{t('fallback.laps.pace')}</div>
             </div>
 
             {/* Time */}
@@ -84,7 +87,7 @@ export default function LapTableBlock({ laps }: LapTableBlockProps) {
               <div className="text-lg font-black text-gray-900">
                 {formatTime(lap.durationSeconds)}
               </div>
-              <div className="text-xs text-gray-500 font-bold uppercase">זמן</div>
+              <div className="text-xs text-gray-500 font-bold uppercase">{t('fallback.laps.time')}</div>
             </div>
           </div>
         ))}

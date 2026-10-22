@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import { makeT } from '@/lib/i18n/t';
+import { summary } from '@/messages/ns/summary';
 import {
   SEGMENT_RAIL_COLORS,
   railColor,
   railTypeFromKind,
   segmentLabel,
+  segmentLabelKey,
 } from '../segment-rail.util';
 
 describe('segment-rail util', () => {
@@ -26,5 +29,15 @@ describe('segment-rail util', () => {
     expect(segmentLabel('aerobic', 'cycling')).toBe('רכיבה');
     expect(segmentLabel('strength')).toBe('כוח');
     expect(segmentLabel('stairs')).toBe('מדרגות');
+  });
+
+  it('segmentLabelKey resolves through the catalog to the same labels', () => {
+    const t = makeT('he', summary);
+    expect(t(segmentLabelKey('aerobic'))).toBe('ריצה');
+    expect(t(segmentLabelKey('aerobic', 'walking'))).toBe('הליכה');
+    expect(t(segmentLabelKey('aerobic', 'cycling'))).toBe('רכיבה');
+    expect(t(segmentLabelKey('strength'))).toBe('כוח');
+    expect(t(segmentLabelKey('stairs'))).toBe('מדרגות');
+    expect(segmentLabel('aerobic', 'walking', t)).toBe('הליכה');
   });
 });
