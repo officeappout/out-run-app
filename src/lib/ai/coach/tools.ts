@@ -294,20 +294,58 @@ export function toolKind(name: string): CoachToolKind | null {
 }
 
 /**
+ * Kelly in the week builder (enable_week_builder_v1): propose_schedule_change's definition while
+ * the chat is open over the week builder. Same name and input (zod: ProposeScheduleChangeInput,
+ * whose moves accept `track`); it works on the DRAFT week on screen, every track.
+ */
+const PROPOSE_IN_BUILDER: Pick<Anthropic.Tool, 'description' | 'input_schema'> = {
+  description:
+    'The user is arranging a DRAFT week on screen in the week builder (nothing is saved yet). This prepares moves of THAT week and shows a card under your reply; one tap on it updates the week on screen only, and the user still saves with "אישור השבוע". Any session moves: strength, run or walk. First advise in words and ask "לעדכן?"; call this only after the user agrees. moves: from / to weekdays (a swap when to already has a session of that kind); track picks the session when the from day has two. scope: always this_week. How many days a week is set with the days picker on screen, not here. Returns the changes in Hebrew and any skipped moves with the reason, or created false with a reason.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      scope: { type: 'string', enum: ['this_week'] },
+      moves: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 3,
+        items: {
+          type: 'object',
+          properties: {
+            from: { type: 'string', enum: [...WEEKDAYS_EN] },
+            to: { type: 'string', enum: [...WEEKDAYS_EN] },
+            track: { type: 'string', enum: ['strength', 'run', 'walk'], description: 'Which session of the from day, when it has two' },
+          },
+          required: ['from', 'to'],
+          additionalProperties: false,
+        },
+        description: 'Move the session of from to to, in the week on screen',
+      },
+    },
+    required: ['scope', 'moves'],
+    additionalProperties: false,
+  },
+};
+
+/**
  * Tool definitions for the Messages API, fixed order (cache-stable per flag state). The
  * schedule advisor tools are appended only with `scheduleAdvisor`, the phase 2 tools only with
- * `phase2`, the round 4 tools only with `round4` — off = exactly today's list.
+ * `phase2`, the round 4 tools only with `round4` — off = exactly today's list. `builder` (only
+ * with phase2): propose_schedule_change in its week-builder form; absent = unchanged.
  */
-export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean; phase2?: boolean; round4?: boolean } = {}): Anthropic.Tool[] {
+export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean; phase2?: boolean; round4?: boolean; builder?: boolean } = {}): Anthropic.Tool[] {
   return Object.values(COACH_TOOLS)
     .filter((t) => opts.scheduleAdvisor || !SCHEDULE_ADVISOR_TOOL_NAMES.includes(t.name))
     .filter((t) => opts.phase2 || !PHASE2_TOOL_NAMES.includes(t.name))
     .filter((t) => opts.round4 || !ROUND4_TOOL_NAMES.includes(t.name))
-    .map((t) => ({
+    .map((t) =>
+      opts.builder && t.name === 'propose_schedule_change'
+        ? { name: t.name, ...PROPOSE_IN_BUILDER }
+        : {
     name: t.name,
     description: t.description,
     input_schema: t.inputSchema,
-  }));
+  });
 }
 
 export type ToolInputValidation =

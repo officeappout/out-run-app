@@ -6,3 +6,5 @@ export * from './days-away';
 export * from './policy';
 export * from './surface';
 export * from './running';
+export * from './run-catch-up';
+export * from './run-race';

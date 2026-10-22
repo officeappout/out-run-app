@@ -17,7 +17,8 @@ import { useT } from '@/hooks/useT';
 import { schedule } from '@/messages/ns/schedule';
 import type { SchedulePriority, TimeWindow } from '../../engine-v2/types';
 import { trackCounts, tracksOf, weekChips, type WbTab } from '../summary';
-import type { WbMove, WbWeek, WeekBuilderEngine } from '../types';
+import type { WbMove, WbRules, WbWeek, WeekBuilderEngine } from '../types';
+import { applyPlannedMoves, type WbPlannedMove } from '../applyMoves';
 import DayEditSheet from './DayEditSheet';
 import WeekBuilderHeader from './WeekBuilderHeader';
 import WeekDayCard from './WeekDayCard';
@@ -25,6 +26,15 @@ import WhySheet from './WhySheet';
 import { useDayHitTest } from './useDayHitTest';
 
 const NOTICE_MS = 3500;
+const HIGHLIGHT_MS = 2600;
+
+/** What a header action may do with the week on screen. */
+export interface WeekBuilderControls {
+  /** The engine's rules (absent for a host engine that doesn't expose them). */
+  rules: WbRules | null;
+  /** Applies moves through the engine (each validated like a drag), highlights changed days. */
+  apply: (moves: readonly WbPlannedMove[]) => void;
+}
 
 export interface WeekBuilderProps<P> {
   title: string;
@@ -34,8 +44,11 @@ export interface WeekBuilderProps<P> {
   onChange: (week: WbWeek<P>) => void;
   /** Day of month per weekday (display). */
   dates: number[];
-  /** Header action slot, given the week on screen (the Kelly chip "סדר לי במילים"). */
-  headerAction?: (week: WbWeek<P>) => ReactNode;
+  /**
+   * Header action slot, given the week on screen and the builder's controls (the Kelly chip
+   * "סדר לי במילים": its rules, and `apply` for Kelly's builder proposal).
+   */
+  headerAction?: (week: WbWeek<P>, ctl: WeekBuilderControls) => ReactNode;
   /** Chip labels for the run / walk tracks ("ריצת 10 ק״מ"). */
   chipLabels?: Partial<Record<'run' | 'walk', string>>;
   daysCount?: { value: number; options: number[]; onChange: (n: number) => void } | null;
@@ -45,6 +58,8 @@ export interface WeekBuilderProps<P> {
   onWindow?: (dow: number, w: TimeWindow) => void;
   /** Under the list, above the "למה?" line (e.g. add-track's "keep it as it was"). */
   extra?: ReactNode;
+  /** Above the list, given the week on screen and the controls (planner v2's "tell Kelly" row). */
+  lead?: (week: WbWeek<P>, ctl: WeekBuilderControls) => ReactNode;
   error?: string | null;
   confirmLabel?: string;
   confirmDisabled?: boolean;
@@ -59,7 +74,14 @@ export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
   const [whyOpen, setWhyOpen] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState<readonly number[]>([]);
   const { rowRef, dowAt } = useDayHitTest();
+
+  useEffect(() => {
+    if (highlight.length === 0) return;
+    const id = setTimeout(() => setHighlight([]), HIGHLIGHT_MS);
+    return () => clearTimeout(id);
+  }, [highlight]);
 
   useEffect(() => {
     if (!notice) return;
@@ -86,6 +108,16 @@ export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
     setNotice(reason);
   };
 
+  const controls: WeekBuilderControls = {
+    rules: p.engine.rules ?? null,
+    apply: (moves) => {
+      const r = applyPlannedMoves(p.week, moves, p.engine);
+      if (r.week !== p.week) p.onChange(r.week);
+      setHighlight(r.changedDows);
+      setNotice(r.skippedHe.length ? r.skippedHe.join(' · ') : null);
+    },
+  };
+
   const counts = trackCounts(p.week);
   const notes = p.week.warningsHe;
 
@@ -94,7 +126,7 @@ export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
       <WeekBuilderHeader
         title={p.title}
         subtitle={p.subtitle}
-        action={p.headerAction?.(p.week)}
+        action={p.headerAction?.(p.week, controls)}
         tracks={tracks.filter((tr) => counts[tr] > 0)}
         tab={tab}
         onTab={setTab}
@@ -109,6 +141,8 @@ export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
           {notice ? t('weekBuilder.refused', { reason: notice }) : ''}
         </p>
 
+        {p.lead?.(p.week, controls)}
+
         <div className="rounded-[22px] bg-white shadow-v2-card">
           <ErrorBoundary fallback={null}>
             {p.week.days.map((day) => (
@@ -118,6 +152,7 @@ export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
                 date={p.dates[day.dow]}
                 tab={tab}
                 hovered={hover === day.dow}
+                highlighted={highlight.includes(day.dow)}
                 rowRef={rowRef(day.dow)}
                 onEdit={() => setEditDow(day.dow)}
                 onDragMove={(y) => setHover(dowAt(y))}

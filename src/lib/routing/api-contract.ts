@@ -21,7 +21,7 @@ export interface GenerateLoopsRequest {
   ourRoutes?: WireOurRoute[];
   /** "Shadiest route" (enable_route_pref_shade): rank candidates by Technion shade where the city has a layer. */
   preferShade?: boolean;
-  /** The app's resolved city name — picks the shade / hourly-shade / lighting layer. Only read with preferShade or timeAware. */
+  /** The app's resolved city name — picks the shade / hourly-shade / lighting layer. Only read with preferShade, timeAware or shadeTag. */
   city?: string;
   /**
    * Time-aware preference (enable_route_time_aware): hot sunny hours → hourly shade at that
@@ -30,6 +30,11 @@ export interface GenerateLoopsRequest {
   timeAware?: boolean;
   /** ISO instant the run starts (timeAware only); default = server now. Must be within ±24 h. */
   at?: string;
+  /**
+   * enable_route_shade_tag: add `shadedPct` to each loop the city's shade layer measures
+   * (the card's "🌳 מוצל X%"). Never changes the ranking. Absent = the response is unchanged.
+   */
+  shadeTag?: boolean;
 }
 
 export interface GenerateAbRequest {
@@ -64,6 +69,8 @@ export interface GeneratedLoopDto {
   hourShade?: number | null;
   /** Lit length ÷ route length (0..1) — only when timeAware ranked by lighting, null when no lighting data matched. */
   litShare?: number | null;
+  /** % of the measured length on shaded segments (0..100) — only with shadeTag, and only when measured (absent otherwise). */
+  shadedPct?: number;
 }
 
 export interface GenerateLoopsResponse {
@@ -124,6 +131,8 @@ export function parseGenerateRequest(body: unknown): GenerateRequest | { error: 
       ...(b.preferShade !== true && b.timeAware === true
         ? { timeAware: true, ...(city ? { city } : {}), ...(parseAt(b.at) ? { at: parseAt(b.at)! } : {}) }
         : {}),
+      // enable_route_shade_tag: `shadedPct` per measured loop (needs the city too).
+      ...(b.shadeTag === true ? { shadeTag: true, ...(city ? { city } : {}) } : {}),
     };
   }
   if (b.mode === 'ab') {

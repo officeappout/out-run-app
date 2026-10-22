@@ -5,11 +5,13 @@
  * userSchedule day docs over the template, runs from the running plan, planned walks) joined
  * with the week's finished workouts (detectMissed).
  *
- *   past days   — never a drop target; done sessions are locked ("בוצע"), missed ones stay
- *                 movable ("פוספס") so they can go to a day that is still ahead
+ *   past days   — never a drop target; done sessions are locked ("בוצע"), a session that did
+ *                 not happen is never tagged or counted for the user — it can only leave the
+ *                 day through the calm "נסדר לך את שאר השבוע" suggestion (replanMissed)
  *   today, later — editable
- *   runs        — locked context: a run's day comes from the running plan's weekdays, which
- *                 has no per-date override to write to (phase 2 moves strength + walks only)
+ *   runs        — movable inside the CURRENT week only (owner 22.10): the move is saved as a
+ *                 per-date run move (running.runMoves, utils/runWeekMoves.ts); other weeks keep
+ *                 runs as locked context. Run rules: planner/runMoveRules.ts
  *
  * Every editable session carries the userSchedule entries it is (entryIds) — none for a
  * template day that has no doc yet (the save hydrates it first). Pure.
@@ -26,16 +28,22 @@ import { runPlacementOf, slotsOfEntries } from '../../utils/runWeekByType';
 import { DEFAULT_STRENGTH_WINDOW } from '../../utils/strengthWeekRecommendation';
 import { detailLineHe, emptyWeek, runMinutes, runTitleHe } from '../adapters/shared';
 import { explainWeek } from '../explain';
+import { sessionTimeOf } from './plannedTime';
 import type { WbRules, WbSession, WbTrack, WbWeek } from '../types';
 
 export interface PlannerWbData {
-  kind: 'strength' | 'walk';
+  kind: 'strength' | 'walk' | 'run';
   /** The date the session sits on in the saved schedule ('YYYY-MM-DD'). */
   date: string;
   /** Its userSchedule entries; [] = a template day without a doc yet. */
   entryIds: string[];
   /** The ids it trains (entry programIds, or the template's strength ids). */
   programIds: string[];
+  /**
+   * Planner v2: the planned time of its entries (the existing userSchedule `startTime`,
+   * 'HH:MM'); null = none / a template day without a doc yet. Optional, display only.
+   */
+  startTime?: string | null;
 }
 
 export type PlannerWeek = WbWeek<PlannerWbData>;
@@ -57,7 +65,7 @@ export interface PlannerWeekModel {
   rules: WbRules;
   /** Day of month per weekday. */
   dates: number[];
-  /** Planned sessions of past days that did not happen (movable). */
+  /** Planned sessions of past days that did not happen (movable). Never shown as a number. */
   missedCount: number;
 }
 
@@ -96,6 +104,7 @@ export function buildPlannerWeek(i: PlannerWeekInput): PlannerWeekModel {
   const windows = windowsOf(i.profile);
   const placement = runPlacementOf(i.profile.running);
   const template = i.profile.lifestyle?.recurringTemplate ?? {};
+  const isCurrentWeek = keys.includes(i.todayKey);
 
   const week = emptyWeek<PlannerWbData>([0, 1, 2, 3, 4, 5, 6], {}, windows.strength);
   keys.forEach((key, dow) => {
@@ -124,9 +133,10 @@ export function buildPlannerWeek(i: PlannerWeekInput): PlannerWeekModel {
         titleHe: runTitleHe(slot, placement.level ?? null, p.runRef?.week ?? 1),
         detailHe: detailLineHe(minutes, windows.run),
         minutes,
-        locked: true,
+        locked: !isCurrentWeek || status === 'done',
         homeDow: dow,
         status,
+        data: { kind: 'run', date: p.date, entryIds: [], programIds: [] },
       };
     } else if (p.kind === 'strength') {
       const fromDoc = idsOf(docEntries.filter((e) => isStrengthEntry(e, i.resolveSlug)));
@@ -142,7 +152,7 @@ export function buildPlannerWeek(i: PlannerWeekInput): PlannerWeekModel {
         locked: status === 'done',
         homeDow: dow,
         status,
-        data: { kind: 'strength', date: p.date, entryIds: fromDoc.entryIds, programIds },
+        data: { kind: 'strength', date: p.date, entryIds: fromDoc.entryIds, programIds, startTime: sessionTimeOf(docEntries.filter((e) => isStrengthEntry(e, i.resolveSlug))) },
       };
     } else {
       const minutes = p.walkGoal?.type === 'time' ? p.walkGoal.value : undefined;
@@ -155,11 +165,11 @@ export function buildPlannerWeek(i: PlannerWeekInput): PlannerWeekModel {
         locked: status === 'done',
         homeDow: dow,
         status,
-        data: { kind: 'walk', date: p.date, ...idsOf(docEntries.filter(isWalkEntry)) },
+        data: { kind: 'walk', date: p.date, ...idsOf(docEntries.filter(isWalkEntry)), startTime: sessionTimeOf(docEntries.filter(isWalkEntry)) },
       };
     }
     // Nothing to write a move to (no entry, no template ids) → locked context.
-    if (session.data && session.data.entryIds.length === 0 && session.data.programIds.length === 0) session.locked = true;
+    if (session.data && session.data.kind !== 'run' && session.data.entryIds.length === 0 && session.data.programIds.length === 0) session.locked = true;
     day.sessions.push(session);
   }
 

@@ -17,6 +17,8 @@ export interface GhLoopOptions {
   cityName?: string;
   /** Explicit enable_route_time_aware override (tests / admin); absent = the device's live flag. */
   timeAware?: boolean;
+  /** Explicit enable_route_shade_tag override (tests); absent = the device's live flag. */
+  shadeTag?: boolean;
   destination?: unknown;
   followOfficialRouteId?: string;
   discoverCorridorChain?: boolean;

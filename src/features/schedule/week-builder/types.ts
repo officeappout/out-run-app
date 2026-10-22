@@ -85,4 +85,6 @@ export interface WbRules {
 /** What the builder needs from its host: validate + re-explain a move (engine v2 underneath). */
 export interface WeekBuilderEngine<P = unknown> {
   move(week: WbWeek<P>, move: WbMove): WbMoveResult<P>;
+  /** The rules it validates by (Kelly's builder mode sends them with the draft week). */
+  rules?: WbRules;
 }

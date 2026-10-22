@@ -74,7 +74,7 @@ const provider = (key: StageProvider['key'], routes: CandidateRoute[], calls: st
 const small = { id: 'x', type: 'local_council', population: 20_000 }; // quota 8-15
 
 describe('runAuthorityStages', () => {
-  it('stops before generating once the quota minimum is met', async () => {
+  it('stops before generating once the quota minimum is met (finding sources still run)', async () => {
     const calls: string[] = [];
     const existing = Array.from({ length: 9 }, (_, k) => good(`e${k}`, k));
     const r = await runAuthorityStages(small, [
@@ -82,7 +82,7 @@ describe('runAuthorityStages', () => {
     ]);
     expect(r.score.selection.counts.selected).toBeGreaterThanOrEqual(8);
     expect(r.quotaMetAfter).toBe('existing');
-    expect(calls).toEqual(['existing']);
+    expect(calls).toEqual(['existing', 'dataset']);
     expect(r.stages.find((s) => s.key === 'generated')?.note).toMatch(/quota minimum met/);
   });
   it('keeps adding sources in order while the quota is not met, and generates last', async () => {

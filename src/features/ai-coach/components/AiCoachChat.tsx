@@ -33,6 +33,7 @@ import { placeholderHints } from '@/lib/ai/coach/suggestions/placeholders';
 import { useUserStore } from '@/features/user';
 import AiCoachSuggestionChips from './AiCoachSuggestionChips';
 import AiCoachProposalCard from './AiCoachProposalCard';
+import type { BuilderContext, BuilderMove } from '@/lib/ai/coach/schedule-proposal/builder-context';
 import { useKellySituation } from '../hooks/useKellySituation';
 import { useRotatingPlaceholder } from '../hooks/useRotatingPlaceholder';
 import KellyMemorySheet from './KellyMemorySheet';
@@ -73,6 +74,7 @@ export default function AiCoachChat({
   starterChips = null,
   runsByType = false,
   initialInput = null,
+  builder = null,
 }: {
   profile: UserFullProfile;
   onClose: () => void;
@@ -102,8 +104,18 @@ export default function AiCoachChat({
    * null → the ?q= prefill (search's "שאל את קלי"), unchanged.
    */
   initialInput?: string | null;
+  /**
+   * enable_week_builder_v1: the chat is open over the week builder. `context` = the draft week
+   * on screen (sent with every request); a builder proposal's card calls `onApply` with its
+   * moves (the builder applies them to the week on screen — nothing is saved). null → unchanged.
+   */
+  builder?: { context: () => BuilderContext | null; onApply: (moves: BuilderMove[]) => void } | null;
 }) {
-  const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
+  const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, {
+    unified,
+    teamOnly,
+    ...(builder ? { builderContext: builder.context } : {}),
+  });
   const router = useRouter();
   const t = useT(coach);
   const gender = coachGenderOf(profile.core?.gender);
@@ -340,6 +352,7 @@ export default function AiCoachChat({
                   disabled={busy || m.id === LIVE_ID}
                   onStatus={(st) => setProposalStatus(m.id, st)}
                   onSaved={() => void useUserStore.getState().refreshProfile?.()}
+                  onApplyBuilder={builder?.onApply}
                 />
               )}
               {phase2 && !mine && !teamMode && !busy && m.id === lastMessageId && (m.suggestions?.length ?? 0) > 0 && (

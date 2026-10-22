@@ -785,6 +785,44 @@ export async function addScheduleEntry(
 }
 
 /**
+ * Planner v2 (enable_week_builder_v1): set the planned time of some of a day's entries —
+ * the EXISTING `startTime` field ('HH:MM'). One read + one write of the day doc; the
+ * entries keep their order and every other field. Returns false when nothing matched or
+ * the write failed (never throws).
+ */
+export async function setScheduleEntriesStartTime(
+  _userId: string,
+  date: string,
+  entryIds: readonly string[],
+  startTime: string,
+): Promise<boolean> {
+  const uid = await resolveAuthUid();
+  if (!uid || entryIds.length === 0) return false;
+  try {
+    const day = await getScheduleDay(_userId, date);
+    if (!day) return false;
+    let hit = 0;
+    const entries = day.entries.map((e) => {
+      if (!e.entryId || !entryIds.includes(e.entryId)) return e;
+      hit++;
+      return { ...e, startTime, updatedAt: new Date().toISOString() };
+    });
+    if (hit === 0) return false;
+    const next: UserScheduleDay = {
+      userId: uid,
+      date,
+      entries: entries.map((e) => stripUndefined(e as unknown as Record<string, unknown>) as unknown as UserScheduleEntry),
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(doc(db, COLLECTION, docId(uid, date)), next, { merge: false });
+    return true;
+  } catch (err) {
+    console.error(`[UserSchedule] setScheduleEntriesStartTime FAILED  ${date}`, err);
+    return false;
+  }
+}
+
+/**
  * Remove a single entry by `entryId` on a date.
  *
  * Zombie-loop protection: if no entries remain after the removal,

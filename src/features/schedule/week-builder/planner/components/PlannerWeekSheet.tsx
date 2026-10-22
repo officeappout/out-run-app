@@ -2,9 +2,10 @@
 
 /**
  * "סידור השבוע" (enable_week_builder_v1, phase 2) — the week builder over the big schedule,
- * for ONE dated week. Full screen, portalled over the planner. Past days are locked (done /
- * missed shown), today and later are editable; mode 'replan' opens with the engine's
- * suggestion for the missed sessions. Nothing is written until "אישור השבוע" and the save
+ * for ONE dated week. Full screen, portalled over the planner. Past days are locked (only
+ * "בוצע" shows — nothing is ever tagged as missed), today and later are editable; runs move
+ * inside the current week; mode 'replan' opens with the engine's calm suggestion for the rest
+ * of the week. Nothing is written until "אישור השבוע" and the save
  * scope ("רק השבוע" / "מעכשיו והלאה").
  */
 import { useEffect, useMemo, useState } from 'react';
@@ -15,15 +16,15 @@ import ConfirmSheet from '@/components/ui/v2/ConfirmSheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { schedule } from '@/messages/ns/schedule';
-import { useUserStore } from '@/features/user/identity/store/useUserStore';
-import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
-import { isStrengthTemplateId } from '../../../engine/strengthVocabulary';
 import WeekBuilder from '../../components/WeekBuilder';
-import { createWeekEngine } from '../../moveSession';
-import { planPlannerSave, plannerMoves, recurringMoves, type PlannerSaveScope } from '../plannerSave.plan';
-import { executePlannerSave } from '../plannerSave.service';
+import { kellyWeekAction } from '@/features/ai-coach/components/KellyWeekChip';
+import { plannerMoves, recurringMoves, type PlannerSaveScope } from '../plannerSave.plan';
+import { savePlannerWeek } from '../savePlannerWeek';
+import { applyPlannedMoves, type WbPlannedMove } from '../../applyMoves';
+import TellKellyRow from './TellKellyRow';
 import { settleStatus, type PlannerWbData, type PlannerWeek } from '../plannerWeek';
 import { replanMissed } from '../replanMissed';
+import { createPlannerEngine } from '../runMoveRules';
 import { usePlannerWeek } from '../usePlannerWeek';
 import { weekRangeHe } from '../weekRange';
 
@@ -36,9 +37,13 @@ export interface PlannerWeekSheetProps {
   mode: PlannerWeekMode;
   onClose: () => void;
   onSaved: () => void;
+  /** Planner v2: moves to apply on open (Kelly's proposal from the planner header). */
+  initialMoves?: readonly WbPlannedMove[] | null;
+  /** Planner v2: Kelly as the "או לספר לקלי מה השתנה" row above the days, not the header chip. */
+  tellKellyRow?: boolean;
 }
 
-export default function PlannerWeekSheet({ userId, sunday, mode, onClose, onSaved }: PlannerWeekSheetProps) {
+export default function PlannerWeekSheet({ userId, sunday, mode, onClose, onSaved, initialMoves = null, tellKellyRow = false }: PlannerWeekSheetProps) {
   const t = useT(schedule);
   const state = usePlannerWeek(userId, sunday);
   const [week, setWeek] = useState<PlannerWeek | null>(null);
@@ -54,11 +59,19 @@ export default function PlannerWeekSheet({ userId, sunday, mode, onClose, onSave
       setWeek(null);
       return;
     }
-    setWeek(mode === 'replan' ? replanMissed(model.week, model.rules).week : model.week);
+    const base = mode === 'replan' ? replanMissed(model.week, model.rules).week : model.week;
+    // Kelly's proposal from the planner (v2): its moves land on the week on screen, each
+    // validated like a drag; nothing is saved until "אישור השבוע".
+    const seeded = initialMoves?.length
+      ? applyPlannedMoves(base, initialMoves, createPlannerEngine<PlannerWbData>(model.rules, { normalize: settleStatus })).week
+      : base;
+    setWeek(seeded);
     setError(null);
+    // initialMoves is read once per opened week.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, mode]);
 
-  const engine = useMemo(() => (model ? createWeekEngine<PlannerWbData>(model.rules, { normalize: settleStatus }) : null), [model]);
+  const engine = useMemo(() => (model ? createPlannerEngine<PlannerWbData>(model.rules, { normalize: settleStatus }) : null), [model]);
   const moves = useMemo(() => (week ? plannerMoves(week, state.keys, state.todayKey) : []), [week, state.keys, state.todayKey]);
   const canForward = recurringMoves(moves).length > 0;
 
@@ -70,20 +83,12 @@ export default function PlannerWeekSheet({ userId, sunday, mode, onClose, onSave
     setScopeOpen(false);
     setSaving(true);
     setError(null);
-    const lifestyle = (useUserStore.getState().profile as { lifestyle?: { recurringTemplate?: Record<string, string[]>; scheduleDays?: string[] } } | null)?.lifestyle;
-    const template = lifestyle?.recurringTemplate ?? {};
-    const plan = planPlannerSave(week, state.keys, state.todayKey, scope, {
-      recurringTemplate: template,
-      scheduleDays: lifestyle?.scheduleDays ?? [],
-      isStrengthId: (id) => isStrengthTemplateId(id, resolveToSlug),
-    });
-    const res = await executePlannerSave(userId, plan, template);
+    const ok = await savePlannerWeek(userId, week, state.keys, state.todayKey, scope);
     setSaving(false);
-    if (!res.ok) {
+    if (!ok) {
       setError(t('planner.saveError'));
       return;
     }
-    if (plan.template) useUserStore.getState().refreshProfile().catch(() => {});
     onSaved();
     onClose();
   };
@@ -108,7 +113,17 @@ export default function PlannerWeekSheet({ userId, sunday, mode, onClose, onSave
         engine={engine}
         onChange={setWeek}
         dates={model.dates}
-        headerAction={() => closeButton}
+        headerAction={(w, ctl) =>
+          tellKellyRow ? (
+            closeButton
+          ) : (
+            <div className="flex shrink-0 items-center gap-2">
+              {kellyWeekAction(w, ctl)}
+              {closeButton}
+            </div>
+          )
+        }
+        lead={tellKellyRow ? (w, ctl) => kellyWeekAction(w, ctl, (open) => <TellKellyRow onPress={open} />) : undefined}
         error={error}
         confirmDisabled={saving}
         onConfirm={() => (moves.length === 0 ? onClose() : setScopeOpen(true))}

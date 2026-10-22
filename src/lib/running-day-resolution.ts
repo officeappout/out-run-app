@@ -1,6 +1,7 @@
 import { isDateWithinRunningPlan } from './running-plan-date-range';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
 import { mapRunWeekFromLetters, type RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
+import { localDateOfKey, localKeyOf, runSourceDate, weekHasRunMoves } from '@/features/schedule/utils/runWeekMoves';
 
 // Minimal structural type, not an import of NextRunWorkoutCard's own
 // `ActiveRunningProgram.schedule` entry shape — src/lib/ shouldn't depend on
@@ -97,6 +98,41 @@ function isPendingEntry(entry: RunningScheduleEntry): boolean {
  * them: a legitimately-created program's `startDate` is always ≤ "today."
  */
 export function resolveRunningDayState<T extends RunningScheduleEntry>(
+  scheduleDays: string[],
+  schedule: T[] | undefined,
+  currentWeek: number,
+  date: Date,
+  startDate: Date | string | number | undefined,
+  placement?: RunWeekMapOptions,
+): RunningDayState<T> {
+  const moves = placement?.runMoves;
+  if (!moves?.length || scheduleDays.length === 0) {
+    return resolveWeekdayState(scheduleDays, schedule, currentWeek, date, startDate, placement);
+  }
+  // enable_week_builder_v1 — per-date run moves (runWeekMoves.ts): the run on a day is the run
+  // its SOURCE day had before the moves, resolved exactly as before (its own plan week too).
+  const plain: RunWeekMapOptions = { ...placement, runMoves: undefined };
+  const key = localKeyOf(date);
+  const touched = weekHasRunMoves(key, moves);
+  const at = (k: string) => resolveWeekdayState(scheduleDays, schedule, currentWeek, localDateOfKey(runSourceDate(k, moves)), startDate, plain);
+  const today = touched ? at(key) : resolveWeekdayState(scheduleDays, schedule, currentWeek, date, startDate, plain);
+  if (today.source === 'out-of-range') return today;
+  let nextEntry: T | undefined;
+  let nextEntryDaysAway: number | undefined;
+  for (let offset = 1; offset <= 7; offset++) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
+    const s = at(localKeyOf(d));
+    if (s.isRunDay) {
+      nextEntry = s.todayEntry;
+      nextEntryDaysAway = offset;
+      break;
+    }
+  }
+  return { isRunDay: today.isRunDay, todayEntry: today.todayEntry, nextEntry, nextEntryDaysAway, source: today.source };
+}
+
+/** The weekday decision (no per-date moves) — the body documented above. */
+function resolveWeekdayState<T extends RunningScheduleEntry>(
   scheduleDays: string[],
   schedule: T[] | undefined,
   currentWeek: number,

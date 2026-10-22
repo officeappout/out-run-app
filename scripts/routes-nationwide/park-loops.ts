@@ -17,14 +17,14 @@
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
-import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { buildPathIndex, loopsForPark, parkLoopDoc, pointInRing, selectBigParks, type LngLat, type PathLine, type PointFeature } from '../../src/lib/park-loops';
+import { buildPathIndex, loopsForPark, parkLoopDoc, pointInRing, selectBigParks, type LngLat } from '../../src/lib/park-loops';
 import { buildValidatedDoc } from '../../src/lib/route-collections/validate';
 import { assertOsmium, ensureIsraelPbf, extractPilot, fetchAdminBoundary, pbfTimestamp } from '../trails/lib/pilot-osm.node';
 import { PRODUCTION_PROJECT, flagValue, listOfficialRoutesPage, openTarget } from '../trails/lib/trails-apply.node';
 import { ghViaRouterFromEnv } from './lib/gh-via-router.node';
+import { fitnessStations, walkableLines } from './lib/authority-osm.node';
 
 const argv = process.argv.slice(2);
 const RELATION = Number(flagValue(argv, 'relation') ?? 0);
@@ -32,19 +32,6 @@ const AUTHORITY = flagValue(argv, 'authority');
 const CITY = flagValue(argv, 'city') ?? '';
 const ANCHORS = (flagValue(argv, 'anchors') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const OUT = flagValue(argv, 'out') ?? path.join('scripts', 'output', `park-loops-${RELATION}-${new Date().toISOString().slice(0, 10)}`);
-
-/** Ways a runner/walker can actually follow around a park. Roads are deliberately excluded. */
-const WALKABLE = new Set(['footway', 'path', 'cycleway', 'pedestrian', 'track', 'bridleway', 'living_street']);
-
-function fitnessStations(cutPbf: string, work: string): PointFeature[] {
-  const f = path.join(work, 'fitness.osm.pbf');
-  execFileSync('osmium', ['tags-filter', '-O', cutPbf, 'n/leisure=fitness_station', '-o', f], { stdio: ['ignore', 'ignore', 'inherit'] });
-  const out = execFileSync('osmium', ['export', f, '-f', 'geojsonseq', '--geometry-types=point', '-a', 'type,id', '-x', 'print_record_separator=false'], { maxBuffer: 1 << 26 }).toString();
-  return out.split('\n').filter((l) => l.trim()).map((l) => {
-    const g = JSON.parse(l);
-    return { id: `node/${g.properties?.['@id']}`, coord: g.geometry.coordinates as LngLat };
-  });
-}
 
 async function main() {
   if (!RELATION) throw new Error('usage: --relation=<OSM admin_level relation id> [--authority=<id> --city=<name>] [--anchors="a,b"]');
@@ -70,12 +57,7 @@ async function main() {
   });
   console.log(`parks: ${sel.considered} named park polygons (after same-name merge) → ${sel.parks.length} big → ${parks.length} inside the boundary`);
 
-  const lines: PathLine[] = [];
-  for (const w of Array.from(ex.data.ways.values())) {
-    if (!WALKABLE.has(w.tags.highway ?? '')) continue;
-    const coords = w.nodes.map((n) => ex.data.nodes.get(n)).filter(Boolean).map((n) => [n!.lon, n!.lat] as LngLat);
-    if (coords.length >= 2) lines.push({ id: `way/${w.id}`, coords, highway: w.tags.highway });
-  }
+  const lines = walkableLines(ex);
   const paths = buildPathIndex(lines);
   const fitness = fitnessStations(path.join(work, 'pilot.osm.pbf'), work);
   console.log(`walkable ways: ${lines.length} · fitness stations: ${fitness.length}`);

@@ -4,6 +4,8 @@
  * on this screen only). No React — unit-tested in node.
  */
 
+import type { PlayerT } from '@/messages/ns/player';
+
 export interface LevelRingModel {
   /** Clamped 0–100, rounded. */
   percent: number;
@@ -12,7 +14,7 @@ export interface LevelRingModel {
   nextLabel: string | null;
 }
 
-export function levelRingModel(currentLevel: number, maxLevel: number, progressPercent: number): LevelRingModel {
+export function levelRingModel(t: PlayerT, currentLevel: number, maxLevel: number, progressPercent: number): LevelRingModel {
   const level = Number.isFinite(currentLevel) ? Math.max(1, Math.round(currentLevel)) : 1;
   const max = Number.isFinite(maxLevel) && maxLevel > 0 ? Math.round(maxLevel) : 25;
   const percent = Number.isFinite(progressPercent) ? Math.min(100, Math.max(0, Math.round(progressPercent))) : 0;
@@ -20,8 +22,8 @@ export function levelRingModel(currentLevel: number, maxLevel: number, progressP
   const remaining = Math.max(0, 100 - percent);
   return {
     percent,
-    levelLabel: `רמה ${level}/${max}`,
-    nextLabel: nextLevel <= max ? `עוד ${remaining}% לרמה ${nextLevel}` : null,
+    levelLabel: t('strengthSummary.levelRing.level', { level: String(level), max: String(max) }),
+    nextLabel: nextLevel <= max ? t('strengthSummary.levelRing.next', { remaining: String(remaining), next: String(nextLevel) }) : null,
   };
 }
 

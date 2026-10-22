@@ -19,6 +19,7 @@ import { journeyItemsFromLegs } from '../overview-legs';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { activityMinutes, buildRouteLegs, finishClock, initialRouteActivity } from './route-overview';
+import { RouteShadeTagPill } from '../../route-shade/RouteShade';
 
 export interface RouteOverviewCompactCardProps {
   route: Route;
@@ -66,6 +67,7 @@ export default function RouteOverviewCompactCard({
         <h3 className="min-w-0 flex-1 truncate whitespace-nowrap text-[17px] font-black leading-tight !tracking-[-0.02em] text-v2-ink">
           {route.name?.trim() || t('overview.route.card.nameFallback')}
         </h3>
+        <RouteShadeTagPill route={route} />
         <span className="inline-flex shrink-0 items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline" style={{ padding: '3px 9px' }}>
           <DifficultyBolts difficulty={route.difficulty} size="sm" />
         </span>

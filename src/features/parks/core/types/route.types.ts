@@ -11,6 +11,7 @@ import type {
   SegmentProtocolId,
 } from '@/features/workout-engine/core/types/protocol.types';
 import type { SurfaceType } from '@/lib/route-collections/surface-type';
+import type { RouteShadeInfo } from '@/lib/route-shade-view';
 import type { ClimbType } from './climb-segment.types';
 import type { AmenityCategory, CourtSport } from './osm-amenity.types';
 
@@ -563,6 +564,14 @@ export interface Route {
     computedAt: unknown; // FieldValue.serverTimestamp() at write time (climb-segment.types.ts's updatedAt convention)
     source: 'osm_overpass_v1';
   };
+
+  /**
+   * How shaded the route is, for display only (enable_route_shade_tag): set on
+   * GraphHopper loops from the generate response's `shadedPct`. Stored routes
+   * don't carry it — their shade is fetched from POST /api/routes/shade
+   * (route_scores, server-side). Absent = not measured.
+   */
+  shadeInfo?: RouteShadeInfo;
 
   /** Data provenance (trails pipeline) — see RouteProvenance. */
   provenance?: RouteProvenance;

@@ -51,6 +51,11 @@
   "proposal.hint": "שום דבר לא משתנה עד שמאשרים.",
   "proposal.confirm": "אשר",
   "proposal.dismiss": "בטל",
+  "proposal.builderApply": "לעדכן בשבוע",
+  "proposal.builderHint": "רק השבוע שעל המסך יתעדכן. שומרים ב״אישור השבוע״.",
+  "proposal.builderApplied": "עודכן בשבוע שעל המסך",
+  "proposal.builderDismissed": "בוטל. השבוע על המסך נשאר כמו שהיה.",
+  "proposal.builderOnly": "ההצעה הזו הייתה לשבוע שבבנייה.",
   "card.tag": "קלי AI",
   "card.open": "פתח אימון",
   "card.building": "בונה לך אימון…",
@@ -85,6 +90,7 @@
   "parks.line": "{km} ק״מ",
   "parks.lineEquipment": "{km} ק״מ · {equipment}",
   "weekChip.label": "סדר לי במילים",
-  "weekChip.context": "השבוע שלי (עוד לא שמרתי): {week}. רק תציע לי סידור במילים, בלי לשנות את הלו״ז השמור: ",
-  "weekChip.contextEmpty": "אני בונה את השבוע שלי ועוד לא שמרתי. רק תציע לי סידור במילים, בלי לשנות את הלו״ז השמור: "
+  "weekChip.context": "השבוע שלי (עוד לא שמרתי): {week}. תציע לי סידור במילים, ואם זה נראה לך טוב, תשאל אותי אם לעדכן: ",
+  "weekChip.contextEmpty": "אני בונה את השבוע שלי ועוד לא שמרתי. תציע לי סידור במילים, ואם זה נראה לך טוב, תשאל אותי אם לעדכן: ",
+  "weekChip.contextPlanner": "זה השבוע שלי בלו״ז: {week}. תציע לי סידור במילים, ואם זה נראה לך טוב, תשאל אותי אם לעדכן: "
 }

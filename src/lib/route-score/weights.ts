@@ -1,8 +1,11 @@
 /** Weights (sum 100) and thresholds for routeScore v1 — NATIONWIDE-PLAN.md §3.3. */
 import type { ScoreComponentKey, SourceTier } from './types';
 
-/** v1.1 (RC6, 21.10.2026): shade (Technion SI) joins comfort on the recalibrated 0.10→0.35 scale. */
-export const ROUTE_SCORE_VERSION = 'v1.1';
+/**
+ * v1.1 (RC6, 21.10.2026): shade (Technion SI) joins comfort on the recalibrated 0.10→0.35 scale.
+ * v1.2 (RC8, 22.10.2026): geometry judges turns/km + zigzag on loops (GEOMETRY_TURNS below).
+ */
+export const ROUTE_SCORE_VERSION = 'v1.2';
 
 export const SCORE_WEIGHTS: Record<ScoreComponentKey, number> = {
   surface: 25,
@@ -51,3 +54,20 @@ export const SHADE_SI_ZERO = 0.1;
 export const SHADE_SI_FULL = 0.35;
 /** Lit — a stretch within 20-30 m of a lamp post (owner-approved 21.10.2026). */
 export const LIT_LAMP_RADIUS_M = { min: 20, max: 30 } as const;
+
+/**
+ * Turns / zigzag on loops (RC8). A loop that staircases through side streets
+ * reads badly on the map and on foot (owner feedback 21.10.2026). Free
+ * allowance first — a clean block loop or a park perimeter is never touched;
+ * live GraphHopper `foot` loops run 4-12 turns/km, the Mapbox v1 ≈ 6.7,
+ * a block staircase has zigzag ≈ 1.41. Marked trails (official / OSM named)
+ * keep their own geometry and are not judged on this.
+ */
+export const GEOMETRY_TURNS = {
+  freeTurnsPerKm: 8,
+  pointsPerExtraTurnPerKm: 0.5,
+  maxTurnsPenalty: 3,
+  freeZigzag: 1.15,
+  pointsPerZigzagTenth: 2,
+  maxZigzagPenalty: 3,
+} as const;

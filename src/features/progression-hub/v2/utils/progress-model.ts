@@ -6,17 +6,18 @@
  * is kept in React state. Plain .ts, no React / Firebase — safe for tests.
  */
 import { splitHybridWorkout } from '@/features/workout-engine/hybrid/hybrid-counting';
+import { TRACK_COLORS } from '@/components/ui/v2/track-colors';
 
 /** The four activity lenses of the tab. Walk & steps share amber (owner, 20.10.2026). */
 export type ProgressKind = 'strength' | 'run' | 'walk' | 'other';
 
 export const PROGRESS_COLORS = {
-  strength: '#00baf7',
-  run: '#84cc16',
+  strength: TRACK_COLORS.strength,
+  run: TRACK_COLORS.run,
   runText: '#65a30d',
-  walk: '#f59e0b',
+  walk: TRACK_COLORS.walk,
   walkText: '#b45309',
-  steps: '#f59e0b',
+  steps: TRACK_COLORS.walk,
 } as const;
 
 export const KIND_LABEL: Record<Exclude<ProgressKind, 'other'>, string> = {

@@ -202,6 +202,8 @@ src/features/parks/core/components/hybrid/HybridStationCard.tsx
 src/features/parks/core/components/hybrid/OverviewTitleBar.tsx
 src/features/parks/core/components/hybrid/StrengthStationsToggle.tsx
 src/features/parks/core/components/overview/
+# enable_route_shade_tag (22.10.2026, namespace map, keys shade.*) — route shade tag + detail row, catalog from birth.
+src/features/parks/core/components/route-shade/
 # wave 2 batch q (namespace community, leagues.* keys) — the free league boards + their helpers.
 # Listed per file: NeighborhoodLeaderboard / NationalLeagueBoard / ScopeBattleCard / ScopeCompetitionLeaderboard /
 # GroupLeaderboard / LeagueBoardSheets (open PR #607 + other work) and app/community are not migrated. The helpers
@@ -350,3 +352,20 @@ src/features/home/components/day-preview/
 # enable_map_polish_v1 (21.10.2026, namespace map) — new files, no hard-coded Hebrew.
 src/features/parks/core/map-polish/
 src/features/parks/client/components/park-preview/ParkCardCompact.tsx
+# wave 2 batch z (namespace player, keys strengthSummary.* / dopamine.*) — the strength post-workout screens. Listed per
+# file: StrengthSummaryPage / XpStatusRow / hooks are busy in other work; GainBreakdownCard, WeeklyAchievementsGrid,
+# ExerciseBreakdownCard and summary-atoms/ render only with enable_home_v2 off (StrengthSummaryView's v1 branch, its
+# hero labels marked legacy v1); summary-v2.mapping's stationRows feeds summary/v2-summary.mapping (outside caller);
+# phase-summary's Hebrew is title matching (data); SummaryStatsRow / StatBox are dead. StrengthDopamineScreen's
+# VolumeBreakdownBadge is never rendered (its two lines left as is).
+src/features/workout-engine/components/strength/StrengthSummaryView.tsx
+src/features/workout-engine/components/strength/StrengthDopamineScreen.tsx
+src/features/workout-engine/components/strength/components/v2/
+src/features/workout-engine/components/strength/components/LevelRingCard.tsx
+src/features/workout-engine/components/strength/components/LevelGoalsChecklist.tsx
+src/features/workout-engine/components/strength/components/LevelUpModal.tsx
+src/features/workout-engine/components/strength/components/EmailCaptureDrawer.tsx
+src/features/workout-engine/components/strength/components/LifestyleCTA.tsx
+src/features/workout-engine/components/strength/components/ProgramSuggestionCard.tsx
+src/features/workout-engine/components/strength/utils/level-ring.util.ts
+src/features/workout-engine/components/strength/utils/timed-summary.model.ts

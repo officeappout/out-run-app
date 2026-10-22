@@ -14,6 +14,7 @@
  */
 import { z } from 'zod';
 import type { SchedulePlan, SaveScope } from '@/features/schedule/services/scheduleBuilderSave.plan';
+import { parseBuilderMoves, type BuilderMove } from './builder-context';
 
 export const WEEKDAYS_EN = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
 export type WeekdayEn = (typeof WEEKDAYS_EN)[number];
@@ -23,7 +24,16 @@ export const ProposeScheduleChangeInput = z
     scope: z.enum(['this_week', 'from_now']),
     /** Move the strength session of `from` to `to` (a swap when `to` already has one). */
     moves: z
-      .array(z.object({ from: z.enum(WEEKDAYS_EN), to: z.enum(WEEKDAYS_EN) }).refine((m) => m.from !== m.to, { message: 'from and to must differ' }))
+      .array(
+        z
+          .object({
+            from: z.enum(WEEKDAYS_EN),
+            to: z.enum(WEEKDAYS_EN),
+            /** Builder mode only (the tool's builder definition offers it): which session of a two-session day. */
+            track: z.enum(['strength', 'run', 'walk']).optional(),
+          })
+          .refine((m) => m.from !== m.to, { message: 'from and to must differ' }),
+      )
       .max(3)
       .optional(),
     /** Strength days per week (the advisor arranges them by the schedule rules). */
@@ -52,6 +62,12 @@ export interface StoredProposal {
   expiresAtMs: number;
   claimedAtMs?: number;
   appliedAtMs?: number;
+  /**
+   * Builder mode (enable_week_builder_v1): moves of the DRAFT week on screen. Such a proposal
+   * is never confirmable through the schedule-proposal route (lifecycle refuses it) and its
+   * `plan` writes nothing (EMPTY_BUILDER_PLAN).
+   */
+  builderMoves?: BuilderMove[];
 }
 
 /** What the app renders (no plan, no fingerprint). */
@@ -61,10 +77,14 @@ export interface ProposalView {
   scope: SaveScope;
   title: string;
   lines: string[];
+  /** Builder mode only: the moves the builder applies to the week on screen. */
+  builderMoves?: BuilderMove[];
 }
 
-export function proposalView(p: Pick<StoredProposal, 'id' | 'status' | 'scope' | 'title' | 'lines'>): ProposalView {
-  return { id: p.id, status: p.status, scope: p.scope, title: p.title, lines: [...p.lines] };
+export function proposalView(p: Pick<StoredProposal, 'id' | 'status' | 'scope' | 'title' | 'lines' | 'builderMoves'>): ProposalView {
+  const view: ProposalView = { id: p.id, status: p.status, scope: p.scope, title: p.title, lines: [...p.lines] };
+  if (p.builderMoves?.length) view.builderMoves = p.builderMoves.map((m) => ({ ...m }));
+  return view;
 }
 
 const STATUSES: readonly ProposalStatus[] = ['pending', 'applying', 'applied', 'dismissed'];
@@ -76,7 +96,12 @@ export function parseProposalView(raw: unknown): ProposalView | null {
   if (typeof r.id !== 'string' || !STATUSES.includes(r.status as ProposalStatus)) return null;
   if (r.scope !== 'this_week' && r.scope !== 'from_now') return null;
   const lines = Array.isArray(r.lines) ? r.lines.filter((l): l is string => typeof l === 'string').slice(0, 8).map((l) => l.slice(0, 120)) : [];
-  return { id: r.id, status: r.status as ProposalStatus, scope: r.scope, title: typeof r.title === 'string' ? r.title.slice(0, 80) : '', lines };
+  const view: ProposalView = { id: r.id, status: r.status as ProposalStatus, scope: r.scope, title: typeof r.title === 'string' ? r.title.slice(0, 80) : '', lines };
+  if (r.builderMoves !== undefined) {
+    const moves = parseBuilderMoves(r.builderMoves);
+    if (moves) view.builderMoves = moves;
+  }
+  return view;
 }
 
 /** A proposal is valid for a day (Israel); a this-week one also dies with its week. */

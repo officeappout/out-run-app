@@ -10,9 +10,13 @@
  *                                the letters, like the agenda's "move the whole schedule".
  *                                A missed session moved from a past day is a this-week fix,
  *                                never a new weekly rule — it moves by date only.
+ *   runs (both scopes)          — a run moved inside the current week is a per-date run move
+ *                                (running.runMoves, utils/runWeekMoves.ts) for THIS week only;
+ *                                runs never change the weekly rule from here.
  */
 import { mergeDayItems } from '../../services/mergeDayItems';
 import { DAY_LETTERS } from '../../types/smartSchedule.types';
+import type { RunDateMove } from '../../utils/runWeekMoves';
 import type { PlannerWbData, PlannerWeek } from './plannerWeek';
 
 export type PlannerSaveScope = 'week' | 'forward';
@@ -54,6 +58,13 @@ export function plannerMoves(edited: PlannerWeek, keys: readonly string[], today
   }
   return out;
 }
+
+/** Run moves → the per-date run moves to store (this week only). */
+export const runDateMoves = (moves: readonly PlannerMove[]): RunDateMove[] =>
+  moves.filter((m) => m.kind === 'run').map((m) => ({ from: m.fromDate, to: m.toDate }));
+
+/** Moves of userSchedule entries (strength + walks). */
+export const entryMoves = (moves: readonly PlannerMove[]): PlannerMove[] => moves.filter((m) => m.kind !== 'run');
 
 /** Moves that may change the weekly rule: strength, from a day still ahead. */
 export const recurringMoves = (moves: readonly PlannerMove[]): PlannerMove[] => moves.filter((m) => m.kind === 'strength' && !m.fromPast);

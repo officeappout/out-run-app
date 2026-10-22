@@ -1,20 +1,31 @@
 /**
  * One authority, sources in the plan's order (§3.1 / §3.4):
- *   existing → dataset → osm → park_loops → generated
+ *   existing → dataset → osm → named_ways → park_loops → generated → neighbourhood
+ * (`named_ways` = same-name OSM paths/promenades stitched into named corridors;
+ *  `generated` = pipeline B's offline trail loops; `neighbourhood` =
+ * GraphHopper foot_turns round trips from a few well-spread seeds — RC8.)
  * After every stage the whole pool (existing + new) is scored and the top-N
- * selection re-run (src/lib/route-score). Once the quota minimum is met with
- * selected (≥70) routes, later stages are NOT run — in particular nothing is
- * generated for a city that already has enough good routes.
+ * selection re-run (src/lib/route-score). Every FINDING source (datasets, OSM
+ * relations, named corridors, park loops — real, named routes) always runs
+ * (owner 22.10.2026: the goal is to find every real route in the city, not to
+ * stop at a count). Only the GENERATING stages (QUOTA_GATED_STAGES) are
+ * skipped once the quota minimum is met with selected (≥70) routes — nothing
+ * is generated for a city that already has enough good routes.
  * Cross-stage dedup: a new route overlapping an earlier one ≥70% within 15 m
  * is dropped — the earlier (more official) stage wins.
- * Pure orchestration: every source is an injected provider.
+ * Pure orchestration: every source is an injected provider. Each provider
+ * sees the pool so far (park loops reuse it as "known" loops), and an
+ * optional `enrich` hook adds per-route scoring inputs (shade, hourly shade)
+ * once, as the route enters the pool — so every candidate is scored alike.
  */
 import { isDuplicate } from '../dataset-import/overlap';
 import { parsePath, type FromDocOptions } from '../route-score/from-route-doc';
 import { scoreAuthorityRoutes, type AuthorityScoreRun } from '../route-score/score-authority';
 
-export const STAGE_ORDER = ['existing', 'dataset', 'osm', 'park_loops', 'generated'] as const;
+export const STAGE_ORDER = ['existing', 'dataset', 'osm', 'named_ways', 'park_loops', 'generated', 'neighbourhood'] as const;
 export type StageKey = (typeof STAGE_ORDER)[number];
+/** Stages that invent geometry — run only while the quota minimum is unmet. */
+export const QUOTA_GATED_STAGES: ReadonlySet<StageKey> = new Set<StageKey>(['generated', 'neighbourhood']);
 
 export interface CandidateRoute {
   id: string;
@@ -27,7 +38,8 @@ export interface CandidateRoute {
 
 export interface StageProvider {
   key: StageKey;
-  run(): Promise<{ routes: CandidateRoute[]; note?: string }>;
+  /** `prior` = the pool so far (read-only). */
+  run(prior: readonly CandidateRoute[]): Promise<{ routes: CandidateRoute[]; note?: string }>;
 }
 
 export interface StageReport {
@@ -64,10 +76,16 @@ export function quotaMet(run: AuthorityScoreRun): boolean {
   return run.selection.counts.selected >= run.quota.total.min;
 }
 
+export interface RunStagesOptions {
+  /** Extra scoring inputs for one route (merged over the provider's own opts). */
+  enrich?: (r: CandidateRoute) => FromDocOptions | null | undefined;
+}
+
 export async function runAuthorityStages(
   authority: { id: string; type?: string | null; population?: number | null },
   providers: StageProvider[],
   now: Date = new Date(),
+  options: RunStagesOptions = {},
 ): Promise<AuthorityRunResult> {
   const byKey = new Map(providers.map((p) => [p.key, p]));
   const pool: CandidateRoute[] = [];
@@ -78,7 +96,7 @@ export async function runAuthorityStages(
 
   for (const key of STAGE_ORDER) {
     const provider = byKey.get(key);
-    if (quotaMetAfter && key !== 'existing') {
+    if (quotaMetAfter && QUOTA_GATED_STAGES.has(key)) {
       stages.push({ key, ran: false, offered: 0, added: 0, droppedDuplicate: 0, note: `skipped — quota minimum met after "${quotaMetAfter}"`, selectedAfter: score.selection.counts.selected });
       continue;
     }
@@ -86,14 +104,15 @@ export async function runAuthorityStages(
       stages.push({ key, ran: false, offered: 0, added: 0, droppedDuplicate: 0, note: 'no provider', selectedAfter: score.selection.counts.selected });
       continue;
     }
-    const { routes, note } = await provider.run();
+    const { routes, note } = await provider.run(pool);
     let added = 0, dropped = 0;
     for (const r of routes) {
       if (pool.some((p) => p.id === r.id)) { dropped++; continue; }
       const coords = parsePath(r.data?.path);
       const box = bbox(coords);
       if (key !== 'existing' && geo.some((g) => boxesMeet(box, g.box) && isDuplicate(coords, g.coords))) { dropped++; continue; }
-      pool.push({ ...r, stage: key });
+      const extra = options.enrich?.(r);
+      pool.push({ ...r, stage: key, ...(extra ? { opts: { ...(r.opts ?? {}), ...extra } } : {}) });
       geo.push({ coords, box });
       added++;
     }
