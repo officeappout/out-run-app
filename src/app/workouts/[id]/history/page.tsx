@@ -54,7 +54,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getWorkoutById, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import StrengthSummaryPage from '@/features/workout-engine/components/strength/StrengthSummaryPage';
-import { workoutHistoryEntryToStrengthSummaryProps } from '@/features/workout-engine/components/strength/strength-history-adapter';
+import {
+  workoutHistoryEntryToStrengthSummaryProps,
+  workoutHistoryEntryToStrengthSummaryParityProps,
+} from '@/features/workout-engine/components/strength/strength-history-adapter';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import AerobicSummaryShell from '@/features/workout-engine/summary/components/aerobic/AerobicSummaryShell';
 import AerobicSummary from '@/features/workout-engine/summary/pages/AerobicSummary';
 import {
@@ -94,6 +99,13 @@ export default function WorkoutHistoryPage() {
   // display value, not a historical fact) — hybrid and cardio both show the
   // current streak, same convention the live summaries use.
   const currentStreak = useProgressionStore((s) => s.currentStreak);
+  // enable_history_summary_parity (inside enable_home_v2): strength history
+  // shows the same summary as right after the workout, from the fields saved
+  // with it (strength-history-adapter's parity variant). Old docs → reduced view.
+  const profile = useUserStore((s) => s.profile);
+  const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  const { flags } = useFeatureFlags(isSuperAdmin);
+  const historyParity = flags.enableHomeV2 && flags.enableHistorySummaryParity === true;
 
   useEffect(() => {
     if (!workoutId) {
@@ -165,7 +177,9 @@ export default function WorkoutHistoryPage() {
     return (
       <>
         <StrengthSummaryPage
-          {...workoutHistoryEntryToStrengthSummaryProps(workout)}
+          {...(historyParity
+            ? workoutHistoryEntryToStrengthSummaryParityProps(workout)
+            : workoutHistoryEntryToStrengthSummaryProps(workout))}
           streak={currentStreak}
           isReadOnly
           onClose={handleClose}

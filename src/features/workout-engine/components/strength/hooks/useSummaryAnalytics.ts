@@ -12,6 +12,7 @@ import {
   type CompletedExercise,
   type Difficulty,
 } from '../utils/summary.utils';
+import { resolveLiveLevel } from '../utils/live-level';
 
 /**
  * useSummaryAnalytics — single source of truth for every metric the
@@ -144,16 +145,12 @@ export function useSummaryAnalytics({
     (weeklySummary?.categoryTotals?.strength ?? 0) + (weeklySummary?.categoryTotals?.cardio ?? 0);
 
   // ── Live progression overlay ──
-  const liveLevel = levelOverride
-    ? levelOverride.level
-    : progressionResult?.success && progressionResult.activeProgramGain.leveledUp
-      ? progressionResult.activeProgramGain.newLevel ?? currentLevel + 1
-      : currentLevel;
-  const livePercent = levelOverride
-    ? Math.min(99, Math.round(levelOverride.percent))
-    : progressionResult?.success
-    ? Math.round(progressionResult.activeProgramGain.newPercent)
-    : progressToNextLevel;
+  const { liveLevel, livePercent } = resolveLiveLevel({
+    currentLevel,
+    progressToNextLevel,
+    progressionResult,
+    levelOverride,
+  });
 
   return {
     calories,

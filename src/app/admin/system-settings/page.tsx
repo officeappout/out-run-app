@@ -105,6 +105,7 @@ interface FlagState {
   enable_swap_fixes_v1: boolean;
   enable_strength_drawer_v1: boolean;
   enable_site_qr_links: boolean;
+  enable_history_summary_parity: boolean;
 }
 
 // ============================================================================
@@ -821,6 +822,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-emerald-600',
     title: 'פאנל: קישורי QR של האתר',
     description: 'כרטיס בראש מרכז הקישורים השיווקיים (/admin/links) עם שלושת הקישורים הקבועים שקודי ה-QR באתר מפנים אליהם: app-ios (App Store), app-android (Google Play) ו-app-smart (לפי המכשיר). רואים אם קיימים וכמה סריקות, ויוצרים את החסרים בלחיצה. משנים יעד בעריכת הקישור — הקוד המודפס לא משתנה. מנהל-על רואה את זה כבר עכשיו. כבוי = הדף כמו היום.',
+  },  // History = the same strength summary as right after the workout (22.10.2026).
+  {
+    key: 'enable_history_summary_parity',
+    icon: Dumbbell,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-600',
+    title: 'היסטוריה: אותו סיכום אימון כוח כמו מיד אחריו',
+    description: 'אימון כוח שנפתח מההיסטוריה מציג את אותו סיכום שראו בסוף האימון: הבלוקים של התוכנית עם הסטים המתוכננים והתמונות, "השתפרת מהפעם הקודמת", טבעת הרמה וההתקדמות של אותו אימון, כרטיס הרצף של אותו שבוע והקלוריות האמיתיות. הנתונים נשמרים עם כל אימון חדש מעכשיו; אימונים ישנים נשארים בתצוגה המצומצמת של היום. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = מסך ההיסטוריה כמו היום.',
+    parentKey: 'enable_home_v2',
   },
 ];
 

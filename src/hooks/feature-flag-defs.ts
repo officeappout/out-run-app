@@ -545,6 +545,13 @@ export const FLAG_DEFS = [
   // exist, their clicks, and one button that creates the missing ones with today's store URLs.
   // Admin-panel only; the redirect itself (/r/[id]) never reads this flag. Super admins see it.
   { key: 'enableSiteQrLinks', firestoreKey: 'enable_site_qr_links', defaultValue: false, superAdminValue: true },
+  // History = the same strength summary (22.10.2026, owner — agent-briefs/history-summary-parity-brief.md).
+  // Inside enable_home_v2: a saved strength workout opened from history shows the same summary as
+  // right after it — plan blocks / planned sets / images, "improved vs last time", the level ring
+  // and the streak card of that moment, its real calories — from fields saved with the workout
+  // since 22.10.2026 (written always, additive). Older docs keep today's reduced view.
+  // Fail-closed; super admins preview it. Off = byte-identical history screen.
+  { key: 'enableHistorySummaryParity', firestoreKey: 'enable_history_summary_parity', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

@@ -36,6 +36,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { timedBlockRecordsFor } from '@/features/workout-engine/players/strength/timed/state/timed-results';
 import type { TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
+import type { StrengthSummarySnapshot } from '@/features/workout-engine/components/strength/history/summary-snapshot.types';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { firstRunTourSeenKey, firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
 import { useIsNewUserForTours } from '@/features/user/onboarding/hooks/useIsNewUserForTours';
@@ -416,6 +417,10 @@ interface SaveWorkoutToHistoryParams {
    * this same create; omitted when empty.
    */
   timedBlocks?: TimedBlockRecord[];
+  /** History parity (22.10.2026, optional/additive): the active program id. */
+  programId?: string;
+  /** History parity: what the summary showed (StrengthSummaryPage's onFinish). */
+  summarySnapshot?: StrengthSummarySnapshot;
 }
 
 /**
@@ -446,6 +451,8 @@ async function saveWorkoutToHistory({
   xpStatus: xpAwardStatus,
   feedback,
   timedBlocks,
+  programId,
+  summarySnapshot,
 }: SaveWorkoutToHistoryParams): Promise<{
   saved: boolean;
   detectedPark: Awaited<ReturnType<typeof detectNearbyPark>>;
@@ -561,7 +568,11 @@ async function saveWorkoutToHistory({
         activityType: 'strength',
         distance: 0,
         duration: durationSec,
-        calories: 0,
+        // History parity (22.10.2026): the same MET estimate the summary
+        // showed and runActivitySync logs (was a hardcoded 0), plus the
+        // difficulty it came from — additive, so history can redraw it.
+        calories: calculateCalories(durationSec, difficulty),
+        difficulty: bolts,
         pace: 0,
         earnedCoins: 0,
         xpEarned: xpToStore,
@@ -573,6 +584,8 @@ async function saveWorkoutToHistory({
           : {}),
         ...(feedback ? { feedback } : {}),
         ...(timedBlocks && timedBlocks.length > 0 ? { timedBlocks } : {}),
+        ...(programId ? { programId } : {}),
+        ...(summarySnapshot ? { summarySnapshot } : {}),
       });
       console.log('[ActiveWorkoutPage] Workout saved to history');
     } catch (err) {
@@ -1471,11 +1484,14 @@ export default function ActiveWorkoutPage() {
     xpEarned: awardedXP,
     xpStatus: xpAwardStatus,
     feedShare,
+    summarySnapshot,
   }: {
     xpEarned: number;
     xpStatus: 'pending' | 'awarded' | 'failed';
     /** enable_home_v2 summary share card — see postPlanForDecision. */
     feedShare?: SummaryShareDecision | null;
+    /** History parity: what the summary showed, saved with the workout. */
+    summarySnapshot?: StrengthSummarySnapshot;
   }) => {
     // ── Idempotency guard ──────────────────────────────────────────────────
     // Mirrors useRunningPlayer.ts's finishWorkout / useHybridRun.ts's
@@ -1512,6 +1528,8 @@ export default function ActiveWorkoutPage() {
       timedBlocks: pageV2
         ? timedBlockRecordsFor((stableWorkoutPlan?.segments ?? []).map((s, i) => s.id || String(i)))
         : undefined,
+      programId: userProgression.programId,
+      summarySnapshot,
     });
 
     // 1a. Streak/completion write — ONLY after the workout doc above actually

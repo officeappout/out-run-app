@@ -123,6 +123,26 @@ export function buildWeekDots(
   return dots;
 }
 
+/**
+ * Rebuilds the week dots of a past day from their saved states (history
+ * view of a saved workout: the strip exactly as that summary showed it).
+ * `day` is that workout's date; missing/unknown states read as 'rest'.
+ */
+export function weekDotsFromStates(states: readonly string[], day: Date): WeekDot[] {
+  const start = new Date(day.getFullYear(), day.getMonth(), day.getDate() - day.getDay());
+  const dots: WeekDot[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const raw = states[i];
+    const state: WeekDotState = raw === 'done' || raw === 'future' ? raw : 'rest';
+    dots.push({ date: localDateKey(d), label: DAY_LABELS[i], state, isToday: i === day.getDay(), chainToNext: false });
+  }
+  for (let i = 0; i < 6; i++) {
+    dots[i].chainToNext = dots[i].state === 'done' && dots[i + 1].state === 'done';
+  }
+  return dots;
+}
+
 // ── Improvement headline ─────────────────────────────────────────────────────
 
 export type ImprovementUnit = 'reps' | 'seconds' | 'unknown';

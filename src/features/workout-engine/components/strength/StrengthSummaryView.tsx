@@ -54,8 +54,16 @@ export interface StrengthSummaryV2Data {
   totals: SessionTotals;
   /** Null in the read-only history view (the week card describes "now", not that past workout). */
   week: WeekCardV2Props | null;
-  /** This week's streak dots + best streak (activity store). Null in the read-only history view. */
+  /**
+   * This week's streak dots + best streak (activity store). In the read-only
+   * history view: the saved dots of that workout (history parity), else null.
+   */
   streakWeek?: { days: WeekDot[]; best: number } | null;
+  /**
+   * History parity only: the level ring's gain as saved with the workout.
+   * Present ⇒ the ring shows in the read-only view (from the saved level).
+   */
+  savedLevel?: { gain: number; leveledUp: boolean } | null;
 }
 
 /**
@@ -70,9 +78,11 @@ export function strengthProgramItem(t: PlayerT, args: {
   livePercent: number;
   maxLevel: number;
   progressionResult: ReturnType<typeof useProgressionSync>['progressionResult'];
+  /** History parity: the saved gain (used when there is no live progression result). */
+  savedGain?: { totalGain: number; leveledUp: boolean } | null;
 }): ProgramProgressItem {
   const m = levelRingModel(t, args.liveLevel, args.maxLevel, args.livePercent);
-  const gain = args.progressionResult?.success ? args.progressionResult.activeProgramGain : null;
+  const gain = args.progressionResult?.success ? args.progressionResult.activeProgramGain : args.savedGain ?? null;
   return {
     key: args.programId ?? 'program',
     name: args.programName,
@@ -210,7 +220,7 @@ export default function StrengthSummaryView({
             />
           )}
 
-          {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
+          {(v2.savedLevel || shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult })) && (
             <ProgramCardV2
               item={strengthProgramItem(t, {
                 programName: programName ?? t('strengthSummary.programFallback'),
@@ -219,6 +229,7 @@ export default function StrengthSummaryView({
                 livePercent: analytics.livePercent ?? 0,
                 maxLevel: maxLevel ?? 25,
                 progressionResult: progression.progressionResult,
+                savedGain: v2.savedLevel ? { totalGain: v2.savedLevel.gain, leveledUp: v2.savedLevel.leveledUp } : null,
               })}
             />
           )}

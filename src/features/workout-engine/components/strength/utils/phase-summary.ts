@@ -12,9 +12,11 @@
  *      (resolveSetTarget / effectiveSetsForExercise).
  *   2. `rawLog` — what was actually confirmed per set (and the runner's own
  *      targetReps, used as a fallback per-set target).
- *   3. `completedExercises` — the only source for saved/history workouts,
- *      where no plan is persisted: phases come from the exercise category,
- *      planned sets are unknown (null) and nothing is invented.
+ *   3. `completedExercises` — the only source for saved/history workouts
+ *      without a plan snapshot (docs saved before 22.10.2026): phases come
+ *      from the exercise category, planned sets are unknown (null) and
+ *      nothing is invented. Newer docs carry a compact plan snapshot
+ *      (history/summary-snapshot.ts) that is restored into `segments`.
  *
  * No weight is shown: the strength runner never logs a load per set.
  */
@@ -89,7 +91,7 @@ export interface SessionTotals extends PhaseTotals {
 }
 
 // Minimal structural types (keeps this file free of the parks barrel).
-interface PlanExercise {
+export interface PlanExercise {
   id: string;
   name: string;
   imageUrl?: string;
@@ -102,6 +104,13 @@ interface PlanExercise {
   wasSwapped?: boolean;
   repsSequence?: number[];
   pyramidSequence?: unknown[];
+  /**
+   * History parity (enable_history_summary_parity): restored from the saved
+   * plan snapshot. When present they replace the derived planned-set count /
+   * per-set targets, so the saved workout redraws exactly as it was shown.
+   */
+  plannedSets?: number | null;
+  setTargets?: (number | null)[];
 }
 
 export interface PlanSegment {
@@ -111,6 +120,8 @@ export interface PlanSegment {
   exercises?: PlanExercise[];
   protocol?: string;
   protocolConfig?: object;
+  /** History parity: the phase saved with the plan snapshot (wins over detection). */
+  phase?: SummaryPhase;
 }
 
 export interface RawLogEntry {
@@ -133,6 +144,7 @@ const PHASE_ORDER: SummaryPhase[] = ['warmup', 'main', 'cooldown'];
 
 /** Same title/id detection the summary mapping + runner use, plus exerciseRole. */
 export function segmentPhase(segment: PlanSegment): SummaryPhase {
+  if (segment.phase) return segment.phase;
   const id = segment.id.toLowerCase();
   const title = segment.title ?? '';
   const roles = (segment.exercises ?? []).map((e) => e.exerciseRole);
@@ -150,7 +162,7 @@ export function segmentPhase(segment: PlanSegment): SummaryPhase {
   return 'main';
 }
 
-function exerciseUnit(ex: PlanExercise, segment: PlanSegment): SetUnit {
+export function exerciseUnit(ex: PlanExercise, segment: PlanSegment): SetUnit {
   if (ex.exerciseType === 'time' || ex.isTimeBased) return 'seconds';
   if (ex.exerciseType === 'reps') return 'reps';
   if (segment.target?.type === 'reps') return 'reps';
@@ -165,7 +177,7 @@ function parseFirstInt(s: string | undefined): number | null {
   return m ? parseInt(m[1], 10) : null;
 }
 
-function planTargetForSet(
+export function planTargetForSet(
   ex: PlanExercise,
   segment: PlanSegment,
   unit: SetUnit,
@@ -184,7 +196,7 @@ function planTargetForSet(
 }
 
 /** Planned sets per member for block-scoped protocols; null when open-ended. */
-function blockPlannedSets(segment: PlanSegment): number | null | undefined {
+export function blockPlannedSets(segment: PlanSegment): number | null | undefined {
   const cfg = (segment.protocolConfig ?? {}) as Record<string, unknown>;
   const members = Math.max(1, segment.exercises?.length ?? 1);
   if (segment.protocol === 'tabata' && typeof cfg.rounds === 'number') return Math.ceil(cfg.rounds / members);
@@ -195,10 +207,28 @@ function blockPlannedSets(segment: PlanSegment): number | null | undefined {
   return undefined; // exercise-scoped → per-exercise count
 }
 
-function blockTarget(segment: PlanSegment, unit: SetUnit): number | null | undefined {
+export function blockTarget(segment: PlanSegment, unit: SetUnit): number | null | undefined {
   const cfg = (segment.protocolConfig ?? {}) as Record<string, unknown>;
   if (segment.protocol === 'tabata' && unit === 'seconds' && typeof cfg.workSec === 'number') return cfg.workSec;
   return undefined;
+}
+
+/** Planned set count of a plan exercise (saved snapshot value wins). */
+export function planExercisePlannedSets(ex: PlanExercise, blockSets: number | null | undefined): number | null {
+  if (ex.plannedSets !== undefined) return ex.plannedSets;
+  return blockSets === undefined ? effectiveSetsForExercise(ex) : blockSets;
+}
+
+/** The plan's own target for set i (null = unknown; the caller falls back to the log's targetReps). */
+export function planExerciseSetTarget(
+  ex: PlanExercise,
+  segment: PlanSegment,
+  unit: SetUnit,
+  bTarget: number | null | undefined,
+  setIndex: number,
+): number | null {
+  if (ex.setTargets) return ex.setTargets[setIndex] ?? null;
+  return bTarget !== undefined ? bTarget : planTargetForSet(ex, segment, unit, setIndex);
 }
 
 export function markFor(done: number | null, target: number | null): SetMark {
@@ -301,12 +331,11 @@ export function buildPhaseSummary({
             key,
             name: entry?.exerciseName ?? ex.name,
             unit,
-            plannedSets: blockSets === undefined ? effectiveSetsForExercise(ex) : blockSets,
+            plannedSets: planExercisePlannedSets(ex, blockSets),
             done: entry?.confirmedReps ?? [],
             targetFor: (i) =>
-              bTarget !== undefined
-                ? bTarget
-                : planTargetForSet(ex, segment, unit, i) ?? (entry && entry.targetReps > 0 ? entry.targetReps : null),
+              planExerciseSetTarget(ex, segment, unit, bTarget, i) ??
+              (entry && entry.targetReps > 0 ? entry.targetReps : null),
             previous: previousSets?.[ex.id],
             imageUrl: ex.imageUrl,
           }),

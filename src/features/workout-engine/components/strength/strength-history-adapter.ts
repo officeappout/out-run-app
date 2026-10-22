@@ -1,11 +1,13 @@
 import type { WorkoutHistoryEntry } from '../../core/services/storage.service';
 import type { StrengthSummaryPageProps } from './StrengthSummaryPage';
 import { parseTimedBlockRecords } from '../../engines/timed/timed-record';
+import { planSnapshotToSegments, readSummarySnapshot } from './history/summary-snapshot';
 
 /**
  * Maps a saved WorkoutHistoryEntry (strength/recovery category) into the
  * subset of StrengthSummaryPageProps derivable from the doc, for isReadOnly
- * history display. Plays the same role for StrengthSummaryPage that
+ * history display (enable_history_summary_parity OFF — see the parity
+ * variant at the bottom for the full view). Plays the same role for StrengthSummaryPage that
  * workoutHistoryEntryToHybridFinalizeResult plays for HybridSummary.
  *
  * Fields no real writer has ever persisted — difficulty, difficultyBolts,
@@ -86,5 +88,76 @@ export function workoutHistoryEntryToStrengthSummaryProps(
     savedXpEarned: entry.xpEarned ?? 0,
     // enable_home_v2 docs only (optional, additive) — the format cards in history.
     ...(entry.timedBlocks ? { savedTimedBlocks: parseTimedBlockRecords(entry.timedBlocks) } : {}),
+  };
+}
+
+const BOLTS_TO_DIFFICULTY: Record<number, StrengthSummaryPageProps['difficulty']> = {
+  1: 'easy',
+  2: 'medium',
+  3: 'hard',
+};
+
+/** exerciseLog role (warmup / main / cooldown / recovery) → the summary's category. */
+function roleCategory(role: string | undefined): StrengthSummaryPageProps['completedExercises'][number]['category'] {
+  if (role === 'warmup') return 'warmup';
+  if (role === 'cooldown' || role === 'recovery') return 'stretch';
+  return 'main';
+}
+
+/**
+ * enable_history_summary_parity — the same summary as right after the
+ * workout, from the fields saved since 22.10.2026 (difficulty, programId,
+ * per-exercise segmentId/role, `summarySnapshot`). Every field is optional:
+ * an older doc (none of them) comes out exactly like
+ * workoutHistoryEntryToStrengthSummaryProps except for the header fallback
+ * ('אימון כוח', like the live screen) — the reduced view, no level ring and
+ * no streak card.
+ */
+export function workoutHistoryEntryToStrengthSummaryParityProps(
+  entry: WorkoutHistoryEntry,
+): ReturnType<typeof workoutHistoryEntryToStrengthSummaryProps> &
+  Pick<
+    StrengthSummaryPageProps,
+    'programId' | 'maxLevel' | 'currentLevel' | 'progressToNextLevel' | 'workoutSegments' | 'previousSets' | 'savedSummary'
+  > {
+  const base = workoutHistoryEntryToStrengthSummaryProps(entry);
+  const segment = entry.segments?.[0];
+  const exerciseLog = segment?.actual?.exerciseLog ?? [];
+  const snapshot = readSummarySnapshot(entry.summarySnapshot);
+  const level = snapshot?.level;
+
+  const rawExerciseLog = exerciseLog.map((e) => ({
+    exerciseId: e.exerciseId,
+    exerciseName: e.exerciseName,
+    segmentId: e.segmentId ?? String(segment?.index ?? 0),
+    confirmedReps: e.confirmedReps,
+    targetReps: e.targetReps,
+  }));
+  const completedExercises = base.completedExercises.map((ex, i) => ({
+    ...ex,
+    category: roleCategory(exerciseLog[i]?.role),
+  }));
+
+  return {
+    ...base,
+    completedExercises,
+    rawExerciseLog,
+    difficulty: (entry.difficulty && BOLTS_TO_DIFFICULTY[entry.difficulty]) || base.difficulty,
+    programName: segment?.label || 'אימון כוח',
+    ...(entry.programId || level?.programId ? { programId: entry.programId ?? level?.programId } : {}),
+    ...(level
+      ? {
+          maxLevel: level.maxLevel,
+          currentLevel: level.before.level,
+          progressToNextLevel: level.before.percent,
+        }
+      : {}),
+    ...(snapshot?.plan ? { workoutSegments: planSnapshotToSegments(snapshot.plan) } : {}),
+    ...(snapshot?.previousSets ? { previousSets: snapshot.previousSets } : {}),
+    savedSummary: {
+      ...(level ? { level } : {}),
+      ...(snapshot?.streak ? { streak: snapshot.streak } : {}),
+      workoutDate: entry.date,
+    },
   };
 }
