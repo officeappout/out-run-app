@@ -4,6 +4,7 @@ import "./globals.css";
 import ClientLayout from "./ClientLayout";
 import NativeBootstrap from "@/components/system/NativeBootstrap";
 import MarketingAttributionBootstrap from "@/components/system/MarketingAttributionBootstrap";
+import AppSessionBootstrap from "@/components/system/AppSessionBootstrap";
 import AccessibilityWidgetLoader from "@/components/system/AccessibilityWidgetLoader";
 import { APP_ORIGIN } from '@/lib/config/domain';
 
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body className="antialiased bg-[#F8FAFC]">
         <NativeBootstrap />
         <MarketingAttributionBootstrap />
+        <AppSessionBootstrap />
         <ClientLayout>{children}</ClientLayout>
         {/* Opt-in only (Settings toggle, default OFF) — renders nothing until enabled. */}
         <AccessibilityWidgetLoader />

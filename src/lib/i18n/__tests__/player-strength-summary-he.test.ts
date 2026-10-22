@@ -19,7 +19,7 @@ type Key = keyof typeof he;
 
 describe('player (he) strength summary + dopamine screen — byte-identical to the pre-extraction literals', () => {
   it('owns exactly the keys this test pins (count per prefix)', () => {
-    const PREFIXES: Record<string, number> = { strengthSummary: 67, dopamine: 8 };
+    const PREFIXES: Record<string, number> = { strengthSummary: 68, dopamine: 8 };
     for (const [prefix, n] of Object.entries(PREFIXES)) {
       expect([prefix, Object.keys(he).filter((k) => k.startsWith(`${prefix}.`)).length]).toEqual([prefix, n]);
     }
@@ -56,6 +56,8 @@ describe('player (he) strength summary + dopamine screen — byte-identical to t
       ['strengthSummary.timed.tabata.title', 'טבטה'],
       ['strengthSummary.goals.title', 'יעדי רמה'],
       ['strengthSummary.goals.total', 'סה״כ יעדים באימון'],
+      // 3e (enable_goal_presence_v1): the reached-goal pill on the summary — new copy, no old literal.
+      ['strengthSummary.goals.reached', 'הגעת ליעד'],
       ['strengthSummary.suggestions.titleOne', 'נראה שאתם מוכנים לעוד תוכנית'],
       ['strengthSummary.suggestions.titleMany', 'נראה שאתם מוכנים לעוד כמה תוכניות'],
       ['strengthSummary.suggestions.accept', 'בואו נבדוק'],

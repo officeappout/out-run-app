@@ -11,19 +11,23 @@ import React, { useMemo } from 'react';
 import { JourneyStrip, ProfileStrip, WorkoutOverviewHeader } from '@/components/ui/v2';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/workout-generator.types';
 import { previewJourney, previewMeta, previewProfile, type PreviewTimedModel } from '../../utils/timed-preview.utils';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 export function TimedPreviewMeta({ workout }: { workout: GeneratedWorkout }) {
-  const meta = useMemo(() => previewMeta(workout, new Date()), [workout]);
+  const t = useT(library);
+  const meta = useMemo(() => previewMeta(workout, new Date(), t), [workout, t]);
   return <WorkoutOverviewHeader v2 title={null} meta={meta} />;
 }
 
 export default function TimedPreviewStrips({ workout, model }: { workout: GeneratedWorkout; model: PreviewTimedModel }) {
   const journey = useMemo(() => previewJourney(workout, model), [workout, model]);
   const profile = useMemo(() => previewProfile(workout, model), [workout, model]);
+  const t = useT(library);
   return (
     <div className="mb-3 space-y-2.5">
       <JourneyStrip v2 items={journey} />
-      <ProfileStrip segments={profile} ariaLabel="עצימות לאורך האימון" />
+      <ProfileStrip segments={profile} ariaLabel={t('preview.timed.profile')} />
     </div>
   );
 }

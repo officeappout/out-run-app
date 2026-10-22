@@ -11,6 +11,8 @@ import { Info } from 'lucide-react';
 import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/timed.types';
 import TimedFormatInfoSheet from '@/features/workout-engine/players/strength/timed/components/TimedFormatInfoSheet';
 import { blockHeaderModel } from '../../utils/timed-preview.utils';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 /** Block accent per format (AMRAP sky, EMOM violet, tabata orange — as the boards). */
 export const BLOCK_TONE = {
@@ -21,7 +23,8 @@ export const BLOCK_TONE = {
 
 export default function TimedSectionHeader({ spec }: { spec: TimedBlockSpec }) {
   const [open, setOpen] = useState(false);
-  const h = blockHeaderModel(spec);
+  const t = useT(library);
+  const h = blockHeaderModel(spec, t);
   const tone = BLOCK_TONE[h.tone];
   return (
     <>
@@ -35,7 +38,7 @@ export default function TimedSectionHeader({ spec }: { spec: TimedBlockSpec }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label={`מה זה ${h.name}?`}
+          aria-label={t('preview.timed.info', { name: h.name })}
           className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
           <Info size={14} strokeWidth={2.4} className="text-v2-ink-2" aria-hidden />

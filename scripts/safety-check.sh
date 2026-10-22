@@ -165,6 +165,13 @@ AUTHORIZED_ROUTE_WRITERS=(
   # emulator-only test fixture — reads/updates official_routes on the Firestore
   # emulator (project trails-apply-test), self-skips without FIRESTORE_EMULATOR_HOST.
   "tests/trails-apply.emulator.test.ts"
+  # unit-test fixture (22.10.2026) — seeds an in-memory fake store with
+  # official_routes rows for the read-only "all cities" route. No Firestore.
+  "src/app/api/admin/city-mapping/inventory/all/__tests__/inventory-all-route.test.ts"
+  # RC8 step 5 (22.10.2026): READ-ONLY count of published official_routes per
+  # authority for the "all cities" table. No write verb in the file; also on the
+  # migrated list below so any future write there must use buildValidatedDoc.
+  "src/app/api/admin/city-mapping/inventory/all/route.ts"
   # Nationwide routes plan W2 (21.10.2026): READ-ONLY pagers (official_routes,
   # street_segments) for dry-run scripts. No write verb in the file; also on the
   # migrated list below so any future write there must use buildValidatedDoc.
@@ -173,6 +180,11 @@ AUTHORIZED_ROUTE_WRITERS=(
   # official_routes/curated_routes docs with no authorityId — buildValidatedDoc
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
+  # Admin AI assistant wave 3 (22.10.2026): READ-ONLY counts of official_routes /
+  # climb_segments waiting for approval (same filters as the approval center page).
+  # No write verb in the file; also on the migrated list below so any future write
+  # there must use buildValidatedDoc.
+  "src/lib/admin-analytics/pending-approvals.server.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -197,6 +209,7 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # official_routes/curated_routes docs with no authorityId — buildValidatedDoc
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
+  "src/lib/admin-analytics/pending-approvals.server.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

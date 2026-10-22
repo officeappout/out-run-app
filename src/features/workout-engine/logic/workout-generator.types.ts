@@ -97,6 +97,8 @@ export interface WorkoutExercise {
   levelDelta?: number;
   isGoalExercise?: boolean;
   rampedTarget?: number;
+  /** 3a: this session doesn't move the exercise's progression (deload / heat / calm return). */
+  adaptiveSkip?: boolean;
   exerciseRole?: 'warmup' | 'main' | 'cooldown';
   /**
    * True ONLY for the Stage-1 general mobility warmup (Part A of
@@ -598,6 +600,27 @@ export interface WorkoutGenerationContext {
    * Empty/undefined when offline or when the user has no prior history.
    */
   exerciseHistoryMap?: Record<string, number[]>;
+  /**
+   * Adaptive progression switches (logic/adaptive/policy.ts), resolved once per generation.
+   * Absent = every switch off = today's engine.
+   */
+  progressionPolicy?: import('./adaptive/policy').ProgressionPolicy;
+  /**
+   * 3a (enable_adaptive_reps_v1): exerciseId → double-progression state, read with the history
+   * map (same query). Only consulted while `progressionPolicy.adaptiveReps` is on.
+   */
+  adaptiveStates?: Record<string, import('./adaptive/double-progression').AdaptiveState>;
+  /**
+   * Adaptive selection nudges (3a variation step, 3e goal presence): exerciseId → score delta,
+   * applied in the generator's synergy pass. Absent = no change.
+   */
+  adaptiveScoreBonus?: Map<string, { delta: number; reason: string }>;
+  /**
+   * 3e (enable_goal_presence_v1): goal exercises absent from the recent sessions of their area.
+   * +GOAL_SCORE_BOOST in the synergy pass, never on a D1 option. Empty on deload / heat /
+   * calm return / recovery.
+   */
+  goalPresenceBoostIds?: Set<string>;
   /**
    * @deprecated  Phase 3 — the modular pipeline is now the only path.
    *

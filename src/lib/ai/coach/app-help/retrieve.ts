@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import { APP_HELP_ENTRIES, type AppHelpEntry } from './entries';
 import { getAppHelpEntries } from '@/lib/app-help/loader';
+import { normalizeHe, stemHe } from '@/lib/text/hebrew-normalize';
 
 export const APP_HELP_TOPICS = APP_HELP_ENTRIES.map((e) => e.id) as [string, ...string[]];
 
@@ -20,25 +21,15 @@ export const GetAppHelpInput = z
   .refine((v) => !!v.topic || !!v.query, { message: 'give topic or query' });
 export type GetAppHelpInputT = z.infer<typeof GetAppHelpInput>;
 
-const NIQQUD = /[֑-ׇ]/g;
-const PREFIXES = /^(?:ו|ה|ב|ל|מ|ש|כ){1,2}(?=[א-ת]{2,})/;
-
-export function normalizeHe(text: string): string {
-  return (text ?? '')
-    .normalize('NFC')
-    .replace(NIQQUD, '')
-    .replace(/[״"׳']/g, '')
-    .toLowerCase()
-    .replace(/[^א-תa-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+// Moved to src/lib/text/hebrew-normalize.ts (shared with the admin assistant); re-exported so
+// existing imports keep working.
+export { normalizeHe } from '@/lib/text/hebrew-normalize';
 
 /** Too common to mean anything on their own (single-word matches only). */
 const STOP = new Set(['איך', 'מה', 'אני', 'את', 'אתה', 'יש', 'אפשר', 'אפליקציה', 'לי', 'זה', 'עם', 'של', 'על', 'אם', 'לא', 'כן', 'רוצה', 'צריך', 'איפה', 'למה', 'מי', 'שלי']);
 
 const words = (t: string) => normalizeHe(t).split(' ').filter((w) => w.length >= 2);
-const stem = (w: string) => w.replace(PREFIXES, '');
+const stem = stemHe;
 
 export function scoreEntry(entry: AppHelpEntry, query: string): number {
   const q = normalizeHe(query);

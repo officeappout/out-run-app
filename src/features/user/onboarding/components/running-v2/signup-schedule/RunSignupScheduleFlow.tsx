@@ -18,6 +18,7 @@ import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { useOnboardingStore } from '../../../store/useOnboardingStore';
 import { resolveDefaultRunningSchedule, strengthDayIndicesFromProfile } from '@/lib/running-schedule-defaults';
 import { pickRunDaysAvoidingStrength } from '@/lib/running-schedule-smart-defaults';
@@ -202,6 +203,7 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
       runningLongRunDay: week.longRunDow,
     });
     await Analytics.logOnboardingStepComplete('SCHEDULE', 0);
+    logOnboardingFunnelStep('SCHEDULE'); // enable_onboarding_step_funnel (off = no-op)
     setSub(3);
   };
 

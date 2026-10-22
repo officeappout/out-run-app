@@ -79,6 +79,9 @@ import {
   mergeSegmentLog, segmentLogId,
 } from './timed';
 import { markGenerationOutcome } from '@/features/generation-review/capture/hooks';
+import { useGoalReachedCelebration } from './hooks/useGoalReachedCelebration';
+import GoalReachedChip from './components/GoalReachedChip';
+import type { GoalTargetLite } from './logic/goal-reached';
 
 export type { ExerciseResultLog };
 
@@ -127,6 +130,8 @@ interface StrengthRunnerProps {
    *  resumed session. Omitted/false → byte-identical. */
   firstRunTour?: boolean;
   onFirstRunTourClose?: (reason: FirstRunTourCloseReason) => void;
+  /** 3e (enable_goal_presence_v1): level goals to celebrate when a set reaches one. Omitted → inert. */
+  goalTargets?: GoalTargetLite[];
 }
 
 export default function StrengthRunner({
@@ -143,8 +148,10 @@ export default function StrengthRunner({
   initialCheckpoint,
   firstRunTour = false,
   onFirstRunTourClose,
+  goalTargets,
 }: StrengthRunnerProps) {
   const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap, initialCheckpoint);
+  const goalReached = useGoalReachedCelebration(sm.exerciseLogSnapshot, goalTargets);
 
   // enable_home_v2 — read ONCE here (the player root) and provided to every player component
   // via StrengthPlayerV2Context. Styling only, EXCEPT the timed engine right below.
@@ -807,6 +814,9 @@ export default function StrengthRunner({
           onHandBack={sm.completeExternalSegment}
         />
       )}
+
+      {/* 3e: "goal reached" chip (inert unless goalTargets were passed). */}
+      <GoalReachedChip reached={goalReached} />
 
       {/* ─── BASE LAYER: Workout Playlist ─────────────────────────────── */}
       <div className="absolute inset-0 z-0 bg-white dark:bg-slate-900 flex flex-col">

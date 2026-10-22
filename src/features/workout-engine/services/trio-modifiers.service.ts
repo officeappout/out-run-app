@@ -567,6 +567,8 @@ export function applyFlowRegression(
   availableEquipment?: string[],
   /** Requested body areas (strict builder chips / AI domains) — constrains the naked backfill. */
   requiredDomains?: string[],
+  /** Adaptive progression switches (3d true-skill ceiling on swapped-in exercises). */
+  progressionPolicy?: WorkoutGenerationContext['progressionPolicy'],
 ): void {
   workout.difficulty = 1 as any;
   const FLOW_DIFFICULTY: DifficultyLevel = 1;
@@ -663,6 +665,7 @@ export function applyFlowRegression(
         const replacementLevelDelta = targetLevel - replacementDomainLevel;
         const derived = rederiveVolumeForSwappedExercise(
           replacement, replacementLevelDelta, FLOW_DIFFICULTY, levelProgressPercent, intentMode,
+          progressionPolicy,
         );
         ex.isTimeBased = derived.isTimeBased;
         ex.mechanicalType = derived.mechanicalType;
@@ -704,6 +707,7 @@ export function applyFlowRegression(
   applyEssentialGearFilter(
     workout, _blacklistedIds, allExercises, location,
     userProgramLevels, activeProgramId, levelProgressPercent, intentMode, requiredDomains,
+    progressionPolicy,
   );
 
   // Belt-and-suspenders warmup floor enforcement.
@@ -742,6 +746,8 @@ export function applyEssentialGearFilter(
    * of these areas; otherwise only areas the workout's main block already trains.
    */
   requiredDomains?: string[],
+  /** Adaptive progression switches (3d true-skill ceiling on swapped-in exercises). */
+  progressionPolicy?: WorkoutGenerationContext['progressionPolicy'],
 ): void {
   const GEAR_FILTER_DIFFICULTY: DifficultyLevel = (workout.difficulty as DifficultyLevel) ?? 2;
 
@@ -908,6 +914,7 @@ export function applyEssentialGearFilter(
       const rawLevelInfo = levelInfoFor(raw);
       const derived = rederiveVolumeForSwappedExercise(
         raw, rawLevelInfo.levelDelta, GEAR_FILTER_DIFFICULTY, levelProgressPercent, intentMode,
+        progressionPolicy,
       );
       nakedMain.push({
         exercise: raw,
@@ -984,6 +991,7 @@ export function applyEssentialGearFilter(
         const replacementLevelInfo = levelInfoFor(replacement);
         const derived = rederiveVolumeForSwappedExercise(
           replacement, replacementLevelInfo.levelDelta, GEAR_FILTER_DIFFICULTY, levelProgressPercent, intentMode,
+          progressionPolicy,
         );
         clean.push({
           ...violator,

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Check } from 'lucide-react';
 
 import type { EvaluatedGoal } from '../hooks/useGoalEvaluation';
@@ -25,10 +25,13 @@ import { player } from '@/messages/ns/player';
 export interface LevelGoalsChecklistProps {
   /** Goals annotated with achievement state, from `useGoalEvaluation`. */
   evaluatedGoals: EvaluatedGoal[];
+  /** 3e (enable_goal_presence_v1): a reached goal's row gets a celebratory check + label. */
+  celebrate?: boolean;
 }
 
-export default function LevelGoalsChecklist({ evaluatedGoals }: LevelGoalsChecklistProps) {
+export default function LevelGoalsChecklist({ evaluatedGoals, celebrate = false }: LevelGoalsChecklistProps) {
   const t = useT(player);
+  const reduceMotion = useReducedMotion();
   if (evaluatedGoals.length === 0) return null;
 
   const totalBonus = evaluatedGoals.reduce(
@@ -50,15 +53,18 @@ export default function LevelGoalsChecklist({ evaluatedGoals }: LevelGoalsCheckl
               transition={{ delay: idx * 0.08 }}
               className="flex items-center gap-3"
             >
-              <div
+              <motion.div
                 className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
                   goal.achieved
                     ? 'bg-[#00C9F2] border-[#00C9F2]'
                     : 'border-slate-300 dark:border-slate-600'
                 }`}
+                {...(celebrate && goal.achieved && !reduceMotion
+                  ? { animate: { scale: [1, 1.25, 1] }, transition: { delay: 0.3 + idx * 0.08, duration: 0.5 } }
+                  : {})}
               >
                 {goal.achieved && <Check className="w-3.5 h-3.5 text-white" />}
-              </div>
+              </motion.div>
               <span
                 className={`text-sm flex-1 ${
                   goal.achieved
@@ -67,6 +73,11 @@ export default function LevelGoalsChecklist({ evaluatedGoals }: LevelGoalsCheckl
                 }`}
               >
                 {goal.label}
+                {celebrate && goal.achieved && (
+                  <span className="ms-2 inline-block rounded-full bg-cyan-50 dark:bg-cyan-900/40 px-2 py-0.5 text-[11px] font-bold text-cyan-700 dark:text-cyan-300">
+                    {t('strengthSummary.goals.reached')}
+                  </span>
+                )}
               </span>
               <span className="text-xs tabular-nums text-slate-400">
                 {t('strengthSummary.goals.progress', {

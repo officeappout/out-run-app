@@ -119,6 +119,14 @@ export const FLAG_DEFS = [
   // (LevelRingCard hidden when skipped, StrengthSummaryView.tsx, after #305). David turns it on
   // himself after field-testing.
   { key: 'enableNoAutoStrengthLevel', firestoreKey: 'enable_no_auto_strength_level', defaultValue: false, superAdminValue: false },
+  // Progression from the admin panel (22.10.2026, owner decision). ON = the workout-completion
+  // engine uses what "מנהל התקדמות" saved (rules by program doc id + slug, last configured level
+  // carries upward, goal bonus once per goal per level, firstSession / persistence / RPE bonuses,
+  // maxSets cap). Default OFF — David flips it. superAdminValue true = super admins preview it on
+  // their own workouts (read one-shot in the service via resolveAdminRulesFlag, which applies the
+  // super-admin preview itself). Replaces the code constant PROGRESSION_RULES_FROM_ADMIN_V1
+  // (kept as the fallback default).
+  { key: 'progressionRulesFromAdmin', firestoreKey: 'progression_rules_from_admin', defaultValue: false, superAdminValue: true },
   // League aggregates (17.10.2026, David) — the neighborhood / city boards read the
   // league_scope_stats sums (written by onWorkoutCreateLeagueStats from the workouts
   // record) instead of summing feed_posts on the client. Fail-closed: turn it on once the
@@ -373,6 +381,14 @@ export const FLAG_DEFS = [
   // Off = byte-identical routing.
   { key: 'enableLandingRealFallback', firestoreKey: 'enable_landing_real_fallback', defaultValue: false, superAdminValue: false },
   { key: 'enableStrengthQuizHintV2', firestoreKey: 'enable_strength_quiz_hint_v2', defaultValue: false, superAdminValue: true },
+  // Onboarding step funnel (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md
+  // open question 9). On = every onboarding step's real completion point also writes ONE
+  // `onboarding_step_completed` analytics event (same schema: step_name/step_index/time_spent,
+  // plus source:'funnel_v1'), at most once per step per app session — so drop-off can be measured
+  // step to step instead of only as a users.onboardingStep snapshot. Read synchronously via
+  // readLiveFlag (src/features/analytics/onboarding-funnel.ts), so superAdminValue FALSE: admins and
+  // users record the same thing. Fail-closed. Off = byte-identical (no extra event, no storage).
+  { key: 'enableOnboardingStepFunnel', firestoreKey: 'enable_onboarding_step_funnel', defaultValue: false, superAdminValue: false },
   // Run / walk live players — map first (21.10.2026, owner — agent-briefs/run-player-drawer-brief.md).
   // Inside the enable_home_v2 run / walk players (free, route, walk, planned intervals, continuous):
   // the metrics card becomes a drawer (compact time · distance · pace ⇄ today's full card; further
@@ -397,6 +413,40 @@ export const FLAG_DEFS = [
   // a compact park card; layers panel toggles for parks and routes. Fail-closed; super admins
   // preview it. Off = byte-identical map.
   { key: 'enableMapPolishV1', firestoreKey: 'enable_map_polish_v1', defaultValue: false, superAdminValue: true },
+  // Measure every push type (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md
+  // §5 data gaps). Read ONLY by Cloud Functions (functions/src/services/push-measure-all.ts, 60s
+  // cache): on = every push sender — not just the ones that already pass `measurement` — writes
+  // push_sent to push_events and stamps messageId, so opens (push_opened), landings and the
+  // open-anchored outcome (post_push_outcome) are recorded for all push types, each record with
+  // `typeId`. superAdminValue FALSE (server-side, no viewer). Fail-closed. Off = byte-identical
+  // sends (same FCM payloads, no extra push_events writes).
+  { key: 'enablePushMeasureAll', firestoreKey: 'enable_push_measure_all', defaultValue: false, superAdminValue: false },
+  // Level-up v2 (22.10.2026, owner-approved design LV-1…LV-4 — agent-briefs/levelup-build-brief.md).
+  // The post-workout "% screen": the result is computed on the device at once from the same pure
+  // engine formulas the service stores with (progression-calc.ts), the write runs in the
+  // background ("שומר…" → "נשמר") and reconciles silently; one number = exactly what is stored
+  // (master = the stored plain average); ring only, chips push it; level-up = celebration with the
+  // NEW level. Fail-closed; super admins preview it. Off = the legacy dopamine screen, byte-identical.
+  { key: 'enableLevelupV2', firestoreKey: 'enable_levelup_v2', defaultValue: false, superAdminValue: true },
+  // Adaptive progression 3d (22.10.2026, owner — agent-briefs/adaptive-progression-build-brief.md).
+  // ON = the ≤5-rep / ≤12 s ceiling applies only to TRUE skills (one-arm pull-up, levers, planche,
+  // HSPU, muscle-up, human flag, pistol — logic/adaptive/true-skill.ts); a regular exercise above
+  // the user's level gets 3–6 (hard) / 2–5 (elite) instead of 1–3. Read once per generation
+  // (readLiveFlag + the user's own super-admin bit). Default OFF; super admins preview it.
+  { key: 'enableSkillCapTrueSkills', firestoreKey: 'enable_skill_cap_true_skills', defaultValue: false, superAdminValue: true },
+  // Adaptive progression 3a (22.10.2026, owner). ON = per-exercise double progression: +1 rep / +5 s
+  // after a session where every set hit the target, +1 set after 2 sessions at the range top, the
+  // harder variation after 3, hold after a miss, step back after 2 misses
+  // (logic/adaptive/double-progression.ts). State lives on users/{uid}/exerciseHistory/{id}.adaptive
+  // (additive, same doc, same reads). Placement inside the range is deterministic. Default OFF;
+  // super admins preview it.
+  { key: 'enableAdaptiveRepsV1', firestoreKey: 'enable_adaptive_reps_v1', defaultValue: false, superAdminValue: true },
+  // Adaptive progression 3e (22.10.2026, owner). ON = goal exercises: a score boost when the goal
+  // hasn't appeared in the last 2 sessions of its area (never forced; not on D1 / deload / heat /
+  // recovery), a performance-driven ramp instead of "30 % of the goal", and a small in-workout
+  // celebration + summary row when a set reaches the goal (once per goal per session). The %
+  // bonus once per goal is progression_rules_from_admin (#688). Default OFF; super admins preview.
+  { key: 'enableGoalPresenceV1', firestoreKey: 'enable_goal_presence_v1', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default
@@ -424,6 +474,21 @@ export const FLAG_DEFS = [
   { key: 'enableLocaleEn', firestoreKey: 'enable_locale_en', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleRu', firestoreKey: 'enable_locale_ru', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleDe', firestoreKey: 'enable_locale_de', defaultValue: false, superAdminValue: false },
+  // App-session signal (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md open
+  // question 10): "came back to the app without tapping a push". The old app_open/session_start
+  // event types were removed (#171) because nothing ever fired them — not for cost or noise — so
+  // this is a NEW, aggregated signal, not a raw event stream: ONE doc per user per Israel day
+  // (app_sessions_daily/{uid}_{date}: sessions + pushSessions counters, platform, lastAt) — one
+  // write per session (≥30 min in the background = new session), capped at 12 a day. No location,
+  // no PII; honours the analytics opt-out. Read synchronously via readLiveFlag
+  // (src/features/analytics/app-session.ts) → superAdminValue FALSE. Fail-closed. Needs the
+  // app_sessions_daily rules (firestore.rules) deployed BEFORE it is switched on.
+  { key: 'enableAppSessionSignal', firestoreKey: 'enable_app_session_signal', defaultValue: false, superAdminValue: false },
+  // Admin-panel AI assistant (22.10.2026, docs/admin/ADMIN-AI-ASSISTANT-PLAN.md). Off = no drawer,
+  // and every /api/admin/assistant/** route + tool answers 403. Its own flag on purpose (axiom
+  // §32) — not a reuse of ai_coach_*. superAdminValue false: the panel toggle is the one switch,
+  // and the server always reads the real value, so the drawer and the routes never disagree.
+  { key: 'adminAiAssistantV1', firestoreKey: 'admin_ai_assistant_v1', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

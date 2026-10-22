@@ -5,6 +5,8 @@ import { Target } from 'lucide-react';
 import SwapIcon from '@/features/workout-engine/components/SwapIcon';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { PyramidStep } from '../../types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface PyramidStepCardProps {
   /** Parent exercise wrapper — provides metric context + fallback name. */
@@ -56,13 +58,14 @@ function PyramidStepCardImpl({
   // The data layer (`buildStep` in pyramid.processor.ts) is the source of
   // truth: `targetHold` is populated for time-based steps, `targetReps`
   // for rep-based steps.  No re-scaling or keyword detection happens here.
+  const t = useT(library);
   const stepName = step.name || parentName;
-  const stepUnit = step.targetHold !== undefined ? 'שניות' : 'חזרות';
+  const stepUnit = step.targetHold !== undefined ? 'hold' : 'reps';
   const stepTarget = step.targetHold ?? step.targetReps;
   const stepVolume = stepTarget != null
-    ? `${stepTarget} ${stepUnit}${uniLabel}`
-    : `${stepUnit}${uniLabel}`;
-  const setLabel = `סט ${stepIdx + 1}`;
+    ? t('preview.step.volume', { target: String(stepTarget), unit: stepUnit, uni: uniLabel })
+    : t('preview.step.unitOnly', { unit: stepUnit, uni: uniLabel });
+  const setLabel = t('preview.step.set', { n: String(stepIdx + 1) });
 
   // ── Stable click handlers ─────────────────────────────────────────────
   const handleTap = useCallback(() => {
@@ -126,7 +129,7 @@ function PyramidStepCardImpl({
             {isGoal && stepIdx === 0 && (
               <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] font-bold rounded-full border border-cyan-200 flex-shrink-0">
                 <Target size={9} />
-                יעד
+                {t('preview.step.goal')}
               </span>
             )}
           </div>

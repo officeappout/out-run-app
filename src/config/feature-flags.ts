@@ -402,6 +402,9 @@ export const HOME_DAY_SELECT_SCOPE_V1 = false;
 // Both CHANGE PROGRESSION SPEED for real users (see PR #415 for the live-vs-default
 // table) — owner decision to ship dark. While FALSE: byte-identical to today
 // (single raw-id lookup → defaults; goal bonus re-paid each session).
+// 22.10.2026: superseded by the runtime panel flag `progression_rules_from_admin`
+// (system settings "התקדמות לפי הגדרות הפאנל", feature-flag-defs.ts; super admins preview it).
+// This constant stays as the fallback default — true would force admin rules for everyone.
 export const PROGRESSION_RULES_FROM_ADMIN_V1 = false;
 
 // WORKOUT_COACH_NOTE_V1: the "דגשי האימון" block on the workout overview — 2–4

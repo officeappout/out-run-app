@@ -21,6 +21,7 @@ import {
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 interface HistoryStepProps {
@@ -144,6 +145,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
   const handleContinue = async () => {
     // Log analytics
     await Analytics.logOnboardingStepComplete('HISTORY', 0);
+    logOnboardingFunnelStep('HISTORY'); // enable_onboarding_step_funnel (off = no-op)
     
     // Add coins only once
     if (!hasEarnedReward) {

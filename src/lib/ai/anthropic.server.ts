@@ -3,7 +3,11 @@
  *
  *   getAnthropicClient()  single client (new Anthropic() reads ANTHROPIC_API_KEY — same as
  *                         the admin transcript service, which is deliberately left as is)
- *   getAiModel(tier)      'fast' | 'smart' → AI_MODEL_FAST / AI_MODEL_SMART env, else defaults
+ *   getAdminAnthropicClient()  the admin-panel assistant's OWN client (ANTHROPIC_API_KEY_ADMIN,
+ *                         a separate Console workspace with its own monthly cap) — null when the
+ *                         key is missing; never falls back to the app's key
+ *   getAiModel(tier)      'fast' | 'smart' | 'admin' → AI_MODEL_FAST / AI_MODEL_SMART /
+ *                         AI_MODEL_ADMIN env, else defaults
  *   withPromptCaching()   marks the stable system prompt + tools with cache_control
  *   assertAiBudget()      kill switch + daily budget (app_config/ai) — throws AiUnavailableError
  *   checkAiRateLimit()    per-user hour/day limits, fail-CLOSED
@@ -45,8 +49,30 @@ export function getAnthropicClient(): Anthropic {
   return _client;
 }
 
+let _adminClient: Anthropic | null = null;
+
+/**
+ * The admin-panel assistant's client, on its own key (ANTHROPIC_API_KEY_ADMIN → the Console
+ * "admin" workspace, which carries its own monthly spend cap). Returns null when the key is
+ * missing or blank — callers fail CLOSED (503). It deliberately never falls back to
+ * ANTHROPIC_API_KEY: the app's workspace and the admin workspace are budgeted separately, and
+ * a silent fallback would bill admin questions to the app's cap. The key is never logged.
+ */
+export function getAdminAnthropicClient(): Anthropic | null {
+  const apiKey = process.env.ANTHROPIC_API_KEY_ADMIN?.trim();
+  if (!apiKey) return null;
+  if (!_adminClient) _adminClient = new Anthropic({ apiKey });
+  return _adminClient;
+}
+
+const MODEL_ENV: Record<AiModelTier, string> = {
+  fast: 'AI_MODEL_FAST',
+  smart: 'AI_MODEL_SMART',
+  admin: 'AI_MODEL_ADMIN',
+};
+
 export function getAiModel(tier: AiModelTier): string {
-  const fromEnv = tier === 'fast' ? process.env.AI_MODEL_FAST : process.env.AI_MODEL_SMART;
+  const fromEnv = process.env[MODEL_ENV[tier]];
   return fromEnv?.trim() || AI_MODEL_DEFAULTS[tier];
 }
 

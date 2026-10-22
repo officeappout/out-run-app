@@ -7,6 +7,7 @@
  *     rateLimitPerHour: number   // per user
  *     rateLimitPerDay:  number   // per user
  *     reviewBudgetUsd:  number   // daily cap for the conversation review agent (0 = review off)
+ *     adminAiBudgetUsd: number   // daily cap for the admin-panel assistant's model calls (0 = off)
  *   }
  *
  * A missing document or a missing/invalid field falls back to DEFAULT_AI_CONFIG (these are
@@ -25,6 +26,14 @@ export interface AiConfig {
    * toward dailyBudgetUsd too. 0 turns the daily review off.
    */
   reviewBudgetUsd: number;
+  /**
+   * Separate daily cap (USD, Israel day) for the admin-panel AI assistant
+   * (src/lib/ai/admin-assistant/), all admins together. Its spend is ALSO booked in the
+   * global ledger, so the global kill switch and dailyBudgetUsd stop it too. 0 turns the
+   * assistant's model path off (local navigation and quick answers keep working — they
+   * never call a model).
+   */
+  adminAiBudgetUsd: number;
 }
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
@@ -33,6 +42,7 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
   rateLimitPerHour: 20,
   rateLimitPerDay: 40,
   reviewBudgetUsd: 2,
+  adminAiBudgetUsd: 0.5,
 };
 
 function nonNegative(v: unknown, fallback: number): number {
@@ -54,5 +64,6 @@ export function parseAiConfig(data: Record<string, unknown> | undefined | null):
     rateLimitPerHour: positiveInt(d.rateLimitPerHour, DEFAULT_AI_CONFIG.rateLimitPerHour),
     rateLimitPerDay: positiveInt(d.rateLimitPerDay, DEFAULT_AI_CONFIG.rateLimitPerDay),
     reviewBudgetUsd: nonNegative(d.reviewBudgetUsd, DEFAULT_AI_CONFIG.reviewBudgetUsd),
+    adminAiBudgetUsd: nonNegative(d.adminAiBudgetUsd, DEFAULT_AI_CONFIG.adminAiBudgetUsd),
   };
 }

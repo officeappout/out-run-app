@@ -83,6 +83,7 @@
 import * as admin from 'firebase-admin';
 import { logger } from 'firebase-functions';
 import { writePushSentEvent } from './push-events.service';
+import { isPushMeasureAllEnabled, resolveSendMeasurement } from './push-measure-all';
 import { isShabbatObserver, isShabbatOrYomTov } from './shabbat.service';
 import { withoutDemoUids } from '../lib/demo';
 import {
@@ -347,6 +348,13 @@ export interface SendPushOpts {
   isDirectMessage?: boolean;
   /** See SendPushMeasurement's doc comment. Opt-in, absent = no-op. */
   measurement?: SendPushMeasurement;
+  /**
+   * This sender's push type id (push-measure-all.ts PUSH_TYPE_IDS). Read ONLY while
+   * system_config/feature_flags.enable_push_measure_all is on: a sender without `measurement`
+   * is then measured with a default one under this id, and every measured record carries
+   * `typeId`. Flag off = ignored entirely.
+   */
+  measurementTypeId?: string;
   /**
    * Stage 2 refinement — set true for a PERSONAL interaction: another
    * person (or the user's own completed achievement) is the direct subject
@@ -663,8 +671,16 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   // ── Measurement (opt-in, Wave 1) — mint a pushId and stamp it as
   // messageId so the client tap handler can correlate push_opened /
   // landing_screen against this send (see push-events.service.ts). ────────
-  const measurement = opts.measurement;
-  const pushId = measurement ? getDb().collection('push_events').doc().id : undefined;
+  // enable_push_measure_all (push-measure-all.ts): off → exactly opts.measurement, no typeId.
+  // The flag is read only for senders that measure or name a type (60s cache).
+  const { measurement, typeId: measureTypeId } =
+    opts.measurement || opts.measurementTypeId
+      ? resolveSendMeasurement(opts.measurement, opts.measurementTypeId, await isPushMeasureAllEnabled())
+      : { measurement: undefined, typeId: undefined };
+  // A sender that already puts its own `messageId` in the payload (queue broadcasts: the queue
+  // doc id) keeps it — it is what the app reports back on open, so it must be the pushId.
+  const ownMessageId = measureTypeId && typeof extraData?.messageId === 'string' ? extraData.messageId : undefined;
+  const pushId = measurement ? (ownMessageId ?? getDb().collection('push_events').doc().id) : undefined;
   if (pushId) result.pushId = pushId;
 
   // ── Build FCM message ─────────────────────────────────────────────────────
@@ -767,6 +783,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
           copyRowId: measurement.copyRowId,
           tone: measurement.tone,
           lever: measurement.lever,
+          ...(measureTypeId ? { typeId: measureTypeId } : {}),
         }),
       ),
     );

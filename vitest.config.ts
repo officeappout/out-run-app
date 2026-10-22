@@ -91,6 +91,8 @@ export default defineConfig({
       'src/features/workout-engine/components/__tests__/**/*.test.tsx',
       // i18n wave 2 batch z (player namespace, strengthSummary.* / dopamine.*) — Hebrew markup parity, static markup.
       'src/features/workout-engine/components/strength/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch aa (library namespace, preview.*) — workout preview drawer Hebrew markup parity, static markup.
+      'src/features/workouts/components/workout-preview-drawer/__tests__/**/*.test.tsx',
       // i18n wave 2 (namespace home) — home screen components, Hebrew markup parity (static + jsdom).
       'src/features/home/components/__tests__/**/*.test.tsx',
       // i18n wave 2 batch v (community namespace, communityPage.*) — /community page surfaces, Hebrew markup parity, static markup.
@@ -111,6 +113,8 @@ export default defineConfig({
       'tests/firestore-admin-costs.rules.test.ts',
       // city_inventory/** server-only lockdown (RC4 I2 map-health card) — emulator :8089.
       'tests/firestore-city-inventory.rules.test.ts',
+      // app_sessions_daily (enable_app_session_signal, 22.10.2026) — emulator on 8089.
+      'tests/firestore-app-sessions-daily.rules.test.ts',
       // demo_registry server-only lockdown + users.core.demo stamp lock (demo world PR 1) — emulator :8089.
       'tests/firestore-demo-registry.rules.test.ts',
       // demo actor sandbox (B1: uid demo_* / claim demo writes only to demo targets) — emulator :8089.
@@ -125,6 +129,7 @@ export default defineConfig({
       'tests/trails-apply.emulator.test.ts',
       'tests/firestore-fix-ai-entitlements.rules.test.ts',
       'tests/firestore-ai-coach-threads.rules.test.ts',
+      'tests/firestore-admin-ai-assistant.rules.test.ts',
       // Pace self-correction write path (users.running.paceProfile) — emulator :8089.
       'tests/pace-profile-self-correction.rules.test.ts',
       // Streak kept-gap bridge (Saturday rule / shields) under the existing streaks rule — emulator :8089.

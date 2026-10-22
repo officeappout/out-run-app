@@ -38,6 +38,14 @@ import { db } from '@/lib/firebase';
 import type { WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
 import { nextExerciseAggregate, type ExerciseAggregate } from '@/features/user/progression/records/records.utils';
 import { genPerfRead } from '@/lib/gen-perf';
+import {
+  nextAdaptiveState,
+  type AdaptiveState,
+  type SessionResultInput,
+} from '@/features/workout-engine/logic/adaptive/double-progression';
+
+/** 3a (enable_adaptive_reps_v1): per-exercise session context, everything but the values. */
+export type AdaptiveSessionMeta = Omit<SessionResultInput, 'values'>;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -104,6 +112,8 @@ const SESSIONS_SUB = 'sessions';
 export async function saveExerciseHistory(
   userId: string,
   exercises: WorkoutExerciseResult[],
+  /** 3a: passed only while enable_adaptive_reps_v1 is on — adds the `adaptive` field. */
+  adaptiveMeta?: Map<string, AdaptiveSessionMeta>,
 ): Promise<void> {
   if (!userId || exercises.length === 0) return;
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -115,7 +125,13 @@ export async function saveExerciseHistory(
   // recentMax on the top-level doc — forward-only, one small read per
   // exercise. Flag-off: exactly the original overwrite below.
   const { homeV2EnabledNow } = await import('@/features/workout-engine/players/running/lib/home-v2-gate');
-  const aggregates = homeV2EnabledNow() ? await readExerciseAggregates(userId, exercises) : null;
+  const wantAggregates = homeV2EnabledNow();
+  const wantAdaptive = !!adaptiveMeta && adaptiveMeta.size > 0;
+  // One read of the previous doc per exercise serves both (none when both are off).
+  const prevDocs = wantAggregates || wantAdaptive ? await readPrevDocs(userId, exercises) : null;
+  const now = Date.now();
+  const aggregates = wantAggregates && prevDocs ? aggregatesFrom(prevDocs, exercises, now) : null;
+  const adaptive = wantAdaptive && prevDocs ? adaptiveFrom(prevDocs, exercises, adaptiveMeta!, now) : null;
 
   const writes = exercises.flatMap((ex) => {
     // ── Write 1: overwrite the "last session" document (original behavior) ──
@@ -128,7 +144,12 @@ export async function saveExerciseHistory(
       updatedAt: serverTimestamp(),
     };
     const agg = aggregates?.get(ex.exerciseId);
-    const lastSessionWrite = setDoc(lastSessionRef, agg ? { ...lastSessionEntry, ...agg } : lastSessionEntry);
+    const nextAdaptive = adaptive?.get(ex.exerciseId);
+    const lastSessionWrite = setDoc(lastSessionRef, {
+      ...lastSessionEntry,
+      ...(agg ?? {}),
+      ...(nextAdaptive ? { adaptive: nextAdaptive } : {}),
+    });
 
     // ── Write 2: append to the time-series sub-collection (new) ──
     const sessionsColRef = collection(
@@ -158,27 +179,58 @@ export async function saveExerciseHistory(
   );
 }
 
-/** v2 aggregates for each exercise of this session (prev doc read → next values). */
-async function readExerciseAggregates(
+type PrevDoc = (Partial<ExerciseAggregate> & { adaptive?: AdaptiveState }) | null;
+
+/** Previous top-level doc per exercise (null = none yet). A failed read is absent. */
+async function readPrevDocs(
   userId: string,
   exercises: WorkoutExerciseResult[],
-): Promise<Map<string, ExerciseAggregate>> {
-  const now = Date.now();
-  const out = new Map<string, ExerciseAggregate>();
+): Promise<Map<string, PrevDoc>> {
+  const out = new Map<string, PrevDoc>();
   await Promise.all(
     exercises.map(async (ex) => {
       try {
         const snap = await getDoc(doc(db, 'users', userId, SUB_COLLECTION, ex.exerciseId));
-        const prev = snap.exists() ? (snap.data() as Partial<ExerciseAggregate>) : null;
-        const sessionMax = ex.repsPerSet.length > 0 ? Math.max(...ex.repsPerSet) : 0;
-        const { bestReps, bestAt, recentMax } = nextExerciseAggregate(prev, sessionMax, now);
-        out.set(ex.exerciseId, { bestReps, bestAt, recentMax });
+        out.set(ex.exerciseId, snap.exists() ? (snap.data() as PrevDoc) : null);
       } catch (e) {
-        // No aggregate for this exercise this time — the save itself goes on.
-        console.warn('[ExerciseHistory] aggregate read failed', ex.exerciseId, e);
+        // Nothing derived for this exercise this time — the save itself goes on.
+        console.warn('[ExerciseHistory] previous doc read failed', ex.exerciseId, e);
       }
     }),
   );
+  return out;
+}
+
+/** v2 aggregates for each exercise of this session (prev doc → next values). */
+function aggregatesFrom(
+  prevDocs: Map<string, PrevDoc>,
+  exercises: WorkoutExerciseResult[],
+  now: number,
+): Map<string, ExerciseAggregate> {
+  const out = new Map<string, ExerciseAggregate>();
+  for (const ex of exercises) {
+    if (!prevDocs.has(ex.exerciseId)) continue;
+    const sessionMax = ex.repsPerSet.length > 0 ? Math.max(...ex.repsPerSet) : 0;
+    const { bestReps, bestAt, recentMax } = nextExerciseAggregate(prevDocs.get(ex.exerciseId) ?? null, sessionMax, now);
+    out.set(ex.exerciseId, { bestReps, bestAt, recentMax });
+  }
+  return out;
+}
+
+/** 3a: next double-progression state per exercise (a skipped session carries the old one). */
+function adaptiveFrom(
+  prevDocs: Map<string, PrevDoc>,
+  exercises: WorkoutExerciseResult[],
+  meta: Map<string, AdaptiveSessionMeta>,
+  now: number,
+): Map<string, AdaptiveState> {
+  const out = new Map<string, AdaptiveState>();
+  for (const ex of exercises) {
+    const m = meta.get(ex.exerciseId);
+    if (!m || !prevDocs.has(ex.exerciseId)) continue;
+    const next = nextAdaptiveState(prevDocs.get(ex.exerciseId)?.adaptive, { ...m, values: ex.repsPerSet }, now);
+    if (next) out.set(ex.exerciseId, next);
+  }
   return out;
 }
 
@@ -217,6 +269,8 @@ export async function getLastSessionReps(
 export async function getHistoryMapForExercises(
   userId: string,
   exerciseIds: string[],
+  /** 3a: when given, filled with each doc's `adaptive` state (same query, no extra reads). */
+  adaptiveOut?: Record<string, AdaptiveState>,
 ): Promise<Record<string, number[]>> {
   if (!userId || exerciseIds.length === 0) return {};
   if (typeof navigator !== 'undefined' && !navigator.onLine) return {};
@@ -264,6 +318,8 @@ export async function getHistoryMapForExercises(
         }
 
         if (data.reps?.length > 0) map[id] = data.reps;
+        const adaptive = (data as { adaptive?: AdaptiveState }).adaptive;
+        if (adaptiveOut && adaptive && typeof adaptive === 'object') adaptiveOut[id] = adaptive;
       }
     }
     console.log(
