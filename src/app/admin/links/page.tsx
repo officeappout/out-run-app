@@ -51,6 +51,7 @@ import {
   updateMarketingLink,
 } from '@/features/admin/services/marketing-links.service';
 import QrCodeGenerator from '@/features/admin/components/QrCodeGenerator';
+import SiteQrLinksCard from '@/features/admin/components/SiteQrLinksCard';
 
 const LINK_TYPE_LABELS: Record<LinkType, string> = {
   qr_physical: 'QR פיזי (רולאפ/שילוט)',
@@ -241,6 +242,9 @@ export default function AdminMarketingLinksPage() {
           icon={<PowerOff className="h-4 w-4 text-slate-400" aria-hidden />}
         />
       </section>
+
+      {/* Site QR links (enable_site_qr_links) — the marketing site's app-store QR codes */}
+      <SiteQrLinksCard links={links} onCreated={loadLinks} />
 
       {/* Error banner */}
       {error && (

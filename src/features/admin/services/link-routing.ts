@@ -125,3 +125,18 @@ export function appendAndroidReferrer(androidUrl: string, referrerRaw: string): 
     return androidUrl;
   }
 }
+
+// ─── Click source (`?src=`) ─────────────────────────────────────────────────
+
+/**
+ * Where a tracked URL was placed, from its optional `src` query param
+ * (e.g. the marketing site's QR codes use `?src=site-qr`) — stored on the
+ * per-click record so one link can be told apart by placement. Untrusted
+ * input from a public URL: lower-cased, limited to `[a-z0-9_-]`, max 40
+ * chars; anything else → null.
+ */
+export function sanitizeClickSource(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const v = raw.trim().toLowerCase();
+  return /^[a-z0-9_-]{1,40}$/.test(v) ? v : null;
+}

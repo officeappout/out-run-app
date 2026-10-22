@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -103,6 +103,7 @@ interface FlagState {
   enable_scoped_official_routes: boolean;
   enable_swap_fixes_v1: boolean;
   enable_strength_drawer_v1: boolean;
+  enable_site_qr_links: boolean;
 }
 
 // ============================================================================
@@ -801,6 +802,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'נגן כוח/טבטה/AMRAP/EMOM: מגירה מתקפלת',
     description: 'הכרטיס התחתון בנגן הכוח ובטבטה/AMRAP/EMOM נהיה מגירה: קומפקטית (שם התרגיל, טיימר/סבב, יעד וכפתור ראשי) או מלאה, בגרירה או בהקשה, והבחירה נשמרת. הווידאו נשאר גלוי. "צפה בהסבר המלא" עובר לכפתור "הסבר" קטן בפינת הווידאו ולפרטי התרגיל ברשימה, ושורות הרשימה נפתחות לשרירים, דגשים וציוד כמו בעמוד התרגיל.',
+  },
+  // Site QR links (22.10.2026) — the marketing site's app-store QR codes.
+  {
+    key: 'enable_site_qr_links',
+    icon: QrCode,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'פאנל: קישורי QR של האתר',
+    description: 'כרטיס בראש מרכז הקישורים השיווקיים (/admin/links) עם שלושת הקישורים הקבועים שקודי ה-QR באתר מפנים אליהם: app-ios (App Store), app-android (Google Play) ו-app-smart (לפי המכשיר). רואים אם קיימים וכמה סריקות, ויוצרים את החסרים בלחיצה. משנים יעד בעריכת הקישור — הקוד המודפס לא משתנה. מנהל-על רואה את זה כבר עכשיו. כבוי = הדף כמו היום.',
   },
 ];
 

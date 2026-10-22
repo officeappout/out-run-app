@@ -47,6 +47,7 @@ import {
   buildAndroidReferrerRaw,
   detectDeviceBucket,
   resolveDestinationUrl,
+  sanitizeClickSource,
 } from '@/features/admin/services/link-routing';
 import { buildDailyStatsIncrement } from '@/features/admin/services/link-stats-write';
 
@@ -132,6 +133,8 @@ async function recordClickEvent(input: ClickRecordInput): Promise<void> {
     city,
     referrer: referrer ? referrer.slice(0, 500) : null,
     androidReferrerSent: androidReferrerSent ?? null,
+    // Placement tag from `?src=` (e.g. `site-qr`), sanitized — null when absent.
+    source: sanitizeClickSource(new URL(request.url).searchParams.get('src')),
     // Requires a Firestore TTL policy on `clicks.expireAt` (collection
     // group) enabled in the Firebase console/CLI — this field alone does
     // not auto-delete anything; see docs/architecture/marketing-attribution.md.
