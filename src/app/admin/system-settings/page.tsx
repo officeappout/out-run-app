@@ -100,6 +100,7 @@ interface FlagState {
   admin_ai_assistant_v1: boolean;
   enable_city_mapping_hub: boolean;
   pyramid_injection_off: boolean;
+  enable_hide_route_connectors: boolean;
   enable_scoped_official_routes: boolean;
   enable_swap_fixes_v1: boolean;
   enable_strength_drawer_v1: boolean;
@@ -775,6 +776,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-teal-600',
     title: 'מסלולים רשמיים לפי רשות',
     description: 'דלוק = האפליקציה קוראת רק את המסלולים הרשמיים של הרשות של המשתמש ושל העיר שבה הוא נמצא (עד 300), ואם אין — רק מסלולים מאושרים (עד 200). כבוי = כמו היום: 200 המסלולים הראשונים מכל הארץ, כך שעם ייבוא ארצי רוב הערים לא יראו כלום. לפני הדלקה: להריץ את backfill-route-publish-status ולשייך רשות ל-16 המסלולים הישנים בלי authorityId.',
+  },
+  // Route connectors (RC10, 22.10.2026) — src/lib/route-collections/display-role.ts.
+  {
+    key: 'enable_hide_route_connectors',
+    icon: RouteIcon,
+    iconBg: 'bg-teal-50',
+    iconColor: 'text-teal-600',
+    title: 'מסלולים: הסתרת מקטעי חיבור',
+    description: 'מסלולים שסומנו כ"מקטע חיבור" (displayRole: connector — למשל "מקטע 2" או "תוספת א" מהמסלולים של עיריית שדרות) נשארים במערכת אבל לא מוצגים למשתמשים ברשימות המסלולים, בקרוסלת המפה ובחיפוש. כבוי = הכול מוצג כמו היום. לא נדלק אוטומטית לסופר-אדמין.',
   },
   // City-mapping hub (22.10.2026) — docs/admin/CITY-MAPPING-HUB-DESIGN.md.
   {

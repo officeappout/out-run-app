@@ -622,6 +622,9 @@ export interface Route {
   /** Approval workflow */
   status?: 'pending' | 'published' | 'archived';
   published?: boolean;
+  /** RC10: 'connector' = transition segment, hidden from user-facing lists
+   *  when enable_hide_route_connectors is on (src/lib/route-collections/display-role.ts). */
+  displayRole?: 'connector' | null;
   publishedAt?: Date | null;
   /** UID of the user who created this route */
   createdByUser?: string;

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { generateDynamicRoutes, MIN_GENERATION_KM } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { InventoryService, getCachedOfficialRoutes } from '../services/inventory.service';
+import { hideConnectorRoutes } from '@/lib/route-collections/display-role';
 import { readLiveFlag } from '@/lib/feature-flag-live';
 import { Route, ActivityType } from '../types/route.types';
 import { Park } from '../types/park.types';
@@ -95,9 +96,12 @@ export function useRouteGeneration(
     officialFetched.current = true;
     // enable_scoped_official_routes ON: share the scoped, cached read every other consumer uses
     // (one read per session instead of a second whole-collection limit(200) here). OFF: unchanged.
+    // RC10: connectors are skipped on both paths when enable_hide_route_connectors is on —
+    // getCachedOfficialRoutes already filters; the legacy fetch filters here (off → same array).
     (readLiveFlag('enableScopedOfficialRoutes')
       ? getCachedOfficialRoutes()
-      : InventoryService.fetchOfficialRoutes(undefined, true))
+      : InventoryService.fetchOfficialRoutes(undefined, true)
+          .then((all) => hideConnectorRoutes(all, readLiveFlag('enableHideRouteConnectors'))))
       .then((routes) => {
         console.log(`[Routes] Fetched ${routes.length} published official routes from Firestore`);
         if (routes.length > 0) {

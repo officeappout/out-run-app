@@ -49,10 +49,14 @@ export function toOurRouteLines(routes: Array<{ id: string; path?: unknown; name
   return out;
 }
 
-/** The map's cached official set (zero reads once the map has loaded it). */
+/**
+ * The map's cached official set (zero reads once the map has loaded it) —
+ * INCLUDING connector routes (RC10): a connector is exactly the kind of line
+ * a loop may follow behind the scenes; it is never listed to the user here.
+ */
 export const mapOfficialRoutesFetcher: OurRoutesFetcher = async () => {
-  const { getCachedOfficialRoutes } = await import('../inventory.service');
-  return toOurRouteLines(await getCachedOfficialRoutes(), 'official');
+  const { getCachedOfficialRoutesIncludingConnectors } = await import('../inventory.service');
+  return toOurRouteLines(await getCachedOfficialRoutesIncludingConnectors(), 'official');
 };
 
 export async function loadOurRoutesNear(

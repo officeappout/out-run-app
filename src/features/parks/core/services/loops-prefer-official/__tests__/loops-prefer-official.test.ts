@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OurRouteLine } from '@/lib/route-quality';
 
-vi.mock('../../inventory.service', () => ({ getCachedOfficialRoutes: async () => [] }));
+vi.mock('../../inventory.service', () => ({ getCachedOfficialRoutes: async () => [], getCachedOfficialRoutesIncludingConnectors: async () => [] }));
 
 import { seedsFromOurRoutes, withOurRouteSeeds, MAX_SEEDS } from '../route-seeds';
 import { ourRoutesRankFactor, OUR_ROUTES_RANK_WEIGHT } from '../ranking';
