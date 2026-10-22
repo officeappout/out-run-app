@@ -11,6 +11,14 @@ import CityMappingHub from '../CityMappingHub';
 import type { HubRow } from '@/lib/city-mapping-hub/rows';
 import { DEFAULT_HUB_URL_STATE, type HubUrlState } from '@/lib/city-mapping-hub/url-state';
 
+// The real map needs WebGL (not in jsdom): a stand-in that exposes what the live HubMap receives.
+vi.mock('../HubMap', () => ({
+  default: (p: { selected: { authorityId: string } | null; data: { routes?: { featureCollection: { features: unknown[] } }; boundary?: unknown }; layers: string[]; rows: unknown[]; onSelectAuthority: (id: string) => void }) => (
+    <div data-testid="hub-map" data-selected={p.selected?.authorityId ?? ''} data-routes={p.data.routes?.featureCollection.features.length ?? -1} data-boundary={p.data.boundary ? 1 : 0} data-layers={p.layers.join(',')}>
+      <button type="button" data-testid="map-dot-arad" onClick={() => p.onSelectAuthority('arad')}>dot</button>
+    </div>
+  ),
+}));
 vi.mock('next/link', () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -30,13 +38,21 @@ const ROWS = [
 ];
 
 const changes: HubUrlState[] = [];
+const layerCalls: string[] = [];
+const route = (id: string, status: string) => ({ type: 'Feature', properties: { id, kind: 'route', status }, geometry: { type: 'LineString', coordinates: [[34.8, 31.2], [34.81, 31.21]] } });
+const loadLayer = vi.fn(async (authorityId: string, layer: string) => {
+  layerCalls.push(`${authorityId}:${layer}`);
+  const features = layer === 'routes' ? [route('r1', 'approved'), route('r2', 'pending'), route('r3', 'pending')] : [];
+  return { featureCollection: { type: 'FeatureCollection' as const, features: features as never[] }, truncated: layer === 'routes', total: layer === 'routes' ? 6000 : 0 };
+});
 function Harness({ initial }: { initial: HubUrlState }) {
   const [s, setS] = useState(initial);
-  return <CityMappingHub state={s} onStateChange={(n) => { changes.push(n); setS(n); }} loadRows={async () => ROWS} />;
+  return <CityMappingHub state={s} onStateChange={(n) => { changes.push(n); setS(n); }} loadRows={async () => ROWS} loadLayer={loadLayer} />;
 }
 
 async function render(initial: HubUrlState = DEFAULT_HUB_URL_STATE) {
   changes.length = 0;
+  layerCalls.length = 0;
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -80,6 +96,31 @@ describe('CityMappingHub (H0)', () => {
     expect(names(h)).toEqual(['bsv', 'arad', 'sderot']);
     await act(async () => { byName.click(); });
     expect(names(h)).toEqual(['sderot', 'arad', 'bsv']);
+  });
+  it('H1: no selection = national map, no layer reads; selecting loads boundary + routes for THAT authority only', async () => {
+    const h = await render();
+    expect(h.querySelector('[data-testid="hub-map"]')!.getAttribute('data-selected')).toBe('');
+    expect(layerCalls).toEqual([]);
+    await act(async () => { (h.querySelector('[data-testid="map-dot-arad"]') as HTMLElement).click(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(changes.at(-1)?.authority).toBe('arad');
+    expect(layerCalls.sort()).toEqual(['arad:boundary', 'arad:routes']);
+    const map = h.querySelector('[data-testid="hub-map"]')!;
+    expect(map.getAttribute('data-selected')).toBe('arad');
+    expect(map.getAttribute('data-routes')).toBe('3');
+    expect(h.querySelector('[data-testid="chip-routes_approved"]')!.textContent).toContain('1');
+    expect(h.querySelector('[data-testid="chip-routes_pending"]')!.textContent).toContain('2');
+    expect(h.querySelector('[data-testid="hub-map-crumb"]')!.textContent).toContain('ערד');
+    expect(h.textContent).toContain('מוצגים 3 מתוך 6000'); // truncated is a banner, never silent
+  });
+  it('H1: a chip toggles its layer in the URL state without refetching', async () => {
+    const h = await render({ ...DEFAULT_HUB_URL_STATE, authority: 'arad' });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const n = layerCalls.length;
+    await act(async () => { (h.querySelector('[data-testid="chip-routes_pending"]') as HTMLElement).click(); });
+    expect(changes.at(-1)?.layers).toEqual(['routes_approved']);
+    expect(h.querySelector('[data-testid="hub-map"]')!.getAttribute('data-layers')).toBe('routes_approved');
+    expect(layerCalls.length).toBe(n);
   });
   it('a loader failure is shown, not swallowed', async () => {
     host = document.createElement('div');

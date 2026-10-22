@@ -3,15 +3,16 @@
 /**
  * CityMappingHub — /admin/city-mapping/hub (CITY-MAPPING-HUB-DESIGN.md §2-3),
  * behind enable_city_mapping_hub. H0: header + KPIs + filters + the all-
- * authorities table + the selected authority's summary. The map (H1+) slots
- * into the right-hand column.
+ * authorities table + the selected authority's summary. H1: the map
+ * (national dots → selected authority's boundary + routes), layer chips in
+ * the URL.
  *
  * State is owned by the caller (the page keeps it in the URL — §3.1); this
  * component is controlled, so it is testable without a router. Desktop: table
  * on the right (RTL reading start), map side on the left. < md: top tabs
- * טבלה | מפה | פערים. Plain in-flow layout: no overlay, no z-index.
+ * טבלה | מפה | פערים. No page-level overlay, no z-index.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Plus, RefreshCw } from 'lucide-react';
 import type { HubRow } from '@/lib/city-mapping-hub/rows';
@@ -22,12 +23,17 @@ import HubKpis from './HubKpis';
 import HubFiltersBar from './HubFiltersBar';
 import HubTable from './HubTable';
 import HubAuthoritySummary from './HubAuthoritySummary';
+import HubMapCard from './HubMapCard';
+import type { LoadHubLayer } from './useHubLayers';
+import type { HubChipLayer } from '@/lib/city-mapping-hub/layers';
 
 export interface CityMappingHubProps {
   state: HubUrlState;
   onStateChange: (next: HubUrlState) => void;
   /** Injected in tests; defaults to the guarded API loader. */
   loadRows?: () => Promise<HubRow[]>;
+  /** Injected in tests; defaults to the guarded layers loader. */
+  loadLayer?: LoadHubLayer;
 }
 
 const VIEWS: Array<{ v: HubMobileView; label: string }> = [
@@ -39,24 +45,31 @@ const VIEWS: Array<{ v: HubMobileView; label: string }> = [
 /** Columns whose natural reading is "biggest first". */
 const DESC_FIRST: ReadonlySet<HubSortKey> = new Set<HubSortKey>(['pendingRoutes', 'pendingContributions', 'gaps', 'lastRefreshAt']);
 
-export default function CityMappingHub({ state, onStateChange, loadRows = loadHubRows }: CityMappingHubProps) {
+export default function CityMappingHub({ state, onStateChange, loadRows = loadHubRows, loadLayer }: CityMappingHubProps) {
   const [rows, setRows] = useState<HubRow[] | null>(null);
+  /** Layer-cache version: bumped on refresh (and, in H3, after every write). */
+  const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  // The loader is read through a ref: an inline loader must not re-trigger the initial load.
+  const loadRowsRef = useRef(loadRows);
+  loadRowsRef.current = loadRows;
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setRows(await loadRows());
+      setRows(await loadRowsRef.current());
     } catch (err) {
       const e = err as CityMappingHubError;
       setError(e?.status === 403 ? `אין גישה: ${e.message}` : `שגיאה בטעינת הרשויות: ${e?.message ?? 'לא ידועה'}`);
     } finally {
       setLoading(false);
     }
-  }, [loadRows]);
-  useEffect(() => { refresh(); }, [refresh]);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  /** Manual refresh: re-read the table AND drop every cached map layer. */
+  const refresh = useCallback(() => { setVersion((v) => v + 1); return load(); }, [load]);
 
   const patch = useCallback((p: Partial<HubUrlState>) => onStateChange({ ...state, ...p }), [state, onStateChange]);
   const visible = useMemo(() => sortHubRows(filterHubRows(rows ?? [], state), state.sort, state.dir), [rows, state]);
@@ -73,7 +86,10 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
     else patch({ sort: key, dir: DESC_FIRST.has(key) ? 'desc' : 'asc' });
   };
   const onFilters = (p: Partial<HubFilters>) => patch(p);
-  const onSelect = (id: string) => patch({ authority: id, view: state.view === 'table' ? 'gaps' : state.view });
+  const onSelect = (id: string) => patch({ authority: id, view: state.view === 'table' ? 'map' : state.view });
+  const visibleIds = useMemo(() => new Set(visible.map((r) => r.authorityId)), [visible]);
+  const onToggleLayer = (k: HubChipLayer) =>
+    patch({ layers: state.layers.includes(k) ? state.layers.filter((x) => x !== k) : [...state.layers, k] });
 
   const show = (v: HubMobileView) => (state.view === v ? 'flex' : 'hidden');
 
@@ -118,11 +134,20 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
           )}
         </section>
 
-        <section className="flex min-w-0 flex-col gap-3.5" aria-label="מפה ופערים">
-          <div className={`${show('map')} min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm font-semibold text-slate-400 md:flex`}>
-            המפה (מסלולים, נקודות ותרומות) — גל H1
+        <section className="flex min-w-0 flex-col gap-3.5 md:h-[max(600px,calc(100vh-260px))]" aria-label="מפה ופערים">
+          <div className={`${show('map')} h-[60vh] min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm md:flex md:h-auto md:min-h-[420px] md:flex-1`}>
+            <HubMapCard
+              rows={rows ?? []}
+              visibleIds={visibleIds}
+              selected={selected}
+              layers={state.layers}
+              onToggleLayer={onToggleLayer}
+              onSelectAuthority={onSelect}
+              version={version}
+              loadLayer={loadLayer}
+            />
           </div>
-          <div className={`${show('gaps')} flex-col rounded-2xl border border-slate-100 bg-white shadow-sm md:flex`}>
+          <div className={`${show('gaps')} flex-col overflow-auto rounded-2xl border border-slate-100 bg-white shadow-sm md:flex md:max-h-[260px] md:shrink-0`}>
             <HubAuthoritySummary row={selected} onClear={() => patch({ authority: null })} />
           </div>
         </section>

@@ -7,6 +7,8 @@
  * other city-mapping loaders (city-inventory-health.ts).
  */
 import { parseHubRow, type HubRow } from '@/lib/city-mapping-hub/rows';
+import { parseLayerPayload, type HubLayerPayload } from '@/lib/city-mapping-hub/layer-payload';
+import type { HubFetchLayer } from '@/lib/city-mapping-hub/layers';
 
 export class CityMappingHubError extends Error {
   constructor(message: string, readonly status: number) {
@@ -27,4 +29,10 @@ export async function loadHubRows(fetchImpl: typeof fetch = fetch): Promise<HubR
   const json = await getJson('/api/admin/city-mapping/inventory/all?view=hub', fetchImpl);
   const rows = Array.isArray(json.hubRows) ? json.hubRows : [];
   return rows.map(parseHubRow).filter((r): r is HubRow => r !== null);
+}
+
+/** One map layer of one authority — GET /api/admin/city-mapping/hub/layers (Admin SDK on the server). */
+export async function loadHubLayer(authorityId: string, layer: HubFetchLayer, fetchImpl: typeof fetch = fetch): Promise<HubLayerPayload> {
+  const qs = new URLSearchParams({ authorityId, layer }).toString();
+  return parseLayerPayload(await getJson(`/api/admin/city-mapping/hub/layers?${qs}`, fetchImpl));
 }

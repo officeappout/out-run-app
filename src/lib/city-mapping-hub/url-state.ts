@@ -7,6 +7,7 @@
  */
 import { DEFAULT_HUB_FILTERS, HUB_SORT_KEYS, type HubFilters, type HubSortKey, type SortDir } from './filters';
 import { HUB_AUTHORITY_TYPES, HUB_GAP_KEYS } from './rows';
+import { DEFAULT_CHIP_LAYERS, HUB_CHIP_LAYERS, isHubChipLayer, type HubChipLayer } from './layers';
 
 export type HubMobileView = 'table' | 'map' | 'gaps';
 
@@ -15,6 +16,8 @@ export interface HubUrlState extends HubFilters {
   sort: HubSortKey;
   dir: SortDir;
   view: HubMobileView;
+  /** Enabled map layer chips (§3.3 defaults when the param is absent). */
+  layers: HubChipLayer[];
 }
 
 export const DEFAULT_HUB_URL_STATE: HubUrlState = {
@@ -23,6 +26,7 @@ export const DEFAULT_HUB_URL_STATE: HubUrlState = {
   sort: 'score',
   dir: 'asc',
   view: 'table',
+  layers: [...DEFAULT_CHIP_LAYERS],
 };
 
 const LEVELS = ['all', 'red', 'yellow', 'green', 'unmeasured'] as const;
@@ -52,8 +56,18 @@ export function parseHubUrlState(sp: { get(name: string): string | null }): HubU
     sort: pick(sp.get('sort'), HUB_SORT_KEYS, d.sort),
     dir: pick(sp.get('dir'), ['asc', 'desc'] as const, d.dir),
     view: pick(sp.get('view'), VIEWS, d.view),
+    layers: parseLayers(sp.get('layers')),
   };
 }
+
+/** Absent ⇒ defaults; present (even empty) ⇒ exactly the valid keys listed, in canonical order. */
+function parseLayers(v: string | null): HubChipLayer[] {
+  if (v == null) return [...DEFAULT_CHIP_LAYERS];
+  const set = new Set(v.split(',').filter(isHubChipLayer));
+  return HUB_CHIP_LAYERS.filter((k) => set.has(k));
+}
+
+const sameLayers = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
 /** Only non-default values are written, so the plain URL stays plain. */
 export function serializeHubUrlState(s: HubUrlState): string {
@@ -69,5 +83,6 @@ export function serializeHubUrlState(s: HubUrlState): string {
   if (s.sort !== d.sort) p.set('sort', s.sort);
   if (s.dir !== d.dir) p.set('dir', s.dir);
   if (s.view !== d.view) p.set('view', s.view);
+  if (!sameLayers(s.layers, d.layers)) p.set('layers', HUB_CHIP_LAYERS.filter((k) => s.layers.includes(k)).join(','));
   return p.toString();
 }
