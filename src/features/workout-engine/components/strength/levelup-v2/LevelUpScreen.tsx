@@ -22,6 +22,7 @@ import GainChipRow from './GainChipRow';
 import SaveStatusPill, { type SaveState } from './SaveStatusPill';
 import { useRingSequence } from './useRingSequence';
 import { deltaText, formatPercent, pickVariant, visibleChips, type LevelUpVariant } from './levelup-view-model';
+import LevelUpLemur, { type LevelUpLemurProps } from '../insights/LevelUpLemur';
 
 const EYEBROW: Record<LevelUpVariant, PlayerKey> = {
   gain: 'levelup.eyebrow.gain',
@@ -59,6 +60,11 @@ export interface LevelUpScreenProps {
   /** Absent → the share button is hidden (no share sheet on this screen). */
   onShare?: () => void;
   onContinue: () => void;
+  /**
+   * enable_workout_insights_v1: the workout the lemur talks about (canvas LV-1…LV-5). Absent →
+   * no lemur; present, the lemur still renders nothing while the flag is off.
+   */
+  insight?: Omit<LevelUpLemurProps, 'outcome' | 'isRecovery' | 'pending' | 'reducedMotion'>;
 }
 
 export default function LevelUpScreen({
@@ -71,6 +77,7 @@ export default function LevelUpScreen({
   onLevelUp,
   onShare,
   onContinue,
+  insight,
 }: LevelUpScreenProps) {
   const t = useT(player);
   const safeTop = useSafeAreaTop();
@@ -157,6 +164,9 @@ export default function LevelUpScreen({
         <p className={`transition-opacity duration-200 ${pending ? 'opacity-0' : 'opacity-100'} mt-1.5 text-[15px] leading-[22px] text-slate-600 dark:text-slate-400 text-center max-w-[320px]`}>{sub}</p>
         {shownOutcome && (
           <GainChipRow chips={visibleChips(shownOutcome.chips)} revealedIds={seq.revealedChipIds} reducedMotion={reducedMotion} />
+        )}
+        {insight && (
+          <LevelUpLemur {...insight} outcome={outcome} isRecovery={isRecovery} pending={pending} reducedMotion={reducedMotion} />
         )}
         <div className="flex-1" />
       </div>
