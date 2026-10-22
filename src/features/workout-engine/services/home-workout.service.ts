@@ -147,6 +147,7 @@ import { getDaysAway } from '@/lib/calm-return/days-away';
 import { resolveCalmReturn, type CalmReturnState } from '@/lib/calm-return/policy';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { readLiveFlag } from '@/lib/feature-flag-live';
+import { resolveProgressionPolicy } from '../logic/adaptive/policy';
 import { isBudgetLightModeEnabled } from '../budget-light/flag';
 import { applyBudgetLightToTrio, resolveTrioBudgetGate } from '../budget-light/trio-gate';
 import type {
@@ -1317,6 +1318,7 @@ async function generateHomeWorkoutTrioCore(
           pipeline.baseGeneratorContext.intentMode,
           pipeline.baseGeneratorContext.availableEquipment,
           pipeline.baseGeneratorContext.requiredDomains, // the session's areas (strict or program-derived)
+          pipeline.baseGeneratorContext.progressionPolicy,
         );
       } else if (cfg.postProcess === 'mobility_tag') {
         applyTagPreference(workout, 'mobility', sessionBlacklist);
@@ -1359,6 +1361,7 @@ async function generateHomeWorkoutTrioCore(
         minMain: minMainExercisesFor(effectiveTime),
         difficulty: workout.difficulty,
         activeProgramId: pipeline.baseGeneratorContext.activeProgramId,
+        progressionPolicy: pipeline.baseGeneratorContext.progressionPolicy,
       };
       const rescueNote = rescueEmptyMainBlock(workout, neverEmptyOpts);
       if (rescueNote) console.warn(`[NeverEmpty] empty main block rescued — ${rescueNote}`);
@@ -3216,6 +3219,12 @@ async function _buildSharedPipeline(
   }
   genPerfMark('#7 exercise-history (fan-out getDoc)');
 
+  // ── 5a-ter. Adaptive progression switches (3d/3a/3e — logic/adaptive/policy.ts) ─
+  // Read once for this generation; super admins preview every switch.
+  const progressionPolicy = resolveProgressionPolicy(
+    (userProfile.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin === true,
+  );
+
   // ── 5b. Base generator context (Sprint 3 integrity preserved) ────────
   const baseGeneratorContext: WorkoutGenerationContext = {
     availableTime,
@@ -3360,6 +3369,7 @@ async function _buildSharedPipeline(
     activeProgramId,
     availableEquipment,
     exerciseHistoryMap,
+    progressionPolicy,
   };
 
   // ── Build metadata context base for per-option title/description resolution ─

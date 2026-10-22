@@ -291,6 +291,7 @@ export function runHorizontalGuarantee(
             ...substituteExercise(
               workoutExercises[idx], substitute.exercise, resolveSubstituteMethod(substitute.exercise, context),
               repLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+              context.progressionPolicy,
             ),
             programLevel: repLevel,
             isOverLevel: repLevel > domainLevel,
@@ -344,6 +345,7 @@ export function runHorizontalGuarantee(
       ...substituteExercise(
         workoutExercises[idx], substitute.exercise, resolveSubstituteMethod(substitute.exercise, context),
         repLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+        context.progressionPolicy,
       ),
       programLevel: repLevel,
       isOverLevel: repLevel > domainLevel,
@@ -510,6 +512,7 @@ export function runVerticalFoundationGuarantee(
       ...substituteExercise(
         workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
         repLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+        context.progressionPolicy,
       ),
       programLevel: repLevel,
       isOverLevel: repLevel > domainLevel,
@@ -628,6 +631,7 @@ export function runFullBodyDomainGuarantee(
         ...substituteExercise(
           workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
           injectedLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+          context.progressionPolicy,
         ),
         programLevel:  injectedLevel,
         isOverLevel:   injectedLevel > domainLevel,
@@ -856,6 +860,7 @@ function validateCorePromise(
     ...substituteExercise(
       next[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
       injectedLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+      context.progressionPolicy,
     ),
     programLevel: injectedLevel,
     isOverLevel: injectedLevel > domainLevel,
@@ -1115,6 +1120,7 @@ export function runSkillRepresentationGuarantee(
       ...substituteExercise(
         workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
         sub.level - skillLevel, difficulty, context.levelProgressPercent, context.intentMode,
+        context.progressionPolicy,
       ),
       programLevel: sub.level,
       isOverLevel: sub.level > skillLevel,
