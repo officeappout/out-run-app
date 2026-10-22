@@ -14,7 +14,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, ChevronDown, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain } from 'lucide-react';
+import { Bed, Check, ChevronDown, CalendarDays, Footprints } from 'lucide-react';
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
@@ -28,6 +28,7 @@ import {
   type DaySessionInput,
 } from '@/features/home/utils/day-display.utils';
 import { useTrackRingColors } from '@/features/home/hooks/useTrackRingColors';
+import { RUN_CATEGORY_COLORS, getRunCategoryColor, getRunCategoryIcon } from '@/features/home/utils/run-category-icon';
 import { capsuleBackground, streakRuns, FLAME_TONES, type FlameTone, type StreakCell } from '@/components/ui/v2/streak';
 import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
@@ -257,25 +258,8 @@ const MINI_RING_GOALS = {
 } as const;
 
 // ── Running Workout Category → Color (Admin Panel sync) ──
-const CATEGORY_COLORS: Record<string, string> = {
-  easy_run:             '#4CAF50',
-  long_run:             '#2E7D32',
-  short_intervals:      '#E11D48',
-  long_intervals:       '#0D9488',
-  fartlek_easy:         '#CE93D8',
-  fartlek_structured:   '#AB47BC',
-  tempo:                '#9C27B0',
-  hill_long:            '#FF7043',
-  hill_short:           '#EF6C00',
-  hill_sprints:         '#DC2626',
-  strides:              '#00BAF7',
-  recovery:             '#B0BEC5',
-};
-
-function getCategoryColor(category: string | undefined): string {
-  if (!category) return '#00BAF7';
-  return CATEGORY_COLORS[category] ?? '#00BAF7';
-}
+const CATEGORY_COLORS = RUN_CATEGORY_COLORS;
+const getCategoryColor = getRunCategoryColor;
 
 function getCategoryLabel(category: string | undefined): string {
   if (!category) return 'אימון ריצה';
@@ -759,23 +743,7 @@ function CompactWorkoutCard({ entry }: { entry: RunningScheduleEntry }) {
 // RUNNING DAY ICON (color-coded for calendar strip)
 // ============================================================================
 
-function getCategoryIcon(category: string | undefined, className: string) {
-  switch (category) {
-    case 'short_intervals':
-    case 'long_intervals':
-      return <Zap className={className} />;
-    case 'tempo':
-      return <Timer className={className} />;
-    case 'long_run':
-      return <TrendingUp className={className} />;
-    case 'hill_long':
-    case 'hill_short':
-    case 'hill_sprints':
-      return <Mountain className={className} />;
-    default:
-      return <Footprints className={className} />;
-  }
-}
+const getCategoryIcon = getRunCategoryIcon;
 
 function RunningDayIcon({
   entry,
