@@ -106,6 +106,7 @@ import { calmCopy } from '@/lib/calm-return/surface';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useHasStreakCard } from '@/features/home/components/streak/useStreakCard';
+import StreakCelebrationHost from '@/features/streak-celebration/components/StreakCelebrationHost';
 import { setSplitDayFocusActive } from '@/features/workout-engine/services/split-decision/day-focus.switch';
 import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
@@ -3990,6 +3991,10 @@ export default function HomePage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* enable_streak_celebrations_v1: the streak celebration (once a day) + ?celebrate=streak.
+          Renders nothing while the flag is off. */}
+      <StreakCelebrationHost surface="home" />
 
       {/* ── Onboarding tutorial — Welcome drawer (entry mechanism, slice 1,
           06.10.2026, enableOnboardingTutorialV1). Only shown for the "new"
