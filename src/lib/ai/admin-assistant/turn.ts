@@ -128,9 +128,9 @@ export async function runAdminTurn(input: TurnInput, deps: TurnDeps): Promise<Tu
         const r = await deps.executeTool(tu.name, tu.input);
         deps.emit({ type: 'tool', name: tu.name, status: r.isError ? 'error' : 'done' });
         out.tools.push({ name: tu.name, input: JSON.stringify(tu.input ?? {}).slice(0, 300), resultChars: r.resultChars, isError: r.isError, truncated: r.truncated });
-        if (r.link) {
-          out.links.push(r.link);
-          deps.emit({ type: 'link', ...r.link });
+        for (const link of [...(r.link ? [r.link] : []), ...(r.links ?? [])]) {
+          out.links.push(link);
+          deps.emit({ type: 'link', ...link });
         }
         if (r.evidence) out.evidence.push(r.evidence);
         return { type: 'tool_result' as const, tool_use_id: tu.id, content: r.content, ...(r.isError ? { is_error: true } : {}) };

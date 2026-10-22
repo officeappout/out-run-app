@@ -193,6 +193,21 @@ export const ADMIN_TOOLS: AdminToolSpec[] = [
     minRole: 'super',
     dataTool: true,
   },
+  // ── one authority (city / council) ──
+  {
+    name: 'get_authority_overview',
+    description:
+      'Everything about ONE named authority (city, local or regional council): CRM pipeline status, isActiveClient, population, map inventory (layers, readiness), official routes by status (published / pending / archived / rejected / connectors), parks published/pending, registered users. query = the name as the admin wrote it (e.g. "שער הנגב") or an authority id. If several match it returns candidates — ask which one, or call again with the id. Also shows buttons to the city-mapping page and the authority CRM page. definitionId authority_overview.',
+    input_schema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'authority name (Hebrew) or id' } },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    zod: z.object({ query: z.string().trim().min(1).max(120) }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
 ];
 
 const BY_NAME = new Map(ADMIN_TOOLS.map((t) => [t.name, t]));

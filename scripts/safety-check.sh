@@ -210,6 +210,9 @@ AUTHORIZED_ROUTE_WRITERS=(
   # City-mapping hub H1: READ-ONLY official_routes geometry per authority for
   # the hub map layers route. No write verb; also on the migrated list.
   "src/lib/city-mapping-hub/layers.server.ts"
+  # Admin AI get_authority_overview (22.10.2026): READ-ONLY count() of one
+  # authority's official_routes by status. No write verb; also on the migrated list.
+  "src/lib/admin-analytics/authority-overview.server.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -244,6 +247,7 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "scripts/routes-nationwide/backfill-route-publish-status.ts"
   "src/lib/city-mapping-hub/read-hub-rows.server.ts"
   "src/lib/city-mapping-hub/layers.server.ts"
+  "src/lib/admin-analytics/authority-overview.server.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"
