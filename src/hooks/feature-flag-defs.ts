@@ -532,6 +532,11 @@ export const FLAG_DEFS = [
   // list rows get an expandable "פרטי התרגיל" (the exercise page's muscles / cues / equipment).
   // Fail-closed; super admins preview it. Off = byte-identical players.
   { key: 'enableStrengthDrawerV1', firestoreKey: 'enable_strength_drawer_v1', defaultValue: false, superAdminValue: true },
+  // Site QR links (22.10.2026) — /admin/links shows a card for the three fixed-id links the
+  // marketing site's QR codes point at (marketing_links/app-ios, app-android, app-smart): which
+  // exist, their clicks, and one button that creates the missing ones with today's store URLs.
+  // Admin-panel only; the redirect itself (/r/[id]) never reads this flag. Super admins see it.
+  { key: 'enableSiteQrLinks', firestoreKey: 'enable_site_qr_links', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
