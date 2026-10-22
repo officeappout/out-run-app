@@ -78,6 +78,68 @@ export function summarizeBackfill(plan: BackfillPlan): { byCity: Record<string, 
   return { byCity, skippedByReason };
 }
 
+// ── --skipped-by-doc-city (owner decision 22.10.2026) ──────────────────────
+// Owner-curated routes that cross into a neighbouring council fail the
+// boundary majority (below_majority) or contradict their own doc.city
+// (city_conflict). The owner curated them AS that city's routes, so the doc's
+// own `city` is the truth: resolve authorityId by an EXACT normalised-name
+// match (normalizeAuthorityName — the same one cityMatchesAuthority uses) to
+// exactly one authorities doc. Zero or >1 matches → still skipped + reported.
+// Never touches a doc that already has an authorityId; never writes `city`.
+
+export const DOC_CITY_ELIGIBLE_REASONS: ReadonlyArray<BackfillSkipReason> = ['below_majority', 'city_conflict'];
+
+export interface AuthorityName { id: string; name: string }
+
+export interface DocCityResolution {
+  id: string;
+  authorityId: string;
+  authorityName: string;
+  /** The doc's existing city — unchanged; the payload is exactly {authorityId}. */
+  city: string;
+  boundaryReason: BackfillSkipReason;
+  boundaryDetail: string;
+}
+
+export type DocCityUnresolvedReason = 'has_authority' | 'no_city' | 'no_match' | 'ambiguous';
+
+export interface DocCityUnresolved {
+  id: string;
+  city: string | null;
+  reason: DocCityUnresolvedReason;
+  boundaryReason: BackfillSkipReason;
+  boundaryDetail: string;
+  candidates: AuthorityName[];
+}
+
+export function resolveSkippedByDocCity(
+  docs: Array<Pick<BackfillRouteDoc, 'id' | 'authorityId' | 'city'>>,
+  skipped: BackfillSkip[],
+  authorities: AuthorityName[],
+): { resolved: DocCityResolution[]; unresolved: DocCityUnresolved[] } {
+  const byId = new Map(docs.map((d) => [d.id, d]));
+  const byName = new Map<string, AuthorityName[]>();
+  for (const a of authorities) {
+    const k = normalizeAuthorityName(String(a.name ?? ''));
+    if (!k) continue;
+    if (!byName.has(k)) byName.set(k, []);
+    byName.get(k)!.push(a);
+  }
+  const out = { resolved: [] as DocCityResolution[], unresolved: [] as DocCityUnresolved[] };
+  for (const s of skipped) {
+    if (!DOC_CITY_ELIGIBLE_REASONS.includes(s.reason)) continue;
+    const d = byId.get(s.id);
+    const city = str(d?.city) || null;
+    const base = { id: s.id, city, boundaryReason: s.reason, boundaryDetail: s.detail };
+    if (!d || str(d.authorityId)) { out.unresolved.push({ ...base, reason: 'has_authority', candidates: [] }); continue; }
+    if (!city) { out.unresolved.push({ ...base, reason: 'no_city', candidates: [] }); continue; }
+    const hits = byName.get(normalizeAuthorityName(city)) ?? [];
+    if (hits.length !== 1) { out.unresolved.push({ ...base, reason: hits.length ? 'ambiguous' : 'no_match', candidates: hits }); continue; }
+    out.resolved.push({ id: s.id, authorityId: hits[0].id, authorityName: hits[0].name, city, boundaryReason: s.reason, boundaryDetail: s.detail });
+  }
+  return out;
+}
+
 // ── city_registrations.adminRelationId fixes (regional councils whose OSM
 // relation name doesn't match the authority name — "הגליל העליון" vs OSM
 // "מועצה אזורית גליל עליון"). Owner-verified relation ids, 21.10.2026. ──────

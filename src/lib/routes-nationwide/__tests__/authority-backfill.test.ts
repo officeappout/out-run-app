@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bboxOfBoundary, cityMatchesAuthority, planAuthorityBackfill, summarizeBackfill } from '../authority-backfill';
+import { bboxOfBoundary, cityMatchesAuthority, planAuthorityBackfill, resolveSkippedByDocCity, summarizeBackfill } from '../authority-backfill';
 import type { AuthorityBoundary } from '../../dataset-import/authority-assign';
 import { authorityPayload } from '../../../../scripts/routes-nationwide/lib/authority-apply.node';
 
@@ -66,5 +66,64 @@ describe('authorityPayload (write-site chokepoint)', () => {
   it('rejects an unknown authority and a city change (§23 lock)', () => {
     expect(() => authorityPayload({ ...base, authorityId: 'nope', city: 'x' }, known)).toThrow(/not a known authority/);
     expect(() => authorityPayload({ ...base, authorityId: 'tlv', city: 'רמת גן', existingCity: 'תל אביב-יפו' }, known)).toThrow(/locked once set/);
+  });
+});
+
+describe('resolveSkippedByDocCity (--skipped-by-doc-city)', () => {
+  const auths = [
+    { id: 'zy', name: 'זכרון יעקב' },
+    { id: 'tlv', name: 'תל אביב-יפו' },
+    { id: 'hk', name: 'חוף הכרמל' },
+    { id: 'dupA', name: 'כפר כלשהו' },
+    { id: 'dupB', name: 'מועצה מקומית כפר כלשהו' },
+  ];
+  const skip = (id: string, reason: 'below_majority' | 'city_conflict' | 'no_path' | 'has_authority' = 'city_conflict') =>
+    ({ id, reason, city: null, detail: `detail-${id}` });
+
+  it('resolves an exact (normalised) doc.city match for below_majority and city_conflict, payload city untouched', () => {
+    const r = resolveSkippedByDocCity(
+      [{ id: 'a', city: 'זכרון יעקב' }, { id: 'b', city: 'תל אביב יפו' }],
+      [skip('a', 'city_conflict'), skip('b', 'below_majority')],
+      auths,
+    );
+    expect(r.unresolved).toEqual([]);
+    expect(r.resolved).toEqual([
+      { id: 'a', authorityId: 'zy', authorityName: 'זכרון יעקב', city: 'זכרון יעקב', boundaryReason: 'city_conflict', boundaryDetail: 'detail-a' },
+      { id: 'b', authorityId: 'tlv', authorityName: 'תל אביב-יפו', city: 'תל אביב יפו', boundaryReason: 'below_majority', boundaryDetail: 'detail-b' },
+    ]);
+    expect(authorityPayload({ collection: 'official_routes', id: 'a', authorityId: 'zy', existingCity: 'זכרון יעקב' }, new Set(['zy']))).toEqual({ authorityId: 'zy' });
+  });
+
+  it('zero matches → still skipped (no_match); no city → no_city; a substring is not a match', () => {
+    const r = resolveSkippedByDocCity(
+      [{ id: 'a', city: 'עיר שאינה קיימת' }, { id: 'b' }, { id: 'c', city: 'זכרון' }],
+      [skip('a'), skip('b', 'below_majority'), skip('c')],
+      auths,
+    );
+    expect(r.resolved).toEqual([]);
+    expect(r.unresolved.map((u) => [u.id, u.reason])).toEqual([['a', 'no_match'], ['b', 'no_city'], ['c', 'no_match']]);
+  });
+
+  it('ambiguous (>1 authority with the same normalised name) → still skipped, candidates reported', () => {
+    const r = resolveSkippedByDocCity([{ id: 'a', city: 'כפר כלשהו' }], [skip('a')], auths);
+    expect(r.resolved).toEqual([]);
+    expect(r.unresolved[0]).toMatchObject({ id: 'a', reason: 'ambiguous' });
+    expect(r.unresolved[0].candidates.map((c) => c.id).sort()).toEqual(['dupA', 'dupB']);
+  });
+
+  it('never overrides an existing authorityId and ignores other skip reasons', () => {
+    const r = resolveSkippedByDocCity(
+      [{ id: 'a', authorityId: 'hk', city: 'זכרון יעקב' }, { id: 'b', city: 'זכרון יעקב' }, { id: 'c', authorityId: 'hk', city: 'זכרון יעקב' }],
+      [skip('a', 'city_conflict'), skip('b', 'no_path'), skip('c', 'has_authority')],
+      auths,
+    );
+    expect(r.resolved).toEqual([]);
+    expect(r.unresolved.map((u) => [u.id, u.reason])).toEqual([['a', 'has_authority']]);
+  });
+
+  it('end-to-end with the planner: a boundary city_conflict gets the doc.city authority', () => {
+    const plan = planAuthorityBackfill([{ id: 'r', city: 'תל אביב-יפו', coords: line(34.011, 34.019) }], [A, B]);
+    const r = resolveSkippedByDocCity([{ id: 'r', city: 'תל אביב-יפו' }], plan.skipped, [{ id: 'tlv', name: 'תל אביב-יפו' }, { id: 'rg', name: 'רמת גן' }]);
+    expect(r.resolved).toEqual([expect.objectContaining({ id: 'r', authorityId: 'tlv', boundaryReason: 'city_conflict' })]);
   });
 });
