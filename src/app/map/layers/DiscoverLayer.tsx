@@ -2062,7 +2062,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
           // session mode + the saved doc file a walking commute as
           // walking (cycling falls back to 'running' — no pipeline yet).
           useRunningPlayer.getState().setActivityType(
-            activity === 'walking' ? 'walking' : 'running',
+            // cycling-fixes-v1 (owner approved 22.10.2026)
+            activity === 'walking' ? 'walking' : mapFeatureFlags.enableCyclingFixesV1 && activity === 'cycling' ? 'cycling' : 'running',
           );
           logic.setFocusedRoute(route);
           setMapMode('idle');
@@ -2330,7 +2331,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   // into this run.
                   useRunningPlayer.getState().clearCommuteContext();
                   useRunningPlayer.getState().setActivityType(
-                    compiled.route.activityType === 'walking' ? 'walking' : 'running',
+                    // cycling-fixes-v1 (owner approved 22.10.2026)
+                    compiled.route.activityType === 'walking' ? 'walking' : mapFeatureFlags.enableCyclingFixesV1 && compiled.route.activityType === 'cycling' ? 'cycling' : 'running',
                   );
                   logic.handleActivityChange(
                     compiled.route.activityType === 'cycling' ? 'cycling' :

@@ -9,6 +9,8 @@
  *   them into the generic stop-candidate search).
  */
 
+import { CYCLING_SPEED_KMH, CYCLING_KCAL_PER_KM } from '@/lib/cycling-pace';
+
 export type DrawerActivity = 'running' | 'walking' | 'cycling';
 export type GoalType = 'time' | 'distance' | 'calories';
 
@@ -38,8 +40,8 @@ export interface DrawerGoal {
  * profile exists to ask for instead), and running/walking shared one
  * calorie rate despite this table already distinguishing them (70 vs 50).
  */
-export const SPEED_KMH: Record<DrawerActivity, number> = { cycling: 20, running: 10, walking: 5 };
-export const KCAL_PER_KM: Record<DrawerActivity, number> = { cycling: 25, running: 70, walking: 50 };
+export const SPEED_KMH: Record<DrawerActivity, number> = { cycling: CYCLING_SPEED_KMH, running: 10, walking: 5 };
+export const KCAL_PER_KM: Record<DrawerActivity, number> = { cycling: CYCLING_KCAL_PER_KM, running: 70, walking: 50 };
 const MIN_TARGET_KM = 0.5;
 
 /** Convert the active goal to a target route length (km). */

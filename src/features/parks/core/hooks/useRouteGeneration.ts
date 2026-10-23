@@ -175,7 +175,7 @@ export function useRouteGeneration(
         .filter(r => {
           // Untyped routes stay eligible (as before); walking/running match
           // the whole on-foot family (phase 1.3), cycling stays strict.
-          const actOk = !routeHasActivity(r) || routeMatchesActivity(r, act);
+          const actOk = !routeHasActivity(r) || routeMatchesActivity(r, act, readLiveFlag('enableCyclingFixesV1'));
           const distOk = Math.abs((r.distance || 0) - targetKm) <= targetKm * 0.6;
           return actOk && distOk;
         })

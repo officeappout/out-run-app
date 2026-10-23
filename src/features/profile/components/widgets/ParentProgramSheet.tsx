@@ -44,6 +44,8 @@ import { domainTypeForSlug } from './program-groups.utils';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface ParentProgramSheetProps {
   /** The parent's raw id or slug; null = closed. */
@@ -63,11 +65,9 @@ interface ChildRow {
   excludedFromAverage: boolean;
 }
 
-export const PARENT_SHEET_EXPLAINER =
-  'לתוכנית אב אין מפת התקדמות משלה. ההתקדמות נמדדת בכל תוכנית בת, והרמה כאן היא הממוצע שלהן.';
-
 export default function ParentProgramSheet({ parentId, onClose, v2 = false }: ParentProgramSheetProps) {
   const router = useRouter();
+  const t = useT(profileNs);
   const profile = useUserStore((s) => s.profile);
   const [mounted, setMounted] = useState(false);
   // A child that is itself a parent re-targets the sheet; reset when the caller opens a new one.
@@ -193,19 +193,22 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
 
   const content = (
     <div className="px-5 pb-2 space-y-5">
-      <p className={c.body}>{PARENT_SHEET_EXPLAINER}</p>
+      <p className={c.body}>{t('parentProgram.explainer')}</p>
 
       {assessed.length > 0 && (
         <div className="space-y-2">
-          <p className={c.label}>תוכניות בנות</p>
+          <p className={c.label}>{t('parentProgram.children.title')}</p>
           {assessed.map((r) => (
             <button key={r.slug} type="button" onClick={() => openChild(r.slug)} className={c.row}>
               <span className={c.icon}>{getProgramIcon(r.iconKey, 'w-5 h-5')}</span>
               <div className="min-w-0 flex-1">
                 <p className={c.rowName}>{r.name}</p>
                 <p className={c.rowMeta}>
-                  רמה {r.level}{r.maxLevel ? `/${r.maxLevel}` : ''}
-                  {r.excludedFromAverage ? ' · לא נכלל בממוצע' : ''}
+                  {t('parentProgram.children.level', {
+                    level: String(r.level),
+                    max: r.maxLevel ? String(r.maxLevel) : 'none',
+                    excluded: r.excludedFromAverage ? 'yes' : 'no',
+                  })}
                 </p>
               </div>
               <span className={c.pct}>{r.percent}%</span>
@@ -217,16 +220,16 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
 
       {unassessed.length > 0 && (
         <div className="space-y-2">
-          <p className={c.label}>עוד לא בדקת רמה</p>
+          <p className={c.label}>{t('parentProgram.unassessed.title')}</p>
           {unassessed.map((r) => (
             <div key={r.slug} className={c.row}>
               <span className="text-gray-400">{getProgramIcon(r.iconKey, 'w-5 h-5')}</span>
               <div className="min-w-0 flex-1">
                 <p className={c.rowName}>{r.name}</p>
-                <p className={c.rowMeta}>האימונים לא יכללו את התוכנית עד שתבדקו רמה</p>
+                <p className={c.rowMeta}>{t('parentProgram.unassessed.note')}</p>
               </div>
               <button type="button" onClick={() => checkLevel(r.slug)} className={c.cta}>
-                בדקו רמה
+                {t('parentProgram.unassessed.cta')}
               </button>
             </div>
           ))}
@@ -234,7 +237,7 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
       )}
 
       <button type="button" onClick={onClose} className={c.close}>
-        סגירה
+        {t('parentProgram.close')}
       </button>
     </div>
   );
@@ -259,10 +262,10 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
               <span className={c.icon}>{getProgramIcon(parentMeta?.iconKey ?? parentSlug ?? undefined, 'w-6 h-6')}</span>
               <div className="min-w-0">
                 <h2 className={`truncate ${c.title}`}>{parentName}</h2>
-                <p className={c.sub}>{avg != null ? `רמה ${avg} (ממוצע)` : 'עוד אין רמה'}</p>
+                <p className={c.sub}>{t('parentProgram.sub', { avg: avg != null ? String(avg) : 'none' })}</p>
               </div>
             </div>
-            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+            <IconButton aria-label={t('parentProgram.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
             </IconButton>
           </div>
@@ -307,13 +310,13 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
                   <span className={c.icon}>{getProgramIcon(parentMeta?.iconKey ?? parentSlug ?? undefined, 'w-6 h-6')}</span>
                   <div className="min-w-0">
                     <h2 className={`truncate ${c.title}`}>{parentName}</h2>
-                    <p className={c.sub}>{avg != null ? `רמה ${avg} (ממוצע)` : 'עוד אין רמה'}</p>
+                    <p className={c.sub}>{t('parentProgram.sub', { avg: avg != null ? String(avg) : 'none' })}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  aria-label="סגירה"
+                  aria-label={t('parentProgram.close')}
                   className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-gray-100 active:bg-gray-200"
                 >
                   <X className="w-4 h-4 text-gray-500" />

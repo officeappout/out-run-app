@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { RunIcon, WalkingIcon } from '@/features/content/programs/core/program-icon.util';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { readLiveFlag } from '@/lib/feature-flag-live';
+import { playerActivityForPick, rideModeOn } from '@/features/workout-engine/players/running/lib/ride-mode';
 import { useUiGender } from '@/hooks/useUiGender';
 import { pickGendered } from '@/lib/i18n/gender-copy';
 import { FREE_RUN_COPY } from './free-run/free-run-gender-copy';
@@ -1473,9 +1475,10 @@ export default function FreeRunDrawer({
     // Push the chip selection into the running player so the session mode and
     // the saved workout doc reflect walking as walking. Cycling has a player
     // mode only under enable_home_v2; without the flag it falls back to
-    // 'running', same as before.
+    // 'running', same as before. cycling-fixes-v1 (enable_cycling_fixes_v1) opens
+    // the ride mode to everyone — flag off ⇒ exactly the line above.
     player.setActivityType(
-      selectedActivity === 'walking' ? 'walking' : v2 && selectedActivity === 'cycling' ? 'cycling' : 'running',
+      playerActivityForPick(selectedActivity, rideModeOn(v2, readLiveFlag('enableCyclingFixesV1'))),
     );
     if (goalType === 'time') {
       player.setSessionGoal({ type: 'time', value: timeValue * 60 });

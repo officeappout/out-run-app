@@ -29,21 +29,23 @@ import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 
 /** Fixed vocabulary for the training-tags chip picker — first pass, easy to
  * adjust (plain string literals, no migration needed to add/remove one). */
 export const TRAINING_TAG_OPTIONS: readonly { id: string; label: string }[] = [
-  { id: 'loves_park', label: 'אוהב פארק' },
-  { id: 'morning', label: 'בוקר' },
-  { id: 'evening', label: 'מתאמן בערב' },
-  { id: 'beginner', label: 'מתחיל' },
-  { id: 'intermediate', label: 'רמת ביניים' },
-  { id: 'advanced', label: 'מתקדם' },
-  { id: 'home', label: 'בית' },
-  { id: 'running', label: 'ריצה' },
-  { id: 'front_lever', label: 'פרונט לבר' },
-  { id: 'muscle_up', label: 'מאסל אפ' },
+  { id: 'loves_park', label: 'אוהב פארק' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'morning', label: 'בוקר' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'evening', label: 'מתאמן בערב' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'beginner', label: 'מתחיל' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'intermediate', label: 'רמת ביניים' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'advanced', label: 'מתקדם' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'home', label: 'בית' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'running', label: 'ריצה' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'front_lever', label: 'פרונט לבר' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'muscle_up', label: 'מאסל אפ' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
 ];
 
 export function usePersonalInfoEditor() {
@@ -51,6 +53,7 @@ export function usePersonalInfoEditor() {
   const { profile } = useUserStore();
   const userId = profile?.id ?? auth.currentUser?.uid ?? null;
   const { showToast } = useToast();
+  const t = useT(profileNs);
 
   const [editName, setEditName] = useState('');
   const [editWeight, setEditWeight] = useState('');
@@ -61,7 +64,7 @@ export function usePersonalInfoEditor() {
 
   const toggleTrainingTag = useCallback((tagId: string) => {
     setEditTrainingTags((prev) =>
-      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId],
+      prev.includes(tagId) ? prev.filter((tag) => tag !== tagId) : [...prev, tagId],
     );
   }, []);
 
@@ -206,7 +209,7 @@ export function usePersonalInfoEditor() {
       // appended collection. The user's chip selection IS the full value.
       const currentTags = profile?.core?.trainingTags ?? [];
       const tagsChanged = editTrainingTags.length !== currentTags.length
-        || editTrainingTags.some((t) => !currentTags.includes(t));
+        || editTrainingTags.some((tag) => !currentTags.includes(tag));
       if (tagsChanged) {
         update['core.trainingTags'] = editTrainingTags;
       }
@@ -216,17 +219,17 @@ export function usePersonalInfoEditor() {
         await updateDoc(doc(db, 'users', uid), update);
         const fresh = await getUserFromFirestore(uid);
         if (fresh) useUserStore.setState({ profile: fresh });
-        showToast('success', 'הפרטים עודכנו בהצלחה');
+        showToast('success', t('personalInfo.saved'));
       }
       return true;
     } catch (e) {
       console.error('[usePersonalInfoEditor] failed to save personal details', e);
-      showToast('error', 'שגיאה בשמירת הפרטים');
+      showToast('error', t('personalInfo.saveFailed'));
       return false;
     } finally {
       setEditSaving(false);
     }
-  }, [editName, editWeight, editDob, editNeighborhoodId, editBio, editTrainingTags, userId, profile, editSaving, showToast]);
+  }, [editName, editWeight, editDob, editNeighborhoodId, editBio, editTrainingTags, userId, profile, editSaving, showToast, t]);
 
   /** core.authorityId is client-write-locked — city editing routes through
    * /explorer (the current location-edit flow) instead of this hook's own
