@@ -253,6 +253,11 @@ if (missingPackages.size > 0) {
 // src/lib/i18n/__tests__/functions-i18n-mirror.test.ts,
 // src/features/user/scheduling/utils/__tests__/recurring-day.core.test.ts,
 // src/features/activity/lib/__tests__/streak-day.core.test.ts), so drift can't merge.
+// Mirrored files that may import ONE hand-written sibling, because the sibling exists in both trees under the
+// same relative name with the same API: push-library.core.ts → ./push-copy-t (i18n wave 2A).
+const MIRROR_SIBLING_IMPORTS = {
+  'src/features/notifications/push-library/push-library.core.ts': ['./push-copy-t'],
+};
 const COMMITTED_MIRRORS = {
   // The ONE step-goal resolver — app + stepGoalNudgeScheduler / pushOutcomeSweeper.
   'src/features/activity/lib/step-goal.ts': 'functions/src/shared/step-goal.ts',
@@ -272,7 +277,10 @@ const COMMITTED_MIRRORS = {
 };
 for (const [from, to] of Object.entries(COMMITTED_MIRRORS)) {
   const src = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');
-  if (IMPORT_RE.test(src)) {
+  // Import-free, except for the sibling twins listed in MIRROR_SIBLING_IMPORTS (each side ships its own file by that name).
+  const allowed = MIRROR_SIBLING_IMPORTS[from] || [];
+  const offending = [...src.matchAll(IMPORT_RE)].filter((m) => !allowed.includes(m[1] || m[2] || m[3]));
+  if (offending.length > 0) {
     console.error(`[vendor-copy] ${from} must stay import-free to be mirrored into functions/`);
     hadError = true;
   }
