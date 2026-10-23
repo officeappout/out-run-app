@@ -3,7 +3,9 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
-import { INTRO_IMG, LANDING_COPY } from '../intro-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
+import { INTRO_IMG, landingCopy } from '../intro-copy';
 import { EASE_CSS, EASE_OUT, tween } from '../story-timeline';
 
 export interface IntroLandingProps {
@@ -25,6 +27,7 @@ export interface IntroLandingProps {
  * its safe areas once, and its type / CTA scale with the phone's height.
  */
 export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
+  const copy = landingCopy(useT(onboardingNs));
   const reduce = !!useReducedMotion();
   const up = (delay: number) =>
     tween({ opacity: 0, y: 12 }, { opacity: 1, y: 0 }, { duration: 0.7, ease: EASE_CSS, delay }, reduce);
@@ -40,7 +43,7 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <motion.img
           src={`${INTRO_IMG}/city-portrait.jpg`}
-          alt={LANDING_COPY.cityAlt}
+          alt={copy.cityAlt}
           className="absolute inset-0 h-full w-full object-cover object-center"
           style={{ transformOrigin: '50% 60%' }}
           initial={reduce ? false : { scale: 1.06 }}
@@ -62,12 +65,12 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
         {...up(0.5)}
       >
         <h1 className="m-0 flex flex-wrap items-center justify-center gap-1 text-[clamp(26px,4.2dvh,32px)] font-bold leading-[1.25] !tracking-[-0.02em]">
-          <span>{LANDING_COPY.titlePre}</span>
+          <span>{copy.titlePre}</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${INTRO_IMG}/logo-out.svg`} alt="OUT" className="mt-0.5 h-[clamp(28px,4.4dvh,34px)] w-auto" />
         </h1>
         <p className="m-0 max-w-[16rem] text-[clamp(15px,2.2dvh,17px)] font-semibold leading-[1.45] text-slate-700">
-          {LANDING_COPY.sub}
+          {copy.sub}
         </p>
       </motion.div>
 
@@ -82,7 +85,7 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
           className="h-[clamp(48px,6.6dvh,56px)] w-full max-w-md text-[17px] !font-bold text-v2-on-cta"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          {LANDING_COPY.cta}
+          {copy.cta}
         </BrandCtaButton>
         <button
           type="button"
@@ -90,7 +93,7 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
           className="py-1 text-sm font-bold text-v2-muted underline underline-offset-[3px]"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          {LANDING_COPY.login}
+          {copy.login}
         </button>
       </motion.div>
     </div>

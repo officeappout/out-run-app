@@ -459,3 +459,12 @@ src/features/parks/core/components/WorkoutPreferencesModal.tsx
 src/features/parks/core/components/GlobalDetailOverlay.tsx
 src/features/parks/core/components/RouteQualityBadges.tsx
 src/features/parks/core/components/coach/ParkCoachAnchor.tsx
+
+# batch ak (namespaces legal + onboarding) — legal documents (termsDoc.* / privacyDoc.* / modal.*), the entry-flow
+# intro copy (intro.*), the root page (landing.*) and the running-goal copy helpers (runningGoals.*).
+# legal-content.ts keeps one marked date label (LEGAL_LAST_UPDATED_HE); /gateway is NOT migrated (being retired).
+src/features/legal/legal-content.ts
+src/features/legal/components/LegalDocModal.tsx
+src/features/user/onboarding/intro/
+src/app/page.tsx
+src/features/user/onboarding/constants/running-goal-visuals.ts

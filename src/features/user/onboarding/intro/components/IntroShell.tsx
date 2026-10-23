@@ -2,7 +2,9 @@
 
 import React from 'react';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
-import { INTRO_UI } from '../intro-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
+import { introUi } from '../intro-copy';
 import { IntroCanvas } from './IntroCanvas';
 import { INTRO_BAR_CSS } from '../canvas-fit';
 
@@ -25,6 +27,7 @@ export interface IntroShellProps {
  * intro screen ever scrolls.
  */
 export function IntroShell({ cta, onCta, onSkip, children }: IntroShellProps) {
+  const ui = introUi(useT(onboardingNs));
   return (
     <div
       className="fixed inset-0 isolate overflow-hidden overscroll-none bg-white text-v2-ink"
@@ -44,7 +47,7 @@ export function IntroShell({ cta, onCta, onSkip, children }: IntroShellProps) {
           className="absolute left-3 z-20 rounded-full px-3 py-1.5 text-[13px] font-semibold text-v2-muted active:opacity-60"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 6px)' }}
         >
-          {INTRO_UI.skip}
+          {ui.skip}
         </button>
       )}
 
