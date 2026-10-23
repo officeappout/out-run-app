@@ -151,6 +151,15 @@ async function readAreaName(ctx: ServerToolContext): Promise<string | null> {
 export interface ProgramIndex {
   resolveSlug: (id: string) => string;
   subProgramsBySlug: Record<string, string[]>;
+  /** programs/{id}.name when it is Hebrew, by raw id and by slug (the sheet's last-resort name). */
+  docNameOf: (idOrSlug: string) => string | null;
+}
+
+/** A program doc's display name, only when it is Hebrew (Kelly answers in Hebrew only). */
+export function hebrewProgramName(raw: unknown): string | null {
+  const v = typeof raw === 'string' ? raw : raw && typeof (raw as { he?: unknown }).he === 'string' ? (raw as { he: string }).he : null;
+  const t = v?.replace(/\s+/g, ' ').trim() ?? '';
+  return t && /[\u05D0-\u05EA]/.test(t) && !/[A-Za-z]/.test(t) ? t.slice(0, 40) : null;
 }
 
 const PROGRAM_INDEX_TTL_MS = 10 * 60_000;
@@ -174,18 +183,24 @@ export async function loadProgramIndex(db: Firestore, now = Date.now()): Promise
   try {
     const snap = await db.collection('programs').get();
     const idToSlug = new Map<string, string>();
+    const docNames = new Map<string, string>();
     const rawSubs: Array<[string, string[]]> = [];
     for (const d of snap.docs) {
       const data = d.data() as Record<string, unknown>;
       const slug = slugOfProgram(d.id, data);
       idToSlug.set(d.id, slug);
+      const he = hebrewProgramName(data.name);
+      if (he) {
+        docNames.set(d.id, he);
+        if (!docNames.has(slug)) docNames.set(slug, he);
+      }
       const subs = Array.isArray(data.subPrograms) ? data.subPrograms.filter((x): x is string => typeof x === 'string') : [];
       if (subs.length) rawSubs.push([slug, subs]);
     }
     const resolveSlug = (id: string) => idToSlug.get(id) ?? id;
     const subProgramsBySlug: Record<string, string[]> = {};
     for (const [slug, subs] of rawSubs) subProgramsBySlug[slug] = subs.map(resolveSlug);
-    const index = { resolveSlug, subProgramsBySlug };
+    const index = { resolveSlug, subProgramsBySlug, docNameOf: (id: string) => docNames.get(id) ?? null };
     programIndexCache = { at: now, index };
     return index;
   } catch (err) {

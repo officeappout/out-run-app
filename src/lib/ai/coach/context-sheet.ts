@@ -318,6 +318,13 @@ export interface BuildSheetInput {
   resolveSlug?: (id: string) => string;
   /** Parent slug → subPrograms (slug space), for the assessment gaps. */
   subProgramsBySlug?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * The program doc's own Hebrew name, by raw id or slug (programs/{id}.name). Owner review
+   * 18.10 / 23.10.2026: two programs at levels 21 and 15 ("פלג גוף עליון", "עליית כוח") had no
+   * entry in the static name table, so the sheet left them out and Kelly called them
+   * "שתי תוכניות בלי שם". Absent = the static table only.
+   */
+  docNameOf?: (idOrSlug: string) => string | null;
   /** Schedule advisor plan section (flag on only). */
   plan?: SheetPlan;
   /**
@@ -353,7 +360,8 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
   const nameOf = (id: string): string | null => {
     if (programName(id)) return programName(id);
     try {
-      return i.resolveSlug ? programName(i.resolveSlug(id)) : null;
+      const bySlug = i.resolveSlug ? programName(i.resolveSlug(id)) : null;
+      return bySlug ?? i.docNameOf?.(id) ?? null;
     } catch {
       return null;
     }
@@ -438,7 +446,7 @@ export function summarizeProgress(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Firestore document data, read through field guards
   profile: Record<string, any>,
   now: Date,
-  programIndex?: Pick<BuildSheetInput, 'resolveSlug' | 'subProgramsBySlug'>,
+  programIndex?: Pick<BuildSheetInput, 'resolveSlug' | 'subProgramsBySlug' | 'docNameOf'>,
 ): ProgressSummary {
   const sheet = buildUserContextSheet({ profile, workouts: [], weekSchedule: [], todayKey: '', areaName: null, now, ...programIndex });
   const rows = workouts.map(sheetWorkout).filter((x): x is SheetWorkout => !!x);

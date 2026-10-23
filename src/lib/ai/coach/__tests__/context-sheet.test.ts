@@ -126,3 +126,19 @@ describe('helpers', () => {
     expect(p.byType.strength).toEqual({ workouts: 2, minutes: 30 });
   });
 });
+
+describe('programs named by their own doc (owner: "שתי תוכניות בלי שם" at levels 21 and 15)', () => {
+  const NOW2 = new Date('2026-10-23T09:00:00Z');
+  const profile = { progression: { tracks: { Xa9rawId1: { currentLevel: 21 }, Kq2rawId2: { currentLevel: 15 }, push: { currentLevel: 12 } } } };
+  it('a raw-id program with no static name takes its Hebrew doc name instead of being dropped', () => {
+    const docNames: Record<string, string> = { Xa9rawId1: 'פלג גוף עליון', Kq2rawId2: 'עליית כוח' };
+    const s = buildUserContextSheet({ profile, workouts: [], weekSchedule: [], todayKey: '', areaName: null, now: NOW2, resolveSlug: (id) => id, docNameOf: (id) => docNames[id] ?? null });
+    expect(s.programs.map((p) => [p.name, p.level])).toEqual(
+      expect.arrayContaining([['פלג גוף עליון', 21], ['עליית כוח', 15]]),
+    );
+  });
+  it('without a doc name it is still left out (never a raw id to the user)', () => {
+    const s = buildUserContextSheet({ profile, workouts: [], weekSchedule: [], todayKey: '', areaName: null, now: NOW2 });
+    expect(s.programs.some((p) => p.level === 21)).toBe(false);
+  });
+});
