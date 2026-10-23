@@ -331,6 +331,14 @@ export default function CityMappingPage() {
         </p>
       </div>
 
+      <Link
+        href="/admin/city-mapping/hub"
+        className="flex items-center justify-between gap-3 rounded-2xl border-2 border-teal-300 bg-teal-50 px-5 py-4 text-sm font-black text-teal-900 hover:bg-teal-100 transition-colors"
+      >
+        <span>פתח את מרכז מיפוי הערים (מפה + טבלה + אישור)</span>
+        <ExternalLink size={16} />
+      </Link>
+
       {/* City picker */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-3">
         <div className="flex items-start gap-3">

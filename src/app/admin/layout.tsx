@@ -890,6 +890,9 @@ function AdminLayoutInner({
                 return showAuthorityManagerLink;
             case 'cityMappingLink':
                 return showCityMappingLink;
+            case 'cityMappingHubLink':
+                // live flag value (no super-admin override): the hub page itself shows "off" otherwise
+                return showCityMappingLink && !!rawFlags.enableCityMappingHub;
         }
     };
     /** undefined = SidebarLink's own default highlight */
