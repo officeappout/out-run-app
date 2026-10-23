@@ -12,8 +12,8 @@ import { makeT } from '../t';
 const t = makeT('he', library);
 
 describe('library sharedWorkout.* — key count', () => {
-  it('has the keys this batch added', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('sharedWorkout.'))).toHaveLength(29);
+  it('has the keys this batch added (29 originals + 13 `sharedWorkout.link.*`, pinned in shared-workout-view.test.ts)', () => {
+    expect(Object.keys(he).filter((k) => k.startsWith('sharedWorkout.'))).toHaveLength(42);
   });
 });
 
