@@ -139,6 +139,21 @@ describe('tour selection', () => {
     expect(view.match(/data-coach="player-how-to"/g)).toHaveLength(1);
     expect(video).not.toContain('player-how-to');
   });
+  it('player "איך מבצעים" survives a collapsed drawer by pointing at the "הסבר" chip', () => {
+    const steps = firstRunTourSteps('player', 'female');
+    // Expanded drawer: the how-to block is on screen -> unchanged.
+    const expanded = presentSteps(steps, (t) => t !== FIRST_RUN_COACH.playerExplain);
+    expect(expanded.map((s) => s.target)).toContain(FIRST_RUN_COACH.playerHowTo);
+    // Collapsed: how-to block gone, chip present -> same step re-targeted.
+    const collapsed = presentSteps(steps, (t) => t !== FIRST_RUN_COACH.playerHowTo);
+    expect(collapsed.map((s) => s.target)).toEqual([
+      FIRST_RUN_COACH.playerProgress, FIRST_RUN_COACH.playerExplain, FIRST_RUN_COACH.playerDone,
+    ]);
+    // Collapsed and no tutorial chip: nothing to point at -> dropped, tour continues.
+    const bare = presentSteps(steps, (t) => t !== FIRST_RUN_COACH.playerHowTo && t !== FIRST_RUN_COACH.playerExplain);
+    expect(bare).toHaveLength(2);
+    expect(src('../../../../workout-engine/players/strength/components/TutorialChip.tsx')).toContain('data-coach="player-explain"');
+  });
 });
 
 describe('home tour — starts on a new user\'s first calm home visit (owner 21.10)', () => {
