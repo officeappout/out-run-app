@@ -15,9 +15,9 @@ import { Target } from 'lucide-react';
 import { getLeagueBoard, type LeagueBoardEntry } from '@/features/arena/services/ranking.service';
 import { CITY_MONTHLY_GOAL, challengeProgress } from './league-board-logic';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { monthLabel } from '@/lib/i18n/fmt-display';
 import { community } from '@/messages/ns/community';
-
-const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']; // i18n-allow-hebrew: wave 3 — month names (fmt)
 
 export default function CityChallengeCard({ cityId, cityName }: { cityId: string | null; cityName?: string | null }) {
   const t = useT(community);
@@ -38,7 +38,7 @@ export default function CityChallengeCard({ cityId, cityName }: { cityId: string
 
   const { pct, left, done } = challengeProgress(entry.totalScore, CITY_MONTHLY_GOAL);
   const name = cityName || entry.scopeName;
-  const month = MONTHS[new Date().getMonth()];
+  const month = monthLabel(new Date().getMonth(), t.locale, 'long');
 
   return (
     <div className="rounded-v2-card bg-white p-4 shadow-v2-card text-right" dir="rtl">
@@ -49,17 +49,17 @@ export default function CityChallengeCard({ cityId, cityName }: { cityId: string
         <div className="min-w-0 flex-1">
           <div className="truncate whitespace-nowrap text-[16px] font-black text-v2-ink">{t('cityChallenge.title', { name })}</div>
           <div className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-            {t('cityChallenge.subtitle', { goal: CITY_MONTHLY_GOAL.toLocaleString('he-IL'), month })}
+            {t('cityChallenge.subtitle', { goal: formatNumber(CITY_MONTHLY_GOAL, t.locale), month })}
           </div>
         </div>
       </div>
 
       <div className="mt-3.5 flex items-end justify-between gap-2">
         <span className="text-[26px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-deep">
-          {entry.totalScore.toLocaleString('he-IL')}
+          {formatNumber(entry.totalScore, t.locale)}
         </span>
         <span className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted tabular-nums">
-          {t('cityChallenge.active', { count: entry.activeMemberCount.toLocaleString('he-IL'), pct: String(pct) })}
+          {t('cityChallenge.active', { count: formatNumber(entry.activeMemberCount, t.locale), pct: String(pct) })}
         </span>
       </div>
 
@@ -76,7 +76,7 @@ export default function CityChallengeCard({ cityId, cityName }: { cityId: string
       </div>
 
       <p className="mt-2 text-[12.5px] font-bold text-v2-ink-2">
-        {done ? t('cityChallenge.done', { name }) : t('cityChallenge.left', { left: left.toLocaleString('he-IL') })}
+        {done ? t('cityChallenge.done', { name }) : t('cityChallenge.left', { left: formatNumber(left, t.locale) })}
       </p>
     </div>
   );

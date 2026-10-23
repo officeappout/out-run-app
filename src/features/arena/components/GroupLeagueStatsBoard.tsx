@@ -20,6 +20,7 @@ import { Footprints, MapPin, RefreshCw, Trophy, Zap } from 'lucide-react';
 import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton, BoardToggle } from './LeagueBoard';
 import { formatKm } from './league-board-logic';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { community } from '@/messages/ns/community';
 import { getGroupLeagueBoard, type LeaderboardTimeWindow } from '@/features/arena/services/ranking.service';
 import type { GroupBoard, GroupBoardMember } from '@/features/arena/services/league-scope-keys';
@@ -81,18 +82,18 @@ export function GroupLeagueStatsBoardView({
 
   const tiles = board
     ? [
-        { id: 'points', icon: Zap, color: 'text-v2-deep', value: board.totals.points.toLocaleString('he-IL'), label: t('leagues.group.tile.points') },
-        { id: 'steps', icon: Footprints, color: 'text-[#f59e0b]', value: board.totals.stepsPoints.toLocaleString('he-IL'), label: t('leagues.group.tile.steps') },
-        { id: 'km', icon: MapPin, color: 'text-[#f59e0b]', value: formatKm(board.totals.km), label: t('leagues.group.tile.km') },
+        { id: 'points', icon: Zap, color: 'text-v2-deep', value: formatNumber(board.totals.points, t.locale), label: t('leagues.group.tile.points') },
+        { id: 'steps', icon: Footprints, color: 'text-[#f59e0b]', value: formatNumber(board.totals.stepsPoints, t.locale), label: t('leagues.group.tile.steps') },
+        { id: 'km', icon: MapPin, color: 'text-[#f59e0b]', value: formatKm(board.totals.km, t.locale), label: t('leagues.group.tile.km') },
       ]
     : [];
 
   const sub = (m: GroupBoardMember) =>
     km
-      ? t('leagues.group.sub.points', { points: m.points.toLocaleString('he-IL') })
+      ? t('leagues.group.sub.points', { points: formatNumber(m.points, t.locale) })
       : [
-          m.stepsPoints > 0 ? t('leagues.group.sub.steps', { points: m.stepsPoints.toLocaleString('he-IL') }) : null,
-          m.km > 0 ? t('leagues.group.sub.km', { km: formatKm(m.km) }) : null,
+          m.stepsPoints > 0 ? t('leagues.group.sub.steps', { points: formatNumber(m.stepsPoints, t.locale) }) : null,
+          m.km > 0 ? t('leagues.group.sub.km', { km: formatKm(m.km, t.locale) }) : null,
         ]
           .filter(Boolean)
           .join(' · ') || undefined;
@@ -149,7 +150,7 @@ export function GroupLeagueStatsBoardView({
                   nameTag={m.isMe ? t('leagues.group.me') : undefined}
                   isMe={m.isMe}
                   sub={sub(m)}
-                  value={km ? formatKm(m.km) : m.points.toLocaleString('he-IL')}
+                  value={km ? formatKm(m.km, t.locale) : formatNumber(m.points, t.locale)}
                   unit={km ? t('leagues.group.unit.km') : t('leagues.group.unit.points')}
                 />
               ))}

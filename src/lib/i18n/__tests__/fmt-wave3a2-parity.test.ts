@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { formatLeaderboardScore } from '@/features/arena/components/format-leaderboard-score';
+import { formatLeaderboardScore, type LeaderboardMode } from '@/features/arena/components/format-leaderboard-score';
 import { formatKm as leagueFormatKm } from '@/features/arena/components/league-board-logic';
 import { formatSessionDate } from '@/features/arena/components/group-details/utils/group-details-logic';
 import {
@@ -21,6 +21,9 @@ import { formatDateHebrew, formatDateTimeHebrew } from '@/lib/utils/date-formatt
 import { walkPieceSubtitle, walkStepsHint } from '@/features/schedule/walking/walkWeekView';
 import { resolveNotificationText, resolveDescription, resolveContentTags } from '@/features/content/branding/core/branding.utils';
 import { makeT } from '@/lib/i18n/t';
+import { formatDate, formatNumber } from '@/lib/i18n/core/fmt';
+import { formatDateLoose, monthLabel } from '@/lib/i18n/fmt-display';
+import { WEEKDAY_SHORT } from '@/features/progression-hub/v2/utils/progress-format';
 import { community } from '@/messages/ns/community';
 
 const FIXTURE = path.resolve(__dirname, 'fixtures/fmt-wave3a2-before.json');
@@ -42,7 +45,7 @@ function snapshot(): Record<string, unknown> {
   };
   const tHe = makeT('he', community);
   for (const n of NUMBERS) {
-    for (const mode of ['general', 'steps', 'distance', 'running', 'strength', 'other'] as const) {
+    for (const mode of ['general', 'steps', 'distance', 'running', 'strength', 'other'] as LeaderboardMode[]) {
       record(`leaderboard ${mode} ${n}`, () => formatLeaderboardScore(n, mode, false));
     }
     record(`leaderboard pace ${n}`, () => formatLeaderboardScore(n, 'running', true));
@@ -116,5 +119,70 @@ describe('wave 3A part 2 — call-site parity (Asia/Jerusalem, pinned clock)', (
     expect(Object.keys(now)).toEqual(Object.keys(before));
     const diffs = Object.keys(before).filter((k) => JSON.stringify(now[k]) !== JSON.stringify(before[k]));
     expect(diffs.map((k) => `${k}: ${JSON.stringify(before[k])} -> ${JSON.stringify(now[k])}`)).toEqual([]);
+  });
+});
+
+/**
+ * The new fmt-based expressions against the old ones they replaced, over a grid. `Intl` 'he-IL' is the oracle
+ * (the old code was `x.toLocaleString('he-IL', …)` / `d.toLocaleDateString('he-IL', …)` / literal name arrays).
+ */
+describe('wave 3A part 2 — fmt vs the old expressions (oracle: Intl he-IL)', () => {
+  beforeAll(() => { process.env.TZ = 'Asia/Jerusalem'; });
+  afterAll(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz; });
+
+  it('formatNumber(n, he) === n.toLocaleString("he-IL") with and without options', () => {
+    for (const n of [...NUMBERS, Number.NaN, Infinity, -0, 0.5, 2.5, 1e21, 123456789.987]) {
+      expect(formatNumber(n, 'he')).toBe(n.toLocaleString('he-IL'));
+      expect(formatNumber(n, 'he', { maximumFractionDigits: 1 })).toBe(n.toLocaleString('he-IL', { maximumFractionDigits: 1 }));
+      expect(formatNumber(Math.round(n * 10) / 10, 'he', { maximumFractionDigits: 1 }))
+        .toBe((Math.round(n * 10) / 10).toLocaleString('he-IL', { maximumFractionDigits: 1 }));
+    }
+  });
+
+  const OPTION_SETS: Intl.DateTimeFormatOptions[] = [
+    { day: 'numeric', month: 'short' },
+    { day: 'numeric', month: 'short', year: 'numeric' },
+    { day: '2-digit', month: '2-digit' },
+    { day: 'numeric', month: 'numeric' },
+    { weekday: 'short' },
+    { weekday: 'long' },
+    { weekday: 'short', day: 'numeric', month: 'short' },
+    { weekday: 'long', day: 'numeric', month: 'long' },
+    { day: 'numeric' },
+    { month: 'short' },
+    { day: '2-digit', month: '2-digit', year: 'numeric' },
+  ];
+  const GRID = [...DATES, '2026-03-27T23:59:59', '2026-03-28T00:00:00', '2024-02-29T12:00:00'].map((d) => new Date(d));
+
+  it('formatDateLoose(d, he, opts) === d.toLocaleDateString("he-IL", opts), including Invalid Date', () => {
+    for (const d of [...GRID, new Date('nope')]) {
+      for (const opts of OPTION_SETS) {
+        expect(formatDateLoose(d, 'he', opts)).toBe(d.toLocaleDateString('he-IL', opts));
+      }
+    }
+  });
+
+  it('formatDate(d, he, date+time opts) === d.toLocaleString("he-IL", opts) (the formatDateTimeHebrew shape)', () => {
+    const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    for (const d of GRID) expect(formatDate(d, 'he', opts)).toBe(d.toLocaleString('he-IL', opts));
+  });
+
+  it('monthLabel reproduces the old Hebrew month arrays, wraps like the old modulo', () => {
+    const SHORT = ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני', 'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳'];
+    const LONG = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+    for (let m = -13; m < 26; m++) {
+      expect(monthLabel(m, 'he', 'short')).toBe(SHORT[((m % 12) + 12) % 12]);
+      expect(monthLabel(m, 'he', 'long')).toBe(LONG[((m % 12) + 12) % 12]);
+    }
+  });
+
+  it('WEEKDAY_SHORT is the old literal list', () => {
+    expect(WEEKDAY_SHORT).toEqual(['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']);
+  });
+
+  it('other locales produce something different from Hebrew (the helpers really take the locale)', () => {
+    expect(monthLabel(9, 'en', 'long')).toBe('October');
+    expect(formatNumber(1234.5, 'de')).toBe('1.234,5');
+    expect(formatDateLoose(new Date(2026, 9, 25), 'en', { weekday: 'long' })).toBe('Sunday');
   });
 });

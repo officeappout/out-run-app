@@ -5,6 +5,8 @@
  * pattern applied to useArenaAccess).
  */
 import { formatPaceSecPerKm } from '@/features/arena/services/ranking.service';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
 import { leagueHeT, type LeagueT } from './league-t';
 
 export type LeaderboardMode = 'general' | 'running' | 'strength' | 'steps' | 'distance';
@@ -32,14 +34,15 @@ export function formatLeaderboardScore(
   /** i18n (`leagues.score.*`): the caller's `t`; default = the Hebrew catalog (callers not migrated yet). */
   t: LeagueT = leagueHeT(),
 ): string {
+  const locale = t.locale ?? SOURCE_LOCALE;
   if (mode === 'general') return t('leagues.score.general', { value: String(value) });
-  if (mode === 'steps')   return t('leagues.score.steps', { value: value.toLocaleString('he-IL') });
-  if (mode === 'distance') return t('leagues.score.distance', { value: value.toLocaleString('he-IL', { maximumFractionDigits: 1 }) });
+  if (mode === 'steps')   return t('leagues.score.steps', { value: formatNumber(value, locale) });
+  if (mode === 'distance') return t('leagues.score.distance', { value: formatNumber(value, locale, { maximumFractionDigits: 1 }) });
   if (mode === 'running' && isSegmentMode) {
     // value is paceSecPerKm — display as "MM:SS /ק״מ"
     return value > 0 ? t('leagues.score.pace', { pace: formatPaceSecPerKm(value) }) : '—';
   }
-  if (mode === 'strength') return t('leagues.score.strength', { value: value.toLocaleString('he-IL') });
-  if (mode === 'running')  return t('leagues.score.running', { value: value.toLocaleString('he-IL') });
-  return value.toLocaleString('he-IL');
+  if (mode === 'strength') return t('leagues.score.strength', { value: formatNumber(value, locale) });
+  if (mode === 'running')  return t('leagues.score.running', { value: formatNumber(value, locale) });
+  return formatNumber(value, locale);
 }

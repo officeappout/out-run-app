@@ -4,6 +4,8 @@
  */
 import type { CommunityGroup, GroupMember, LiveSessionPhase, ScheduleSlot } from '@/types/community.types';
 import { APP_ORIGIN } from '@/lib/config/domain';
+import { formatDateLoose } from '@/lib/i18n/fmt-display';
+import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 
 export const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
   walking:      { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
@@ -24,10 +26,10 @@ export const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳
 export const APP_ORIGIN_FALLBACK = APP_ORIGIN;
 
 /** The caller's t (useT(community)) — the session-date keys this helper renders. */
-export type SessionDateT = (
+export type SessionDateT = ((
   key: 'group.session.today' | 'group.session.tomorrow' | 'group.session.weekday',
   values: { time: string; day?: string },
-) => string;
+) => string) & { readonly locale?: Locale };
 
 export function formatSessionDate(dateISO: string, time: string, t: SessionDateT): string {
   const today = new Date();
@@ -38,8 +40,7 @@ export function formatSessionDate(dateISO: string, time: string, t: SessionDateT
   if (d.toDateString() === today.toDateString()) return t('group.session.today', { time });
   if (d.toDateString() === tomorrow.toDateString()) return t('group.session.tomorrow', { time });
 
-  // Weekday name stays 'he-IL' until wave 3 (fmt.weekdayName) — Intl output is not the same Hebrew everywhere.
-  const dayName = d.toLocaleDateString('he-IL', { weekday: 'long' });
+  const dayName = formatDateLoose(d, t.locale ?? SOURCE_LOCALE, { weekday: 'long' });
   return t('group.session.weekday', { day: dayName, time });
 }
 

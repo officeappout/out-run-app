@@ -10,10 +10,11 @@
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { makeT } from '@/lib/i18n/t';
-import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 import { community } from '@/messages/ns/community';
 
 export type CommunityKey = NamespaceKey<typeof community>;
-export type LeagueT = (key: CommunityKey, values?: MessageValues) => string;
+/** `locale` is on every `makeT`/`useT` translator; optional so a bare function still fits. */
+export type LeagueT = ((key: CommunityKey, values?: MessageValues) => string) & { readonly locale?: Locale };
 
 export const leagueHeT = (): LeagueT => makeT(SOURCE_LOCALE, community);

@@ -23,6 +23,7 @@ import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { community } from '@/messages/ns/community';
 
 // Brand palette (screens mockup, 16.08.2026). Two distinct accents, matching
@@ -85,7 +86,7 @@ export function OpponentPickerSheet({
         <div className="flex-1 min-w-0 text-right">
           <p className="text-sm font-black text-gray-900 truncate">{myEntry.scopeName}</p>
           <p className="text-[11px] font-bold" style={{ color: MINE_ACCENT }}>
-            {myEntry.totalScore.toLocaleString('he-IL')}
+            {formatNumber(myEntry.totalScore, t.locale)}
           </p>
         </div>
         <span
@@ -121,7 +122,7 @@ export function OpponentPickerSheet({
             <div className="flex-1 min-w-0 text-right">
               <p className="text-sm font-bold text-gray-900 truncate">{c.scopeName}</p>
               <p className="text-[11px] text-gray-500 tabular-nums">
-                {c.rank === 1 ? t('leagues.opponent.firstPlace') : t('leagues.opponent.place', { rank: String(c.rank) })} · {c.totalScore.toLocaleString('he-IL')}
+                {c.rank === 1 ? t('leagues.opponent.firstPlace') : t('leagues.opponent.place', { rank: String(c.rank) })} · {formatNumber(c.totalScore, t.locale)}
               </p>
             </div>
             <span

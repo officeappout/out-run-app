@@ -14,6 +14,8 @@ import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 import { clampedScrollTarget, registerCorrection, type CorrectionPair } from './carousel-scroll-sync.util';
 import { useT } from '@/hooks/useT';
+import { formatDate } from '@/lib/i18n/core/fmt';
+import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 import { map } from '@/messages/ns/map';
 
 // How many cards on either side of the centered one get a real cover photo
@@ -28,7 +30,7 @@ import { map } from '@/messages/ns/map';
 // at all — until they scroll back into it.
 const COVER_PHOTO_WINDOW = 2;
 
-function formatSessionTime(isoString: string): string {
+function formatSessionTime(isoString: string, locale: Locale = SOURCE_LOCALE): string {
   const date = new Date(isoString);
   if (isNaN(date.getTime())) return 'מועד קרוב'; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
   const now = new Date();
@@ -39,7 +41,7 @@ function formatSessionTime(isoString: string): string {
   const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   if (isToday) return `היום ${time}`; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
   if (isTomorrow) return `מחר ${time}`; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
-  return `${date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} ${time}`;
+  return `${formatDate(date, locale, { day: 'numeric', month: 'short' })} ${time}`;
 }
 
 function ParticipantAvatars({ avatars }: { avatars: { uid: string; name: string; photoURL?: string }[] }) {

@@ -57,7 +57,7 @@ export function ScopeContributionCard({ vm, scopeTypeLabel }: { vm: LeaguesVM; s
           </p>
           {featureFlags.enableHomeV2 && myKm > 0 && (
             <p className="mt-0.5 truncate whitespace-nowrap text-[12.5px] font-bold text-v2-ink-2 tabular-nums">
-              {t('communityPage.contribution.km', { km: formatKm(myKm), granularity: myScopeKmGranularity, phrase: windowPhrase })}
+              {t('communityPage.contribution.km', { km: formatKm(myKm, t.locale), granularity: myScopeKmGranularity, phrase: windowPhrase })}
             </p>
           )}
         </div>

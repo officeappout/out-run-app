@@ -3,6 +3,8 @@
  * (Split out of ParkDetailSheet.tsx; no behaviour change.)
  */
 import type { DayFilter } from '@/features/parks/core/hooks/useCommunityEnrichment';
+import { formatDateLoose } from '@/lib/i18n/fmt-display';
+import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 
 export const DAY_FILTERS: DayFilter[] = ['today', 'tomorrow', 'week'];
 
@@ -45,10 +47,10 @@ export const RANGE_MAX = 24 * 60;
 export const RANGE_STEP_MIN = 15;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function formatDate(ts: any): string {
+export function formatDate(ts: any, locale: Locale = SOURCE_LOCALE): string {
   if (!ts) return '';
   const d = ts instanceof Date ? ts : typeof ts?.toDate === 'function' ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+  return formatDateLoose(d, locale, { day: 'numeric', month: 'short' });
 }
 
 /**
@@ -78,7 +80,7 @@ export function toLocalDateInputValue(d: Date): string {
  * tomorrow, otherwise the short Hebrew weekday + "HH:MM". '' for an
  * unparseable start time.
  */
-export function sessionRowTimeLabel(nextStartTime: string, now: Date = new Date()): string {
+export function sessionRowTimeLabel(nextStartTime: string, now: Date = new Date(), locale: Locale = SOURCE_LOCALE): string {
   let timeLabel = '';
   const d = new Date(nextStartTime);
   if (!isNaN(d.getTime())) {
@@ -86,7 +88,7 @@ export function sessionRowTimeLabel(nextStartTime: string, now: Date = new Date(
     const tmrw = new Date(now); tmrw.setDate(tmrw.getDate() + 1);
     const isTomorrow = d.toDateString() === tmrw.toDateString();
     const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
+    timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : formatDateLoose(d, locale, { weekday: 'short' }) + ` ${hhmm}`;
   }
   return timeLabel;
 }

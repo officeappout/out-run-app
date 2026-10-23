@@ -28,6 +28,8 @@ import Sheet, { SheetGrabber } from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
+import { formatDateLoose } from '@/lib/i18n/fmt-display';
+import type { Locale } from '@/lib/i18n/locales';
 import { community } from '@/messages/ns/community';
 
 // Labels: community.json `session.category` (select on the category id, unknown → other).
@@ -39,9 +41,9 @@ const CATEGORY_CONFIG: Record<string, { icon: string; gradient: string }> = {
   other:            { icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
 
-function formatEventDate(date: Date | string): string {
+function formatEventDate(date: Date | string, locale: Locale): string {
   const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleDateString('he-IL', {
+  return formatDateLoose(d, locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -191,7 +193,7 @@ export default function SessionDrawer({
         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <Clock className="w-4 h-4 text-cyan-500 flex-shrink-0" />
           <span className="font-semibold">
-            {formatEventDate(event.date)} · {event.startTime}
+            {formatEventDate(event.date, t.locale)} · {event.startTime}
             {event.endTime ? ` – ${event.endTime}` : ''}
           </span>
         </div>

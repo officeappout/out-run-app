@@ -48,9 +48,9 @@ export default function PeriodCompareSheet({ open, onClose, period, ranges, curr
   const title =
     period === 'week'
       ? t('hub.compare.title.week', { range: weekRangeLabel(start, end) })
-      : t('hub.compare.title.month', { month: monthName(start.getMonth()), year: String(start.getFullYear()) });
+      : t('hub.compare.title.month', { month: monthName(start.getMonth(), t.locale), year: String(start.getFullYear()) });
   const nowLabel = period === 'week' ? t('hub.compare.now.week') : t('hub.compare.now.month');
-  const beforeLabel = period === 'week' ? t('hub.compare.before.week') : monthName(ranges.previous.start.getMonth());
+  const beforeLabel = period === 'week' ? t('hub.compare.before.week') : monthName(ranges.previous.start.getMonth(), t.locale);
   const headline = compareHeadline(period, current, previous, ranges, now);
   const rows = compareRows(period, current, previous, ranges);
   const split = activitySplit(current);

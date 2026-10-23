@@ -5,6 +5,8 @@ import { Clock, MapPin, ShieldCheck, Loader2, CalendarCheck, Users } from 'lucid
 import type { CommunityEvent, EventCategory, EventRegistration } from '@/types/community.types';
 import AttendeesPreview from './AttendeesPreview';
 import { useT } from '@/hooks/useT';
+import { formatDateLoose } from '@/lib/i18n/fmt-display';
+import type { Locale } from '@/lib/i18n/locales';
 import { community } from '@/messages/ns/community';
 
 // Labels: community.json `eventCard.category` (select on the category id).
@@ -16,12 +18,12 @@ const CATEGORY_CONFIG: Record<EventCategory, { icon: string; gradient: string }>
   other:            { icon: '⭐', gradient: 'from-gray-500 to-gray-700'      },
 };
 
-function formatEventDate(date: Date | string): { day: string; month: string; weekday: string } {
+function formatEventDate(date: Date | string, locale: Locale): { day: string; month: string; weekday: string } {
   const d = date instanceof Date ? date : new Date(date);
   return {
-    day:     d.toLocaleDateString('he-IL', { day: 'numeric' }),
-    month:   d.toLocaleDateString('he-IL', { month: 'short' }),
-    weekday: d.toLocaleDateString('he-IL', { weekday: 'short' }),
+    day:     formatDateLoose(d, locale, { day: 'numeric' }),
+    month:   formatDateLoose(d, locale, { month: 'short' }),
+    weekday: formatDateLoose(d, locale, { weekday: 'short' }),
   };
 }
 
@@ -47,7 +49,7 @@ export default function EventCard({
   onCardClick,
 }: EventCardProps) {
   const t = useT(community);
-  const { day, month, weekday } = formatEventDate(event.date);
+  const { day, month, weekday } = formatEventDate(event.date, t.locale);
   const logoUrl = authorityLogoUrl || event.authorityLogoUrl;
   const displayCount = registrationCount ?? event.currentRegistrations;
   const catConfig = CATEGORY_CONFIG[event.category];

@@ -14,6 +14,8 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import RunningPlanSummaryV2 from '@/features/user/onboarding/components/running-v2/RunningPlanSummaryV2';
 import { readDate } from '../utils/progress-model';
 import { RUN_DIST_LABEL, runningPlanProgress } from '../utils/running-plan-progress';
+import { formatDateLoose } from '@/lib/i18n/fmt-display';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
 
 export default function RunningPlanViewV2() {
   const router = useRouter();
@@ -40,7 +42,7 @@ export default function RunningPlanViewV2() {
         distLabel={plan.distKey ? RUN_DIST_LABEL[plan.distKey] ?? '' : ''}
         weeks={plan.weeks}
         frequency={plan.frequency}
-        endDateShort={end.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
+        endDateShort={formatDateLoose(end, SOURCE_LOCALE, { day: 'numeric', month: 'numeric' })}
         weekDays={[]}
         timesLine={null}
         progress={{ currentWeek: plan.currentWeek, done: plan.done, dueSoFar: plan.dueSoFar }}

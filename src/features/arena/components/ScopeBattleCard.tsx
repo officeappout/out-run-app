@@ -27,6 +27,7 @@ import { CATEGORY_UNIT_LABEL_KEYS } from './scope-category-unit-label';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { community } from '@/messages/ns/community';
 
 // Battle-bar "opponent" side — none of the 5 brand tokens reads as a
@@ -242,7 +243,7 @@ export function ScopeBattleCardView({
         <div className="min-w-0">
           <div className="text-[14px] font-extrabold text-v2-ink truncate">{myEntry.scopeName}</div>
           <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-deep">
-            {mine.toLocaleString('he-IL')}
+            {formatNumber(mine, t.locale)}
           </div>
           <div className="text-[12px] font-bold text-v2-muted">{t('leagues.battle.active', { n: myEntry.activeMemberCount, count: String(myEntry.activeMemberCount) })}</div>
         </div>
@@ -252,7 +253,7 @@ export function ScopeBattleCardView({
         <div className="min-w-0 text-left">
           <div className="text-[14px] font-extrabold text-v2-ink truncate">{opponent.scopeName}</div>
           <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-ink-2">
-            {theirs.toLocaleString('he-IL')}
+            {formatNumber(theirs, t.locale)}
           </div>
           <div className="text-[12px] font-bold text-v2-muted">{t('leagues.battle.active', { n: opponent.activeMemberCount, count: String(opponent.activeMemberCount) })}</div>
         </div>
@@ -270,9 +271,9 @@ export function ScopeBattleCardView({
         {[myEntry, opponent].map((e) => (
           <div key={e.scopeId} className="rounded-[16px] bg-white/80 px-3 py-2 min-w-0">
             <div className="truncate whitespace-nowrap text-[17px] font-black leading-tight tabular-nums text-v2-ink">
-              {e.totalScore.toLocaleString('he-IL')}
+              {formatNumber(e.totalScore, t.locale)}
               {showKm && (e.totalKm ?? 0) > 0 && (
-                <span className="text-[12.5px] font-extrabold text-v2-ink-2">{t('leagues.battle.km', { km: formatKm(e.totalKm) })}</span>
+                <span className="text-[12.5px] font-extrabold text-v2-ink-2">{t('leagues.battle.km', { km: formatKm(e.totalKm, t.locale) })}</span>
               )}
             </div>
             <div className="text-[11.5px] font-bold text-v2-muted truncate">{t('leagues.battle.total', { unit: t(CATEGORY_UNIT_LABEL_KEYS[category]), name: e.scopeName })}</div>
@@ -282,8 +283,8 @@ export function ScopeBattleCardView({
 
       <p className="text-[12.5px] text-v2-ink-2 font-semibold mt-2.5 text-center">
         {iAmLeading
-          ? t('leagues.battle.leading', { gap: gap.toLocaleString('he-IL'), name: opponent.scopeName })
-          : t('leagues.battle.trailing', { gap: gap.toLocaleString('he-IL'), name: leader.scopeName })}
+          ? t('leagues.battle.leading', { gap: formatNumber(gap, t.locale), name: opponent.scopeName })
+          : t('leagues.battle.trailing', { gap: formatNumber(gap, t.locale), name: leader.scopeName })}
       </p>
 
       {onGroupWalk && <GroupWalkButton onClick={onGroupWalk} />}

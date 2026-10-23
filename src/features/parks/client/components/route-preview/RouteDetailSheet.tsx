@@ -33,6 +33,8 @@ import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import { computeQualityBadges, isRouteLitVerified } from '@/features/parks/core/services/route-quality-badges.service';
 import { RouteShadeRow } from '@/features/parks/core/components/route-shade/RouteShade';
+import { formatDate } from '@/lib/i18n/core/fmt';
+import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 import { computeStartExperienceState } from '@/features/parks/core/services/start-experience-state';
 import { formatTooFarLabels } from '@/features/parks/core/services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
@@ -102,7 +104,7 @@ function mapRouteActivityToPresence(act: ActivityType | undefined): WorkoutActiv
   return 'running';
 }
 
-function formatEventDate(raw: string): string {
+function formatEventDate(raw: string, locale: Locale = SOURCE_LOCALE): string {
   const d = new Date(raw);
   if (isNaN(d.getTime())) return 'מועד קרוב'; // i18n-allow-hebrew: unused helper (no caller) — kept, not extracted
   const now = new Date();
@@ -113,7 +115,7 @@ function formatEventDate(raw: string): string {
   const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   if (isToday) return `היום ב-${time}`; // i18n-allow-hebrew: unused helper (no caller) — kept, not extracted
   if (isTomorrow) return `מחר ב-${time}`; // i18n-allow-hebrew: unused helper (no caller) — kept, not extracted
-  return d.toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' }) + ` ${time}`;
+  return formatDate(d, locale, { weekday: 'short', day: 'numeric', month: 'short' }) + ` ${time}`;
 }
 
 interface RouteDetailSheetProps {
@@ -705,7 +707,7 @@ export default function RouteDetailSheet({
                             const tmrw = new Date(now); tmrw.setDate(tmrw.getDate() + 1);
                             const isTomorrow = d.toDateString() === tmrw.toDateString();
                             const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-                            timeLabel = isToday ? hhmm : isTomorrow ? t('routePreview.session.tomorrowAt', { time: hhmm }) : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
+                            timeLabel = isToday ? hhmm : isTomorrow ? t('routePreview.session.tomorrowAt', { time: hhmm }) : formatDate(d, t.locale, { weekday: 'short' }) + ` ${hhmm}`;
                           }
                           const isJoining = joiningEventId === ev.eventId;
                           const count = ev.currentRegistrations ?? 0;

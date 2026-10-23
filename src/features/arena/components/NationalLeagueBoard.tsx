@@ -27,6 +27,7 @@ import {
   type LeaderboardTimeWindow,
 } from '@/features/arena/services/ranking.service';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { community } from '@/messages/ns/community';
 import type { CommunityKey } from './league-t';
 
@@ -148,16 +149,16 @@ export default function NationalLeagueBoard({
       : rankByMeasure(entries, measure === 'avg' ? 'avg' : 'total');
   const value = (e: LeagueBoardEntry) =>
     km
-      ? formatKm(measure === 'total' ? e.totalKm : e.kmPerMember)
+      ? formatKm(measure === 'total' ? e.totalKm : e.kmPerMember, t.locale)
       : measure === 'improved'
-        ? `+${(e.delta ?? 0).toLocaleString('he-IL')}`
-        : (measure === 'avg' ? perMember(e) : e.totalScore).toLocaleString('he-IL');
+        ? `+${formatNumber(e.delta ?? 0, t.locale)}`
+        : formatNumber(measure === 'avg' ? perMember(e) : e.totalScore, t.locale);
   const sub = (e: LeagueBoardEntry) =>
     [
       e.parentName,
       t('leagues.national.active', { n: e.activeMemberCount, count: String(e.activeMemberCount) }),
       // km next to the points (points boards only — the km board shows them as the value).
-      !km && (e.totalKm ?? 0) > 0 ? t('leagues.national.km', { km: formatKm(e.totalKm) }) : null,
+      !km && (e.totalKm ?? 0) > 0 ? t('leagues.national.km', { km: formatKm(e.totalKm, t.locale) }) : null,
     ]
       .filter(Boolean)
       .join(' · ');

@@ -31,6 +31,7 @@ import { CATEGORY_UNIT_LABEL_KEYS } from './scope-category-unit-label';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { community } from '@/messages/ns/community';
 import type { CommunityKey } from './league-t';
 
@@ -169,8 +170,8 @@ export function ScopeCompetitionLeaderboardView({
   const unit = t(CATEGORY_UNIT_LABEL_KEYS[category]);
   const shown = (e: ScopeCompetitionEntry) =>
     km
-      ? formatKm(measure === 'avg' ? e.kmPerMember : e.totalKm)
-      : (measure === 'avg' ? perMember(e) : e.totalScore).toLocaleString('he-IL');
+      ? formatKm(measure === 'avg' ? e.kmPerMember : e.totalKm, t.locale)
+      : formatNumber(measure === 'avg' ? perMember(e) : e.totalScore, t.locale);
   const rowUnit = km
     ? measure === 'avg' ? t('leagues.scopes.unit.kmPerMember') : t('leagues.scopes.unit.km')
     : measure === 'avg' ? t('leagues.scopes.unit.perMember', { unit }) : unit;
@@ -178,7 +179,7 @@ export function ScopeCompetitionLeaderboardView({
     [
       t('leagues.scopes.active', { n: e.activeMemberCount, count: String(e.activeMemberCount) }),
       // v2: km next to the points (the km board shows them as the value).
-      v2 && !km && (e.totalKm ?? 0) > 0 ? t('leagues.scopes.km', { km: formatKm(e.totalKm) }) : null,
+      v2 && !km && (e.totalKm ?? 0) > 0 ? t('leagues.scopes.km', { km: formatKm(e.totalKm, t.locale) }) : null,
     ]
       .filter(Boolean)
       .join(' · ');
@@ -192,7 +193,7 @@ export function ScopeCompetitionLeaderboardView({
           // the full unit lives on the rows + the note; the pedestal keeps just the number
           sub:
             v2 && !km && (e.totalKm ?? 0) > 0
-              ? t('leagues.scopes.podium.subKm', { n: e.activeMemberCount, count: String(e.activeMemberCount), km: formatKm(e.totalKm) })
+              ? t('leagues.scopes.podium.subKm', { n: e.activeMemberCount, count: String(e.activeMemberCount), km: formatKm(e.totalKm, t.locale) })
               : t('leagues.scopes.podium.sub', { n: e.activeMemberCount, count: String(e.activeMemberCount) }),
         })) as [PodiumEntry, PodiumEntry, PodiumEntry])
       : null;
