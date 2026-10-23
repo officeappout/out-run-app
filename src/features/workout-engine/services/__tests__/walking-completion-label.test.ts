@@ -76,7 +76,8 @@ describe('Source-fact check (mechanical): useRunningPlayer derives completion la
     const src = fs.readFileSync(filePath, 'utf-8');
     expect(src).not.toContain(`workoutType: 'running'`);
     expect(src).not.toContain(`displayIcon: 'run-fast'`);
-    expect(src).toContain('aerobicCompletionLabels(activityType, v2Now())');
+    // cycling-fixes-v1: the ride gate is rideModeEnabledNow() (home v2 OR enable_cycling_fixes_v1).
+    expect(src).toContain('aerobicCompletionLabels(activityType, rideModeEnabledNow())');
     expect(src).toContain('workoutType: completionLabels.workoutType');
     expect(src).toContain('displayIcon: completionLabels.displayIcon');
   });

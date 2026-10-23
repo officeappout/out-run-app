@@ -17,6 +17,8 @@
 
 import { Flame } from 'lucide-react';
 import { useWeightNudge } from '@/components/ui/WeightInlineRow';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 export type CaloriesChipVariant = 'chip' | 'stat' | 'ring' | 'inline';
 
@@ -37,6 +39,7 @@ export default function CaloriesChip({
   variant = 'chip',
   onEditWeight,
 }: CaloriesChipProps) {
+  const t = useT(mapNs);
   const { needsWeight } = useWeightNudge();
   const showNudge = weightDependent && needsWeight && !!onEditWeight;
 
@@ -48,7 +51,7 @@ export default function CaloriesChip({
       style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '6px 11px', color: '#374151' }}
     >
       <Flame size={15} className="text-orange-500" />
-      {Math.round(calories)} קלוריות
+      {t('caloriesChip.label', { calories: String(Math.round(calories)) })}
       {showNudge && (
         <>
           <span style={{ color: '#D1D5DB' }}>·</span>
@@ -58,7 +61,7 @@ export default function CaloriesChip({
             className="text-orange-500 font-bold underline decoration-dotted underline-offset-2 active:opacity-70"
             style={{ fontSize: '11.5px' }}
           >
-            לחצו לדיוק
+            {t('caloriesChip.nudge')}
           </button>
         </>
       )}

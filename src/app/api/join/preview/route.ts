@@ -1,5 +1,6 @@
 /**
  * GET /api/join/preview?code=<inviteCode>
+ * GET /api/join/preview?token=<si_ session token>   (group fixes P1-1)
  *
  * Public (no auth required) — reads community_groups via Admin SDK so an
  * unauthenticated user can see group details before being prompted to sign in.
@@ -22,6 +23,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { resolveGroupIdByInviteCode } from '@/lib/joinEngine';
 import { isRateLimited } from '@/lib/rateLimit';
 import { getRequestIp } from '@/lib/requestIp';
+import { SESSION_TOKEN_RE, buildSessionPreview } from '@/lib/group-fixes/session-preview';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,6 +60,31 @@ export async function GET(request: NextRequest) {
   const db = getAdminDb();
   if (await isRateLimited(db, `join-preview:${ip}`, { windowMs: WINDOW_MS, maxRequests: MAX_REQUESTS_PER_WINDOW })) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
+  // 2a. Session-invite preview (/session/[token] before sign-in). The rules
+  // require auth to read group_invitations, so a signed-out invitee could
+  // never see the invite; this answers display fields only (whitelist in
+  // buildSessionPreview). Always 200 — `valid:false` carries the reason the
+  // page already renders (not_found / expired / max_uses_reached).
+  const token = request.nextUrl.searchParams.get('token')?.trim() ?? '';
+  if (token) {
+    if (!SESSION_TOKEN_RE.test(token)) return NextResponse.json({ valid: false, reason: 'not_found' });
+    try {
+      const inv = await db.doc(`group_invitations/${token}`).get();
+      const data = inv.exists ? inv.data() : undefined;
+      const groupId = typeof data?.groupId === 'string' ? data.groupId : '';
+      if (groupId) {
+        const group = await db.doc(`community_groups/${groupId}`).get();
+        if (!group.exists || isContentRemoved(group.data())) {
+          return NextResponse.json({ valid: false, reason: 'not_found' });
+        }
+      }
+      return NextResponse.json(buildSessionPreview(groupId ? data : undefined, Date.now()));
+    } catch (err) {
+      console.error('[join/preview] session token error:', err);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
   }
 
   // 2. Validate code format — alphanumeric + hyphen/underscore, 4–16 chars.

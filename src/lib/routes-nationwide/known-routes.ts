@@ -19,6 +19,7 @@
 import { haversineM } from '../park-loops/geometry';
 import type { LngLat } from '../park-loops';
 import { stitchSameName, type Corridor, type NamedWay } from './named-corridors';
+import { cyclingKcalForKm, cyclingMinutesForMeters } from '@/lib/cycling-pace';
 
 export interface KnownRouteSource { url: string; title: string }
 
@@ -186,10 +187,11 @@ export function knownRouteWaysDoc(k: KnownRoute, c: Corridor, ctx: { authorityId
       name: k.nameIsDescriptive ? c.name : k.name,
       description: k.description || `${k.name} — מסלול מוכר בעיר`,
       distance: km,
-      duration: Math.max(1, Math.round(c.lengthM / PACE_RUN_M_PER_MIN)),
+      // `bike` docs use the shared cycling pace + kcal (they were stamped with running pace / 65 kcal per km).
+      duration: k.kind === 'bike' ? cyclingMinutesForMeters(c.lengthM) : Math.max(1, Math.round(c.lengthM / PACE_RUN_M_PER_MIN)),
       score: Math.round(km * 10),
       rating: 0,
-      calories: Math.round(km * 65),
+      calories: k.kind === 'bike' ? cyclingKcalForKm(km) : Math.round(km * 65),
       type: activity,
       activityType: activity,
       activityTypes: k.kind === 'bike' ? ['cycling'] : k.kind === 'mixed' ? ['walking', 'running', 'cycling'] : ['walking', 'running'],

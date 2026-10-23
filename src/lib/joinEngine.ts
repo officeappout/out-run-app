@@ -22,6 +22,8 @@ import { isDemoUid } from '@/lib/demo';
 import { demoActorTargetBlocked } from '@/lib/demo-actor';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp, Firestore } from 'firebase-admin/firestore';
+import { groupFixesOn } from '@/lib/group-fixes/flag.server';
+import { memberRoleField, shouldSyncGroupChat, attendanceCountDelta, groupChatId } from '@/lib/group-fixes/join-writes';
 
 // SPEC-02 Wave 0.3: resolves a static invite code to its groupId from the
 // locked-down private/invite doc via a collectionGroup query — the code
@@ -220,11 +222,10 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
 
   // Quarantined (moderation-removed) group: never joinable — covers invite-code,
   // session-token and direct (repair) targets alike. Same error as a missing target.
-  {
-    const groupSnapForModeration = await db.doc(`community_groups/${groupId}`).get();
-    if (groupSnapForModeration.exists && isContentRemoved(groupSnapForModeration.data())) {
-      throw new JoinEngineError('target-not-found', `[joinEngine] group "${groupId}" is not available`);
-    }
+  const groupSnapForModeration = await db.doc(`community_groups/${groupId}`).get();
+  const groupData = groupSnapForModeration.data();
+  if (groupSnapForModeration.exists && isContentRemoved(groupData)) {
+    throw new JoinEngineError('target-not-found', `[joinEngine] group "${groupId}" is not available`);
   }
 
   // B1 demo sandbox (ai-testers-design.md §2.5): a demo actor never joins a real group —
@@ -259,17 +260,37 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
   const memberSnap = await memberRef.get();
   const alreadyMember = memberSnap.exists;
 
+  // enable_group_fixes_v1 (real value or the joiner's own super-admin bit).
+  const fixesOn = await groupFixesOn(db, userData);
+  const roleField = memberRoleField({
+    alreadyMember,
+    existingRole: memberSnap.data()?.role,
+    isDesignatedLeader: typeof groupData?.leaderUserId === 'string' && groupData.leaderUserId === input.uid,
+    fixesOn,
+  });
+  const syncChat = shouldSyncGroupChat({ fixesOn, groupType: groupData?.type });
+  const chatRef = db.doc(`chats/${groupChatId(groupId)}`);
+  const chatExists = syncChat ? (await chatRef.get()).exists : false;
+  const attendanceRef = sessionToken && attendanceId
+    ? db.doc(`community_groups/${groupId}/attendance/${attendanceId}`)
+    : null;
+  const countDelta = attendanceRef && fixesOn
+    ? attendanceCountDelta({ fixesOn, attendees: (await attendanceRef.get()).data()?.attendees, uid: input.uid })
+    : 0;
+
   // ── Step 4: Atomic triple-write ────────────────────────────────────────────
 
   const batch = db.batch();
 
-  // 4a. Member record — idempotent (merge:true preserves joinedAt on re-join)
+  // 4a. Member record — idempotent (merge:true preserves joinedAt on re-join).
+  // The role is written only for a NEW member (or a designated-leader
+  // promotion) — a re-join never demotes an admin (memberRoleField).
   batch.set(
     memberRef,
     {
       uid: input.uid,
       name: memberName,
-      role: 'member',
+      ...roleField,
       ...(resolvedInviteCode ? { inviteCode: resolvedInviteCode } : {}),
       ...(alreadyMember ? {} : { joinedAt: FieldValue.serverTimestamp() }),
     },
@@ -316,6 +337,8 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
       {
         attendees: FieldValue.arrayUnion(input.uid),
         [`attendeeProfiles.${input.uid}`]: attendeeProfile,
+        // enable_group_fixes_v1: keep currentCount in sync with attendees.
+        ...(countDelta > 0 ? { currentCount: FieldValue.increment(countDelta) } : {}),
         updatedAt: FieldValue.serverTimestamp(),
       },
     );
@@ -324,6 +347,30 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
       db.doc(`group_invitations/${sessionToken}`),
       { useCount: FieldValue.increment(1) },
     );
+  }
+
+  // 4e. enable_group_fixes_v1: the joiner enters the group chat in the same
+  // batch (the client joinGroup did this; the server join paths never did).
+  if (syncChat) {
+    if (chatExists) {
+      batch.update(chatRef, {
+        participants: FieldValue.arrayUnion(input.uid),
+        [`participantNames.${input.uid}`]: memberName,
+      });
+    } else {
+      batch.set(chatRef, {
+        participants: [input.uid],
+        participantNames: { [input.uid]: memberName },
+        lastMessage: '',
+        lastMessageAt: FieldValue.serverTimestamp(),
+        lastSenderId: input.uid,
+        unreadCount: {},
+        createdAt: FieldValue.serverTimestamp(),
+        type: 'group',
+        groupId,
+        groupName: typeof groupData?.name === 'string' ? groupData.name : '',
+      });
+    }
   }
 
   // ── Step 5: Commit — throws on failure (caller must not swallow) ───────────

@@ -3,6 +3,7 @@
 import { collection, endAt, getDocs, limit, orderBy, query, startAt, where } from 'firebase/firestore';
 import { geohashQueryBounds } from 'geofire-common';
 import { db } from '@/lib/firebase';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import { Route, ActivityType, CommuteVariant } from '../types/route.types';
 import { Park as MapPark } from '../types/park.types';
 import { MapboxService } from './mapbox.service';
@@ -1535,7 +1536,10 @@ export function readCityCorridorLines(city: string): Promise<CorridorRecord[]> {
 
 /** Our mapped routes near the start (enable_loops_prefer_official), via the existing readers only. */
 function loadOurRoutesFor(options: RouteGenerationOptions, radiusKm: number): Promise<OurRoutesContext> {
-  return prepareOurRoutes(options.userLocation, radiusKm, ourRoutesSources(options.cityName, readCityCorridorLines));
+  // cycling-fixes-v1 (enable_cycling_fixes_v1): keep our routes to the requested activity so a bike
+  // loop isn't pulled onto walking routes (and vice versa). Flag off → undefined → unchanged.
+  const activity = readLiveFlag('enableCyclingFixesV1') ? options.activity : undefined;
+  return prepareOurRoutes(options.userLocation, radiusKm, ourRoutesSources(options.cityName, readCityCorridorLines, activity));
 }
 
 /** GraphHopper: our routes in wire form (clipped to the loop radius, simplified). */
@@ -1796,6 +1800,9 @@ export interface CorridorRecord {
   id: string;
   name: string;
   path: [number, number][];
+  /** Present only when the doc has them — read by the cycling-fixes-v1 activity filter. */
+  activityType?: ActivityType;
+  activityTypes?: ActivityType[];
 }
 
 /**
@@ -1822,7 +1829,11 @@ export async function fetchPublishedCorridorsForCity(cityCandidates: string[]): 
       const rawPath = data.path;
       if (!Array.isArray(rawPath) || rawPath.length < 2) continue;
       const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
-      corridors.set(d.id, { id: d.id, name: data.name || 'מסלול מסומן', path });
+      corridors.set(d.id, {
+        id: d.id, name: data.name || 'מסלול מסומן', path,
+        ...(data.activityType ? { activityType: data.activityType } : {}),
+        ...(Array.isArray(data.activityTypes) ? { activityTypes: data.activityTypes } : {}),
+      });
     }
   }
   return corridors;

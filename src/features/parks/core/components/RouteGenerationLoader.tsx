@@ -1,21 +1,24 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect } from 'react';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
-const LOADING_STEPS = [
-    "מנתח את השטח...",
-    "מחפש נקודות עניין...",
-    "מחשב מרחקים וגבהים...",
-    "מתאים את המסלול לפרופיל שלך...",
-    "כמעט סיימנו..."
-];
+const LOADING_STEP_KEYS = [
+    'routeLoader.step.terrain',
+    'routeLoader.step.poi',
+    'routeLoader.step.distances',
+    'routeLoader.step.profile',
+    'routeLoader.step.almost',
+] as const;
 
 export default function RouteGenerationLoader() {
+    const t = useT(mapNs);
     const [currentStep, setCurrentStep] = useState(0);
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setCurrentStep((prev) => (prev + 1) % LOADING_STEPS.length);
+            setCurrentStep((prev) => (prev + 1) % LOADING_STEP_KEYS.length);
         }, 2500); // 2500ms as requested
 
         return () => clearInterval(interval);
@@ -41,10 +44,10 @@ export default function RouteGenerationLoader() {
             </div>
 
             <h3 className="text-xl font-bold text-gray-900 mb-2 min-h-[1.75rem] transition-all duration-300">
-                {LOADING_STEPS[currentStep]}
+                {t(LOADING_STEP_KEYS[currentStep])}
             </h3>
             <p className="text-sm text-gray-400">
-                ה-AI שלנו בונה לך מסלול מושלם
+                {t('routeLoader.subtitle')}
             </p>
         </div>
     );

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { BARRIER_STORIES } from '../intro-copy';
+import { barrierStories } from '../intro-copy';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
 import { BEAT, READ_MIN_MS, readMs, storySchedule, storyTracks } from '../story-schedule';
+
+const t = makeT('he', onboarding);
+const BARRIER_STORIES = barrierStories(t);
 
 /** The value of `prop` at absolute second `t` (keyframes are step-sampled at their times). */
 function valueAt(track: { times: readonly number[]; values: Readonly<Record<string, readonly (number | string)[]>> }, total: number, prop: string, t: number) {

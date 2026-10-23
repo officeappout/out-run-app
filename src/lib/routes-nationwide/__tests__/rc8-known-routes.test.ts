@@ -65,4 +65,19 @@ describe('known routes (web research)', () => {
     expect(d.data).toMatchObject({ name: 'טיילת לואי', origin: 'web_research', knownRoute: { matchedBy: 'osm_ways', sources: [{ url: 'https://example.org/x', title: 't' }] } });
     expect(routeScoreInputFromDoc(d.id, d.data).sourceTier).toBe('named_place');
   });
+  it('a bike route is stamped with the shared cycling pace + kcal; a walk keeps running pace', () => {
+    const ctx = { authorityId: 'a1', city: 'חיפה', researchedAt: '2026-10-22', osmSnapshot: null, importBatchId: 'b' };
+    const way = [{ id: 5, name: 'שביל אופניים', highway: 'cycleway', coords: seg(0, 3000) }];
+    const input = { existing: [], relations: [], parkLoops: [], ways: way, inside: () => true };
+    const bike = K({ name: 'שביל אופניים', kind: 'bike' });
+    const walk = K({ name: 'שביל אופניים', kind: 'walk' });
+    const b = matchKnownRoutes({ authorityId: 'a1', city: 'חיפה', researchedAt: '2026-10-22', routes: [bike] }, input).matches[0];
+    const w = matchKnownRoutes({ authorityId: 'a1', city: 'חיפה', researchedAt: '2026-10-22', routes: [walk] }, input).matches[0];
+    const bd = knownRouteWaysDoc(bike, b.corridor!, ctx).data as { distance: number; duration: number; calories: number };
+    const wd = knownRouteWaysDoc(walk, w.corridor!, ctx).data as { distance: number; duration: number; calories: number };
+    expect(bd.duration).toBe(Math.max(1, Math.round((bd.distance * 1000) / (20000 / 60))));
+    expect(bd.calories).toBe(Math.round(bd.distance * 25));
+    expect(wd.calories).toBe(Math.round(wd.distance * 65));
+    expect(wd.duration).toBeGreaterThan(bd.duration);
+  });
 });
