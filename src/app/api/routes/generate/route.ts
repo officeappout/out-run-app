@@ -119,6 +119,8 @@ export async function POST(req: NextRequest) {
       seed: parsed.seed ?? 0, maxResults: parsed.preferShade ? SHADE_PREF_POOL : taRanks ? TIME_AWARE_POOL : parsed.maxResults, deadlineMs: LOOP_DEADLINE_MS,
       // Our mapped routes, sent by the app only with enable_loops_prefer_official on.
       ...(parsed.ourRoutes ? { ourRoutes: parsed.ourRoutes } : {}),
+      // enable_loops_prefer_marked_trails: sent by the app only with the flag on, outside the big cities.
+      ...(parsed.preferTrails ? { preferTrails: true } : {}),
     }, osmP);
     const osm = await osmP;
     if (out.loops.length === 0 && out.errors > 0) throw new Error(out.lastError ?? 'all candidates failed');

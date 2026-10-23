@@ -19,6 +19,8 @@ export interface GhLoopOptions {
   timeAware?: boolean;
   /** Explicit enable_route_shade_tag override (tests); absent = the device's live flag. */
   shadeTag?: boolean;
+  /** Explicit enable_loops_prefer_marked_trails override (tests / admin); absent = the device's live flag. */
+  preferMarkedTrails?: boolean;
   destination?: unknown;
   followOfficialRouteId?: string;
   discoverCorridorChain?: boolean;

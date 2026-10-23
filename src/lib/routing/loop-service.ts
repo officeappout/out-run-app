@@ -37,13 +37,21 @@ export interface LoopRequest {
    * of each loop on them improves its score. Absent = exactly the plain recipe.
    */
   ourRoutes?: OurRouteLine[];
+  /**
+   * enable_loops_prefer_marked_trails (running/walking only, outside the big cities — the caller decides):
+   * paved streets outside marked routes get a mild priority cut and loops on trails rank slightly better.
+   * Absent / false = exactly the plain recipe.
+   */
+  preferTrails?: boolean;
   /** Running/walking profile; default GRAPHHOPPER_FOOT_PROFILE (foot | foot_turns). */
   footProfile?: GhFootProfile;
 }
 
 /** Tags + scoring index for our routes; the plain tags when there are none nearby. */
 function withOurRoutes(req: LoopRequest): { tags: RouteTags; index: ReturnType<typeof buildOurRoutesIndex> | undefined } {
-  const tags = req.tags ?? DEFAULT_TAGS;
+  const base = req.tags ?? DEFAULT_TAGS;
+  // Foot profiles only (the custom model ignores it for bikes, but keep the tags honest).
+  const tags: RouteTags = req.preferTrails && req.activity !== 'cycling' ? { ...base, preferMarkedTrails: true } : base;
   if (!req.ourRoutes?.length) return { tags, index: undefined };
   const area = buildOurRoutesArea(req.ourRoutes, req.start, ourRoutesRadiusKm(req.targetKm));
   return {
@@ -106,7 +114,7 @@ export async function generateLoops(
 
   const snapshot = [...done];
   const layer = await osm;
-  const scored = snapshot.map(c => scoreLoop(c, req.targetKm, layer, our.index));
+  const scored = snapshot.map(c => scoreLoop(c, req.targetKm, layer, our.index, req.preferTrails && req.activity !== 'cycling'));
   return {
     loops: selectTopLoops(scored, req.maxResults ?? 3),
     candidates: snapshot.length,

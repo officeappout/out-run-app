@@ -66,6 +66,18 @@ describe('tryGraphhopperLoops', () => {
     expect(routes![0].shadeInfo).toEqual({ shadedPct: 42.5 });
     expect(routes![1]).not.toHaveProperty('shadeInfo');
   });
+  it('enable_loops_prefer_marked_trails: off → absent; on → preferTrails outside the big cities, running/walking only', async () => {
+    const f = okFetch([dto()]);
+    await tryGraphhopperLoops(opts({ preferMarkedTrails: false }), deps(f));
+    await tryGraphhopperLoops(opts({ preferMarkedTrails: true }), deps(f));
+    await tryGraphhopperLoops(opts({ preferMarkedTrails: true, cityName: 'חיפה' }), deps(f));
+    await tryGraphhopperLoops(opts({ preferMarkedTrails: true, activity: 'cycling' }), deps(f));
+    const bodies = (f.mock.calls as unknown as Array<[string, RequestInit]>).map(c => JSON.parse(c[1].body as string));
+    expect('preferTrails' in bodies[0]).toBe(false);
+    expect(bodies[1].preferTrails).toBe(true);
+    expect('preferTrails' in bodies[2]).toBe(false);
+    expect('preferTrails' in bodies[3]).toBe(false);
+  });
   it('sends our routes (enable_loops_prefer_official) only when there are some', async () => {
     const f = okFetch([dto()]);
     const wire = [{ id: 'r1', path: [[34.775, 32.08], [34.78, 32.08]] as [number, number][] }];
