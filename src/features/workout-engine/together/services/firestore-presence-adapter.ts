@@ -44,6 +44,8 @@ export function parsePresenceDoc(uid: string, data: DocumentData): PresenceEntry
     ...(num(t.round) != null ? { round: num(t.round) } : {}),
     ...(num(t.minute) != null ? { minute: num(t.minute) } : {}),
     ...(num(t.roundsDone) != null ? { roundsDone: num(t.roundsDone) } : {}),
+    ...(num(t.totalReps) != null ? { totalReps: num(t.totalReps) } : {}),
+    ...(typeof t.duelUid === 'string' && t.duelUid ? { duelUid: t.duelUid } : {}),
     ...(t.ready === true ? { ready: true } : {}),
     ...(num(t.level) != null ? { level: num(t.level) } : {}),
     ...(num(t.usualPaceSecPerKm) != null ? { usualPaceSecPerKm: num(t.usualPaceSecPerKm) } : {}),

@@ -10,7 +10,7 @@ export type ThrottleDecision =
 
 /** Fields whose change means the others see something different. */
 const VISIBLE_KEYS: (keyof PresenceStatus)[] = [
-  'state', 'distanceKm', 'paceSecPerKm', 'set', 'totalSets', 'round', 'minute', 'roundsDone', 'ready', 'level', 'usualPaceSecPerKm',
+  'state', 'distanceKm', 'paceSecPerKm', 'set', 'totalSets', 'round', 'minute', 'roundsDone', 'ready', 'level', 'usualPaceSecPerKm', 'totalReps', 'duelUid',
 ];
 
 function numStr(v: unknown): string {
@@ -28,6 +28,8 @@ export function statusChanged(prev: PresenceStatus | null, next: PresenceStatus)
       if (Math.round((prev.distanceKm ?? 0) * 100) !== Math.round((next.distanceKm ?? 0) * 100)) return true;
     } else if (k === 'paceSecPerKm') {
       if (Math.round(prev.paceSecPerKm ?? 0) !== Math.round(next.paceSecPerKm ?? 0)) return true;
+    } else if (k === 'duelUid') {
+      if ((prev.duelUid ?? '') !== (next.duelUid ?? '')) return true;
     } else if (k === 'ready') {
       if (!!prev.ready !== !!next.ready) return true;
     } else if (numStr(prev[k]) !== numStr(next[k])) {

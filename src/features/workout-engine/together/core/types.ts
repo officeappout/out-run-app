@@ -37,6 +37,10 @@ export interface PresenceStatus {
   clientMs: number;
   /** Monotonic per-publisher counter, so a late snapshot never wins. */
   seq: number;
+  /** Total reps so far (strength / AMRAP) — the together summary's collective line. */
+  totalReps?: number;
+  /** The rail face I picked for a head-to-head; the summary shows a duel result only when set. */
+  duelUid?: string;
   /** Lobby: "I'm here and ready". */
   ready?: boolean;
   /** Lobby: strength level (strengthLevelOf) for the same / each decision. */
