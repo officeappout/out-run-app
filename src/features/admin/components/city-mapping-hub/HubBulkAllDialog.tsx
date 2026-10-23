@@ -17,7 +17,7 @@ import {
   type PendingRoutesPreviewResponse,
 } from '@/features/admin/services/city-mapping-hub-moderation.service';
 import {
-  applyBulkFilters, authorityOptions, buildBulkPreview, confirmPhrase, isConfirmValid, runBulkApprove,
+  applyBulkFilters, authorityOptions, buildBulkPreview, confirmPhrase, geometryExclusions, isConfirmValid, runBulkApprove,
   type OriginFilter, type RunSummary,
 } from '@/lib/city-mapping-hub/bulk-approve.logic';
 
@@ -54,6 +54,7 @@ export default function HubBulkAllDialog({ admin, onClose, onDone }: { admin: Mo
     () => buildBulkPreview(applyBulkFilters(data?.candidates ?? [], { minScore: num(minScore), minKm: num(minKm), origin, authorityIds: selectedIds }), names),
     [data, minScore, minKm, origin, selectedIds, names],
   );
+  const excluded = useMemo(() => geometryExclusions(data?.candidates ?? [], selectedIds), [data, selectedIds]);
   const countFor = (id: string) => preview.perAuthority.find((a) => a.authorityId === id)?.count ?? 0;
   const toggle = (id: string) => setUnselected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const valid = isConfirmValid(typed, preview.total);
@@ -95,6 +96,12 @@ export default function HubBulkAllDialog({ admin, onClose, onDone }: { admin: Mo
               </label>
             </div>
             {(num(minScore) > 0) && <p className="text-xs text-slate-500">מסלול בלי ציון לא יעבור סף ציון חיובי.</p>}
+            {(excluded.gap > 0 || excluded.unmeasured > 0) && (
+              <div role="note" data-testid="hub-bulkall-excluded" className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-800">
+                {excluded.gap > 0 && <p>⚠ {excluded.gap} מסלולים עם קפיצה ישרה חשודה (500 מ׳ ומעלה) הוחרגו מהאישור.</p>}
+                {excluded.unmeasured > 0 && <p>⚠ {excluded.unmeasured} מסלולים בלי נתיב שאפשר למדוד הוחרגו (לא ניתן לאמת גיאומטריה).</p>}
+              </div>
+            )}
             {data.unattributed > 0 && <p className="text-xs text-amber-700">{data.unattributed} ממתינים ללא רשות מזוהה לא נכללים.</p>}
             <div className="min-h-0 overflow-auto rounded-xl border border-slate-100" aria-label="רשויות">
               <div className="flex gap-3 border-b border-slate-100 px-3 py-1.5 text-xs font-bold">

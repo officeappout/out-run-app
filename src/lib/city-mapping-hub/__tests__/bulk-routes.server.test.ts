@@ -52,7 +52,10 @@ beforeEach(() => {
   put('official_routes/r5', { name: 'live', authorityId: 'a', published: true, status: 'published' });
   put('official_routes/r6', { name: 'noauth', published: false, status: 'pending', city: 'nowhere' });
   put('official_routes/r7', { name: 'other', authorityId: 'b', published: false, status: 'pending' });
-  put('route_scores/r1', { score: 84, computedAt: new Date() });
+  put('route_scores/r1', { score: 84, geometryGapM: 120, computedAt: new Date() });
+  const p = (m: number) => [{ lat: 32, lng: 34.8 }, { lat: 32 + m / 111_195, lng: 34.8 }];
+  for (const id of ['r2', 'r3', 'r7']) store.set(`official_routes/${id}`, { ...store.get(`official_routes/${id}`)!, path: p(300) });
+  store.set('official_routes/r1', { ...store.get('official_routes/r1')!, path: p(50) });
 });
 
 describe('readPendingRoutesNationwide', () => {
@@ -87,6 +90,34 @@ describe('approvePendingRoutes', () => {
   });
 });
 
+describe('straight-bridge guard', () => {
+  it('preview: stored gap ≥500 → gap; no stored gap → measured from path at 1000; no path / missing score → unmeasured', async () => {
+    put('official_routes/g1', { name: 'g1', authorityId: 'a', published: false, status: 'pending', path: [{ lat: 32, lng: 34.8 }, { lat: 32.0045, lng: 34.8 }] });
+    put('route_scores/g1', { score: 80, geometryGapM: 500 });                                  // stored 500 → gap
+    put('official_routes/g2', { name: 'g2', authorityId: 'a', published: false, status: 'pending', path: [{ lat: 32, lng: 34.8 }, { lat: 32.0079, lng: 34.8 }] }); // ~878 m, no score doc → ok
+    put('official_routes/g3', { name: 'g3', authorityId: 'a', published: false, status: 'pending', path: [{ lat: 32, lng: 34.8 }, { lat: 32.0095, lng: 34.8 }] }); // ~1056 m → gap
+    put('official_routes/g4', { name: 'g4', authorityId: 'a', published: false, status: 'pending' });                                                              // no path → unmeasured
+    const r = await readPendingRoutesNationwide(db as never);
+    const by = (id: string) => r.candidates.find((c) => c.id === id)!;
+    expect(by('r1')).toMatchObject({ geometry: 'ok', gapM: 120 });
+    expect(by('g1')).toMatchObject({ geometry: 'gap', gapM: 500 });
+    expect(by('g2')).toMatchObject({ geometry: 'ok' });
+    expect(by('g2').score).toBeNull();
+    expect(by('g3').geometry).toBe('gap');
+    expect(by('g4')).toMatchObject({ geometry: 'unmeasured', gapM: null });
+  });
+  it('POST re-checks: a gap / unmeasured id sent anyway is skipped, never written', async () => {
+    put('official_routes/g1', { name: 'g1', authorityId: 'a', published: false, status: 'pending', path: [{ lat: 32, lng: 34.8 }, { lat: 32.02, lng: 34.8 }] });
+    put('official_routes/g4', { name: 'g4', authorityId: 'a', published: false, status: 'pending' });
+    put('route_scores/g5', { geometryGapM: 499 });
+    put('official_routes/g5', { name: 'g5', authorityId: 'a', published: false, status: 'pending' });
+    const out = await approvePendingRoutes(db as never, 'admin-1', { authorityId: 'a', ids: ['r1', 'g1', 'g4', 'g5'] });
+    expect(out.updated.sort()).toEqual(['g5', 'r1']);
+    expect(Object.fromEntries(out.skipped.map((s) => [s.id, s.reason]))).toEqual({ g1: 'geometry_gap', g4: 'geometry_unmeasured' });
+    expect(writes.filter((w) => w.op === 'update').map((w) => w.path).sort()).toEqual(['official_routes/g5', 'official_routes/r1']);
+  });
+});
+
 describe('approvePendingRoutes — TOCTOU', () => {
   it('a route changed between read and write is a conflict; the others are still approved', async () => {
     // r3 gets archived after our read: bump its version inside getAll's aftermath.
@@ -107,7 +138,7 @@ describe('approvePendingRoutes — TOCTOU', () => {
   });
   it('exactly the max (499 updates + audit = 500 writes) is accepted and written in one batch', async () => {
     const ids = Array.from({ length: 499 }, (_, i) => `m${i}`);
-    for (const id of ids) put(`official_routes/${id}`, { name: id, authorityId: 'a', published: false, status: 'pending' });
+    for (const id of ids) put(`official_routes/${id}`, { name: id, authorityId: 'a', published: false, status: 'pending', path: [{ lat: 32, lng: 34.8 }, { lat: 32.001, lng: 34.8 }] });
     expect(parseBulkApproveRequest({ authorityId: 'a', ids }).ok).toBe(true);
     const out = await approvePendingRoutes(db as never, 'admin-1', { authorityId: 'a', ids });
     expect(out.updated).toHaveLength(499);

@@ -5,7 +5,7 @@ import {
 } from '../bulk-approve.logic';
 
 const c = (id: string, authorityId: string, o: Partial<PendingRouteCandidate> = {}): PendingRouteCandidate =>
-  ({ id, authorityId, name: id, distanceKm: 5, score: 82, origin: 'osm_import', ...o });
+  ({ id, authorityId, name: id, distanceKm: 5, score: 82, origin: 'osm_import', geometry: 'ok', gapM: 0, ...o });
 const names = new Map([['a', 'אילת'], ['b', 'באר שבע']]);
 const base = { minScore: 0, minKm: 0, origin: 'all' as const, authorityIds: new Set(['a', 'b']) };
 
@@ -77,5 +77,40 @@ describe('runBulkApprove', () => {
   });
   it('summarize of nothing is zero', () => {
     expect(summarizeRun([])).toMatchObject({ requested: 0, approved: 0, skipped: 0 });
+  });
+});
+
+import { classifyGeometry, geometryExclusions } from '../bulk-approve.logic';
+
+/** A 2-point path whose single step is ~`m` metres due north. */
+const stepPath = (m: number) => [{ lat: 32, lng: 34.8 }, { lat: 32 + m / 111_195, lng: 34.8 }];
+
+describe('classifyGeometry', () => {
+  it('stored gap: cut at 500 m (499 ok, 500 gap), path ignored', () => {
+    expect(classifyGeometry(499, stepPath(5000)).status).toBe('ok');
+    expect(classifyGeometry(500, null).status).toBe('gap');
+    expect(classifyGeometry(0, null)).toMatchObject({ status: 'ok', source: 'stored' });
+  });
+  it('no stored gap: measured from the path, cut at 1000 m (999 ok, 1000 gap)', () => {
+    expect(classifyGeometry(null, stepPath(600))).toMatchObject({ status: 'ok', source: 'path' });
+    expect(classifyGeometry(undefined, stepPath(999)).status).toBe('ok');
+    expect(classifyGeometry(undefined, stepPath(1001)).status).toBe('gap');
+  });
+  it('missing / unusable path and no stored gap → unmeasured, never clean', () => {
+    expect(classifyGeometry(null, undefined).status).toBe('unmeasured');
+    expect(classifyGeometry(null, []).status).toBe('unmeasured');
+    expect(classifyGeometry(null, [{ lat: 32, lng: 34.8 }]).status).toBe('unmeasured');
+    expect(classifyGeometry(NaN, 'junk').status).toBe('unmeasured');
+  });
+});
+
+describe('geometry exclusion in filters', () => {
+  const cs = [c('1', 'a'), c('2', 'a', { geometry: 'gap', gapM: 800 }), c('3', 'b', { geometry: 'unmeasured', gapM: null })];
+  it('gap / unmeasured are never approved, whatever the other filters say', () => {
+    expect(applyBulkFilters(cs, base).map((x) => x.id)).toEqual(['1']);
+  });
+  it('counts exclusions for the selected authorities only', () => {
+    expect(geometryExclusions(cs, new Set(['a', 'b']))).toEqual({ gap: 1, unmeasured: 1 });
+    expect(geometryExclusions(cs, new Set(['a']))).toEqual({ gap: 1, unmeasured: 0 });
   });
 });

@@ -5,7 +5,38 @@
  */
 
 /** 499 updates + 1 audit_logs row = 500, Firestore's per-batch write limit. */
+import { GEOMETRY_GAP_REVIEW_M, GEOMETRY_GAP_SUSPICIOUS_M, maxVertexGapM } from '../route-geometry/gaps';
+import { normalizeStoredRoutePath } from '@/features/parks/core/utils/routePath';
+
 export const BULK_APPROVE_BATCH = 499;
+
+/**
+ * Straight-bridge guard. `ok` = measured and below the cut; `gap` = a suspicious
+ * jump (excluded); `unmeasured` = no stored gap and no usable path (excluded —
+ * never silently treated as clean).
+ */
+export type GeometryStatus = 'ok' | 'gap' | 'unmeasured';
+
+export interface GeometryVerdict {
+  status: GeometryStatus;
+  gapM: number | null;
+  source: 'stored' | 'path' | null;
+}
+
+/**
+ * A stored route_scores.geometryGapM (exact segment test) is judged at ≥ 500 m.
+ * Without it the gap is measured on the fly from the stored path's vertex steps,
+ * judged at ≥ 1000 m instead (≈2 % of legitimate routes have a 500 m–1 km vertex step).
+ */
+export function classifyGeometry(storedGapM: unknown, rawPath: unknown): GeometryVerdict {
+  if (typeof storedGapM === 'number' && Number.isFinite(storedGapM)) {
+    return { status: storedGapM >= GEOMETRY_GAP_SUSPICIOUS_M ? 'gap' : 'ok', gapM: storedGapM, source: 'stored' };
+  }
+  const path = normalizeStoredRoutePath(rawPath);
+  if (path.length < 2) return { status: 'unmeasured', gapM: null, source: null };
+  const gapM = maxVertexGapM(path);
+  return { status: gapM >= GEOMETRY_GAP_REVIEW_M ? 'gap' : 'ok', gapM, source: 'path' };
+}
 
 export interface PendingRouteCandidate {
   id: string;
@@ -14,6 +45,8 @@ export interface PendingRouteCandidate {
   distanceKm: number | null;
   score: number | null;
   origin: string | null;
+  geometry: GeometryStatus;
+  gapM: number | null;
 }
 
 export type OriginFilter = 'all' | 'known' | 'other';
@@ -32,6 +65,7 @@ export const isKnownRouteOrigin = (origin: string | null): boolean => origin ===
 export function applyBulkFilters(cands: readonly PendingRouteCandidate[], f: BulkApproveFilters): PendingRouteCandidate[] {
   return cands.filter((c) => {
     if (!f.authorityIds.has(c.authorityId)) return false;
+    if (c.geometry !== 'ok') return false; // suspicious / unmeasured geometry is never in the approve set
     // A missing score / length can never satisfy a positive minimum (never "0 that isn't really 0").
     if (f.minScore > 0 && (c.score == null || c.score < f.minScore)) return false;
     if (f.minKm > 0 && (c.distanceKm == null || c.distanceKm < f.minKm)) return false;
@@ -74,6 +108,19 @@ export function authorityOptions(cands: readonly PendingRouteCandidate[], names:
     .sort((a, b) => a.name.localeCompare(b.name, 'he'));
 }
 
+export interface GeometryExclusions { gap: number; unmeasured: number }
+
+/** Counts of excluded routes among the selected authorities (before the other filters). */
+export function geometryExclusions(cands: readonly PendingRouteCandidate[], authorityIds: ReadonlySet<string>): GeometryExclusions {
+  const out = { gap: 0, unmeasured: 0 };
+  for (const c of cands) {
+    if (!authorityIds.has(c.authorityId)) continue;
+    if (c.geometry === 'gap') out.gap++;
+    else if (c.geometry === 'unmeasured') out.unmeasured++;
+  }
+  return out;
+}
+
 export const confirmPhrase = (total: number): string => `אשר ${total}`;
 
 /** Accepts exactly "אשר N" or the bare number N, N being the preview total (> 0). */
@@ -89,7 +136,7 @@ export function chunk<T>(items: readonly T[], size = BULK_APPROVE_BATCH): T[][] 
   return out;
 }
 
-export type SkipReason = 'not_found' | 'other_authority' | 'not_pending' | 'conflict';
+export type SkipReason = 'not_found' | 'other_authority' | 'not_pending' | 'conflict' | 'geometry_gap' | 'geometry_unmeasured';
 
 export interface BatchOutcome {
   updated: string[];
