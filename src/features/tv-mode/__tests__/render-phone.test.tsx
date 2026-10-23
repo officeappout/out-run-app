@@ -19,8 +19,8 @@ const session: TvSession = {
   mirror: null, timerAnchorAtMs: null, volume: 0.6, cmd: null,
 };
 const people: TvParticipant[] = [
-  { uid: 'noa', name: 'נועה', joinedAtMs: 1, state: 'joined', seq: 0 },
-  { uid: 'dani', name: 'דני', joinedAtMs: 2, state: 'active', set: 3, totalSets: 5, seq: 1 },
+  { uid: 'noa', name: 'נועה', joinedAtMs: 1, avatar: 0, state: 'joined', seq: 0 },
+  { uid: 'dani', name: 'דני', joinedAtMs: 2, avatar: 5, state: 'active', set: 3, totalSets: 5, seq: 1 },
 ];
 
 describe('phone screens', () => {

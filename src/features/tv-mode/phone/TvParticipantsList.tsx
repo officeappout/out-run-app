@@ -12,7 +12,7 @@ export function AvatarStack({ list, size = 40 }: { list: TvParticipant[]; size?:
     <span className="flex ps-2.5" aria-hidden="true">
       {list.slice(0, 5).map((p) => (
         <span key={p.uid} className="-ms-2.5">
-          <Avatar uid={p.uid} name={p.name} size={size} />
+          <Avatar uid={p.uid} name={p.name} avatar={p.avatar} size={size} />
         </span>
       ))}
     </span>
@@ -26,7 +26,7 @@ export default function TvParticipantsList({ list }: { list: TvParticipant[] }) 
     <ul className="mt-1.5 border-t border-[#eef2f6] pt-1">
       {list.map((p) => (
         <li key={p.uid} className="flex items-center gap-3 py-2">
-          <Avatar uid={p.uid} name={p.name} size={40} />
+          <Avatar uid={p.uid} name={p.name} avatar={p.avatar} size={40} />
           <span className="flex-1 text-[15.5px] font-extrabold">{p.name || t('lobby.noName')}</span>
           <span className="inline-flex items-center gap-1.5 text-[13px] font-extrabold text-[#047857]">
             <span className="h-2 w-2 rounded-full bg-[#10b981]" aria-hidden="true" />

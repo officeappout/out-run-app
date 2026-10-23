@@ -69,9 +69,9 @@ export const useTvPhoneStore = create<TvPhoneState>((set) => ({
 const KEY = 'tv:phone';
 
 /** Survive a reload of the app while a session is open (re-joined on mount; host re-join is idempotent). */
-export function saveConnection(code: string, role: TvJoinRole): void {
+export function saveConnection(code: string, role: TvJoinRole, nickname?: string): void {
   try {
-    sessionStorage.setItem(KEY, JSON.stringify({ code, role }));
+    sessionStorage.setItem(KEY, JSON.stringify({ code, role, ...(nickname ? { nickname } : {}) }));
   } catch {
     /* storage unavailable: no resume */
   }
@@ -83,12 +83,15 @@ export function clearConnection(): void {
     /* ignore */
   }
 }
-export function readConnection(): { code: string; role: TvJoinRole } | null {
+/** `nickname` is only there for a guest (they re-join with the same one after a reload). */
+export function readConnection(): { code: string; role: TvJoinRole; nickname?: string } | null {
   try {
     const raw = sessionStorage.getItem(KEY);
     if (!raw) return null;
-    const v = JSON.parse(raw) as { code?: string; role?: string };
-    return typeof v.code === 'string' && (v.role === 'host' || v.role === 'participant') ? { code: v.code, role: v.role } : null;
+    const v = JSON.parse(raw) as { code?: string; role?: string; nickname?: unknown };
+    return typeof v.code === 'string' && (v.role === 'host' || v.role === 'participant')
+      ? { code: v.code, role: v.role, ...(typeof v.nickname === 'string' && v.nickname ? { nickname: v.nickname } : {}) }
+      : null;
   } catch {
     return null;
   }

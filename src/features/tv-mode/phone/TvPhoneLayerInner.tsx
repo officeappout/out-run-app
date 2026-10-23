@@ -47,7 +47,7 @@ export default function TvPhoneLayerInner() {
     if (!saved) return;
     let cancelled = false;
     void auth.authStateReady().then(() => {
-      if (!cancelled && !useTvPhoneStore.getState().code) void join(saved.code, null);
+      if (!cancelled && !useTvPhoneStore.getState().code) void join(saved.code, null, saved.nickname ?? '');
     });
     return () => {
       cancelled = true;

@@ -158,7 +158,7 @@ export default function TvRemote({
           <div className="text-[13px] font-extrabold text-[#64748b]">{t('remote.friends')}</div>
           {friends.map((p) => (
             <div key={p.uid} className="flex items-center gap-2.5">
-              <Avatar uid={p.uid} name={p.name} size={34} />
+              <Avatar uid={p.uid} name={p.name} avatar={p.avatar} size={34} />
               <span className="flex-1 text-[14.5px] font-extrabold">{p.name || t('lobby.noName')}</span>
               <span className="text-[13px] font-extrabold text-[#0284c7]">
                 {p.state === 'resting' ? t('remote.friend.resting') : p.state === 'done' ? t('remote.friend.done') : p.set && p.totalSets ? t('remote.friend.active', { set: p.set, total: p.totalSets }) : t('remote.friend.joined')}

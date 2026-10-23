@@ -47,6 +47,8 @@ describe('phone store', () => {
   it('the stored connection survives a reload and ignores garbage', () => {
     saveConnection('482913', 'host');
     expect(readConnection()).toEqual({ code: '482913', role: 'host' });
+    saveConnection('482913', 'participant', 'גיא');
+    expect(readConnection()).toEqual({ code: '482913', role: 'participant', nickname: 'גיא' }); // a guest re-joins with the same nickname
     clearConnection();
     expect(readConnection()).toBeNull();
     sessionStorage.setItem('tv:phone', '{"code":5,"role":"x"}');

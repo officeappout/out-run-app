@@ -5,10 +5,15 @@ import { X } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { wide } from '@/messages/ns/wide';
 import { isValidCode, parseJoinInput } from '../core/code';
+import { TV_NICKNAME_MAX } from '../core/constants';
+import { joinErrorKey, planJoin } from '../core/join-plan';
+import { checkNickname } from '../core/nickname';
 import { useQrScanner } from '../hooks/useQrScanner';
+import { useTvIdentity } from '../hooks/useTvIdentity';
 import { useTvJoin } from '../hooks/useTvJoin';
 import { PAGE_BG, PRIMARY_BTN } from '../ui/styles';
 import TvCodeInput from './TvCodeInput';
+import { readNickname } from './nickname-memory';
 import { useTvPhoneStore } from './phone-store';
 
 /** W-14: scan the code on the screen, or type it. First phone in = host. */
@@ -18,10 +23,16 @@ export default function TvConnectScreen() {
   const initial = useTvPhoneStore((s) => s.code);
   const closePair = useTvPhoneStore((s) => s.closePair);
   const [code, setCode] = useState(initial ?? '');
+  const identity = useTvIdentity();
+  // Kahoot model: a guest (or nobody yet) joins with a nickname, an account with its first name.
+  const asGuest = identity !== 'account';
+  const [nickname, setNickname] = useState(readNickname);
+  const nick = checkNickname(nickname);
   const { state, join } = useTvJoin();
   const joining = state.phase === 'joining';
+  const canJoin = (c: string) => isValidCode(c) && !joining && (!asGuest || nick.ok);
   const submit = (c: string) => {
-    if (isValidCode(c) && !joining) void join(c, pending);
+    if (canJoin(c)) void join(c, pending, nickname);
   };
   const submitRef = useRef(submit);
   submitRef.current = submit;
@@ -38,23 +49,18 @@ export default function TvConnectScreen() {
   // A code that arrived with the link (/tv?code=…) joins straight away.
   const auto = useRef(false);
   useEffect(() => {
-    if (initial && isValidCode(initial) && !auto.current) {
+    if (!initial || !isValidCode(initial) || auto.current) return;
+    // An account joins at once; a guest only when a nickname is already remembered.
+    if (identity === 'account' || (identity === 'guest' && planJoin({ identity, accountName: '', nickname, fallbackName: '' }).ok)) {
       auto.current = true;
       submitRef.current(initial);
     }
-  }, [initial]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial, identity]);
 
-  const errorKey =
-    state.phase === 'error'
-      ? ({
-          'not-found': 'pair.phone.error.notFound',
-          expired: 'pair.phone.error.expired',
-          ended: 'pair.phone.error.ended',
-          offline: 'pair.phone.error.offline',
-          unknown: 'pair.phone.error.unknown',
-          'need-login': 'pair.phone.error.needLogin',
-        } as const)[state.error]
-      : null;
+  const nickError =
+    asGuest && nickname.trim() && !nick.ok ? (nick.reason === 'too-long' ? 'pair.join.error.tooLong' : nick.reason === 'charset' ? 'pair.join.error.charset' : 'pair.join.error.empty') : null;
+  const errorKey = state.phase === 'error' ? joinErrorKey(state.error, pending !== null) : null;
 
   return (
     <div dir="rtl" className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="dialog" aria-modal="true" aria-label={t('pair.phone.title')}>
@@ -93,18 +99,43 @@ export default function TvConnectScreen() {
         <span className="h-px flex-1 bg-[#dbe7ee]" />
       </div>
 
+      {asGuest && (
+        <div className="mx-4 mt-[14px]">
+          {pending && (
+            <p role="note" className="mb-3 rounded-2xl bg-[#fef3c7] px-3.5 py-2.5 text-[13.5px] font-bold leading-snug text-[#92400e]">
+              {t('pair.phone.error.hostNeedsAccount')}
+            </p>
+          )}
+          <label htmlFor="tv-nickname" className="block text-[13px] font-extrabold text-[#64748b]">
+            {t('pair.join.label')}
+          </label>
+          <input
+            id="tv-nickname"
+            dir="auto"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            maxLength={TV_NICKNAME_MAX * 2}
+            autoComplete="nickname"
+            placeholder={t('pair.join.placeholder')}
+            aria-invalid={nickError !== null}
+            className="mt-1.5 min-h-[52px] w-full rounded-2xl bg-white px-4 text-[17px] font-extrabold shadow-[0_0_0_1px_rgba(14,27,42,0.12)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#00baf7]"
+          />
+          <p className="mt-1.5 text-[12.5px] font-bold text-[#64748b]">{nickError ? t(nickError, { max: TV_NICKNAME_MAX }) : t('pair.join.body')}</p>
+        </div>
+      )}
+
       <div className="mx-4 mt-[14px]">
         <TvCodeInput value={code} onChange={setCode} label={t('pair.phone.codeLabel')} invalid={state.phase === 'error'} />
         {errorKey && (
           <p role="alert" className="mt-3 text-center text-[13.5px] font-bold text-[#b91c1c]">
-            {t(errorKey)}
+            {t(errorKey, { max: TV_NICKNAME_MAX })}
           </p>
         )}
       </div>
 
       <div className="mt-auto px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-3">
-        <button type="button" className={PRIMARY_BTN} disabled={!isValidCode(code) || joining} onClick={() => submit(code)}>
-          {joining ? t('pair.phone.connecting') : t('pair.phone.cta')}
+        <button type="button" className={PRIMARY_BTN} disabled={!canJoin(code)} onClick={() => submit(code)}>
+          {joining ? t('pair.phone.connecting') : asGuest ? t('pair.join.cta') : t('pair.phone.cta')}
         </button>
         <p className="mt-2.5 text-center text-[13px] font-bold text-[#64748b]">{t('pair.phone.note')}</p>
       </div>
