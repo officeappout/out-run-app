@@ -122,7 +122,7 @@ export class TrailsRun {
     // so create-only silently skipped every council after the first (first regional run: 859 selected → 762 ids).
     // Per-council suffix keeps each council's section; a re-run of the first council is dropped by the
     // existing-geometry dedupe against its already-written osm_rel_<id> doc.
-    const perCouncilId = (id: string) => (/^osm_rel_\d+$/.test(id) ? `${id}__${this.a.id}` : id);
+    const perCouncilId = (id: string) => (/^osm_rel_\d+(?:_p\d+)?$/.test(id) ? `${id}__${this.a.id}` : id);
     const toCand = (docs: Array<{ id: string; data: Record<string, unknown> }>, stage: 'osm' | 'generated'): CandidateRoute[] => {
       const renamed = disambiguateByKm(docs.map((d) => ({ id: d.id, name: String(d.data.name ?? ''), km: Number(d.data.distance) || 0 })));
       return docs.map((d) => ({

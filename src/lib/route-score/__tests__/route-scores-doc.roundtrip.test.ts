@@ -46,11 +46,13 @@ describe('route_scores round trip (axioms §31)', () => {
 
     const stored = db.store.get(`${ROUTE_SCORES_COLLECTION}/CY5KMrNMD90UAyuU3wom`)!;
     expect((stored.computedAt as any).getTime).toBeUndefined(); // the shape the Admin SDK really returns
+    expect(typeof stored.geometryGapM).toBe('number'); // straight-bridge flag is persisted
 
     const back = await readRouteScoreDoc(db, 'CY5KMrNMD90UAyuU3wom');
     expect(back).not.toBeNull();
     expect(back!.computedAt).toBeInstanceOf(Date);
     expect(back!.computedAt.getTime()).toBe(now.getTime());
+    expect(back!.geometryGapM).toBe(input.geometryGapM);
     expect(back).toMatchObject({ routeId: doc.routeId, score: doc.score, band: doc.band, selection: 'selected', sourceTier: 'named_place' });
     expect(back!.components.surface.max).toBe(25);
   });

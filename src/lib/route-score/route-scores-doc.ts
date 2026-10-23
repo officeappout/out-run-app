@@ -41,6 +41,8 @@ export interface RouteScoreDoc {
   /** Null when the route was scored without a selection pass. */
   selection: SelectionDecision | null;
   selectionReason: string | null;
+  /** Longest vertex-to-vertex step of the path (m); null = not measured / no path. Straight-bridge flag for the hub (route-geometry/gaps.ts). */
+  geometryGapM: number | null;
   scoreVersion: string;
   computedAt: Date;
 }
@@ -74,6 +76,7 @@ export function buildRouteScoreDoc(
       : null,
     selection: selection?.decision ?? null,
     selectionReason: selection?.reason ?? null,
+    geometryGapM: typeof input.geometryGapM === 'number' ? input.geometryGapM : null,
     scoreVersion: score.version,
     computedAt: opts.now ?? new Date(),
   };
@@ -118,6 +121,7 @@ export function routeScoreDocFromStored(raw: Record<string, any>): RouteScoreDoc
     shade: shadeFromStored(raw?.shade),
     selection: raw?.selection ?? null,
     selectionReason: raw?.selectionReason ?? null,
+    geometryGapM: typeof raw?.geometryGapM === 'number' && Number.isFinite(raw.geometryGapM) ? raw.geometryGapM : null,
     scoreVersion: String(raw?.scoreVersion ?? ''),
     computedAt: toDateLike(raw?.computedAt) ?? new Date(0),
   };

@@ -66,6 +66,11 @@ export interface RouteScoreInput {
    * absent = not measured (v1.3 behaviour).
    */
   osmSafety: { majorRoadPct: number; unmarkedPerKm: number; separatedMajorPct?: number } | null;
+  /**
+   * Longest single step (m) between two consecutive path vertices — a straight "bridge" detector
+   * (route-geometry/gaps.ts). Optional so older callers stay valid; absent = not measured.
+   */
+  geometryGapM?: number | null;
   /** Geometry facts (computed from `path` by the adapter, or supplied). */
   /**
    * turnsPerKm / zigzagIndex (route-quality turns.ts, v1.2): optional so older
