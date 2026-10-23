@@ -1239,6 +1239,15 @@
     }
   ],
   "fieldOverrides": [
+    // Group-session reminder scan (sessionReminderScheduler): collectionGroup('attendance').where('date', 'in', ...).
+    {
+      "collectionGroup": "attendance",
+      "fieldPath": "date",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
     {
       "collectionGroup": "private",
       "fieldPath": "code",
