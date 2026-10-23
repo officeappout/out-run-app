@@ -32,6 +32,8 @@ import { DiscoverMoreSection } from './DiscoverMoreSection';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import ProgressScreenV2 from '../v2/components/ProgressScreenV2';
+import ProgressHubScreen from '../v2/hub/ProgressHubScreen';
+import { isProgressHubOn } from '../v2/hub/useProgressHubFlag';
 import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 
 export function ProgressionScreen() {
@@ -41,6 +43,8 @@ export function ProgressionScreen() {
   const v2 = flags.enableHomeV2;
   // Flags unknown: a neutral skeleton, never v1 first and then v2.
   if (!ready) return <ScreenSkeleton />;
+  // enable_progress_hub_v2 (inside enable_home_v2): main page + 3 domain cards → deeper pages.
+  if (v2 && isProgressHubOn(flags)) return <ProgressHubScreen />;
   if (v2) return <ProgressScreenV2 />;
   return <ProgressionScreenV1 />;
 }

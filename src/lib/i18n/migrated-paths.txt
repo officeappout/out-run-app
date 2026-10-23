@@ -60,6 +60,10 @@ src/features/profile/components/exercise-analytics-v2/
 # progression-hub/v2/utils still returns Hebrew display text (KIND_LABEL, REASON_LABEL, missedLine,
 # compare headline/rows, month/weekday names, plan titles) — not migrated, manual list in the PR.
 src/features/progression-hub/v2/components/
+# Progress hub v2 (enable_progress_hub_v2, namespace profile, hubV2.* keys) — main page, domain cards and the
+# deeper pages (/progress/steps · run · strength); translation-ready from the first commit.
+src/features/progression-hub/v2/hub/
+src/app/progress/steps/
 # wave 2 (namespace library, exercises.* keys) — the exercise library (/library → /search?tab=exercises
 # → ExerciseLibraryContent) and its detail sheet (MasterExerciseView). Not migrated:
 # EquipmentFilterSheet/EquipmentFilterShell (not rendered by the library — home builder, settings,
