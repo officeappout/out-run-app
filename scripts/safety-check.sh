@@ -205,6 +205,12 @@ AUTHORIZED_ROUTE_WRITERS=(
   # …and its CLI: reads official_routes (projected) to plan; every write goes through
   # the lib above. No write verb in the file; also on the migrated list below.
   "scripts/routes-nationwide/backfill-route-publish-status.ts"
+  # surfaceClass backfill (23.10.2026): field-level {surfaceClass} copied from route_scores onto
+  # official_routes docs that lack it — buildValidatedDoc update mode at the write site, payload
+  # asserted to be exactly that one field, updateTime precondition, never creates/deletes. Owner-run only.
+  "scripts/routes-nationwide/lib/surface-class-apply.node.ts"
+  # …and its CLI: reads only; every write goes through the lib above. No write verb in the file.
+  "scripts/routes-nationwide/backfill-route-surface-class.ts"
   # City-mapping hub H0 (22.10.2026, enable_city_mapping_hub): READ-ONLY status
   # fields of unpublished official_routes per authority for the hub table. No
   # write verb in the file; also on the migrated list below so any future write
@@ -259,6 +265,8 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "src/lib/admin-routes/no-status-routes.server.ts"
   "scripts/routes-nationwide/lib/publish-status-apply.node.ts"
   "scripts/routes-nationwide/backfill-route-publish-status.ts"
+  "scripts/routes-nationwide/lib/surface-class-apply.node.ts"
+  "scripts/routes-nationwide/backfill-route-surface-class.ts"
   "src/lib/city-mapping-hub/read-hub-rows.server.ts"
   "src/lib/city-mapping-hub/layers.server.ts"
   "src/lib/admin-analytics/authority-overview.server.ts"
