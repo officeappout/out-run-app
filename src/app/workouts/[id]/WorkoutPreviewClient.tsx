@@ -14,6 +14,10 @@ import { resolvePreviewForLang } from '@/features/content/exercises/core/exercis
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { getSharedWorkout, type SharedWorkoutDoc } from '@/features/workout-engine/services/share.service';
 import { useUiGender } from '@/hooks/useUiGender';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import GeneratedWorkoutExerciseList from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/GeneratedWorkoutExerciseList';
+import { sharedDocToGeneratedWorkout } from '@/features/workout-engine/services/shared-workout-plan';
+import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { library, type LibraryKey, type LibraryT } from '@/messages/ns/library';
@@ -496,6 +500,12 @@ export default function WorkoutPreviewClient({
 
   const [heroMedia, setHeroMedia] = useState<{ thumbnailUrl?: string; videoUrl?: string } | null>(null);
   const [storedSegments, setStoredSegments] = useState<StoredSegment[] | null>(null);
+  // enable_shared_workout_preview_v1: the shared doc rebuilt as a GeneratedWorkout (null = keep the old list).
+  const { flags: previewFlags, loading: previewFlagsLoading } = useFeatureFlags(false);
+  const [sharedPlan, setSharedPlan] = useState<GeneratedWorkout | null>(null);
+  const [warmupExpanded, setWarmupExpanded] = useState(false);
+  const [warmupActive, setWarmupActive] = useState(true);
+  const richPreview = !previewFlagsLoading && previewFlags.enableSharedWorkoutPreviewV1 && !!sharedPlan;
   const [logicCue, setLogicCue] = useState<string | null>(null);
   const [decisionRecord, setDecisionRecord] = useState<DecisionRecord | null>(null);
   const coachNote = useCoachNote(decisionRecord);
@@ -548,6 +558,7 @@ export default function WorkoutPreviewClient({
         const { workout: sharedWorkout, segments } = convertSharedToLocal(t, shared);
         setWorkout((prev) => prev ?? sharedWorkout);
         setStoredSegments(segments);
+        setSharedPlan(sharedDocToGeneratedWorkout(shared));
         setIsLoading(false);
         return;
       }
@@ -641,7 +652,16 @@ export default function WorkoutPreviewClient({
           {/* דגשי האימון — WORKOUT_COACH_NOTE_V1 (renders nothing while off) */}
           <CoachNoteBlock note={coachNote} className="pb-2" />
 
-          {hasStructuredGroups ? (
+          {richPreview && sharedPlan ? (
+            <GeneratedWorkoutExerciseList
+              generatedWorkout={sharedPlan}
+              exercisePool={[]}
+              isWarmupExpanded={warmupExpanded}
+              isWarmupActive={warmupActive}
+              onToggleWarmupExpanded={() => setWarmupExpanded((p) => !p)}
+              onToggleWarmupActive={() => setWarmupActive((p) => !p)}
+            />
+          ) : hasStructuredGroups ? (
             displayGroups.map((group) => (
               <React.Fragment key={group.id}>
                 {/* Section header (warmup / cooldown) */}

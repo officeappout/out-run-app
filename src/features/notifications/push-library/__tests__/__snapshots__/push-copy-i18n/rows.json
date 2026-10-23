@@ -1,0 +1,3706 @@
+{
+  "workout_reminder_day": [
+    {
+      "id": "default:workout_reminder_day:0",
+      "pushType": "workout_reminder_day",
+      "title": "@אימון היום",
+      "body": "האימון שלך מוכן. יוצאים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:workout_reminder_day:1",
+      "pushType": "workout_reminder_day",
+      "title": "@אימון היום",
+      "body": "גם 15 דקות נחשבות. מתחילים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:workout_reminder_day:2",
+      "pushType": "workout_reminder_day",
+      "title": "@אימון היום",
+      "body": "רגע קטן בשבילך היום. האימון כבר מחכה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "workout_reminder_before": [
+    {
+      "id": "default:workout_reminder_before:0",
+      "pushType": "workout_reminder_before",
+      "title": "@אימון ב-@שעה",
+      "body": "האימון שלך מחכה ב-@שעה. יוצאים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "workout_reminder_slot": [
+    {
+      "id": "default:workout_reminder_slot:0",
+      "pushType": "workout_reminder_slot",
+      "title": "הגיע הזמן שקבעת",
+      "body": "קבעת להתאמן עכשיו. יוצאים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:workout_reminder_slot:1",
+      "pushType": "workout_reminder_slot",
+      "title": "הגיע הזמן שקבעת",
+      "body": "התזכורת שביקשת: זה הזמן שלך להתאמן.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:workout_reminder_slot:2",
+      "pushType": "workout_reminder_slot",
+      "title": "הגיע הזמן שקבעת",
+      "body": "רגע קטן בשבילך. האימון מחכה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "retention_lapse": [
+    {
+      "id": "default:retention_lapse:0",
+      "pushType": "retention_lapse",
+      "title": "רגע קטן בשבילך היום",
+      "body": "מה שבונה הרגל זה לחזור. 15 דקות ליד הבית, בקצב שלך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:1",
+      "pushType": "retention_lapse",
+      "title": "@שם, הגינה עדיין שם",
+      "body": "אימון קצר של 10 דקות, בלי ציוד. חוזרים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:2",
+      "pushType": "retention_lapse",
+      "title": "חוזרים בקטנה?",
+      "body": "בנינו לך אימון קל לחזרה. 15 דקות, בקצב שלך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:3",
+      "pushType": "retention_lapse",
+      "title": "יום טוב להתחיל מחדש",
+      "body": "אימון אחד קל, וההרגל חוזר.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:4",
+      "pushType": "retention_lapse",
+      "title": "@שם, מוכן לחזור?",
+      "body": "אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:ready_name",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:5",
+      "pushType": "retention_lapse",
+      "title": "@שם, מוכנה לחזור?",
+      "body": "אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:ready_name",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:6",
+      "pushType": "retention_lapse",
+      "title": "מוכן לחזור לשגרה?",
+      "body": "בנינו לך אימון קל לחזרה. 15 דקות, ואתה שוב בשגרה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:back",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:7",
+      "pushType": "retention_lapse",
+      "title": "מוכנה לחזור לשגרה?",
+      "body": "בנינו לך אימון קל לחזרה. 15 דקות, ואת שוב בשגרה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:back",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:8",
+      "pushType": "retention_lapse",
+      "title": "יום טוב להתחיל מחדש",
+      "body": "אימון אחד קל, ואתה שוב בעניינים.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:fresh",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:9",
+      "pushType": "retention_lapse",
+      "title": "יום טוב להתחיל מחדש",
+      "body": "אימון אחד קל, ואת שוב בעניינים.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:fresh",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:10",
+      "pushType": "retention_lapse",
+      "title": "רגע קטן בשבילך?",
+      "body": "אימון קל של 15 דקות ליד הבית. בלי לחץ, בקצב שלך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d4"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:11",
+      "pushType": "retention_lapse",
+      "title": "בא לך אימון קצר היום?",
+      "body": "15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d4"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:m_d4",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:12",
+      "pushType": "retention_lapse",
+      "title": "בא לך אימון קצר היום?",
+      "body": "15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצי.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d4"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:m_d4",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:13",
+      "pushType": "retention_lapse",
+      "title": "שבוע חדש מתחיל היום",
+      "body": "15 דקות זה כל מה שצריך כדי לפתוח אותו. יוצאים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d7"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:14",
+      "pushType": "retention_lapse",
+      "title": "שבוע חדש מתחיל היום. 15 דקות?",
+      "body": "אימון קל אחד, ואתה פותח את השבוע ברגל ימין.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d7"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:m_d7",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:15",
+      "pushType": "retention_lapse",
+      "title": "שבוע חדש מתחיל היום. 15 דקות?",
+      "body": "אימון קל אחד, ואת פותחת את השבוע ברגל ימין.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d7"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:m_d7",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:16",
+      "pushType": "retention_lapse",
+      "title": "מתחילים מחדש, בקטנה",
+      "body": "בנינו אימון קל לחזרה. 15 דקות, בקצב שלך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d14"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:17",
+      "pushType": "retention_lapse",
+      "title": "מוכן להתחלה חדשה?",
+      "body": "אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d14"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:m_d14",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:18",
+      "pushType": "retention_lapse",
+      "title": "מוכנה להתחלה חדשה?",
+      "body": "אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d14"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:m_d14",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:19",
+      "pushType": "retention_lapse",
+      "title": "הדלת תמיד פתוחה",
+      "body": "כשיתאים, אימון קל של 15 דקות מחכה כאן. בלי לחץ.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d30"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:20",
+      "pushType": "retention_lapse",
+      "title": "הדלת תמיד פתוחה",
+      "body": "כשתרצה לחזור, אימון קל של 15 דקות מחכה לך כאן.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d30"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:m_d30",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:21",
+      "pushType": "retention_lapse",
+      "title": "הדלת תמיד פתוחה",
+      "body": "כשתרצי לחזור, אימון קל של 15 דקות מחכה לך כאן.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d30"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:m_d30",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:22",
+      "pushType": "retention_lapse",
+      "title": "הנעליים מחכות ליד הדלת",
+      "body": "ריצה קלה של 15 דקות, בקצב שלך. חוזרים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "run"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:23",
+      "pushType": "retention_lapse",
+      "title": "ריצה קצרה היום?",
+      "body": "15 דקות בקצב נוח, וחוזרים לשגרת הריצה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "run"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:24",
+      "pushType": "retention_lapse",
+      "title": "@שם, מוכן לרוץ שוב?",
+      "body": "ריצה קלה של 15 דקות, בקצב שלך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "run"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:run_ready",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:25",
+      "pushType": "retention_lapse",
+      "title": "@שם, מוכנה לרוץ שוב?",
+      "body": "ריצה קלה של 15 דקות, בקצב שלך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "run"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:run_ready",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:26",
+      "pushType": "retention_lapse",
+      "title": "הליכה קצרה היום?",
+      "body": "20 דקות הליכה ליד הבית, וחוזרים לשגרה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "walk"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:27",
+      "pushType": "retention_lapse",
+      "title": "יוצאים להליכה?",
+      "body": "הליכה קלה בקצב שלך. כל צעד נחשב.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "walk"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:28",
+      "pushType": "retention_lapse",
+      "title": "@שם, מוכן להליכה קצרה?",
+      "body": "20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "walk"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:walk_ready",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:29",
+      "pushType": "retention_lapse",
+      "title": "@שם, מוכנה להליכה קצרה?",
+      "body": "20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "walk"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:walk_ready",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:30",
+      "pushType": "retention_lapse",
+      "title": "בלי לחץ, רק להזכיר",
+      "body": "15 דקות ליד הבית, מתי שנוח",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d4"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:31",
+      "pushType": "retention_lapse",
+      "title": "הנעליים שאלו עליכם",
+      "body": "סיבוב של 15 דקות היום?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d4"
+        ],
+        "track": [
+          "walk"
+        ],
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:32",
+      "pushType": "retention_lapse",
+      "title": "שבוע חדש, התחלה נקייה",
+      "body": "אימון קל של 15 דקות. ממשיכים מכאן",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d7",
+          "d14",
+          "d21"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:33",
+      "pushType": "retention_lapse",
+      "title": "הדלת תמיד פתוחה",
+      "body": "נבנה לך תוכנית חדשה בדקה, מה שמתאים לך עכשיו",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "d28",
+          "d30"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:34",
+      "pushType": "retention_lapse",
+      "title": "מה קורה אחי?",
+      "body": "בלי לחץ. 15 דקות ליד הבית מתי שבא לך",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "milestone": [
+          "d4"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:friendly_d4",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:35",
+      "pushType": "retention_lapse",
+      "title": "מה קורה אחותי?",
+      "body": "בלי לחץ. 15 דקות ליד הבית מתי שבא לך",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "milestone": [
+          "d4"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:friendly_d4",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:36",
+      "pushType": "retention_lapse",
+      "title": "התגעגענו, באמת",
+      "body": "נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "milestone": [
+          "d28",
+          "d30"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:friendly_d28",
+      "active": true
+    },
+    {
+      "id": "default:retention_lapse:37",
+      "pushType": "retention_lapse",
+      "title": "התגעגענו, באמת",
+      "body": "נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "milestone": [
+          "d28",
+          "d30"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:retention_lapse:friendly_d28",
+      "active": true
+    }
+  ],
+  "onboarding_dropoff": [
+    {
+      "id": "default:onboarding_dropoff:0",
+      "pushType": "onboarding_dropoff",
+      "title": "@שם, נשאר רק עוד צעד",
+      "body": "עוד דקה וההרשמה מוכנה, ואז מקבלים את האימון הראשון.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "near_end"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:1",
+      "pushType": "onboarding_dropoff",
+      "title": "התוכנית שלך כמעט מוכנה",
+      "body": "מסיימים את ההרשמה, ונבנה לך תוכנית לפי הרמה שלך.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:2",
+      "pushType": "onboarding_dropoff",
+      "title": "נמשיך מאיפה שעצרת?",
+      "body": "שמרנו את מה שמילאת. עוד כמה שאלות וזהו.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:3",
+      "pushType": "onboarding_dropoff",
+      "title": "האימון הראשון מחכה לך",
+      "body": "לסיים את ההרשמה לוקח פחות מדקה.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "near_end"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:4",
+      "pushType": "onboarding_dropoff",
+      "title": "אנשים לידך כבר מתאמנים",
+      "body": "מסיימים להירשם ורואים מי מתאמן בגינה הקרובה.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:5",
+      "pushType": "onboarding_dropoff",
+      "title": "@שם, נשאר רק עוד צעד",
+      "body": "עוד דקה ואתה מקבל את האימון הראשון שלך.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "near_end"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:onboarding_dropoff:step",
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:6",
+      "pushType": "onboarding_dropoff",
+      "title": "@שם, נשאר רק עוד צעד",
+      "body": "עוד דקה ואת מקבלת את האימון הראשון שלך.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "near_end"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:onboarding_dropoff:step",
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:7",
+      "pushType": "onboarding_dropoff",
+      "title": "מוכן לאימון הראשון?",
+      "body": "מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "near_end"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:onboarding_dropoff:ready",
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:8",
+      "pushType": "onboarding_dropoff",
+      "title": "מוכנה לאימון הראשון?",
+      "body": "מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "near_end"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:onboarding_dropoff:ready",
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:9",
+      "pushType": "onboarding_dropoff",
+      "title": "נמשיך מאיפה שעצרת?",
+      "body": "שמרנו את מה שמילאת. עוד כמה שאלות ונבנה לך תוכנית.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "early"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:10",
+      "pushType": "onboarding_dropoff",
+      "title": "@שם, התוכנית שלך מחכה",
+      "body": "כמה שאלות קצרות, ונבנה תוכנית שמתאימה בדיוק לך.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "early"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:11",
+      "pushType": "onboarding_dropoff",
+      "title": "עוד רגע יודעים מאיפה מתחילים",
+      "body": "נשארה בדיקת רמה קצרה, ואז מקבלים תוכנית לפי הרמה שלך.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "mid"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:12",
+      "pushType": "onboarding_dropoff",
+      "title": "הבדיקה הקצרה מחכה לך",
+      "body": "כמה תרגילים פשוטים, ונדע לבנות לך תוכנית בדיוק לרמה שלך.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "stage": [
+          "mid"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:13",
+      "pushType": "onboarding_dropoff",
+      "title": "תוכנית הריצה שלך כמעט מוכנה",
+      "body": "מסיימים את ההרשמה ומקבלים ריצה ראשונה בקצב שלך.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "run"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:onboarding_dropoff:14",
+      "pushType": "onboarding_dropoff",
+      "title": "תוכנית ההליכה שלך כמעט מוכנה",
+      "body": "מסיימים את ההרשמה ומקבלים יעד הליכה שמתאים לך.",
+      "deepLink": "gateway",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "walk"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "first_workout": [
+    {
+      "id": "default:first_workout:0",
+      "pushType": "first_workout",
+      "title": "האימון הראשון שלך מוכן",
+      "body": "10 דקות זה כל מה שצריך כדי להתחיל. יוצאים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_workout:1",
+      "pushType": "first_workout",
+      "title": "מתחילים בקטנה?",
+      "body": "אימון ראשון קצר, בקצב שלך. הוא כבר מחכה לך.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_workout:2",
+      "pushType": "first_workout",
+      "title": "@שם, האימון הראשון מחכה",
+      "body": "בנינו לך אותו לפי הרמה שלך. 10 דקות ומתחילים.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_workout:3",
+      "pushType": "first_workout",
+      "title": "האימון הראשון שלך מוכן",
+      "body": "אימון כוח קצר, בלי ציוד. מתחילים היום?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_workout:4",
+      "pushType": "first_workout",
+      "title": "הריצה הראשונה שלך מוכנה",
+      "body": "ריצה קלה בקצב שלך. מתחילים היום?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "run"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_workout:5",
+      "pushType": "first_workout",
+      "title": "ההליכה הראשונה שלך מוכנה",
+      "body": "15 דקות הליכה ליד הבית, וכבר התחלת.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "track": [
+          "walk"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_workout:6",
+      "pushType": "first_workout",
+      "title": "עוד לא התחלת? זה בסדר",
+      "body": "אימון ראשון של 10 דקות מחכה לך, מתי שנוח.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "when": [
+          "later"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_workout:7",
+      "pushType": "first_workout",
+      "title": "עוד לא יצאת לריצה הראשונה?",
+      "body": "ריצה קלה של 15 דקות, בקצב שלך. מתי שנוח.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "when": [
+          "later"
+        ],
+        "track": [
+          "run"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_workout:8",
+      "pushType": "first_workout",
+      "title": "עוד לא יצאת להליכה הראשונה?",
+      "body": "15 דקות הליכה ליד הבית, מתי שנוח.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "when": [
+          "later"
+        ],
+        "track": [
+          "walk"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "level_up": [
+    {
+      "id": "default:level_up:0",
+      "pushType": "level_up",
+      "title": "עלית לרמה 2",
+      "body": "יפה מאוד. ככה בונים הרגל, אימון אחרי אימון.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "2"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:1",
+      "pushType": "level_up",
+      "title": "עלית לרמה 3",
+      "body": "ההתמדה שלך עובדת. ממשיכים.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "3"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:2",
+      "pushType": "level_up",
+      "title": "עלית לרמה 4",
+      "body": "כל אימון נספר, וזה כבר מורגש.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "4"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:3",
+      "pushType": "level_up",
+      "title": "רמה 5, חצי הדרך",
+      "body": "הגעת לחצי הדרך לרמה 10. כל הכבוד.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "5"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:4",
+      "pushType": "level_up",
+      "title": "עלית לרמה 6",
+      "body": "הקצב שלך יציב. ממשיכים ככה.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "6"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:5",
+      "pushType": "level_up",
+      "title": "עלית לרמה 7",
+      "body": "מעטים מגיעים לכאן. כל הכבוד על ההתמדה.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "7"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:6",
+      "pushType": "level_up",
+      "title": "עלית לרמה 8",
+      "body": "עוד שתי רמות לפסגה. ממשיכים בקצב שלך.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "8"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:7",
+      "pushType": "level_up",
+      "title": "עלית לרמה 9",
+      "body": "עוד רמה אחת לפסגה.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "9"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:8",
+      "pushType": "level_up",
+      "title": "רמה 10, הפסגה",
+      "body": "הגעת לרמה הכי גבוהה. מסע אמיתי, כל הכבוד.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": {
+        "level": [
+          "10"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:level_up:9",
+      "pushType": "level_up",
+      "title": "עלית לרמה @רמה",
+      "body": "כל אימון נספר. ממשיכים.",
+      "deepLink": "progression_map",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "kudos_single": [
+    {
+      "id": "default:kudos_single:0",
+      "pushType": "kudos_single",
+      "title": "קיבלת כיף מ@שולח",
+      "body": "על האימון האחרון שלך. אפשר להחזיר כיף.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:kudos_single:1",
+      "pushType": "kudos_single",
+      "title": "@שולח שלח לך כיף",
+      "body": "על האימון האחרון שלך. אפשר להחזיר לו כיף.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:kudos_single:sent",
+      "active": true
+    },
+    {
+      "id": "default:kudos_single:2",
+      "pushType": "kudos_single",
+      "title": "@שולח שלחה לך כיף",
+      "body": "על האימון האחרון שלך. אפשר להחזיר לה כיף.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:kudos_single:sent",
+      "active": true
+    },
+    {
+      "id": "default:kudos_single:3",
+      "pushType": "kudos_single",
+      "title": "@שולח שלח לך כיף",
+      "body": "מגיע לך. רוצים להחזיר?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:kudos_single:v2_sent",
+      "active": true
+    },
+    {
+      "id": "default:kudos_single:4",
+      "pushType": "kudos_single",
+      "title": "@שולח שלחה לך כיף",
+      "body": "מגיע לך. רוצים להחזיר?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:kudos_single:v2_sent",
+      "active": true
+    }
+  ],
+  "kudos_bundle": [
+    {
+      "id": "default:kudos_bundle:0",
+      "pushType": "kudos_bundle",
+      "title": "קיבלת @כמות כיפים",
+      "body": "@שולח ועוד @עוד שלחו לך כיף.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "others": [
+          "many"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:kudos_bundle:1",
+      "pushType": "kudos_bundle",
+      "title": "קיבלת @כמות כיפים",
+      "body": "@שולח ועוד מישהו שלחו לך כיף.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "others": [
+          "one"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "group_join_welcome": [
+    {
+      "id": "default:group_join_welcome:0",
+      "pushType": "group_join_welcome",
+      "title": "הצטרפת ל@קבוצה",
+      "body": "אפשר לראות מתי המפגש הבא ומי מגיע.",
+      "deepLink": "community_group",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "group_join_admin": [
+    {
+      "id": "default:group_join_admin:0",
+      "pushType": "group_join_admin",
+      "title": "@מצטרף איתכם ב@קבוצה",
+      "body": "הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט.",
+      "deepLink": "community_group",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:group_join_admin:1",
+      "pushType": "group_join_admin",
+      "title": "יש מצטרפים חדשים ב@קבוצה",
+      "body": "הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט.",
+      "deepLink": "community_group",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": true,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:group_join_admin:2",
+      "pushType": "group_join_admin",
+      "title": "@מצטרף הצטרף ל@קבוצה",
+      "body": "הקבוצה גדלה. אפשר לקבל אותו בברכה בצ׳אט.",
+      "deepLink": "community_group",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:group_join_admin:joined",
+      "active": true
+    },
+    {
+      "id": "default:group_join_admin:3",
+      "pushType": "group_join_admin",
+      "title": "@מצטרף הצטרפה ל@קבוצה",
+      "body": "הקבוצה גדלה. אפשר לקבל אותה בברכה בצ׳אט.",
+      "deepLink": "community_group",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:group_join_admin:joined",
+      "active": true
+    }
+  ],
+  "contribution_approved": [
+    {
+      "id": "default:contribution_approved:0",
+      "pushType": "contribution_approved",
+      "title": "הפארק שהוספת עלה למפה",
+      "body": "\"@מקום\" על המפה. מעכשיו כולם יכולים להתאמן שם. תודה!",
+      "deepLink": "map_park",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:contribution_approved:1",
+      "pushType": "contribution_approved",
+      "title": "הפארק שהוספת עלה למפה",
+      "body": "מעכשיו כולם יכולים להתאמן שם. תודה!",
+      "deepLink": "map_park",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": true,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "week_start": [
+    {
+      "id": "default:week_start:0",
+      "pushType": "week_start",
+      "title": "שבוע טוב",
+      "body": "שבוע חדש מתחיל. נקבע אימון ראשון למחר?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:week_start:1",
+      "pushType": "week_start",
+      "title": "שבוע טוב",
+      "body": "מתחילים את השבוע בתנועה. כמה דקות מחר כבר עושות את ההבדל.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:week_start:2",
+      "pushType": "week_start",
+      "title": "שבוע חדש מתחיל",
+      "body": "מה האימון הראשון שלך השבוע? אפשר לקבוע אותו כבר עכשיו.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "step_goal": [
+    {
+      "id": "default:step_goal:0",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "כמעט שם. עוד @דקות דקות הליכה וסגרת את היום.",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "close"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:1",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "עוד @צעדים_שנותרו צעדים בלבד, הליכה של @דקות דקות.",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "close"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:2",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "עברת חצי מהיעד. עוד @צעדים_שנותרו צעדים, בערך @דקות דקות הליכה.",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "mid"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:3",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "כבר @רצף ימים ברצף. עוד @צעדים_שנותרו צעדים ושומרים עליו.",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "mid"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:4",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "@שם, יום חדש. @צעדים_שנותרו צעדים ליעד של היום.",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "start"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:5",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "מתחילים את היום בהליכה? @צעדים_שנותרו צעדים ליעד.",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "start"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:6",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "יוצאים מהעבודה? @דקות דקות הליכה וסוגרים את היעד.",
+      "deepLink": "map_walk",
+      "audience": {
+        "persona": [
+          "office_worker"
+        ]
+      },
+      "conditions": {
+        "bucket": [
+          "close"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:7",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "הליכה קצרה אחרי העבודה? עוד @צעדים_שנותרו צעדים ליעד.",
+      "deepLink": "map_walk",
+      "audience": {
+        "persona": [
+          "office_worker"
+        ]
+      },
+      "conditions": {
+        "bucket": [
+          "mid"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:8",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "לפני שמתיישבים מול המסך: הליכה קצרה וכבר מתקדמים ליעד.",
+      "deepLink": "map_walk",
+      "audience": {
+        "persona": [
+          "office_worker"
+        ]
+      },
+      "conditions": {
+        "bucket": [
+          "start"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:9",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "עוד @דקות דקות הליכה, אפשר גם עם הילדים, וסגרת את היום.",
+      "deepLink": "map_walk",
+      "audience": {
+        "persona": [
+          "parent"
+        ]
+      },
+      "conditions": {
+        "bucket": [
+          "close"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:10",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "גם עם כל הסידורים, נשארו רק @צעדים_שנותרו צעדים ליעד.",
+      "deepLink": "map_walk",
+      "audience": {
+        "persona": [
+          "parent"
+        ]
+      },
+      "conditions": {
+        "bucket": [
+          "mid"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:11",
+      "pushType": "step_goal",
+      "title": "יעד הצעדים של היום",
+      "body": "לפני שהבית מתעורר, @צעדים_שנותרו צעדים ליעד של היום.",
+      "deepLink": "map_walk",
+      "audience": {
+        "persona": [
+          "parent"
+        ]
+      },
+      "conditions": {
+        "bucket": [
+          "start"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:12",
+      "pushType": "step_goal",
+      "title": "כמעט שם, באמת כמעט",
+      "body": "עוד @צעדים_שנותרו צעדים. זה בערך הדרך למכולת וחזרה",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "close"
+        ],
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:13",
+      "pushType": "step_goal",
+      "title": "כמה צעדים יש בשיר אחד?",
+      "body": "בערך 400. עוד @צעדים_שנותרו לסגור את היום",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "mid"
+        ],
+        "tone": [
+          "curious"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:14",
+      "pushType": "step_goal",
+      "title": "יום עמוס? זה בסדר",
+      "body": "15 דקות הליכה אחרי ארוחת הערב שוות חצי יעד",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "bucket": [
+          "start"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:step_goal:15",
+      "pushType": "step_goal",
+      "title": "כמעט שם, אחי",
+      "body": "עוד @צעדים_שנותרו צעדים. סיבוב ליד הבית וסגרת",
+      "deepLink": "map_walk",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "bucket": [
+          "close"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:step_goal:friendly_close",
+      "active": true
+    },
+    {
+      "id": "default:step_goal:16",
+      "pushType": "step_goal",
+      "title": "כמעט שם, אחותי",
+      "body": "עוד @צעדים_שנותרו צעדים. סיבוב ליד הבית וסגרת",
+      "deepLink": "map_walk",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "bucket": [
+          "close"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:step_goal:friendly_close",
+      "active": true
+    }
+  ],
+  "streak_rescue": [
+    {
+      "id": "default:streak_rescue:0",
+      "pushType": "streak_rescue",
+      "title": "הרצף שלך שואל אם הכול בסדר",
+      "body": "יום @רצף. עוד 10 דקות והוא נרגע.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "when": [
+          "first"
+        ],
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_rescue:1",
+      "pushType": "streak_rescue",
+      "title": "@רצף ימים. אל תוותרו עליהם",
+      "body": "עוד @צעדים_שנותרו צעדים או 10 דקות וזה סגור.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "when": [
+          "first"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_rescue:2",
+      "pushType": "streak_rescue",
+      "title": "יום @רצף ברצף",
+      "body": "עוד @דקות דקות של תנועה והיום נסגר. הליכה קצרה מספיקה.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "when": [
+          "first"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_rescue:3",
+      "pushType": "streak_rescue",
+      "title": "אחי, הרצף על הקו",
+      "body": "יום @רצף. 10 דקות ומצילים אותו.",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "when": [
+          "first"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:streak_rescue:rescue_il",
+      "active": true
+    },
+    {
+      "id": "default:streak_rescue:4",
+      "pushType": "streak_rescue",
+      "title": "אחותי, הרצף על הקו",
+      "body": "יום @רצף. 10 דקות ומצילים אותו.",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "when": [
+          "first"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:streak_rescue:rescue_il",
+      "active": true
+    },
+    {
+      "id": "default:streak_rescue:5",
+      "pushType": "streak_rescue",
+      "title": "נשארה שעה. מספיק?",
+      "body": "10 דקות בסלון ושמרת על @רצף ימים.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "when": [
+          "late"
+        ],
+        "tone": [
+          "curious"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_rescue:6",
+      "pushType": "streak_rescue",
+      "title": "עוד רגע נגמר היום",
+      "body": "10 דקות בסלון ושמרת על @רצף ימים ברצף.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "when": [
+          "late"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "streak_broken": [
+    {
+      "id": "default:streak_broken:0",
+      "pushType": "streak_broken",
+      "title": "הרצף נעצר. השיא נשאר",
+      "body": "@שיא ימים זה שלך לתמיד. מתחילים רצף חדש היום?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_broken:1",
+      "pushType": "streak_broken",
+      "title": "השיא שלך נשאר שלך",
+      "body": "@שיא ימים ברצף, וזה לא הולך לשום מקום. מתחילים היום?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_broken:2",
+      "pushType": "streak_broken",
+      "title": "גם רצפים צריכים חופש",
+      "body": "השיא שלך, @שיא ימים, מחכה שתשברו אותו.",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_broken:3",
+      "pushType": "streak_broken",
+      "title": "קורה לטובים ביותר",
+      "body": "השיא @שיא נשאר שלך. מתחילים מחדש?",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:streak_broken:broken_il",
+      "active": true
+    },
+    {
+      "id": "default:streak_broken:4",
+      "pushType": "streak_broken",
+      "title": "קורה לטובות ביותר",
+      "body": "השיא @שיא נשאר שלך. מתחילים מחדש?",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:streak_broken:broken_il",
+      "active": true
+    }
+  ],
+  "streak_milestone": [
+    {
+      "id": "default:streak_milestone:0",
+      "pushType": "streak_milestone",
+      "title": "@רצף ימים ברצף",
+      "body": "כל יום נספר. ממשיכים בקצב שלך.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:1",
+      "pushType": "streak_milestone",
+      "title": "3 ימים ברצף",
+      "body": "ההתחלה הכי קשה כבר מאחור. ממשיכים מחר?",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "3"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:2",
+      "pushType": "streak_milestone",
+      "title": "שבוע שלם",
+      "body": "7 ימים ברצף. ככה נראה הרגל שנולד.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "7"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:3",
+      "pushType": "streak_milestone",
+      "title": "שבועיים ברצף",
+      "body": "14 ימים. הגוף כבר מחכה לזה.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "14"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:4",
+      "pushType": "streak_milestone",
+      "title": "חודש. וואו",
+      "body": "30 ימים ברצף. זה כבר לא ניסיון, זה מי שאתם.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "30"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:5",
+      "pushType": "streak_milestone",
+      "title": "30 יום. מי אתה בכלל?",
+      "body": "חודש ברצף. ריספקט.",
+      "deepLink": "progression",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "milestone": [
+          "30"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:streak_milestone:m30_il",
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:6",
+      "pushType": "streak_milestone",
+      "title": "30 יום. מי את בכלל?",
+      "body": "חודש ברצף. ריספקט.",
+      "deepLink": "progression",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "milestone": [
+          "30"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:streak_milestone:m30_il",
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:7",
+      "pushType": "streak_milestone",
+      "title": "50 ימים ברצף",
+      "body": "חצי הדרך למאה. ממשיכים בקצב שלך.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "50"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:8",
+      "pushType": "streak_milestone",
+      "title": "100. מישהו פה רציני",
+      "body": "100 ימים ברצף. השכנים מדברים.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "100"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:streak_milestone:9",
+      "pushType": "streak_milestone",
+      "title": "שנה שלמה ברצף",
+      "body": "365 ימים. אין מילים, רק כבוד.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": {
+        "milestone": [
+          "365"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "partner_plan": [
+    {
+      "id": "default:partner_plan:0",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "ריצה ב@מקום ב-@שעה עם @שולח. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "running"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:1",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "ריצה ב@מקום ב-@שעה. זה הזמן להצטרף.",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "running"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:2",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "אימון כוח ב@מקום ב-@שעה עם @שולח. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:3",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "אימון כוח ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:4",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "הליכה ב@מקום ב-@שעה עם @שולח. באים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "walking"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:5",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "הליכה ב@מקום ב-@שעה. לא הולכים לבד.",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "walking"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:6",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "אימון ב@מקום ב-@שעה עם @שולח. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:7",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "יש אימון קרוב אליך ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": true,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:8",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "יש אימון קרוב אליך. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": true,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:9",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שם, @שולח יוצא לרוץ ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "running"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:partner_plan:run_name",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:10",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שם, @שולח יוצאת לרוץ ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "running"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:partner_plan:run_name",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:11",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שולח יוצא לרוץ ב@מקום ב-@שעה. זה הזמן להצטרף.",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "running"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:partner_plan:run",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:12",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שולח יוצאת לרוץ ב@מקום ב-@שעה. זה הזמן להצטרף.",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "running"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:partner_plan:run",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:13",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שם, @שולח יוצא להליכה ב@מקום ב-@שעה. באים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "walking"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:partner_plan:walk_name",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:14",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שם, @שולח יוצאת להליכה ב@מקום ב-@שעה. באים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "walking"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:partner_plan:walk_name",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:15",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שולח יוצא להליכה ב@מקום ב-@שעה. לא הולכים לבד.",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "walking"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:partner_plan:walk",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:16",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שולח יוצאת להליכה ב@מקום ב-@שעה. לא הולכים לבד.",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "walking"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:partner_plan:walk",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:17",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שם, @שולח יוצא לאימון כוח ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:partner_plan:strength_name",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:18",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שם, @שולח יוצאת לאימון כוח ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:partner_plan:strength_name",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:19",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שולח מתכנן אימון כוח ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:partner_plan:strength",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:20",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שולח מתכננת אימון כוח ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "activity": [
+          "strength"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:partner_plan:strength",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:21",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שולח יוצא להתאמן ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:partner_plan:any",
+      "active": true
+    },
+    {
+      "id": "default:partner_plan:22",
+      "pushType": "partner_plan",
+      "title": "מתאמנים לידך",
+      "body": "@שולח יוצאת להתאמן ב@מקום ב-@שעה. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:partner_plan:any",
+      "active": true
+    }
+  ],
+  "first_week": [
+    {
+      "id": "default:first_week:0",
+      "pushType": "first_week",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d1"
+        ],
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:1",
+      "pushType": "first_week",
+      "title": "@שעה. הזמן שבחרת לעצמך",
+      "body": "12 דקות שהן רק שלך. מתחילים?",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d1"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:2",
+      "pushType": "first_week",
+      "title": "מה קורה בגוף אחרי 12 דקות?",
+      "body": "יש רק דרך אחת לגלות. האימון הראשון מוכן",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d1"
+        ],
+        "tone": [
+          "curious"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:3",
+      "pushType": "first_week",
+      "title": "אחי, האימון מוכן",
+      "body": "12 דקות, בלי ציוד. יאללה, רק תתחיל",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "day": [
+          "d1"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:first_week:f_d1",
+      "active": true
+    },
+    {
+      "id": "default:first_week:4",
+      "pushType": "first_week",
+      "title": "אחותי, האימון מוכן",
+      "body": "12 דקות, בלי ציוד. יאללה, רק תתחילי",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "day": [
+          "d1"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:first_week:f_d1",
+      "active": true
+    },
+    {
+      "id": "default:first_week:5",
+      "pushType": "first_week",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d2"
+        ],
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:6",
+      "pushType": "first_week",
+      "title": "לא צריך להיות מושלם",
+      "body": "צריך רק להתחיל. 10 דקות הליכה סוגרות לך יום ראשון",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d2"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:7",
+      "pushType": "first_week",
+      "title": "אימון בלי להחליף בגדים?",
+      "body": "10 דקות הליכה מהדלת. ככה מתחילים את הרצף",
+      "deepLink": "map_walk",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d2"
+        ],
+        "tone": [
+          "curious"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:8",
+      "pushType": "first_week",
+      "title": "נו אחי, 10 דקות",
+      "body": "הליכה מסביב לבלוק. זה הכול, נשבע",
+      "deepLink": "map_walk",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "day": [
+          "d2"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:first_week:f_d2",
+      "active": true
+    },
+    {
+      "id": "default:first_week:9",
+      "pushType": "first_week",
+      "title": "נו אחותי, 10 דקות",
+      "body": "הליכה מסביב לבלוק. זה הכול, נשבעת",
+      "deepLink": "map_walk",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "day": [
+          "d2"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:first_week:f_d2",
+      "active": true
+    },
+    {
+      "id": "default:first_week:10",
+      "pushType": "first_week",
+      "title": "ב@מקום כבר מתגעגעים",
+      "body": "@אנשים אנשים התאמנו שם השבוע. חסר רק אחד",
+      "deepLink": "map",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d3"
+        ],
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:11",
+      "pushType": "first_week",
+      "title": "מי מתאמן ב@מקום?",
+      "body": "@אנשים שכנים כבר גילו. בואו לראות",
+      "deepLink": "map",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d3"
+        ],
+        "tone": [
+          "curious"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:12",
+      "pushType": "first_week",
+      "title": "לא חייבים לבד",
+      "body": "יש קבוצת הליכה ליד הבית שמחכה לחברים חדשים",
+      "deepLink": "map",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d3"
+        ],
+        "tone": [
+          "personal"
+        ],
+        "nearby": [
+          "group"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:13",
+      "pushType": "first_week",
+      "title": "כפרה עליך, אתה לא לבד",
+      "body": "@אנשים אנשים התאמנו ב@מקום השבוע. בוא",
+      "deepLink": "map",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "day": [
+          "d3"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:first_week:f_d3",
+      "active": true
+    },
+    {
+      "id": "default:first_week:14",
+      "pushType": "first_week",
+      "title": "כפרה עלייך, את לא לבד",
+      "body": "@אנשים אנשים התאמנו ב@מקום השבוע. בואי",
+      "deepLink": "map",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "day": [
+          "d3"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:first_week:f_d3",
+      "active": true
+    },
+    {
+      "id": "default:first_week:15",
+      "pushType": "first_week",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "עוד @צעדים_שנותרו צעדים ויש לך יום ראשון ברצף",
+      "deepLink": "activity_steps",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d4"
+        ],
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:16",
+      "pushType": "first_week",
+      "title": "כמעט סגרת יום בלי לשים לב",
+      "body": "עוד @צעדים_שנותרו צעדים. סיבוב קצר מסביב לבניין?",
+      "deepLink": "activity_steps",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d4"
+        ],
+        "tone": [
+          "curious"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:17",
+      "pushType": "first_week",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d5"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:18",
+      "pushType": "first_week",
+      "title": "הספה תסלח לנו",
+      "body": "10 דקות בסלון, בלי ציוד. אחר כך חוזרים אליה",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d5"
+        ],
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:19",
+      "pushType": "first_week",
+      "title": "אחרי יום כזה? מגיע לך",
+      "body": "10 דקות בסלון, ואז ספה בלב שקט",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "day": [
+          "d5"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:first_week:f_d5",
+      "active": true
+    },
+    {
+      "id": "default:first_week:20",
+      "pushType": "first_week",
+      "title": "אחרי יום כזה? מגיע לך",
+      "body": "10 דקות בסלון, ואז ספה בלב שקט",
+      "deepLink": "home",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "day": [
+          "d5"
+        ],
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:first_week:f_d5",
+      "active": true
+    },
+    {
+      "id": "default:first_week:21",
+      "pushType": "first_week",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d7"
+        ],
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:first_week:22",
+      "pushType": "first_week",
+      "title": "מה אם השבוע זה יקרה?",
+      "body": "אימון ראשון של 10 דקות. רק לנסות",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "day": [
+          "d7"
+        ],
+        "tone": [
+          "curious"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "second_workout": [
+    {
+      "id": "default:second_workout:0",
+      "pushType": "second_workout",
+      "title": "האימון השני הוא הסוד",
+      "body": "הראשון זה סקרנות. השני זה התחלה של הרגל",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "tone": [
+          "personal"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:second_workout:1",
+      "pushType": "second_workout",
+      "title": "הגוף שלך שואל מתי שוב",
+      "body": "15 דקות. הוא מוכן אם גם אתם",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": {
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:second_workout:2",
+      "pushType": "second_workout",
+      "title": "האימון השני מחכה",
+      "body": "הראשון כבר מאחוריך. 15 דקות וממשיכים",
+      "deepLink": "home",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": true,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "friend_joined": [
+    {
+      "id": "default:friend_joined:0",
+      "pushType": "friend_joined",
+      "title": "@מצטרף הצטרף ל-OUT",
+      "body": "שולחים כיף לדרך?",
+      "deepLink": "community",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:friend_joined:joined",
+      "active": true
+    },
+    {
+      "id": "default:friend_joined:1",
+      "pushType": "friend_joined",
+      "title": "@מצטרף הצטרפה ל-OUT",
+      "body": "שולחים כיף לדרך?",
+      "deepLink": "community",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:friend_joined:joined",
+      "active": true
+    }
+  ],
+  "league_overtaken": [
+    {
+      "id": "default:league_overtaken:0",
+      "pushType": "league_overtaken",
+      "title": "מישהו עקף אותך בשכונה",
+      "body": "אימון אחד ואתם חוזרים למקום @דירוג",
+      "deepLink": "community",
+      "audience": null,
+      "conditions": {
+        "tone": [
+          "curious"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:league_overtaken:1",
+      "pushType": "league_overtaken",
+      "title": "@מתחרה עקף אותך. בנימוס",
+      "body": "אבל עדיין. אימון אחד וחזרתם",
+      "deepLink": "community",
+      "audience": null,
+      "conditions": {
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:league_overtaken:cute",
+      "active": true
+    },
+    {
+      "id": "default:league_overtaken:2",
+      "pushType": "league_overtaken",
+      "title": "@מתחרה עקפה אותך. בנימוס",
+      "body": "אבל עדיין. אימון אחד וחזרתם",
+      "deepLink": "community",
+      "audience": null,
+      "conditions": {
+        "tone": [
+          "cute"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:league_overtaken:cute",
+      "active": true
+    },
+    {
+      "id": "default:league_overtaken:3",
+      "pushType": "league_overtaken",
+      "title": "@מתחרה עקף אותך. מה נסגר?",
+      "body": "אימון אחד ואתה חוזר למקום @דירוג",
+      "deepLink": "community",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "male",
+      "pairId": "default:league_overtaken:friendly_m",
+      "active": true
+    },
+    {
+      "id": "default:league_overtaken:4",
+      "pushType": "league_overtaken",
+      "title": "@מתחרה עקפה אותך. מה נסגר?",
+      "body": "אימון אחד ואתה חוזר למקום @דירוג",
+      "deepLink": "community",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "female",
+      "pairId": "default:league_overtaken:friendly_m",
+      "active": true
+    },
+    {
+      "id": "default:league_overtaken:5",
+      "pushType": "league_overtaken",
+      "title": "@מתחרה עקף אותך. מה נסגר?",
+      "body": "אימון אחד ואת חוזרת למקום @דירוג",
+      "deepLink": "community",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "male",
+      "pairId": "default:league_overtaken:friendly_f",
+      "active": true
+    },
+    {
+      "id": "default:league_overtaken:6",
+      "pushType": "league_overtaken",
+      "title": "@מתחרה עקפה אותך. מה נסגר?",
+      "body": "אימון אחד ואת חוזרת למקום @דירוג",
+      "deepLink": "community",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": {
+        "tone": [
+          "friendly"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "female",
+      "pairId": "default:league_overtaken:friendly_f",
+      "active": true
+    }
+  ],
+  "unit_league": [
+    {
+      "id": "default:unit_league:0",
+      "pushType": "unit_league",
+      "title": "היחידה צמודה למקום הראשון",
+      "body": "כל אימון שלך מזיז את כולם",
+      "deepLink": "community",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "steps_connect": [
+    {
+      "id": "default:steps_connect:0",
+      "pushType": "steps_connect",
+      "title": "כל הליכה שלכם יכולה להיספר",
+      "body": "מחברים צעדים בדקה, וגם הליכה לסופר נכנסת לרצף",
+      "deepLink": "activity_steps",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ]
+}

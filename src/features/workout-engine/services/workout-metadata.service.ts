@@ -34,6 +34,10 @@ import type { LifestylePersona } from '../logic/ContextualEngine';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { resolveContentTags, hasUnresolvedTagArtifacts, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { genPerfRead, isGenVerboseEnabled } from '@/lib/gen-perf';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { makeT, type TFunction } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
 
 // ============================================================================
 // TYPES
@@ -254,9 +258,9 @@ export const WEATHER_MATCH_BOOST = 5;
  * Brand voice: short, gender-neutral, no emoji, no em-dashes.
  */
 export const WEATHER_FALLBACK_TITLES = {
-  rainHome: 'גשום היום? אימון לסלון',
-  heat: 'אימון קצר בצל',
-  cold: 'מתחממים טוב ויוצאים',
+  rainHome: coach.he['title.weather.rainHome'],
+  heat: coach.he['title.weather.heat'],
+  cold: coach.he['title.weather.cold'],
 } as const;
 
 /**
@@ -267,15 +271,17 @@ export const WEATHER_FALLBACK_TITLES = {
 export function resolveWeatherFallbackTitle(
   weather: WorkoutMetadataContext['weather'],
   location: ExecutionLocation | undefined,
+  /** Catalog translator; defaults to Hebrew (this title is saved with the workout, wave 5E threads the locale). */
+  t: TFunction<NamespaceKey<typeof coach>> = makeT(SOURCE_LOCALE, coach),
 ): string | null {
   switch (weather) {
     case 'rain':
-      return location === 'home' ? WEATHER_FALLBACK_TITLES.rainHome : null;
+      return location === 'home' ? t('title.weather.rainHome') : null;
     case 'heat':
     case 'uv':
-      return WEATHER_FALLBACK_TITLES.heat;
+      return t('title.weather.heat');
     case 'cold':
-      return WEATHER_FALLBACK_TITLES.cold;
+      return t('title.weather.cold');
     default:
       return null;
   }

@@ -333,6 +333,11 @@ export const FLAG_DEFS = [
   // The exercise library under "תרגילים" is the same component as today. Fail-closed; super
   // admins preview it. Off = today's /search and map search, byte-identical.
   { key: 'enableUnifiedSearch', firestoreKey: 'enable_unified_search', defaultValue: false, superAdminValue: true },
+  // Shared strength workout link (22.10.2026, owner loose-ends batch): /workouts/[id] renders the
+  // same exercise list as the in-app strength preview (sections, supersets, equipment / muscle
+  // chips), rebuilt from the shared doc; falls back to the current layout when the doc lacks data.
+  // Fail-closed; super admins preview it. Off = today's shared page, byte-identical.
+  { key: 'enableSharedWorkoutPreviewV1', firestoreKey: 'enable_shared_workout_preview_v1', defaultValue: false, superAdminValue: true },
   // Entry flow v2 — step 2 on the map (20.10.2026, owner-approved design canvas N2/N2b/N2k,
   // R1–R3, R6). After the location step (enable_entry_globe_v1) lands on /map with entry=v2,
   // a one-time "מה בא לך עכשיו?" drawer (route card when a park / route is near, the personal
@@ -341,6 +346,11 @@ export const FLAG_DEFS = [
   // and the route player a one-time long-press tip. Fail-closed; super admins preview it.
   // Off = byte-identical map, cards and player.
   { key: 'enableEntryWhatnowV1', firestoreKey: 'enable_entry_whatnow_v1', defaultValue: false, superAdminValue: true },
+  // Entry single choice (22.10.2026, owner loose-ends batch): a user who already answered (or
+  // dismissed) the map's "מה בא לך עכשיו?" drawer no longer also gets the home "מה הדבר הראשון?"
+  // WelcomeDrawer — one question, asked once. Fail-closed; super admins preview it. Off = today's
+  // home (the drawer shows for every never-trained user).
+  { key: 'enableEntrySingleChoiceV1', firestoreKey: 'enable_entry_single_choice_v1', defaultValue: false, superAdminValue: true },
   // Generation review (19.10.2026, owner) — learn from every generated session: each session a
   // generator SHOWS (home trio, Kelly workouts, hybrid compositions, generated loops / A→B routes,
   // planned runs) is summarized on the device (no names, area = geohash-5, route ends trimmed) and

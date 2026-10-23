@@ -1,0 +1,31 @@
+{"rainHome":"גשום היום? אימון לסלון","heat":"אימון קצר בצל","cold":"מתחממים טוב ויוצאים"}
+rain | home: "גשום היום? אימון לסלון"
+rain | park: null
+rain | gym: null
+rain | office: null
+rain | undefined: null
+heat | home: "אימון קצר בצל"
+heat | park: "אימון קצר בצל"
+heat | gym: "אימון קצר בצל"
+heat | office: "אימון קצר בצל"
+heat | undefined: "אימון קצר בצל"
+uv | home: "אימון קצר בצל"
+uv | park: "אימון קצר בצל"
+uv | gym: "אימון קצר בצל"
+uv | office: "אימון קצר בצל"
+uv | undefined: "אימון קצר בצל"
+cold | home: "מתחממים טוב ויוצאים"
+cold | park: "מתחממים טוב ויוצאים"
+cold | gym: "מתחממים טוב ויוצאים"
+cold | office: "מתחממים טוב ויוצאים"
+cold | undefined: "מתחממים טוב ויוצאים"
+undefined | home: null
+undefined | park: null
+undefined | gym: null
+undefined | office: null
+undefined | undefined: null
+null | home: null
+null | park: null
+null | gym: null
+null | office: null
+null | undefined: null

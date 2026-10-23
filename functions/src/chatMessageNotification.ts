@@ -50,6 +50,7 @@ import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
 import { isDemoUid, restrictToDemoWorld } from './lib/demo';
+import { getT } from './shared/i18n-t';
 import { loadDemoViewerUids } from './lib/demo-world';
 import { PUSH_TYPE_IDS, accumulateUidDelivery, isPushMeasureAllEnabled, mintPushId } from './services/push-measure-all';
 import { writeLegacyPushSentEvents } from './services/push-events.service';
@@ -93,6 +94,16 @@ export function isDirectPersonMessage(
   return participants.length === 2 && !chatId.startsWith('group_');
 }
 
+/** The push title when the message has no usable sender name (i18n wave 2A: `push` catalog; user locale = wave 5B). Exported for tests. */
+export function chatSenderName(raw: unknown): string {
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : getT('he', 'push')('chat.someone');
+}
+
+/** The push body: the message snippet, or the generic line for a message with no text (an image...). Exported for tests. */
+export function chatBodyOrFallback(bodyText: string): string {
+  return bodyText || getT('he', 'push')('chat.newMessage');
+}
+
 export const chatMessageNotification = onDocumentCreated(
   { document: 'chats/{chatId}/messages/{messageId}', timeoutSeconds: 60, memory: '256MiB' },
   async (event) => {
@@ -107,10 +118,7 @@ export const chatMessageNotification = onDocumentCreated(
     }
 
     const senderUid = typeof data.senderUid === 'string' ? data.senderUid.trim() : '';
-    const senderName =
-      typeof data.senderName === 'string' && data.senderName.trim()
-        ? data.senderName.trim()
-        : 'מישהו';
+    const senderName = chatSenderName(data.senderName);
     const text = typeof data.text === 'string' ? data.text.trim() : '';
 
     if (!senderUid) {
@@ -173,7 +181,7 @@ export const chatMessageNotification = onDocumentCreated(
         channel: 'chat',
         measurementTypeId: PUSH_TYPE_IDS.chatMessage, // enable_push_measure_all (off = ignored)
         title: senderName,
-        body: bodyText || '💬 הודעה חדשה',
+        body: chatBodyOrFallback(bodyText),
         deepLink: `/chat/${chatId}`,
         data: { chatId },
         // Chat has neither a rate cap nor quiet-hours suppression today —
@@ -240,7 +248,7 @@ export const chatMessageNotification = onDocumentCreated(
       tokens: [],
       notification: {
         title: senderName,
-        body: bodyText || '💬 הודעה חדשה',
+        body: chatBodyOrFallback(bodyText),
       },
       data: {
         chatId,
