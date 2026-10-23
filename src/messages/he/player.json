@@ -543,5 +543,9 @@
   "wide.superset": "סופרסט × {partner}",
   "wide.swap": "החלפת תרגיל",
   "wide.start": "התחלה",
-  "wide.startSide": "התחל {side}"
+  "wide.startSide": "התחל {side}",
+  "wide.immersive.enter": "מסך מלא",
+  "wide.immersive.exit": "יציאה ממסך מלא",
+  "wide.immersive.minimize": "מזעור",
+  "wide.immersive.toggleAria": "הצגה או הסתרה של הכפתורים"
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Maximize2 } from 'lucide-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import FillingButton from './FillingButton';
 import IsometricTimerCard from './IsometricTimerCard';
@@ -14,7 +15,12 @@ import { useSnapDrawer } from '../../shared/v2/useSnapDrawer';
 import SnapDrawerGrabber from '../../shared/v2/SnapDrawerGrabber';
 import PlayerDrawerCompact from '../../shared/v2/PlayerDrawerCompact';
 import WideSplit from '../../shared/v2/WideSplit';
-import { useWidePlayer } from '../../shared/v2/WidePlayerContext';
+import { useWidePlayer, WidePlayerProvider } from '../../shared/v2/WidePlayerContext';
+import AmbientMedia from '../../shared/v2/AmbientMedia';
+import { decidePlayerMode, isAmbientColumn, videoAspect, type VideoAspect } from '../../shared/v2/immersive-mode';
+import ImmersiveOverlay from './ImmersiveOverlay';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import ActiveRepsWidePanel from './ActiveRepsWidePanel';
 
 /**
@@ -141,6 +147,12 @@ export interface ActiveExerciseViewProps {
   onSetVideoProgress?: (progress: number) => void;
   /** enable_wide_player_v1: the next exercise, for the wide panel's next-up card. */
   nextUp?: { name: string; caption?: string | null; imageUrl?: string | null };
+  /** enable_wide_player_v1: this exercise's poster — the ambient blurred fill behind a portrait clip. */
+  posterUrl?: string | null;
+  /** enable_wide_player_v1: true while immersive (the orchestrator hides its header / story bars). */
+  onImmersiveChange?: (immersive: boolean) => void;
+  /** Immersive overlay's minimize. */
+  onMinimize?: () => void;
 }
 
 export default function ActiveExerciseView({
@@ -184,6 +196,9 @@ export default function ActiveExerciseView({
   autoStartTimer = false,
   onSetVideoProgress,
   nextUp,
+  posterUrl,
+  onImmersiveChange,
+  onMinimize,
 }: ActiveExerciseViewProps) {
   // Gate the hidden prefetch <video> until the main video has started loading.
   // On iOS WKWebView, two concurrent video decoders can exhaust the system
@@ -197,13 +212,38 @@ export default function ActiveExerciseView({
   const drawerV1 = useStrengthDrawerV1();
   const drawerState = useSnapDrawer('strength', drawerV1);
   // enable_wide_player_v1: wide = side panel instead of the bottom sheet (no drawer).
-  const { wide } = useWidePlayer();
-  const drawer = drawerV1 && !wide ? drawerState : null;
+  const layout = useWidePlayer();
+  const t = useT(player);
+  // The clip's own shape (from the <video> element — no change to ExerciseVideoPlayer): the app's
+  // landscape-filmed clips (recovery sessions) get the immersive mode on a landscape screen.
+  const [aspect, setAspect] = useState<VideoAspect>(null);
+  const [userImmersive, setUserImmersive] = useState(false);
+  const detachRef = useRef<(() => void) | null>(null);
+  const handleVideoEl = useCallback((el: HTMLVideoElement | null) => {
+    detachRef.current?.();
+    detachRef.current = null;
+    onVideoElement?.(el);
+    if (!el) return;
+    const read = () => setAspect(videoAspect(el.videoWidth, el.videoHeight));
+    if (el.readyState >= 1) read();
+    el.addEventListener('loadedmetadata', read);
+    detachRef.current = () => el.removeEventListener('loadedmetadata', read);
+  }, [onVideoElement]);
+  const mode = decidePlayerMode({ enabled: layout.enabled, wide: layout.wide, landscape: layout.landscape, aspect, userImmersive });
+  const split = mode === 'split';
+  const immersive = mode === 'immersive';
+  // State (collapsed / expanded, scroll) survives immersive: the card stays mounted, just hidden.
+  const drawer = drawerV1 && !split ? drawerState : null;
   const collapsed = !!drawer?.collapsed;
+  useEffect(() => {
+    onImmersiveChange?.(immersive);
+    return () => onImmersiveChange?.(false);
+  }, [immersive, onImmersiveChange]);
 
   // Reset the gate on every set remount so the prefetch is re-deferred.
   useEffect(() => {
     setMainVideoReady(false);
+    setAspect(null);
   }, [activeKey]);
 
   const timerEl = isTimeExercise ? (
@@ -222,7 +262,7 @@ export default function ActiveExerciseView({
           externalPaused={isPaused}
           guidanceLine={guidanceLine}
           drawer={drawer}
-          nextUp={wide ? nextUp : undefined}
+          nextUp={split ? nextUp : undefined}
         />
   ) : null;
   const videoEl = (
@@ -235,9 +275,9 @@ export default function ActiveExerciseView({
         isFollowAlong={isFollowAlong}
         isPaused={videoPaused ?? isPaused}
         hasAudio={false}
-        onVideoElement={onVideoElement}
+        onVideoElement={handleVideoEl}
         fullTutorial={exerciseFullTutorial ?? null}
-        tutorialPlacement={drawerV1 || wide ? 'corner' : 'legacy'}
+        tutorialPlacement={drawerV1 || split || immersive ? 'corner' : 'legacy'}
         onVideoProgress={onSetVideoProgress}
         onVideoEnded={(isTimeExercise || !TIMER_AUTO_ADVANCE_ENABLED) ? undefined : () => onComplete()}
         onLoadingChange={(loading) => {
@@ -249,15 +289,41 @@ export default function ActiveExerciseView({
     <video src={cachedNextVideoUrl} preload="auto" className="hidden" muted playsInline {...{"webkit-playsinline": "true"}} />
   ) : null;
 
-  if (wide) {
+  // The timer card keeps ONE place in the tree in every mode (so a rotation never resets it); it only
+  // changes look: hero card in split / immersive, today's bottom sheet otherwise.
+  const timerNode = isTimeExercise ? (
+    <div
+      data-wide-timer-slot=""
+      className={immersive ? 'absolute z-40 w-[360px] max-w-[46vw] rounded-3xl bg-white shadow-2xl' : 'contents'}
+      style={immersive ? { insetInlineEnd: 'max(3vw, env(safe-area-inset-right, 0px))', top: '50%', transform: 'translateY(-50%)', zoom: layout.scale } : undefined}
+    >
+      <WidePlayerProvider value={{ ...layout, wide: split || immersive }}>{timerEl}</WidePlayerProvider>
+    </div>
+  ) : null;
+
+  // Full-screen toggle for a landscape-filmed clip that is not immersive yet.
+  const enterBtn = layout.enabled && aspect === 'landscape' && !immersive ? (
+    <button
+      type="button"
+      onClick={() => setUserImmersive(true)}
+      aria-label={t('wide.immersive.enter')}
+      className="absolute z-20 flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-[13px] font-bold text-white backdrop-blur-md"
+      style={{ insetInlineEnd: 16, top: split ? 16 : 'calc(env(safe-area-inset-top, 0px) + 6.5rem)' }}
+    >
+      <Maximize2 size={16} aria-hidden />
+      {t('wide.immersive.enter')}
+    </button>
+  ) : null;
+
+  if (split) {
     return (
       <div
         key={activeKey}
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
       >
         <WideSplit
-          media={videoEl}
-          panel={isTimeExercise ? timerEl : (
+          media={<AmbientMedia posterUrl={posterUrl} column={isAmbientColumn(aspect)}>{videoEl}{enterBtn}</AmbientMedia>}
+          panel={isTimeExercise ? timerNode : (
             <ActiveRepsWidePanel
               activeKey={activeKey}
               exerciseName={exerciseName}
@@ -295,6 +361,7 @@ export default function ActiveExerciseView({
           without advancing; the user taps "סיימתי". Covers regular + follow-along
           warmup, standalone + hybrid. (reps loop, so onVideoEnded never fired for them.) */}
       {videoEl}
+      {enterBtn}
 
       {/* Pre-fetch next exercise video — deferred until the main video has fired
           loadeddata. On iOS WKWebView, mounting two <video> elements simultaneously
@@ -302,15 +369,15 @@ export default function ActiveExerciseView({
       {prefetchEl}
 
       {/* Isometric timer drawer — bottom sheet for time-based exercises */}
-      {isTimeExercise && timerEl}
+      {timerNode}
 
       {/* Scrollable overlay — spacer lets video show, then the white card peeks up */}
       {!isTimeExercise && (
         <div
           ref={scrollRef}
-          className={collapsed
+          className={`${collapsed
             ? 'absolute inset-x-0 bottom-0 z-10'
-            : 'absolute inset-0 overflow-y-auto overscroll-contain z-10'}
+            : 'absolute inset-0 overflow-y-auto overscroll-contain z-10'}${immersive ? ' invisible pointer-events-none' : ''}`}
         >
           {/* Spacer — pushes card to bottom; maximises visible video. B4:
               warmup / follow-along shows a guided clip with no big reps/target
@@ -507,6 +574,15 @@ export default function ActiveExerciseView({
             )}
           </div>
         </div>
+      )}
+      {immersive && (
+        <ImmersiveOverlay
+          exerciseName={exerciseName}
+          targetText={repsOrDurationText}
+          onDone={isTimeExercise ? undefined : () => onComplete()}
+          onMinimize={onMinimize}
+          onExit={userImmersive && !layout.landscape ? () => setUserImmersive(false) : undefined}
+        />
       )}
     </div>
   );

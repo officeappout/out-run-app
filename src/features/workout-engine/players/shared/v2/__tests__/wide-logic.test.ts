@@ -19,9 +19,14 @@ describe('isWideLayout', () => {
     expect(isWideLayout({ width: 699, height: 360 })).toBe(true);
     expect(isWideLayout({ width: 880, height: 700 })).toBe(false); // landscape but not short
   });
+  it('landscape flag follows the container shape; a portrait phone is enabled but not landscape', () => {
+    expect(computeWideLayout({ width: 844, height: 390 }).landscape).toBe(true);
+    expect(computeWideLayout({ width: 390, height: 844 })).toEqual({ enabled: true, wide: false, landscape: false, scale: 1 });
+    expect(WIDE_OFF).toEqual({ enabled: false, wide: false, landscape: false, scale: 1 });
+  });
   it('unmeasured is not wide', () => {
     expect(isWideLayout({ width: 0, height: 0 })).toBe(false);
-    expect(computeWideLayout({ width: 0, height: 800 })).toBe(WIDE_OFF);
+    expect(computeWideLayout({ width: 0, height: 800 })).toMatchObject({ wide: false, landscape: false, scale: 1 });
   });
 });
 
@@ -34,7 +39,7 @@ describe('wideScale', () => {
     expect(phone).toBeLessThan(hd);
     expect(hd).toBeLessThan(uhd);
     expect(uhd).toBeLessThanOrEqual(4.5);
-    expect(computeWideLayout({ width: 1920, height: 1080 })).toEqual({ wide: true, scale: hd });
+    expect(computeWideLayout({ width: 1920, height: 1080 })).toEqual({ enabled: true, wide: true, landscape: true, scale: hd });
   });
 });
 

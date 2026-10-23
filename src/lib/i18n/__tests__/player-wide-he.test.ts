@@ -8,7 +8,7 @@ const t = makeT('he', player);
 
 describe('player wide.* (he)', () => {
   it('key count', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('wide.')).length).toBe(14);
+    expect(Object.keys(he).filter((k) => k.startsWith('wide.')).length).toBe(18);
   });
   it('strings and values', () => {
     expect(t('wide.nextUp')).toBe('הבא בתור');
@@ -24,6 +24,10 @@ describe('player wide.* (he)', () => {
     expect(t('wide.keys.next')).toBe('→ הבא');
     expect(t('wide.keys.back')).toBe('← חזרה');
     expect(t('wide.keys.minimize')).toBe('Esc – מזעור');
+    expect(t('wide.immersive.enter')).toBe('מסך מלא');
+    expect(t('wide.immersive.exit')).toBe('יציאה ממסך מלא');
+    expect(t('wide.immersive.minimize')).toBe('מזעור');
+    expect(t('wide.immersive.toggleAria')).toBe('הצגה או הסתרה של הכפתורים');
     expect(t('wide.keys.label')).toBe('קיצורי מקלדת');
   });
 });

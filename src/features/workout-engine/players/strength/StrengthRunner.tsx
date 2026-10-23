@@ -166,6 +166,8 @@ export default function StrengthRunner({
   const playerV2 = useFeatureFlags(isSuperAdminV2).flags.enableHomeV2;
   // enable_wide_player_v1: the container-based wide decision (landscape / tablet / desktop / TV).
   const rootRef = useRef<HTMLDivElement>(null);
+  // Immersive (landscape-filmed clip on a landscape screen): header / story bars are hidden, set by ActiveExerciseView.
+  const [immersive, setImmersive] = useState(false);
   const wideFlag = useWidePlayerV1();
   const wideLayout = useWideLayout(rootRef, wideFlag);
 
@@ -804,6 +806,9 @@ export default function StrengthRunner({
         // enable_swap_fixes_v1: no swap while a tabata work interval runs (the clock doesn't stop).
         onSwap={isSwapBlockedNow(swapFixesOn, { isTabata: isTabataBlock, isWorkPhase: blockWorkSec != null }) ? undefined : handleSwap}
         onSetVideoProgress={sm.setVideoProgress}
+        posterUrl={safeImageUrl ?? null}
+        onImmersiveChange={setImmersive}
+        onMinimize={() => setIsMinimized(true)}
         nextUp={sm.nextExercise.name ? { name: sm.nextExercise.name, imageUrl: sm.nextExercise.imageUrl, caption: (sm.nextExercise.exerciseType === 'time' ? sm.nextExercise.duration : sm.nextExercise.reps) || null } : undefined}
         // PR-B2: the demo keeps looping behind the gate while the player is held paused, and the
         // gate needs the <video> element to unmute it inside the tap. A timed (non-tabata) card
@@ -955,7 +960,7 @@ export default function StrengthRunner({
             />
 
             {/* Header overlay — also the drag handle for minimize */}
-            {showHeader && !gateActive && !findActive && (
+            {showHeader && !gateActive && !findActive && !immersive && (
               <RunnerHeader
                 progressBars={mixedBars ?? sm.progressBars}
                 autoCompleteTime={sm.autoCompleteTime}

@@ -526,3 +526,6 @@ src/features/workout-engine/players/shared/v2/wide-keys.ts
 src/features/workout-engine/players/strength/components/ActiveRepsWidePanel.tsx
 src/features/workout-engine/players/strength/logic/wide-key-actions.ts
 src/features/workout-engine/players/strength/hooks/useWidePlayerV1.ts
+src/features/workout-engine/players/shared/v2/immersive-mode.ts
+src/features/workout-engine/players/shared/v2/AmbientMedia.tsx
+src/features/workout-engine/players/strength/components/ImmersiveOverlay.tsx

@@ -24,12 +24,16 @@ export interface Size {
 }
 
 export interface WideLayout {
+  /** The flag is on (false → every wide / immersive code path stays off). */
+  enabled: boolean;
   wide: boolean;
+  /** Container is wider than tall (a rotated phone). Only ever true when enabled. */
+  landscape: boolean;
   /** Zoom for the side panel's content so it stays proportional from 360px to 3840px. 1 when not wide. */
   scale: number;
 }
 
-export const WIDE_OFF: WideLayout = { wide: false, scale: 1 };
+export const WIDE_OFF: WideLayout = { enabled: false, wide: false, landscape: false, scale: 1 };
 
 export function isWideLayout({ width, height }: Size): boolean {
   if (!(width > 0) || !(height > 0)) return false;
@@ -46,5 +50,11 @@ export function wideScale({ width, height }: Size): number {
 }
 
 export function computeWideLayout(size: Size): WideLayout {
-  return isWideLayout(size) ? { wide: true, scale: wideScale(size) } : WIDE_OFF;
+  const wide = isWideLayout(size);
+  return {
+    enabled: true,
+    wide,
+    landscape: size.width > 0 && size.height > 0 && size.width > size.height,
+    scale: wide ? wideScale(size) : 1,
+  };
 }

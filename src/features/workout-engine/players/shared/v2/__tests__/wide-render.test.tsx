@@ -20,7 +20,7 @@ const item = { key: 'a', kind: 'exercise', name: 'סקוואט', exerciseId: 'ex
 describe('WideSplit', () => {
   it('media first (inline-start), panel second, safe margins, focus ring, optional footer', () => {
     const html = renderToStaticMarkup(
-      <WidePlayerProvider value={{ wide: true, scale: 2 }}>
+      <WidePlayerProvider value={{ enabled: true, wide: true, landscape: true, scale: 2 }}>
         <WideSplit media={<i id="m" />} panel={<b id="p" />} footer={<u id="f" />} />
       </WidePlayerProvider>,
     );
@@ -50,7 +50,7 @@ describe('WideHeroClock', () => {
 describe('ActiveRepsWidePanel', () => {
   it('shows name, reps, set, done, next-up and the key hints', () => {
     const html = renderToStaticMarkup(
-      <WidePlayerProvider value={{ wide: true, scale: 2 }}>
+      <WidePlayerProvider value={{ enabled: true, wide: true, landscape: true, scale: 2 }}>
         <ActiveRepsWidePanel
           activeKey="k" exerciseName="שכיבות סמיכה" repsOrDurationText="8-10" isUnilateral={false} targetValue={9}
           currentRound={2} totalRounds={3} isSupersetActive={false} supersetPartnerName={null}
@@ -74,7 +74,7 @@ describe('TimedClockCard', () => {
   });
   it('wide → hero clock inside the side panel (no sheet)', () => {
     const html = renderToStaticMarkup(
-      <WidePlayerProvider value={{ wide: true, scale: 2 }}>
+      <WidePlayerProvider value={{ enabled: true, wide: true, landscape: true, scale: 2 }}>
         <TimedClockCard {...props} />
       </WidePlayerProvider>,
     );
