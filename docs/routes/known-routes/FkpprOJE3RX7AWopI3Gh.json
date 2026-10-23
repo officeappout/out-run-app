@@ -1,0 +1,24 @@
+{
+ "authorityId": "FkpprOJE3RX7AWopI3Gh",
+ "city": "נס ציונה",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "מסלול הדגל",
+   "aliases": [
+    "מסלול הדגל בנס ציונה"
+   ],
+   "kind": "walk",
+   "lengthKm": null,
+   "inPark": null,
+   "description": "מסלול הליכה משולט של 10 אתרי מורשת לאורך רחוב תל אביב ועד בית הכנסת הגדול, הוקם ב-2008.",
+   "sources": [
+    {
+     "url": "https://he.wikipedia.org/wiki/מסלול_הדגל_בנס_ציונה",
+     "title": "מסלול הדגל בנס ציונה - ויקיפדיה - fetched"
+    }
+   ]
+  }
+ ],
+ "notes": "OSM big park: 'ספורטק'. National park גבעות הכורכר (INPA, name only) not in OSM named ways."
+}

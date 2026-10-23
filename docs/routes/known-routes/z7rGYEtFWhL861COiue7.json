@@ -1,0 +1,28 @@
+{
+ "authorityId": "z7rGYEtFWhL861COiue7",
+ "city": "רמת השרון",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "שביל השדות",
+   "aliases": [
+    "שביל השדות רמת השרון"
+   ],
+   "kind": "walk",
+   "lengthKm": null,
+   "inPark": null,
+   "description": "טיילת נופית לאורך הגבול המערבי של העיר ליד שדות חקלאיים.",
+   "sources": [
+    {
+     "url": "https://he.wikipedia.org/wiki/רמת_השרון",
+     "title": "רמת השרון - ויקיפדיה - fetched"
+    },
+    {
+     "url": "https://inature.info/wiki/%D7%A9%D7%91%D7%99%D7%9C_%D7%94%D7%A9%D7%93%D7%95%D7%AA",
+     "title": "שביל השדות (iNature) - search result only"
+    }
+   ]
+  }
+ ],
+ "notes": "OSM has 'שביל השדות' (path, 1.12 km) and 'מסלולון יער הילדים' (cycleway 0.56 km). Parks like פארק הנצח are named in a municipal page (snippet only) but are not in OSM's big-park set."
+}

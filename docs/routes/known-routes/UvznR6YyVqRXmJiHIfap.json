@@ -1,26 +1,32 @@
 {
-  "authorityId": "UvznR6YyVqRXmJiHIfap",
-  "city": "קרית ים",
-  "researchedAt": "2026-10-22",
-  "routes": [
+ "authorityId": "UvznR6YyVqRXmJiHIfap",
+ "city": "קרית ים",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "טיילת קריית ים",
+   "aliases": [
+    "טיילת חוף הים קריית ים",
+    "Kiryat Yam seafront promenade",
+    "טיילת קרית ים",
+    "טיילת קריית ים"
+   ],
+   "kind": "walk",
+   "lengthKm": null,
+   "inPark": null,
+   "description": "טיילת להולכי רגל לאורך קו החוף של העיר; המקור אינו נותן לה שם רשמי",
+   "sources": [
     {
-      "name": "טיילת קריית ים",
-      "aliases": [
-        "טיילת חוף הים קריית ים",
-        "Kiryat Yam seafront promenade"
-      ],
-      "kind": "walk",
-      "lengthKm": null,
-      "inPark": null,
-      "description": "טיילת להולכי רגל לאורך קו החוף של העיר; המקור אינו נותן לה שם רשמי",
-      "sources": [
-        {
-          "url": "https://www.hamichlol.org.il/קריית_ים",
-          "title": "קריית ים - המכלול"
-        }
-      ],
-      "nameIsDescriptive": true
+     "url": "https://www.hamichlol.org.il/קריית_ים",
+     "title": "קריית ים - המכלול"
+    },
+    {
+     "url": "https://www.israelhayom.co.il/mumlazim/article/14543909",
+     "title": "3 מקומות בילוי בקרית ים (ישראל היום) - search result only"
     }
-  ],
-  "notes": "Weak coverage: only an unnamed seafront promenade confirmed (name is descriptive); unnamed bike paths mentioned; planned northern park promenade not yet built."
+   ],
+   "nameIsDescriptive": true
+  }
+ ],
+ "notes": "Weak coverage: only an unnamed seafront promenade confirmed (name is descriptive); unnamed bike paths mentioned; planned northern park promenade not yet built. OSM has 'טיילת קרית ים' (footway 2.23 km), 'טיילת זלמן שז\"ר' (0.66), 'טיילת המטרונית' (0.57)."
 }

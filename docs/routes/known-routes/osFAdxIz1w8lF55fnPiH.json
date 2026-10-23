@@ -1,0 +1,24 @@
+{
+ "authorityId": "osFAdxIz1w8lF55fnPiH",
+ "city": "צפת",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "פארק עמק התכלת",
+   "aliases": [
+    "עמק התכלת"
+   ],
+   "kind": "walk",
+   "lengthKm": 2,
+   "inPark": "פארק עמק התכלת",
+   "description": "פארק טבע עירוני בכניסה הצפונית לצפת עם מסלול קצר של כ-2 ק\"מ למעיין; ייתכנו סגירות.",
+   "sources": [
+    {
+     "url": "https://www.ynet.co.il/articles/0,7340,L-4056190,00.html",
+     "title": "עמק התכלת (ynet) - search result only"
+    }
+   ]
+  }
+ ],
+ "notes": "Only OSM named way inside: 'שדרות מרן' (residential 1.23 km). No ring path or health trail found."
+}
