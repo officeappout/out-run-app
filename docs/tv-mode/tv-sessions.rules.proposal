@@ -16,7 +16,9 @@
     //   host             : writes status / workout / mirror / timerAnchorAt / hostBeatAt / volume / cmd.
     //   anyone signed in : creates + updates ONLY their own participants/{uid}. Guests (anonymous
     //                      Firebase users) join like Kahoot: a validated nickname + a default avatar,
-    //                      no registration (owner decision 23.10). There is no "remove participant"
+    //                      no registration. This is an owner-approved EXCEPTION (23.10.2026) to the
+    //                      SPEC-03 "visible to others = real account" rule, limited to a nickname on a
+    //                      room screen. There is no "remove participant"
     //                      action and no participant cap (owner decision).
     //   guests           : can NOT claim the host role, create sessions, or write any session field
     //                      (so no commands, no volume, no status). Hosting needs a real account.
