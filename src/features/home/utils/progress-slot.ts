@@ -15,8 +15,8 @@ import {
 } from '@/features/progression-hub/v2/utils/running-plan-progress';
 import { readStoredWalkingGoal } from '@/features/schedule/walking/walkingGoal';
 
-/** The progress hub (bottom-nav "התקדמות"). */
-export const PROGRESS_HREF = '/progress';
+/** The progress hub tab (bare /progress is the old activity log). */
+export const PROGRESS_HREF = '/progression';
 /** The progress hub's deeper pages (enable_progress_hub_v2). */
 export const PROGRESS_RUN_HREF = '/progress/run';
 export const PROGRESS_STRENGTH_HREF = '/progress/strength';
