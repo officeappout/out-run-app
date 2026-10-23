@@ -700,6 +700,12 @@ export const FLAG_DEFS = [
   // route-fit/hill-finder.ts). Reads only. Fail-closed; super admins preview it. Off = no extra reads,
   // the overview is byte-identical to today.
   { key: 'enableHillFinderV1', firestoreKey: 'enable_hill_finder_v1', defaultValue: false, superAdminValue: true },
+  // Home progress slot (23.10.2026, owner-approved progress hub boards PG-1): under enable_home_v2, the
+  // 'התקדמות שבועית' tab's program card becomes a swipeable pair (strength program ↔ running / walking plan,
+  // pager dots) next to the weekly bars, and the tall 'תחזית למרוץ' card goes; 'מדדי בריאות' shows the weekly
+  // active-minutes ring (the Progress page's ring) instead of the steps ring. Fail-closed; super admins preview
+  // it. Off = the home tabs are byte-identical to today.
+  { key: 'enableHomeProgressSlotV1', firestoreKey: 'enable_home_progress_slot_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
