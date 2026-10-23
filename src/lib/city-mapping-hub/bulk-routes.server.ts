@@ -18,7 +18,7 @@ import { buildValidatedDoc } from '@/lib/route-collections';
 import { normCity } from '../city-inventory/overview';
 import { validAuthorityId } from './url-state';
 import { isPendingRoute } from './rows';
-import { BULK_APPROVE_BATCH, type BatchOutcome, type PendingRouteCandidate } from './bulk-approve.logic';
+import { BULK_APPROVE_BATCH, classifyGeometry, type BatchOutcome, type PendingRouteCandidate } from './bulk-approve.logic';
 import { readAuthorityNames } from './layers.server';
 
 type Data = Record<string, unknown>;
@@ -65,21 +65,35 @@ export async function readPendingRoutesNationwide(db: Firestore): Promise<Pendin
     pending.push({ id: doc.id, authorityId, d });
   }
   const scores = new Map<string, number>();
+  const storedGap = new Map<string, number>();
   for (let i = 0; i < pending.length; i += 300) {
-    const snaps = await db.getAll(...pending.slice(i, i + 300).map((p) => db.collection('route_scores').doc(p.id)), { fieldMask: ['score'] });
+    const snaps = await db.getAll(...pending.slice(i, i + 300).map((p) => db.collection('route_scores').doc(p.id)), { fieldMask: ['score', 'geometryGapM'] });
     for (const s of snaps) {
-      const v = s.exists ? (s.data() ?? {}).score : null;
-      if (typeof v === 'number') scores.set(s.id, v);
+      const x = s.exists ? (s.data() ?? {}) : {};
+      if (typeof x.score === 'number') scores.set(s.id, x.score);
+      if (typeof x.geometryGapM === 'number' && Number.isFinite(x.geometryGapM)) storedGap.set(s.id, x.geometryGapM);
     }
   }
-  const candidates = pending.map((p): PendingRouteCandidate => ({
-    id: p.id,
-    authorityId: p.authorityId,
-    name: str(p.d.name) ?? '(ללא שם)',
-    distanceKm: typeof p.d.distance === 'number' ? p.d.distance : null,
-    score: scores.get(p.id) ?? null,
-    origin: str(p.d.origin),
-  }));
+  // Straight-bridge guard: no stored gap → measure the stored path now (path only read for those).
+  const paths = new Map<string, unknown>();
+  const unmeasured = pending.filter((p) => !storedGap.has(p.id));
+  for (let i = 0; i < unmeasured.length; i += 100) {
+    const snaps = await db.getAll(...unmeasured.slice(i, i + 100).map((p) => db.collection('official_routes').doc(p.id)), { fieldMask: ['path'] });
+    for (const s of snaps) if (s.exists) paths.set(s.id, (s.data() ?? {}).path);
+  }
+  const candidates = pending.map((p): PendingRouteCandidate => {
+    const g = classifyGeometry(storedGap.get(p.id), paths.get(p.id));
+    return {
+      id: p.id,
+      authorityId: p.authorityId,
+      name: str(p.d.name) ?? '(ללא שם)',
+      distanceKm: typeof p.d.distance === 'number' ? p.d.distance : null,
+      score: scores.get(p.id) ?? null,
+      origin: str(p.d.origin),
+      geometry: g.status,
+      gapM: g.gapM,
+    };
+  });
   const used = new Set(candidates.map((c) => c.authorityId));
   return { candidates, authorityNames: Object.fromEntries(Array.from(used, (id) => [id, names.get(id) ?? id])), unattributed };
 }
@@ -111,13 +125,30 @@ export async function approvePendingRoutes(db: Firestore, uid: string, req: Bulk
   const snaps = await db.getAll(...req.ids.map((id) => col.doc(id)));
   const out: BatchOutcome = { updated: [], skipped: [] };
   const lastUpdate = new Map<string, Timestamp | undefined>();
+  const docData = new Map<string, Data>();
   for (const s of snaps) {
     const d = s.data() as Data | undefined;
     if (!s.exists || !d) out.skipped.push({ id: s.id, reason: 'not_found' });
     else if (!(d.authorityId === req.authorityId || (!str(d.authorityId) && mine.has(normCity(str(d.city) ?? ''))))) out.skipped.push({ id: s.id, reason: 'other_authority' });
     else if (!isPendingRoute(d)) out.skipped.push({ id: s.id, reason: 'not_pending' });
-    else { out.updated.push(s.id); lastUpdate.set(s.id, s.updateTime); }
+    else { out.updated.push(s.id); lastUpdate.set(s.id, s.updateTime); docData.set(s.id, d); }
   }
+  if (!out.updated.length) return out;
+
+  // Straight-bridge guard, enforced at write time (not just hidden in the UI): same
+  // classification as the preview, from the stored route_scores gap or the doc's own path.
+  const stored = new Map<string, unknown>();
+  for (let i = 0; i < out.updated.length; i += 300) {
+    const sc = await db.getAll(...out.updated.slice(i, i + 300).map((id) => db.collection('route_scores').doc(id)), { fieldMask: ['geometryGapM'] });
+    for (const s of sc) if (s.exists) stored.set(s.id, (s.data() ?? {}).geometryGapM);
+  }
+  const passing: string[] = [];
+  for (const id of out.updated) {
+    const g = classifyGeometry(stored.get(id), docData.get(id)?.path);
+    if (g.status === 'ok') passing.push(id);
+    else out.skipped.push({ id, reason: g.status === 'gap' ? 'geometry_gap' : 'geometry_unmeasured' });
+  }
+  out.updated = passing;
   if (!out.updated.length) return out;
 
   // Static fields go through the route-collections chokepoint (update mode, no authority fields touched);
