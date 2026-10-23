@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  PRIVACY_POLICY_HE,
+  buildPrivacyDoc,
   LEGAL_LAST_UPDATED_HE,
   LEGAL_VERSION,
   toParagraphs,
@@ -13,7 +13,7 @@ import { legal } from '@/messages/ns/legal';
 /**
  * Server component: no locale store here. The server-side locale read (out_locale cookie) is wave 4E
  * (src/lib/i18n/locale-cookie.ts) — until then the page chrome renders from the Hebrew source catalog.
- * The policy text itself is PRIVACY_POLICY_HE (src/features/legal/legal-content.ts) — not this page's copy.
+ * The policy text itself is buildPrivacyDoc (src/features/legal/legal-content.ts, catalog `privacyDoc.*`) — not this page's copy.
  */
 const pageT = () => makeT(SOURCE_LOCALE, legal);
 
@@ -28,11 +28,11 @@ export function generateMetadata(): Metadata {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Section numbers that receive special enhanced styling */
-const HEALTH_SECTION_TITLE = '2. נתוני בריאות — Apple HealthKit ו-Google Health Connect'; // i18n-allow-hebrew: data — compared with PRIVACY_POLICY_HE section titles
-const CONTACT_SECTION_TITLE = '14. יצירת קשר'; // i18n-allow-hebrew: data — compared with PRIVACY_POLICY_HE section titles
+const HEALTH_SECTION_TITLE = '2. נתוני בריאות — Apple HealthKit ו-Google Health Connect'; // i18n-allow-hebrew: data — compared with buildPrivacyDoc section titles
+const CONTACT_SECTION_TITLE = '14. יצירת קשר'; // i18n-allow-hebrew: data — compared with buildPrivacyDoc section titles
 
 /** The four zero-sharing commitments (subsection 2.3) that get badge treatment */
-const ZERO_SHARING_SUBSECTION = '2.3 התחייבויות מוחלטות'; // i18n-allow-hebrew: data — compared with PRIVACY_POLICY_HE subsection titles
+const ZERO_SHARING_SUBSECTION = '2.3 התחייבויות מוחלטות'; // i18n-allow-hebrew: data — compared with buildPrivacyDoc subsection titles
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -125,8 +125,8 @@ function HealthSubsection({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PrivacyPage() {
-  const doc = PRIVACY_POLICY_HE;
   const t = pageT();
+  const doc = buildPrivacyDoc(t);
 
   return (
     <div

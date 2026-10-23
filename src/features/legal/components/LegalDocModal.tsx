@@ -4,14 +4,16 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileText, ShieldCheck } from 'lucide-react';
 import {
-  TERMS_OF_USE_HE,
-  PRIVACY_POLICY_HE,
+  buildTermsDoc,
+  buildPrivacyDoc,
   LEGAL_LAST_UPDATED_HE,
   toParagraphs,
   type LegalDoc,
   type LegalParagraphs,
 } from '../legal-content';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useT } from '@/hooks/useT';
+import { legal } from '@/messages/ns/legal';
 import { useUserStore } from '@/features/user';
 import Sheet, { SHEET_TITLE_CLASS } from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
@@ -58,7 +60,8 @@ function Paragraphs({
  * Drag down ≥100 px or flick (velocity ≥ 500) to dismiss.
  */
 export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalProps) {
-  const doc: LegalDoc = type === 'terms' ? TERMS_OF_USE_HE : PRIVACY_POLICY_HE;
+  const t = useT(legal);
+  const doc: LegalDoc = type === 'terms' ? buildTermsDoc(t) : buildPrivacyDoc(t);
   const Icon = type === 'terms' ? FileText : ShieldCheck;
   // enable_home_v2: the shared <Sheet> shell only — the document text, the
   // footer button and every way to close are the same in both branches.
@@ -94,7 +97,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
       ))}
 
       <p className="text-xs text-slate-400 mt-6 mb-2">
-        עדכון אחרון: {LEGAL_LAST_UPDATED_HE}
+        {t('modal.lastUpdated', { date: LEGAL_LAST_UPDATED_HE })}
       </p>
     </div>
   );
@@ -110,7 +113,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
         className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-3 rounded-xl transition-all"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
-        סגור
+        {t('modal.close')}
       </button>
     </div>
   );
@@ -140,7 +143,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
               <Icon className="h-5 w-5 shrink-0 text-v2-deep" aria-hidden="true" />
               <h2 className={`${SHEET_TITLE_CLASS} truncate`}>{doc.title}</h2>
             </div>
-            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+            <IconButton aria-label={t('modal.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
             </IconButton>
           </div>
@@ -202,7 +205,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="סגור"
+                aria-label={t('modal.close')}
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"
               >
                 <X size={20} className="text-slate-600" />

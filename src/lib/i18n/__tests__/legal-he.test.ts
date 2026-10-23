@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import he from '@/messages/he/legal.json';
 import { legal } from '@/messages/ns/legal';
 import { makeT } from '../t';
+import { buildTermsDoc, buildPrivacyDoc } from '@/features/legal/legal-content';
 
 type Key = keyof typeof he;
 const t = makeT('he', legal);
@@ -144,5 +145,29 @@ describe('legal · delete data (he)', () => {
       'אם האפליקציה עדיין מותקנת אצלכם — תוכלו למחוק את החשבון ישירות מתוכה: <b>הגדרות ← חשבון ← מחיקת חשבון</b>.',
     );
     expect(richText('deleteData.cta.direct', { email: EMAIL }, ['link'])).toBe(`או שלחו ישירות ל־ <link>${EMAIL}</link>`);
+  });
+});
+
+describe('legal documents + modal (batch ak, keys termsDoc.* / privacyDoc.* / modal.*)', () => {
+  it('modal chrome', () => {
+    expect(t('modal.lastUpdated', { date: LEGAL_LAST_UPDATED_HE })).toBe(`עדכון אחרון: ${LEGAL_LAST_UPDATED_HE}`);
+    expect(t('modal.close')).toBe('סגור');
+    expect(keysWith('modal.').sort()).toEqual(['modal.close', 'modal.lastUpdated']);
+  });
+  it('every document key is consumed by the builders (no orphan keys)', () => {
+    const used = new Set<string>();
+    const spy = ((key: string) => { used.add(key); return key; }) as unknown as Parameters<typeof buildTermsDoc>[0];
+    buildTermsDoc(spy);
+    buildPrivacyDoc(spy);
+    const catalog = [...keysWith('termsDoc.'), ...keysWith('privacyDoc.')];
+    expect(Array.from(used).sort()).toEqual(catalog.sort());
+  });
+  it('text with an apostrophe and quotes survives ICU untouched', () => {
+    const chat = Object.values(he).find((v) => v.includes("הודעות צ'אט"));
+    expect(chat).toBeDefined();
+    expect(t(Object.keys(he).find((k) => he[k as Key] === chat) as Key)).toBe(chat);
+  });
+  it('the document text has no ICU arguments (it is verbatim legal copy)', () => {
+    for (const k of [...keysWith('termsDoc.'), ...keysWith('privacyDoc.')]) expect(t(k)).toBe(he[k]);
   });
 });

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { BARRIER_STORIES, storyImages } from '../intro-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
+import { BARRIER_STORY_META, barrierStories, storyImages } from '../intro-copy';
 import { BarrierBridge } from './BarrierBridge';
 import { StoryScreen } from './StoryScreen';
 
@@ -31,18 +33,20 @@ export interface IntroFlowProps {
 export function IntroFlow({ onDone }: IntroFlowProps) {
   const reduce = !!useReducedMotion();
   const [step, setStep] = useState<Step>(-1);
+  const t = useT(onboardingNs);
+  const stories = useMemo(() => barrierStories(t), [t]);
 
   useEffect(() => {
-    const next = BARRIER_STORIES[step + 1];
+    const next = BARRIER_STORY_META[step + 1];
     if (next) preload(storyImages(next));
   }, [step]);
 
   const next = useCallback(() => {
-    if (step >= BARRIER_STORIES.length - 1) onDone();
+    if (step >= BARRIER_STORY_META.length - 1) onDone();
     else setStep(step + 1);
   }, [step, onDone]);
 
-  const story = step >= 0 ? BARRIER_STORIES[step] : null;
+  const story = step >= 0 ? stories[step] : null;
 
   return (
     <motion.div

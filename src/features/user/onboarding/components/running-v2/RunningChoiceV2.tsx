@@ -179,8 +179,8 @@ export function RunningGoalPickerV2({
   // The walking choice is a pseudo-answer at the end (the 4th option).
   const answers: Array<{ id: string; label: string; visual: RunningGoalVisual; sub: string | null }> = [
     ...question.answers.map((a) => {
-      const visual = resolveRunningGoalVisual({ id: a.id, metadata: meta(a), imageUrl: a.imageUrl });
-      return { id: a.id, label: answerText(a), visual, sub: runningGoalSubtitle(visual.goalPath, isFemale) };
+      const visual = resolveRunningGoalVisual({ id: a.id, metadata: meta(a), imageUrl: a.imageUrl }, t);
+      return { id: a.id, label: answerText(a), visual, sub: runningGoalSubtitle(visual.goalPath, isFemale, t) };
     }),
     ...(walking
       ? [{ id: WALKING_ID, label: t('signup.runChoice.walking.label'), visual: WALKING_VISUAL, sub: t('signup.runChoice.walking.sub') }]
@@ -287,8 +287,8 @@ export function RunningAbilityPickerV2({
         {question.answers.map((a) => {
           const on = picked === a.id;
           const tier = abilityTierOf({ metadata: meta(a) });
-          const copy = tier ? abilityCopy(tier, isFemale) : null;
-          const experience = tier ? abilityExperienceHe(tier, isFemale) : null;
+          const copy = tier ? abilityCopy(tier, isFemale, t) : null;
+          const experience = tier ? abilityExperienceHe(tier, isFemale, t) : null;
           const label = copy?.title ?? answerText(a);
           return (
             <button
