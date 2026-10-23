@@ -79,6 +79,7 @@ interface FlagState {
   enable_shared_workout_preview_v1: boolean;
   enable_entry_whatnow_v1: boolean;
   enable_entry_single_choice_v1: boolean;
+  enable_home_two_cards_v1: boolean;
   enable_generation_review: boolean;
   enable_generation_review_llm: boolean;
   enable_org_access_code_prompt: boolean;
@@ -596,6 +597,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'כניסה: שאלה אחת בלבד',
     description: 'מי שכבר ענה (או סגר) את "מה בא לך עכשיו?" במפה לא יקבל גם את "מה הדבר הראשון?" בבית. כבוי = כמו היום (המגירה בבית לכל מי שלא התאמן).',
+  },
+  // Home two start cards (22.10.2026).
+  {
+    key: 'enable_home_two_cards_v1',
+    icon: ListChecks,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'בית: שני כרטיסי התחלה + "מוכן לנסות לרוץ?"',
+    description: 'משתמש בלי תוכנית רואה שני כרטיסים: "כוח" ו"הליכה וריצה" (שאלון אחד להליכה או לריצה). מי שהלך 4 שבועות ברצף מקבל כרטיס אחד "מוכן לנסות לרוץ?" (נסגר ל-30 יום עם "לא עכשיו"). כבוי = כמו היום.',
   },
   // Generation review (19.10.2026).
   {
