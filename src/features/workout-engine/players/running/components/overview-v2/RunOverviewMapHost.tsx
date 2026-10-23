@@ -36,6 +36,8 @@ import RunRouteSuggestCarousel from './RunRouteSuggestCarousel';
 import type { RunCtaMode } from './RunOverviewCta';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import { common } from '@/messages/ns/common';
+import { withUnit } from '@/lib/i18n/units';
 
 export interface RunOverviewMapLogic {
   currentUserPos: { lat: number; lng: number } | null;
@@ -63,6 +65,7 @@ export default function RunOverviewMapHost({
   logic, workout, templateCategory, week, initialSuggest = false, initialEdits = null, onExit, onPickOnMap,
 }: RunOverviewMapHostProps) {
   const t = useT(player);
+  const tc = useT(common);
   // The materialized workout we started from — the store's workout becomes the
   // edited one we write before start, which must never become the new base.
   const baseRef = useRef(workout);
@@ -152,6 +155,17 @@ export default function RunOverviewMapHost({
     : chosen ? 'route'
     : search.status === 'done' ? 'none' : 'searching';
 
+  // enable_hill_finder_v1 — search.hill is only ever set with the flag on (useRouteSuggestions).
+  const hill = suggesting ? search.hill : null;
+  const hillHint = hill
+    ? t(hill.name ? 'run.overview.hill.nearbyNamed' : 'run.overview.hill.nearby', {
+      name: hill.name ?? '',
+      distance: hill.distanceKm < 1 ? withUnit('m', Math.round((hill.distanceKm * 1000) / 50) * 50, tc) : withUnit('km', hill.distanceKm.toFixed(1), tc),
+      grade: String(Math.round(hill.avgGradePct)),
+      length: withUnit('m', Math.round(hill.lengthM / 10) * 10, tc),
+    })
+    : null;
+
   const minutes = useMemo(() => {
     const sec = estimateRunTotals(active.blocks, pace.ctx).seconds;
     return sec ? Math.max(1, Math.round(sec / 60)) : null;
@@ -201,6 +215,7 @@ export default function RunOverviewMapHost({
         onClearRoute={clearRoute}
         onShowOnMap={() => { setOnMap(true); setSnap((p) => ({ to: 'peek', n: (p?.n ?? 0) + 1 })); }}
         onPickOnMap={onPickOnMap}
+        hillHint={hillHint}
         snapRequest={snap}
       />
     </>
