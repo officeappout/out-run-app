@@ -26,6 +26,7 @@ export default function TutorialChip({ onClick }: { onClick: () => void }) {
       style={{ top: TUTORIAL_CHIP_TOP, fontFamily: 'var(--font-simpler)' }}
       dir="rtl"
       data-tutorial-chip=""
+      data-coach="player-explain"
     >
       <PlayCircle size={17} aria-hidden />
       <span className="text-[13px] font-extrabold whitespace-nowrap">{t('strength.tutorial.chip')}</span>
