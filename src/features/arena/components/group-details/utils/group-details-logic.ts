@@ -6,6 +6,7 @@ import type { CommunityGroup, GroupMember, LiveSessionPhase, ScheduleSlot } from
 import { APP_ORIGIN } from '@/lib/config/domain';
 import { formatDateLoose } from '@/lib/i18n/fmt-display';
 import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
+import { weekdayLabels } from '@/lib/i18n/units';
 
 export const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
   walking:      { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
@@ -21,7 +22,7 @@ export type CategoryConfig = (typeof CATEGORY_CONFIG)[string];
 /** px the sheet is offset at initial open to show ~85 vh (95 - 85 = 10 vh). */
 export const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.10) : 80;
 
-export const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+export const DAY_LABELS = weekdayLabels('short');
 
 export const APP_ORIGIN_FALLBACK = APP_ORIGIN;
 

@@ -1,3 +1,5 @@
+import { withUnit } from '@/lib/i18n/units';
+
 /**
  * nav-banner — pure display math for the home-v2 combined navigation banner
  * (next turn + route progress in one glass card; TurnCarousel → NavBannerV2,
@@ -35,9 +37,9 @@ export function navBannerProgress(alongM: number | null, totalM: number): NavBan
 /** Hebrew short distance: "80 מ׳", "120 מ׳" (10 m steps), "1.4 ק״מ". */
 export function formatBannerDistance(meters: number): string {
   if (!Number.isFinite(meters) || meters < 0) return '—';
-  if (meters < 100) return `${Math.round(meters)} מ׳`;
-  if (meters < 1000) return `${Math.round(meters / 10) * 10} מ׳`;
-  return `${(meters / 1000).toFixed(1)} ק״מ`;
+  if (meters < 100) return withUnit('m', Math.round(meters));
+  if (meters < 1000) return withUnit('m', Math.round(meters / 10) * 10);
+  return withUnit('km', (meters / 1000).toFixed(1));
 }
 
 /**

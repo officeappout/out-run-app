@@ -18,6 +18,7 @@ import type { ProgressDay, ProgressWorkout } from './progress-model';
 import { toISODate } from './progress-period';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { withUnit } from '@/lib/i18n/units';
 
 export type ConsistencyReason = 'strength' | 'run' | 'walk' | 'steps' | 'recovery' | 'active';
 
@@ -86,11 +87,11 @@ export function consistencyDay(iso: string, date: Date, workouts: ProgressWorkou
   const counted = byMinutes || bySteps;
 
   const reasons: ReasonChip[] = [];
-  if (byKind.strength.n) reasons.push({ reason: 'strength', text: `${REASON_LABEL.strength} · ${fmtInt(byKind.strength.min)} דק׳` });
-  if (byKind.run.n) reasons.push({ reason: 'run', text: `${REASON_LABEL.run} · ${byKind.run.km > 0 ? `${fmtKm(byKind.run.km)} ק״מ` : `${fmtInt(byKind.run.min)} דק׳`}` });
-  if (byKind.walk.n) reasons.push({ reason: 'walk', text: `${REASON_LABEL.walk} · ${byKind.walk.km > 0 ? `${fmtKm(byKind.walk.km)} ק״מ` : `${fmtInt(byKind.walk.min)} דק׳`}` });
+  if (byKind.strength.n) reasons.push({ reason: 'strength', text: `${REASON_LABEL.strength} · ${withUnit('min', fmtInt(byKind.strength.min))}` });
+  if (byKind.run.n) reasons.push({ reason: 'run', text: `${REASON_LABEL.run} · ${byKind.run.km > 0 ? withUnit('km', fmtKm(byKind.run.km)) : withUnit('min', fmtInt(byKind.run.min))}` });
+  if (byKind.walk.n) reasons.push({ reason: 'walk', text: `${REASON_LABEL.walk} · ${byKind.walk.km > 0 ? withUnit('km', fmtKm(byKind.walk.km)) : withUnit('min', fmtInt(byKind.walk.min))}` });
   const recovery = day?.minutesByCategory?.maintenance ?? 0;
-  if (recovery >= 1) reasons.push({ reason: 'recovery', text: `${REASON_LABEL.recovery} · ${fmtInt(recovery)} דק׳` });
+  if (recovery >= 1) reasons.push({ reason: 'recovery', text: `${REASON_LABEL.recovery} · ${withUnit('min', fmtInt(recovery))}` });
   if (bySteps) reasons.push({ reason: 'steps', text: `${REASON_LABEL.steps} · ${fmtInt(steps)}` });
   // Counted by minutes with nothing above to show for it (watch/phone activity, other workouts).
   if (byMinutes && !reasons.some((r) => r.reason !== 'steps')) reasons.unshift({ reason: 'active', text: `${REASON_LABEL.active} · ${fmtInt(minutes)}` });
@@ -138,8 +139,8 @@ export function reasonCounts(list: ConsistencyDay[]): { reason: ConsistencyReaso
 
 /** The "why not" line of a day that didn't count: "6 דק׳ פעילות · 6,100 מתוך 8,000 צעדים". */
 export function missedLine(d: ConsistencyDay): string {
-  const parts = [`${fmtInt(d.minutes)} דק׳ פעילות`];
-  if (d.stepsGoal > 0) parts.push(`${fmtInt(d.steps)} מתוך ${fmtInt(d.stepsGoal)} צעדים`);
-  else if (d.steps > 0) parts.push(`${fmtInt(d.steps)} צעדים`);
+  const parts = [`${withUnit('min', fmtInt(d.minutes))} פעילות`];
+  if (d.stepsGoal > 0) parts.push(`${fmtInt(d.steps)} מתוך ${withUnit('steps', fmtInt(d.stepsGoal))}`);
+  else if (d.steps > 0) parts.push(withUnit('steps', fmtInt(d.steps)));
   return parts.join(' · ');
 }

@@ -4,9 +4,9 @@
  * within reach. Pure. Read-only suggestion; joining happens in the group drawer.
  */
 import type { CommunityGroup, ScheduleSlot } from '@/types/community.types';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 export const NOT_ALONE_RADIUS_KM = 8;
-const DAY_HE = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 export interface WalkingGroupSuggestion {
   groupId: string;
@@ -44,7 +44,7 @@ export function whenLabelHe(slot: Pick<ScheduleSlot, 'dayOfWeek' | 'time'>, now:
   const today = now.getDay();
   if (slot.dayOfWeek === today) return `היום ${slot.time}`;
   if (slot.dayOfWeek === (today + 1) % 7) return `מחר ${slot.time}`;
-  return `ביום ${DAY_HE[slot.dayOfWeek]} ${slot.time}`;
+  return `ביום ${weekdayLabel(slot.dayOfWeek, 'short')} ${slot.time}`;
 }
 
 type GroupLike = Pick<CommunityGroup, 'id' | 'name' | 'category' | 'isActive' | 'meetingLocation' | 'scheduleSlots' | 'schedule'> & {

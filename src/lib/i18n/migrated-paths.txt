@@ -513,3 +513,10 @@ src/features/schedule/components/ScheduleBuilderSheetV2.tsx
 # buildDefaultMessages). The file's other Hebrew is marked: admin type labels and the INITIAL_SEED_DATA written to
 # Firestore / localStorage (stored data). Those defaults are what seedDefaultMessages writes, so they stay Hebrew.
 src/features/messages/services/MessageService.ts
+# wave 3B (namespace common, keys units.* / weekdays.*) — files whose only display Hebrew was a unit string next to a
+# number or a weekday name, now read through src/lib/i18n/units.ts. Other touched files keep other Hebrew (not listed).
+src/features/parks/core/services/nav-banner.ts
+src/features/parks/lib/distance-str.ts
+src/features/parks/core/components/hybrid/hybrid-format.ts
+src/features/streak-celebration/components/WeekStrip.tsx
+src/components/ui/WheelPicker.tsx

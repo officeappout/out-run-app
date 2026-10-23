@@ -3,11 +3,13 @@
  * "שבוע 3 מתוך 8 · 7/9 אימונים בוצעו". Pure; no new data.
  */
 
+import { withUnit } from '@/lib/i18n/units';
+
 export const RUN_DIST_LABEL: Record<string, string> = {
-  '2k': '2 ק״מ',
-  '3k': '3 ק״מ',
-  '5k': '5 ק״מ',
-  '10k': '10 ק״מ',
+  '2k': withUnit('km', 2),
+  '3k': withUnit('km', 3),
+  '5k': withUnit('km', 5),
+  '10k': withUnit('km', 10),
   maintenance: 'שמירה על כושר',
 };
 

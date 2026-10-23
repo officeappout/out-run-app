@@ -11,6 +11,7 @@ import {
 import type { CommunityGroupCategory, CommunityGroupType } from '@/types/community.types';
 import type { CommunityKey } from '@/messages/ns/community';
 import type { WizardForm } from './wizard-types';
+import { weekdayLabels } from '@/lib/i18n/units';
 
 /** v2: the app's line icons instead of emoji for the community types. */
 export const GROUP_TYPE_ICON: Record<string, React.ElementType> = {
@@ -34,9 +35,9 @@ export const CATEGORIES: { value: CommunityGroupCategory; labelKey: CommunityKey
   { value: 'other',        labelKey: 'createGroup.category.other',        emoji: '⭐' },
 ];
 
-export const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']; // i18n-allow-hebrew: weekday names (wave 3, fmt)
+export const DAYS = weekdayLabels('short');
 
-export const DAYS_FULL = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: weekday names (wave 3, fmt)
+export const DAYS_FULL = weekdayLabels('long');
 
 export const STEPS: readonly CommunityKey[] = [
   'createGroup.step.type',

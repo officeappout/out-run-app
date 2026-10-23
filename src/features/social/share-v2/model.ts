@@ -8,8 +8,8 @@ import type { ShareImageInput } from '../services/share-image';
 import { kmMarkFractions } from './route-geometry';
 import { buildTogetherModel } from './together';
 import type { ShareModel, ShareSetRow, ShareStatV2 } from './types';
+import { unitLabel, weekdayLabel } from '@/lib/i18n/units';
 
-const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const posNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
 
@@ -21,7 +21,7 @@ export function shareDateLabel(ms: number | undefined, withTime: boolean): strin
   if (!posNum(ms)) return undefined;
   const d = new Date(ms);
   if (Number.isNaN(d.getTime())) return undefined;
-  const day = `יום ${DAYS[d.getDay()]}`;
+  const day = `יום ${weekdayLabel(d.getDay(), 'short')}`;
   return withTime ? `${day} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}` : `${day} · ${d.getDate()}.${d.getMonth() + 1}`;
 }
 
@@ -38,8 +38,8 @@ export function formatClock(totalSec: number): string {
 export function durationStat(input: Pick<ShareImageInput, 'durationMinutes' | 'durationSeconds'>, clock: boolean): ShareStatV2 {
   if (clock && posNum(input.durationSeconds)) return { value: formatClock(input.durationSeconds), unit: 'זמן' };
   const min = Math.max(0, Math.round(input.durationMinutes || 0));
-  if (min >= 60) return { value: `${Math.floor(min / 60)}:${pad2(min % 60)}`, unit: 'שעות' };
-  return { value: String(min), unit: 'דקות' };
+  if (min >= 60) return { value: `${Math.floor(min / 60)}:${pad2(min % 60)}`, unit: unitLabel('hours') };
+  return { value: String(min), unit: unitLabel('minutes') };
 }
 
 export function setRows(input: ShareImageInput): ShareSetRow[] {
@@ -96,7 +96,7 @@ function runModel(input: ShareImageInput): ShareModel {
     splits = { heights: paceBarHeights(splitsIn), fastestIndex: splitsIn.indexOf(min), fastestLabel: fastest };
   }
   const stats: ShareStatV2[] = [
-    ...(pace ? [{ value: pace, unit: 'דק׳ לק״מ' }] : []),
+    ...(pace ? [{ value: pace, unit: unitLabel('minPerKm') }] : []),
     duration,
     ...(fastest ? [{ value: fastest, unit: 'הקפה מהירה' }] : []),
   ];
@@ -111,7 +111,7 @@ function runModel(input: ShareImageInput): ShareModel {
     stats,
     rows: [],
     streakDays: posNum(input.streakDays) ? input.streakDays : undefined,
-    hero: km ? { value: km, unit: 'ק״מ' } : duration,
+    hero: km ? { value: km, unit: unitLabel('km') } : duration,
     distance: km,
     pace,
     fastest,

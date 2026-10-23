@@ -16,6 +16,7 @@
 | Tests | `makeT('he', ns)` from `@/lib/i18n/t` (sync, no store) |
 | Firestore content (`{he,en,...}` fields) | `pickText(value, locale, gender)` from `@/lib/i18n/core/i18n-core` |
 | Numbers / dates | `formatNumber/formatDate/formatTime/weekdayName` from `@/lib/i18n/core/fmt` (wave 3) |
+| Unit words next to numbers ("ק״מ", "דק׳"), weekday names ("ראשון" / "א׳" / "א") | `withUnit` / `unitLabel` / `weekdayLabel` from `@/lib/i18n/units` (wave 3B; catalog keys `common` `units.*`, `weekdays.*`). Pure; pass `useT(common)` or `makeT(locale, common)` as the last argument, default is Hebrew. Not `Intl` — its long weekday is "יום ראשון" |
 | Locale type | `Locale` from `@/lib/i18n/locales` |
 | Folders where new Hebrew is blocked | `src/lib/i18n/migrated-paths.txt` (enforced by `scripts/safety-check.sh` Check 5); newly added UI files anywhere: Check 6 (§11) |
 
@@ -296,8 +297,10 @@ and the card renders `search.situation.<id>.title`. Do it only when **all caller
 - **v1 branches:** `enable_home_v2` is on for everyone. Extract only the v2 branch; mark the v1 branch's Hebrew lines
   `i18n-allow-hebrew: legacy v1 (enable_home_v2 on)`. A value shared by both branches is extracted once and used by
   both. Snapshots still cover v1 and v2 (§9).
-- **Weekday / month names** (`['א','ב',…]`, `'אוק׳'`, the ` ו־` joiner): leave for wave 3 (`fmt`) and mark them.
-  `Intl` does not produce the same Hebrew (`א׳` vs `א`), so it is a visible change, not an extraction.
+- **Weekday / month names**: weekday names and letters are done (wave 3B): `weekdayLabel(i, 'long'|'short'|'letter', t)` from
+  `@/lib/i18n/units`. Day letters that are *data* (matched against `scheduleDays`, written to Firestore, the coach's LLM
+  prompts) stay literals — mark them. Month names: `monthLabel` (wave 3A). The ` ו־` joiner stays Hebrew (mark it).
+  `Intl` does not produce the same Hebrew (`א׳` vs `א`, "יום ראשון" vs "ראשון"), so never swap to it without a decision.
 - **Content names** read with `getLocalizedText(x, 'he')`, `PROGRAM_NAME_HE`, CMS labels from `src/lib`: leave; they
   move to `pickText(value, locale)` with the content model (PLAN §2.7). List them in "manual".
 - **Text composed outside your folders** (a verb fragment passed into another area's component): leave and list it.

@@ -4,6 +4,8 @@
  * (ProgramProgressRing, StreakDotsStrip, ExerciseSetsTable, ImprovementCard).
  */
 
+import { weekdayLabels } from '@/lib/i18n/units';
+
 // ── Per-set result tiles ─────────────────────────────────────────────────────
 
 /** in = target met, below = done under target, missed = planned but not done. */
@@ -77,7 +79,7 @@ export interface WeekActivityLike {
   categories?: Partial<Record<string, { minutes?: number; sessions?: number } | undefined>>;
 }
 
-const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const DAY_LABELS = weekdayLabels('short');
 /** Same "active day" bar useWeeklyProgress uses (10 minutes), or any logged session. */
 const ACTIVE_DAY_MINUTES = 10;
 

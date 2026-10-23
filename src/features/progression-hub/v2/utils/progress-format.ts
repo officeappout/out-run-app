@@ -2,10 +2,10 @@
 import { formatNumber, weekdayName } from '@/lib/i18n/core/fmt';
 import { monthLabel } from '@/lib/i18n/fmt-display';
 import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
+import { unitLabel, weekdayLabel } from '@/lib/i18n/units';
 
 /** Sunday-first narrow weekday names ("א׳"…"ש׳"), Hebrew — the same text `Intl` gives for weekday: 'narrow'. */
 export const WEEKDAY_SHORT = Array.from({ length: 7 }, (_, i) => weekdayName(i, SOURCE_LOCALE, 'narrow'));
-const WEEKDAY_LONG = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 export function monthName(m: number, locale: Locale = SOURCE_LOCALE): string {
   return monthLabel(m, locale, 'long');
@@ -24,8 +24,8 @@ export function weekRangeLabel(start: Date, end: Date): string {
 /** "214" דק׳ under 10h, else "12:40" שע׳. */
 export function formatMinutes(min: number, locale: Locale = SOURCE_LOCALE): { value: string; unit: string } {
   const m = Math.max(0, Math.round(min));
-  if (m < 600) return { value: formatNumber(m, locale), unit: 'דק׳' };
-  return { value: `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`, unit: 'שע׳' };
+  if (m < 600) return { value: formatNumber(m, locale), unit: unitLabel('min') };
+  return { value: `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`, unit: unitLabel('hour') };
 }
 
 /** h:mm always (tab headers: "3:55 שע׳"). */
@@ -61,7 +61,7 @@ export function relativeDay(d: Date, now: Date): string {
   const diff = Math.round((b - a) / 86400000);
   if (diff <= 0) return 'היום';
   if (diff === 1) return 'אתמול';
-  if (diff < 7) return WEEKDAY_LONG[d.getDay()];
+  if (diff < 7) return weekdayLabel(d.getDay(), 'long');
   if (diff < 14) return 'שבוע שעבר';
   return `${d.getDate()} ב${monthShort(d.getMonth())}`;
 }

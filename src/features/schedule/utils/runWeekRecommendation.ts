@@ -14,6 +14,7 @@ import { RUNNING_SLOT_NAME_HE } from '../engine/runningRules';
 import type { RunSlot, TimeWindow, TrainingLevel } from '../engine-v2/types';
 import { pickRunDaysAvoidingStrength } from '@/lib/running-schedule-smart-defaults';
 import { hasStrengthTrack } from '@/lib/track-ownership';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 export const DAY_LETTERS_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 
@@ -119,7 +120,7 @@ export function recommendationTitle(rec: RunWeekRecommendation): string {
 
 /** "א׳ ג׳ ו׳" */
 export function dayLettersLine(days: number[]): string {
-  return [...days].sort((a, b) => a - b).map((d) => `${DAY_LETTERS_HE[d]}׳`).join(' ');
+  return [...days].sort((a, b) => a - b).map((d) => weekdayLabel(d, 'short')).join(' ');
 }
 
 // ── Selection rules ───────────────────────────────────────────────────

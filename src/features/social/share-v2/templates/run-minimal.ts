@@ -7,6 +7,7 @@ import { drawStatGrid, drawText, hline, measureAt, statHeight } from '../draw/pr
 import { fitFontSize } from '../layout';
 import { drawHeader } from './common';
 import type { DrawArgs, ShareTemplateDef } from './template';
+import { unitLabel } from '@/lib/i18n/units';
 
 function draw(a: DrawArgs) {
   const { ctx, frame, model: m, palette: p } = a;
@@ -32,7 +33,7 @@ function draw(a: DrawArgs) {
     y += routeBox + 8;
   }
   drawText(ctx, m.hero.value, cx, y, { size: heroSize, weight: 900, color: p.fg, align: 'center', lineH: heroLine });
-  const unit = m.hero.unit === 'ק״מ' ? 'קילומטר' : m.hero.unit;
+  const unit = m.hero.unit === unitLabel('km') ? 'קילומטר' : m.hero.unit;
   drawText(ctx, unit, cx, y + heroLine + 4, { size: unitSize, weight: 900, color: p.accentText, align: 'center', lineH: unitSize * 1.1 });
 }
 

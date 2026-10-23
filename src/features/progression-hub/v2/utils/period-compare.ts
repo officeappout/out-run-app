@@ -7,6 +7,7 @@ import { computeDelta } from '@/components/ui/v2/logic';
 import type { DayRange, PeriodSummary, ProgressPeriod } from './progress-period';
 import { WEEKDAY_SHORT, formatCount, formatKm, monthName } from './progress-format';
 import { PROGRESS_COLORS } from './progress-model';
+import { unitLabel, withUnit } from '@/lib/i18n/units';
 
 export type CompareKey = 'strength' | 'run' | 'walk' | 'steps';
 
@@ -54,12 +55,12 @@ export function compareHeadline(
   const cur = Math.round(current.minutes);
   const prev = Math.round(previous.minutes);
   const before = previousLabel(period, ranges.previous);
-  const detail = `${formatCount(cur)} דק׳ ${stageLabel(period, now)} · ${before} ${formatCount(prev)} דק׳ באותו שלב`;
+  const detail = `${withUnit('min', formatCount(cur))} ${stageLabel(period, now)} · ${before} ${withUnit('min', formatCount(prev))} באותו שלב`;
   if (cur <= 0 && prev <= 0) {
     return { tone: 'none', title: period === 'week' ? 'השבוע עוד לפניך' : 'החודש עוד לפניך', detail };
   }
   const d = computeDelta(cur, prev);
-  if (!d) return { tone: 'new', title: `זזת ${formatCount(cur)} דק׳`, detail };
+  if (!d) return { tone: 'new', title: `זזת ${withUnit('min', formatCount(cur))}`, detail };
   if (d.direction === 'flat') return { tone: 'flat', title: `זזת בדיוק כמו ${before}`, detail };
   return { tone: d.direction, title: `זזת ${d.pct}% ${d.direction === 'up' ? 'יותר' : 'פחות'}`, detail };
 }
@@ -89,8 +90,8 @@ export function compareRows(
       previousText: '',
       color: PROGRESS_COLORS.strength,
     },
-    { key: 'run', label: 'ריצה · ק״מ', current: r1(current.byKind.run.km), previous: r1(previous.byKind.run.km), currentText: '', previousText: '', color: PROGRESS_COLORS.run },
-    { key: 'walk', label: 'הליכה · ק״מ', current: r1(current.byKind.walk.km), previous: r1(previous.byKind.walk.km), currentText: '', previousText: '', color: PROGRESS_COLORS.walk },
+    { key: 'run', label: `ריצה · ${unitLabel('km')}`, current: r1(current.byKind.run.km), previous: r1(previous.byKind.run.km), currentText: '', previousText: '', color: PROGRESS_COLORS.run },
+    { key: 'walk', label: `הליכה · ${unitLabel('km')}`, current: r1(current.byKind.walk.km), previous: r1(previous.byKind.walk.km), currentText: '', previousText: '', color: PROGRESS_COLORS.walk },
     { key: 'steps', label: period === 'week' ? 'צעדים' : 'צעדים ליום', current: stepsCur, previous: stepsPrev, currentText: '', previousText: '', color: PROGRESS_COLORS.steps },
   ];
   return rows

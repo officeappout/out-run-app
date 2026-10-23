@@ -5,12 +5,14 @@ import StreakFlame from '@/components/ui/v2/StreakFlame';
 import type { FlameTone } from '@/components/ui/v2/streak';
 import type { StripDay } from '../core/celebration.core';
 import ShieldMark from './ShieldMark';
-
-const DOW = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
+import { useT } from '@/hooks/useT';
 
 /** This week's days under the headline (ST-1 day / shield / back): flame, shield or empty. */
 export default function WeekStrip({ days, tones }: { days: StripDay[]; tones: FlameTone[] }) {
   const reduce = useReducedMotion();
+  const tc = useT(common);
   return (
     <div className="mt-[22px] flex gap-2.5 rounded-[20px] bg-white px-4 py-3 shadow-[0_0_0_1px_rgba(14,27,42,0.06)]" dir="rtl">
       {days.map((d, i) => (
@@ -28,7 +30,7 @@ export default function WeekStrip({ days, tones }: { days: StripDay[]; tones: Fl
             {d.state === 'shield' && <ShieldMark size={20} check={false} />}
             {d.state === 'empty' && <span className="h-5 w-5 rounded-full bg-[#eef2f6]" />}
           </span>
-          <span className={`text-[12px] font-extrabold ${d.isToday ? 'text-[#0e1419]' : 'text-slate-500'}`}>{DOW[d.dow]}</span>
+          <span className={`text-[12px] font-extrabold ${d.isToday ? 'text-[#0e1419]' : 'text-slate-500'}`}>{weekdayLabel(d.dow, 'short', tc)}</span>
         </div>
       ))}
     </div>

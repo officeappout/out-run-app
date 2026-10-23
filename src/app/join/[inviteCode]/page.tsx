@@ -16,6 +16,8 @@ import { onboarding } from '@/messages/ns/onboarding';
 import { useGroupFixesV1 } from '@/lib/group-fixes/useGroupFixesV1';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { profileReadyForJoin } from '@/lib/group-fixes/join-profile';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 // The category label is the `join.category` select (onboarding namespace) — same keys, `other` = fallback.
 const CATEGORY_CONFIG: Record<string, { icon: string; gradient: string }> = {
@@ -27,12 +29,12 @@ const CATEGORY_CONFIG: Record<string, { icon: string; gradient: string }> = {
   other:        { icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
 
-const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: weekday names — wave 3 (fmt)
 
 export default function JoinPage() {
   const params = useParams();
   const router = useRouter();
   const t = useT(onboarding);
+  const tc = useT(common);
   const inviteCode = typeof params.inviteCode === 'string' ? params.inviteCode : '';
 
   const { profile } = useUserStore();
@@ -169,12 +171,12 @@ export default function JoinPage() {
   const scheduleLabel = (() => {
     if (group.scheduleSlots?.length) {
       return group.scheduleSlots
-        .map((s) => t('join.schedule.slot', { day: String(DAY_LABELS[s.dayOfWeek]), time: String(s.time) }))
+        .map((s) => t('join.schedule.slot', { day: weekdayLabel(s.dayOfWeek, 'long', tc), time: String(s.time) }))
         .join(' · ');
     }
     if (group.schedule) {
       return t('join.schedule.slot', {
-        day: String(DAY_LABELS[group.schedule.dayOfWeek]),
+        day: weekdayLabel(group.schedule.dayOfWeek, 'long', tc),
         time: String(group.schedule.time),
       });
     }

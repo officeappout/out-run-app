@@ -12,6 +12,8 @@
  * Pure — no Firebase, unit-tested.
  */
 
+import { unitLabel } from '@/lib/i18n/units';
+
 export interface CardioPostLike {
   distanceKm?: number | null;
   paceMinPerKm?: number | null;
@@ -50,16 +52,16 @@ export function formatPaceMin(pace: number): string {
 export function cardioPostStats(post: CardioPostLike): [CardioStat, CardioStat, CardioStat] {
   const distance: CardioStat = {
     value: post.distanceKm != null ? post.distanceKm.toFixed(1) : EMPTY,
-    unit: 'ק״מ',
+    unit: unitLabel('km'),
   };
-  const time: CardioStat = { value: String(post.durationMinutes), unit: 'דקות' };
+  const time: CardioStat = { value: String(post.durationMinutes), unit: unitLabel('minutes') };
   if (isRidePost(post)) {
     const kmh = rideSpeedKmh(post.distanceKm, post.durationMinutes);
-    return [distance, { value: kmh != null ? kmh.toFixed(1) : EMPTY, unit: 'קמ״ש' }, time];
+    return [distance, { value: kmh != null ? kmh.toFixed(1) : EMPTY, unit: unitLabel('kmh') }, time];
   }
   return [
     distance,
-    { value: post.paceMinPerKm != null ? formatPaceMin(post.paceMinPerKm) : EMPTY, unit: 'דק׳ לק״מ' },
+    { value: post.paceMinPerKm != null ? formatPaceMin(post.paceMinPerKm) : EMPTY, unit: unitLabel('minPerKm') },
     time,
   ];
 }
