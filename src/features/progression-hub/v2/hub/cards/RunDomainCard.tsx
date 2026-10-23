@@ -22,7 +22,8 @@ import { formatNumber } from '@/lib/i18n/core/fmt';
 import type { KindTotals, ProgressPeriod } from '../../utils/progress-period';
 import { runningPlanProgress } from '../../utils/running-plan-progress';
 import { formatKm } from '../../utils/progress-format';
-import { planDistanceKm, runPlanPct } from '../model/domain-cards.model';
+import { runPlanPct } from '../model/domain-cards.model';
+import { usePlanName } from '../model/usePlanName';
 import { useWalkPlanWeek } from '../model/useWalkPlanWeek';
 import { HUB_ROUTES } from '../hub-routes';
 import DomainCard from '../components/DomainCard';
@@ -30,14 +31,6 @@ import DomainCard from '../components/DomainCard';
 type RunningLike = Parameters<typeof runningPlanProgress>[0] & {
   paceProfile?: { basePace?: number; qualityWorkoutsHistory?: { date?: unknown; impactOnBasePaceSeconds?: unknown }[] } | null;
 };
-
-/** "5 km plan" / "fitness plan" / the template's name. */
-export function usePlanName(distKey: string | null, fallback: string): string {
-  const t = useT(profileNs);
-  if (distKey === 'maintenance') return t('hubV2.run.planMaintenance');
-  const km = planDistanceKm(distKey);
-  return km != null ? t('hubV2.run.planKm', { km: formatNumber(km, t.locale) }) : fallback || t('hubV2.run.planGeneric');
-}
 
 export default function RunDomainCard({ period, run, walk }: { period: ProgressPeriod; run: KindTotals; walk: KindTotals }) {
   const t = useT(profileNs);
