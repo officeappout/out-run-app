@@ -40,7 +40,7 @@ import {
 import { detectSafetyTrigger, safetyReply } from '@/lib/ai/coach/safety';
 import { ChatRequestSchema, encodeSse, type CoachStreamEvent, type CoachStreamErrorCode } from '@/lib/ai/coach/protocol';
 import { GenerateWorkoutInput, coachToolDefinitions, sanitizeWorkoutEquipment } from '@/lib/ai/coach/tools';
-import { applyUserIntent, typoHints } from '@/lib/ai/coach/intent';
+import { applyUserIntent, inferRequestedFormat, typoHints } from '@/lib/ai/coach/intent';
 import { chipsForTurn, nudgeStateFrom } from '@/lib/ai/coach/action-chips';
 import type { UserContextSheet } from '@/lib/ai/coach/context-sheet';
 import {
@@ -53,6 +53,8 @@ import {
   stateHasThinking,
   stripThinkingBlocks,
   turnUserText,
+  TURN_FAILED_TEXT,
+  toolErrorDetail,
   type TurnState,
 } from '@/lib/ai/coach/turn-engine';
 import {
@@ -193,6 +195,9 @@ export async function POST(request: Request) {
   /** Kelly round 4: the workout this request's client round built (content-gap chip). */
   let builtGap: { location?: string; levelCeiling?: boolean; shortOfMinimum?: boolean } | null = null;
   const round4 = auth.flags?.aiCoachRound4 === true;
+  // Owner chat review fixes (ai_coach_request_fidelity): ask where, judge the user's own week,
+  // honest set schemes / weekly sets / praise. Off = the exact prompt and tool results as before.
+  const fidelity = auth.flags?.aiCoachRequestFidelity === true;
   // get_app_help reads the help loader: refresh its site_content copy (≤ once / 5 min, never throws).
   if (round4) await primeHelpEntries(db);
   let safetyText: string | null = null;
@@ -235,7 +240,10 @@ export async function POST(request: Request) {
     state = resumeWithClientResult(
       pending.state,
       pending.pendingResults,
-      clientOutcomeToToolResult(pending.toolUseId, outcome, round4 ? { round4: true } : {}),
+      clientOutcomeToToolResult(pending.toolUseId, outcome, {
+        ...(round4 ? { round4: true } : {}),
+        ...(fidelity ? { requestedFormat: inferRequestedFormat(turnUserText(pending.state)) } : {}),
+      }),
       pending.toolName || 'generate_workout',
     );
   } else {
@@ -257,7 +265,9 @@ export async function POST(request: Request) {
 
   // `recent` was loaded before this request's user message was saved, so it holds only
   // earlier turns; this turn's messages travel in `state`.
-  const history = historyToModelMessages(unified ? labelTeamMessagesForModel(thread.recent) : thread.recent);
+  // A stored "couldn't answer" reply (a turn that threw) is not a real answer: left out.
+  const answered = thread.recent.filter((m) => !m.failed);
+  const history = historyToModelMessages(unified ? labelTeamMessagesForModel(answered) : answered);
 
   // Kelly model routing (ai_coach_smart_routing / ai_coach_fast_thinking, audience gate
   // ai_coach_model_routing_all_users — model-routing.ts). Off for this user = tier 'fast',
@@ -374,6 +384,7 @@ export async function POST(request: Request) {
         ...(phase2 ? { phase2: true } : {}),
         ...(memoryBlock ? { memory: memoryBlock } : {}),
         ...(round4 ? { round4Note: ROUND4_NOTE } : {}),
+        ...(fidelity ? { requestFidelity: true } : {}),
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.
@@ -412,6 +423,8 @@ export async function POST(request: Request) {
         }
       };
 
+      /** The turn's reply (or its pending client tool) is stored: a later failure must not add a second reply. */
+      let settled = false;
       try {
         // Deterministic safety reply: no model call at all.
         if (safetyText) {
@@ -419,6 +432,7 @@ export async function POST(request: Request) {
           const log = newTurnLog('none');
           log.guards.push({ type: 'safety', action: `fixed_reply:${safetyTrigger}` });
           const id = await appendMessage(db, uid, { role: 'assistant', text: safetyText, log, ...(unified ? { source: 'ai' as const } : {}) });
+          settled = true;
           emit({ type: 'done', messageId: id });
           return;
         }
@@ -437,7 +451,7 @@ export async function POST(request: Request) {
             maxRounds: COACH_MAX_TOOL_ROUNDS,
             maxTokens: modelOptions?.maxTokens ?? COACH_MODEL_MAX_TOKENS,
             ...(modelOptions ? { modelOptions: { thinking: modelOptions.thinking, effort: modelOptions.effort } } : {}),
-            guards: { sheet, todayDow, userGender: gender, ...(round4 ? { round4: true } : {}) },
+            guards: { sheet, todayDow, userGender: gender, ...(round4 ? { round4: true } : {}), ...(thread.needsHuman ? { handoffOpen: true } : {}) },
           },
           state,
           {
@@ -475,6 +489,7 @@ export async function POST(request: Request) {
             ...(phase2 && toolCtx.turn.proposal ? { proposal: toolCtx.turn.proposal } : {}),
             ...(toolCtx.round4 ? { round4: toolCtx.round4.state } : {}),
           });
+          settled = true; // the device continues this turn; its own request answers or fails visibly
           emit({ type: 'client_tool', id: outcome.call.id, name: outcome.call.name, input: outcome.call.input });
           return;
         }
@@ -493,6 +508,7 @@ export async function POST(request: Request) {
           opening: nudge.opening,
           scheduleAdvisor,
           strengthDoneToday: sheet?.plan?.doneToday.strength === true,
+          replyText: outcome.state.turnText,
         });
         let suggestions: SuggestionChip[] = [];
         const proposal = phase2 ? (toolCtx.turn.proposal ?? null) : null;
@@ -540,13 +556,27 @@ export async function POST(request: Request) {
           ...(proposal ? { proposal } : {}),
           ...(round4Extras ? { round4: round4Extras } : {}),
         });
+        settled = true;
         if ('toolResult' in body) await clearPending(db, uid);
         emit({ type: 'done', messageId: id });
 
         await maybeRollSummary(db, uid, thread, (prev, msgs) => summarizeOlder(uid, prev, msgs));
       } catch (err) {
         console.error('[ai-coach] turn failed', err);
-        emit({ type: 'error', code: streamErrorCode(err) });
+        const code = streamErrorCode(err);
+        // The user's message is already stored: store a visible "couldn't answer" reply too, so
+        // the thread never holds a message with no answer (owner thread 18-19.10.2026).
+        if (!settled) {
+          try {
+            const log = newTurnLog(model);
+            // Owner-readable (client SDK): name + message only, the full error is in the server log.
+            log.guards.push({ type: 'turn_failed', action: `${code}: ${toolErrorDetail(err)}` });
+            await appendMessage(db, uid, { role: 'assistant', text: TURN_FAILED_TEXT, log, turnFailed: true, ...(unified ? { source: 'ai' as const } : {}) });
+          } catch (e) {
+            console.error('[ai-coach] storing the failed-turn reply failed', e);
+          }
+        }
+        emit({ type: 'error', code });
       } finally {
         try {
           controller.close();

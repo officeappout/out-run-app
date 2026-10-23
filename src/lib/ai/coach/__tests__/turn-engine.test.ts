@@ -430,3 +430,22 @@ describe('stripThinkingBlocks', () => {
     expect(out.tier).toBe('smart');
   });
 });
+
+describe('a server tool that throws (owner thread 22-23.10.2026)', () => {
+  it('records the error itself in the review log, not just "tool threw"', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const boom = vi.fn(async () => {
+      throw new TypeError("Cannot read properties of undefined (reading 'map')");
+    });
+    const { deps } = harness(
+      [msg('tool_use', { type: 'tool_use', id: 't1', name: 'get_schedule', input: { from: '2026-10-22', to: '2026-10-22' } }), msg('end_turn', { type: 'text', text: 'לא הצלחתי לבדוק את הלו״ז כרגע.' })],
+      boom,
+    );
+    const out = await runCoachTurn(CFG, newTurnState('מה יש לי היום?'), deps);
+    const summary = out.state.log!.toolCalls[0].resultSummary;
+    expect(summary).toMatch(/^error: tool threw: TypeError: Cannot read properties of undefined \(reading 'map'\)/);
+    expect(summary.length).toBeLessThanOrEqual(700);
+    // Owner-readable through the client SDK: no stack frames / server paths.
+    expect(summary).not.toMatch(/\bat\s|\.ts:|\.js:/);
+  });
+});

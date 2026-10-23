@@ -65,6 +65,8 @@ export interface StoredMessage extends HistoryMessage {
   source?: KellyMessageSource;
   /** Kelly model routing: this answer ran on the smart tier (log.tier). Absent = fast / routing off. */
   tier?: 'smart';
+  /** The stored "I couldn't answer" reply of a turn that threw (TURN_FAILED_TEXT): never model history. */
+  failed?: true;
 }
 
 export interface PendingTurn {
@@ -87,6 +89,8 @@ export interface ThreadSnapshot {
   pending: PendingTurn | null;
   /** Last COACH_HISTORY_TURNS * 2 messages, oldest first. */
   recent: StoredMessage[];
+  /** Unified Kelly: the thread is in the team queue (an open handoff). Absent = not known / no. */
+  needsHuman?: boolean;
 }
 
 const threadRef = (db: Firestore, uid: string) => db.collection(AI_COACH_THREADS).doc(uid);
@@ -133,6 +137,7 @@ function toStored(id: string, d: Record<string, any>): StoredMessage {
     ...(Array.isArray(d.actions) ? { actions: (d.actions as unknown[]).filter(isCoachActionId) } : {}),
     ...(isKellyMessageSource(d.source) ? { source: d.source } : {}),
     ...(d.role === 'assistant' && d.log?.tier === 'smart' ? { tier: 'smart' as const } : {}),
+    ...(d.role === 'assistant' && d.turnFailed === true ? { failed: true as const } : {}),
   };
 }
 
@@ -147,6 +152,7 @@ export async function loadThread(db: Firestore, uid: string, now = Date.now()): 
     summarizedUntilMs: msOf(t.summarizedUntil),
     pending: parsePending(t.pending, now),
     recent: mSnap.docs.map((d) => toStored(d.id, d.data())).reverse(),
+    ...(t.needsHuman === true ? { needsHuman: true } : {}),
   };
 }
 
@@ -170,6 +176,8 @@ export async function appendMessage(
     proposal?: StoredProposal | null;
     /** Kelly round 4: the aerobic card / nearby parks of this reply. Absent = not written. */
     round4?: Round4Extras | null;
+    /** The turn threw: this is the stored failure reply (turnFailed: true, kept out of model history). */
+    turnFailed?: boolean;
   },
   now = Date.now(),
 ): Promise<string> {
@@ -186,6 +194,7 @@ export async function appendMessage(
     ...(msg.suggestions?.length ? { suggestions: msg.suggestions.map((c) => ({ ...c })) } : {}),
     ...(msg.proposal ? { proposal: JSON.parse(JSON.stringify(msg.proposal)) } : {}),
     ...(msg.round4 ? { round4: JSON.parse(JSON.stringify(msg.round4)) } : {}),
+    ...(msg.turnFailed ? { turnFailed: true } : {}),
     createdAt: Timestamp.fromMillis(now),
     ...(ttl ? { expireAt: Timestamp.fromMillis(now + AI_COACH_RETENTION_DAYS * 86_400_000) } : {}),
   });
@@ -435,7 +444,8 @@ export async function maybeRollSummary(
     const msgs = snap.docs.map((d) => toStored(d.id, d.data()));
     if (msgs.length <= keep + 4) return false;
     const fold = msgs.slice(0, msgs.length - keep);
-    const summary = await summarize(current.summary, fold);
+    // A stored "couldn't answer" reply (turnFailed) is not part of the conversation.
+    const summary = await summarize(current.summary, fold.filter((m) => !m.failed));
     if (!summary) return false;
     await threadRef(db, uid).set(
       { summary: summary.slice(0, 1500), summarizedUntil: Timestamp.fromMillis(fold[fold.length - 1].createdAtMs) },

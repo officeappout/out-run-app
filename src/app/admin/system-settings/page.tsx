@@ -63,6 +63,7 @@ interface FlagState {
   ai_coach_smart_routing: boolean;
   ai_coach_fast_thinking: boolean;
   ai_coach_model_routing_all_users: boolean;
+  ai_coach_request_fidelity: boolean;
   enable_keyboard_insets_v1: boolean;
   enable_fast_startup_v1: boolean;
   enable_budget_light_mode: boolean;
@@ -465,6 +466,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-fuchsia-500',
     title: 'קלי — מודל חכם / חשיבה: לכל המשתמשים',
     description: 'כבוי = שני המתגים "מודל חכם לשאלות מורכבות" ו"המודל המהיר חושב" פועלים רק לסופר-אדמינים (לבדיקה על החשבון שלך). דלוק = לכל המשתמשים עם AI. בשימוש בקלי, כל תור נרשם בעלויות לפי המודל (ai_coach_chat_fast / ai_coach_chat_smart).',
+    parentKey: 'ai_coach_enabled',
+  },
+  // Kelly owner chat review fixes (23.10.2026).
+  {
+    key: 'ai_coach_request_fidelity',
+    icon: ListChecks,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — נאמן לבקשה',
+    description: 'קלי שואל איפה מתאמנים כשלא נאמר (במקום לבנות לבית), בודק את השבוע שהמשתמש הציע לפי מנוחה ונפח ומציע שיפורים קטנים (במקום לפסול כי זה לא הסידור שלו), אומר בכנות כשהבונה בחר מבנה אחר מטבטה / EMOM שביקשו, אומר שספירת הסטים השבועית לפי אזור נמצאת רק בטלפון, ומשבח רק מה שהמספרים מראים. כבוי = כמו היום.',
     parentKey: 'ai_coach_enabled',
   },
   // iOS keyboard insets (19.10.2026).

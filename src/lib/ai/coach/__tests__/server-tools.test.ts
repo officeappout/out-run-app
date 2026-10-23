@@ -103,3 +103,13 @@ describe('handoff_to_human', () => {
     });
   });
 });
+
+describe('hebrewProgramName', () => {
+  it('only a Hebrew name is usable (Kelly answers in Hebrew only)', async () => {
+    const { hebrewProgramName } = await import('../server-tools.server');
+    expect(hebrewProgramName('עליית כוח')).toBe('עליית כוח');
+    expect(hebrewProgramName({ he: 'פלג גוף עליון' })).toBe('פלג גוף עליון');
+    expect(hebrewProgramName('Upper Body')).toBeNull();
+    expect(hebrewProgramName(undefined)).toBeNull();
+  });
+});
