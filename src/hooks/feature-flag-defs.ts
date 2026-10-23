@@ -341,6 +341,11 @@ export const FLAG_DEFS = [
   // and the route player a one-time long-press tip. Fail-closed; super admins preview it.
   // Off = byte-identical map, cards and player.
   { key: 'enableEntryWhatnowV1', firestoreKey: 'enable_entry_whatnow_v1', defaultValue: false, superAdminValue: true },
+  // Entry single choice (22.10.2026, owner loose-ends batch): a user who already answered (or
+  // dismissed) the map's "מה בא לך עכשיו?" drawer no longer also gets the home "מה הדבר הראשון?"
+  // WelcomeDrawer — one question, asked once. Fail-closed; super admins preview it. Off = today's
+  // home (the drawer shows for every never-trained user).
+  { key: 'enableEntrySingleChoiceV1', firestoreKey: 'enable_entry_single_choice_v1', defaultValue: false, superAdminValue: true },
   // Generation review (19.10.2026, owner) — learn from every generated session: each session a
   // generator SHOWS (home trio, Kelly workouts, hybrid compositions, generated loops / A→B routes,
   // planned runs) is summarized on the device (no names, area = geohash-5, route ends trimmed) and

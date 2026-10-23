@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs';
 import {
-  chooseWhatNowCards, shouldOpenWhatNow, whatNowRouteCopy, whatNowSeenKey,
+  chooseWhatNowCards, shouldOpenWhatNow, shouldSuppressWelcomeDrawer, whatNowRouteCopy, whatNowSeenKey,
   type WhatNowAnswer, type WhatNowLayout, type WhatNowPark, type WhatNowRouteCopy, type WhatNowRouteSuggestion,
 } from '../services/entry-whatnow';
 
@@ -116,4 +116,21 @@ export function useEntryWhatNow(input: {
   }, [uid]);
 
   return { open: latched && !answered, layout, routeCopy, routeCenter, answer };
+}
+
+/**
+ * enable_entry_single_choice_v1 — true while the home WelcomeDrawer must stay hidden because the
+ * user already answered (or dismissed) the map's step 2. Flag off → always false (no read).
+ */
+export function useWelcomeDrawerSuppressed(enabled: boolean, uid: string | null | undefined): boolean {
+  const [seen, setSeen] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!enabled || !uid) return;
+    let alive = true;
+    void getOnboardingPrefAsync(whatNowSeenKey(uid)).then((v) => { if (alive) setSeen(v); });
+    return () => { alive = false; };
+  }, [enabled, uid]);
+  // No uid yet: the drawer itself needs a profile to classify, so nothing to hold back.
+  if (enabled && !uid) return false;
+  return shouldSuppressWelcomeDrawer({ enabled, seenValue: seen });
 }
