@@ -624,6 +624,12 @@ export const FLAG_DEFS = [
   // transactional RSVP with visible errors, last-admin leave guard, /join waits for the profile.
   // Server routes read the real value OR the caller's own isSuperAdmin. Default OFF.
   { key: 'enableGroupFixesV1', firestoreKey: 'enable_group_fixes_v1', defaultValue: false, superAdminValue: true },
+  // Together layer v1 (22.10.2026, owner — agent-briefs/together-layer-build-brief.md). Inside the
+  // enable_home_v2 players and lobby: live presence rail (who is here + a tiny status), a lobby that
+  // explains in one line whether the group runs the same workout or each at their own level and counts
+  // 3-2-1 from a server timestamp, a head-to-head race bar, tap-to-cheer and the richer "together"
+  // summary. Needs enable_home_v2 too. Fail-closed; super admins preview it. Off = identical.
+  { key: 'enableTogetherLayerV1', firestoreKey: 'enable_together_layer_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
