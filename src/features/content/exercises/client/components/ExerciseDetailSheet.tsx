@@ -6,7 +6,8 @@
  * A single immersive 95vh bottom sheet with ONE vertical scroll conduit:
  * the network-aware hero video sits at the top of MasterExerciseView and every
  * section flows beneath it in the same scroll timeline. No nested scrollers,
- * no snap points, no morphing hero — a clean drag-down from the top dismisses.
+ * no snap points, no morphing hero — a drag-down from the grabber, or a pull-down
+ * at scrollTop 0 anywhere in the body (useSheetScrollChain), dismisses.
  *
  * This component owns only the sheet chrome (portal, backdrop, drag-to-dismiss,
  * close, body-scroll-lock). All content + data live in MasterExerciseView.
@@ -15,13 +16,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useDragControls } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import MasterExerciseView from './MasterExerciseView';
-import Sheet from '@/components/ui/v2/Sheet';
+import Sheet, { SHEET_GRABBER_CLASS } from '@/components/ui/v2/Sheet';
+import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z, type SheetZIndex } from '@/components/ui/v2/tokens';
 import type { Exercise } from '../../core/exercise.types';
@@ -120,6 +122,17 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
+  // ── Swipe-to-close ───────────────────────────────────────────────────────
+  // framer's whole-panel `drag` never got the gesture from inside the scroll
+  // body: the browser claims a vertical pan on the inner scroller (it sends
+  // pointercancel), so only the grabber strip could dismiss. Same pattern as
+  // WorkoutPreviewDrawer / ExerciseDetailDrawer: the grabber starts a framer
+  // drag via dragControls, and the shared scroll-chain drives `y` for a
+  // down-pull at scrollTop 0 anywhere in the body.
+  const y = useMotionValue(0);
+  const dragControls = useDragControls();
+  const { scrollRef } = useSheetScrollChain({ isOpen: isOpen && !!exercise, y, onClose: close });
+
   // ── Body scroll lock ─────────────────────────────────────────────────────
   // Locks the page behind the sheet so wheel/touch on the dimmed area doesn't
   // scroll the library underneath. Compensates for the disappearing scrollbar
@@ -184,26 +197,30 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
         keyboardAware={false}
         backdropClassName="bg-black/50"
         surface="rounded-t-[28px] bg-v2-surface shadow-v2-sheet"
-        className="relative h-[95vh]"
+        className="relative flex h-[95vh] flex-col"
+        scroll="none"
         safeArea={false}
         grabber={false}
         transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-        dragToDismiss={{ handleOnly: false, distance: 140, velocity: 0, elastic: 0.2 }}
+        dragControls={dragControls}
+        y={y}
+        dragToDismiss={{ mode: 'follow', distance: 140, velocity: 0, elastic: 0.2 }}
         ariaLabel={t('exercises.detail.label')}
-        header={
-          <>
-            {/* Grabber floats over the full-bleed hero (which starts at the
-                sheet's top edge and fades into the page). */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-2">
-              <div className="h-1.5 w-10 rounded-full bg-white/80 shadow-v2-ring" />
-            </div>
-            <IconButton aria-label={t('exercises.detail.close')} tone="surface" size={36} className="absolute left-3 top-3 z-30" onClick={close}>
-              <X size={17} strokeWidth={2.5} />
-            </IconButton>
-          </>
-        }
       >
-        {master}
+        {/* Grabber floats over the full-bleed hero (which starts at the
+            sheet's top edge and fades into the page); it is also the drag zone. */}
+        <div
+          data-v2-sheet-drag-handle
+          className="absolute inset-x-16 top-0 z-30 flex cursor-grab justify-center pt-2 pb-4 active:cursor-grabbing"
+          onPointerDown={(e) => dragControls.start(e)}
+          style={{ touchAction: 'none' }}
+        >
+          <div className={`${SHEET_GRABBER_CLASS} !bg-white/80 shadow-v2-ring`} />
+        </div>
+        <IconButton aria-label={t('exercises.detail.close')} tone="surface" size={36} className="absolute left-3 top-3 z-30" onClick={close}>
+          <X size={17} strokeWidth={2.5} />
+        </IconButton>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{master}</div>
       </Sheet>
     );
   }
@@ -233,15 +250,22 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
             drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.2}
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 500 }}
+            dragElastic={{ top: 0.08, bottom: 0 }}
+            dragMomentum={false}
             onDragEnd={(_, info) => { if (info.offset.y > 140) close(); }}
             className="fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-3xl shadow-drawer flex flex-col overflow-hidden"
-            style={{ height: '95vh' }}
+            style={{ y, height: '95vh' }}
             dir="rtl"
           >
             {/* Drag handle */}
-            <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
+            <div
+              className="flex justify-center pt-2 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => dragControls.start(e)}
+              style={{ touchAction: 'none' }}
+            >
               <div className="w-10 h-1 rounded-full bg-gray-200" />
             </div>
 
@@ -256,7 +280,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             </button>
 
             {/* ── SINGLE conduit scroll ── */}
-            <div className="flex-auto min-h-0 overflow-y-auto overscroll-contain">
+            <div ref={scrollRef} className="flex-auto min-h-0 overflow-y-auto overscroll-contain">
               {master}
             </div>
           </motion.div>
