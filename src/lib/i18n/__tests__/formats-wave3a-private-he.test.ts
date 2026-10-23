@@ -8,6 +8,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { formatDate, formatNumber } from '../core/fmt';
+import { buildRunWeekRows } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
 
 const INTS = [0, 1, 999, 1000, 8400, 10000, 12345, 123456];
 const NUMS = [...INTS, 12345.6, -1, -1234.5, 0.4, 12.34];
@@ -66,5 +67,19 @@ describe.each(['UTC', 'Asia/Jerusalem'])('dates in %s (he)', (zone) => {
 
   it('RecentActivityList keeps its Invalid Date -> throws -> caught path', () => {
     expect(() => formatDate(new Date('x'), 'he', { day: 'numeric', month: 'short' })).toThrow(RangeError);
+  });
+});
+
+describe('run-week row day label (he) — the old `${DAY_LETTERS[i]}׳`', () => {
+  const OLD_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+  const schedule = [1, 2, 3].map((day) => ({ week: 1, day, status: 'pending' }));
+  it('training-days branch: every weekday letter', () => {
+    for (let i = 0; i < 7; i++) {
+      const rows = buildRunWeekRows(schedule.slice(0, 1), 1, [OLD_LETTERS[i]], { isRunDay: false });
+      expect(rows[0].dayLetter).toBe(`${OLD_LETTERS[i]}׳`);
+    }
+  });
+  it('by-type placement branch is covered by the existing run-preview tests; the label call is the same weekdayName', () => {
+    for (let i = 0; i < 7; i++) expect(`${OLD_LETTERS[i]}׳`).toBe(buildRunWeekRows(schedule.slice(0, 1), 1, [OLD_LETTERS[i]], { isRunDay: false, locale: 'he' })[0].dayLetter);
   });
 });

@@ -19,6 +19,7 @@ import {
 } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
 import type { RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
 import RunWeekCardV2 from './RunWeekCardV2';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 interface RunWeekListV2Props {
   schedule: readonly RunScheduleEntryLike[] | undefined;
@@ -43,11 +44,12 @@ interface RunWeekListV2Props {
 export default function RunWeekListV2({
   schedule, week, totalWeeks, programLabel, scheduleDays, targetDay, isRunDay, todayWorkout, onStartToday, onSkipToday, onUndoSkip, placement,
 }: RunWeekListV2Props) {
+  const locale = useLocaleStore((s) => s.locale);
   const placeKey = placement ? JSON.stringify(placement) : '';
   const rows = useMemo(
-    () => buildRunWeekRows(schedule, week, scheduleDays, { targetDay, isRunDay, placement }),
+    () => buildRunWeekRows(schedule, week, scheduleDays, { targetDay, isRunDay, placement, locale }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `placement` by value (placeKey)
-    [schedule, week, scheduleDays, targetDay, isRunDay, placeKey],
+    [schedule, week, scheduleDays, targetDay, isRunDay, placeKey, locale],
   );
   const summary = runWeekSummary(rows);
   const todayCategory = rows.find((r) => r.state === 'today')?.entry.category ?? null;

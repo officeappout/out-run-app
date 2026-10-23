@@ -1,8 +1,11 @@
 /**
  * Week / day context for the v2 run preview and the weekly run list (pure).
  */
+import { weekdayName } from '@/lib/i18n/core/fmt';
+import type { Locale } from '@/lib/i18n/locales';
 import { mapRunWeekFromLetters, type RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
 
+/** Stored schedule days are Hebrew letters (data, matched below) — only the row's display label goes through fmt. */
 const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
 export interface RunWeekContext {
@@ -77,8 +80,9 @@ export function buildRunWeekRows<E extends RunScheduleEntryLike>(
   schedule: readonly E[] | null | undefined,
   week: number,
   scheduleDays: readonly string[],
-  opts: { targetDay?: number; isRunDay: boolean; placement?: RunWeekMapOptions },
+  opts: { targetDay?: number; isRunDay: boolean; placement?: RunWeekMapOptions; locale?: Locale },
 ): RunWeekRow<E>[] {
+  const locale = opts.locale ?? 'he';
   if (opts.placement?.byType) {
     const entries = (schedule ?? []).filter((e) => e.week === week).sort((a, b) => a.day - b.day);
     const dowOf = new Map<E, number>();
@@ -89,7 +93,7 @@ export function buildRunWeekRows<E extends RunScheduleEntryLike>(
       .map(({ entry, dow }) => ({
         entry,
         state: rowState(entry, opts),
-        dayLetter: dow != null ? `${DAY_LETTERS[dow]}׳` : null,
+        dayLetter: dow != null ? weekdayName(dow, locale, 'narrow') : null,
       }));
   }
   const trainingDayIndices = scheduleDays
@@ -110,7 +114,7 @@ export function buildRunWeekRows<E extends RunScheduleEntryLike>(
             : opts.isRunDay && opts.targetDay === entry.day
               ? 'today'
               : 'upcoming';
-      return { entry, state, dayLetter: idx != null ? `${DAY_LETTERS[idx]}׳` : null };
+      return { entry, state, dayLetter: idx != null ? weekdayName(idx, locale, 'narrow') : null };
     });
 }
 
