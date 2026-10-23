@@ -160,7 +160,7 @@ describe('legal documents + modal (batch ak, keys termsDoc.* / privacyDoc.* / mo
     buildTermsDoc(spy);
     buildPrivacyDoc(spy);
     const catalog = [...keysWith('termsDoc.'), ...keysWith('privacyDoc.')];
-    expect([...used].sort()).toEqual(catalog.sort());
+    expect(Array.from(used).sort()).toEqual(catalog.sort());
   });
   it('text with an apostrophe and quotes survives ICU untouched', () => {
     const chat = Object.values(he).find((v) => v.includes("הודעות צ'אט"));
