@@ -59,7 +59,7 @@ import { boundaryFromStored, type AuthorityBoundary } from '../../src/lib/datase
 import { writeRouteScoreDocs } from '../../src/lib/route-score';
 import { surfaceClassField } from '../../src/lib/route-score/surface-class';
 import {
-  buildAdminNameIndex, checkpointMismatch, normalizeAuthorityName, filterAuthorities, markDone, matchAdminRelation, newCheckpoint, orderAuthorities, parseCheckpoint, remaining,
+  buildAdminNameIndex, checkpointMismatch, knownAdminRelationFor, normalizeAuthorityName, filterAuthorities, markDone, matchAdminRelation, newCheckpoint, orderAuthorities, parseCheckpoint, remaining,
   combineEnrichers, runAuthorityStages, SETTLEMENT_LOOPS_ENABLED, summarizeAuthority, summarizeNation, type AdminRelation, type AuthorityRow, type AuthoritySummary, type Checkpoint,
 } from '../../src/lib/routes-nationwide';
 import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, executePlan, flagValue, formatPlan, openTarget, planCollection } from '../trails/lib/trails-apply.node';
@@ -214,7 +214,10 @@ async function main() {
       let relationNote = 'OSM stage skipped';
       if (!SKIP_OSM) {
         const reg = registeredRelation.get(normalizeAuthorityName(a.name));
+        // Municipal only: the two regional pins were never proven identical to the by-name result, so regional output stays as before.
+        const pinned = reg || a.type === 'regional_council' ? null : knownAdminRelationFor(a.name);
         if (reg) { relationId = reg; relationNote = 'city_registrations.adminRelationId'; }
+        else if (pinned) { relationId = pinned.adminRelationId; relationNote = `KNOWN_ADMIN_RELATION_FIXES (${pinned.key})`; }
         else {
           const m = matchAdminRelation(a.name, await adminIndex());
           relationId = m.relationId;

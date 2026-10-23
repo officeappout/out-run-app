@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchorKey, lengthBucket, selectTopN, type ScoredRoute } from '../select';
+import { anchorKey, isParkLoop, lengthBucket, selectTopN, type ScoredRoute } from '../select';
 import { quotaForAuthority } from '../quota';
 import type { RouteScoreInput, ScoreBand, SourceTier } from '../types';
 import type { SurfaceClass } from '../surface-class';
@@ -104,5 +104,26 @@ describe('helpers', () => {
     const b = route({ score: 1, name: 'פארק הירקון' }).input;
     expect(anchorKey(a)).toBe(anchorKey(b));
     expect(anchorKey(route({ score: 1, name: 'רחוב הרצל' }).input)).toBeNull();
+  });
+});
+
+describe('known routes and the park-loop quota', () => {
+  it('a closed known route (named_place loop) is not a park loop, a parkRef-carrying one neither; ordinary park loops still are', () => {
+    const known = route({ score: 80, tier: 'named_place' });
+    known.input.knownRoute = true;
+    const knownWithPark = route({ score: 80, tier: 'named_place', park: 'p1' });
+    knownWithPark.input.knownRoute = true;
+    const plain = route({ score: 80, tier: 'named_place' });
+    expect(isParkLoop(known.input)).toBe(false);
+    expect(isParkLoop(knownWithPark.input)).toBe(false);
+    expect(isParkLoop(plain.input)).toBe(true);
+  });
+  it('known routes never fill the park-loop cap, so real park loops still get selected', () => {
+    const rs = [
+      ...Array.from({ length: 6 }, (_, k) => { const r = route({ score: 95 - k, tier: 'named_place', km: 2 }); r.input.knownRoute = true; return r; }),
+      ...Array.from({ length: 4 }, (_, k) => route({ score: 75 - k, tier: 'named_place', km: 10 })),
+    ];
+    const res = selectTopN(rs, small); // parkLoops max 4
+    expect(res.counts.parkLoops).toBe(4); // only the 4 real ones counted
   });
 });

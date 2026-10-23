@@ -85,6 +85,10 @@ export interface RouteScoreInput {
   /** Share (0..1) of the length inside a park / green / beach — trails PilotContext. Null when not measured. */
   greenShare: number | null;
   parkRef: ParkRef | null;
+  /** From the known-routes (web research) stage — never counts toward the park-loop quota, whatever its shape. */
+  knownRoute?: boolean;
+  /** Low-confidence marker on the candidate (e.g. 'promenade_hint'); informational — stored in route_scores, never blocks selection. */
+  lowConfidenceReason?: string;
   hasFitnessStop: boolean;
   certificate: CertificateVerdict | null;
   /** Paved / unpaved share of the length and where it came from (surface-class.ts). */

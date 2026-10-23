@@ -147,7 +147,26 @@ export function resolveSkippedByDocCity(
 export const KNOWN_ADMIN_RELATION_FIXES: ReadonlyArray<{ authorityName: string; key: string; adminRelationId: number }> = [
   { authorityName: 'הגליל העליון', key: 'hagalil-haelyon', adminRelationId: 1378948 },
   { authorityName: 'הגליל התחתון', key: 'hagalil-hatachton', adminRelationId: 1383754 },
+  // קריית/קרית spelling mismatch between our authority names and OSM (owner-verified relation ids, 23.10.2026).
+  { authorityName: 'קריית מוצקין', key: 'kiryat-motzkin', adminRelationId: 1387964 },
+  { authorityName: 'קריית ביאליק', key: 'kiryat-bialik', adminRelationId: 1387456 },
+  { authorityName: 'קרית אונו', key: 'kiryat-ono', adminRelationId: 1382894 },
 ];
+
+/** "קריית" / "קרית" spellings fold to one key (on a normalizeAuthorityName result, i.e. no spaces). */
+const foldQiryat = (k: string) => k.replace(/^קריית/, 'קרית');
+
+/**
+ * Pinned admin relation for an authority name (KNOWN_ADMIN_RELATION_FIXES), spelling-tolerant for קרית/קריית.
+ * The runner consults it after city_registrations.adminRelationId and before the by-name PBF match, so these
+ * cities resolve without anyone having to create a city_registrations doc first.
+ */
+export function knownAdminRelationFor(authorityName: string): { adminRelationId: number; key: string } | null {
+  const k = foldQiryat(normalizeAuthorityName(authorityName));
+  if (!k) return null;
+  const hit = KNOWN_ADMIN_RELATION_FIXES.find((f) => foldQiryat(normalizeAuthorityName(f.authorityName)) === k);
+  return hit ? { adminRelationId: hit.adminRelationId, key: hit.key } : null;
+}
 
 export function bboxOfBoundary(g: AuthorityBoundary['geometry']): { latMin: number; lonMin: number; latMax: number; lonMax: number } | null {
   const polys: number[][][][] = g?.type === 'Polygon' ? [g.coordinates] : g?.type === 'MultiPolygon' ? g.coordinates : [];

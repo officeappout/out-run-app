@@ -57,6 +57,17 @@ describe('route_scores round trip (axioms §31)', () => {
     expect(back!.components.surface.max).toBe(25);
   });
 
+  it('low-confidence reason is persisted only when set and reads back; absent key otherwise', async () => {
+    const db = fakeDb();
+    const input = routeScoreInputFromDoc('lc1', parkHaMesilaDoc());
+    const plain = buildRouteScoreDoc(input, routeScore(input), null);
+    expect(Object.prototype.hasOwnProperty.call(plain, 'lowConfidenceReason')).toBe(false);
+    const flagged = buildRouteScoreDoc({ ...input, id: 'lc2', lowConfidenceReason: 'promenade_hint' }, routeScore(input), null);
+    await writeRouteScoreDocs(db, [plain, flagged]);
+    expect((await readRouteScoreDoc(db, 'lc2'))!.lowConfidenceReason).toBe('promenade_hint');
+    expect((await readRouteScoreDoc(db, 'lc1'))!.lowConfidenceReason).toBeUndefined();
+  });
+
   it('missing doc reads as null; a sparse stored doc reads with safe defaults', async () => {
     const db = fakeDb();
     expect(await readRouteScoreDoc(db, 'nope')).toBeNull();

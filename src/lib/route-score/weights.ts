@@ -86,6 +86,13 @@ export const MANUAL_REVIEW_MIN_SCORE = 55;
 export const NAMED_PLACE_PATTERN = /טיילת|פארק|גן |^גן|גינת|רצועה ירוקה|רצועת חוף|שביל טבע|ואדי|נחל|יער|חוף|אגם|הקפת/;
 /** Promenade/corridor names — a non-closed route with such a name is a legitimate linear corridor. */
 export const CORRIDOR_NAME_PATTERN = /טיילת|רצועה ירוקה|רצועת חוף|שביל טבע|ואדי|נחל/;
+/**
+ * Boulevard / pedestrian-mall / promenade names (שדרות רוטשילד, מדרחוב …). Used ONLY for OSM named-way
+ * corridors (origin osm_named_way): they read as a named place for the source tier. Deliberately not
+ * merged into NAMED_PLACE_PATTERN, which also drives the per-anchor cap and the tier of every other route.
+ */
+/* שדרות / שדרת / מדרחוב only as a word start (not glued to a preposition: 'כניסה לשדרות' = the city Sderot). */
+export const PROMENADE_NAME_PATTERN = /(?:^|\s)(?:שדר(?:ות|ת)|מדרחוב)|טיילת/;
 
 /**
  * Shade comfort scale (owner recalibration 21.10.2026, RC6). The value is the

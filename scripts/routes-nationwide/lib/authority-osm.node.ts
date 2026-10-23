@@ -8,7 +8,7 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { buildPathIndex, pointInRing, selectBigParks, type LngLat, type ParkPolygon, type PathIndex, type PathLine, type PointFeature } from '../../../src/lib/park-loops';
-import type { NamedWay } from '../../../src/lib/routes-nationwide/named-corridors';
+import { normalizeName, type NamedWay } from '../../../src/lib/routes-nationwide/named-corridors';
 import { buildUrbanLayer, urbanInputFromOsm, type UrbanLayer } from '../../../src/lib/urban-measure';
 import type { NamingContext } from '../../../src/lib/routes-nationwide/route-naming';
 import { parsePopulation, SETTLEMENT_PLACE_KINDS, type Settlement } from '../../../src/lib/routes-nationwide/settlement-loops';
@@ -72,7 +72,7 @@ export function namedWaysAndNaming(ex: PilotExtract, parks: ParkPolygon[]): { na
   const lines: PathLine[] = [];
   const names = new Map<string, string>();
   for (const w of Array.from(ex.data.ways.values())) {
-    const name = (w.tags['name:he'] ?? w.tags.name ?? '').trim();
+    const name = normalizeName(w.tags['name:he'] ?? w.tags.name ?? '');
     const highway = w.tags.highway ?? '';
     if (!name || !highway) continue;
     const coords = w.nodes.map((n) => ex.data.nodes.get(n)).filter(Boolean).map((n) => [n!.lon, n!.lat] as LngLat);
