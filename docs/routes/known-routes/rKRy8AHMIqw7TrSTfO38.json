@@ -1,0 +1,4 @@
+{"authorityId":"rKRy8AHMIqw7TrSTfO38","city":"בת ים","researchedAt":"2026-10-23","routes":[
+{"name": "טיילת בת ים", "aliases": ["הטיילת", "טיילת טראמפ", "טיילת הנשיא", "טיילת המרינה"], "kind": "mixed", "lengthKm": null, "inPark": null, "description": "טיילת חוף עם שביל אופניים ומסלול הליכה וריצה מבמבוק; רצועת החוף כ-3.5 ק\"מ", "sources": [{"url": "https://he.wikipedia.org/wiki/בת_ים", "title": "בת ים - ויקיפדיה (הטיילת והחופים)"}]},
+{"name": "פארק תצפית הים", "aliases": ["פארק תצפית הים ע\"ש יוני נתניהו"], "kind": "walk", "lengthKm": null, "inPark": "פארק תצפית הים", "description": "פארק גבעה על גבול בת ים וראשון לציון עם תצפית לים", "sources": [{"url": "https://he.wikipedia.org/wiki/בת_ים", "title": "בת ים - ויקיפדיה (אתרים עיקריים)"}]}
+],"notes":"Only first 100k chars of the article read. OSM inside the boundary: no named promenade way (only \"הרצל\" living_street 0.85 km) — the promenade is unnamed in OSM, so no automatic match is expected."}
