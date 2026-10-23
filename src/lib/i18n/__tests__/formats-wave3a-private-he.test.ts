@@ -72,7 +72,7 @@ describe.each(['UTC', 'Asia/Jerusalem'])('dates in %s (he)', (zone) => {
 
 describe('run-week row day label (he) — the old `${DAY_LETTERS[i]}׳`', () => {
   const OLD_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-  const schedule = [1, 2, 3].map((day) => ({ week: 1, day, status: 'pending' }));
+  const schedule = [1, 2, 3].map((day) => ({ week: 1, day, workoutId: `w`, status: 'pending' }));
   it('training-days branch: every weekday letter', () => {
     for (let i = 0; i < 7; i++) {
       const rows = buildRunWeekRows(schedule.slice(0, 1), 1, [OLD_LETTERS[i]], { isRunDay: false });
