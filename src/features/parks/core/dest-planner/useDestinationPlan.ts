@@ -7,7 +7,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchRealParks } from '../services/parks.service';
-import { fetchPlannerCandidates } from './plan-routes';
+import { candidatesForMode, fetchPlannerCandidates, routingModeFor } from './plan-routes';
 import { availablePreferences, selectPlannerOptions, shortestOf } from './alternatives';
 import { modeMinutes } from './mode-minutes';
 import { fountainPoints } from './route-tags';
@@ -27,14 +27,16 @@ export function useDestinationPlan(args: { from: LatLng; to: LatLng; initialMode
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Last known shortest distance — keeps the other tabs' minutes while a mode switch refetches. */
   const [knownKm, setKnownKm] = useState<number | null>(null);
-  /** Each mode's routes, kept for this destination — switching back to a tab is instant. */
+  /** Each routed mode's candidates for this destination (running shares walking's) — switching tabs back is instant. */
   const cacheRef = useRef(new Map<string, PlannerCandidates>());
 
   useEffect(() => {
     let cancelled = false;
     setSelectedId(null);
-    const cacheKey = `${mode}|${to.lat},${to.lng}`;
-    const apply = (c: PlannerCandidates) => {
+    const routed = routingModeFor(mode);
+    const cacheKey = `${routed}|${to.lat},${to.lng}`;
+    const apply = (fetched: PlannerCandidates) => {
+      const c = candidatesForMode(fetched, mode);
       setCandidates(c);
       const km = shortestOf(c.commute)?.distance;
       if (km) setKnownKm(km);
@@ -49,7 +51,7 @@ export function useDestinationPlan(args: { from: LatLng; to: LatLng; initialMode
     setCandidates(EMPTY);
     (async () => {
       const parks = await fetchRealParks().catch(() => []);
-      const c = await fetchPlannerCandidates({ from, to, mode, parks }).catch(() => EMPTY);
+      const c = await fetchPlannerCandidates({ from, to, mode: routed, parks }).catch(() => EMPTY);
       if (cancelled) return;
       setFountains(fountainPoints(parks));
       if (c.commute.length + c.viaParks.length > 0) cacheRef.current.set(cacheKey, c);

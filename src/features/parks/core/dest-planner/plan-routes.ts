@@ -12,7 +12,7 @@
 import type { Park } from '../types/park.types';
 import type { Route } from '../types/route.types';
 import { generateDynamicRoutes } from '../services/route-generator.service';
-import { MapboxService, type MapboxDirectionsExtraParams, type MapboxPathResult } from '../services/mapbox.service';
+import { MapboxService, type MapboxPathResult } from '../services/mapbox.service';
 import { computeGeneratorDifficulty } from '../services/generator-elevation.service';
 import { KCAL_PER_KM, SPEED_KMH } from '../services/route-request.utils';
 import { distanceAlongToNearest, pickViaParks, type ViaParkPick } from './via-park';
@@ -61,14 +61,32 @@ export async function buildViaParkRoute(result: MapboxPathResult, pick: ViaParkP
 }
 
 /**
- * Per-mode routing (Google-Maps-style tabs: each mode gets ITS own route).
- * Mapbox has no running profile, so running used to be the exact walking
- * request (same route, the tab "did nothing"). Running now asks the walking
- * profile to prefer footpaths / sidewalks (`walkway_bias`, -1…1); cycling
- * uses the cycling profile (generator); walking stays the plain request.
+ * Per-mode routing (owner, 23.10.2026): running takes the SAME route as
+ * walking — only the time differs. So running never asks the router on its
+ * own: it reuses the walking candidates (and their cache), re-timed at
+ * running pace. Cycling has its own route (Mapbox cycling profile).
  */
-export function directionsParamsFor(mode: PlannerMode): MapboxDirectionsExtraParams | undefined {
-  return mode === 'running' ? { walkway_bias: '1' } : undefined;
+export function routingModeFor(mode: PlannerMode): Exclude<PlannerMode, 'running'> {
+  return mode === 'running' ? 'walking' : mode;
+}
+
+function retimeRoute(route: Route, mode: PlannerMode): Route {
+  return {
+    ...route,
+    duration: Math.max(1, Math.round((route.distance / SPEED_KMH[mode]) * 60)),
+    calories: Math.round(route.distance * KCAL_PER_KM[mode]),
+    type: mode,
+    activityType: mode,
+  };
+}
+
+/** The candidates to SHOW for a mode: running = the walking routes at running time; others as fetched. */
+export function candidatesForMode(fetched: PlannerCandidates, mode: PlannerMode): PlannerCandidates {
+  if (mode !== 'running') return fetched;
+  return {
+    commute: fetched.commute.map((r) => retimeRoute(r, mode)),
+    viaParks: fetched.viaParks.map((v) => ({ ...v, route: retimeRoute(v.route, mode) })),
+  };
 }
 
 async function viaParkRoutes(from: LatLng, to: LatLng, mode: PlannerMode, parks: Park[]): Promise<ViaParkCandidate[]> {
@@ -76,7 +94,7 @@ async function viaParkRoutes(from: LatLng, to: LatLng, mode: PlannerMode, parks:
   const picks = pickViaParks(from, to, parks);
   const built = await Promise.all(picks.map(async (pick) => {
     try {
-      const res = await MapboxService.getSmartPathAlternatives(from, to, 'walking', [pick.location], directionsParamsFor(mode) ?? {});
+      const res = await MapboxService.getSmartPathAlternatives(from, to, 'walking', [pick.location]);
       const best = [...res].sort((a, b) => a.distance - b.distance)[0];
       return best ? await buildViaParkRoute(best, pick, mode) : null;
     } catch {
@@ -96,7 +114,6 @@ export async function fetchPlannerCandidates(args: { from: LatLng; to: LatLng; m
       routeGenerationIndex: Date.now(),
       preferences: { includeStrength: false },
       parks,
-      commuteDirectionsParams: directionsParamsFor(mode),
       // Unused on the commute branch, but the option shape requires it.
       targetDistance: 0,
     }).catch(() => [] as Route[]),
