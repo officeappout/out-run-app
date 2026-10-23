@@ -117,6 +117,19 @@ export function whatNowSeenKey(uid: string | null | undefined): string {
   return `entry_whatnow_seen:${uid || 'anon'}`;
 }
 
+/**
+ * enable_entry_single_choice_v1 — hide the home "מה הדבר הראשון?" WelcomeDrawer for a user who
+ * already answered / dismissed the map's "מה בא לך עכשיו?". `seenValue` undefined = the pref is
+ * still being read: hold the drawer back (flag on only) so it never flashes and then vanishes.
+ */
+export function shouldSuppressWelcomeDrawer(input: {
+  enabled: boolean;
+  seenValue: string | null | undefined;
+}): boolean {
+  if (!input.enabled) return false;
+  return input.seenValue === undefined || !!input.seenValue;
+}
+
 /** Open the drawer? Flag on (loaded), an entry-v2 landing, not seen, and the map is calm. */
 export function shouldOpenWhatNow(input: {
   enabled: boolean;

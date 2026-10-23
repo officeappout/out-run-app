@@ -77,6 +77,7 @@ interface FlagState {
   enable_goal_presence_v1: boolean;
   enable_unified_search: boolean;
   enable_entry_whatnow_v1: boolean;
+  enable_entry_single_choice_v1: boolean;
   enable_generation_review: boolean;
   enable_generation_review_llm: boolean;
   enable_org_access_code_prompt: boolean;
@@ -576,6 +577,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'כניסה: מה בא לך עכשיו + הדרכה',
     description: 'אחרי אישור הבית: מגירה עם 3 אפשרויות לפי המצב, ובועות אצבע במסלול הראשון.',
+  },
+  {
+    key: 'enable_entry_single_choice_v1',
+    icon: ListChecks,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'כניסה: שאלה אחת בלבד',
+    description: 'מי שכבר ענה (או סגר) את "מה בא לך עכשיו?" במפה לא יקבל גם את "מה הדבר הראשון?" בבית. כבוי = כמו היום (המגירה בבית לכל מי שלא התאמן).',
   },
   // Generation review (19.10.2026).
   {

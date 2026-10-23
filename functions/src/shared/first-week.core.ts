@@ -5,7 +5,8 @@
  * Mirrored into functions/src/shared/first-week.core.ts by
  * functions/scripts/vendor-copy-geo-discovery.js (COMMITTED_MIRRORS), so the
  * home card (app) and firstWorkoutScheduler (server) share one plan. Must
- * stay import-free.
+ * stay import-free, except ./push-copy-t (the card copy lives in the `push`
+ * catalog, i18n wave 2A; each tree has its own ./push-copy-t twin).
  *
  *   day 0  welcome         in-app card only (Kelly's welcome lives in Kelly's own chat)
  *   day 1  routine         push at the user's reminder hour (else 18:00)
@@ -22,6 +23,8 @@
  * copy for; the casual Israeli tone ('friendly') never goes to 60+, ותיקים,
  * an unknown age, or a city broadcast.
  */
+
+import { pushCopyT } from './push-copy-t';
 
 export type FirstWeekLever =
   | 'welcome'
@@ -280,36 +283,49 @@ export interface FirstWeekCard {
  * first workout or outside the first week). Neutral grammar (plural / impersonal),
  * from the owner-approved push copy.
  */
-export function firstWeekCard(input: { dayIndex: number | null; hasWorkout: boolean; firstName?: string | null }): FirstWeekCard | null {
+export function firstWeekCard(input: {
+  dayIndex: number | null;
+  hasWorkout: boolean;
+  firstName?: string | null;
+  /** Card language (i18n wave 2A: the `push` catalog, firstWeekCard.*). Default 'he'. */
+  locale?: string;
+}): FirstWeekCard | null {
   const { dayIndex, hasWorkout } = input;
   if (hasWorkout) return null;
   const day = firstWeekDay(dayIndex);
   if (!day) return null;
   const name = (input.firstName ?? '').trim();
-  switch (day.lever) {
+  const lever = day.lever;
+  const base = { day: day.day, lever };
+  const t = pushCopyT(input.locale);
+  const key = (part: string) => `firstWeekCard.${lever}.${part}`;
+  const card = (href: string | null, withCta: boolean): FirstWeekCard => ({
+    ...base,
+    title: t(key('title')),
+    body: t(key('body')),
+    href,
+    ctaLabel: withCta ? t(key('cta')) : null,
+  });
+  switch (lever) {
     case 'welcome':
       return {
-        day: day.day,
-        lever: day.lever,
-        title: name ? `${name}, הכול מוכן` : 'הכול מוכן',
-        body: 'בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.',
+        ...base,
+        title: name ? t('firstWeekCard.welcome.titleNamed', { name }) : t('firstWeekCard.welcome.title'),
+        body: t('firstWeekCard.welcome.body'),
         href: null,
         ctaLabel: null,
       };
     case 'routine':
-      return { day: day.day, lever: day.lever, title: 'האימון שלך מחכה בכניסה', body: 'הוא כבר חימם את עצמו. 12 דקות ואתם חברים', href: null, ctaLabel: null };
-    case 'low_bar':
-      return { day: day.day, lever: day.lever, title: 'הורדנו את הרף. ממש נמוך', body: '10 דקות הליכה. זה הכול. גם זה נספר', href: '/map?openRun=walking', ctaLabel: 'יוצאים להליכה' };
-    case 'social':
-      return { day: day.day, lever: day.lever, title: 'לא חייבים לבד', body: 'בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי', href: '/map', ctaLabel: 'למפה' };
-    case 'steps':
-      return { day: day.day, lever: day.lever, title: 'הרגליים עשו עבודה יפה היום', body: 'כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום', href: '/activity/steps', ctaLabel: 'לצעדים של היום' };
     case 'evening':
-      return { day: day.day, lever: day.lever, title: 'היום היה של כולם', body: '10 הדקות הבאות יכולות להיות רק שלך', href: null, ctaLabel: null };
     case 'in_app':
-      return { day: day.day, lever: day.lever, title: 'עוד יום והשבוע הראשון מאחורינו', body: 'אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין', href: null, ctaLabel: null };
     case 'fresh_start':
-      return { day: day.day, lever: day.lever, title: 'שבוע חדש, דף חדש', body: 'בלי להסתכל אחורה. אימון של 10 דקות ומתחילים', href: null, ctaLabel: null };
+      return card(null, false);
+    case 'low_bar':
+      return card('/map?openRun=walking', true);
+    case 'social':
+      return card('/map', true);
+    case 'steps':
+      return card('/activity/steps', true);
     default:
       return null;
   }

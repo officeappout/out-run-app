@@ -1,0 +1,2824 @@
+{
+  "workout_reminder_day": {
+    "outcomes": 72,
+    "hash": "7c5aff59b98dd96e68b2442bde0f32cd45c75fb4af0c13dd0b74199fa3768569",
+    "unique": [
+      {
+        "pushType": "workout_reminder_day",
+        "title": "אימון כוח היום",
+        "body": "גם 15 דקות נחשבות. מתחילים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:workout_reminder_day:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "workout_reminder_day",
+        "title": "אימון כוח היום",
+        "body": "האימון שלך מוכן. יוצאים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:workout_reminder_day:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "workout_reminder_day",
+        "title": "אימון כוח היום",
+        "body": "רגע קטן בשבילך היום. האימון כבר מחכה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:workout_reminder_day:2",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "workout_reminder_before": {
+    "outcomes": 72,
+    "hash": "b7c5c411124a8d97ebd185c8e1cb2884eb00416dbd0811c877a1b8051cfce0b2",
+    "unique": [
+      {
+        "pushType": "workout_reminder_before",
+        "title": "אימון כוח ב-18:30",
+        "body": "האימון שלך מחכה ב-18:30. יוצאים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:workout_reminder_before:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "workout_reminder_slot": {
+    "outcomes": 72,
+    "hash": "24855ac0be0a8ba664ed63d2e5e2c8a78f388e91376f68cc1a21643c876f0e82",
+    "unique": [
+      {
+        "pushType": "workout_reminder_slot",
+        "title": "הגיע הזמן שקבעת",
+        "body": "קבעת להתאמן עכשיו. יוצאים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:workout_reminder_slot:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "workout_reminder_slot",
+        "title": "הגיע הזמן שקבעת",
+        "body": "רגע קטן בשבילך. האימון מחכה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:workout_reminder_slot:2",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "retention_lapse": {
+    "outcomes": 10080,
+    "hash": "1c1e0158ea2d09bf93a582bc574a3ba0b2bffd03cadf22aeb04b2f42570234e5",
+    "unique": [
+      {
+        "pushType": "retention_lapse",
+        "title": "איתי, מוכן להליכה קצרה?",
+        "body": "20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:28",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "איתי, מוכן לחזור?",
+        "body": "אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:4",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "איתי, מוכן לרוץ שוב?",
+        "body": "ריצה קלה של 15 דקות, בקצב שלך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:24",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "בא לך אימון קצר היום?",
+        "body": "15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:11",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "בא לך אימון קצר היום?",
+        "body": "15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצי.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:12",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "בלי לחץ, רק להזכיר",
+        "body": "15 דקות ליד הבית, מתי שנוח",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:30",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "דנה, הגינה עדיין שם",
+        "body": "אימון קצר של 10 דקות, בלי ציוד. חוזרים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:1",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "דנה, מוכנה להליכה קצרה?",
+        "body": "20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:29",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "דנה, מוכנה לחזור?",
+        "body": "אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:5",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "דנה, מוכנה לרוץ שוב?",
+        "body": "ריצה קלה של 15 דקות, בקצב שלך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:25",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "הדלת תמיד פתוחה",
+        "body": "כשיתאים, אימון קל של 15 דקות מחכה כאן. בלי לחץ.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:19",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d30"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "הדלת תמיד פתוחה",
+        "body": "כשתרצה לחזור, אימון קל של 15 דקות מחכה לך כאן.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:20",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d30"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "הדלת תמיד פתוחה",
+        "body": "כשתרצי לחזור, אימון קל של 15 דקות מחכה לך כאן.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:21",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d30"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "הדלת תמיד פתוחה",
+        "body": "נבנה לך תוכנית חדשה בדקה, מה שמתאים לך עכשיו",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:33",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d28",
+            "d30"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "הליכה קצרה היום?",
+        "body": "20 דקות הליכה ליד הבית, וחוזרים לשגרה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:26",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "הנעליים מחכות ליד הדלת",
+        "body": "ריצה קלה של 15 דקות, בקצב שלך. חוזרים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:22",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "הנעליים שאלו עליכם",
+        "body": "סיבוב של 15 דקות היום?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:31",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ],
+          "track": [
+            "walk"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "התגעגענו, באמת",
+        "body": "נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:36",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d28",
+            "d30"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "התגעגענו, באמת",
+        "body": "נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:37",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d28",
+            "d30"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "חוזרים בקטנה?",
+        "body": "בנינו לך אימון קל לחזרה. 15 דקות, בקצב שלך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "יום טוב להתחיל מחדש",
+        "body": "אימון אחד קל, ואת שוב בעניינים.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:9",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "יום טוב להתחיל מחדש",
+        "body": "אימון אחד קל, ואתה שוב בעניינים.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:8",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "יום טוב להתחיל מחדש",
+        "body": "אימון אחד קל, וההרגל חוזר.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:3",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "יוצאים להליכה?",
+        "body": "הליכה קלה בקצב שלך. כל צעד נחשב.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:27",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "מה קורה אחותי?",
+        "body": "בלי לחץ. 15 דקות ליד הבית מתי שבא לך",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:35",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "מה קורה אחי?",
+        "body": "בלי לחץ. 15 דקות ליד הבית מתי שבא לך",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:34",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "מוכן להתחלה חדשה?",
+        "body": "אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:17",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d14"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "מוכן לחזור לשגרה?",
+        "body": "בנינו לך אימון קל לחזרה. 15 דקות, ואתה שוב בשגרה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:6",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "מוכנה להתחלה חדשה?",
+        "body": "אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:18",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d14"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "מוכנה לחזור לשגרה?",
+        "body": "בנינו לך אימון קל לחזרה. 15 דקות, ואת שוב בשגרה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:7",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "מתחילים מחדש, בקטנה",
+        "body": "בנינו אימון קל לחזרה. 15 דקות, בקצב שלך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:16",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d14"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "רגע קטן בשבילך היום",
+        "body": "מה שבונה הרגל זה לחזור. 15 דקות ליד הבית, בקצב שלך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "רגע קטן בשבילך?",
+        "body": "אימון קל של 15 דקות ליד הבית. בלי לחץ, בקצב שלך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:10",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "ריצה קצרה היום?",
+        "body": "15 דקות בקצב נוח, וחוזרים לשגרת הריצה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:23",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "שבוע חדש מתחיל היום",
+        "body": "15 דקות זה כל מה שצריך כדי לפתוח אותו. יוצאים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:13",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d7"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "שבוע חדש מתחיל היום. 15 דקות?",
+        "body": "אימון קל אחד, ואת פותחת את השבוע ברגל ימין.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:15",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d7"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "שבוע חדש מתחיל היום. 15 דקות?",
+        "body": "אימון קל אחד, ואתה פותח את השבוע ברגל ימין.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:14",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d7"
+          ]
+        }
+      },
+      {
+        "pushType": "retention_lapse",
+        "title": "שבוע חדש, התחלה נקייה",
+        "body": "אימון קל של 15 דקות. ממשיכים מכאן",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:retention_lapse:32",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "d7",
+            "d14",
+            "d21"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      }
+    ]
+  },
+  "onboarding_dropoff": {
+    "outcomes": 1152,
+    "hash": "262e1307b11787de36ab798747e051de3802f84b753e87fb04eea8e428c67668",
+    "unique": [
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "איתי, התוכנית שלך מחכה",
+        "body": "כמה שאלות קצרות, ונבנה תוכנית שמתאימה בדיוק לך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:10",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "early"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "איתי, נשאר רק עוד צעד",
+        "body": "עוד דקה ואתה מקבל את האימון הראשון שלך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:5",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "אנשים לידך כבר מתאמנים",
+        "body": "מסיימים להירשם ורואים מי מתאמן בגינה הקרובה.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:4",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "דנה, התוכנית שלך מחכה",
+        "body": "כמה שאלות קצרות, ונבנה תוכנית שמתאימה בדיוק לך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:10",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "early"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "דנה, נשאר רק עוד צעד",
+        "body": "עוד דקה ואת מקבלת את האימון הראשון שלך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:6",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "דנה, נשאר רק עוד צעד",
+        "body": "עוד דקה וההרשמה מוכנה, ואז מקבלים את האימון הראשון.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:0",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "האימון הראשון מחכה לך",
+        "body": "לסיים את ההרשמה לוקח פחות מדקה.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:3",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "הבדיקה הקצרה מחכה לך",
+        "body": "כמה תרגילים פשוטים, ונדע לבנות לך תוכנית בדיוק לרמה שלך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:12",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "התוכנית שלך כמעט מוכנה",
+        "body": "מסיימים את ההרשמה, ונבנה לך תוכנית לפי הרמה שלך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "מוכן לאימון הראשון?",
+        "body": "מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:7",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "מוכנה לאימון הראשון?",
+        "body": "מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:8",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "נמשיך מאיפה שעצרת?",
+        "body": "שמרנו את מה שמילאת. עוד כמה שאלות וזהו.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "נמשיך מאיפה שעצרת?",
+        "body": "שמרנו את מה שמילאת. עוד כמה שאלות ונבנה לך תוכנית.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:9",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "early"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "עוד רגע יודעים מאיפה מתחילים",
+        "body": "נשארה בדיקת רמה קצרה, ואז מקבלים תוכנית לפי הרמה שלך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:11",
+        "source": "default",
+        "conditions": {
+          "stage": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "תוכנית ההליכה שלך כמעט מוכנה",
+        "body": "מסיימים את ההרשמה ומקבלים יעד הליכה שמתאים לך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:14",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "pushType": "onboarding_dropoff",
+        "title": "תוכנית הריצה שלך כמעט מוכנה",
+        "body": "מסיימים את ההרשמה ומקבלים ריצה ראשונה בקצב שלך.",
+        "deepLink": "/gateway",
+        "deepLinkId": "gateway",
+        "rowId": "default:onboarding_dropoff:13",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      }
+    ]
+  },
+  "first_workout": {
+    "outcomes": 1152,
+    "hash": "7bad0fa22068cb938df2772bdb1d4119c92f01b6756128098586a47996d9c63d",
+    "unique": [
+      {
+        "pushType": "first_workout",
+        "title": "איתי, האימון הראשון מחכה",
+        "body": "בנינו לך אותו לפי הרמה שלך. 10 דקות ומתחילים.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "first_workout",
+        "title": "דנה, האימון הראשון מחכה",
+        "body": "בנינו לך אותו לפי הרמה שלך. 10 דקות ומתחילים.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "first_workout",
+        "title": "האימון הראשון שלך מוכן",
+        "body": "10 דקות זה כל מה שצריך כדי להתחיל. יוצאים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "first_workout",
+        "title": "האימון הראשון שלך מוכן",
+        "body": "אימון כוח קצר, בלי ציוד. מתחילים היום?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:3",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "first_workout",
+        "title": "ההליכה הראשונה שלך מוכנה",
+        "body": "15 דקות הליכה ליד הבית, וכבר התחלת.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:5",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "pushType": "first_workout",
+        "title": "הריצה הראשונה שלך מוכנה",
+        "body": "ריצה קלה בקצב שלך. מתחילים היום?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:4",
+        "source": "default",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "pushType": "first_workout",
+        "title": "מתחילים בקטנה?",
+        "body": "אימון ראשון קצר, בקצב שלך. הוא כבר מחכה לך.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "first_workout",
+        "title": "עוד לא התחלת? זה בסדר",
+        "body": "אימון ראשון של 10 דקות מחכה לך, מתי שנוח.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:6",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "later"
+          ]
+        }
+      },
+      {
+        "pushType": "first_workout",
+        "title": "עוד לא יצאת להליכה הראשונה?",
+        "body": "15 דקות הליכה ליד הבית, מתי שנוח.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:8",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "later"
+          ],
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "pushType": "first_workout",
+        "title": "עוד לא יצאת לריצה הראשונה?",
+        "body": "ריצה קלה של 15 דקות, בקצב שלך. מתי שנוח.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_workout:7",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "later"
+          ],
+          "track": [
+            "run"
+          ]
+        }
+      }
+    ]
+  },
+  "level_up": {
+    "outcomes": 720,
+    "hash": "bb891416cebc03478b2edc2b566c4bd53a37662849ac3644b1ce5468bd1f27ed",
+    "unique": [
+      {
+        "pushType": "level_up",
+        "title": "עלית לרמה 2",
+        "body": "יפה מאוד. ככה בונים הרגל, אימון אחרי אימון.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:0",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "2"
+          ]
+        }
+      },
+      {
+        "pushType": "level_up",
+        "title": "עלית לרמה 3",
+        "body": "ההתמדה שלך עובדת. ממשיכים.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:1",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "3"
+          ]
+        }
+      },
+      {
+        "pushType": "level_up",
+        "title": "עלית לרמה 4",
+        "body": "כל אימון נספר, וזה כבר מורגש.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:2",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "4"
+          ]
+        }
+      },
+      {
+        "pushType": "level_up",
+        "title": "עלית לרמה 5",
+        "body": "כל אימון נספר. ממשיכים.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:9",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "level_up",
+        "title": "עלית לרמה 6",
+        "body": "הקצב שלך יציב. ממשיכים ככה.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:4",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "6"
+          ]
+        }
+      },
+      {
+        "pushType": "level_up",
+        "title": "עלית לרמה 7",
+        "body": "מעטים מגיעים לכאן. כל הכבוד על ההתמדה.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:5",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "7"
+          ]
+        }
+      },
+      {
+        "pushType": "level_up",
+        "title": "עלית לרמה 8",
+        "body": "עוד שתי רמות לפסגה. ממשיכים בקצב שלך.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:6",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "8"
+          ]
+        }
+      },
+      {
+        "pushType": "level_up",
+        "title": "עלית לרמה 9",
+        "body": "עוד רמה אחת לפסגה.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:7",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "9"
+          ]
+        }
+      },
+      {
+        "pushType": "level_up",
+        "title": "רמה 10, הפסגה",
+        "body": "הגעת לרמה הכי גבוהה. מסע אמיתי, כל הכבוד.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:8",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "10"
+          ]
+        }
+      },
+      {
+        "pushType": "level_up",
+        "title": "רמה 5, חצי הדרך",
+        "body": "הגעת לחצי הדרך לרמה 10. כל הכבוד.",
+        "deepLink": "/progression-map/program123",
+        "deepLinkId": "progression_map",
+        "rowId": "default:level_up:3",
+        "source": "default",
+        "conditions": {
+          "level": [
+            "5"
+          ]
+        }
+      }
+    ]
+  },
+  "kudos_single": {
+    "outcomes": 72,
+    "hash": "041e7cca54df6aa0c3845c1c3e7b725a3fb43b1cac0ba21dc2724da405af6f2a",
+    "unique": [
+      {
+        "pushType": "kudos_single",
+        "title": "יואב שלח לך כיף",
+        "body": "מגיע לך. רוצים להחזיר?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:kudos_single:3",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "kudos_single",
+        "title": "יואב שלח לך כיף",
+        "body": "על האימון האחרון שלך. אפשר להחזיר לו כיף.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:kudos_single:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "kudos_single",
+        "title": "נועה שלחה לך כיף",
+        "body": "מגיע לך. רוצים להחזיר?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:kudos_single:4",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "kudos_single",
+        "title": "נועה שלחה לך כיף",
+        "body": "על האימון האחרון שלך. אפשר להחזיר לה כיף.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:kudos_single:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "kudos_single",
+        "title": "קיבלת כיף מנועה",
+        "body": "על האימון האחרון שלך. אפשר להחזיר כיף.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:kudos_single:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "kudos_bundle": {
+    "outcomes": 216,
+    "hash": "523d4f84909965d8bbb81df9fabcaf35046efb6fe40dee594b54099d36987f0c",
+    "unique": [
+      null,
+      {
+        "pushType": "kudos_bundle",
+        "title": "קיבלת 4 כיפים",
+        "body": "נועה ועוד 3 שלחו לך כיף.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:kudos_bundle:0",
+        "source": "default",
+        "conditions": {
+          "others": [
+            "many"
+          ]
+        }
+      },
+      {
+        "pushType": "kudos_bundle",
+        "title": "קיבלת 4 כיפים",
+        "body": "נועה ועוד מישהו שלחו לך כיף.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:kudos_bundle:1",
+        "source": "default",
+        "conditions": {
+          "others": [
+            "one"
+          ]
+        }
+      }
+    ]
+  },
+  "group_join_welcome": {
+    "outcomes": 72,
+    "hash": "9ec7eb2b1c9918e635ce8f23361213245f34eddefdbd25fed68d55ab3b212ab6",
+    "unique": [
+      {
+        "pushType": "group_join_welcome",
+        "title": "הצטרפת לרצים בפארק",
+        "body": "אפשר לראות מתי המפגש הבא ומי מגיע.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:group_join_welcome:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "group_join_admin": {
+    "outcomes": 72,
+    "hash": "99fc266786758fb99a77fb9ac02a2b7864d3e0a063fa7e45ece20266cf5dd55f",
+    "unique": [
+      {
+        "pushType": "group_join_admin",
+        "title": "יואב איתכם ברצים בפארק",
+        "body": "הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:group_join_admin:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "group_join_admin",
+        "title": "יואב הצטרף לרצים בפארק",
+        "body": "הקבוצה גדלה. אפשר לקבל אותו בברכה בצ׳אט.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:group_join_admin:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "group_join_admin",
+        "title": "נועה הצטרפה לרצים בפארק",
+        "body": "הקבוצה גדלה. אפשר לקבל אותה בברכה בצ׳אט.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:group_join_admin:3",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "contribution_approved": {
+    "outcomes": 72,
+    "hash": "49dc7f550de3a27f879692a0a02b4839c863cbf098a674533a0ec50149f971f0",
+    "unique": [
+      {
+        "pushType": "contribution_approved",
+        "title": "הפארק שהוספת עלה למפה",
+        "body": "\"גן הבנים\" על המפה. מעכשיו כולם יכולים להתאמן שם. תודה!",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_park",
+        "rowId": "default:contribution_approved:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "week_start": {
+    "outcomes": 72,
+    "hash": "e97b9e614f1b4211fa7de48c3bb8dad8369cd00ed49a7854f3422de66641f37e",
+    "unique": [
+      {
+        "pushType": "week_start",
+        "title": "שבוע חדש מתחיל",
+        "body": "מה האימון הראשון שלך השבוע? אפשר לקבוע אותו כבר עכשיו.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:week_start:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "week_start",
+        "title": "שבוע טוב",
+        "body": "מתחילים את השבוע בתנועה. כמה דקות מחר כבר עושות את ההבדל.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:week_start:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "week_start",
+        "title": "שבוע טוב",
+        "body": "שבוע חדש מתחיל. נקבע אימון ראשון למחר?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:week_start:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "step_goal": {
+    "outcomes": 2160,
+    "hash": "8e52162b34a9c18d7327b4efb72f2c0f875d22ecdd67f656e3a4c3b36182eb33",
+    "unique": [
+      null,
+      {
+        "pushType": "step_goal",
+        "title": "יום עמוס? זה בסדר",
+        "body": "15 דקות הליכה אחרי ארוחת הערב שוות חצי יעד",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:14",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "start"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "יעד הצעדים של היום",
+        "body": "איתי, יום חדש. 2,400 צעדים ליעד של היום.",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:4",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "start"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "יעד הצעדים של היום",
+        "body": "דנה, יום חדש. 2,400 צעדים ליעד של היום.",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:4",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "start"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "יעד הצעדים של היום",
+        "body": "כבר 5 ימים ברצף. עוד 2,400 צעדים ושומרים עליו.",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:3",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "יעד הצעדים של היום",
+        "body": "כמעט שם. עוד 20 דקות הליכה וסגרת את היום.",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:0",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "close"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "יעד הצעדים של היום",
+        "body": "מתחילים את היום בהליכה? 2,400 צעדים ליעד.",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:5",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "start"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "יעד הצעדים של היום",
+        "body": "עברת חצי מהיעד. עוד 2,400 צעדים, בערך 20 דקות הליכה.",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:2",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "יעד הצעדים של היום",
+        "body": "עוד 2,400 צעדים בלבד, הליכה של 20 דקות.",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:1",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "close"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "כמה צעדים יש בשיר אחד?",
+        "body": "בערך 400. עוד 2,400 לסגור את היום",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:13",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "mid"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "כמעט שם, אחותי",
+        "body": "עוד 2,400 צעדים. סיבוב ליד הבית וסגרת",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:16",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "close"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "כמעט שם, אחי",
+        "body": "עוד 2,400 צעדים. סיבוב ליד הבית וסגרת",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:15",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "close"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "step_goal",
+        "title": "כמעט שם, באמת כמעט",
+        "body": "עוד 2,400 צעדים. זה בערך הדרך למכולת וחזרה",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:step_goal:12",
+        "source": "default",
+        "conditions": {
+          "bucket": [
+            "close"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      }
+    ]
+  },
+  "streak_rescue": {
+    "outcomes": 1080,
+    "hash": "4ffe8ffe6fb0ad9bfbb965b57f527b2f9f0cbf96a20ea051f2a01a18c2764d5a",
+    "unique": [
+      null,
+      {
+        "pushType": "streak_rescue",
+        "title": "5 ימים. אל תוותרו עליהם",
+        "body": "עוד 2,400 צעדים או 10 דקות וזה סגור.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_rescue:1",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "first"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_rescue",
+        "title": "אחותי, הרצף על הקו",
+        "body": "יום 5. 10 דקות ומצילים אותו.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_rescue:4",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "first"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_rescue",
+        "title": "אחי, הרצף על הקו",
+        "body": "יום 5. 10 דקות ומצילים אותו.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_rescue:3",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "first"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_rescue",
+        "title": "הרצף שלך שואל אם הכול בסדר",
+        "body": "יום 5. עוד 10 דקות והוא נרגע.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_rescue:0",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "first"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_rescue",
+        "title": "יום 5 ברצף",
+        "body": "עוד 20 דקות של תנועה והיום נסגר. הליכה קצרה מספיקה.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_rescue:2",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "first"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_rescue",
+        "title": "נשארה שעה. מספיק?",
+        "body": "10 דקות בסלון ושמרת על 5 ימים.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_rescue:5",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "late"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_rescue",
+        "title": "עוד רגע נגמר היום",
+        "body": "10 דקות בסלון ושמרת על 5 ימים ברצף.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_rescue:6",
+        "source": "default",
+        "conditions": {
+          "when": [
+            "late"
+          ]
+        }
+      }
+    ]
+  },
+  "streak_broken": {
+    "outcomes": 360,
+    "hash": "7e33db33e107a1ef95d9665969abf160688a770b8f449e707a727ea862a5b0d5",
+    "unique": [
+      {
+        "pushType": "streak_broken",
+        "title": "גם רצפים צריכים חופש",
+        "body": "השיא שלך, 23 ימים, מחכה שתשברו אותו.",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_broken:2",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_broken",
+        "title": "הרצף נעצר. השיא נשאר",
+        "body": "23 ימים זה שלך לתמיד. מתחילים רצף חדש היום?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_broken:0",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_broken",
+        "title": "השיא שלך נשאר שלך",
+        "body": "23 ימים ברצף, וזה לא הולך לשום מקום. מתחילים היום?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_broken:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "streak_broken",
+        "title": "קורה לטובות ביותר",
+        "body": "השיא 23 נשאר שלך. מתחילים מחדש?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_broken:4",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_broken",
+        "title": "קורה לטובים ביותר",
+        "body": "השיא 23 נשאר שלך. מתחילים מחדש?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:streak_broken:3",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      }
+    ]
+  },
+  "streak_milestone": {
+    "outcomes": 2880,
+    "hash": "41af859ed6587ac24fa6b3f4d8348747fda3081719096752341a061c969b7f7a",
+    "unique": [
+      {
+        "pushType": "streak_milestone",
+        "title": "100. מישהו פה רציני",
+        "body": "100 ימים ברצף. השכנים מדברים.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:8",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "100"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "3 ימים ברצף",
+        "body": "ההתחלה הכי קשה כבר מאחור. ממשיכים מחר?",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:1",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "3"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "30 יום. מי את בכלל?",
+        "body": "חודש ברצף. ריספקט.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:6",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "30"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "30 יום. מי אתה בכלל?",
+        "body": "חודש ברצף. ריספקט.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:5",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "30"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "5 ימים ברצף",
+        "body": "כל יום נספר. ממשיכים בקצב שלך.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "50 ימים ברצף",
+        "body": "חצי הדרך למאה. ממשיכים בקצב שלך.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:7",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "50"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "חודש. וואו",
+        "body": "30 ימים ברצף. זה כבר לא ניסיון, זה מי שאתם.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:4",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "30"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "שבוע שלם",
+        "body": "7 ימים ברצף. ככה נראה הרגל שנולד.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:2",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "7"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "שבועיים ברצף",
+        "body": "14 ימים. הגוף כבר מחכה לזה.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:3",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "14"
+          ]
+        }
+      },
+      {
+        "pushType": "streak_milestone",
+        "title": "שנה שלמה ברצף",
+        "body": "365 ימים. אין מילים, רק כבוד.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:streak_milestone:9",
+        "source": "default",
+        "conditions": {
+          "milestone": [
+            "365"
+          ]
+        }
+      }
+    ]
+  },
+  "partner_plan": {
+    "outcomes": 288,
+    "hash": "9f22a9d19271d1db88d848e15ed84ecdf717659fba2a517fd744b8635aff4f62",
+    "unique": [
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "אימון בגן הבנים ב-18:30 עם נועה. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:6",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "אימון כוח בגן הבנים ב-18:30 עם נועה. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:2",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "אימון כוח בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:3",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "איתי, יואב יוצא לאימון כוח בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:17",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "איתי, יואב יוצא להליכה בגן הבנים ב-18:30. באים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:13",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "איתי, יואב יוצא לרוץ בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:9",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "איתי, נועה יוצאת לאימון כוח בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:18",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "איתי, נועה יוצאת להליכה בגן הבנים ב-18:30. באים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:14",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "איתי, נועה יוצאת לרוץ בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:10",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "דנה, יואב יוצא לאימון כוח בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:17",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "דנה, יואב יוצא להליכה בגן הבנים ב-18:30. באים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:13",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "דנה, יואב יוצא לרוץ בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:9",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "דנה, נועה יוצאת לאימון כוח בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:18",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "דנה, נועה יוצאת להליכה בגן הבנים ב-18:30. באים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:14",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "דנה, נועה יוצאת לרוץ בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:10",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "הליכה בגן הבנים ב-18:30 עם נועה. באים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:4",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "הליכה בגן הבנים ב-18:30. לא הולכים לבד.",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:5",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "יואב יוצא להליכה בגן הבנים ב-18:30. לא הולכים לבד.",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:15",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "יואב יוצא להתאמן בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:21",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "יואב יוצא לרוץ בגן הבנים ב-18:30. זה הזמן להצטרף.",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:11",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "יואב מתכנן אימון כוח בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:19",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "נועה יוצאת להליכה בגן הבנים ב-18:30. לא הולכים לבד.",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:16",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "נועה יוצאת להתאמן בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:22",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "נועה יוצאת לרוץ בגן הבנים ב-18:30. זה הזמן להצטרף.",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:12",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "נועה מתכננת אימון כוח בגן הבנים ב-18:30. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:20",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "ריצה בגן הבנים ב-18:30 עם נועה. מצטרפים?",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:0",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "pushType": "partner_plan",
+        "title": "מתאמנים לידך",
+        "body": "ריצה בגן הבנים ב-18:30. זה הזמן להצטרף.",
+        "deepLink": "/map?openPark=park123",
+        "deepLinkId": "map_place",
+        "rowId": "default:partner_plan:1",
+        "source": "default",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      }
+    ]
+  },
+  "first_week": {
+    "outcomes": 5040,
+    "hash": "2c091249d4d217c758dd237fba73bf543e7d46fe7e4ad1e89bd1201da737ed9f",
+    "unique": [
+      null,
+      {
+        "pushType": "first_week",
+        "title": "18:30. הזמן שבחרת לעצמך",
+        "body": "12 דקות שהן רק שלך. מתחילים?",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:1",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "אחותי, האימון מוכן",
+        "body": "12 דקות, בלי ציוד. יאללה, רק תתחילי",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:4",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "אחי, האימון מוכן",
+        "body": "12 דקות, בלי ציוד. יאללה, רק תתחיל",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:3",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "אחרי יום כזה? מגיע לך",
+        "body": "10 דקות בסלון, ואז ספה בלב שקט",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:19",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d5"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "אחרי יום כזה? מגיע לך",
+        "body": "10 דקות בסלון, ואז ספה בלב שקט",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:20",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d5"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "אימון בלי להחליף בגדים?",
+        "body": "10 דקות הליכה מהדלת. ככה מתחילים את הרצף",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:first_week:7",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "בגן הבנים כבר מתגעגעים",
+        "body": "12 אנשים התאמנו שם השבוע. חסר רק אחד",
+        "deepLink": "/map",
+        "deepLinkId": "map",
+        "rowId": "default:first_week:10",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "האימון שלך מחכה בכניסה",
+        "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:0",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "הורדנו את הרף. ממש נמוך",
+        "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:first_week:5",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "היום היה של כולם",
+        "body": "10 הדקות הבאות יכולות להיות רק שלך",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:17",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d5"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "הספה תסלח לנו",
+        "body": "10 דקות בסלון, בלי ציוד. אחר כך חוזרים אליה",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:18",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d5"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "הרגליים עשו עבודה יפה היום",
+        "body": "עוד 2,400 צעדים ויש לך יום ראשון ברצף",
+        "deepLink": "/activity/steps",
+        "deepLinkId": "activity_steps",
+        "rowId": "default:first_week:15",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d4"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "כמעט סגרת יום בלי לשים לב",
+        "body": "עוד 2,400 צעדים. סיבוב קצר מסביב לבניין?",
+        "deepLink": "/activity/steps",
+        "deepLinkId": "activity_steps",
+        "rowId": "default:first_week:16",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d4"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "כפרה עלייך, את לא לבד",
+        "body": "12 אנשים התאמנו בגן הבנים השבוע. בואי",
+        "deepLink": "/map",
+        "deepLinkId": "map",
+        "rowId": "default:first_week:14",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "כפרה עליך, אתה לא לבד",
+        "body": "12 אנשים התאמנו בגן הבנים השבוע. בוא",
+        "deepLink": "/map",
+        "deepLinkId": "map",
+        "rowId": "default:first_week:13",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "לא חייבים לבד",
+        "body": "יש קבוצת הליכה ליד הבית שמחכה לחברים חדשים",
+        "deepLink": "/map",
+        "deepLinkId": "map",
+        "rowId": "default:first_week:12",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "personal"
+          ],
+          "nearby": [
+            "group"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "לא צריך להיות מושלם",
+        "body": "צריך רק להתחיל. 10 דקות הליכה סוגרות לך יום ראשון",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:first_week:6",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "מה אם השבוע זה יקרה?",
+        "body": "אימון ראשון של 10 דקות. רק לנסות",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:22",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d7"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "מה קורה בגוף אחרי 12 דקות?",
+        "body": "יש רק דרך אחת לגלות. האימון הראשון מוכן",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:2",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "מי מתאמן בגן הבנים?",
+        "body": "12 שכנים כבר גילו. בואו לראות",
+        "deepLink": "/map",
+        "deepLinkId": "map",
+        "rowId": "default:first_week:11",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "נו אחותי, 10 דקות",
+        "body": "הליכה מסביב לבלוק. זה הכול, נשבעת",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:first_week:9",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "נו אחי, 10 דקות",
+        "body": "הליכה מסביב לבלוק. זה הכול, נשבע",
+        "deepLink": "/map?openRun=walking&targetSteps=2400",
+        "deepLinkId": "map_walk",
+        "rowId": "default:first_week:8",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "first_week",
+        "title": "שבוע חדש, דף חדש",
+        "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:first_week:21",
+        "source": "default",
+        "conditions": {
+          "day": [
+            "d7"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      }
+    ]
+  },
+  "second_workout": {
+    "outcomes": 360,
+    "hash": "ac41b07abed4b2b809129d4bc62fe18ca10148cb7180a3c11739e9774f290f25",
+    "unique": [
+      {
+        "pushType": "second_workout",
+        "title": "האימון השני הוא הסוד",
+        "body": "הראשון זה סקרנות. השני זה התחלה של הרגל",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:second_workout:0",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "pushType": "second_workout",
+        "title": "האימון השני מחכה",
+        "body": "הראשון כבר מאחוריך. 15 דקות וממשיכים",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:second_workout:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "second_workout",
+        "title": "הגוף שלך שואל מתי שוב",
+        "body": "15 דקות. הוא מוכן אם גם אתם",
+        "deepLink": "/home",
+        "deepLinkId": "home",
+        "rowId": "default:second_workout:1",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "cute"
+          ]
+        }
+      }
+    ]
+  },
+  "friend_joined": {
+    "outcomes": 72,
+    "hash": "0f88b3a30cfefe39e0c5504bd310514b43368e864f6f5e843c5976f129884a80",
+    "unique": [
+      null,
+      {
+        "pushType": "friend_joined",
+        "title": "יואב הצטרף ל-OUT",
+        "body": "שולחים כיף לדרך?",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:friend_joined:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "friend_joined",
+        "title": "נועה הצטרפה ל-OUT",
+        "body": "שולחים כיף לדרך?",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:friend_joined:1",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "league_overtaken": {
+    "outcomes": 360,
+    "hash": "10f0aef5a44f785d887b70b8cd2c13cf852b9526cc4f9fab17b14fb3691d71d4",
+    "unique": [
+      null,
+      {
+        "pushType": "league_overtaken",
+        "title": "יואב עקף אותך. בנימוס",
+        "body": "אבל עדיין. אימון אחד וחזרתם",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:league_overtaken:1",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "league_overtaken",
+        "title": "יואב עקף אותך. מה נסגר?",
+        "body": "אימון אחד ואת חוזרת למקום 3",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:league_overtaken:5",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "league_overtaken",
+        "title": "יואב עקף אותך. מה נסגר?",
+        "body": "אימון אחד ואתה חוזר למקום 3",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:league_overtaken:3",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "league_overtaken",
+        "title": "מישהו עקף אותך בשכונה",
+        "body": "אימון אחד ואתם חוזרים למקום 3",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:league_overtaken:0",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "pushType": "league_overtaken",
+        "title": "נועה עקפה אותך. בנימוס",
+        "body": "אבל עדיין. אימון אחד וחזרתם",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:league_overtaken:2",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "pushType": "league_overtaken",
+        "title": "נועה עקפה אותך. מה נסגר?",
+        "body": "אימון אחד ואת חוזרת למקום 3",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:league_overtaken:6",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "pushType": "league_overtaken",
+        "title": "נועה עקפה אותך. מה נסגר?",
+        "body": "אימון אחד ואתה חוזר למקום 3",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:league_overtaken:4",
+        "source": "default",
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      }
+    ]
+  },
+  "unit_league": {
+    "outcomes": 72,
+    "hash": "6006cc9676153a189ee4843c69df95e77f4ce4672239ebe0c7c4adbe2acffd8e",
+    "unique": [
+      {
+        "pushType": "unit_league",
+        "title": "היחידה צמודה למקום הראשון",
+        "body": "כל אימון שלך מזיז את כולם",
+        "deepLink": "/community",
+        "deepLinkId": "community",
+        "rowId": "default:unit_league:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "steps_connect": {
+    "outcomes": 72,
+    "hash": "d007a7f675d1e47e2cc69c0264971b3c4264884aea8d6193ff3ef57e405c2241",
+    "unique": [
+      {
+        "pushType": "steps_connect",
+        "title": "כל הליכה שלכם יכולה להיספר",
+        "body": "מחברים צעדים בדקה, וגם הליכה לסופר נכנסת לרצף",
+        "deepLink": "/activity/steps",
+        "deepLinkId": "activity_steps",
+        "rowId": "default:steps_connect:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  }
+}

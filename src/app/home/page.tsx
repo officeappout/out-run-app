@@ -16,6 +16,7 @@ import { useCoachTargetPresent } from '@/features/user/onboarding/hooks/useCoach
 import { consumeWhatNowPlanArrival } from '@/features/user/onboarding/services/entry-whatnow';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
 import { useEntryRouter, type EntryRouterGeoBranch } from '@/features/user/onboarding/hooks/useEntryRouter';
+import { useWelcomeDrawerSuppressed } from '@/features/user/onboarding/hooks/useEntryWhatNow';
 import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
@@ -428,6 +429,11 @@ export default function HomePage() {
   // answered "what first" on the map — no WelcomeDrawer on this visit; the 'plan' tour points
   // at the start cards instead (owner note 21.10 #6). One-shot sessionStorage hint.
   const [whatNowPlanArrival, setWhatNowPlanArrival] = useState(false);
+  // enable_entry_single_choice_v1: answered/dismissed the map's "מה בא לך עכשיו?" before → no WelcomeDrawer.
+  const welcomeSuppressedByMap = useWelcomeDrawerSuppressed(
+    !flagsLoading && featureFlags.enableEntrySingleChoiceV1,
+    profile?.id,
+  );
   // The home tour waits for the "today" card (never measures a loading skeleton); polling stops
   // once the tour has closed for this visit (done / skip / seen / not a new user).
   const [homeTourClosed, setHomeTourClosed] = useState(false);
@@ -4004,7 +4010,7 @@ export default function HomePage() {
           same guard list as the FAB below, so this never stacks on top of
           the lifestyle wizard, planner, builder, or an open workout. */}
       <AnimatePresence>
-        {entryRouterClassification.kind === 'new' && !whatNowPlanArrival &&
+        {entryRouterClassification.kind === 'new' && !whatNowPlanArrival && !welcomeSuppressedByMap &&
           !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && !shouldShowBridge && (
             <WelcomeDrawer
               geoBranch={entryRouterClassification.geoBranch}

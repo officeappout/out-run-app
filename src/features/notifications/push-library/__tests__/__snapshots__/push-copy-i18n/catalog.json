@@ -1,0 +1,3044 @@
+[
+  {
+    "pushType": "workout_reminder_day",
+    "label": "תזכורת לאימון של היום",
+    "lever": "routine",
+    "channel": "training_reminder",
+    "sender": "trainingReminderScheduler",
+    "description": "יש אימון מתוכנן להיום שעוד לא בוצע: ביומן של היום, או לפי התבנית השבועית גם כשהמשתמש לא פתח את האפליקציה היום.",
+    "whenSent": "בדיקה כל שעה עגולה. נשלח בשעה שהמשתמש בחר באונבורדינג (lifestyle.reminders.runningTime), ואם לא בחר ב-07:00. פעם אחת ביום לכל היותר, לא לאימון שהתחיל לפני השעה הזו, לא למי שכבר התאמן היום, לא בשעות השקט (22:00 עד 07:00).",
+    "vars": [
+      "@שם",
+      "@אימון"
+    ],
+    "deepLinks": [
+      "home",
+      "map",
+      "progression"
+    ],
+    "defaults": [
+      {
+        "title": "@אימון היום",
+        "body": "האימון שלך מוכן. יוצאים?"
+      },
+      {
+        "title": "@אימון היום",
+        "body": "גם 15 דקות נחשבות. מתחילים?"
+      },
+      {
+        "title": "@אימון היום",
+        "body": "רגע קטן בשבילך היום. האימון כבר מחכה."
+      }
+    ]
+  },
+  {
+    "pushType": "workout_reminder_before",
+    "label": "תזכורת לפני אימון מתוזמן",
+    "lever": "routine",
+    "channel": "training_reminder",
+    "sender": "reminderSweepScheduler (מעבר 2)",
+    "description": "אימון מתוכנן עם שעת התחלה. התזכורת יוצאת כמה דקות לפני.",
+    "whenSent": "סריקה כל 5 דקות. נשלח כ-10 דקות לפני שעת ההתחלה (reminderSweepLeadMinutes). רק כשהדגלים enableReminderSweepPush ו-reminderSweepWorkoutEntriesEnabled דולקים.",
+    "vars": [
+      "@שם",
+      "@אימון",
+      "@שעה"
+    ],
+    "deepLinks": [
+      "home",
+      "map"
+    ],
+    "defaults": [
+      {
+        "title": "@אימון ב-@שעה",
+        "body": "האימון שלך מחכה ב-@שעה. יוצאים?"
+      }
+    ]
+  },
+  {
+    "pushType": "workout_reminder_slot",
+    "label": "תזכורת בשעה שנקבעה בהגדרות",
+    "lever": "routine",
+    "channel": "training_reminder",
+    "sender": "reminderSweepScheduler (מעבר 1)",
+    "description": "המשתמש קבע בהגדרות יום ושעה קבועים לתזכורת אימון.",
+    "whenSent": "סריקה כל 5 דקות. נשלח ביום ובשעה שהמשתמש קבע בהגדרות (תזכורות אימון). רק כשהדגל enableReminderSweepPush דולק.",
+    "vars": [
+      "@שם",
+      "@שעה"
+    ],
+    "deepLinks": [
+      "home",
+      "map"
+    ],
+    "defaults": [
+      {
+        "title": "הגיע הזמן שקבעת",
+        "body": "קבעת להתאמן עכשיו. יוצאים?"
+      },
+      {
+        "title": "הגיע הזמן שקבעת",
+        "body": "התזכורת שביקשת: זה הזמן שלך להתאמן."
+      },
+      {
+        "title": "הגיע הזמן שקבעת",
+        "body": "רגע קטן בשבילך. האימון מחכה."
+      }
+    ]
+  },
+  {
+    "pushType": "retention_lapse",
+    "label": "חזרה לשגרה אחרי הפסקה",
+    "lever": "routine",
+    "channel": "retention",
+    "sender": "retentionScheduler",
+    "description": "סיימו אונבורדינג ולא התאמנו כמה ימים (לפי האימון האחרון או פתיחת האפליקציה האחרונה). בלי ספירת ימים ובלי אשמה.",
+    "whenSent": "כל יום ב-10:00, למי שלא התאמן ולא פתח את האפליקציה 7 ימים ומעלה, לכל היותר פעם ב-48 שעות. כשהדגל retentionMilestoneCadence דולק: פעם אחת בכל שלב (יום 4 עד 6, שבוע, שבועיים, חודש: יום 30 עד 35) ואחרי יום 35 מפסיקים. כשהדגל retentionLadderV2 דולק: יום 4, יום 7, יום 14, יום 21, יום 28, ואז שקט. כשהדגל firstWeekSequenceEnabled דולק, לא נשלח בשבוע הראשון (סדרת השבוע הראשון אחראית עליו). לא בשבת ובחג.",
+    "vars": [
+      "@שם"
+    ],
+    "conditions": [
+      {
+        "key": "milestone",
+        "label": "שלב בהפסקה",
+        "options": [
+          {
+            "value": "d4",
+            "label": "יום 4 עד 6"
+          },
+          {
+            "value": "d7",
+            "label": "שבוע (שבוע חדש)"
+          },
+          {
+            "value": "d14",
+            "label": "שבועיים"
+          },
+          {
+            "value": "d30",
+            "label": "חודש (האחרון)"
+          },
+          {
+            "value": "d21",
+            "label": "שלושה שבועות"
+          },
+          {
+            "value": "d28",
+            "label": "יום 28 (האחרון בסולם החדש)"
+          }
+        ]
+      },
+      {
+        "key": "track",
+        "label": "מסלול",
+        "options": [
+          {
+            "value": "strength",
+            "label": "כוח"
+          },
+          {
+            "value": "run",
+            "label": "ריצה"
+          },
+          {
+            "value": "walk",
+            "label": "הליכה"
+          }
+        ]
+      },
+      {
+        "key": "tone",
+        "label": "טון",
+        "options": [
+          {
+            "value": "cute",
+            "label": "חמוד ומצחיק"
+          },
+          {
+            "value": "personal",
+            "label": "אישי ורגשי"
+          },
+          {
+            "value": "curious",
+            "label": "מסקרן"
+          },
+          {
+            "value": "friendly",
+            "label": "ישראלי-חברי"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "home",
+      "map"
+    ],
+    "defaults": [
+      {
+        "title": "רגע קטן בשבילך היום",
+        "body": "מה שבונה הרגל זה לחזור. 15 דקות ליד הבית, בקצב שלך."
+      },
+      {
+        "title": "@שם, הגינה עדיין שם",
+        "body": "אימון קצר של 10 דקות, בלי ציוד. חוזרים?",
+        "conditions": {
+          "track": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "title": "חוזרים בקטנה?",
+        "body": "בנינו לך אימון קל לחזרה. 15 דקות, בקצב שלך."
+      },
+      {
+        "title": "יום טוב להתחיל מחדש",
+        "body": "אימון אחד קל, וההרגל חוזר."
+      },
+      {
+        "title": "@שם, מוכן לחזור?",
+        "body": "אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.",
+        "gender": "male",
+        "pair": "ready_name",
+        "conditions": {
+          "track": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "title": "@שם, מוכנה לחזור?",
+        "body": "אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.",
+        "gender": "female",
+        "pair": "ready_name",
+        "conditions": {
+          "track": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "title": "מוכן לחזור לשגרה?",
+        "body": "בנינו לך אימון קל לחזרה. 15 דקות, ואתה שוב בשגרה.",
+        "gender": "male",
+        "pair": "back"
+      },
+      {
+        "title": "מוכנה לחזור לשגרה?",
+        "body": "בנינו לך אימון קל לחזרה. 15 דקות, ואת שוב בשגרה.",
+        "gender": "female",
+        "pair": "back"
+      },
+      {
+        "title": "יום טוב להתחיל מחדש",
+        "body": "אימון אחד קל, ואתה שוב בעניינים.",
+        "gender": "male",
+        "pair": "fresh"
+      },
+      {
+        "title": "יום טוב להתחיל מחדש",
+        "body": "אימון אחד קל, ואת שוב בעניינים.",
+        "gender": "female",
+        "pair": "fresh"
+      },
+      {
+        "title": "רגע קטן בשבילך?",
+        "body": "אימון קל של 15 דקות ליד הבית. בלי לחץ, בקצב שלך.",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ]
+        }
+      },
+      {
+        "title": "בא לך אימון קצר היום?",
+        "body": "15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצה.",
+        "gender": "male",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ]
+        },
+        "pair": "m_d4"
+      },
+      {
+        "title": "בא לך אימון קצר היום?",
+        "body": "15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצי.",
+        "gender": "female",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ]
+        },
+        "pair": "m_d4"
+      },
+      {
+        "title": "שבוע חדש מתחיל היום",
+        "body": "15 דקות זה כל מה שצריך כדי לפתוח אותו. יוצאים?",
+        "conditions": {
+          "milestone": [
+            "d7"
+          ]
+        }
+      },
+      {
+        "title": "שבוע חדש מתחיל היום. 15 דקות?",
+        "body": "אימון קל אחד, ואתה פותח את השבוע ברגל ימין.",
+        "gender": "male",
+        "conditions": {
+          "milestone": [
+            "d7"
+          ]
+        },
+        "pair": "m_d7"
+      },
+      {
+        "title": "שבוע חדש מתחיל היום. 15 דקות?",
+        "body": "אימון קל אחד, ואת פותחת את השבוע ברגל ימין.",
+        "gender": "female",
+        "conditions": {
+          "milestone": [
+            "d7"
+          ]
+        },
+        "pair": "m_d7"
+      },
+      {
+        "title": "מתחילים מחדש, בקטנה",
+        "body": "בנינו אימון קל לחזרה. 15 דקות, בקצב שלך.",
+        "conditions": {
+          "milestone": [
+            "d14"
+          ]
+        }
+      },
+      {
+        "title": "מוכן להתחלה חדשה?",
+        "body": "אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.",
+        "gender": "male",
+        "conditions": {
+          "milestone": [
+            "d14"
+          ]
+        },
+        "pair": "m_d14"
+      },
+      {
+        "title": "מוכנה להתחלה חדשה?",
+        "body": "אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.",
+        "gender": "female",
+        "conditions": {
+          "milestone": [
+            "d14"
+          ]
+        },
+        "pair": "m_d14"
+      },
+      {
+        "title": "הדלת תמיד פתוחה",
+        "body": "כשיתאים, אימון קל של 15 דקות מחכה כאן. בלי לחץ.",
+        "conditions": {
+          "milestone": [
+            "d30"
+          ]
+        }
+      },
+      {
+        "title": "הדלת תמיד פתוחה",
+        "body": "כשתרצה לחזור, אימון קל של 15 דקות מחכה לך כאן.",
+        "gender": "male",
+        "conditions": {
+          "milestone": [
+            "d30"
+          ]
+        },
+        "pair": "m_d30"
+      },
+      {
+        "title": "הדלת תמיד פתוחה",
+        "body": "כשתרצי לחזור, אימון קל של 15 דקות מחכה לך כאן.",
+        "gender": "female",
+        "conditions": {
+          "milestone": [
+            "d30"
+          ]
+        },
+        "pair": "m_d30"
+      },
+      {
+        "title": "הנעליים מחכות ליד הדלת",
+        "body": "ריצה קלה של 15 דקות, בקצב שלך. חוזרים?",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "title": "ריצה קצרה היום?",
+        "body": "15 דקות בקצב נוח, וחוזרים לשגרת הריצה.",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "title": "@שם, מוכן לרוץ שוב?",
+        "body": "ריצה קלה של 15 דקות, בקצב שלך.",
+        "gender": "male",
+        "pair": "run_ready",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "title": "@שם, מוכנה לרוץ שוב?",
+        "body": "ריצה קלה של 15 דקות, בקצב שלך.",
+        "gender": "female",
+        "pair": "run_ready",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "title": "הליכה קצרה היום?",
+        "body": "20 דקות הליכה ליד הבית, וחוזרים לשגרה.",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "title": "יוצאים להליכה?",
+        "body": "הליכה קלה בקצב שלך. כל צעד נחשב.",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "title": "@שם, מוכן להליכה קצרה?",
+        "body": "20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.",
+        "gender": "male",
+        "pair": "walk_ready",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "title": "@שם, מוכנה להליכה קצרה?",
+        "body": "20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.",
+        "gender": "female",
+        "pair": "walk_ready",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "title": "בלי לחץ, רק להזכיר",
+        "body": "15 דקות ליד הבית, מתי שנוח",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "הנעליים שאלו עליכם",
+        "body": "סיבוב של 15 דקות היום?",
+        "conditions": {
+          "milestone": [
+            "d4"
+          ],
+          "track": [
+            "walk"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "שבוע חדש, התחלה נקייה",
+        "body": "אימון קל של 15 דקות. ממשיכים מכאן",
+        "conditions": {
+          "milestone": [
+            "d7",
+            "d14",
+            "d21"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "הדלת תמיד פתוחה",
+        "body": "נבנה לך תוכנית חדשה בדקה, מה שמתאים לך עכשיו",
+        "conditions": {
+          "milestone": [
+            "d28",
+            "d30"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "מה קורה אחי?",
+        "body": "בלי לחץ. 15 דקות ליד הבית מתי שבא לך",
+        "gender": "male",
+        "pair": "friendly_d4",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "milestone": [
+            "d4"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "מה קורה אחותי?",
+        "body": "בלי לחץ. 15 דקות ליד הבית מתי שבא לך",
+        "gender": "female",
+        "pair": "friendly_d4",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "milestone": [
+            "d4"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "התגעגענו, באמת",
+        "body": "נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות",
+        "gender": "male",
+        "pair": "friendly_d28",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "milestone": [
+            "d28",
+            "d30"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "התגעגענו, באמת",
+        "body": "נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות",
+        "gender": "female",
+        "pair": "friendly_d28",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "milestone": [
+            "d28",
+            "d30"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "onboarding_dropoff",
+    "label": "הרשמה שלא הושלמה",
+    "lever": "progress",
+    "channel": "onboarding_dropoff",
+    "sender": "onboardingDropoffDispatcher",
+    "description": "התחילו להירשם ועצרו באמצע.",
+    "whenSent": "בדיקה כל 30 דקות (:17 ו-:47). 24 שעות אחרי ההרשמה, ושוב אחרי 48 שעות נוספות. לכל היותר פעמיים בסך הכול. לא בשעות השקט ולא בשבת ובחג.",
+    "vars": [
+      "@שם"
+    ],
+    "conditions": [
+      {
+        "key": "stage",
+        "label": "איפה עצרו בהרשמה",
+        "options": [
+          {
+            "value": "early",
+            "label": "בהתחלה (פרופיל ושאלות)"
+          },
+          {
+            "value": "mid",
+            "label": "באמצע (הערכת רמה)"
+          },
+          {
+            "value": "near_end",
+            "label": "ממש בסוף (הצהרת בריאות)"
+          }
+        ]
+      },
+      {
+        "key": "track",
+        "label": "מסלול",
+        "options": [
+          {
+            "value": "strength",
+            "label": "כוח"
+          },
+          {
+            "value": "run",
+            "label": "ריצה"
+          },
+          {
+            "value": "walk",
+            "label": "הליכה"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "gateway"
+    ],
+    "defaults": [
+      {
+        "title": "@שם, נשאר רק עוד צעד",
+        "body": "עוד דקה וההרשמה מוכנה, ואז מקבלים את האימון הראשון.",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "title": "התוכנית שלך כמעט מוכנה",
+        "body": "מסיימים את ההרשמה, ונבנה לך תוכנית לפי הרמה שלך."
+      },
+      {
+        "title": "נמשיך מאיפה שעצרת?",
+        "body": "שמרנו את מה שמילאת. עוד כמה שאלות וזהו."
+      },
+      {
+        "title": "האימון הראשון מחכה לך",
+        "body": "לסיים את ההרשמה לוקח פחות מדקה.",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "title": "אנשים לידך כבר מתאמנים",
+        "body": "מסיימים להירשם ורואים מי מתאמן בגינה הקרובה."
+      },
+      {
+        "title": "@שם, נשאר רק עוד צעד",
+        "body": "עוד דקה ואתה מקבל את האימון הראשון שלך.",
+        "gender": "male",
+        "pair": "step",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "title": "@שם, נשאר רק עוד צעד",
+        "body": "עוד דקה ואת מקבלת את האימון הראשון שלך.",
+        "gender": "female",
+        "pair": "step",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "title": "מוכן לאימון הראשון?",
+        "body": "מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.",
+        "gender": "male",
+        "pair": "ready",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "title": "מוכנה לאימון הראשון?",
+        "body": "מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.",
+        "gender": "female",
+        "pair": "ready",
+        "conditions": {
+          "stage": [
+            "near_end"
+          ]
+        }
+      },
+      {
+        "title": "נמשיך מאיפה שעצרת?",
+        "body": "שמרנו את מה שמילאת. עוד כמה שאלות ונבנה לך תוכנית.",
+        "conditions": {
+          "stage": [
+            "early"
+          ]
+        }
+      },
+      {
+        "title": "@שם, התוכנית שלך מחכה",
+        "body": "כמה שאלות קצרות, ונבנה תוכנית שמתאימה בדיוק לך.",
+        "conditions": {
+          "stage": [
+            "early"
+          ]
+        }
+      },
+      {
+        "title": "עוד רגע יודעים מאיפה מתחילים",
+        "body": "נשארה בדיקת רמה קצרה, ואז מקבלים תוכנית לפי הרמה שלך.",
+        "conditions": {
+          "stage": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "title": "הבדיקה הקצרה מחכה לך",
+        "body": "כמה תרגילים פשוטים, ונדע לבנות לך תוכנית בדיוק לרמה שלך.",
+        "conditions": {
+          "stage": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "title": "תוכנית הריצה שלך כמעט מוכנה",
+        "body": "מסיימים את ההרשמה ומקבלים ריצה ראשונה בקצב שלך.",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "title": "תוכנית ההליכה שלך כמעט מוכנה",
+        "body": "מסיימים את ההרשמה ומקבלים יעד הליכה שמתאים לך.",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "first_workout",
+    "label": "האימון הראשון (עוד לא התחילו)",
+    "lever": "progress",
+    "channel": "retention",
+    "sender": "firstWorkoutScheduler, retentionScheduler",
+    "description": "סיימו הרשמה ועוד לא התאמנו אף פעם. במקום \"לחזור\" (הם עוד לא התחילו), הזמנה לאימון הראשון לפי המסלול.",
+    "whenSent": "firstWorkoutScheduler: כל יום ב-17:00, ביום הראשון והשני אחרי ההרשמה, רק למי שעוד אין לו אף אימון. לכל היותר פעמיים. retentionScheduler: למי שמעולם לא התאמן, במקום הנוסח של \"חזרה לשגרה\". רק כשהדגל firstWorkoutPushEnabled דולק. כשהדגל firstWeekSequenceEnabled דולק, הסדרה של השבוע הראשון (first_week) מחליפה את הפוש של יום 1 ויום 2.",
+    "vars": [
+      "@שם"
+    ],
+    "conditions": [
+      {
+        "key": "when",
+        "label": "מתי",
+        "options": [
+          {
+            "value": "day1",
+            "label": "יום אחרי ההרשמה"
+          },
+          {
+            "value": "day2",
+            "label": "יומיים אחרי ההרשמה"
+          },
+          {
+            "value": "later",
+            "label": "שבוע ומעלה (במקום \"חזרה לשגרה\")"
+          }
+        ]
+      },
+      {
+        "key": "track",
+        "label": "מסלול",
+        "options": [
+          {
+            "value": "strength",
+            "label": "כוח"
+          },
+          {
+            "value": "run",
+            "label": "ריצה"
+          },
+          {
+            "value": "walk",
+            "label": "הליכה"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "home",
+      "map"
+    ],
+    "defaults": [
+      {
+        "title": "האימון הראשון שלך מוכן",
+        "body": "10 דקות זה כל מה שצריך כדי להתחיל. יוצאים?"
+      },
+      {
+        "title": "מתחילים בקטנה?",
+        "body": "אימון ראשון קצר, בקצב שלך. הוא כבר מחכה לך."
+      },
+      {
+        "title": "@שם, האימון הראשון מחכה",
+        "body": "בנינו לך אותו לפי הרמה שלך. 10 דקות ומתחילים."
+      },
+      {
+        "title": "האימון הראשון שלך מוכן",
+        "body": "אימון כוח קצר, בלי ציוד. מתחילים היום?",
+        "conditions": {
+          "track": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "title": "הריצה הראשונה שלך מוכנה",
+        "body": "ריצה קלה בקצב שלך. מתחילים היום?",
+        "conditions": {
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "title": "ההליכה הראשונה שלך מוכנה",
+        "body": "15 דקות הליכה ליד הבית, וכבר התחלת.",
+        "conditions": {
+          "track": [
+            "walk"
+          ]
+        }
+      },
+      {
+        "title": "עוד לא התחלת? זה בסדר",
+        "body": "אימון ראשון של 10 דקות מחכה לך, מתי שנוח.",
+        "conditions": {
+          "when": [
+            "later"
+          ]
+        }
+      },
+      {
+        "title": "עוד לא יצאת לריצה הראשונה?",
+        "body": "ריצה קלה של 15 דקות, בקצב שלך. מתי שנוח.",
+        "conditions": {
+          "when": [
+            "later"
+          ],
+          "track": [
+            "run"
+          ]
+        }
+      },
+      {
+        "title": "עוד לא יצאת להליכה הראשונה?",
+        "body": "15 דקות הליכה ליד הבית, מתי שנוח.",
+        "conditions": {
+          "when": [
+            "later"
+          ],
+          "track": [
+            "walk"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "level_up",
+    "label": "עלייה ברמה",
+    "lever": "progress",
+    "channel": "progression",
+    "sender": "onLevelUp",
+    "description": "הרמה הכללית של המשתמש עלתה.",
+    "whenSent": "מיד כשהרמה עולה (לא ברמה 1). לכל היותר פעם ב-24 שעות.",
+    "vars": [
+      "@שם",
+      "@רמה",
+      "@תוכנית"
+    ],
+    "conditions": [
+      {
+        "key": "level",
+        "label": "רמה",
+        "options": [
+          {
+            "value": "2",
+            "label": "רמה 2"
+          },
+          {
+            "value": "3",
+            "label": "רמה 3"
+          },
+          {
+            "value": "4",
+            "label": "רמה 4"
+          },
+          {
+            "value": "5",
+            "label": "רמה 5"
+          },
+          {
+            "value": "6",
+            "label": "רמה 6"
+          },
+          {
+            "value": "7",
+            "label": "רמה 7"
+          },
+          {
+            "value": "8",
+            "label": "רמה 8"
+          },
+          {
+            "value": "9",
+            "label": "רמה 9"
+          },
+          {
+            "value": "10",
+            "label": "רמה 10"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "progression_map",
+      "progression",
+      "home"
+    ],
+    "defaults": [
+      {
+        "title": "עלית לרמה 2",
+        "body": "יפה מאוד. ככה בונים הרגל, אימון אחרי אימון.",
+        "conditions": {
+          "level": [
+            "2"
+          ]
+        }
+      },
+      {
+        "title": "עלית לרמה 3",
+        "body": "ההתמדה שלך עובדת. ממשיכים.",
+        "conditions": {
+          "level": [
+            "3"
+          ]
+        }
+      },
+      {
+        "title": "עלית לרמה 4",
+        "body": "כל אימון נספר, וזה כבר מורגש.",
+        "conditions": {
+          "level": [
+            "4"
+          ]
+        }
+      },
+      {
+        "title": "רמה 5, חצי הדרך",
+        "body": "הגעת לחצי הדרך לרמה 10. כל הכבוד.",
+        "conditions": {
+          "level": [
+            "5"
+          ]
+        }
+      },
+      {
+        "title": "עלית לרמה 6",
+        "body": "הקצב שלך יציב. ממשיכים ככה.",
+        "conditions": {
+          "level": [
+            "6"
+          ]
+        }
+      },
+      {
+        "title": "עלית לרמה 7",
+        "body": "מעטים מגיעים לכאן. כל הכבוד על ההתמדה.",
+        "conditions": {
+          "level": [
+            "7"
+          ]
+        }
+      },
+      {
+        "title": "עלית לרמה 8",
+        "body": "עוד שתי רמות לפסגה. ממשיכים בקצב שלך.",
+        "conditions": {
+          "level": [
+            "8"
+          ]
+        }
+      },
+      {
+        "title": "עלית לרמה 9",
+        "body": "עוד רמה אחת לפסגה.",
+        "conditions": {
+          "level": [
+            "9"
+          ]
+        }
+      },
+      {
+        "title": "רמה 10, הפסגה",
+        "body": "הגעת לרמה הכי גבוהה. מסע אמיתי, כל הכבוד.",
+        "conditions": {
+          "level": [
+            "10"
+          ]
+        }
+      },
+      {
+        "title": "עלית לרמה @רמה",
+        "body": "כל אימון נספר. ממשיכים."
+      }
+    ]
+  },
+  {
+    "pushType": "kudos_single",
+    "label": "כיף אחד שהתקבל",
+    "lever": "social",
+    "channel": "social",
+    "sender": "onKudosCreated",
+    "description": "מישהו שלח כיף על אימון, ואין כיפים אחרים שלא נקראו.",
+    "whenSent": "מיד כשמגיע כיף. לכל היותר פעם בחצי שעה (שאר הכיפים נאספים להודעה מקובצת).",
+    "vars": [
+      "@שם",
+      "@שולח"
+    ],
+    "subject": {
+      "label": "מי ששלח את הכיף",
+      "var": "@שולח"
+    },
+    "deepLinks": [
+      "home"
+    ],
+    "defaults": [
+      {
+        "title": "קיבלת כיף מ@שולח",
+        "body": "על האימון האחרון שלך. אפשר להחזיר כיף."
+      },
+      {
+        "title": "@שולח שלח לך כיף",
+        "body": "על האימון האחרון שלך. אפשר להחזיר לו כיף.",
+        "subjectGender": "male",
+        "pair": "sent"
+      },
+      {
+        "title": "@שולח שלחה לך כיף",
+        "body": "על האימון האחרון שלך. אפשר להחזיר לה כיף.",
+        "subjectGender": "female",
+        "pair": "sent"
+      },
+      {
+        "title": "@שולח שלח לך כיף",
+        "body": "מגיע לך. רוצים להחזיר?",
+        "subjectGender": "male",
+        "pair": "v2_sent"
+      },
+      {
+        "title": "@שולח שלחה לך כיף",
+        "body": "מגיע לך. רוצים להחזיר?",
+        "subjectGender": "female",
+        "pair": "v2_sent"
+      }
+    ]
+  },
+  {
+    "pushType": "kudos_bundle",
+    "label": "כמה כיפים ביחד",
+    "lever": "social",
+    "channel": "social",
+    "sender": "onKudosCreated",
+    "description": "יש כמה כיפים שלא נקראו. הודעה אחת מסכמת אותם.",
+    "whenSent": "מיד כשמגיע כיף ויש כבר כיפים שלא נקראו. לכל היותר פעם בחצי שעה.",
+    "vars": [
+      "@שם",
+      "@שולח",
+      "@כמות",
+      "@עוד"
+    ],
+    "conditions": [
+      {
+        "key": "others",
+        "label": "כמה שלחו מלבד השולח האחרון",
+        "options": [
+          {
+            "value": "one",
+            "label": "עוד אחד"
+          },
+          {
+            "value": "many",
+            "label": "עוד כמה"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "home"
+    ],
+    "defaults": [
+      {
+        "title": "קיבלת @כמות כיפים",
+        "body": "@שולח ועוד @עוד שלחו לך כיף.",
+        "conditions": {
+          "others": [
+            "many"
+          ]
+        }
+      },
+      {
+        "title": "קיבלת @כמות כיפים",
+        "body": "@שולח ועוד מישהו שלחו לך כיף.",
+        "conditions": {
+          "others": [
+            "one"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "group_join_welcome",
+    "label": "הצטרפת לקבוצה",
+    "lever": "social",
+    "channel": "social",
+    "sender": "onGroupMemberJoin",
+    "description": "אישור למי שהצטרף עכשיו לקבוצה.",
+    "whenSent": "מיד עם ההצטרפות. תמיד נשלח (אין הגבלת תדירות).",
+    "vars": [
+      "@שם",
+      "@קבוצה"
+    ],
+    "deepLinks": [
+      "community_group",
+      "community"
+    ],
+    "defaults": [
+      {
+        "title": "הצטרפת ל@קבוצה",
+        "body": "אפשר לראות מתי המפגש הבא ומי מגיע."
+      }
+    ]
+  },
+  {
+    "pushType": "group_join_admin",
+    "label": "מישהו הצטרף לקבוצה שלך",
+    "lever": "social",
+    "channel": "social",
+    "sender": "onGroupMemberJoin",
+    "description": "למוביל הקבוצה (או למי שיצר אותה) כשמישהו מצטרף.",
+    "whenSent": "מיד עם ההצטרפות. לכל היותר פעם בשעה.",
+    "vars": [
+      "@שם",
+      "@מצטרף",
+      "@קבוצה"
+    ],
+    "subject": {
+      "label": "מי שהצטרף",
+      "var": "@מצטרף"
+    },
+    "deepLinks": [
+      "community_group",
+      "community"
+    ],
+    "defaults": [
+      {
+        "title": "@מצטרף איתכם ב@קבוצה",
+        "body": "הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט."
+      },
+      {
+        "title": "יש מצטרפים חדשים ב@קבוצה",
+        "body": "הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט.",
+        "fallbackOnly": true
+      },
+      {
+        "title": "@מצטרף הצטרף ל@קבוצה",
+        "body": "הקבוצה גדלה. אפשר לקבל אותו בברכה בצ׳אט.",
+        "subjectGender": "male",
+        "pair": "joined"
+      },
+      {
+        "title": "@מצטרף הצטרפה ל@קבוצה",
+        "body": "הקבוצה גדלה. אפשר לקבל אותה בברכה בצ׳אט.",
+        "subjectGender": "female",
+        "pair": "joined"
+      }
+    ]
+  },
+  {
+    "pushType": "contribution_approved",
+    "label": "הגינה שהוספת אושרה",
+    "lever": "social",
+    "channel": "contribution_status",
+    "sender": "onContributionApproved",
+    "description": "מיקום חדש שהמשתמש הוסיף אושר ועלה למפה.",
+    "whenSent": "מיד כשהתרומה מאושרת (רק מיקום חדש). תמיד נשלח.",
+    "vars": [
+      "@שם",
+      "@מקום"
+    ],
+    "deepLinks": [
+      "map_park",
+      "map"
+    ],
+    "defaults": [
+      {
+        "title": "הפארק שהוספת עלה למפה",
+        "body": "\"@מקום\" על המפה. מעכשיו כולם יכולים להתאמן שם. תודה!"
+      },
+      {
+        "title": "הפארק שהוספת עלה למפה",
+        "body": "מעכשיו כולם יכולים להתאמן שם. תודה!",
+        "fallbackOnly": true
+      }
+    ]
+  },
+  {
+    "pushType": "week_start",
+    "label": "שבוע טוב (מוצאי שבת)",
+    "lever": "routine",
+    "channel": "week_start",
+    "sender": "weekStartScheduler",
+    "description": "למי שבחר \"שמירת שבת\": פתיחת שבוע במוצאי שבת.",
+    "whenSent": "במוצאי שבת ב-21:15 (לא כשחג ממשיך). לכל היותר פעם ב-72 שעות.",
+    "vars": [
+      "@שם"
+    ],
+    "deepLinks": [
+      "home"
+    ],
+    "defaults": [
+      {
+        "title": "שבוע טוב",
+        "body": "שבוע חדש מתחיל. נקבע אימון ראשון למחר?"
+      },
+      {
+        "title": "שבוע טוב",
+        "body": "מתחילים את השבוע בתנועה. כמה דקות מחר כבר עושות את ההבדל."
+      },
+      {
+        "title": "שבוע חדש מתחיל",
+        "body": "מה האימון הראשון שלך השבוע? אפשר לקבוע אותו כבר עכשיו."
+      }
+    ]
+  },
+  {
+    "pushType": "step_goal",
+    "label": "יעד הצעדים היומי",
+    "lever": "streak",
+    "channel": "health_milestone",
+    "sender": "stepGoalNudgeScheduler",
+    "description": "עוד לא הגיעו ליעד הצעדים של היום. הטקסט לפי כמה נשאר.",
+    "whenSent": "כל יום ב-18:00, רק כשהדגל stepGoalNudgeEnabled דולק. הטקסטים של \"התחלה\" הם של בוקר ולכן לא נשלחים מהצהריים. בלי טקסט מתאים לשלב, לא נשלח כלום.",
+    "vars": [
+      "@שם",
+      "@רצף",
+      "@צעדים_שנותרו",
+      "@דקות",
+      "@מרחק"
+    ],
+    "conditions": [
+      {
+        "key": "bucket",
+        "label": "כמה מהיעד הושלם",
+        "options": [
+          {
+            "value": "start",
+            "label": "התחלה (פחות מרבע)"
+          },
+          {
+            "value": "mid",
+            "label": "באמצע"
+          },
+          {
+            "value": "close",
+            "label": "כמעט (70% ומעלה)"
+          },
+          {
+            "value": "hit",
+            "label": "הגיעו ליעד"
+          },
+          {
+            "value": "over",
+            "label": "מעבר ליעד"
+          }
+        ]
+      },
+      {
+        "key": "tone",
+        "label": "טון",
+        "options": [
+          {
+            "value": "cute",
+            "label": "חמוד ומצחיק"
+          },
+          {
+            "value": "personal",
+            "label": "אישי ורגשי"
+          },
+          {
+            "value": "curious",
+            "label": "מסקרן"
+          },
+          {
+            "value": "friendly",
+            "label": "ישראלי-חברי"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "map_walk",
+      "activity_steps",
+      "home"
+    ],
+    "defaults": [
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "כמעט שם. עוד @דקות דקות הליכה וסגרת את היום.",
+        "conditions": {
+          "bucket": [
+            "close"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "עוד @צעדים_שנותרו צעדים בלבד, הליכה של @דקות דקות.",
+        "conditions": {
+          "bucket": [
+            "close"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "עברת חצי מהיעד. עוד @צעדים_שנותרו צעדים, בערך @דקות דקות הליכה.",
+        "conditions": {
+          "bucket": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "כבר @רצף ימים ברצף. עוד @צעדים_שנותרו צעדים ושומרים עליו.",
+        "conditions": {
+          "bucket": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "@שם, יום חדש. @צעדים_שנותרו צעדים ליעד של היום.",
+        "conditions": {
+          "bucket": [
+            "start"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "מתחילים את היום בהליכה? @צעדים_שנותרו צעדים ליעד.",
+        "conditions": {
+          "bucket": [
+            "start"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "יוצאים מהעבודה? @דקות דקות הליכה וסוגרים את היעד.",
+        "audience": {
+          "persona": [
+            "office_worker"
+          ]
+        },
+        "conditions": {
+          "bucket": [
+            "close"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "הליכה קצרה אחרי העבודה? עוד @צעדים_שנותרו צעדים ליעד.",
+        "audience": {
+          "persona": [
+            "office_worker"
+          ]
+        },
+        "conditions": {
+          "bucket": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "לפני שמתיישבים מול המסך: הליכה קצרה וכבר מתקדמים ליעד.",
+        "audience": {
+          "persona": [
+            "office_worker"
+          ]
+        },
+        "conditions": {
+          "bucket": [
+            "start"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "עוד @דקות דקות הליכה, אפשר גם עם הילדים, וסגרת את היום.",
+        "audience": {
+          "persona": [
+            "parent"
+          ]
+        },
+        "conditions": {
+          "bucket": [
+            "close"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "גם עם כל הסידורים, נשארו רק @צעדים_שנותרו צעדים ליעד.",
+        "audience": {
+          "persona": [
+            "parent"
+          ]
+        },
+        "conditions": {
+          "bucket": [
+            "mid"
+          ]
+        }
+      },
+      {
+        "title": "יעד הצעדים של היום",
+        "body": "לפני שהבית מתעורר, @צעדים_שנותרו צעדים ליעד של היום.",
+        "audience": {
+          "persona": [
+            "parent"
+          ]
+        },
+        "conditions": {
+          "bucket": [
+            "start"
+          ]
+        }
+      },
+      {
+        "title": "כמעט שם, באמת כמעט",
+        "body": "עוד @צעדים_שנותרו צעדים. זה בערך הדרך למכולת וחזרה",
+        "conditions": {
+          "bucket": [
+            "close"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "כמה צעדים יש בשיר אחד?",
+        "body": "בערך 400. עוד @צעדים_שנותרו לסגור את היום",
+        "conditions": {
+          "bucket": [
+            "mid"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "title": "יום עמוס? זה בסדר",
+        "body": "15 דקות הליכה אחרי ארוחת הערב שוות חצי יעד",
+        "conditions": {
+          "bucket": [
+            "start"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "כמעט שם, אחי",
+        "body": "עוד @צעדים_שנותרו צעדים. סיבוב ליד הבית וסגרת",
+        "gender": "male",
+        "pair": "friendly_close",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "bucket": [
+            "close"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "כמעט שם, אחותי",
+        "body": "עוד @צעדים_שנותרו צעדים. סיבוב ליד הבית וסגרת",
+        "gender": "female",
+        "pair": "friendly_close",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "bucket": [
+            "close"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "streak_rescue",
+    "label": "הצלת רצף",
+    "lever": "streak",
+    "channel": "progression",
+    "sender": "streakRescueScheduler",
+    "description": "יש רצף פעיל והיום עוד לא נסגר (10 דקות פעילות או יעד הצעדים). הדרך הכי קצרה לשמור עליו.",
+    "whenSent": "ב-19:30 לרצף של 2 ימים ומעלה, וב-21:15 רק לרצף של 7 ומעלה ורק אם הראשון לא נפתח. לא כשהיום כבר נסגר, לא בשבת כשהשבת לא שוברת רצף, ולא כשקלי כבר שלחה הודעה יזומה היום. נספר בתקרה היומית (הראשון קודם לאחרים). רק כשהדגל enable_streak_pushes דולק.",
+    "vars": [
+      "@שם",
+      "@רצף",
+      "@צעדים_שנותרו",
+      "@דקות"
+    ],
+    "conditions": [
+      {
+        "key": "when",
+        "label": "מתי",
+        "options": [
+          {
+            "value": "first",
+            "label": "19:30"
+          },
+          {
+            "value": "late",
+            "label": "21:15 (רצף 7 ומעלה)"
+          }
+        ]
+      },
+      {
+        "key": "tone",
+        "label": "טון",
+        "options": [
+          {
+            "value": "cute",
+            "label": "חמוד ומצחיק"
+          },
+          {
+            "value": "personal",
+            "label": "אישי ורגשי"
+          },
+          {
+            "value": "curious",
+            "label": "מסקרן"
+          },
+          {
+            "value": "friendly",
+            "label": "ישראלי-חברי"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "home",
+      "map_walk"
+    ],
+    "defaults": [
+      {
+        "title": "הרצף שלך שואל אם הכול בסדר",
+        "body": "יום @רצף. עוד 10 דקות והוא נרגע.",
+        "conditions": {
+          "when": [
+            "first"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "@רצף ימים. אל תוותרו עליהם",
+        "body": "עוד @צעדים_שנותרו צעדים או 10 דקות וזה סגור.",
+        "conditions": {
+          "when": [
+            "first"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "יום @רצף ברצף",
+        "body": "עוד @דקות דקות של תנועה והיום נסגר. הליכה קצרה מספיקה.",
+        "conditions": {
+          "when": [
+            "first"
+          ]
+        }
+      },
+      {
+        "title": "אחי, הרצף על הקו",
+        "body": "יום @רצף. 10 דקות ומצילים אותו.",
+        "gender": "male",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "when": [
+            "first"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        },
+        "pair": "rescue_il"
+      },
+      {
+        "title": "אחותי, הרצף על הקו",
+        "body": "יום @רצף. 10 דקות ומצילים אותו.",
+        "gender": "female",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "when": [
+            "first"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        },
+        "pair": "rescue_il"
+      },
+      {
+        "title": "נשארה שעה. מספיק?",
+        "body": "10 דקות בסלון ושמרת על @רצף ימים.",
+        "conditions": {
+          "when": [
+            "late"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "title": "עוד רגע נגמר היום",
+        "body": "10 דקות בסלון ושמרת על @רצף ימים ברצף.",
+        "conditions": {
+          "when": [
+            "late"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "streak_broken",
+    "label": "הרצף נעצר",
+    "lever": "streak",
+    "channel": "progression",
+    "sender": "streakRescueScheduler",
+    "description": "אתמול הרצף נעצר. בלי אשמה: השיא נשאר, ומתחילים מחדש. כולם רואים כרטיס בבית, פוש רק למי שהרצף שלו היה 7 ימים ומעלה.",
+    "whenSent": "למחרת ב-10:00, פעם אחת לכל רצף שנעצר, רק לרצף של 7 ימים ומעלה. לא כשקלי כבר שלחה הודעה יזומה היום. נספר בתקרה היומית. רק כשהדגל enable_streak_pushes דולק.",
+    "vars": [
+      "@שם",
+      "@שיא"
+    ],
+    "conditions": [
+      {
+        "key": "tone",
+        "label": "טון",
+        "options": [
+          {
+            "value": "cute",
+            "label": "חמוד ומצחיק"
+          },
+          {
+            "value": "personal",
+            "label": "אישי ורגשי"
+          },
+          {
+            "value": "curious",
+            "label": "מסקרן"
+          },
+          {
+            "value": "friendly",
+            "label": "ישראלי-חברי"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "home"
+    ],
+    "defaults": [
+      {
+        "title": "הרצף נעצר. השיא נשאר",
+        "body": "@שיא ימים זה שלך לתמיד. מתחילים רצף חדש היום?",
+        "conditions": {
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "השיא שלך נשאר שלך",
+        "body": "@שיא ימים ברצף, וזה לא הולך לשום מקום. מתחילים היום?"
+      },
+      {
+        "title": "גם רצפים צריכים חופש",
+        "body": "השיא שלך, @שיא ימים, מחכה שתשברו אותו.",
+        "conditions": {
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "קורה לטובים ביותר",
+        "body": "השיא @שיא נשאר שלך. מתחילים מחדש?",
+        "gender": "male",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        },
+        "pair": "broken_il"
+      },
+      {
+        "title": "קורה לטובות ביותר",
+        "body": "השיא @שיא נשאר שלך. מתחילים מחדש?",
+        "gender": "female",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        },
+        "pair": "broken_il"
+      }
+    ]
+  },
+  {
+    "pushType": "streak_milestone",
+    "label": "אבן דרך ברצף",
+    "lever": "streak",
+    "channel": "progression",
+    "sender": "streakRescueScheduler",
+    "description": "הרצף הגיע היום ל-3, 7, 14, 30, 50, 100 או 365 ימים. החגיגה היא בתוך האפליקציה. הפוש רק למי שלא ראה אותה.",
+    "whenSent": "ב-20:00, רק אם החגיגה באפליקציה לא נראתה היום. פעם אחת לכל אבן דרך. לא כשקלי כבר שלחה הודעה יזומה היום. נספר בתקרה היומית. רק כשהדגל enable_streak_pushes דולק.",
+    "vars": [
+      "@שם",
+      "@רצף"
+    ],
+    "conditions": [
+      {
+        "key": "milestone",
+        "label": "אבן דרך",
+        "options": [
+          {
+            "value": "3",
+            "label": "3 ימים"
+          },
+          {
+            "value": "7",
+            "label": "7 ימים"
+          },
+          {
+            "value": "14",
+            "label": "14 ימים"
+          },
+          {
+            "value": "30",
+            "label": "30 ימים"
+          },
+          {
+            "value": "50",
+            "label": "50 ימים"
+          },
+          {
+            "value": "100",
+            "label": "100 ימים"
+          },
+          {
+            "value": "365",
+            "label": "365 ימים"
+          }
+        ]
+      },
+      {
+        "key": "tone",
+        "label": "טון",
+        "options": [
+          {
+            "value": "cute",
+            "label": "חמוד ומצחיק"
+          },
+          {
+            "value": "personal",
+            "label": "אישי ורגשי"
+          },
+          {
+            "value": "curious",
+            "label": "מסקרן"
+          },
+          {
+            "value": "friendly",
+            "label": "ישראלי-חברי"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "progression",
+      "home"
+    ],
+    "defaults": [
+      {
+        "title": "@רצף ימים ברצף",
+        "body": "כל יום נספר. ממשיכים בקצב שלך."
+      },
+      {
+        "title": "3 ימים ברצף",
+        "body": "ההתחלה הכי קשה כבר מאחור. ממשיכים מחר?",
+        "conditions": {
+          "milestone": [
+            "3"
+          ]
+        }
+      },
+      {
+        "title": "שבוע שלם",
+        "body": "7 ימים ברצף. ככה נראה הרגל שנולד.",
+        "conditions": {
+          "milestone": [
+            "7"
+          ]
+        }
+      },
+      {
+        "title": "שבועיים ברצף",
+        "body": "14 ימים. הגוף כבר מחכה לזה.",
+        "conditions": {
+          "milestone": [
+            "14"
+          ]
+        }
+      },
+      {
+        "title": "חודש. וואו",
+        "body": "30 ימים ברצף. זה כבר לא ניסיון, זה מי שאתם.",
+        "conditions": {
+          "milestone": [
+            "30"
+          ]
+        }
+      },
+      {
+        "title": "30 יום. מי אתה בכלל?",
+        "body": "חודש ברצף. ריספקט.",
+        "gender": "male",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "milestone": [
+            "30"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        },
+        "pair": "m30_il"
+      },
+      {
+        "title": "30 יום. מי את בכלל?",
+        "body": "חודש ברצף. ריספקט.",
+        "gender": "female",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "milestone": [
+            "30"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        },
+        "pair": "m30_il"
+      },
+      {
+        "title": "50 ימים ברצף",
+        "body": "חצי הדרך למאה. ממשיכים בקצב שלך.",
+        "conditions": {
+          "milestone": [
+            "50"
+          ]
+        }
+      },
+      {
+        "title": "100. מישהו פה רציני",
+        "body": "100 ימים ברצף. השכנים מדברים.",
+        "conditions": {
+          "milestone": [
+            "100"
+          ]
+        }
+      },
+      {
+        "title": "שנה שלמה ברצף",
+        "body": "365 ימים. אין מילים, רק כבוד.",
+        "conditions": {
+          "milestone": [
+            "365"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "partner_plan",
+    "label": "מתאמנים לידך",
+    "lever": "social",
+    "channel": "community",
+    "sender": "onPlannedActivityCreated",
+    "description": "מישהו שהמשתמש עוקב אחריו, או מישהו קרוב (עד 3 ק\"מ, רק אימון ציבורי), תכנן אימון.",
+    "whenSent": "מיד כשנוצר אימון מתוכנן. לכל היותר פעם בשעתיים. רק כשהדגל socialActivityNearbyPushEnabled דולק.",
+    "vars": [
+      "@שם",
+      "@שולח",
+      "@מקום",
+      "@שעה"
+    ],
+    "subject": {
+      "label": "מי שיזם את האימון",
+      "var": "@שולח"
+    },
+    "conditions": [
+      {
+        "key": "activity",
+        "label": "סוג הפעילות",
+        "options": [
+          {
+            "value": "running",
+            "label": "ריצה"
+          },
+          {
+            "value": "walking",
+            "label": "הליכה"
+          },
+          {
+            "value": "strength",
+            "label": "אימון כוח"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "map_place",
+      "map",
+      "community"
+    ],
+    "defaults": [
+      {
+        "title": "מתאמנים לידך",
+        "body": "ריצה ב@מקום ב-@שעה עם @שולח. מצטרפים?",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "ריצה ב@מקום ב-@שעה. זה הזמן להצטרף.",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        }
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "אימון כוח ב@מקום ב-@שעה עם @שולח. מצטרפים?",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "אימון כוח ב@מקום ב-@שעה. מצטרפים?",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        }
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "הליכה ב@מקום ב-@שעה עם @שולח. באים?",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "הליכה ב@מקום ב-@שעה. לא הולכים לבד.",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        }
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "אימון ב@מקום ב-@שעה עם @שולח. מצטרפים?"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "יש אימון קרוב אליך ב-@שעה. מצטרפים?",
+        "fallbackOnly": true
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "יש אימון קרוב אליך. מצטרפים?",
+        "fallbackOnly": true
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שם, @שולח יוצא לרוץ ב@מקום ב-@שעה. מצטרפים?",
+        "subjectGender": "male",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        },
+        "pair": "run_name"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שם, @שולח יוצאת לרוץ ב@מקום ב-@שעה. מצטרפים?",
+        "subjectGender": "female",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        },
+        "pair": "run_name"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שולח יוצא לרוץ ב@מקום ב-@שעה. זה הזמן להצטרף.",
+        "subjectGender": "male",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        },
+        "pair": "run"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שולח יוצאת לרוץ ב@מקום ב-@שעה. זה הזמן להצטרף.",
+        "subjectGender": "female",
+        "conditions": {
+          "activity": [
+            "running"
+          ]
+        },
+        "pair": "run"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שם, @שולח יוצא להליכה ב@מקום ב-@שעה. באים?",
+        "subjectGender": "male",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        },
+        "pair": "walk_name"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שם, @שולח יוצאת להליכה ב@מקום ב-@שעה. באים?",
+        "subjectGender": "female",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        },
+        "pair": "walk_name"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שולח יוצא להליכה ב@מקום ב-@שעה. לא הולכים לבד.",
+        "subjectGender": "male",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        },
+        "pair": "walk"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שולח יוצאת להליכה ב@מקום ב-@שעה. לא הולכים לבד.",
+        "subjectGender": "female",
+        "conditions": {
+          "activity": [
+            "walking"
+          ]
+        },
+        "pair": "walk"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שם, @שולח יוצא לאימון כוח ב@מקום ב-@שעה. מצטרפים?",
+        "subjectGender": "male",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        },
+        "pair": "strength_name"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שם, @שולח יוצאת לאימון כוח ב@מקום ב-@שעה. מצטרפים?",
+        "subjectGender": "female",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        },
+        "pair": "strength_name"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שולח מתכנן אימון כוח ב@מקום ב-@שעה. מצטרפים?",
+        "subjectGender": "male",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        },
+        "pair": "strength"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שולח מתכננת אימון כוח ב@מקום ב-@שעה. מצטרפים?",
+        "subjectGender": "female",
+        "conditions": {
+          "activity": [
+            "strength"
+          ]
+        },
+        "pair": "strength"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שולח יוצא להתאמן ב@מקום ב-@שעה. מצטרפים?",
+        "subjectGender": "male",
+        "pair": "any"
+      },
+      {
+        "title": "מתאמנים לידך",
+        "body": "@שולח יוצאת להתאמן ב@מקום ב-@שעה. מצטרפים?",
+        "subjectGender": "female",
+        "pair": "any"
+      }
+    ]
+  },
+  {
+    "pushType": "first_week",
+    "label": "השבוע הראשון (עד האימון הראשון)",
+    "lever": "routine",
+    "channel": "retention",
+    "sender": "firstWorkoutScheduler (firstWeekSequenceEnabled)",
+    "description": "סדרת השבוע הראשון: יום 1 שגרה, יום 2 רף נמוך, יום 3 חברתי, יום 4 צעדים, יום 5 ערב, יום 7 התחלה חדשה. נעצרת באימון הראשון. ימים 0 ו-6 הם כרטיס בבית בלבד.",
+    "whenSent": "בדיקה כל שעה. פוש אחד לכל היותר ביום, ביום ובשעה של השלב (יום 1 בשעה שהמשתמש בחר, אחרת 18:00; 17:00; 17:00; 18:00; 20:00; יום 7 ב-10:00). יום 3 רק עם גינה ומספר אמיתיים ורק לבגירים. יום 4 רק עם מספר צעדים אמיתי. לא כשקלי כבר כתבה למשתמש באותו יום. הטון מוגרל מתוך הטונים שמתאימים למשתמש.",
+    "vars": [
+      "@שם",
+      "@שעה",
+      "@מקום",
+      "@אנשים",
+      "@צעדים_שנותרו"
+    ],
+    "conditions": [
+      {
+        "key": "day",
+        "label": "יום בשבוע הראשון",
+        "options": [
+          {
+            "value": "d1",
+            "label": "יום 1 (שגרה)"
+          },
+          {
+            "value": "d2",
+            "label": "יום 2 (רף נמוך)"
+          },
+          {
+            "value": "d3",
+            "label": "יום 3 (חברתי)"
+          },
+          {
+            "value": "d4",
+            "label": "יום 4 (צעדים)"
+          },
+          {
+            "value": "d5",
+            "label": "יום 5 (ערב)"
+          },
+          {
+            "value": "d7",
+            "label": "יום 7 (התחלה חדשה)"
+          }
+        ]
+      },
+      {
+        "key": "tone",
+        "label": "טון",
+        "options": [
+          {
+            "value": "cute",
+            "label": "חמוד ומצחיק"
+          },
+          {
+            "value": "personal",
+            "label": "אישי ורגשי"
+          },
+          {
+            "value": "curious",
+            "label": "מסקרן"
+          },
+          {
+            "value": "friendly",
+            "label": "ישראלי-חברי"
+          }
+        ]
+      },
+      {
+        "key": "nearby",
+        "label": "מה ידוע ליד הבית",
+        "options": [
+          {
+            "value": "group",
+            "label": "קבוצה פעילה"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "home",
+      "map_walk",
+      "map",
+      "activity_steps"
+    ],
+    "defaults": [
+      {
+        "title": "האימון שלך מחכה בכניסה",
+        "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "@שעה. הזמן שבחרת לעצמך",
+        "body": "12 דקות שהן רק שלך. מתחילים?",
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "מה קורה בגוף אחרי 12 דקות?",
+        "body": "יש רק דרך אחת לגלות. האימון הראשון מוכן",
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "title": "אחי, האימון מוכן",
+        "body": "12 דקות, בלי ציוד. יאללה, רק תתחיל",
+        "gender": "male",
+        "pair": "f_d1",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "אחותי, האימון מוכן",
+        "body": "12 דקות, בלי ציוד. יאללה, רק תתחילי",
+        "gender": "female",
+        "pair": "f_d1",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "day": [
+            "d1"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "הורדנו את הרף. ממש נמוך",
+        "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+        "deepLink": "map_walk",
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "לא צריך להיות מושלם",
+        "body": "צריך רק להתחיל. 10 דקות הליכה סוגרות לך יום ראשון",
+        "deepLink": "map_walk",
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "אימון בלי להחליף בגדים?",
+        "body": "10 דקות הליכה מהדלת. ככה מתחילים את הרצף",
+        "deepLink": "map_walk",
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "title": "נו אחי, 10 דקות",
+        "body": "הליכה מסביב לבלוק. זה הכול, נשבע",
+        "deepLink": "map_walk",
+        "gender": "male",
+        "pair": "f_d2",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "נו אחותי, 10 דקות",
+        "body": "הליכה מסביב לבלוק. זה הכול, נשבעת",
+        "deepLink": "map_walk",
+        "gender": "female",
+        "pair": "f_d2",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "day": [
+            "d2"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "ב@מקום כבר מתגעגעים",
+        "body": "@אנשים אנשים התאמנו שם השבוע. חסר רק אחד",
+        "deepLink": "map",
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "מי מתאמן ב@מקום?",
+        "body": "@אנשים שכנים כבר גילו. בואו לראות",
+        "deepLink": "map",
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "title": "לא חייבים לבד",
+        "body": "יש קבוצת הליכה ליד הבית שמחכה לחברים חדשים",
+        "deepLink": "map",
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "personal"
+          ],
+          "nearby": [
+            "group"
+          ]
+        }
+      },
+      {
+        "title": "כפרה עליך, אתה לא לבד",
+        "body": "@אנשים אנשים התאמנו ב@מקום השבוע. בוא",
+        "deepLink": "map",
+        "gender": "male",
+        "pair": "f_d3",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "כפרה עלייך, את לא לבד",
+        "body": "@אנשים אנשים התאמנו ב@מקום השבוע. בואי",
+        "deepLink": "map",
+        "gender": "female",
+        "pair": "f_d3",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "day": [
+            "d3"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "הרגליים עשו עבודה יפה היום",
+        "body": "עוד @צעדים_שנותרו צעדים ויש לך יום ראשון ברצף",
+        "deepLink": "activity_steps",
+        "conditions": {
+          "day": [
+            "d4"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "כמעט סגרת יום בלי לשים לב",
+        "body": "עוד @צעדים_שנותרו צעדים. סיבוב קצר מסביב לבניין?",
+        "deepLink": "activity_steps",
+        "conditions": {
+          "day": [
+            "d4"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "title": "היום היה של כולם",
+        "body": "10 הדקות הבאות יכולות להיות רק שלך",
+        "conditions": {
+          "day": [
+            "d5"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "הספה תסלח לנו",
+        "body": "10 דקות בסלון, בלי ציוד. אחר כך חוזרים אליה",
+        "conditions": {
+          "day": [
+            "d5"
+          ],
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "אחרי יום כזה? מגיע לך",
+        "body": "10 דקות בסלון, ואז ספה בלב שקט",
+        "gender": "male",
+        "pair": "f_d5",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "day": [
+            "d5"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "אחרי יום כזה? מגיע לך",
+        "body": "10 דקות בסלון, ואז ספה בלב שקט",
+        "gender": "female",
+        "pair": "f_d5",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "day": [
+            "d5"
+          ],
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "שבוע חדש, דף חדש",
+        "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+        "conditions": {
+          "day": [
+            "d7"
+          ],
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "מה אם השבוע זה יקרה?",
+        "body": "אימון ראשון של 10 דקות. רק לנסות",
+        "conditions": {
+          "day": [
+            "d7"
+          ],
+          "tone": [
+            "curious"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "second_workout",
+    "label": "האימון השני",
+    "lever": "progress",
+    "channel": "retention",
+    "sender": "firstWorkoutScheduler (firstWeekSequenceEnabled)",
+    "description": "עשו אימון ראשון אחד בלבד. הזמנה לאימון השני, שהוא מה שהופך סקרנות להרגל.",
+    "whenSent": "כל יום ב-18:00, למי שהאימון הראשון והיחיד שלו היה לפני 24 עד 48 שעות. פעם אחת. לא כשקלי כבר כתבה למשתמש באותו יום.",
+    "vars": [
+      "@שם"
+    ],
+    "conditions": [
+      {
+        "key": "tone",
+        "label": "טון",
+        "options": [
+          {
+            "value": "cute",
+            "label": "חמוד ומצחיק"
+          },
+          {
+            "value": "personal",
+            "label": "אישי ורגשי"
+          },
+          {
+            "value": "curious",
+            "label": "מסקרן"
+          },
+          {
+            "value": "friendly",
+            "label": "ישראלי-חברי"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "home",
+      "map"
+    ],
+    "defaults": [
+      {
+        "title": "האימון השני הוא הסוד",
+        "body": "הראשון זה סקרנות. השני זה התחלה של הרגל",
+        "conditions": {
+          "tone": [
+            "personal"
+          ]
+        }
+      },
+      {
+        "title": "הגוף שלך שואל מתי שוב",
+        "body": "15 דקות. הוא מוכן אם גם אתם",
+        "conditions": {
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "האימון השני מחכה",
+        "body": "הראשון כבר מאחוריך. 15 דקות וממשיכים",
+        "fallbackOnly": true
+      }
+    ]
+  },
+  {
+    "pushType": "friend_joined",
+    "label": "חבר הצטרף",
+    "lever": "social",
+    "channel": "social",
+    "sender": "(אין עדיין)",
+    "description": "מישהו שהמשתמש מכיר הצטרף לאפליקציה.",
+    "whenSent": "עוד לא נשלח. הטקסטים מוכנים לשולח שייבנה.",
+    "pending": "אין שולח עדיין",
+    "vars": [
+      "@שם",
+      "@מצטרף"
+    ],
+    "subject": {
+      "label": "מי שהצטרף",
+      "var": "@מצטרף"
+    },
+    "deepLinks": [
+      "community"
+    ],
+    "defaults": [
+      {
+        "title": "@מצטרף הצטרף ל-OUT",
+        "body": "שולחים כיף לדרך?",
+        "subjectGender": "male",
+        "pair": "joined"
+      },
+      {
+        "title": "@מצטרף הצטרפה ל-OUT",
+        "body": "שולחים כיף לדרך?",
+        "subjectGender": "female",
+        "pair": "joined"
+      }
+    ]
+  },
+  {
+    "pushType": "league_overtaken",
+    "label": "עקפו אותך בטבלה",
+    "lever": "competition",
+    "channel": "community",
+    "sender": "(אין עדיין)",
+    "description": "מישהו עקף את המשתמש בליגה השכונתית.",
+    "whenSent": "עוד לא נשלח. הטקסטים מוכנים לשולח שייבנה. בטון הישראלי: הפועל בכותרת לפי מי שעקף, הגוף לפי המקבל.",
+    "pending": "אין שולח עדיין",
+    "vars": [
+      "@שם",
+      "@מתחרה",
+      "@דירוג"
+    ],
+    "subject": {
+      "label": "מי שעקף",
+      "var": "@מתחרה"
+    },
+    "dualGender": true,
+    "conditions": [
+      {
+        "key": "tone",
+        "label": "טון",
+        "options": [
+          {
+            "value": "cute",
+            "label": "חמוד ומצחיק"
+          },
+          {
+            "value": "personal",
+            "label": "אישי ורגשי"
+          },
+          {
+            "value": "curious",
+            "label": "מסקרן"
+          },
+          {
+            "value": "friendly",
+            "label": "ישראלי-חברי"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "community"
+    ],
+    "defaults": [
+      {
+        "title": "מישהו עקף אותך בשכונה",
+        "body": "אימון אחד ואתם חוזרים למקום @דירוג",
+        "conditions": {
+          "tone": [
+            "curious"
+          ]
+        }
+      },
+      {
+        "title": "@מתחרה עקף אותך. בנימוס",
+        "body": "אבל עדיין. אימון אחד וחזרתם",
+        "subjectGender": "male",
+        "pair": "cute",
+        "conditions": {
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "@מתחרה עקפה אותך. בנימוס",
+        "body": "אבל עדיין. אימון אחד וחזרתם",
+        "subjectGender": "female",
+        "pair": "cute",
+        "conditions": {
+          "tone": [
+            "cute"
+          ]
+        }
+      },
+      {
+        "title": "@מתחרה עקף אותך. מה נסגר?",
+        "body": "אימון אחד ואתה חוזר למקום @דירוג",
+        "gender": "male",
+        "subjectGender": "male",
+        "pair": "friendly_m",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "@מתחרה עקפה אותך. מה נסגר?",
+        "body": "אימון אחד ואתה חוזר למקום @דירוג",
+        "gender": "male",
+        "subjectGender": "female",
+        "pair": "friendly_m",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "@מתחרה עקף אותך. מה נסגר?",
+        "body": "אימון אחד ואת חוזרת למקום @דירוג",
+        "gender": "female",
+        "subjectGender": "male",
+        "pair": "friendly_f",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      },
+      {
+        "title": "@מתחרה עקפה אותך. מה נסגר?",
+        "body": "אימון אחד ואת חוזרת למקום @דירוג",
+        "gender": "female",
+        "subjectGender": "female",
+        "pair": "friendly_f",
+        "audience": {
+          "ageBand": [
+            "under_18",
+            "18_29",
+            "30_44",
+            "45_59"
+          ]
+        },
+        "conditions": {
+          "tone": [
+            "friendly"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "pushType": "unit_league",
+    "label": "היחידה בליגה (מילואים)",
+    "lever": "competition",
+    "channel": "community",
+    "sender": "(אין עדיין)",
+    "description": "היחידה של המשתמש קרובה למקום הראשון בליגת המילואים.",
+    "whenSent": "עוד לא נשלח. הטקסט מוכן לשולח שייבנה.",
+    "pending": "אין שולח עדיין",
+    "vars": [
+      "@שם"
+    ],
+    "deepLinks": [
+      "community"
+    ],
+    "defaults": [
+      {
+        "title": "היחידה צמודה למקום הראשון",
+        "body": "כל אימון שלך מזיז את כולם"
+      }
+    ]
+  },
+  {
+    "pushType": "steps_connect",
+    "label": "חיבור צעדים",
+    "lever": "progress",
+    "channel": "health_milestone",
+    "sender": "(אין עדיין)",
+    "description": "המשתמש עוד לא חיבר את הצעדים מהטלפון.",
+    "whenSent": "עוד לא נשלח. הטקסט מוכן לשולח שייבנה.",
+    "pending": "אין שולח עדיין",
+    "vars": [
+      "@שם"
+    ],
+    "deepLinks": [
+      "activity_steps",
+      "home"
+    ],
+    "defaults": [
+      {
+        "title": "כל הליכה שלכם יכולה להיספר",
+        "body": "מחברים צעדים בדקה, וגם הליכה לסופר נכנסת לרצף"
+      }
+    ]
+  }
+]
