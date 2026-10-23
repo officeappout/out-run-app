@@ -29,6 +29,9 @@ export const RouteShapeSchema = z.enum(['loop', 'out_and_back', 'point_to_point'
 /** Mirrors SurfaceType (surface-type.ts) verbatim — same "enum copied
  *  verbatim from the TS union" discipline as every other schema here. */
 export const SurfaceTypeSchema = z.enum(ALL_SURFACE_TYPES as [string, ...string[]]);
+/** Mirrors SurfaceClass (src/lib/route-score/surface-class.ts) verbatim — the app-facing
+ *  filter class (owner-approved 23.10.2026). A test pins the two lists together. */
+export const SurfaceClassSchema = z.enum(['walk_run_paved', 'hike_offroad', 'bike_road', 'bike_offroad', 'unknown']);
 
 const LatLngObjectSchema = z.object({ lat: z.number(), lng: z.number() });
 const PathSchema = z.array(z.union([
@@ -49,6 +52,10 @@ const RouteFieldsSchema = z.object({
   /** Granular ground-material vocabulary, distinct from the existing
    *  coarse `features.surface` — see surface-type.ts's header comment. */
   surfaceType: SurfaceTypeSchema.optional(),
+  /** App-facing surface class for the map's surface filter — computed by the
+   *  route-score pipeline (route-score/surface-class.ts), copied here so the
+   *  client can filter without reading route_scores. Absent = not computed yet. */
+  surfaceClass: SurfaceClassSchema.optional(),
   /** RC10 (22.10.2026): 'connector' = a transition segment kept in the data
    *  but hidden from user-facing route lists (display-role.ts, behind
    *  enable_hide_route_connectors). Absent/null = an ordinary route; null
