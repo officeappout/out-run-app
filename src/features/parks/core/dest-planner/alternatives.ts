@@ -15,7 +15,7 @@ import type { Route } from '../types/route.types';
 import { isRouteLitVerified } from '../services/route-quality-badges.service';
 import { shadeTagPct } from '@/lib/route-shade-view';
 import { deriveRouteTags } from './route-tags';
-import type { PlannerCandidates, PlannerOption, PlannerPreference } from './types';
+import type { PlannerCandidates, PlannerMode, PlannerOption, PlannerPreference } from './types';
 
 export const PLANNER_MAX_OPTIONS = 2;
 
@@ -42,6 +42,18 @@ export function availablePreferences(c: PlannerCandidates): Record<PlannerPrefer
     lit: all.some((r) => isRouteLitVerified(r)),
     shade: all.some((r) => shadeTagPct(r.shadeInfo) != null),
   };
+}
+
+export const PLANNER_PREFS: PlannerPreference[] = ['park', 'lit', 'shortest', 'shade'];
+
+/**
+ * The chips the planner SHOWS: only ones that can act on this destination +
+ * mode right now. No disabled "בקרוב" placeholders (owner, 23.10.2026) — e.g.
+ * "מוצל" appears only when some option carries measured shade, the park chip
+ * only on foot and only when a via-park route exists.
+ */
+export function visiblePlannerPrefs(mode: PlannerMode, available: Record<PlannerPreference, boolean>): PlannerPreference[] {
+  return PLANNER_PREFS.filter((p) => (p === 'park' ? mode !== 'cycling' && available.park : available[p]));
 }
 
 export function selectPlannerOptions(

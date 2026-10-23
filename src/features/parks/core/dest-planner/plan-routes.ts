@@ -12,7 +12,7 @@
 import type { Park } from '../types/park.types';
 import type { Route } from '../types/route.types';
 import { generateDynamicRoutes } from '../services/route-generator.service';
-import { MapboxService, type MapboxPathResult } from '../services/mapbox.service';
+import { MapboxService, type MapboxDirectionsExtraParams, type MapboxPathResult } from '../services/mapbox.service';
 import { computeGeneratorDifficulty } from '../services/generator-elevation.service';
 import { KCAL_PER_KM, SPEED_KMH } from '../services/route-request.utils';
 import { distanceAlongToNearest, pickViaParks, type ViaParkPick } from './via-park';
@@ -60,12 +60,23 @@ export async function buildViaParkRoute(result: MapboxPathResult, pick: ViaParkP
   };
 }
 
+/**
+ * Per-mode routing (Google-Maps-style tabs: each mode gets ITS own route).
+ * Mapbox has no running profile, so running used to be the exact walking
+ * request (same route, the tab "did nothing"). Running now asks the walking
+ * profile to prefer footpaths / sidewalks (`walkway_bias`, -1…1); cycling
+ * uses the cycling profile (generator); walking stays the plain request.
+ */
+export function directionsParamsFor(mode: PlannerMode): MapboxDirectionsExtraParams | undefined {
+  return mode === 'running' ? { walkway_bias: '1' } : undefined;
+}
+
 async function viaParkRoutes(from: LatLng, to: LatLng, mode: PlannerMode, parks: Park[]): Promise<ViaParkCandidate[]> {
   if (mode === 'cycling') return [];
   const picks = pickViaParks(from, to, parks);
   const built = await Promise.all(picks.map(async (pick) => {
     try {
-      const res = await MapboxService.getSmartPathAlternatives(from, to, 'walking', [pick.location]);
+      const res = await MapboxService.getSmartPathAlternatives(from, to, 'walking', [pick.location], directionsParamsFor(mode) ?? {});
       const best = [...res].sort((a, b) => a.distance - b.distance)[0];
       return best ? await buildViaParkRoute(best, pick, mode) : null;
     } catch {
@@ -85,6 +96,7 @@ export async function fetchPlannerCandidates(args: { from: LatLng; to: LatLng; m
       routeGenerationIndex: Date.now(),
       preferences: { includeStrength: false },
       parks,
+      commuteDirectionsParams: directionsParamsFor(mode),
       // Unused on the commute branch, but the option shape requires it.
       targetDistance: 0,
     }).catch(() => [] as Route[]),

@@ -5,7 +5,7 @@
  * generated candidates (re-fetched per mode, like the commute carousel's
  * activity picker), the options to show and the selected one.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchRealParks } from '../services/parks.service';
 import { fetchPlannerCandidates } from './plan-routes';
 import { availablePreferences, selectPlannerOptions, shortestOf } from './alternatives';
@@ -27,21 +27,33 @@ export function useDestinationPlan(args: { from: LatLng; to: LatLng; initialMode
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Last known shortest distance — keeps the other tabs' minutes while a mode switch refetches. */
   const [knownKm, setKnownKm] = useState<number | null>(null);
+  /** Each mode's routes, kept for this destination — switching back to a tab is instant. */
+  const cacheRef = useRef(new Map<string, PlannerCandidates>());
 
   useEffect(() => {
     let cancelled = false;
+    setSelectedId(null);
+    const cacheKey = `${mode}|${to.lat},${to.lng}`;
+    const apply = (c: PlannerCandidates) => {
+      setCandidates(c);
+      const km = shortestOf(c.commute)?.distance;
+      if (km) setKnownKm(km);
+      setStatus(c.commute.length + c.viaParks.length > 0 ? 'ready' : 'empty');
+    };
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      apply(cached);
+      return () => { cancelled = true; };
+    }
     setStatus('loading');
     setCandidates(EMPTY);
-    setSelectedId(null);
     (async () => {
       const parks = await fetchRealParks().catch(() => []);
       const c = await fetchPlannerCandidates({ from, to, mode, parks }).catch(() => EMPTY);
       if (cancelled) return;
       setFountains(fountainPoints(parks));
-      setCandidates(c);
-      const km = shortestOf(c.commute)?.distance;
-      if (km) setKnownKm(km);
-      setStatus(c.commute.length + c.viaParks.length > 0 ? 'ready' : 'empty');
+      if (c.commute.length + c.viaParks.length > 0) cacheRef.current.set(cacheKey, c);
+      apply(c);
     })();
     return () => { cancelled = true; };
     // `from` is captured when the fetch fires (a GPS tick must not refetch).

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Route } from '../../types/route.types';
-import { availablePreferences, selectPlannerOptions, shortestOf } from '../alternatives';
+import { availablePreferences, selectPlannerOptions, shortestOf, visiblePlannerPrefs } from '../alternatives';
 import type { PlannerCandidates, ViaParkCandidate } from '../types';
 
 const route = (id: string, distance: number, duration: number, extra: Partial<Route> = {}): Route =>
@@ -98,5 +98,18 @@ describe('availablePreferences', () => {
   });
   it('a measured 0% shade does not enable the chip', () => {
     expect(availablePreferences({ commute: [route('s', 2, 20, { shadeInfo: { shadedPct: 0 } })], viaParks: [] }).shade).toBe(false);
+  });
+});
+
+describe('visiblePlannerPrefs — only chips that can act (no "בקרוב" placeholders)', () => {
+  const none = { park: false, lit: false, shortest: false, shade: false };
+  it('hides shade when no option carries measured shade, shows it when one does', () => {
+    expect(visiblePlannerPrefs('walking', { ...none, shortest: true })).toEqual(['shortest']);
+    expect(visiblePlannerPrefs('walking', { ...none, shortest: true, shade: true })).toEqual(['shortest', 'shade']);
+  });
+  it('park chip: on foot only, and only with a via-park route', () => {
+    expect(visiblePlannerPrefs('running', { ...none, park: true })).toEqual(['park']);
+    expect(visiblePlannerPrefs('cycling', { ...none, park: true })).toEqual([]);
+    expect(visiblePlannerPrefs('walking', none)).toEqual([]);
   });
 });

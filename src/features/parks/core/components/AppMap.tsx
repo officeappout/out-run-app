@@ -210,29 +210,11 @@ const PRESENCE_DOTS_LAYER: mapboxgl.CircleLayer = {
 };
 
 /**
- * Start-experience radius ring (11.10.2026) — a cheap, purely decorative
- * visual cue around the user's own position for "routes roughly this
- * close are walkable." Deliberately NOT geo-accurate: `circle-radius` in
- * Mapbox GL is pixels by default (same as PRESENCE_DOTS_LAYER above), so
- * this does not scale with real-world distance or zoom — a real
- * meter-radius polygon (turf.circle() etc.) was explicitly out of scope
- * for this pass. This layer renders no gate of its own;
- * computeStartExperienceState (start-experience-state.ts) is the actual
- * decision, this is only the on-map hint.
+ * Start-experience radius ring — REMOVED (23.10.2026, owner field test): the
+ * big translucent 70px circle around the user read as a GPS-accuracy halo and
+ * cluttered the map. The lemur marker (with its own small cyan ring) already
+ * shows the position. computeStartExperienceState stays the real decision.
  */
-const START_RADIUS_RING_LAYER: mapboxgl.CircleLayer = {
-  id: 'start-radius-ring',
-  type: 'circle',
-  source: 'start-radius-ring',
-  paint: {
-    'circle-radius': 70,
-    'circle-color': '#00ADEF',
-    'circle-opacity': 0.08,
-    'circle-stroke-width': 1.5,
-    'circle-stroke-color': '#00ADEF',
-    'circle-stroke-opacity': 0.3,
-  },
-};
 
 interface AppMapProps {
   routes?: Route[];
@@ -597,6 +579,7 @@ export default function AppMap({
   // Commute destination — drives the floating <DestinationMarker /> below.
   // Set by DiscoverLayer (commute-mode entry) and cleared on commute exit.
   const commuteDestination = useMapStore((s) => s.commuteDestination);
+  const commuteDestinationParkId = commuteDestination?.park?.id ?? null;
   // Active turn idx published by TurnCarousel. -1 = no selection. Used to
   // filter the ground-arrow GeoJSON to a SINGLE feature so the icon never
   // appears on every turn at once.
@@ -982,8 +965,10 @@ export default function AppMap({
     for (const s of hybridStations ?? []) {
       if (s.parkId) ids.add(s.parkId);
     }
+    // A park destination is drawn by its photo pin (below) — hide its vector pin.
+    if (commuteDestinationParkId) ids.add(commuteDestinationParkId);
     return Array.from(ids);
-  }, [selectedParkId, hybridStations]);
+  }, [selectedParkId, hybridStations, commuteDestinationParkId]);
 
   // PARK_PINS.filter / PARK_MINOR_PINS.filter are both `['all', ...clauses]`. We slice off
   // the leading 'all' literal before spreading so the result is `['all', ...clauses, ['!in',
@@ -1572,26 +1557,6 @@ export default function AppMap({
     if (progressRafRef.current != null) cancelAnimationFrame(progressRafRef.current);
   }, []);
 
-  // ── Start-experience radius ring GeoJSON ──────────────────────────────────
-  // Rounded to 4 decimal degrees (~11 m) so this only recomputes — and the
-  // Source only calls setData() — once the user has actually moved a
-  // visually-meaningful distance, instead of on every raw GPS tick (up to
-  // 2 Hz per useGPS.ts's GPS_MIN_INTERVAL_MS). The ring itself is a 70px
-  // fixed-pixel visual hint, not a precision gate, so this rounding changes
-  // nothing the user can see — it only removes the per-tick setData() churn
-  // introduced when this ring shipped.
-  const startRadiusRingGeoJSON = useMemo(() => {
-    if (!isFiniteLatLng(currentLocation)) return null;
-    const lng = Math.round(currentLocation.lng * 10_000) / 10_000;
-    const lat = Math.round(currentLocation.lat * 10_000) / 10_000;
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: { type: 'Point' as const, coordinates: [lng, lat] },
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLocation && Math.round(currentLocation.lng * 10_000), currentLocation && Math.round(currentLocation.lat * 10_000)]);
-
   // ── Off-route connector REMOVED BY PRODUCT DECISION, NOT AN OVERSIGHT
   // (David, 24.09.2026) — used to draw a dashed line from the user back to
   // the route while off-route ("no dashed line from the user to the route"
@@ -2072,16 +2037,6 @@ export default function AppMap({
           </Source>
         )}
 
-        {/* ── Start-experience radius ring — see START_RADIUS_RING_LAYER's
-            doc comment above for why this is fixed-pixel, not geo-accurate,
-            and startRadiusRingGeoJSON's doc comment for why its coordinates
-            are rounded. */}
-        {startRadiusRingGeoJSON && (
-          <Source id="start-radius-ring" type="geojson" data={startRadiusRingGeoJSON as any}>
-            <Layer {...START_RADIUS_RING_LAYER} />
-          </Source>
-        )}
-
         {/* ── Simulation walk trail — DISABLED (was distracting orange dashes) ── */}
 
         {/* ── Partner presence: heatmap + dots (always-on density signal) ──
@@ -2177,7 +2132,18 @@ export default function AppMap({
             latitude={commuteDestination.coords[1]}
             anchor="bottom"
           >
-            <DestinationMarker label={commuteDestination.label} />
+            {commuteDestination.park ? (
+              // A park destination keeps looking like that park — its photo pin,
+              // the same marker a selected park gets — not the generic flag pin.
+              <ParkPhotoMarker
+                name={commuteDestination.label || ''}
+                photoUrl={commuteDestination.park.photoUrl}
+                size={56}
+                isSelected
+              />
+            ) : (
+              <DestinationMarker label={commuteDestination.label} />
+            )}
           </Marker>
         )}
 

@@ -7,7 +7,7 @@ import { readLiveFlag } from '@/lib/feature-flag-live';
 import { Route, ActivityType, CommuteVariant } from '../types/route.types';
 import { Park as MapPark } from '../types/park.types';
 import { MapboxService } from './mapbox.service';
-import type { MapboxPathResult } from './mapbox.service';
+import type { MapboxPathResult, MapboxDirectionsExtraParams } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
 import { buildOutAndBackPath, classifyRouteShape, computeRouteTurns, isSameCoord, pathLengthMeters, pathSelfIntersects, sliceFlowPathToDistance } from './geoUtils';
@@ -228,6 +228,13 @@ interface RouteGenerationOptions {
    * of them apply to point-to-point navigation.
    */
   destination?: { lat: number; lng: number };
+  /**
+   * Commute branch only: extra Mapbox Directions params for the ONE
+   * alternatives call (e.g. the destination planner's running tab sends
+   * `walkway_bias` so a run prefers footpaths over the walking route).
+   * Absent → the request is byte-identical to before.
+   */
+  commuteDirectionsParams?: MapboxDirectionsExtraParams;
   /**
    * Opt-in short-target generation. When true AND targetDistance is below
    * MIN_GENERATION_KM, the generator skips the usual floor-inflation and
@@ -3826,7 +3833,7 @@ async function generateCommuteRoutes(
       destination,
       profile,
       [],
-      {},
+      options.commuteDirectionsParams ?? {},
       { signal },
     ),
   );

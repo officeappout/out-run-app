@@ -10,6 +10,7 @@ import { Activity, Bike, Check, Droplet, Dumbbell, Footprints, Lamp, Mountain, R
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { deriveRouteTags, type PlannerTag } from './route-tags';
+import { plannerOptionTitleKey } from './PlannerSelectedRow';
 import type { LatLng, PlannerMode, PlannerOption } from './types';
 
 const MODE_ICON = { walking: Footprints, running: Activity, cycling: Bike } as const;
@@ -19,9 +20,8 @@ const fmtKm = (km: number) => (Math.round(km * 10) / 10).toFixed(1);
 
 function useTitle(option: PlannerOption): string {
   const t = useT(map);
-  if (option.kind === 'shortest') return t('destPlanner.title.shortest');
-  if (option.kind === 'via_park' && option.stop) return t('destPlanner.title.viaPark', { name: option.stop.name });
-  return option.route.variant === 'quiet' ? t('destPlanner.title.quiet') : t('destPlanner.title.alternative');
+  const title = plannerOptionTitleKey(option);
+  return title.key === 'destPlanner.title.viaPark' ? t(title.key, { name: title.name }) : t(title.key);
 }
 
 function TagChip({ tag }: { tag: PlannerTag }) {

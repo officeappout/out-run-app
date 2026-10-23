@@ -8,10 +8,17 @@
  * to /map (Discover consumes the request on mount).
  */
 
+import { resolveParkImage, type ParkImageFields } from '@/lib/park-image';
+
 export interface DestinationTarget {
   /** [lng, lat] — the same order as the commute flow / route paths. */
   coords: [number, number];
   label?: string;
+  /**
+   * Set when the destination IS a park (parkTarget) — the map then shows that
+   * park's own photo pin at the destination instead of the generic flag pin.
+   */
+  park?: { id: string; photoUrl: string | null };
 }
 
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
@@ -30,12 +37,15 @@ export function routeStartTarget(route: { path?: unknown; name?: string | null }
   return target(first[0], first[1], route?.name);
 }
 
-/** A park's own location. */
+/** A park's own location (+ its id / marker photo, so the map pins the park itself). */
 export function parkTarget(
-  park: { location?: { lat?: number | null; lng?: number | null } | null; name?: string | null } | null | undefined,
+  park: ({ id?: string | null; location?: { lat?: number | null; lng?: number | null } | null; name?: string | null } & ParkImageFields) | null | undefined,
 ): DestinationTarget | null {
   if (!park?.location) return null;
-  return target(park.location.lng, park.location.lat, park.name);
+  const t = target(park.location.lng, park.location.lat, park.name);
+  if (!t || typeof park.id !== 'string' || !park.id) return t;
+  // 80 = bunny-image's "map marker" width (same as AppMap's selected-park photo pin).
+  return { ...t, park: { id: park.id, photoUrl: resolveParkImage(park, 80) || null } };
 }
 
 export interface LiveUserLocation {
