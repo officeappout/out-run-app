@@ -1,3 +1,7 @@
-import { TERMS_OF_USE_HE, PRIVACY_POLICY_HE } from '../legal-content';
-export const getTermsDoc = () => TERMS_OF_USE_HE;
-export const getPrivacyDoc = () => PRIVACY_POLICY_HE;
+import { buildTermsDoc, buildPrivacyDoc } from '../legal-content';
+import { makeT } from '@/lib/i18n/t';
+import { legal } from '@/messages/ns/legal';
+
+const t = makeT('he', legal);
+export const getTermsDoc = () => buildTermsDoc(t);
+export const getPrivacyDoc = () => buildPrivacyDoc(t);
