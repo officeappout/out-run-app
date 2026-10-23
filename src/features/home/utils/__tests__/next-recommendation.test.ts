@@ -76,6 +76,21 @@ describe('doneKindsOf / nextHeaderHe', () => {
   it('rest header keeps the old copy', () => {
     expect(nextHeaderHe({ kind: 'rest', why: 'done' })).toBe('סיימת הכל, מגיע לך מנוחה');
   });
+  it('every header is the same Hebrew now that it comes from the catalog', () => {
+    expect(nextHeaderHe({ kind: 'walk', why: 'planned' })).toBe('עוד מחכה לך היום: הליכה');
+    expect(nextHeaderHe({ kind: 'walk', why: 'steps' })).toBe('נשארו צעדים — הליכה קצרה תסגור את היום');
+    expect(nextHeaderHe({ kind: 'strength', why: 'topup', sets: 6 })).toBe('אימון משלים — לסגור את יעד הכוח של היום');
+    expect(nextHeaderHe({ kind: 'strength', why: 'planned' })).toBe('עוד מחכה לך היום: אימון כוח');
+    expect(nextHeaderHe({ kind: 'strength', why: 'week' })).toBe('נשאר אימון כוח השבוע');
+    expect(nextHeaderHe({ kind: 'run', why: 'planned' })).toBe('עוד מחכה לך היום: ריצה');
+    expect(nextHeaderHe({ kind: 'run', why: 'week' })).toBe('נשארה ריצה השבוע');
+  });
+  it('a too-short run (partial) leaves the day to the strength workout: "עוד מחכה לך היום: אימון כוח"', () => {
+    // home drops the partial run from the done kinds and from today's plan (page.tsx) → strength is pending.
+    const doneToday = doneKindsOf([]);
+    const rec = resolveNextRecommendation({ ...base, doneToday, plannedToday: ['strength'], hasRunningPlan: true });
+    expect(nextHeaderHe(rec)).toBe('עוד מחכה לך היום: אימון כוח');
+  });
 });
 
 describe('strength top-up (owner 20.10.2026: depends on the daily goal)', () => {

@@ -219,7 +219,8 @@ export async function getWeeklyRunCount(userId: string): Promise<number | null> 
       firestoreLimit(WEEKLY_RUN_COUNT_LIMIT),
     );
     const snap = await getDocs(q);
-    return countRunSessions(snap.docs.map((d) => d.data() as RunSessionDoc));
+    // enable_home_v2 only (its callers): a run counts from the run-done minimum (run-coverage.ts).
+    return countRunSessions(snap.docs.map((d) => d.data() as RunSessionDoc), { applyMinimum: true });
   } catch (error) {
     console.warn('[ActivityHistory] getWeeklyRunCount failed:', error);
     return null;

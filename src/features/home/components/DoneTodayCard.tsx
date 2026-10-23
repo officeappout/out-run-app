@@ -27,6 +27,8 @@ export interface DoneTodayCardProps {
   /** Today's saved workout docs — distance / sets for each row's meta. */
   workouts: readonly DoneRowWorkout[];
   onCardTap?: (card: TodayActivityCardData) => void;
+  /** Run-done state: an extra line on the row of a run that counted for today's slot, by workout id. */
+  notes?: Readonly<Record<string, string>>;
 }
 
 const TONE = {
@@ -36,11 +38,11 @@ const TONE = {
   maintenance: { fg: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', check: '#8b5cf6' },
 } as const;
 
-export default function DoneTodayCard({ cards, workouts, onCardTap }: DoneTodayCardProps) {
+export default function DoneTodayCard({ cards, workouts, onCardTap, notes }: DoneTodayCardProps) {
   const v2 = useHomeV2();
   const t = useT(home);
   if (!v2 || cards.length === 0) return null;
-  const rows = buildDoneWorkoutRows(cards, workouts, t.locale);
+  const rows = buildDoneWorkoutRows(cards, workouts, t.locale, notes);
 
   return (
     <section dir="rtl" aria-label={t('doneToday.aria')}>

@@ -357,6 +357,14 @@ export const FLAG_DEFS = [
   // "מוכן לנסות לרוץ?" card (opens the running questionnaire; "לא עכשיו" hides it for 30 days).
   // Fail-closed; super admins preview it. Off = today's cards, byte-identical.
   { key: 'enableHomeTwoCardsV1', firestoreKey: 'enable_home_two_cards_v1', defaultValue: false, superAdminValue: true },
+  // Run-done state (23.10.2026, owner; agent-briefs/home-after-run-audit.md) — the WRITE half of the
+  // "run done today" fix: a saved planned run that reached >= 70% of its target marks its schedule
+  // entry completed (a transaction on users/{uid}, field-level on the one entry — never the whole
+  // array), and a free run that covers the slot (>= 10 min and >= 50% of the plan) does the same
+  // from home. The READ half (the card no longer offers Start after a finished run; a too-short run
+  // is demoted and does not count toward the plan or the week) rides on enable_home_v2. Read on the
+  // device (the run player), super admins preview it. Off = no schedule write, byte-identical.
+  { key: 'enableRunDoneStateV1', firestoreKey: 'enable_run_done_state_v1', defaultValue: false, superAdminValue: true },
   // Generation review (19.10.2026, owner) — learn from every generated session: each session a
   // generator SHOWS (home trio, Kelly workouts, hybrid compositions, generated loops / A→B routes,
   // planned runs) is summarized on the device (no names, area = geohash-5, route ends trimmed) and

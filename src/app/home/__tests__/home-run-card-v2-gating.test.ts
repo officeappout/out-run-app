@@ -23,8 +23,19 @@ const stripSrc = readFileSync(
 
 describe('home/page.tsx — v2 run card wiring', () => {
   it('the slot is resolved for every runner (ungated fix, 19.10.2026)', () => {
-    expect(pageSrc).toContain('useHomeRunSlot(profile, true, hasStrengthProgram, featureFlags.enableHomeV2)');
-    expect(hookSrc).toContain('if (!enabled || !hasRunningPlan) return { slot: null');
+    // + the run-done input (23.10.2026): today's docs decide done / covered / partial (enable_home_v2).
+    expect(pageSrc).toContain('useHomeRunSlot(profile, true, hasStrengthProgram, featureFlags.enableHomeV2, {');
+    expect(hookSrc).toContain('if (!enabled || !hasRunningPlan) return null;');
+    expect(hookSrc).toContain('if (!dayState) return { slot: null');
+  });
+
+  it('a too-short run (partial) sits under the "עוד מחכה לך היום" header, not in the standalone spot', () => {
+    expect(pageSrc).toContain("const partialRunBelowHeader = featureFlags.enableHomeV2 && isSelectedDateToday && !!homeRun.slot?.partial && postWorkoutHasCards;");
+    expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader ? (");
+    const headerAt = pageSrc.indexOf("nextHeaderHe(nextRec, tHome)");
+    const partialAt = pageSrc.indexOf('data-run-partial-slot');
+    expect(headerAt).toBeGreaterThan(-1);
+    expect(partialAt).toBeGreaterThan(headerAt);
   });
 
   it('the run slide is only added when the slot lands in the carousel', () => {
@@ -65,7 +76,8 @@ describe('home/page.tsx — v2 run card wiring', () => {
 
   it('the standalone run card only renders off the v2 slot, beside the StatsOverview fallback', () => {
     expect(pageSrc).toContain('resolveRunSlotSurface(\n                  homeRun.slot,');
-    expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot ? (");
+    // (a partial run moves under the after-workout header instead — see the partial test above)
+    expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader ? (");
     expect(pageSrc).toMatch(/\{standaloneRunCard\}\s*<StatsOverview/);
   });
 

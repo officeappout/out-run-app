@@ -8,6 +8,8 @@
  * existing loader (one template read, as before).
  */
 
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 import { useMemo } from 'react';
 import type RunWorkout from '@/features/workout-engine/players/running/types/run-workout.type';
 import { useRunPreviewModel } from '@/features/workout-engine/players/running/components/preview-v2/useRunPreviewModel';
@@ -51,7 +53,8 @@ export default function RunWeekListV2({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `placement` by value (placeKey)
     [schedule, week, scheduleDays, targetDay, isRunDay, placeKey, locale],
   );
-  const summary = runWeekSummary(rows);
+  const t = useT(home);
+  const summary = runWeekSummary(rows, t);
   const todayCategory = rows.find((r) => r.state === 'today')?.entry.category ?? null;
   const extras = useMemo(() => ({ templateCategory: todayCategory }), [todayCategory]);
   const todayModel = useRunPreviewModel(isRunDay ? todayWorkout : null, extras);

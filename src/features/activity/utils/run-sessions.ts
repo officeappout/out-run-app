@@ -9,12 +9,17 @@
  * own activityType is always 'hybrid', so the leg types decide). Weekly km stays combined.
  */
 import { doneKindsOfDoc } from '@/features/workout-engine/hybrid/hybrid-counting';
+import { runCountsTowardWeek } from '@/lib/run-coverage';
 
 export interface RunSessionDoc {
   workoutType?: string | null;
   activityType?: string | null;
   /** Combined workouts: the per-leg records (aerobicType decides run vs walk). */
   segments?: unknown;
+  /** Plain runs (seconds / km / the planned-run link) — read only for the run-done minimum. */
+  duration?: number;
+  distance?: number;
+  runMeta?: { plan?: { week?: number; day?: number } | null; target?: { durationSec?: number; distanceKm?: number } | null } | null;
 }
 
 export function isRunSession(doc: RunSessionDoc | null | undefined): boolean {
@@ -22,8 +27,24 @@ export function isRunSession(doc: RunSessionDoc | null | undefined): boolean {
   return doneKindsOfDoc(doc).includes('run');
 }
 
-export function countRunSessions(docs: ReadonlyArray<RunSessionDoc | null | undefined> | null | undefined): number {
+export interface CountRunOptions {
+  /**
+   * Run-done state (enable_home_v2): a plain run counts toward the week only from
+   * RUN_COVERAGE.WEEK_COUNT_MIN_SEC (run-coverage.ts) — a test tap or a 1-minute run is real
+   * activity but not a run of the plan. Default false = every saved run counts (flag-off parity).
+   */
+  applyMinimum?: boolean;
+}
+
+export function countRunSessions(
+  docs: ReadonlyArray<RunSessionDoc | null | undefined> | null | undefined,
+  opts: CountRunOptions = {},
+): number {
   let n = 0;
-  for (const d of docs ?? []) if (isRunSession(d)) n += 1;
+  for (const d of docs ?? []) {
+    if (!isRunSession(d)) continue;
+    if (opts.applyMinimum && !runCountsTowardWeek(d)) continue;
+    n += 1;
+  }
   return n;
 }

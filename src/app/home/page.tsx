@@ -61,6 +61,9 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import HomeWalkCarouselCard from '@/features/home/components/walk/HomeWalkCarouselCard';
 import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
 import { useTryRunningNudge } from '@/features/home/hooks/useTryRunningNudge';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
+import { isPlainRunDoc, type RunCoverageDoc } from '@/lib/run-coverage';
 import TryRunningCard from '@/features/home/components/start-cards/TryRunningCard';
 import { TRY_RUNNING_CARD_ID } from '@/features/home/utils/try-running';
 import { usePlannedDay } from '@/features/home/hooks/usePlannedDay';
@@ -1723,7 +1726,14 @@ export default function HomePage() {
   // strength invite above. Pure, from the loaded profile. Resolved for EVERY runner
   // (owner-approved ungated fix, 19.10.2026): enable_home_v2 picks the card —
   // HomeRunCarouselCard with the flag, the legacy NextRunWorkoutCard without.
-  const homeRun = useHomeRunSlot(profile, true, hasStrengthProgram, featureFlags.enableHomeV2);
+  // Run-done state (enable_home_v2): today's saved runs decide whether today's run is done /
+  // covered / too short to count (run-coverage.ts); the schedule write rides enable_run_done_state_v1.
+  const homeRun = useHomeRunSlot(profile, true, hasStrengthProgram, featureFlags.enableHomeV2, {
+    enabled: featureFlags.enableHomeV2,
+    workouts: todaysWorkouts as unknown as RunCoverageDoc[] | null,
+    writeback: featureFlags.enableHomeV2 && featureFlags.enableRunDoneStateV1,
+  });
+  const tHome = useT(home);
   // enable_home_v2 walking track (owner 20.10.2026): planned walks in the coming week →
   // today's walk is the pinned card of the daily carousel (the run card's slot), the
   // short "complete your steps" walk a slide on other days, "מדדי בריאות" the first tab.
@@ -1798,7 +1808,8 @@ export default function HomePage() {
   );
   const plannedTodayKinds: PlanKind[] = [
     ...(walkWeek.today ? (['walk'] as const) : []),
-    ...(homeRun.slot?.kind === 'today' && !homeRun.slot.skippedToday ? (['run'] as const) : []),
+    // A too-short run (partial) keeps its own demoted card; the day's plan moves on to what else is due.
+    ...(homeRun.slot?.kind === 'today' && !homeRun.slot.skippedToday && !homeRun.slot.partial ? (['run'] as const) : []),
     ...(strengthPlannedToday ? (['strength'] as const) : []),
   ];
   // enable_home_v2 (owner 20.10.2026): extra strength on a day you already did strength
@@ -1816,12 +1827,20 @@ export default function HomePage() {
     featureFlags.enableHomeV2 && homeRun.hasRunningPlan,
     `${todaysWorkouts?.length ?? 0}`,
   );
+  // A too-short run (partial) is real activity in the strip, but it is not "a run done today" for
+  // the what-next logic: the run stays due (its demoted card is on screen) — same rule as the card.
+  const kindWorkouts = useMemo(
+    () => (homeRun.slot?.partial && todaysWorkouts
+      ? todaysWorkouts.filter((w) => !isPlainRunDoc(w as unknown as RunCoverageDoc))
+      : todaysWorkouts),
+    [homeRun.slot?.partial, todaysWorkouts],
+  );
   const nextUp = useNextRecommendation({
     enabled: featureFlags.enableHomeV2 && isSelectedDateToday,
     profile,
     hasStrengthProgram,
     hasRunningPlan: homeRun.hasRunningPlan,
-    todaysWorkouts,
+    todaysWorkouts: kindWorkouts,
     plannedToday: plannedTodayKinds,
     stepsRemaining: healthConnected === false ? null : liveStepsRemaining,
     weekRuns: weekRunsV2,
@@ -1847,6 +1866,19 @@ export default function HomePage() {
     week: nextUp.week,
     runSlotKind: homeRun.slot?.kind,
   });
+  // Run-done state: the done row of the run that counted for today's slot says so — a covering
+  // free run "נספרה כריצת היום", a finished planned run its place in the plan.
+  const runDoneNotes = useMemo<Record<string, string> | undefined>(() => {
+    const d = homeRun.done;
+    if (!featureFlags.enableHomeV2 || !d.workoutId || (d.state !== 'done' && d.state !== 'covered')) return undefined;
+    if (d.coverage === 'free') return { [d.workoutId]: tHome('runCard.covered.meta') };
+    const rp = profile?.running;
+    const total = rp?.generatedProgramTemplate?.canonicalWeeks;
+    const target = rp?.weeklyFrequency ?? rp?.scheduleDays?.length ?? 0;
+    const entryWeek = homeRun.currentWeek ?? homeRun.slot?.entry.week;
+    if (!total || !entryWeek || !target || !weekRunsV2) return undefined;
+    return { [d.workoutId]: tHome('doneToday.runPlan', { week: entryWeek, total, n: Math.min(weekRunsV2, target), target }) };
+  }, [featureFlags.enableHomeV2, homeRun.done, homeRun.slot, homeRun.currentWeek, profile?.running, weekRunsV2, tHome]);
   const runPlacement = useMemo(() => runPlacementOf(profile?.running), [profile?.running]);
   const RUN_PLAN_CARD_ID = 'run-plan-card';
   const isRunPlanCarouselItem = (
@@ -1906,6 +1938,10 @@ export default function HomePage() {
     ? (nextRunCardShown && homeRun.slot ? placeNextRunCard<PostWorkoutItem>(postWorkoutItems, { id: RUN_PLAN_CARD_ID }, nextRec) : postWorkoutItems)
     : postWorkoutItems;
   const postWorkoutHasCards = postWorkoutCarouselEnabled && !!postWorkoutSuggestions && (postWorkoutBase?.length ?? 0) > 0;
+  // Run-done state (owner 23.10.2026): a too-short run's demoted card sits under the "עוד מחכה לך
+  // היום" header, in the after-workout cards area — not above the day's summary. Only while that
+  // area shows; otherwise it keeps the standalone spot.
+  const partialRunBelowHeader = featureFlags.enableHomeV2 && isSelectedDateToday && !!homeRun.slot?.partial && postWorkoutHasCards;
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Health declaration check
   const isHealthMissing = (() => {
@@ -3214,6 +3250,7 @@ export default function HomePage() {
                 cards={todayStepGoalCard ? [...todayActivityCards, todayStepGoalCard] : todayActivityCards}
                 workouts={todaysWorkouts ?? []}
                 onCardTap={handleTodayActivityCardTap}
+                notes={runDoneNotes}
               />
             ) : (
               <TodayActivityStrip
@@ -3540,7 +3577,7 @@ export default function HomePage() {
                     <div className="mx-auto mb-4 w-full max-w-[358px] px-4">{walkCard(true)}</div>
                   </ErrorBoundary>
                 ) : null;
-                const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot ? (
+                const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader ? (
                   <div className="mx-auto mb-4 w-full max-w-[358px] px-4">
                     <HomeRunCarouselCard
                       standalone
@@ -3925,8 +3962,20 @@ export default function HomePage() {
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
               <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
-                {nextRec ? nextHeaderHe(nextRec) : allGoalsMet ? 'סיימת הכל, מגיע לך מנוחה' : 'המשך הפעילות של היום'}
+                {nextRec ? nextHeaderHe(nextRec, tHome) : allGoalsMet ? tHome('nextHeader.rest.done') : tHome('nextHeader.continue')}
               </h3>
+              {partialRunBelowHeader && homeRun.slot ? (
+                <div className="mb-3" data-run-partial-slot>
+                  <HomeRunCarouselCard
+                    standalone
+                    slot={homeRun.slot}
+                    profile={profile}
+                    currentWeek={homeRun.currentWeek}
+                    weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
+                    calmReturn={calmReturn.state}
+                  />
+                </div>
+              ) : null}
               <SuggestionCarousel<PostWorkoutItem | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem>
                 items={
                   featureFlags.enableHomeV2
