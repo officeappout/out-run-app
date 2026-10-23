@@ -64,5 +64,10 @@
   "defaults.default-def-2.text": "מה קורה?",
   "defaults.default-def-2.sub": "בוא נזוז",
   "defaults.default-def-3.text": "שלום!",
-  "defaults.default-def-3.sub": "הגוף מחכה לך"
+  "defaults.default-def-3.sub": "הגוף מחכה לך",
+  "chatPage.opening": "פותח את הצ׳אט שלך…",
+  "chatPage.redirecting": "מעביר אותך לשיחה…",
+  "chatPage.notFound": "השיחה לא נמצאה",
+  "chatPage.error": "תקלה זמנית בטעינת השיחה",
+  "chatPage.home": "חזרה לדף הבית"
 }

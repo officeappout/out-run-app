@@ -4,5 +4,9 @@
   "refineLevels.saving": "שומר שינויים...",
   "refineLevels.saved.title": "הרמות עודכנו בהצלחה",
   "refineLevels.saved.subtitle": "חוזרים להגדרות...",
-  "refineLevels.saveFailed": "שגיאה בשמירה — נסו שנית"
+  "refineLevels.saveFailed": "שגיאה בשמירה — נסו שנית",
+  "globalError.title": "משהו השתבש",
+  "globalError.chunkBody": "גרסה חדשה של האפליקציה זמינה. רענן את הדף כדי להמשיך.",
+  "globalError.reload": "רענן עמוד",
+  "globalError.retry": "נסו שוב"
 }

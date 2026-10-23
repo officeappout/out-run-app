@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import { isChunkLoadError } from '@/lib/sentry-shared';
 import { clearChunkReloadFlag, reloadOnceForChunkError } from '@/lib/chunk-reload';
+import { useT } from '@/hooks/useT';
+import { pages } from '@/messages/ns/pages';
 
 /**
  * Root-level error boundary for the Next.js App Router.
@@ -25,6 +27,7 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useT(pages);
   useEffect(() => {
     console.error('[global-error]', error.message, '\nstack:', error.stack, '\ndigest:', error.digest);
     Sentry.captureException(error);
@@ -49,10 +52,10 @@ export default function GlobalError({
             gap: 16,
           }}
         >
-          <h2 style={{ marginBottom: 8 }}>משהו השתבש</h2>
+          <h2 style={{ marginBottom: 8 }}>{t('globalError.title')}</h2>
           {isChunkLoadError(error) ? (
             <p style={{ color: '#64748b', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>
-              גרסה חדשה של האפליקציה זמינה. רענן את הדף כדי להמשיך.
+              {t('globalError.chunkBody')}
             </p>
           ) : null}
           <button
@@ -70,7 +73,7 @@ export default function GlobalError({
               cursor: 'pointer',
             }}
           >
-            {isChunkLoadError(error) ? 'רענן עמוד' : 'נסו שוב'}
+            {isChunkLoadError(error) ? t('globalError.reload') : t('globalError.retry')}
           </button>
         </div>
       </body>

@@ -17,22 +17,22 @@ import { useUserStore } from '@/features/user';
 import AgendaDayCard from '@/features/home/components/agenda/AgendaDayCard';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
 import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs, type ProfileKey } from '@/messages/ns/profile';
+import { monthLabel } from '@/lib/i18n/fmt-display';
+import type { Locale } from '@/lib/i18n/locales';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 // ── Config ─────────────────────────────────────────────────────────────────
 
 const HISTORY_DAYS = 90;
 
-const HEBREW_MONTH_NAMES = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
-];
-
 type FilterSegment = 'all' | 'strength' | 'running';
 
-const SEGMENTS: Array<{ value: FilterSegment; label: string }> = [
-  { value: 'all',      label: 'הכל' },
-  { value: 'strength', label: 'כוח' },
-  { value: 'running',  label: 'ריצה' },
+const SEGMENTS: Array<{ value: FilterSegment; labelKey: ProfileKey }> = [
+  { value: 'all',      labelKey: 'activityLog.segment.all' },
+  { value: 'strength', labelKey: 'activityLog.segment.strength' },
+  { value: 'running',  labelKey: 'activityLog.segment.running' },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -43,9 +43,10 @@ function addDays(iso: string, n: number): string {
   return toISODate(d);
 }
 
-function getMonthLabel(iso: string): string {
+/** "אוקטובר 2026" — month name from `monthLabel` (i18n wave 3A), year as a plain string (no separator). */
+function getMonthLabel(iso: string, locale: Locale, t: (key: ProfileKey, values?: Record<string, string>) => string): string {
   const d = new Date(iso + 'T00:00:00');
-  return `${HEBREW_MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+  return t('activityLog.month', { month: monthLabel(d.getMonth(), locale), year: String(d.getFullYear()) });
 }
 
 function getMonthKey(iso: string): string {
@@ -71,6 +72,8 @@ function getDayType(iso: string): 'strength' | 'running' | 'rest' {
 
 export default function ProgressPage() {
   const { profile, _hasHydrated } = useUserStore();
+  const t = useT(profileNs);
+  const locale = useLocaleStore((s) => s.locale);
   const [activeSegment, setActiveSegment] = useState<FilterSegment>('all');
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -96,16 +99,16 @@ export default function ProgressPage() {
       if (last && last.monthKey === key) {
         last.dates.push(iso);
       } else {
-        groups.push({ monthKey: key, label: getMonthLabel(iso), dates: [iso] });
+        groups.push({ monthKey: key, label: getMonthLabel(iso, locale, t), dates: [iso] });
       }
     }
     return groups;
-  }, [allDates, activeSegment]);
+  }, [allDates, activeSegment, locale, t]);
 
   if (!_hasHydrated) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-slate-600 animate-pulse text-sm">טוען...</p>
+        <p className="text-slate-600 animate-pulse text-sm">{t('activityLog.loading')}</p>
       </div>
     );
   }
@@ -113,7 +116,7 @@ export default function ProgressPage() {
   if (!profile) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-slate-600 text-sm">לא נמצא פרופיל</p>
+        <p className="text-slate-600 text-sm">{t('activityLog.noProfile')}</p>
       </div>
     );
   }
@@ -133,12 +136,12 @@ export default function ProgressPage() {
             <div className="w-8 h-8 rounded-full bg-[#00C9F2]/10 flex items-center justify-center">
               <BarChart2 className="w-4 h-4 text-[#00C9F2]" />
             </div>
-            <h1 className="text-lg font-black text-gray-900">יומן פעילות</h1>
+            <h1 className="text-lg font-black text-gray-900">{t('activityLog.title')}</h1>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-[#00C9F2] text-on-brand shadow-lg shadow-cyan-500/30 active:scale-90 transition-all"
-            aria-label="הוסף אימון"
+            aria-label={t('activityLog.add')}
           >
             <Plus className="w-5 h-5" strokeWidth={2.5} />
           </button>
@@ -157,7 +160,7 @@ export default function ProgressPage() {
                     : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
-                {seg.label}
+                {t(seg.labelKey)}
               </button>
             ))}
           </div>
@@ -168,7 +171,7 @@ export default function ProgressPage() {
       <div className="max-w-md mx-auto px-4 pt-4 space-y-6">
         {filteredGrouped.length === 0 && (
           <div className="py-16 text-center">
-            <p className="text-sm text-gray-400">אין אימונים בקטגוריה זו</p>
+            <p className="text-sm text-gray-400">{t('activityLog.empty')}</p>
           </div>
         )}
 
@@ -182,7 +185,7 @@ export default function ProgressPage() {
             <div className="flex items-center gap-3 mb-3" dir="rtl">
               <span className="text-sm font-black text-gray-700">{group.label}</span>
               <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-xs text-gray-400">{group.dates.length} ימים</span>
+              <span className="text-xs text-gray-400">{t('activityLog.days', { n: String(group.dates.length) })}</span>
             </div>
 
             <div className="space-y-2.5">
