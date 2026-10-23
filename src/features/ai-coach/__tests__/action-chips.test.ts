@@ -14,6 +14,8 @@ import {
   MINI_ASSESSMENT_ROUTE,
   SCHEDULE_DEEP_LINK,
   isCheckLevelActionId,
+  chipsForTurn,
+  replyPointsAtScheduleButton,
 } from '@/lib/ai/coach/action-chips';
 import { ASSESS_CATEGORY_SLUGS, ASSESS_SKILL_SLUGS } from '@/lib/ai/coach/assessment-gaps';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '@/features/user/onboarding/constants/skill-foundation-domain.constants';
@@ -165,5 +167,19 @@ describe('chat reducer: actions event', () => {
     expect(s.messages.find((m) => m.id === LIVE_ID)?.actions).toEqual(['open_schedule', 'build_today']);
     s = chatReducer(s, { type: 'EVENT', event: { type: 'done', messageId: 'a1' } });
     expect(s.messages.find((m) => m.id === 'a1')?.actions).toEqual(['open_schedule', 'build_today']);
+  });
+});
+
+describe('a reply that points at the schedule button gets it (owner thread 18.10.2026, "אין כפתור")', () => {
+  it('adds open_schedule when the reply says the schedule button is below, even for a vague question', () => {
+    const replyText = 'אתה יכול לעשות שלושה דברים עכשיו. בדוק את הלו״ז בכפתור למטה ותראה מה מתוכנן לך.';
+    expect(replyPointsAtScheduleButton(replyText)).toBe(true);
+    expect(chipsForTurn({ userText: 'מה לעשות', toolNames: [], sheet: null, replyText })).toContain('open_schedule');
+  });
+
+  it('no button mention, no vague-question chip; and never twice', () => {
+    expect(chipsForTurn({ userText: 'מה לעשות', toolNames: [], sheet: null, replyText: 'תנוח הערב.' })).not.toContain('open_schedule');
+    const twice = chipsForTurn({ userText: 'מה בתוכנית השבוע?', toolNames: [], sheet: null, replyText: 'אפשר לפתוח את הלו״ז בכפתור למטה.' });
+    expect(twice.filter((a) => a === 'open_schedule')).toHaveLength(1);
   });
 });

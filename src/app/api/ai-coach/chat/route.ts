@@ -499,6 +499,7 @@ export async function POST(request: Request) {
           opening: nudge.opening,
           scheduleAdvisor,
           strengthDoneToday: sheet?.plan?.doneToday.strength === true,
+          replyText: outcome.state.turnText,
         });
         let suggestions: SuggestionChip[] = [];
         const proposal = phase2 ? (toolCtx.turn.proposal ?? null) : null;
