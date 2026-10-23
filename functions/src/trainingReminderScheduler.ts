@@ -121,6 +121,7 @@ import {
 import type { PushAudience } from './shared/push-library.core';
 import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
 import { isDemoUid } from './lib/demo';
+import { getT } from './shared/i18n-t';
 import {
   collectTemplateCandidates,
   parsePreferredHour,
@@ -153,19 +154,21 @@ const GUARD_WRITE_BATCH = 400; // mirrors push.service.ts's PRUNE_BATCH_SIZE
 
 // ─── Category → label ─────────────────────────────────────────────────────────
 
-const CATEGORY_LABEL: Record<string, string> = {
-  strength: 'אימון כוח',
-  cardio: 'ריצה',
-  maintenance: 'אימון קל',
-  walking: 'הליכה',
-};
+/** Category id -> `push` catalog key (i18n wave 2A). */
+const CATEGORY_LABEL_KEY = {
+  strength: 'workoutType.strength',
+  cardio: 'workoutType.cardio',
+  maintenance: 'workoutType.maintenance',
+  walking: 'workoutType.walking',
+} as const;
 
 export function categoryLabel(categories: string[] | undefined): string {
-  if (!categories || categories.length === 0) return 'אימון';
+  const t = getT('he', 'push'); // the user's locale arrives with wave 5B
+  if (!categories || categories.length === 0) return t('workoutType.generic');
   const labels = categories
-    .map((c) => CATEGORY_LABEL[c])
+    .map((c) => (Object.prototype.hasOwnProperty.call(CATEGORY_LABEL_KEY, c) ? t(CATEGORY_LABEL_KEY[c as keyof typeof CATEGORY_LABEL_KEY]) : undefined))
     .filter(Boolean);
-  return labels.length > 0 ? labels.join(' + ') : 'אימון';
+  return labels.length > 0 ? labels.join(' + ') : t('workoutType.generic');
 }
 
 // ─── Copy (push library) ──────────────────────────────────────────────────────

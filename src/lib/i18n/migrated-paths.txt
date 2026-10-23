@@ -485,7 +485,30 @@ src/features/parks/client/components/route-preview/RouteOsmSourceLine.tsx
 src/features/user/onboarding/components/AccessCodeLinkScreen.tsx
 src/features/user/onboarding/utils/institution-code.ts
 src/app/onboarding-new/access-code/
-
+# wave 2A (namespace push) — the push library's translator twins and the two senders whose static words moved
+# to the catalog and that now contain no Hebrew outside comments (chat push, Kelly push title).
+# NOT listed on purpose (the copy moved, but the file keeps Hebrew that is data, not copy, so Check 5 would block
+# legitimate edits; a tripwire test guards each instead): push-library.core.ts (admin labels / descriptions are
+# Hebrew-only; push-copy-source-guard.test.ts), first-week.core.ts (admin tone labels, @var tokens), and the
+# senders that fill '@שם'-style variable keys (onKudosCreated, stepGoalNudgeScheduler, trainingReminderScheduler,
+# services/notification-content.service.ts; pushSendersCopy-i18n-parity.test.ts).
+src/features/notifications/push-library/push-copy-t.ts
+src/features/notifications/first-week/push-copy-t.ts
+functions/src/shared/push-copy-t.ts
+functions/src/chatMessageNotification.ts
+functions/src/onKellyThreadMessage.ts
+# wave 2B part 1 (namespace coach, keys note.* / title.weather.*) — the coach note builder (phrasebook, names, number
+# formatting now live in the catalog; DOMAIN_NAME_HE / PROGRAM_NAME_HE are built from it). workout-metadata.service.ts is
+# NOT migrated: apart from the 3 weather titles (extracted) its Hebrew is keyword-match data and unused TIME_OF_DAY_OPTIONS labels.
+src/features/workout-engine/services/coach-note.ts
+# wave 2B part 2 (namespace schedule, keys engine.* / drawer.*) — the schedule engines' text builders (reasonsV2, diff,
+# scheduleRules: optional `t`, default Hebrew) and ScheduleBuilderDrawer + its V2 sheet shell. Left on purpose: weekday names /
+# letters (wave 3, marked), engine/reasons.ts + runningRules.ts + programProfiles.ts Hebrew tables (separate files, not in this batch).
+src/features/schedule/engine-v2/reasonsV2.ts
+src/features/schedule/engine-v2/diff.ts
+src/features/schedule/engine/scheduleRules.ts
+src/features/schedule/components/ScheduleBuilderDrawer.tsx
+src/features/schedule/components/ScheduleBuilderSheetV2.tsx
 # wave 2B part 3 (namespace social, keys defaults.*) — MessageService's fallback smart messages (DEFAULT_MESSAGES /
 # buildDefaultMessages). The file's other Hebrew is marked: admin type labels and the INITIAL_SEED_DATA written to
 # Firestore / localStorage (stored data). Those defaults are what seedDefaultMessages writes, so they stay Hebrew.

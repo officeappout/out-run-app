@@ -39,8 +39,19 @@
  * gendered row counts as one more dimension of specificity, so the chain is:
  * exact gender → 'both'/'any' rows → code defaults (same rules).
  *
- * KEEP THIS FILE IMPORT-FREE AND PURE: it is mirrored into Cloud Functions.
+ * Copy text (i18n wave 2A): the title/body of every code default lives in the `push` catalog
+ * (src/messages/he/push.json, key `<pushType>.<index>.title|body` — the index is the one in
+ * the row id `default:<pushType>:<index>`), resolved through the shared ICU core by
+ * ./push-copy-t. Admin-only text (labels, descriptions, whenSent) stays Hebrew here.
+ *
+ * KEEP THIS FILE PURE AND FREE OF IMPORTS EXCEPT ./push-copy-t: it is mirrored into Cloud
+ * Functions, where ./push-copy-t is the functions-side twin (functions/src/shared/push-copy-t.ts,
+ * same API, hand-written because each side reaches its catalogs differently).
  */
+import { pushCopyT } from './push-copy-t';
+
+/** The Hebrew catalog (the source) — used to build the static PUSH_CATALOG. */
+const T = pushCopyT('he');
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
 
@@ -445,9 +456,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     vars: ['@שם', '@אימון'],
     deepLinks: ['home', 'map', 'progression'],
     defaults: [
-      { title: '@אימון היום', body: 'האימון שלך מוכן. יוצאים?' },
-      { title: '@אימון היום', body: 'גם 15 דקות נחשבות. מתחילים?' },
-      { title: '@אימון היום', body: 'רגע קטן בשבילך היום. האימון כבר מחכה.' },
+      { title: T('workout_reminder_day.0.title'), body: T('workout_reminder_day.0.body') },
+      { title: T('workout_reminder_day.1.title'), body: T('workout_reminder_day.1.body') },
+      { title: T('workout_reminder_day.2.title'), body: T('workout_reminder_day.2.body') },
     ],
   },
   {
@@ -461,7 +472,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       'סריקה כל 5 דקות. נשלח כ-10 דקות לפני שעת ההתחלה (reminderSweepLeadMinutes). רק כשהדגלים enableReminderSweepPush ו-reminderSweepWorkoutEntriesEnabled דולקים.',
     vars: ['@שם', '@אימון', '@שעה'],
     deepLinks: ['home', 'map'],
-    defaults: [{ title: '@אימון ב-@שעה', body: 'האימון שלך מחכה ב-@שעה. יוצאים?' }],
+    defaults: [{ title: T('workout_reminder_before.0.title'), body: T('workout_reminder_before.0.body') }],
   },
   {
     pushType: 'workout_reminder_slot',
@@ -475,9 +486,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     vars: ['@שם', '@שעה'],
     deepLinks: ['home', 'map'],
     defaults: [
-      { title: 'הגיע הזמן שקבעת', body: 'קבעת להתאמן עכשיו. יוצאים?' },
-      { title: 'הגיע הזמן שקבעת', body: 'התזכורת שביקשת: זה הזמן שלך להתאמן.' },
-      { title: 'הגיע הזמן שקבעת', body: 'רגע קטן בשבילך. האימון מחכה.' },
+      { title: T('workout_reminder_slot.0.title'), body: T('workout_reminder_slot.0.body') },
+      { title: T('workout_reminder_slot.1.title'), body: T('workout_reminder_slot.1.body') },
+      { title: T('workout_reminder_slot.2.title'), body: T('workout_reminder_slot.2.body') },
     ],
   },
   {
@@ -513,51 +524,51 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     deepLinks: ['home', 'map'],
     defaults: [
       // Index 0 rewritten in place (was "פספסת כמה ימים? זה בסדר") so ids keep their order.
-      { title: 'רגע קטן בשבילך היום', body: 'מה שבונה הרגל זה לחזור. 15 דקות ליד הבית, בקצב שלך.' },
+      { title: T('retention_lapse.0.title'), body: T('retention_lapse.0.body') },
       // "The park" is strength copy (21.10.2026: track condition, was sent to runners and walkers too).
-      { title: '@שם, הגינה עדיין שם', body: 'אימון קצר של 10 דקות, בלי ציוד. חוזרים?', conditions: { track: ['strength'] } },
-      { title: 'חוזרים בקטנה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, בקצב שלך.' },
-      { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, וההרגל חוזר.' },
+      { title: T('retention_lapse.1.title'), body: T('retention_lapse.1.body'), conditions: { track: ['strength'] } },
+      { title: T('retention_lapse.2.title'), body: T('retention_lapse.2.body') },
+      { title: T('retention_lapse.3.title'), body: T('retention_lapse.3.body') },
       // Gendered pairs (recipient). Appended, so the neutral rows keep their ids.
-      { title: '@שם, מוכן לחזור?', body: 'אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.', gender: 'male', pair: 'ready_name', conditions: { track: ['strength'] } },
-      { title: '@שם, מוכנה לחזור?', body: 'אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.', gender: 'female', pair: 'ready_name', conditions: { track: ['strength'] } },
-      { title: 'מוכן לחזור לשגרה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, ואתה שוב בשגרה.', gender: 'male', pair: 'back' },
-      { title: 'מוכנה לחזור לשגרה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, ואת שוב בשגרה.', gender: 'female', pair: 'back' },
-      { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, ואתה שוב בעניינים.', gender: 'male', pair: 'fresh' },
-      { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, ואת שוב בעניינים.', gender: 'female', pair: 'fresh' },
+      { title: T('retention_lapse.4.title'), body: T('retention_lapse.4.body'), gender: 'male', pair: 'ready_name', conditions: { track: ['strength'] } },
+      { title: T('retention_lapse.5.title'), body: T('retention_lapse.5.body'), gender: 'female', pair: 'ready_name', conditions: { track: ['strength'] } },
+      { title: T('retention_lapse.6.title'), body: T('retention_lapse.6.body'), gender: 'male', pair: 'back' },
+      { title: T('retention_lapse.7.title'), body: T('retention_lapse.7.body'), gender: 'female', pair: 'back' },
+      { title: T('retention_lapse.8.title'), body: T('retention_lapse.8.body'), gender: 'male', pair: 'fresh' },
+      { title: T('retention_lapse.9.title'), body: T('retention_lapse.9.body'), gender: 'female', pair: 'fresh' },
       // Milestone copy (retentionMilestoneCadence on; the sender passes
       // conditions.milestone). More specific, so it wins over the rows above.
-      { title: 'רגע קטן בשבילך?', body: 'אימון קל של 15 דקות ליד הבית. בלי לחץ, בקצב שלך.', conditions: { milestone: ['d4'] } },
-      { title: 'בא לך אימון קצר היום?', body: '15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצה.', gender: 'male', conditions: { milestone: ['d4'] }, pair: 'm_d4' },
-      { title: 'בא לך אימון קצר היום?', body: '15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצי.', gender: 'female', conditions: { milestone: ['d4'] }, pair: 'm_d4' },
-      { title: 'שבוע חדש מתחיל היום', body: '15 דקות זה כל מה שצריך כדי לפתוח אותו. יוצאים?', conditions: { milestone: ['d7'] } },
-      { title: 'שבוע חדש מתחיל היום. 15 דקות?', body: 'אימון קל אחד, ואתה פותח את השבוע ברגל ימין.', gender: 'male', conditions: { milestone: ['d7'] }, pair: 'm_d7' },
-      { title: 'שבוע חדש מתחיל היום. 15 דקות?', body: 'אימון קל אחד, ואת פותחת את השבוע ברגל ימין.', gender: 'female', conditions: { milestone: ['d7'] }, pair: 'm_d7' },
-      { title: 'מתחילים מחדש, בקטנה', body: 'בנינו אימון קל לחזרה. 15 דקות, בקצב שלך.', conditions: { milestone: ['d14'] } },
-      { title: 'מוכן להתחלה חדשה?', body: 'אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.', gender: 'male', conditions: { milestone: ['d14'] }, pair: 'm_d14' },
-      { title: 'מוכנה להתחלה חדשה?', body: 'אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.', gender: 'female', conditions: { milestone: ['d14'] }, pair: 'm_d14' },
-      { title: 'הדלת תמיד פתוחה', body: 'כשיתאים, אימון קל של 15 דקות מחכה כאן. בלי לחץ.', conditions: { milestone: ['d30'] } },
-      { title: 'הדלת תמיד פתוחה', body: 'כשתרצה לחזור, אימון קל של 15 דקות מחכה לך כאן.', gender: 'male', conditions: { milestone: ['d30'] }, pair: 'm_d30' },
-      { title: 'הדלת תמיד פתוחה', body: 'כשתרצי לחזור, אימון קל של 15 דקות מחכה לך כאן.', gender: 'female', conditions: { milestone: ['d30'] }, pair: 'm_d30' },
+      { title: T('retention_lapse.10.title'), body: T('retention_lapse.10.body'), conditions: { milestone: ['d4'] } },
+      { title: T('retention_lapse.11.title'), body: T('retention_lapse.11.body'), gender: 'male', conditions: { milestone: ['d4'] }, pair: 'm_d4' },
+      { title: T('retention_lapse.12.title'), body: T('retention_lapse.12.body'), gender: 'female', conditions: { milestone: ['d4'] }, pair: 'm_d4' },
+      { title: T('retention_lapse.13.title'), body: T('retention_lapse.13.body'), conditions: { milestone: ['d7'] } },
+      { title: T('retention_lapse.14.title'), body: T('retention_lapse.14.body'), gender: 'male', conditions: { milestone: ['d7'] }, pair: 'm_d7' },
+      { title: T('retention_lapse.15.title'), body: T('retention_lapse.15.body'), gender: 'female', conditions: { milestone: ['d7'] }, pair: 'm_d7' },
+      { title: T('retention_lapse.16.title'), body: T('retention_lapse.16.body'), conditions: { milestone: ['d14'] } },
+      { title: T('retention_lapse.17.title'), body: T('retention_lapse.17.body'), gender: 'male', conditions: { milestone: ['d14'] }, pair: 'm_d14' },
+      { title: T('retention_lapse.18.title'), body: T('retention_lapse.18.body'), gender: 'female', conditions: { milestone: ['d14'] }, pair: 'm_d14' },
+      { title: T('retention_lapse.19.title'), body: T('retention_lapse.19.body'), conditions: { milestone: ['d30'] } },
+      { title: T('retention_lapse.20.title'), body: T('retention_lapse.20.body'), gender: 'male', conditions: { milestone: ['d30'] }, pair: 'm_d30' },
+      { title: T('retention_lapse.21.title'), body: T('retention_lapse.21.body'), gender: 'female', conditions: { milestone: ['d30'] }, pair: 'm_d30' },
       // Per track (21.10.2026). Appended, so the rows above keep their ids.
-      { title: 'הנעליים מחכות ליד הדלת', body: 'ריצה קלה של 15 דקות, בקצב שלך. חוזרים?', conditions: { track: ['run'] } },
-      { title: 'ריצה קצרה היום?', body: '15 דקות בקצב נוח, וחוזרים לשגרת הריצה.', conditions: { track: ['run'] } },
-      { title: '@שם, מוכן לרוץ שוב?', body: 'ריצה קלה של 15 דקות, בקצב שלך.', gender: 'male', pair: 'run_ready', conditions: { track: ['run'] } },
-      { title: '@שם, מוכנה לרוץ שוב?', body: 'ריצה קלה של 15 דקות, בקצב שלך.', gender: 'female', pair: 'run_ready', conditions: { track: ['run'] } },
-      { title: 'הליכה קצרה היום?', body: '20 דקות הליכה ליד הבית, וחוזרים לשגרה.', conditions: { track: ['walk'] } },
-      { title: 'יוצאים להליכה?', body: 'הליכה קלה בקצב שלך. כל צעד נחשב.', conditions: { track: ['walk'] } },
-      { title: '@שם, מוכן להליכה קצרה?', body: '20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.', gender: 'male', pair: 'walk_ready', conditions: { track: ['walk'] } },
-      { title: '@שם, מוכנה להליכה קצרה?', body: '20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.', gender: 'female', pair: 'walk_ready', conditions: { track: ['walk'] } },
+      { title: T('retention_lapse.22.title'), body: T('retention_lapse.22.body'), conditions: { track: ['run'] } },
+      { title: T('retention_lapse.23.title'), body: T('retention_lapse.23.body'), conditions: { track: ['run'] } },
+      { title: T('retention_lapse.24.title'), body: T('retention_lapse.24.body'), gender: 'male', pair: 'run_ready', conditions: { track: ['run'] } },
+      { title: T('retention_lapse.25.title'), body: T('retention_lapse.25.body'), gender: 'female', pair: 'run_ready', conditions: { track: ['run'] } },
+      { title: T('retention_lapse.26.title'), body: T('retention_lapse.26.body'), conditions: { track: ['walk'] } },
+      { title: T('retention_lapse.27.title'), body: T('retention_lapse.27.body'), conditions: { track: ['walk'] } },
+      { title: T('retention_lapse.28.title'), body: T('retention_lapse.28.body'), gender: 'male', pair: 'walk_ready', conditions: { track: ['walk'] } },
+      { title: T('retention_lapse.29.title'), body: T('retention_lapse.29.body'), gender: 'female', pair: 'walk_ready', conditions: { track: ['walk'] } },
       // push-copy-v2 (owner, 21.10.2026), per tone. Only a sender that rotates
       // tones (pushToneRotation) passes conditions.tone. Appended, ids stable.
-      { title: 'בלי לחץ, רק להזכיר', body: '15 דקות ליד הבית, מתי שנוח', conditions: { milestone: ['d4'], tone: ['personal'] } },
-      { title: 'הנעליים שאלו עליכם', body: 'סיבוב של 15 דקות היום?', conditions: { milestone: ['d4'], track: ['walk'], tone: ['cute'] } },
-      { title: 'שבוע חדש, התחלה נקייה', body: 'אימון קל של 15 דקות. ממשיכים מכאן', conditions: { milestone: ['d7', 'd14', 'd21'], tone: ['personal'] } },
-      { title: 'הדלת תמיד פתוחה', body: 'נבנה לך תוכנית חדשה בדקה, מה שמתאים לך עכשיו', conditions: { milestone: ['d28', 'd30'], tone: ['personal'] } },
-      { title: 'מה קורה אחי?', body: 'בלי לחץ. 15 דקות ליד הבית מתי שבא לך', gender: 'male', pair: 'friendly_d4', audience: CASUAL_AGES, conditions: { milestone: ['d4'], tone: ['friendly'] } },
-      { title: 'מה קורה אחותי?', body: 'בלי לחץ. 15 דקות ליד הבית מתי שבא לך', gender: 'female', pair: 'friendly_d4', audience: CASUAL_AGES, conditions: { milestone: ['d4'], tone: ['friendly'] } },
-      { title: 'התגעגענו, באמת', body: 'נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות', gender: 'male', pair: 'friendly_d28', audience: CASUAL_AGES, conditions: { milestone: ['d28', 'd30'], tone: ['friendly'] } },
-      { title: 'התגעגענו, באמת', body: 'נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות', gender: 'female', pair: 'friendly_d28', audience: CASUAL_AGES, conditions: { milestone: ['d28', 'd30'], tone: ['friendly'] } },
+      { title: T('retention_lapse.30.title'), body: T('retention_lapse.30.body'), conditions: { milestone: ['d4'], tone: ['personal'] } },
+      { title: T('retention_lapse.31.title'), body: T('retention_lapse.31.body'), conditions: { milestone: ['d4'], track: ['walk'], tone: ['cute'] } },
+      { title: T('retention_lapse.32.title'), body: T('retention_lapse.32.body'), conditions: { milestone: ['d7', 'd14', 'd21'], tone: ['personal'] } },
+      { title: T('retention_lapse.33.title'), body: T('retention_lapse.33.body'), conditions: { milestone: ['d28', 'd30'], tone: ['personal'] } },
+      { title: T('retention_lapse.34.title'), body: T('retention_lapse.34.body'), gender: 'male', pair: 'friendly_d4', audience: CASUAL_AGES, conditions: { milestone: ['d4'], tone: ['friendly'] } },
+      { title: T('retention_lapse.35.title'), body: T('retention_lapse.35.body'), gender: 'female', pair: 'friendly_d4', audience: CASUAL_AGES, conditions: { milestone: ['d4'], tone: ['friendly'] } },
+      { title: T('retention_lapse.36.title'), body: T('retention_lapse.36.body'), gender: 'male', pair: 'friendly_d28', audience: CASUAL_AGES, conditions: { milestone: ['d28', 'd30'], tone: ['friendly'] } },
+      { title: T('retention_lapse.37.title'), body: T('retention_lapse.37.body'), gender: 'female', pair: 'friendly_d28', audience: CASUAL_AGES, conditions: { milestone: ['d28', 'd30'], tone: ['friendly'] } },
     ],
   },
   {
@@ -575,24 +586,24 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     conditions: [DROPOFF_STAGE_CONDITION, TRACK_CONDITION],
     deepLinks: ['gateway'],
     defaults: [
-      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה וההרשמה מוכנה, ואז מקבלים את האימון הראשון.', conditions: { stage: ['near_end'] } },
-      { title: 'התוכנית שלך כמעט מוכנה', body: 'מסיימים את ההרשמה, ונבנה לך תוכנית לפי הרמה שלך.' },
-      { title: 'נמשיך מאיפה שעצרת?', body: 'שמרנו את מה שמילאת. עוד כמה שאלות וזהו.' },
-      { title: 'האימון הראשון מחכה לך', body: 'לסיים את ההרשמה לוקח פחות מדקה.', conditions: { stage: ['near_end'] } },
-      { title: 'אנשים לידך כבר מתאמנים', body: 'מסיימים להירשם ורואים מי מתאמן בגינה הקרובה.' },
+      { title: T('onboarding_dropoff.0.title'), body: T('onboarding_dropoff.0.body'), conditions: { stage: ['near_end'] } },
+      { title: T('onboarding_dropoff.1.title'), body: T('onboarding_dropoff.1.body') },
+      { title: T('onboarding_dropoff.2.title'), body: T('onboarding_dropoff.2.body') },
+      { title: T('onboarding_dropoff.3.title'), body: T('onboarding_dropoff.3.body'), conditions: { stage: ['near_end'] } },
+      { title: T('onboarding_dropoff.4.title'), body: T('onboarding_dropoff.4.body') },
       // Gendered pairs (recipient). Appended, so the neutral rows keep their ids.
-      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה ואתה מקבל את האימון הראשון שלך.', gender: 'male', pair: 'step', conditions: { stage: ['near_end'] } },
-      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה ואת מקבלת את האימון הראשון שלך.', gender: 'female', pair: 'step', conditions: { stage: ['near_end'] } },
-      { title: 'מוכן לאימון הראשון?', body: 'מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.', gender: 'male', pair: 'ready', conditions: { stage: ['near_end'] } },
-      { title: 'מוכנה לאימון הראשון?', body: 'מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.', gender: 'female', pair: 'ready', conditions: { stage: ['near_end'] } },
+      { title: T('onboarding_dropoff.5.title'), body: T('onboarding_dropoff.5.body'), gender: 'male', pair: 'step', conditions: { stage: ['near_end'] } },
+      { title: T('onboarding_dropoff.6.title'), body: T('onboarding_dropoff.6.body'), gender: 'female', pair: 'step', conditions: { stage: ['near_end'] } },
+      { title: T('onboarding_dropoff.7.title'), body: T('onboarding_dropoff.7.body'), gender: 'male', pair: 'ready', conditions: { stage: ['near_end'] } },
+      { title: T('onboarding_dropoff.8.title'), body: T('onboarding_dropoff.8.body'), gender: 'female', pair: 'ready', conditions: { stage: ['near_end'] } },
       // Per stage (21.10.2026). Appended, so the rows above keep their ids.
-      { title: 'נמשיך מאיפה שעצרת?', body: 'שמרנו את מה שמילאת. עוד כמה שאלות ונבנה לך תוכנית.', conditions: { stage: ['early'] } },
-      { title: '@שם, התוכנית שלך מחכה', body: 'כמה שאלות קצרות, ונבנה תוכנית שמתאימה בדיוק לך.', conditions: { stage: ['early'] } },
-      { title: 'עוד רגע יודעים מאיפה מתחילים', body: 'נשארה בדיקת רמה קצרה, ואז מקבלים תוכנית לפי הרמה שלך.', conditions: { stage: ['mid'] } },
-      { title: 'הבדיקה הקצרה מחכה לך', body: 'כמה תרגילים פשוטים, ונדע לבנות לך תוכנית בדיוק לרמה שלך.', conditions: { stage: ['mid'] } },
+      { title: T('onboarding_dropoff.9.title'), body: T('onboarding_dropoff.9.body'), conditions: { stage: ['early'] } },
+      { title: T('onboarding_dropoff.10.title'), body: T('onboarding_dropoff.10.body'), conditions: { stage: ['early'] } },
+      { title: T('onboarding_dropoff.11.title'), body: T('onboarding_dropoff.11.body'), conditions: { stage: ['mid'] } },
+      { title: T('onboarding_dropoff.12.title'), body: T('onboarding_dropoff.12.body'), conditions: { stage: ['mid'] } },
       // Per track (any stage).
-      { title: 'תוכנית הריצה שלך כמעט מוכנה', body: 'מסיימים את ההרשמה ומקבלים ריצה ראשונה בקצב שלך.', conditions: { track: ['run'] } },
-      { title: 'תוכנית ההליכה שלך כמעט מוכנה', body: 'מסיימים את ההרשמה ומקבלים יעד הליכה שמתאים לך.', conditions: { track: ['walk'] } },
+      { title: T('onboarding_dropoff.13.title'), body: T('onboarding_dropoff.13.body'), conditions: { track: ['run'] } },
+      { title: T('onboarding_dropoff.14.title'), body: T('onboarding_dropoff.14.body'), conditions: { track: ['walk'] } },
     ],
   },
   {
@@ -620,15 +631,15 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     ],
     deepLinks: ['home', 'map'],
     defaults: [
-      { title: 'האימון הראשון שלך מוכן', body: '10 דקות זה כל מה שצריך כדי להתחיל. יוצאים?' },
-      { title: 'מתחילים בקטנה?', body: 'אימון ראשון קצר, בקצב שלך. הוא כבר מחכה לך.' },
-      { title: '@שם, האימון הראשון מחכה', body: 'בנינו לך אותו לפי הרמה שלך. 10 דקות ומתחילים.' },
-      { title: 'האימון הראשון שלך מוכן', body: 'אימון כוח קצר, בלי ציוד. מתחילים היום?', conditions: { track: ['strength'] } },
-      { title: 'הריצה הראשונה שלך מוכנה', body: 'ריצה קלה בקצב שלך. מתחילים היום?', conditions: { track: ['run'] } },
-      { title: 'ההליכה הראשונה שלך מוכנה', body: '15 דקות הליכה ליד הבית, וכבר התחלת.', conditions: { track: ['walk'] } },
-      { title: 'עוד לא התחלת? זה בסדר', body: 'אימון ראשון של 10 דקות מחכה לך, מתי שנוח.', conditions: { when: ['later'] } },
-      { title: 'עוד לא יצאת לריצה הראשונה?', body: 'ריצה קלה של 15 דקות, בקצב שלך. מתי שנוח.', conditions: { when: ['later'], track: ['run'] } },
-      { title: 'עוד לא יצאת להליכה הראשונה?', body: '15 דקות הליכה ליד הבית, מתי שנוח.', conditions: { when: ['later'], track: ['walk'] } },
+      { title: T('first_workout.0.title'), body: T('first_workout.0.body') },
+      { title: T('first_workout.1.title'), body: T('first_workout.1.body') },
+      { title: T('first_workout.2.title'), body: T('first_workout.2.body') },
+      { title: T('first_workout.3.title'), body: T('first_workout.3.body'), conditions: { track: ['strength'] } },
+      { title: T('first_workout.4.title'), body: T('first_workout.4.body'), conditions: { track: ['run'] } },
+      { title: T('first_workout.5.title'), body: T('first_workout.5.body'), conditions: { track: ['walk'] } },
+      { title: T('first_workout.6.title'), body: T('first_workout.6.body'), conditions: { when: ['later'] } },
+      { title: T('first_workout.7.title'), body: T('first_workout.7.body'), conditions: { when: ['later'], track: ['run'] } },
+      { title: T('first_workout.8.title'), body: T('first_workout.8.body'), conditions: { when: ['later'], track: ['walk'] } },
     ],
   },
   {
@@ -643,16 +654,16 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     conditions: [{ key: 'level', label: 'רמה', options: LEVEL_OPTIONS }],
     deepLinks: ['progression_map', 'progression', 'home'],
     defaults: [
-      { title: 'עלית לרמה 2', body: 'יפה מאוד. ככה בונים הרגל, אימון אחרי אימון.', conditions: { level: ['2'] } },
-      { title: 'עלית לרמה 3', body: 'ההתמדה שלך עובדת. ממשיכים.', conditions: { level: ['3'] } },
-      { title: 'עלית לרמה 4', body: 'כל אימון נספר, וזה כבר מורגש.', conditions: { level: ['4'] } },
-      { title: 'רמה 5, חצי הדרך', body: 'הגעת לחצי הדרך לרמה 10. כל הכבוד.', conditions: { level: ['5'] } },
-      { title: 'עלית לרמה 6', body: 'הקצב שלך יציב. ממשיכים ככה.', conditions: { level: ['6'] } },
-      { title: 'עלית לרמה 7', body: 'מעטים מגיעים לכאן. כל הכבוד על ההתמדה.', conditions: { level: ['7'] } },
-      { title: 'עלית לרמה 8', body: 'עוד שתי רמות לפסגה. ממשיכים בקצב שלך.', conditions: { level: ['8'] } },
-      { title: 'עלית לרמה 9', body: 'עוד רמה אחת לפסגה.', conditions: { level: ['9'] } },
-      { title: 'רמה 10, הפסגה', body: 'הגעת לרמה הכי גבוהה. מסע אמיתי, כל הכבוד.', conditions: { level: ['10'] } },
-      { title: 'עלית לרמה @רמה', body: 'כל אימון נספר. ממשיכים.' },
+      { title: T('level_up.0.title'), body: T('level_up.0.body'), conditions: { level: ['2'] } },
+      { title: T('level_up.1.title'), body: T('level_up.1.body'), conditions: { level: ['3'] } },
+      { title: T('level_up.2.title'), body: T('level_up.2.body'), conditions: { level: ['4'] } },
+      { title: T('level_up.3.title'), body: T('level_up.3.body'), conditions: { level: ['5'] } },
+      { title: T('level_up.4.title'), body: T('level_up.4.body'), conditions: { level: ['6'] } },
+      { title: T('level_up.5.title'), body: T('level_up.5.body'), conditions: { level: ['7'] } },
+      { title: T('level_up.6.title'), body: T('level_up.6.body'), conditions: { level: ['8'] } },
+      { title: T('level_up.7.title'), body: T('level_up.7.body'), conditions: { level: ['9'] } },
+      { title: T('level_up.8.title'), body: T('level_up.8.body'), conditions: { level: ['10'] } },
+      { title: T('level_up.9.title'), body: T('level_up.9.body') },
     ],
   },
   {
@@ -667,13 +678,13 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     subject: { label: 'מי ששלח את הכיף', var: '@שולח' },
     deepLinks: ['home'],
     defaults: [
-      { title: 'קיבלת כיף מ@שולח', body: 'על האימון האחרון שלך. אפשר להחזיר כיף.' },
+      { title: T('kudos_single.0.title'), body: T('kudos_single.0.body') },
       // Gendered pair (the sender).
-      { title: '@שולח שלח לך כיף', body: 'על האימון האחרון שלך. אפשר להחזיר לו כיף.', subjectGender: 'male', pair: 'sent' },
-      { title: '@שולח שלחה לך כיף', body: 'על האימון האחרון שלך. אפשר להחזיר לה כיף.', subjectGender: 'female', pair: 'sent' },
+      { title: T('kudos_single.1.title'), body: T('kudos_single.1.body'), subjectGender: 'male', pair: 'sent' },
+      { title: T('kudos_single.2.title'), body: T('kudos_single.2.body'), subjectGender: 'female', pair: 'sent' },
       // push-copy-v2 (cute). Appended, ids stable.
-      { title: '@שולח שלח לך כיף', body: 'מגיע לך. רוצים להחזיר?', subjectGender: 'male', pair: 'v2_sent' },
-      { title: '@שולח שלחה לך כיף', body: 'מגיע לך. רוצים להחזיר?', subjectGender: 'female', pair: 'v2_sent' },
+      { title: T('kudos_single.3.title'), body: T('kudos_single.3.body'), subjectGender: 'male', pair: 'v2_sent' },
+      { title: T('kudos_single.4.title'), body: T('kudos_single.4.body'), subjectGender: 'female', pair: 'v2_sent' },
     ],
   },
   {
@@ -697,8 +708,8 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     ],
     deepLinks: ['home'],
     defaults: [
-      { title: 'קיבלת @כמות כיפים', body: '@שולח ועוד @עוד שלחו לך כיף.', conditions: { others: ['many'] } },
-      { title: 'קיבלת @כמות כיפים', body: '@שולח ועוד מישהו שלחו לך כיף.', conditions: { others: ['one'] } },
+      { title: T('kudos_bundle.0.title'), body: T('kudos_bundle.0.body'), conditions: { others: ['many'] } },
+      { title: T('kudos_bundle.1.title'), body: T('kudos_bundle.1.body'), conditions: { others: ['one'] } },
     ],
   },
   {
@@ -711,7 +722,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     whenSent: 'מיד עם ההצטרפות. תמיד נשלח (אין הגבלת תדירות).',
     vars: ['@שם', '@קבוצה'],
     deepLinks: ['community_group', 'community'],
-    defaults: [{ title: 'הצטרפת ל@קבוצה', body: 'אפשר לראות מתי המפגש הבא ומי מגיע.' }],
+    defaults: [{ title: T('group_join_welcome.0.title'), body: T('group_join_welcome.0.body') }],
   },
   {
     pushType: 'group_join_admin',
@@ -725,15 +736,15 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     subject: { label: 'מי שהצטרף', var: '@מצטרף' },
     deepLinks: ['community_group', 'community'],
     defaults: [
-      { title: '@מצטרף איתכם ב@קבוצה', body: 'הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט.' },
+      { title: T('group_join_admin.0.title'), body: T('group_join_admin.0.body') },
       {
-        title: 'יש מצטרפים חדשים ב@קבוצה',
-        body: 'הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט.',
+        title: T('group_join_admin.1.title'),
+        body: T('group_join_admin.1.body'),
         fallbackOnly: true,
       },
       // Gendered pair (the joiner).
-      { title: '@מצטרף הצטרף ל@קבוצה', body: 'הקבוצה גדלה. אפשר לקבל אותו בברכה בצ׳אט.', subjectGender: 'male', pair: 'joined' },
-      { title: '@מצטרף הצטרפה ל@קבוצה', body: 'הקבוצה גדלה. אפשר לקבל אותה בברכה בצ׳אט.', subjectGender: 'female', pair: 'joined' },
+      { title: T('group_join_admin.2.title'), body: T('group_join_admin.2.body'), subjectGender: 'male', pair: 'joined' },
+      { title: T('group_join_admin.3.title'), body: T('group_join_admin.3.body'), subjectGender: 'female', pair: 'joined' },
     ],
   },
   {
@@ -747,8 +758,8 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     vars: ['@שם', '@מקום'],
     deepLinks: ['map_park', 'map'],
     defaults: [
-      { title: 'הפארק שהוספת עלה למפה', body: '"@מקום" על המפה. מעכשיו כולם יכולים להתאמן שם. תודה!' },
-      { title: 'הפארק שהוספת עלה למפה', body: 'מעכשיו כולם יכולים להתאמן שם. תודה!', fallbackOnly: true },
+      { title: T('contribution_approved.0.title'), body: T('contribution_approved.0.body') },
+      { title: T('contribution_approved.1.title'), body: T('contribution_approved.1.body'), fallbackOnly: true },
     ],
   },
   {
@@ -762,9 +773,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     vars: ['@שם'],
     deepLinks: ['home'],
     defaults: [
-      { title: 'שבוע טוב', body: 'שבוע חדש מתחיל. נקבע אימון ראשון למחר?' },
-      { title: 'שבוע טוב', body: 'מתחילים את השבוע בתנועה. כמה דקות מחר כבר עושות את ההבדל.' },
-      { title: 'שבוע חדש מתחיל', body: 'מה האימון הראשון שלך השבוע? אפשר לקבוע אותו כבר עכשיו.' },
+      { title: T('week_start.0.title'), body: T('week_start.0.body') },
+      { title: T('week_start.1.title'), body: T('week_start.1.body') },
+      { title: T('week_start.2.title'), body: T('week_start.2.body') },
     ],
   },
   {
@@ -793,56 +804,56 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     ],
     deepLinks: ['map_walk', 'activity_steps', 'home'],
     defaults: [
-      { title: 'יעד הצעדים של היום', body: 'כמעט שם. עוד @דקות דקות הליכה וסגרת את היום.', conditions: { bucket: ['close'] } },
-      { title: 'יעד הצעדים של היום', body: 'עוד @צעדים_שנותרו צעדים בלבד, הליכה של @דקות דקות.', conditions: { bucket: ['close'] } },
-      { title: 'יעד הצעדים של היום', body: 'עברת חצי מהיעד. עוד @צעדים_שנותרו צעדים, בערך @דקות דקות הליכה.', conditions: { bucket: ['mid'] } },
-      { title: 'יעד הצעדים של היום', body: 'כבר @רצף ימים ברצף. עוד @צעדים_שנותרו צעדים ושומרים עליו.', conditions: { bucket: ['mid'] } },
-      { title: 'יעד הצעדים של היום', body: '@שם, יום חדש. @צעדים_שנותרו צעדים ליעד של היום.', conditions: { bucket: ['start'] } },
-      { title: 'יעד הצעדים של היום', body: 'מתחילים את היום בהליכה? @צעדים_שנותרו צעדים ליעד.', conditions: { bucket: ['start'] } },
+      { title: T('step_goal.0.title'), body: T('step_goal.0.body'), conditions: { bucket: ['close'] } },
+      { title: T('step_goal.1.title'), body: T('step_goal.1.body'), conditions: { bucket: ['close'] } },
+      { title: T('step_goal.2.title'), body: T('step_goal.2.body'), conditions: { bucket: ['mid'] } },
+      { title: T('step_goal.3.title'), body: T('step_goal.3.body'), conditions: { bucket: ['mid'] } },
+      { title: T('step_goal.4.title'), body: T('step_goal.4.body'), conditions: { bucket: ['start'] } },
+      { title: T('step_goal.5.title'), body: T('step_goal.5.body'), conditions: { bucket: ['start'] } },
       {
-        title: 'יעד הצעדים של היום',
-        body: 'יוצאים מהעבודה? @דקות דקות הליכה וסוגרים את היעד.',
+        title: T('step_goal.6.title'),
+        body: T('step_goal.6.body'),
         audience: { persona: ['office_worker'] },
         conditions: { bucket: ['close'] },
       },
       {
-        title: 'יעד הצעדים של היום',
-        body: 'הליכה קצרה אחרי העבודה? עוד @צעדים_שנותרו צעדים ליעד.',
+        title: T('step_goal.7.title'),
+        body: T('step_goal.7.body'),
         audience: { persona: ['office_worker'] },
         conditions: { bucket: ['mid'] },
       },
       {
-        title: 'יעד הצעדים של היום',
-        body: 'לפני שמתיישבים מול המסך: הליכה קצרה וכבר מתקדמים ליעד.',
+        title: T('step_goal.8.title'),
+        body: T('step_goal.8.body'),
         audience: { persona: ['office_worker'] },
         conditions: { bucket: ['start'] },
       },
       {
-        title: 'יעד הצעדים של היום',
-        body: 'עוד @דקות דקות הליכה, אפשר גם עם הילדים, וסגרת את היום.',
+        title: T('step_goal.9.title'),
+        body: T('step_goal.9.body'),
         audience: { persona: ['parent'] },
         conditions: { bucket: ['close'] },
       },
       {
-        title: 'יעד הצעדים של היום',
-        body: 'גם עם כל הסידורים, נשארו רק @צעדים_שנותרו צעדים ליעד.',
+        title: T('step_goal.10.title'),
+        body: T('step_goal.10.body'),
         audience: { persona: ['parent'] },
         conditions: { bucket: ['mid'] },
       },
       {
-        title: 'יעד הצעדים של היום',
-        body: 'לפני שהבית מתעורר, @צעדים_שנותרו צעדים ליעד של היום.',
+        title: T('step_goal.11.title'),
+        body: T('step_goal.11.body'),
         audience: { persona: ['parent'] },
         conditions: { bucket: ['start'] },
       },
       // push-copy-v2 (owner, 21.10.2026), per tone — only with pushToneRotation
       // (the sender passes conditions.tone). Appended, ids stable. The 'start'
       // row is evening copy; the sender still skips 'start' from noon.
-      { title: 'כמעט שם, באמת כמעט', body: 'עוד @צעדים_שנותרו צעדים. זה בערך הדרך למכולת וחזרה', conditions: { bucket: ['close'], tone: ['cute'] } },
-      { title: 'כמה צעדים יש בשיר אחד?', body: 'בערך 400. עוד @צעדים_שנותרו לסגור את היום', conditions: { bucket: ['mid'], tone: ['curious'] } },
-      { title: 'יום עמוס? זה בסדר', body: '15 דקות הליכה אחרי ארוחת הערב שוות חצי יעד', conditions: { bucket: ['start'], tone: ['personal'] } },
-      { title: 'כמעט שם, אחי', body: 'עוד @צעדים_שנותרו צעדים. סיבוב ליד הבית וסגרת', gender: 'male', pair: 'friendly_close', audience: CASUAL_AGES, conditions: { bucket: ['close'], tone: ['friendly'] } },
-      { title: 'כמעט שם, אחותי', body: 'עוד @צעדים_שנותרו צעדים. סיבוב ליד הבית וסגרת', gender: 'female', pair: 'friendly_close', audience: CASUAL_AGES, conditions: { bucket: ['close'], tone: ['friendly'] } },
+      { title: T('step_goal.12.title'), body: T('step_goal.12.body'), conditions: { bucket: ['close'], tone: ['cute'] } },
+      { title: T('step_goal.13.title'), body: T('step_goal.13.body'), conditions: { bucket: ['mid'], tone: ['curious'] } },
+      { title: T('step_goal.14.title'), body: T('step_goal.14.body'), conditions: { bucket: ['start'], tone: ['personal'] } },
+      { title: T('step_goal.15.title'), body: T('step_goal.15.body'), gender: 'male', pair: 'friendly_close', audience: CASUAL_AGES, conditions: { bucket: ['close'], tone: ['friendly'] } },
+      { title: T('step_goal.16.title'), body: T('step_goal.16.body'), gender: 'female', pair: 'friendly_close', audience: CASUAL_AGES, conditions: { bucket: ['close'], tone: ['friendly'] } },
     ],
   },
   // ── Streak (owner decisions 21.10.2026; sender streakRescueScheduler, flag
@@ -872,13 +883,13 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     ],
     deepLinks: ['home', 'map_walk'],
     defaults: [
-      { title: 'הרצף שלך שואל אם הכול בסדר', body: 'יום @רצף. עוד 10 דקות והוא נרגע.', conditions: { when: ['first'], tone: ['cute'] } },
-      { title: '@רצף ימים. אל תוותרו עליהם', body: 'עוד @צעדים_שנותרו צעדים או 10 דקות וזה סגור.', conditions: { when: ['first'], tone: ['personal'] } },
-      { title: 'יום @רצף ברצף', body: 'עוד @דקות דקות של תנועה והיום נסגר. הליכה קצרה מספיקה.', conditions: { when: ['first'] } },
-      { title: 'אחי, הרצף על הקו', body: 'יום @רצף. 10 דקות ומצילים אותו.', gender: 'male', audience: CASUAL_AGES, conditions: { when: ['first'], tone: ['friendly'] }, pair: 'rescue_il' },
-      { title: 'אחותי, הרצף על הקו', body: 'יום @רצף. 10 דקות ומצילים אותו.', gender: 'female', audience: CASUAL_AGES, conditions: { when: ['first'], tone: ['friendly'] }, pair: 'rescue_il' },
-      { title: 'נשארה שעה. מספיק?', body: '10 דקות בסלון ושמרת על @רצף ימים.', conditions: { when: ['late'], tone: ['curious'] } },
-      { title: 'עוד רגע נגמר היום', body: '10 דקות בסלון ושמרת על @רצף ימים ברצף.', conditions: { when: ['late'] } },
+      { title: T('streak_rescue.0.title'), body: T('streak_rescue.0.body'), conditions: { when: ['first'], tone: ['cute'] } },
+      { title: T('streak_rescue.1.title'), body: T('streak_rescue.1.body'), conditions: { when: ['first'], tone: ['personal'] } },
+      { title: T('streak_rescue.2.title'), body: T('streak_rescue.2.body'), conditions: { when: ['first'] } },
+      { title: T('streak_rescue.3.title'), body: T('streak_rescue.3.body'), gender: 'male', audience: CASUAL_AGES, conditions: { when: ['first'], tone: ['friendly'] }, pair: 'rescue_il' },
+      { title: T('streak_rescue.4.title'), body: T('streak_rescue.4.body'), gender: 'female', audience: CASUAL_AGES, conditions: { when: ['first'], tone: ['friendly'] }, pair: 'rescue_il' },
+      { title: T('streak_rescue.5.title'), body: T('streak_rescue.5.body'), conditions: { when: ['late'], tone: ['curious'] } },
+      { title: T('streak_rescue.6.title'), body: T('streak_rescue.6.body'), conditions: { when: ['late'] } },
     ],
   },
   {
@@ -894,11 +905,11 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     conditions: [TONE_CONDITION],
     deepLinks: ['home'],
     defaults: [
-      { title: 'הרצף נעצר. השיא נשאר', body: '@שיא ימים זה שלך לתמיד. מתחילים רצף חדש היום?', conditions: { tone: ['personal'] } },
-      { title: 'השיא שלך נשאר שלך', body: '@שיא ימים ברצף, וזה לא הולך לשום מקום. מתחילים היום?' },
-      { title: 'גם רצפים צריכים חופש', body: 'השיא שלך, @שיא ימים, מחכה שתשברו אותו.', conditions: { tone: ['cute'] } },
-      { title: 'קורה לטובים ביותר', body: 'השיא @שיא נשאר שלך. מתחילים מחדש?', gender: 'male', audience: CASUAL_AGES, conditions: { tone: ['friendly'] }, pair: 'broken_il' },
-      { title: 'קורה לטובות ביותר', body: 'השיא @שיא נשאר שלך. מתחילים מחדש?', gender: 'female', audience: CASUAL_AGES, conditions: { tone: ['friendly'] }, pair: 'broken_il' },
+      { title: T('streak_broken.0.title'), body: T('streak_broken.0.body'), conditions: { tone: ['personal'] } },
+      { title: T('streak_broken.1.title'), body: T('streak_broken.1.body') },
+      { title: T('streak_broken.2.title'), body: T('streak_broken.2.body'), conditions: { tone: ['cute'] } },
+      { title: T('streak_broken.3.title'), body: T('streak_broken.3.body'), gender: 'male', audience: CASUAL_AGES, conditions: { tone: ['friendly'] }, pair: 'broken_il' },
+      { title: T('streak_broken.4.title'), body: T('streak_broken.4.body'), gender: 'female', audience: CASUAL_AGES, conditions: { tone: ['friendly'] }, pair: 'broken_il' },
     ],
   },
   {
@@ -921,16 +932,16 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     ],
     deepLinks: ['progression', 'home'],
     defaults: [
-      { title: '@רצף ימים ברצף', body: 'כל יום נספר. ממשיכים בקצב שלך.' },
-      { title: '3 ימים ברצף', body: 'ההתחלה הכי קשה כבר מאחור. ממשיכים מחר?', conditions: { milestone: ['3'] } },
-      { title: 'שבוע שלם', body: '7 ימים ברצף. ככה נראה הרגל שנולד.', conditions: { milestone: ['7'] } },
-      { title: 'שבועיים ברצף', body: '14 ימים. הגוף כבר מחכה לזה.', conditions: { milestone: ['14'] } },
-      { title: 'חודש. וואו', body: '30 ימים ברצף. זה כבר לא ניסיון, זה מי שאתם.', conditions: { milestone: ['30'] } },
-      { title: '30 יום. מי אתה בכלל?', body: 'חודש ברצף. ריספקט.', gender: 'male', audience: CASUAL_AGES, conditions: { milestone: ['30'], tone: ['friendly'] }, pair: 'm30_il' },
-      { title: '30 יום. מי את בכלל?', body: 'חודש ברצף. ריספקט.', gender: 'female', audience: CASUAL_AGES, conditions: { milestone: ['30'], tone: ['friendly'] }, pair: 'm30_il' },
-      { title: '50 ימים ברצף', body: 'חצי הדרך למאה. ממשיכים בקצב שלך.', conditions: { milestone: ['50'] } },
-      { title: '100. מישהו פה רציני', body: '100 ימים ברצף. השכנים מדברים.', conditions: { milestone: ['100'] } },
-      { title: 'שנה שלמה ברצף', body: '365 ימים. אין מילים, רק כבוד.', conditions: { milestone: ['365'] } },
+      { title: T('streak_milestone.0.title'), body: T('streak_milestone.0.body') },
+      { title: T('streak_milestone.1.title'), body: T('streak_milestone.1.body'), conditions: { milestone: ['3'] } },
+      { title: T('streak_milestone.2.title'), body: T('streak_milestone.2.body'), conditions: { milestone: ['7'] } },
+      { title: T('streak_milestone.3.title'), body: T('streak_milestone.3.body'), conditions: { milestone: ['14'] } },
+      { title: T('streak_milestone.4.title'), body: T('streak_milestone.4.body'), conditions: { milestone: ['30'] } },
+      { title: T('streak_milestone.5.title'), body: T('streak_milestone.5.body'), gender: 'male', audience: CASUAL_AGES, conditions: { milestone: ['30'], tone: ['friendly'] }, pair: 'm30_il' },
+      { title: T('streak_milestone.6.title'), body: T('streak_milestone.6.body'), gender: 'female', audience: CASUAL_AGES, conditions: { milestone: ['30'], tone: ['friendly'] }, pair: 'm30_il' },
+      { title: T('streak_milestone.7.title'), body: T('streak_milestone.7.body'), conditions: { milestone: ['50'] } },
+      { title: T('streak_milestone.8.title'), body: T('streak_milestone.8.body'), conditions: { milestone: ['100'] } },
+      { title: T('streak_milestone.9.title'), body: T('streak_milestone.9.body'), conditions: { milestone: ['365'] } },
     ],
   },
   {
@@ -957,30 +968,30 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     ],
     deepLinks: ['map_place', 'map', 'community'],
     defaults: [
-      { title: 'מתאמנים לידך', body: 'ריצה ב@מקום ב-@שעה עם @שולח. מצטרפים?', conditions: { activity: ['running'] } },
-      { title: 'מתאמנים לידך', body: 'ריצה ב@מקום ב-@שעה. זה הזמן להצטרף.', conditions: { activity: ['running'] } },
-      { title: 'מתאמנים לידך', body: 'אימון כוח ב@מקום ב-@שעה עם @שולח. מצטרפים?', conditions: { activity: ['strength'] } },
-      { title: 'מתאמנים לידך', body: 'אימון כוח ב@מקום ב-@שעה. מצטרפים?', conditions: { activity: ['strength'] } },
-      { title: 'מתאמנים לידך', body: 'הליכה ב@מקום ב-@שעה עם @שולח. באים?', conditions: { activity: ['walking'] } },
-      { title: 'מתאמנים לידך', body: 'הליכה ב@מקום ב-@שעה. לא הולכים לבד.', conditions: { activity: ['walking'] } },
-      { title: 'מתאמנים לידך', body: 'אימון ב@מקום ב-@שעה עם @שולח. מצטרפים?' },
-      { title: 'מתאמנים לידך', body: 'יש אימון קרוב אליך ב-@שעה. מצטרפים?', fallbackOnly: true },
-      { title: 'מתאמנים לידך', body: 'יש אימון קרוב אליך. מצטרפים?', fallbackOnly: true },
+      { title: T('partner_plan.0.title'), body: T('partner_plan.0.body'), conditions: { activity: ['running'] } },
+      { title: T('partner_plan.1.title'), body: T('partner_plan.1.body'), conditions: { activity: ['running'] } },
+      { title: T('partner_plan.2.title'), body: T('partner_plan.2.body'), conditions: { activity: ['strength'] } },
+      { title: T('partner_plan.3.title'), body: T('partner_plan.3.body'), conditions: { activity: ['strength'] } },
+      { title: T('partner_plan.4.title'), body: T('partner_plan.4.body'), conditions: { activity: ['walking'] } },
+      { title: T('partner_plan.5.title'), body: T('partner_plan.5.body'), conditions: { activity: ['walking'] } },
+      { title: T('partner_plan.6.title'), body: T('partner_plan.6.body') },
+      { title: T('partner_plan.7.title'), body: T('partner_plan.7.body'), fallbackOnly: true },
+      { title: T('partner_plan.8.title'), body: T('partner_plan.8.body'), fallbackOnly: true },
       // Gendered pairs (who planned the session). Appended, so the neutral rows keep their ids.
-      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצא לרוץ ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', conditions: { activity: ['running'] }, pair: 'run_name' },
-      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצאת לרוץ ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', conditions: { activity: ['running'] }, pair: 'run_name' },
-      { title: 'מתאמנים לידך', body: '@שולח יוצא לרוץ ב@מקום ב-@שעה. זה הזמן להצטרף.', subjectGender: 'male', conditions: { activity: ['running'] }, pair: 'run' },
-      { title: 'מתאמנים לידך', body: '@שולח יוצאת לרוץ ב@מקום ב-@שעה. זה הזמן להצטרף.', subjectGender: 'female', conditions: { activity: ['running'] }, pair: 'run' },
-      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצא להליכה ב@מקום ב-@שעה. באים?', subjectGender: 'male', conditions: { activity: ['walking'] }, pair: 'walk_name' },
-      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצאת להליכה ב@מקום ב-@שעה. באים?', subjectGender: 'female', conditions: { activity: ['walking'] }, pair: 'walk_name' },
-      { title: 'מתאמנים לידך', body: '@שולח יוצא להליכה ב@מקום ב-@שעה. לא הולכים לבד.', subjectGender: 'male', conditions: { activity: ['walking'] }, pair: 'walk' },
-      { title: 'מתאמנים לידך', body: '@שולח יוצאת להליכה ב@מקום ב-@שעה. לא הולכים לבד.', subjectGender: 'female', conditions: { activity: ['walking'] }, pair: 'walk' },
-      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצא לאימון כוח ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', conditions: { activity: ['strength'] }, pair: 'strength_name' },
-      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצאת לאימון כוח ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', conditions: { activity: ['strength'] }, pair: 'strength_name' },
-      { title: 'מתאמנים לידך', body: '@שולח מתכנן אימון כוח ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', conditions: { activity: ['strength'] }, pair: 'strength' },
-      { title: 'מתאמנים לידך', body: '@שולח מתכננת אימון כוח ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', conditions: { activity: ['strength'] }, pair: 'strength' },
-      { title: 'מתאמנים לידך', body: '@שולח יוצא להתאמן ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', pair: 'any' },
-      { title: 'מתאמנים לידך', body: '@שולח יוצאת להתאמן ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', pair: 'any' },
+      { title: T('partner_plan.9.title'), body: T('partner_plan.9.body'), subjectGender: 'male', conditions: { activity: ['running'] }, pair: 'run_name' },
+      { title: T('partner_plan.10.title'), body: T('partner_plan.10.body'), subjectGender: 'female', conditions: { activity: ['running'] }, pair: 'run_name' },
+      { title: T('partner_plan.11.title'), body: T('partner_plan.11.body'), subjectGender: 'male', conditions: { activity: ['running'] }, pair: 'run' },
+      { title: T('partner_plan.12.title'), body: T('partner_plan.12.body'), subjectGender: 'female', conditions: { activity: ['running'] }, pair: 'run' },
+      { title: T('partner_plan.13.title'), body: T('partner_plan.13.body'), subjectGender: 'male', conditions: { activity: ['walking'] }, pair: 'walk_name' },
+      { title: T('partner_plan.14.title'), body: T('partner_plan.14.body'), subjectGender: 'female', conditions: { activity: ['walking'] }, pair: 'walk_name' },
+      { title: T('partner_plan.15.title'), body: T('partner_plan.15.body'), subjectGender: 'male', conditions: { activity: ['walking'] }, pair: 'walk' },
+      { title: T('partner_plan.16.title'), body: T('partner_plan.16.body'), subjectGender: 'female', conditions: { activity: ['walking'] }, pair: 'walk' },
+      { title: T('partner_plan.17.title'), body: T('partner_plan.17.body'), subjectGender: 'male', conditions: { activity: ['strength'] }, pair: 'strength_name' },
+      { title: T('partner_plan.18.title'), body: T('partner_plan.18.body'), subjectGender: 'female', conditions: { activity: ['strength'] }, pair: 'strength_name' },
+      { title: T('partner_plan.19.title'), body: T('partner_plan.19.body'), subjectGender: 'male', conditions: { activity: ['strength'] }, pair: 'strength' },
+      { title: T('partner_plan.20.title'), body: T('partner_plan.20.body'), subjectGender: 'female', conditions: { activity: ['strength'] }, pair: 'strength' },
+      { title: T('partner_plan.21.title'), body: T('partner_plan.21.body'), subjectGender: 'male', pair: 'any' },
+      { title: T('partner_plan.22.title'), body: T('partner_plan.22.body'), subjectGender: 'female', pair: 'any' },
     ],
   },
   // ─── push-copy-v2 (owner-approved 21.10.2026) ──────────────────────────────
@@ -1013,30 +1024,30 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     ],
     deepLinks: ['home', 'map_walk', 'map', 'activity_steps'],
     defaults: [
-      { title: 'האימון שלך מחכה בכניסה', body: 'הוא כבר חימם את עצמו. 12 דקות ואתם חברים', conditions: { day: ['d1'], tone: ['cute'] } },
-      { title: '@שעה. הזמן שבחרת לעצמך', body: '12 דקות שהן רק שלך. מתחילים?', conditions: { day: ['d1'], tone: ['personal'] } },
-      { title: 'מה קורה בגוף אחרי 12 דקות?', body: 'יש רק דרך אחת לגלות. האימון הראשון מוכן', conditions: { day: ['d1'], tone: ['curious'] } },
-      { title: 'אחי, האימון מוכן', body: '12 דקות, בלי ציוד. יאללה, רק תתחיל', gender: 'male', pair: 'f_d1', audience: CASUAL_AGES, conditions: { day: ['d1'], tone: ['friendly'] } },
-      { title: 'אחותי, האימון מוכן', body: '12 דקות, בלי ציוד. יאללה, רק תתחילי', gender: 'female', pair: 'f_d1', audience: CASUAL_AGES, conditions: { day: ['d1'], tone: ['friendly'] } },
-      { title: 'הורדנו את הרף. ממש נמוך', body: '10 דקות הליכה. זה הכול. גם זה נספר', deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['cute'] } },
-      { title: 'לא צריך להיות מושלם', body: 'צריך רק להתחיל. 10 דקות הליכה סוגרות לך יום ראשון', deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['personal'] } },
-      { title: 'אימון בלי להחליף בגדים?', body: '10 דקות הליכה מהדלת. ככה מתחילים את הרצף', deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['curious'] } },
-      { title: 'נו אחי, 10 דקות', body: 'הליכה מסביב לבלוק. זה הכול, נשבע', deepLink: 'map_walk', gender: 'male', pair: 'f_d2', audience: CASUAL_AGES, conditions: { day: ['d2'], tone: ['friendly'] } },
-      { title: 'נו אחותי, 10 דקות', body: 'הליכה מסביב לבלוק. זה הכול, נשבעת', deepLink: 'map_walk', gender: 'female', pair: 'f_d2', audience: CASUAL_AGES, conditions: { day: ['d2'], tone: ['friendly'] } },
-      { title: 'ב@מקום כבר מתגעגעים', body: '@אנשים אנשים התאמנו שם השבוע. חסר רק אחד', deepLink: 'map', conditions: { day: ['d3'], tone: ['cute'] } },
-      { title: 'מי מתאמן ב@מקום?', body: '@אנשים שכנים כבר גילו. בואו לראות', deepLink: 'map', conditions: { day: ['d3'], tone: ['curious'] } },
+      { title: T('first_week.0.title'), body: T('first_week.0.body'), conditions: { day: ['d1'], tone: ['cute'] } },
+      { title: T('first_week.1.title'), body: T('first_week.1.body'), conditions: { day: ['d1'], tone: ['personal'] } },
+      { title: T('first_week.2.title'), body: T('first_week.2.body'), conditions: { day: ['d1'], tone: ['curious'] } },
+      { title: T('first_week.3.title'), body: T('first_week.3.body'), gender: 'male', pair: 'f_d1', audience: CASUAL_AGES, conditions: { day: ['d1'], tone: ['friendly'] } },
+      { title: T('first_week.4.title'), body: T('first_week.4.body'), gender: 'female', pair: 'f_d1', audience: CASUAL_AGES, conditions: { day: ['d1'], tone: ['friendly'] } },
+      { title: T('first_week.5.title'), body: T('first_week.5.body'), deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['cute'] } },
+      { title: T('first_week.6.title'), body: T('first_week.6.body'), deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['personal'] } },
+      { title: T('first_week.7.title'), body: T('first_week.7.body'), deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['curious'] } },
+      { title: T('first_week.8.title'), body: T('first_week.8.body'), deepLink: 'map_walk', gender: 'male', pair: 'f_d2', audience: CASUAL_AGES, conditions: { day: ['d2'], tone: ['friendly'] } },
+      { title: T('first_week.9.title'), body: T('first_week.9.body'), deepLink: 'map_walk', gender: 'female', pair: 'f_d2', audience: CASUAL_AGES, conditions: { day: ['d2'], tone: ['friendly'] } },
+      { title: T('first_week.10.title'), body: T('first_week.10.body'), deepLink: 'map', conditions: { day: ['d3'], tone: ['cute'] } },
+      { title: T('first_week.11.title'), body: T('first_week.11.body'), deepLink: 'map', conditions: { day: ['d3'], tone: ['curious'] } },
       // Claims a real group: only when the sender knows one (conditions.nearby = 'group').
-      { title: 'לא חייבים לבד', body: 'יש קבוצת הליכה ליד הבית שמחכה לחברים חדשים', deepLink: 'map', conditions: { day: ['d3'], tone: ['personal'], nearby: ['group'] } },
-      { title: 'כפרה עליך, אתה לא לבד', body: '@אנשים אנשים התאמנו ב@מקום השבוע. בוא', deepLink: 'map', gender: 'male', pair: 'f_d3', audience: CASUAL_AGES, conditions: { day: ['d3'], tone: ['friendly'] } },
-      { title: 'כפרה עלייך, את לא לבד', body: '@אנשים אנשים התאמנו ב@מקום השבוע. בואי', deepLink: 'map', gender: 'female', pair: 'f_d3', audience: CASUAL_AGES, conditions: { day: ['d3'], tone: ['friendly'] } },
-      { title: 'הרגליים עשו עבודה יפה היום', body: 'עוד @צעדים_שנותרו צעדים ויש לך יום ראשון ברצף', deepLink: 'activity_steps', conditions: { day: ['d4'], tone: ['cute'] } },
-      { title: 'כמעט סגרת יום בלי לשים לב', body: 'עוד @צעדים_שנותרו צעדים. סיבוב קצר מסביב לבניין?', deepLink: 'activity_steps', conditions: { day: ['d4'], tone: ['curious'] } },
-      { title: 'היום היה של כולם', body: '10 הדקות הבאות יכולות להיות רק שלך', conditions: { day: ['d5'], tone: ['personal'] } },
-      { title: 'הספה תסלח לנו', body: '10 דקות בסלון, בלי ציוד. אחר כך חוזרים אליה', conditions: { day: ['d5'], tone: ['cute'] } },
-      { title: 'אחרי יום כזה? מגיע לך', body: '10 דקות בסלון, ואז ספה בלב שקט', gender: 'male', pair: 'f_d5', audience: CASUAL_AGES, conditions: { day: ['d5'], tone: ['friendly'] } },
-      { title: 'אחרי יום כזה? מגיע לך', body: '10 דקות בסלון, ואז ספה בלב שקט', gender: 'female', pair: 'f_d5', audience: CASUAL_AGES, conditions: { day: ['d5'], tone: ['friendly'] } },
-      { title: 'שבוע חדש, דף חדש', body: 'בלי להסתכל אחורה. אימון של 10 דקות ומתחילים', conditions: { day: ['d7'], tone: ['personal'] } },
-      { title: 'מה אם השבוע זה יקרה?', body: 'אימון ראשון של 10 דקות. רק לנסות', conditions: { day: ['d7'], tone: ['curious'] } },
+      { title: T('first_week.12.title'), body: T('first_week.12.body'), deepLink: 'map', conditions: { day: ['d3'], tone: ['personal'], nearby: ['group'] } },
+      { title: T('first_week.13.title'), body: T('first_week.13.body'), deepLink: 'map', gender: 'male', pair: 'f_d3', audience: CASUAL_AGES, conditions: { day: ['d3'], tone: ['friendly'] } },
+      { title: T('first_week.14.title'), body: T('first_week.14.body'), deepLink: 'map', gender: 'female', pair: 'f_d3', audience: CASUAL_AGES, conditions: { day: ['d3'], tone: ['friendly'] } },
+      { title: T('first_week.15.title'), body: T('first_week.15.body'), deepLink: 'activity_steps', conditions: { day: ['d4'], tone: ['cute'] } },
+      { title: T('first_week.16.title'), body: T('first_week.16.body'), deepLink: 'activity_steps', conditions: { day: ['d4'], tone: ['curious'] } },
+      { title: T('first_week.17.title'), body: T('first_week.17.body'), conditions: { day: ['d5'], tone: ['personal'] } },
+      { title: T('first_week.18.title'), body: T('first_week.18.body'), conditions: { day: ['d5'], tone: ['cute'] } },
+      { title: T('first_week.19.title'), body: T('first_week.19.body'), gender: 'male', pair: 'f_d5', audience: CASUAL_AGES, conditions: { day: ['d5'], tone: ['friendly'] } },
+      { title: T('first_week.20.title'), body: T('first_week.20.body'), gender: 'female', pair: 'f_d5', audience: CASUAL_AGES, conditions: { day: ['d5'], tone: ['friendly'] } },
+      { title: T('first_week.21.title'), body: T('first_week.21.body'), conditions: { day: ['d7'], tone: ['personal'] } },
+      { title: T('first_week.22.title'), body: T('first_week.22.body'), conditions: { day: ['d7'], tone: ['curious'] } },
     ],
   },
   {
@@ -1051,9 +1062,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     conditions: [TONE_CONDITION],
     deepLinks: ['home', 'map'],
     defaults: [
-      { title: 'האימון השני הוא הסוד', body: 'הראשון זה סקרנות. השני זה התחלה של הרגל', conditions: { tone: ['personal'] } },
-      { title: 'הגוף שלך שואל מתי שוב', body: '15 דקות. הוא מוכן אם גם אתם', conditions: { tone: ['cute'] } },
-      { title: 'האימון השני מחכה', body: 'הראשון כבר מאחוריך. 15 דקות וממשיכים', fallbackOnly: true },
+      { title: T('second_workout.0.title'), body: T('second_workout.0.body'), conditions: { tone: ['personal'] } },
+      { title: T('second_workout.1.title'), body: T('second_workout.1.body'), conditions: { tone: ['cute'] } },
+      { title: T('second_workout.2.title'), body: T('second_workout.2.body'), fallbackOnly: true },
     ],
   },
   {
@@ -1069,8 +1080,8 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     subject: { label: 'מי שהצטרף', var: '@מצטרף' },
     deepLinks: ['community'],
     defaults: [
-      { title: '@מצטרף הצטרף ל-OUT', body: 'שולחים כיף לדרך?', subjectGender: 'male', pair: 'joined' },
-      { title: '@מצטרף הצטרפה ל-OUT', body: 'שולחים כיף לדרך?', subjectGender: 'female', pair: 'joined' },
+      { title: T('friend_joined.0.title'), body: T('friend_joined.0.body'), subjectGender: 'male', pair: 'joined' },
+      { title: T('friend_joined.1.title'), body: T('friend_joined.1.body'), subjectGender: 'female', pair: 'joined' },
     ],
   },
   {
@@ -1088,13 +1099,13 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     conditions: [TONE_CONDITION],
     deepLinks: ['community'],
     defaults: [
-      { title: 'מישהו עקף אותך בשכונה', body: 'אימון אחד ואתם חוזרים למקום @דירוג', conditions: { tone: ['curious'] } },
-      { title: '@מתחרה עקף אותך. בנימוס', body: 'אבל עדיין. אימון אחד וחזרתם', subjectGender: 'male', pair: 'cute', conditions: { tone: ['cute'] } },
-      { title: '@מתחרה עקפה אותך. בנימוס', body: 'אבל עדיין. אימון אחד וחזרתם', subjectGender: 'female', pair: 'cute', conditions: { tone: ['cute'] } },
-      { title: '@מתחרה עקף אותך. מה נסגר?', body: 'אימון אחד ואתה חוזר למקום @דירוג', gender: 'male', subjectGender: 'male', pair: 'friendly_m', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
-      { title: '@מתחרה עקפה אותך. מה נסגר?', body: 'אימון אחד ואתה חוזר למקום @דירוג', gender: 'male', subjectGender: 'female', pair: 'friendly_m', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
-      { title: '@מתחרה עקף אותך. מה נסגר?', body: 'אימון אחד ואת חוזרת למקום @דירוג', gender: 'female', subjectGender: 'male', pair: 'friendly_f', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
-      { title: '@מתחרה עקפה אותך. מה נסגר?', body: 'אימון אחד ואת חוזרת למקום @דירוג', gender: 'female', subjectGender: 'female', pair: 'friendly_f', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
+      { title: T('league_overtaken.0.title'), body: T('league_overtaken.0.body'), conditions: { tone: ['curious'] } },
+      { title: T('league_overtaken.1.title'), body: T('league_overtaken.1.body'), subjectGender: 'male', pair: 'cute', conditions: { tone: ['cute'] } },
+      { title: T('league_overtaken.2.title'), body: T('league_overtaken.2.body'), subjectGender: 'female', pair: 'cute', conditions: { tone: ['cute'] } },
+      { title: T('league_overtaken.3.title'), body: T('league_overtaken.3.body'), gender: 'male', subjectGender: 'male', pair: 'friendly_m', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
+      { title: T('league_overtaken.4.title'), body: T('league_overtaken.4.body'), gender: 'male', subjectGender: 'female', pair: 'friendly_m', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
+      { title: T('league_overtaken.5.title'), body: T('league_overtaken.5.body'), gender: 'female', subjectGender: 'male', pair: 'friendly_f', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
+      { title: T('league_overtaken.6.title'), body: T('league_overtaken.6.body'), gender: 'female', subjectGender: 'female', pair: 'friendly_f', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
     ],
   },
   {
@@ -1108,7 +1119,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     pending: 'אין שולח עדיין',
     vars: ['@שם'],
     deepLinks: ['community'],
-    defaults: [{ title: 'היחידה צמודה למקום הראשון', body: 'כל אימון שלך מזיז את כולם' }],
+    defaults: [{ title: T('unit_league.0.title'), body: T('unit_league.0.body') }],
   },
   {
     pushType: 'steps_connect',
@@ -1121,7 +1132,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     pending: 'אין שולח עדיין',
     vars: ['@שם'],
     deepLinks: ['activity_steps', 'home'],
-    defaults: [{ title: 'כל הליכה שלכם יכולה להיספר', body: 'מחברים צעדים בדקה, וגם הליכה לסופר נכנסת לרצף' }],
+    defaults: [{ title: T('steps_connect.0.title'), body: T('steps_connect.0.body') }],
   },
 ];
 
@@ -1193,14 +1204,17 @@ export function isRowLive(row: PushCopyRow): boolean {
   return row.active !== false && row.archived !== true && row.needsRewrite !== true;
 }
 
-export function defaultRowsFor(pushType: string): PushCopyRow[] {
+export function defaultRowsFor(pushType: string, locale: string = 'he'): PushCopyRow[] {
   const entry = PUSH_CATALOG_BY_TYPE[pushType];
   if (!entry) return [];
+  // Hebrew is the static catalog; another locale reads the same keys from its own catalog
+  // (missing keys fall back to Hebrew inside the shared core). Wave 5B passes the user's locale.
+  const tl = locale === 'he' ? null : pushCopyT(locale);
   return entry.defaults.map((d, i) => ({
     id: defaultRowId(pushType, i),
     pushType,
-    title: d.title,
-    body: d.body,
+    title: tl ? tl(`${pushType}.${i}.title`) : d.title,
+    body: tl ? tl(`${pushType}.${i}.body`) : d.body,
     deepLink: d.deepLink && entry.deepLinks.includes(d.deepLink) ? d.deepLink : entry.deepLinks[0],
     audience: d.audience ?? null,
     conditions: d.conditions ?? null,
@@ -1375,6 +1389,8 @@ export interface PushCopyContext {
    * is audience.gender.
    */
   subjectGender?: PushGender | null;
+  /** Locale of the code defaults (wave 5B passes the user's). Default 'he'. */
+  locale?: string;
 }
 
 export type PushCopySource = 'library' | 'default';
@@ -1516,7 +1532,7 @@ export function selectPushCopy(
   if (!entry) return null;
   return (
     pickFromRows(entry, libraryRows, ctx, 'library') ??
-    pickFromRows(entry, defaultRowsFor(pushType), ctx, 'default')
+    pickFromRows(entry, defaultRowsFor(pushType, ctx.locale), ctx, 'default')
   );
 }
 

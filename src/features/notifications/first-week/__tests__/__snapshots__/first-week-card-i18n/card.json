@@ -1,0 +1,2242 @@
+[
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": null,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": -2,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": -1,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "דנה, הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "יואב, הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "O'Neil {x} <b>, הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "{name}, הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "#, הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": {
+      "day": 0,
+      "lever": "welcome",
+      "title": "a,b, הכול מוכן",
+      "body": "בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 0,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": {
+      "day": 1,
+      "lever": "routine",
+      "title": "האימון שלך מחכה בכניסה",
+      "body": "הוא כבר חימם את עצמו. 12 דקות ואתם חברים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 1,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": {
+      "day": 2,
+      "lever": "low_bar",
+      "title": "הורדנו את הרף. ממש נמוך",
+      "body": "10 דקות הליכה. זה הכול. גם זה נספר",
+      "href": "/map?openRun=walking",
+      "ctaLabel": "יוצאים להליכה"
+    }
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 2,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": {
+      "day": 3,
+      "lever": "social",
+      "title": "לא חייבים לבד",
+      "body": "בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי",
+      "href": "/map",
+      "ctaLabel": "למפה"
+    }
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 3,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": {
+      "day": 4,
+      "lever": "steps",
+      "title": "הרגליים עשו עבודה יפה היום",
+      "body": "כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום",
+      "href": "/activity/steps",
+      "ctaLabel": "לצעדים של היום"
+    }
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 4,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": {
+      "day": 5,
+      "lever": "evening",
+      "title": "היום היה של כולם",
+      "body": "10 הדקות הבאות יכולות להיות רק שלך",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 5,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": {
+      "day": 6,
+      "lever": "in_app",
+      "title": "עוד יום והשבוע הראשון מאחורינו",
+      "body": "אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 6,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": {
+      "day": 7,
+      "lever": "fresh_start",
+      "title": "שבוע חדש, דף חדש",
+      "body": "בלי להסתכל אחורה. אימון של 10 דקות ומתחילים",
+      "href": null,
+      "ctaLabel": null
+    }
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 7,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 8,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 9,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": false,
+    "firstName": "a,b",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": null,
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": "",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": "   ",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": "דנה",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": "  יואב  ",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": "O'Neil {x} <b>",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": "{name}",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": "#",
+    "card": null
+  },
+  {
+    "dayIndex": 30,
+    "hasWorkout": true,
+    "firstName": "a,b",
+    "card": null
+  }
+]

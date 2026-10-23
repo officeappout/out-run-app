@@ -77,8 +77,10 @@ import { resolveTabLocks } from '@/lib/resolveTabLocks';
 import { WHO_STRENGTH_TARGET_DAYS } from '@/lib/who-strength-target';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import ScheduleBuilderSheetV2 from './ScheduleBuilderSheetV2';
+import { useT } from '@/hooks/useT';
+import { schedule } from '@/messages/ns/schedule';
 
-const DAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
+const DAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const; // i18n-allow-hebrew: weekday letters (wave 3, fmt); unused here
 const CLOSE_THRESHOLD = 220;
 const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
 
@@ -109,9 +111,9 @@ export { isScheduleBuilderDrawerEnabled } from '../services/scheduleBuilderDrawe
  * running step always carries a time picker, and the drawer is that step for a second track.
  */
 const RUNNING_TIME_PRESETS = [
-  { id: 'morning', label: 'בוקר', time: '07:00', Icon: Sunrise },
-  { id: 'noon', label: 'צהריים', time: '12:30', Icon: Sun },
-  { id: 'evening', label: 'ערב', time: '19:00', Icon: Sunset },
+  { id: 'morning', labelKey: 'drawer.time.morning', time: '07:00', Icon: Sunrise },
+  { id: 'noon', labelKey: 'drawer.time.noon', time: '12:30', Icon: Sun },
+  { id: 'evening', labelKey: 'drawer.time.evening', time: '19:00', Icon: Sunset },
 ] as const;
 /** Same default as RunningScheduleStep (morning) when the user never picked a time. */
 const DEFAULT_RUNNING_TIME = '07:00';
@@ -132,6 +134,7 @@ interface ScheduleBuilderDrawerProps {
 }
 
 export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planner', onSaved }: ScheduleBuilderDrawerProps) {
+  const t = useT(schedule);
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
   // enable_home_v2: the shared <Sheet> (ScheduleBuilderSheetV2); flag off keeps the markup below untouched.
@@ -221,14 +224,14 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
     const outcome = await saveScheduleProposal(plan, { uid: userId, runningTime });
     setRunningNote(
       outcome.runningSkipped === 'this_week_scope'
-        ? 'הריצות זזות רק ב"מכאן והלאה" — השבוע נשארו במקומן.'
+        ? t('drawer.runningNote.thisWeekScope')
         : outcome.runningSkipped === 'single_run'
-          ? 'ריצה אחת בשבוע היא לא תוכנית — ימי הריצה לא שונו.'
+          ? t('drawer.runningNote.singleRun')
           : outcome.running && !outcome.running.ok
             // The days + time are saved either way (completeRunningScheduleFirstChoice
             // writes them even when the plan build fails, with planBuildFailedAt);
             // the next-run card's existing retry rebuilds the plan.
-            ? 'ימי הריצה נשמרו. את תוכנית הריצה נשלים ברקע.'
+            ? t('drawer.runningNote.planFailed')
             : null,
     );
     setSaveState(outcome.ok ? 'saved' : 'failed');
@@ -254,9 +257,9 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
           edited by a concurrent session right now — see
           parking-lot.md. */}
       <div className="flex gap-2 mb-4">
-        <ChipButton label="כוח" active={mode === 'strength'} locked={strengthLocked} onClick={() => setMode('strength')} />
-        <ChipButton label="ריצה" active={mode === 'running'} locked={runningLocked} onClick={() => setMode('running')} />
-        <ChipButton label="משולב" active={mode === 'mixed'} locked={mixedLocked} onClick={() => setMode('mixed')} />
+        <ChipButton label={t('drawer.mode.strength')} active={mode === 'strength'} locked={strengthLocked} onClick={() => setMode('strength')} />
+        <ChipButton label={t('drawer.mode.running')} active={mode === 'running'} locked={runningLocked} onClick={() => setMode('running')} />
+        <ChipButton label={t('drawer.mode.mixed')} active={mode === 'mixed'} locked={mixedLocked} onClick={() => setMode('mixed')} />
       </div>
 
       {mode === 'strength' && <OwnedProgramsList result={result} />}
@@ -275,9 +278,9 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
       {/* ── Running time — the running step's time picker (owner rule 01.09.2026) ── */}
       {showRunningTime && (
         <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 mb-2">
-          <span className="text-sm font-black text-gray-700">באיזו שעה תרוץ?</span>
+          <span className="text-sm font-black text-gray-700">{t('drawer.time.label')}</span>
           <div className="mt-2 flex gap-2">
-            {RUNNING_TIME_PRESETS.map(({ id, label, time, Icon }) => {
+            {RUNNING_TIME_PRESETS.map(({ id, labelKey, time, Icon }) => {
               const on = !customTimeOpen && matchedTimePreset === id;
               return (
                 <button
@@ -289,7 +292,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
                   }`}
                 >
                   <Icon size={14} />
-                  {label}
+                  {t(labelKey)}
                   <span dir="ltr" className="text-[11px] font-bold opacity-80">{time}</span>
                 </button>
               );
@@ -302,7 +305,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
               }`}
             >
               <Clock size={14} />
-              אחר
+              {t('drawer.time.other')}
               <span dir="ltr" className="text-[11px] font-bold opacity-80">{matchedTimePreset === null ? runningTime : '—'}</span>
             </button>
           </div>
@@ -321,7 +324,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
         ))}
         {!result && (
           <p className="text-sm text-gray-500 text-center py-6">
-            אין עדיין מספיק נתונים כדי להציע לוז — פתח תוכנית כוח או ריצה קודם.
+            {t('drawer.noData')}
           </p>
         )}
       </div>
@@ -329,7 +332,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
       {/* ── Coach notes — one home, per spec ── */}
       {result && result.notes.length > 0 && (
         <div className="mt-4 rounded-2xl bg-white border border-slate-100 p-3">
-          <p className="text-[12px] font-black text-gray-700 mb-1.5">הערות</p>
+          <p className="text-[12px] font-black text-gray-700 mb-1.5">{t('drawer.notes.title')}</p>
           <ul className="space-y-1">
             {result.notes.map((note, i) => (
               <li key={i} className="text-[12px] text-gray-600 leading-snug">{note}</li>
@@ -345,7 +348,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
           disabled
           className="w-full mt-4 py-3 rounded-2xl bg-slate-200 text-slate-400 font-black text-sm cursor-not-allowed"
         >
-          אישור (בקרוב)
+          {t('drawer.approve.soon')}
         </button>
       )}
       {saveEnabled && result && (saveState === 'idle' || saveState === 'failed') && (
@@ -354,24 +357,24 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
           onClick={() => (entry === 'second_track' ? handleSave('from_now') : setSaveState('choose'))}
           className="w-full mt-4 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm"
         >
-          זה מתאים לי
+          {t('drawer.approve.fits')}
         </button>
       )}
       {saveEnabled && result && saveState === 'choose' && (
         <div className="mt-4 flex gap-2">
           <button type="button" onClick={() => handleSave('this_week')} className="flex-1 py-3 rounded-2xl bg-white border border-slate-200 font-black text-sm text-gray-700">
-            רק השבוע
+            {t('drawer.approve.thisWeek')}
           </button>
           <button type="button" onClick={() => handleSave('from_now')} className="flex-1 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm">
-            מכאן והלאה
+            {t('drawer.approve.fromNow')}
           </button>
         </div>
       )}
-      {saveEnabled && saveState === 'saving' && <p className="mt-4 text-sm text-gray-500 text-center">שומר…</p>}
+      {saveEnabled && saveState === 'saving' && <p className="mt-4 text-sm text-gray-500 text-center">{t('drawer.save.saving')}</p>}
       {saveEnabled && saveState === 'saved' && (
-        <p className="mt-4 text-sm font-black text-gray-700 text-center">נשמר.{runningNote ? ` ${runningNote}` : ''}</p>
+        <p className="mt-4 text-sm font-black text-gray-700 text-center">{t('drawer.save.saved')}{runningNote ? ` ${runningNote}` : ''}</p>
       )}
-      {saveEnabled && saveState === 'failed' && <p className="mt-4 text-sm text-red-600 text-center">השמירה לא הצליחה. אפשר לנסות שוב.</p>}
+      {saveEnabled && saveState === 'failed' && <p className="mt-4 text-sm text-red-600 text-center">{t('drawer.save.failed')}</p>}
     </>
   );
 
@@ -438,7 +441,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
                 type="button"
                 onClick={handleClose}
                 onPointerDown={(e) => e.stopPropagation()}
-                aria-label="סגור"
+                aria-label={t('drawer.closeAria')}
                 className="absolute left-3 top-2 w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm active:scale-90 transition-all"
               >
                 <X className="w-4 h-4 stroke-[2.5] text-gray-900" />
@@ -446,7 +449,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
             </div>
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
-              <h2 className="text-base font-black text-gray-900 mb-3">בואו נבנה לוז</h2>
+              <h2 className="text-base font-black text-gray-900 mb-3">{t('drawer.title')}</h2>
               {content}
             </div>
           </motion.div>
@@ -494,9 +497,10 @@ function ChipButton({
 }
 
 function AvailabilityStepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const t = useT(schedule);
   return (
     <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 px-4 py-3 mb-2">
-      <span className="text-sm font-black text-gray-700">כמה ימים תוכל להתאמן?</span>
+      <span className="text-sm font-black text-gray-700">{t('drawer.days.label')}</span>
       <div className="flex items-center gap-3">
         <button type="button" onClick={() => { if (value > 1) hapticTap('selection'); onChange(Math.max(1, value - 1)); }} className="w-8 h-8 rounded-full bg-slate-100 font-black text-gray-700">−</button>
         <span className="text-base font-black text-gray-900 w-4 text-center">{value}</span>
@@ -528,21 +532,6 @@ function OwnedProgramsList({ result }: { result: WeekAdvice | null }) {
   );
 }
 
-const CATEGORY_LABEL_HE: Record<string, string> = {
-  quality_primary: 'איכות',
-  tempo: 'איכות',
-  short_intervals: 'איכות',
-  long_intervals: 'איכות',
-  hill_sprints: 'איכות',
-  hill_short: 'איכות',
-  hill_long: 'ריצת גבעות',
-  fartlek_structured: 'איכות',
-  long_run: 'ריצה ארוכה',
-  easy_run: 'ריצה קלה',
-  fartlek_easy: 'ריצה קלה',
-  strides: 'סטרייידס',
-};
-
 function DayRow({
   dayOfWeek,
   asOfDate,
@@ -554,6 +543,7 @@ function DayRow({
   result: Pick<WeekAdvice, 'week' | 'sharedDays'>;
   userId: string;
 }) {
+  const t = useT(schedule);
   const date = isoDateForDayOfWeek(asOfDate, dayOfWeek);
   const strengthDay = result.week.strength.find((d) => d.dayOfWeek === dayOfWeek);
   const runningDay = result.week.running.find((d) => d.dayOfWeek === dayOfWeek);
@@ -574,7 +564,7 @@ function DayRow({
 
   const runningOverride: ResolvedRunningWorkout | null = runningDay && runningDay.category !== null
     ? {
-        name: CATEGORY_LABEL_HE[runningDay.category] ?? 'אימון ריצה',
+        name: t('drawer.runCategory', { category: runningDay.category }),
         category: runningDay.category,
         status: 'pending',
       }
@@ -584,7 +574,7 @@ function DayRow({
     <div>
       {shared && (
         <p className="text-[11px] font-black text-gray-500 mb-0.5 px-1">
-          {DAY_LETTERS[dayOfWeek]} — יום כפול: {shared.order === 'running-first' ? 'ריצה קודם' : 'כוח קודם'}
+          {t('drawer.sharedDay', { day: DAY_LETTERS[dayOfWeek], order: shared.order === 'running-first' ? 'running' : 'strength' })}
         </p>
       )}
       <AgendaDayCard
