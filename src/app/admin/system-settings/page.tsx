@@ -121,6 +121,7 @@ interface FlagState {
   enable_wide_player_v1: boolean;
   enable_site_qr_links: boolean;
   enable_history_summary_parity: boolean;
+  enable_progress_hub_v2: boolean;
   enable_workout_insights_v1: boolean;
   enable_group_fixes_v1: boolean;
   enable_together_layer_v1: boolean;
@@ -985,6 +986,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-600',
     title: 'היסטוריה: אותו סיכום אימון כוח כמו מיד אחריו',
     description: 'אימון כוח שנפתח מההיסטוריה מציג את אותו סיכום שראו בסוף האימון: הבלוקים של התוכנית עם הסטים המתוכננים והתמונות, "השתפרת מהפעם הקודמת", טבעת הרמה וההתקדמות של אותו אימון, כרטיס הרצף של אותו שבוע והקלוריות האמיתיות. הנתונים נשמרים עם כל אימון חדש מעכשיו; אימונים ישנים נשארים בתצוגה המצומצמת של היום. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = מסך ההיסטוריה כמו היום.',
+    parentKey: 'enable_home_v2',
+  },
+  // Progress hub v2 (23.10.2026) — canvas page 12 PG-2…PG-6.
+  {
+    key: 'enable_progress_hub_v2',
+    icon: ListChecks,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-600',
+    title: 'התקדמות: עמוד ראשי עם 3 כרטיסים ועמודי עומק',
+    description: 'בלשונית ההתקדמות: נשארים הכותרת, מתג השבוע/החודש וטבעת הסיכום, ומתחתם שלושה כרטיסים — כוח, ריצה (או הליכה כשהתוכנית היא הליכה) וצעדים בכתום. כל כרטיס פותח עמוד עומק: ריצה (נפח שבועי, שבועות התוכנית, תחזית, יעדי קצב, ריצות אחרונות), כוח (מפות התקדמות, תובנות, איזון שרירים, סטים לשבוע, תרגילים) וצעדים (יום/שבוע/חודש/שנה). חץ חזרה או החלקה מהקצה. רצועת השבוע, בלוק ההתמדה וקיצור השיאים יוצאים מהעמוד הראשי. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = הלשונית כמו היום.',
     parentKey: 'enable_home_v2',
   },
   // Workout insights (22.10.2026) — Kelly in the green card + the lemur's funny line.
