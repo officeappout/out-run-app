@@ -81,6 +81,31 @@ export function inferBodyIntent(text: string): BodyIntent {
   return { domains: order.filter((d) => found.has(d)), fullBody: FULL_BODY.test(raw) };
 }
 
+/**
+ * Skill programs named in the text (owner thread 22.10.2026: "מתח ופלאנץ'" — a pull-up +
+ * planche combo — was built as a plain back workout because the base word "מתח" replaced the
+ * model's [pull, planche] with [pull]). Matched on whole tokens, with the one-letter prefixes.
+ */
+const SKILL_STEMS: Record<string, readonly string[]> = {
+  planche: ['פלאנץ', 'פלאנש', 'פלנץ', 'planche'],
+  front_lever: ['פרונט', 'front'],
+  back_lever: ['בק ליבר', 'back lever'],
+  muscle_up: ['מאסל', 'מסל', 'מוסל', 'muscle'],
+  handstand_pushup: ['עמידת ידיים', 'handstand'],
+  human_flag: ['דגל אדם', 'human flag'],
+};
+
+export function inferSkillDomains(text: string): string[] {
+  const raw = (text ?? '').normalize('NFC').replace(NIQQUD, '').replace(/[׳'’]/g, '').toLowerCase();
+  const toks = tokens(raw);
+  const out: string[] = [];
+  for (const [skill, stems] of Object.entries(SKILL_STEMS)) {
+    const hit = stems.some((s) => (s.includes(' ') ? raw.includes(s) : hasStem(toks, [s])));
+    if (hit) out.push(skill);
+  }
+  return out;
+}
+
 export function inferLocation(text: string): CoachLocation | null {
   const toks = tokens(text);
   if (toks.some((t) => ['בבית', 'לבית', 'הביתה', 'בסלון'].includes(t))) return 'home';
@@ -113,18 +138,24 @@ export interface IntentApplication {
 /**
  * Overrides the model's generate_workout input with what the user's message states.
  * Skill domains the model chose (planche, front_lever…) are kept when the text names no
- * base body area.
+ * base body area; skill programs the text itself names are always kept (a combo request).
  */
 export function applyUserIntent(input: GenerateWorkoutInputT, userText: string): IntentApplication {
   const out: GenerateWorkoutInputT = { ...input, domains: [...input.domains], equipment: [...input.equipment] };
   const changes: string[] = [];
 
   const body = inferBodyIntent(userText);
-  if (body.domains.length > 0) {
-    const same = out.domains.length === body.domains.length && body.domains.every((d) => out.domains.includes(d));
+  // Skill programs the user named (planche, front lever…) stay next to the body areas: a combo
+  // request keeps every part of it. The model's own skill pick also stays when the user named it.
+  const skills = inferSkillDomains(userText);
+  if (body.domains.length > 0 || skills.length > 0) {
+    const want = Array.from(new Set([...body.domains, ...skills])).slice(0, 4);
+    const keepModelBase = body.domains.length === 0; // only skills named: the model's base areas stay
+    const next = keepModelBase ? Array.from(new Set([...out.domains, ...skills])).slice(0, 4) : want;
+    const same = out.domains.length === next.length && next.every((d) => out.domains.includes(d));
     if (!same) {
-      changes.push(`domains:${out.domains.join('+') || 'none'}→${body.domains.join('+')}`);
-      out.domains = [...body.domains];
+      changes.push(`domains:${out.domains.join('+') || 'none'}→${next.join('+')}`);
+      out.domains = next;
     }
   } else if (body.fullBody && out.domains.length > 0) {
     changes.push(`domains:${out.domains.join('+')}→full_body`);
@@ -174,16 +205,25 @@ const LOCATION_TITLE: Record<CoachLocation, string> = {
  * engine's metadata titles are picked by persona and situation (e.g. a guard-duty title
  * for reservists) and don't describe what the user asked the chat for.
  */
+const SKILL_TITLE: Record<string, string> = {
+  planche: 'פלאנץ׳',
+  front_lever: 'פרונט ליבר',
+  back_lever: 'בק ליבר',
+  muscle_up: 'עליית כוח',
+  handstand_pushup: 'עמידת ידיים',
+  human_flag: 'דגל אדם',
+  one_arm_pullup: 'מתח ביד אחת',
+};
+
 export function aiWorkoutTitle(domains: readonly string[], location: CoachLocation): string {
   const base = domains.filter((d): d is BaseDomain => d in DOMAIN_TITLE);
+  // A combo ("מתח ופלאנץ׳") is titled by every part, never only its base area.
+  const names = [...base.map((d) => DOMAIN_TITLE[d]), ...domains.filter((d) => d in SKILL_TITLE).map((d) => SKILL_TITLE[d])];
   let what: string;
   if (domains.length === 0) what = 'אימון גוף מלא';
-  else if (base.length === 0) what = 'אימון כוח';
-  else if (base.length === 1) what = `אימון ${DOMAIN_TITLE[base[0]]}`;
-  else {
-    const names = base.map((d) => DOMAIN_TITLE[d]);
-    what = `אימון ${names.slice(0, -1).join(', ')} ו${names[names.length - 1]}`;
-  }
+  else if (names.length === 0) what = 'אימון כוח';
+  else if (names.length === 1) what = `אימון ${names[0]}`;
+  else what = `אימון ${names.slice(0, -1).join(', ')} ו${names[names.length - 1]}`;
   return `${what} ${LOCATION_TITLE[location]}`;
 }
 
