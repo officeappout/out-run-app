@@ -25,6 +25,7 @@ export interface TogetherLiveStatus {
   round?: number;
   roundsDone?: number;
   minute?: number;
+  totalReps?: number;
 }
 
 export interface TogetherPlayerLayerProps {
@@ -49,6 +50,7 @@ export default function TogetherPlayerLayer(props: TogetherPlayerLayerProps) {
   const uid = profile?.id as string | undefined;
   const ref = on && groupId && attendanceId ? { groupId, attendanceId } : null;
 
+  const [selected, setSelected] = useState<string | null>(null);
   const [localCheers, setLocalCheers] = useState<Record<string, number>>({});
   const presence = usePresence(ref, uid);
   const { participants } = presence;
@@ -63,10 +65,10 @@ export default function TogetherPlayerLayer(props: TogetherPlayerLayerProps) {
         ...(profile?.core?.photoURL ? { photoURL: profile.core.photoURL as string } : {}),
         ...props.live,
         ...(Object.keys(cheersSent).length ? { cheersSent } : {}),
+        ...(selected ? { duelUid: selected } : {}),
       }
     : null;
   usePublishPresence(ref, status);
-  const [selected, setSelected] = useState<string | null>(null);
 
   const me = participants.find((p) => p.isMe);
   const rival = selected ? participants.find((p) => p.uid === selected) : undefined;
