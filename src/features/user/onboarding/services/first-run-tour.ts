@@ -34,6 +34,9 @@ export const FIRST_RUN_COACH = {
   playerProgress: 'player-progress',
   playerDone: 'player-done',
   playerHowTo: 'player-how-to',
+  /** The corner "הסבר" chip over the video — the how-to step's fallback while the drawer is collapsed
+   *  (the how-to block below the card is only rendered when the drawer is expanded). */
+  playerExplain: 'player-explain',
   /** enable_entry_whatnow_v1 — the first floating route card (the focused one in either carousel). */
   routeCard: 'route-card',
   /** The focused route card's start CTA. */
@@ -219,7 +222,13 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
         },
         // how-to before done: the instructions sit below the fold of the reps card, so the
         // last step scrolls the "סיימתי" button back into view.
-        { target: FIRST_RUN_COACH.playerHowTo, title: 'איך מבצעים', text: 'כאן ההסבר איך מבצעים את התרגיל' },
+        // Drawer collapsed -> the how-to block is not rendered; point at the video's "הסבר" chip instead.
+        {
+          target: FIRST_RUN_COACH.playerHowTo,
+          title: 'איך מבצעים',
+          text: 'כאן ההסבר איך מבצעים את התרגיל',
+          alt: { target: FIRST_RUN_COACH.playerExplain, title: 'איך מבצעים', text: 'הכפתור "הסבר" פותח וידאו על ביצוע התרגיל' },
+        },
         { target: FIRST_RUN_COACH.playerDone, title: 'סיימתי', text: 'סיימת סט? לחיצה על "סיימתי" ועוברים לתרגיל הבא', finger: true },
       ];
     // enable_entry_whatnow_v1 (entry flow v2, designs R1–R3): the first floating route card.

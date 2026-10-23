@@ -478,6 +478,13 @@ src/features/home/components/SmartWeeklySchedule.tsx
 src/features/home/components/StatsOverview.tsx
 src/features/home/components/widgets/NextRunWorkoutCard.tsx
 src/features/home/utils/day-display.utils.tsx
+src/app/legal/credits/page.tsx
+src/features/parks/client/components/route-preview/RouteOsmSourceLine.tsx
+
+# loose-ends batch C (namespace onboarding) — the /onboarding-new/access-code page.
+src/features/user/onboarding/components/AccessCodeLinkScreen.tsx
+src/features/user/onboarding/utils/institution-code.ts
+src/app/onboarding-new/access-code/
 
 # wave 2B part 1 (namespace coach, keys note.* / title.weather.*) — the coach note builder (phrasebook, names, number
 # formatting now live in the catalog; DOMAIN_NAME_HE / PROGRAM_NAME_HE are built from it). workout-metadata.service.ts is
