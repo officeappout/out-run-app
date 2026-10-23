@@ -64,6 +64,7 @@ src/features/progression-hub/v2/components/
 # deeper pages (/progress/steps · run · strength); translation-ready from the first commit.
 src/features/progression-hub/v2/hub/
 src/app/progress/steps/
+src/app/progress/run/
 # wave 2 (namespace library, exercises.* keys) — the exercise library (/library → /search?tab=exercises
 # → ExerciseLibraryContent) and its detail sheet (MasterExerciseView). Not migrated:
 # EquipmentFilterSheet/EquipmentFilterShell (not rendered by the library — home builder, settings,
