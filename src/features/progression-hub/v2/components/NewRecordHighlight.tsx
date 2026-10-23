@@ -27,7 +27,7 @@ export default function NewRecordHighlight() {
   // "12 חזרות · 20 באוק׳ · ועוד 2" — the pieces that exist, joined by " · " exactly as before.
   const detail = [
     `${top.value}${top.unit ? ` ${top.unit}` : ''}`,
-    top.at != null ? dateLabel(top.at) : null,
+    top.at != null ? dateLabel(top.at, t.locale) : null,
     more > 0 ? t('hub.newRecord.more', { count: String(more) }) : null,
   ]
     .filter((part): part is string => part != null)

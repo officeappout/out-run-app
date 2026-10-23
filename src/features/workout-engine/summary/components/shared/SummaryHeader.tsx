@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useT } from '@/hooks/useT';
+import { formatDate } from '@/lib/i18n/core/fmt';
 import { summary } from '@/messages/ns/summary';
 
 interface SummaryHeaderProps {
@@ -16,7 +17,7 @@ export default function SummaryHeader({
   motivationalMessage,
 }: SummaryHeaderProps) {
   const t = useT(summary);
-  const formattedDate = date.toLocaleDateString('he-IL', {
+  const formattedDate = formatDate(date, t.locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

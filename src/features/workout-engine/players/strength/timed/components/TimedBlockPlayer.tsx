@@ -40,6 +40,8 @@ import TimedRoundToast from './TimedRoundToast';
 import TimedFormatInfoSheet from './TimedFormatInfoSheet';
 import { useSnapDrawer } from '../../../shared/v2/useSnapDrawer';
 import { useStrengthDrawerV1 } from '../../hooks/useStrengthDrawerV1';
+import WideSplit from '../../../shared/v2/WideSplit';
+import { useWidePlayer } from '../../../shared/v2/WidePlayerContext';
 
 export interface TimedBlockPlayerProps {
   store: TimedStore;
@@ -58,7 +60,9 @@ export default function TimedBlockPlayer({ store, workout, segmentIndex, isPause
   // enable_strength_drawer_v1: the work / clock / rest card as a two-snap drawer + the corner "הסבר" chip.
   const drawerV1 = useStrengthDrawerV1();
   const drawerState = useSnapDrawer('timed', drawerV1);
-  const drawer = drawerV1 ? drawerState : null;
+  // enable_wide_player_v1: wide = video + side panel; the bottom drawer does not exist there.
+  const { wide } = useWidePlayer();
+  const drawer = drawerV1 && !wide ? drawerState : null;
   const actions = store.actions;
   const segment = workout.segments[segmentIndex];
   const planOf = useMemo(() => {
@@ -135,9 +139,13 @@ export default function TimedBlockPlayer({ store, workout, segmentIndex, isPause
       ) : null;
   }
 
+  const media = (
+    <TimedMedia item={mediaItem} planExercise={planOf(mediaItem)} next={planOf(view.next)} isPaused={isPaused || mode === 'ready'} tutorialPlacement={drawerV1 || wide ? 'corner' : 'legacy'} />
+  );
+
   return (
     <div className="absolute inset-0 overflow-hidden bg-black">
-      <TimedMedia item={mediaItem} planExercise={planOf(mediaItem)} next={planOf(view.next)} isPaused={isPaused || mode === 'ready'} tutorialPlacement={drawerV1 ? 'corner' : 'legacy'} />
+      {wide ? <WideSplit media={media} panel={card} /> : media}
       <TimedHeader
         bars={segmentBars(workout, segmentIndex)}
         progress={blockProgress(view.activeMs, view.totalMs)}
@@ -153,7 +161,7 @@ export default function TimedBlockPlayer({ store, workout, segmentIndex, isPause
         onPointerDown={onHeaderPointerDown}
       />
       {spec.format === 'amrap' && <TimedRoundToast state={state as AmrapState} />}
-      {card}
+      {wide ? null : card}
       <TimedFormatInfoSheet spec={spec} open={infoOpen} onClose={() => setInfoOpen(false)} />
     </div>
   );

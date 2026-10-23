@@ -32,6 +32,9 @@ import {
 } from '../hooks/useExerciseAnalytics';
 import type { RichExerciseSession } from '@/features/workout-engine/services/exercise-history.service';
 import { useUiGender } from '@/hooks/useUiGender';
+import { formatDate } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
+import type { Locale } from '@/lib/i18n/locales';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -45,19 +48,19 @@ interface Props {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtShortDate(dateMs: number): string {
-  return new Intl.DateTimeFormat('he-IL', {
+function fmtShortDate(dateMs: number, locale: Locale): string {
+  return formatDate(new Date(dateMs), locale, {
     day: 'numeric',
     month: 'numeric',
-  }).format(new Date(dateMs));
+  });
 }
 
-function fmtLongDate(dateMs: number): string {
-  return new Intl.DateTimeFormat('he-IL', {
+function fmtLongDate(dateMs: number, locale: Locale): string {
+  return formatDate(new Date(dateMs), locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(new Date(dateMs));
+  });
 }
 
 function fmtImprovement(pct: number | null): string {
@@ -85,6 +88,7 @@ const GOAL_RANGE = Array.from({ length: 100 }, (_, i) => i + 1);
 // ── Main component ───────────────────────────────────────────────────────────
 
 export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: Props) {
+  const locale = useLocaleStore((s) => s.locale);
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
   const [metric, setMetric] = useState<Metric>('maxReps');
@@ -107,7 +111,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
 
   // Build chart data from filtered sessions
   const chartData = filteredSessions.map((s) => ({
-    label: fmtShortDate(s.dateMs),
+    label: fmtShortDate(s.dateMs, locale),
     value: metric === 'maxReps' ? s.maxReps : s.totalVolume,
   }));
 
@@ -653,6 +657,7 @@ interface SessionRowProps {
 }
 
 function SessionRow({ session, delta }: SessionRowProps) {
+  const locale = useLocaleStore((s) => s.locale);
   const reps = session.reps ?? [];
   const setsLabel =
     reps.length > 0 ? `${reps.length} × ${reps.join('/')}` : `${session.maxReps}`;
@@ -661,7 +666,7 @@ function SessionRow({ session, delta }: SessionRowProps) {
     <div className="flex items-center px-4 py-3 gap-2" dir="rtl">
       <div className="flex-1 min-w-0">
         <p className="text-xs font-black text-gray-800 truncate">
-          {fmtLongDate(session.dateMs)}
+          {fmtLongDate(session.dateMs, locale)}
         </p>
       </div>
       <div className="w-24 text-center" dir="ltr">

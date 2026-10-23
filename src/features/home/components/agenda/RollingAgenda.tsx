@@ -17,6 +17,8 @@
 import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useT } from '@/hooks/useT';
+import { formatDateRange, formatDayMonth } from '@/lib/i18n/core/fmt';
+import type { Locale } from '@/lib/i18n/locales';
 import { home } from '@/messages/ns/home';
 import { createPortal } from 'react-dom';
 import { motion, Reorder } from 'framer-motion';
@@ -40,18 +42,13 @@ import ArrangeWeekButton from '@/features/schedule/week-builder/planner/componen
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-// Weekday letters / names and month names below: wave 3 (fmt). DAY_LETTERS is also matched against scheduleDays (data).
+// DAY_LETTERS is also matched against scheduleDays (data) — it stays. Month names come from fmt (wave 3A); HEBREW_DAY_FULL is the long weekday label ('שבת' alone for Saturday, which Intl does not give).
 const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
 const PAST_DAYS           = 7;
 const ALL_FUTURE          = 6;
 const PLANNER_FUTURE_DAYS = 84; // 12 weeks
 const PLANNER_PAST_DAYS   = 30;
-
-const HEBREW_MONTHS = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי',  'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
-];
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -146,9 +143,9 @@ function getDayLabel(iso: string): string {
   return HEBREW_DAY_FULL[letter] ?? '';
 }
 
-function formatShortDate(iso: string): string {
+function formatShortDate(iso: string, locale: Locale): string {
   const d = new Date(iso + 'T00:00:00');
-  return `${d.getDate()} ${HEBREW_MONTHS[d.getMonth()]}`;
+  return formatDayMonth(d, locale);
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -501,13 +498,7 @@ export default function RollingAgenda({
         const saturdayISO = toISODate(saturday);
 
         // Date range label — cross-month aware
-        const startDay   = sunday.getDate();
-        const startMonth = HEBREW_MONTHS[sunday.getMonth()];
-        const endDay     = saturday.getDate();
-        const endMonth   = HEBREW_MONTHS[saturday.getMonth()];
-        const dateRange  = startMonth === endMonth
-          ? `${startDay}–${endDay} ${startMonth}`
-          : `${startDay} ${startMonth} — ${endDay} ${endMonth}`;
+        const dateRange = formatDateRange(sunday, saturday, t.locale);
 
         // Week number from program start, or null. Gated by
         // RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED (via resolveRunningCurrentWeek):
@@ -540,7 +531,7 @@ export default function RollingAgenda({
     }
 
     return Array.from(map.values());
-  }, [dates, filterMode, profile?.running?.activeProgram?.startDate, todayISO]);
+  }, [dates, filterMode, profile?.running?.activeProgram?.startDate, todayISO, t.locale]);
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -729,8 +720,8 @@ export default function RollingAgenda({
               ? t('rollingAgenda.move.titleAdd', { day: getDayLabel(moveIntent.toDate) })
               : t('rollingAgenda.move.titleMove', { day: getDayLabel(moveIntent.toDate) })
             : '',
-          fromLabel: moveIntent ? formatShortDate(moveIntent.fromDate) : '',
-          toLabel: moveIntent ? formatShortDate(moveIntent.toDate) : '',
+          fromLabel: moveIntent ? formatShortDate(moveIntent.fromDate, t.locale) : '',
+          toLabel: moveIntent ? formatShortDate(moveIntent.toDate, t.locale) : '',
           onMoveOnce: handleMoveOnce,
           onMoveAll: handleMoveAll,
           onCancel: () => setMoveIntent(null),

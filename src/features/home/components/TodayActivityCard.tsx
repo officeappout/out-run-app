@@ -60,6 +60,7 @@ import { resolveIconKey, getProgramIcon, CheckMarkBadge } from '@/features/conte
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import { todayCardShortLabel } from '@/features/home/utils/today-activity-labels';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { home } from '@/messages/ns/home';
 
 export interface TodayActivityCardData {
@@ -158,7 +159,7 @@ export default function TodayActivityCard({
           style={{ color: 'rgba(255,255,255,0.85)' }}
         >
           {category === 'steps'
-            ? t('todayActivity.steps', { steps: (stepsAchieved ?? 0).toLocaleString('he-IL') })
+            ? t('todayActivity.steps', { steps: formatNumber(stepsAchieved ?? 0, t.locale) })
             : t('todayActivity.meta', { minutes: String(minutes), label: todayCardShortLabel(category, workoutType) })}
         </span>
       </div>

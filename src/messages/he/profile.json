@@ -86,6 +86,7 @@
   "exerciseAnalytics.trend.stat.totalReps": "חזרות בסה״כ",
   "exerciseAnalytics.trend.stat.perWeek": "בשבוע בממוצע",
   "exerciseAnalytics.best.title": "הסט הטוב ביותר",
+  "exerciseAnalytics.longDate": "יום {weekday} {date}",
   "exerciseAnalytics.best.unitReps": "חזרות",
   "exerciseAnalytics.best.setsThatDay": "הסטים באותו אימון",
   "exerciseAnalytics.best.improvement.title": "שיפור מהפעם הקודמת",

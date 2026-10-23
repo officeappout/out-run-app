@@ -66,9 +66,11 @@ import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import type { Locale } from '@/lib/i18n/locales';
 
 /** The caller's translator for the home namespace (useT(home)), passed into the module-level helpers below. */
-type HomeT = (key: NamespaceKey<typeof home>, values?: MessageValues) => string;
+type HomeT = ((key: NamespaceKey<typeof home>, values?: MessageValues) => string) & { readonly locale: Locale };
 
 const HERO_CARD_NATURAL_WIDTH = 300;
 const HERO_CARD_NATURAL_HEIGHT = 330;
@@ -156,7 +158,7 @@ function buildStepsRemainingSuggestion(base: Suggestion, stepsRemaining: number,
   return {
     ...base,
     title: t('preWorkout.steps.title'),
-    subtitle: t('preWorkout.steps.subtitle', { steps: stepsRemaining.toLocaleString('he-IL') }),
+    subtitle: t('preWorkout.steps.subtitle', { steps: formatNumber(stepsRemaining, t.locale) }),
   };
 }
 

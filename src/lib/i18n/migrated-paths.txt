@@ -520,3 +520,19 @@ src/features/parks/lib/distance-str.ts
 src/features/parks/core/components/hybrid/hybrid-format.ts
 src/features/streak-celebration/components/WeekStrip.tsx
 src/components/ui/WheelPicker.tsx
+# wide player (enable_wide_player_v1, namespace player, wide.* keys) — born translated.
+src/features/workout-engine/players/shared/v2/WideSplit.tsx
+src/features/workout-engine/players/shared/v2/WideHeroClock.tsx
+src/features/workout-engine/players/shared/v2/WideNextUp.tsx
+src/features/workout-engine/players/shared/v2/WideKeyHints.tsx
+src/features/workout-engine/players/shared/v2/WidePlayerContext.tsx
+src/features/workout-engine/players/shared/v2/useWideLayout.ts
+src/features/workout-engine/players/shared/v2/useWideKeys.ts
+src/features/workout-engine/players/shared/v2/wide-layout-logic.ts
+src/features/workout-engine/players/shared/v2/wide-keys.ts
+src/features/workout-engine/players/strength/components/ActiveRepsWidePanel.tsx
+src/features/workout-engine/players/strength/logic/wide-key-actions.ts
+src/features/workout-engine/players/strength/hooks/useWidePlayerV1.ts
+src/features/workout-engine/players/shared/v2/immersive-mode.ts
+src/features/workout-engine/players/shared/v2/AmbientMedia.tsx
+src/features/workout-engine/players/strength/components/ImmersiveOverlay.tsx

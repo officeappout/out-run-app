@@ -20,12 +20,12 @@ import NotAloneCard from '@/features/schedule/walking/components/NotAloneCard';
 import type { HomeWalkSlot } from '@/features/home/utils/home-walk-slot';
 import RunWeekCardV2 from '../widgets/run-week-v2/RunWeekCardV2';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { home } from '@/messages/ns/home';
 
 const WALK_COLOR = '#f59e0b';
 /** The steps tile's own text shade (IconTile tone "steps"), so label and tile match. */
 const WALK_TEXT = '#00865a';
-const fmt = (n: number) => n.toLocaleString('he-IL');
 
 export interface HomeWalkCarouselCardProps {
   slot: HomeWalkSlot;
@@ -38,6 +38,7 @@ export interface HomeWalkCarouselCardProps {
 
 export default function HomeWalkCarouselCard({ slot, onStart, onOpenGroup, standalone = false }: HomeWalkCarouselCardProps) {
   const t = useT(home);
+  const fmt = (n: number) => formatNumber(n, t.locale);
   const steps = useActivityStore((s) => Number(s.today?.steps) || 0);
   const goal = useActivityStore((s) => s.resolvedStepGoal ?? (s.today?.stepsGoal || null));
   const isToday = slot.kind === 'today';

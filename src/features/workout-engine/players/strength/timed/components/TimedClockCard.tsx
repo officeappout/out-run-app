@@ -12,6 +12,7 @@ import TimedCardShell from './TimedCardShell';
 import TimedNextRow from './TimedNextRow';
 import PlayerDrawerCompact from '../../../shared/v2/PlayerDrawerCompact';
 import type { SnapDrawerState } from '../../../shared/v2/useSnapDrawer';
+import { useWidePlayer } from '../../../shared/v2/WidePlayerContext';
 
 export interface TimedClockCardProps {
   mode: 'work' | 'rest';
@@ -34,6 +35,7 @@ export interface TimedClockCardProps {
 
 export default function TimedClockCard({ mode, eyebrow, warn, clock, ofClock, item, next, nextCaption, line, drawer = null }: TimedClockCardProps) {
   const isRest = mode === 'rest';
+  const { wide } = useWidePlayer();
   const compact = drawer ? (
     <PlayerDrawerCompact
       drawer={drawer}
@@ -55,13 +57,16 @@ export default function TimedClockCard({ mode, eyebrow, warn, clock, ofClock, it
         </span>
       </div>
       <div className="mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
-        <span className={`text-[44px] font-black leading-[48px] tabular-nums !tracking-[-0.02em] ${warn ? 'text-[#ea580c]' : 'text-v2-ink'}`}>
+        <span
+          className={`text-[44px] font-black leading-[48px] tabular-nums !tracking-[-0.02em] ${warn ? 'text-[#ea580c]' : 'text-v2-ink'}`}
+          style={wide ? { fontSize: 96, lineHeight: 1 } : undefined}
+        >
           {clock}
         </span>
         {ofClock && <span className="text-[16px] font-extrabold tabular-nums text-v2-muted">/ {ofClock}</span>}
       </div>
       {!isRest && item && (
-        <p className="mb-2 truncate whitespace-nowrap text-center text-[17px] font-black !tracking-[-0.01em] text-v2-ink">{item.name}</p>
+        <p className={`mb-2 text-center font-black !tracking-[-0.01em] text-v2-ink ${wide ? 'text-[26px] leading-tight' : 'truncate whitespace-nowrap text-[17px]'}`}>{item.name}</p>
       )}
       {line && <p className="mb-2 truncate whitespace-nowrap text-center text-[12.5px] font-bold text-v2-muted">{line}</p>}
       <div className="mt-1">

@@ -3,6 +3,9 @@
 import { Dumbbell, PersonStanding, Bike, Activity, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { useUiGender } from '@/hooks/useUiGender';
+import { formatDate as formatLocaleDate } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
+import type { Locale } from '@/lib/i18n/locales';
 import { pickGendered } from '@/lib/i18n/gender-copy';
 
 interface RecentActivityListProps {
@@ -33,13 +36,11 @@ function getActivityMeta(workout: WorkoutHistoryEntry): {
   }
 }
 
-const DATE_FMT = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' });
-
-function formatDate(d: Date | string | undefined): string {
+function formatDate(d: Date | string | undefined, locale: Locale): string {
   if (!d) return '';
   try {
     const date = d instanceof Date ? d : new Date(d);
-    return DATE_FMT.format(date);
+    return formatLocaleDate(date, locale, { day: 'numeric', month: 'short' });
   } catch {
     return '';
   }
@@ -52,6 +53,7 @@ function formatDate(d: Date | string | undefined): string {
 export default function RecentActivityList({ workouts, isLoading }: RecentActivityListProps) {
   const recent = workouts.slice(0, 5);
   const uiGender = useUiGender();
+  const locale = useLocaleStore((s) => s.locale);
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
@@ -84,7 +86,7 @@ export default function RecentActivityList({ workouts, isLoading }: RecentActivi
           {recent.map((workout, idx) => {
             const { Icon, label, iconColor } = getActivityMeta(workout);
             const xp = workout.xpEarned ?? 0;
-            const dateStr = formatDate(workout.date);
+            const dateStr = formatDate(workout.date, locale);
 
             return (
               <div

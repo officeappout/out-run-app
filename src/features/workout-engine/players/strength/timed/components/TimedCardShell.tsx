@@ -9,6 +9,8 @@
 import React from 'react';
 import PlayerDrawerBody from '../../../shared/v2/PlayerDrawerBody';
 import type { SnapDrawerState } from '../../../shared/v2/useSnapDrawer';
+import { useWidePlayer } from '../../../shared/v2/WidePlayerContext';
+import WideKeyHints from '../../../shared/v2/WideKeyHints';
 
 export interface TimedCardShellProps {
   eyebrow?: string | null;
@@ -21,6 +23,21 @@ export interface TimedCardShellProps {
 }
 
 export default function TimedCardShell({ eyebrow, warn = false, children, drawer = null, compact = null }: TimedCardShellProps) {
+  // enable_wide_player_v1: the card IS the side panel's content (WideSplit frames it) — no sheet, no drawer.
+  const { wide } = useWidePlayer();
+  if (wide) {
+    return (
+      <div data-wide-timed-card="" className="w-full" style={{ fontFamily: 'var(--font-simpler)' }}>
+        {eyebrow && (
+          <div className="mb-2 flex justify-center">
+            <span className={`truncate whitespace-nowrap text-[16px] font-extrabold tabular-nums ${warn ? 'text-[#ea580c]' : 'text-v2-deep'}`}>{eyebrow}</span>
+          </div>
+        )}
+        {children}
+        <WideKeyHints />
+      </div>
+    );
+  }
   return (
     <div
       dir="rtl"
