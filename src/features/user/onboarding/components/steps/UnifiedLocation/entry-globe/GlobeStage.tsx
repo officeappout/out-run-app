@@ -94,6 +94,9 @@ export default function GlobeStage({ phase, target, onArrived }: GlobeStageProps
             attributionControl: false,
             fadeDuration: 0,
           });
+          // Legal: streets-v12 is OSM-derived (ODbL). Compact credit at top-right —
+          // the bottom edge is covered by the entry drawers, the headline is centred.
+          map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'top-right');
           map.setPadding(rest.padding);
           mapRef.current = map;
           const m = map;
