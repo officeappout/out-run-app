@@ -4,11 +4,18 @@
  */
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { BARRIER_STORIES, BRIDGE_COPY, LANDING_COPY } from '../intro-copy';
+import { barrierStories, bridgeCopy, landingCopy } from '../intro-copy';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
 import { IntroLanding } from '../components/IntroLanding';
 import { BarrierBridge } from '../components/BarrierBridge';
 import { StoryScreen } from '../components/StoryScreen';
 import { IntroFlow } from '../components/IntroFlow';
+
+const t = makeT('he', onboarding);
+const BARRIER_STORIES = barrierStories(t);
+const BRIDGE_COPY = bridgeCopy(t);
+const LANDING_COPY = landingCopy(t);
 
 const noop = () => {};
 

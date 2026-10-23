@@ -459,6 +459,15 @@ src/features/parks/core/components/WorkoutPreferencesModal.tsx
 src/features/parks/core/components/GlobalDetailOverlay.tsx
 src/features/parks/core/components/RouteQualityBadges.tsx
 src/features/parks/core/components/coach/ParkCoachAnchor.tsx
+
+# batch ak (namespaces legal + onboarding) — legal documents (termsDoc.* / privacyDoc.* / modal.*), the entry-flow
+# intro copy (intro.*), the root page (landing.*) and the running-goal copy helpers (runningGoals.*).
+# legal-content.ts keeps one marked date label (LEGAL_LAST_UPDATED_HE); /gateway is NOT migrated (being retired).
+src/features/legal/legal-content.ts
+src/features/legal/components/LegalDocModal.tsx
+src/features/user/onboarding/intro/
+src/app/page.tsx
+src/features/user/onboarding/constants/running-goal-visuals.ts
 # wave 2 batch aj (namespace home, keys adjuster.* / nextRun.* / dayDisplay.* / weekStrip.* / statsOverview.*) — the weekly
 # strip, the day-cell label helper (resolveDayDisplayProps / getShortLabel now take the caller's t), the user workout
 # adjuster sheet, the legacy next-run card and the StatsOverview hero. Left on purpose (manual list in the PR): weekday

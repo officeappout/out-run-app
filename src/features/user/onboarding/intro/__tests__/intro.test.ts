@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  BARRIER_LABELS, BARRIER_STORIES, BRIDGE_COPY, LANDING_COPY, RING_TONES, storyImages,
+  barrierLabels, barrierStories, bridgeCopy, landingCopy, RING_TONES, storyImages,
 } from '../intro-copy';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
 import {
   EXPLORER_ROUTE, INTRO_ARRIVAL_KEY, INTRO_PREVIEW_ROUTE, INTRO_ROUTE, consumeIntroArrival, isIntroPreview, isIntroSeen,
   markIntroArrival, resolveQuickSignupHref, withIntroRedirect,
@@ -9,6 +11,12 @@ import {
 import { arcPath, labelCenter, segmentPath } from '../ring-geometry';
 import { trackProps } from '../story-timeline';
 import { storyTracks } from '../story-schedule';
+
+const t = makeT('he', onboarding);
+const BARRIER_STORIES = barrierStories(t);
+const BARRIER_LABELS = barrierLabels(t);
+const BRIDGE_COPY = bridgeCopy(t);
+const LANDING_COPY = landingCopy(t);
 
 class MemStorage {
   private m = new Map<string, string>();

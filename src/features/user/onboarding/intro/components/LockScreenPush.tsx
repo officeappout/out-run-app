@@ -2,7 +2,9 @@
 
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { INTRO_UI } from '../intro-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
+import { introUi } from '../intro-copy';
 import { trackProps, type Track } from '../story-timeline';
 import type { StoryTracks } from '../story-schedule';
 
@@ -30,6 +32,7 @@ function lockDate(): string {
  * screen fades away to the app screen underneath.
  */
 export function LockScreenPush({ clock, push, tracks, reduce, delay }: LockScreenPushProps) {
+  const ui = introUi(useT(onboardingNs));
   const date = useMemo(lockDate, []);
   const t = (track: Track) => trackProps(track, tracks.total, { reduce, delay });
 
@@ -54,8 +57,8 @@ export function LockScreenPush({ clock, push, tracks, reduce, delay }: LockScree
           />
           <div className="min-w-0 flex-1">
             <div className="flex justify-between gap-2">
-              <span className="text-[13px] font-bold text-[#1a2530]">{INTRO_UI.pushApp}</span>
-              <span className="text-[11px] text-[#8a98a4]">{INTRO_UI.pushNow}</span>
+              <span className="text-[13px] font-bold text-[#1a2530]">{ui.pushApp}</span>
+              <span className="text-[11px] text-[#8a98a4]">{ui.pushNow}</span>
             </div>
             <p className="m-0 mt-0.5 text-[12.5px] leading-[17px] text-[#1a2530]">{push}</p>
           </div>
