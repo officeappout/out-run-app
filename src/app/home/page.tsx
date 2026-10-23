@@ -1938,6 +1938,10 @@ export default function HomePage() {
     ? (nextRunCardShown && homeRun.slot ? placeNextRunCard<PostWorkoutItem>(postWorkoutItems, { id: RUN_PLAN_CARD_ID }, nextRec) : postWorkoutItems)
     : postWorkoutItems;
   const postWorkoutHasCards = postWorkoutCarouselEnabled && !!postWorkoutSuggestions && (postWorkoutBase?.length ?? 0) > 0;
+  // Run-done state (owner 23.10.2026): a too-short run's demoted card sits under the "עוד מחכה לך
+  // היום" header, in the after-workout cards area — not above the day's summary. Only while that
+  // area shows; otherwise it keeps the standalone spot.
+  const partialRunBelowHeader = featureFlags.enableHomeV2 && isSelectedDateToday && !!homeRun.slot?.partial && postWorkoutHasCards;
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Health declaration check
   const isHealthMissing = (() => {
@@ -3573,7 +3577,7 @@ export default function HomePage() {
                     <div className="mx-auto mb-4 w-full max-w-[358px] px-4">{walkCard(true)}</div>
                   </ErrorBoundary>
                 ) : null;
-                const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot ? (
+                const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader ? (
                   <div className="mx-auto mb-4 w-full max-w-[358px] px-4">
                     <HomeRunCarouselCard
                       standalone
@@ -3960,6 +3964,18 @@ export default function HomePage() {
               <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
                 {nextRec ? nextHeaderHe(nextRec, tHome) : allGoalsMet ? tHome('nextHeader.rest.done') : tHome('nextHeader.continue')}
               </h3>
+              {partialRunBelowHeader && homeRun.slot ? (
+                <div className="mb-3" data-run-partial-slot>
+                  <HomeRunCarouselCard
+                    standalone
+                    slot={homeRun.slot}
+                    profile={profile}
+                    currentWeek={homeRun.currentWeek}
+                    weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
+                    calmReturn={calmReturn.state}
+                  />
+                </div>
+              ) : null}
               <SuggestionCarousel<PostWorkoutItem | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem>
                 items={
                   featureFlags.enableHomeV2

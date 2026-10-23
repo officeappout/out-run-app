@@ -14,6 +14,8 @@ import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveHomeRunSlot, type HomeRunEntry, type HomeRunSlot } from '@/features/home/utils/home-run-slot';
 import { usePlannedRunWorkout } from '@/features/home/hooks/usePlannedRunWorkout';
+import { isBeginnerRunPlan } from '@/lib/calm-return/run-catch-up';
+import { completeRunEntry, feedFreeRunPace, stampCoverageTarget } from './run-done-writeback';
 import { plannedRunDoneToday, plannedTargetOfBlocks, type PlannedRunDoneResult, type RunCoverageDoc } from '@/lib/run-coverage';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 
@@ -26,7 +28,7 @@ export interface HomeRunDoneInput {
    * slot and heals a planned run whose player-side write did not land.
    */
   writeback?: boolean;
-  workouts: ReadonlyArray<RunCoverageDoc> | null | undefined;
+  workouts: ReadonlyArray<RunCoverageDoc & { date?: unknown }> | null | undefined;
 }
 
 export interface HomeRunSlotState {
@@ -101,42 +103,54 @@ export function useHomeRunSlot(
     quiet: true,
   });
   const entryTarget = useMemo(() => plannedTargetOfBlocks(targetWorkout?.blocks), [targetWorkout]);
+  // Beginner plans (0→5 km and similar): a shorter run never covers the slot (owner 23.10.2026).
+  const beginner = isBeginnerRunPlan(running as never, placeLevel);
   const done = useMemo<PlannedRunDoneResult>(
-    () => (pendingToday ? plannedRunDoneToday(pendingToday, runDone?.workouts, entryTarget) : { state: 'none' }),
-    [pendingToday, runDone?.workouts, entryTarget],
+    () => (pendingToday ? plannedRunDoneToday(pendingToday, runDone?.workouts, entryTarget, { beginner }) : { state: 'none' }),
+    [pendingToday, runDone?.workouts, entryTarget, beginner],
   );
 
-  const wroteRef = useRef<string | null>(null);
+  // enable_run_done_state_v1: the writes (run-done-writeback.ts), each once per session.
+  const wroteRef = useRef<Set<string>>(new Set());
   const uid = profile?.id;
   const writeback = !!runDone?.writeback;
   useEffect(() => {
     if (!writeback || !uid || !pendingToday) return;
+    const once = (key: string) => {
+      if (wroteRef.current.has(key)) return false;
+      wroteRef.current.add(key);
+      return true;
+    };
+    const docs = runDone?.workouts ?? [];
+    // The plan target a free run was judged against → on the doc, for the week's run count.
+    if (entryTarget) {
+      for (const d of docs) {
+        if (!d.id || (d.workoutType || d.activityType) !== 'running' || entryMatches(d) || d.runMeta?.coverageTarget) continue;
+        if (once(`target:${d.id}`)) void stampCoverageTarget(d.id, entryTarget);
+      }
+    }
     if (done.state !== 'done' && done.state !== 'covered') return;
-    const key = `${uid}:${pendingToday.week}:${pendingToday.day}`;
-    if (wroteRef.current === key) return;
-    wroteRef.current = key;
-    import('@/features/workout-engine/core/services/planned-run-complete')
-      .then(({ completePlannedRunEntry }) => completePlannedRunEntry(uid, {
-        week: pendingToday.week,
-        day: pendingToday.day,
-        workoutId: done.workoutId ?? null,
-        coverage: done.coverage ?? 'free',
-      }))
-      .catch((e) => console.warn('[useHomeRunSlot] run-done write skipped:', e));
-  }, [writeback, uid, pendingToday, done]);
+    const doc = docs.find((d) => d.id === done.workoutId);
+    if (once(`entry:${uid}:${pendingToday.week}:${pendingToday.day}`)) void completeRunEntry(uid, pendingToday, done, doc);
+    const pace = doc?.runMeta?.freePace?.secPerKm;
+    if (done.coverage === 'free' && doc?.id && !doc.runMeta?.plan && pace && once(`pace:${doc.id}`)) {
+      void feedFreeRunPace(uid, doc.id, pace);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- entryMatches reads pendingToday
+  }, [writeback, uid, pendingToday, done, entryTarget, runDone?.workouts]);
 
   const resolved = useMemo<Omit<HomeRunSlotState, 'skipToday' | 'undoSkip'>>(() => {
     if (!dayState) return { slot: null, done, hasRunningPlan, currentWeek };
     return {
       slot: resolveHomeRunSlot({
         enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday,
-        ...(doneOn ? { doneState: done.state } : {}),
+        ...(doneOn ? { doneState: done.state, beginner } : {}),
       }),
       done,
       hasRunningPlan,
       currentWeek,
     };
-  }, [dayState, done, doneOn, enabled, hasRunningPlan, hasStrengthProgram, skippedToday, currentWeek]);
+  }, [dayState, done, doneOn, beginner, enabled, hasRunningPlan, hasStrengthProgram, skippedToday, currentWeek]);
 
   return { ...resolved, skipToday, undoSkip };
 }

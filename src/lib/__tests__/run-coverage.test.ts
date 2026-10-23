@@ -99,8 +99,28 @@ describe('plannedRunDoneToday', () => {
   });
 });
 
+describe('beginner plans (owner 23.10.2026)', () => {
+  it('a shorter run never covers the slot; the planned run still completes it', () => {
+    expect(plannedRunDoneToday(ENTRY, [run({ duration: 1500, distance: 3 })], TARGET, { beginner: true }).state).toBe('partial');
+    expect(plannedRunDoneToday(ENTRY, [run({ duration: 1500 })], null, { beginner: true }).state).toBe('partial');
+    expect(plannedRunDoneToday(ENTRY, [planned({ duration: 1700, distance: 2 })], TARGET, { beginner: true }).state).toBe('done');
+  });
+});
+
+describe('coverageTarget (a free run stamped with its matched plan target)', () => {
+  it('is used for a free run when home has not loaded the plan target', () => {
+    expect(plannedRunDoneToday(ENTRY, [run({ duration: 1300, distance: 2.6, runMeta: { coverageTarget: TARGET } })]).state).toBe('covered');
+  });
+});
+
 describe('runCountsTowardWeek', () => {
-  it('a plain run counts from 10 min', () => {
+  it('same 50%-of-plan test when the matched target is known', () => {
+    expect(runCountsTowardWeek(run({ duration: 720, distance: 1.5, runMeta: { coverageTarget: TARGET } }))).toBe(false); // 12 of 40 min
+    expect(runCountsTowardWeek(run({ duration: 1300, distance: 2.6, runMeta: { coverageTarget: TARGET } }))).toBe(true);
+    expect(runCountsTowardWeek(planned({ duration: 1300, distance: 2.6 }))).toBe(true); // planned, covering
+    expect(runCountsTowardWeek(planned({ duration: 720, distance: 1.5 }))).toBe(false);
+  });
+  it('no target: a plain run counts from 10 min', () => {
     expect(runCountsTowardWeek(run({ duration: 60, distance: 0.1 }))).toBe(false);
     expect(runCountsTowardWeek(run({ duration: 599 }))).toBe(false);
     expect(runCountsTowardWeek(run({ duration: 600 }))).toBe(true);

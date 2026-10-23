@@ -25,7 +25,11 @@
  *     RunBlock.paceOverride) is ignored: its targets are the runner's
  *     choice, not the profile's, so it says nothing about basePace
  *
- * Free (non-planned) runs are NOT fed: the engine has no rule for them.
+ * Free (non-planned) runs: only a free run that COVERED today's planned run (run-coverage.ts,
+ * enable_run_done_state_v1, owner 23.10.2026) and only POSITIVELY — when its average pace is
+ * faster than the current easy targets it is recorded as an easy-zone run, and a resulting
+ * basePace change is kept only if it makes the targets faster. A free run never lowers them
+ * (summarizeFreeRun / applyFreeRunPositive below).
  *
  * The Firestore write lives in pace-profile-write.service.ts.
  */
@@ -34,6 +38,7 @@ import type { PaceMapConfig, PaceProfile, RunZoneType } from '../types/running.t
 import type { RunBlock } from '../../players/running/types/run-block.type';
 import type { RunWorkout } from '../../players/running/types/run-workout.type';
 import {
+  classifyPerformance,
   computeZones,
   paceMapKeyForProfile,
   recordQualityWorkout,
@@ -205,4 +210,71 @@ export function applyQualityRun(
     },
     selfCorrection,
   };
+}
+
+
+// ── Covered free runs: positive-only (owner 23.10.2026) ─────────────────
+
+/** A free run is judged against this zone (what an unstructured run is for the plan). */
+export const FREE_RUN_ZONE: RunZoneType = 'easy';
+/** A free run needs at least this much running to say anything about pace (= run-coverage COVER_MIN_SEC). */
+export const FREE_RUN_MIN_SECONDS = 600;
+
+/**
+ * The player's guards for a free run's pace sample (same spirit as summarizeQualityRun): a real
+ * GPS fix, not the simulator, mostly un-paused, >= 10 min. Returns the average pace or null.
+ */
+export function freeRunPaceSample(
+  durationSec: number,
+  distanceKm: number,
+  session: QualityRunSession,
+): { secPerKm: number } | null {
+  if (session.isSimulated || !session.hadGoodGpsFix) return null;
+  if (!(session.wallSeconds > 0) || session.activeSeconds / session.wallSeconds < MIN_ACTIVE_RATIO) return null;
+  if (!(durationSec >= FREE_RUN_MIN_SECONDS) || !(distanceKm > 0)) return null;
+  return { secPerKm: Math.round(durationSec / distanceKm) };
+}
+
+/**
+ * Does a covered free run's pace show faster-than-target running? Only then it may be recorded
+ * ('high' / 'above_high' in the easy zone, and still plausible: not faster than tempo's fast
+ * bound minus the usual GPS margin).
+ */
+export function summarizeFreeRun(
+  secPerKm: number,
+  profile: PaceProfile,
+  config: PaceMapConfig,
+): QualityRunSummary {
+  if (!(profile.basePace > 0)) return { ok: false, reason: 'no_base_pace' };
+  if (!(secPerKm > 0)) return { ok: false, reason: 'no_pace' };
+  const zones = computeZones(profile.basePace, profile.profileType, config);
+  const easy = zones[FREE_RUN_ZONE];
+  const fastest = zones.tempo?.minPace ?? easy.minPace;
+  if (secPerKm < fastest * PLAUSIBLE_FASTER) return { ok: false, reason: 'implausible_pace' };
+  const perf = classifyPerformance(secPerKm, easy.minPace, easy.maxPace);
+  if (perf !== 'high' && perf !== 'above_high') return { ok: false, reason: 'not_faster_than_targets' };
+  return { ok: true, avgPaceSecPerKm: Math.round(secPerKm), targetZone: FREE_RUN_ZONE, qualitySeconds: 0, qualityMeters: 0 };
+}
+
+/**
+ * applyQualityRun for a covered free run, positive-only: the run is recorded, but a basePace change
+ * that would make the targets SLOWER is dropped (basePace and profileType stay as they were).
+ */
+export function applyFreeRunPositive(
+  profile: PaceProfile,
+  workoutId: string,
+  summary: Extract<QualityRunSummary, { ok: true }>,
+  config: PaceMapConfig,
+  now: Date,
+): ApplyQualityRunResult {
+  const res = applyQualityRun(profile, workoutId, summary, config, now);
+  if (!res.applied) return res;
+  if (res.updatedProfile.basePace > profile.basePace) {
+    return {
+      applied: true,
+      updatedProfile: { ...res.updatedProfile, basePace: profile.basePace, profileType: profile.profileType },
+      selfCorrection: null,
+    };
+  }
+  return res;
 }

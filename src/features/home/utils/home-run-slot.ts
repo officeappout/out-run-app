@@ -58,6 +58,8 @@ export interface HomeRunSlot<E extends HomeRunEntry = HomeRunEntry> {
    * demoted (compact + a soft line). Never set without doneState.
    */
   partial?: boolean;
+  /** Partial on a beginner plan: the card cheers the start ("good start") instead of "too short". */
+  goodStart?: boolean;
 }
 
 export interface ResolveHomeRunSlotInput<E extends HomeRunEntry> {
@@ -75,6 +77,8 @@ export interface ResolveHomeRunSlotInput<E extends HomeRunEntry> {
    * 'partial' → today's run stays, flagged `partial`; 'none' / absent → exactly as before.
    */
   doneState?: RunDoneState;
+  /** Beginner plan (isBeginnerRunPlan): a partial run gets the encouraging line. */
+  beginner?: boolean;
 }
 
 const isPending = (e: RunningScheduleEntry | undefined): e is RunningScheduleEntry =>
@@ -93,7 +97,7 @@ export function isQualityRunEntry(entry: HomeRunEntry): boolean {
 export function resolveHomeRunSlot<E extends HomeRunEntry>(
   input: ResolveHomeRunSlotInput<E>,
 ): HomeRunSlot<E> | null {
-  const { enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday = false, doneState } = input;
+  const { enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday = false, doneState, beginner = false } = input;
   if (!enabled || !hasRunningPlan) return null;
 
   // A finished (or covered) run is no longer pending, whatever the stored status still says.
@@ -112,7 +116,10 @@ export function resolveHomeRunSlot<E extends HomeRunEntry>(
     const position: HomeRunSlotPosition = !hasStrengthProgram
       ? 'first'
       : isQualityRunEntry(entry) ? 'first' : 'afterFirst';
-    return { kind: 'today', entry, position, ...(doneState === 'partial' ? { partial: true } : {}) };
+    return {
+      kind: 'today', entry, position,
+      ...(doneState === 'partial' ? { partial: true, ...(beginner ? { goodStart: true } : {}) } : {}),
+    };
   }
 
   if (isPending(dayState.nextEntry)) {

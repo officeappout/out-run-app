@@ -263,7 +263,7 @@ describe('home (he) — home components, byte-identical to the pre-extraction li
       programProgressRow: count('programProgressRow'),
     }).toEqual({
       hero: 6, buildCustom: 4, programStart: 17, addStrength: 2, nearbyGroups: 9, personas: 13, racePrediction: 10,
-      runCard: 16, walkCard: 16, runWeekCard: 4, agenda: 7, planner: 6, preWorkout: 5, connectSteps: 6,
+      runCard: 17, walkCard: 16, runWeekCard: 4, agenda: 7, planner: 6, preWorkout: 5, connectSteps: 6,
       loadAdvisor: 4, consistency: 4, todayActivity: 3, doneToday: 4, steps: 5, programProgress: 4,
       programProgressRow: 3,
     });

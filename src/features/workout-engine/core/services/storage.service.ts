@@ -210,6 +210,10 @@ export interface RunSummaryMeta {
   plan?: { week: number; day: number };
   /** Planned runs: what the plan asked for in total (run-coverage.ts judges 'done' against it). */
   target?: { durationSec?: number; distanceKm?: number };
+  /** Free runs: today's plan target the run was matched to (stamped from home, run-done state). */
+  coverageTarget?: { durationSec?: number; distanceKm?: number };
+  /** Free runs: the guarded average pace (sec/km) — may feed the pace profile positively if it covered the plan. */
+  freePace?: { secPerKm: number };
   /** Planned runs: warm-up / cool-down actuals. */
   warmup?: { durationSeconds: number; distanceMeters: number };
   cooldown?: { durationSeconds: number; distanceMeters: number };

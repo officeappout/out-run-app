@@ -33,6 +33,13 @@ describe('HomeRunCarouselCard — partial', () => {
     expect(out).not.toContain('התחלה');
   });
 
+  it('beginner plan: the encouraging "good start" line instead of "too short"', () => {
+    const out = render(slot({ partial: true, goodStart: true }));
+    expect(out).toContain('יופי של התחלה!');
+    expect(out).not.toContain('הריצה הקצרה של היום');
+    expect(out).toContain('לריצה המלאה');
+  });
+
   it('does not preload the planned workout for a partial card', () => {
     (usePlannedRunWorkout as unknown as ReturnType<typeof vi.fn>).mockClear();
     render(slot({ partial: true }));

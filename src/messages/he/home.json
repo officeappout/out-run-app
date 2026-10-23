@@ -82,6 +82,7 @@
   "runCard.dayHint.next": "הבא",
   "runCard.partial.note": "הריצה הקצרה של היום עוד לא נספרת בתוכנית. הריצה המלאה עדיין פתוחה.",
   "runCard.partial.cta": "לריצה המלאה",
+  "runCard.partial.goodStart": "יופי של התחלה! כל ריצה בונה בסיס. הריצה המלאה של היום עדיין פתוחה.",
   "runCard.covered.meta": "נספרה כריצת היום",
   "runSlot.reason": "{type} בתוכנית שלך — נמצא לה מסלול מתאים",
   "runWeek.summary": "{done} מתוך {total} בוצע",

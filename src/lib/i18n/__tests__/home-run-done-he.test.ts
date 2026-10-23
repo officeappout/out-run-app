@@ -18,7 +18,7 @@ describe('home (he) — run-done state', () => {
       'nextHeader.strength.planned', 'nextHeader.strength.topup', 'nextHeader.strength.week',
       'nextHeader.walk.planned', 'nextHeader.walk.steps',
       'runCard.covered.meta', 'runCard.dayHint.inDays', 'runCard.dayHint.next', 'runCard.dayHint.tomorrow',
-      'runCard.partial.cta', 'runCard.partial.note',
+      'runCard.partial.cta', 'runCard.partial.goodStart', 'runCard.partial.note',
       'runSlot.reason', 'runWeek.summary',
     ]);
   });
@@ -26,7 +26,8 @@ describe('home (he) — run-done state', () => {
     expect(t('runCard.partial.note')).toBe('הריצה הקצרה של היום עוד לא נספרת בתוכנית. הריצה המלאה עדיין פתוחה.');
     expect(t('runCard.partial.cta')).toBe('לריצה המלאה');
     expect(t('runCard.covered.meta')).toBe('נספרה כריצת היום');
-    expect(`${t('runCard.partial.note')}${t('runCard.partial.cta')}${t('runCard.covered.meta')}`).not.toMatch(/פספס|הוחמץ|דילג/);
+    expect(t('runCard.partial.goodStart')).toBe('יופי של התחלה! כל ריצה בונה בסיס. הריצה המלאה של היום עדיין פתוחה.');
+    expect(`${t('runCard.partial.note')}${t('runCard.partial.cta')}${t('runCard.covered.meta')}${t('runCard.partial.goodStart')}`).not.toMatch(/פספס|הוחמץ|דילג/);
   });
   it('the moved strings keep their Hebrew', () => {
     expect(t('runCard.dayHint.inDays', { n: 3 })).toBe('בעוד 3 ימים');

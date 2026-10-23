@@ -1702,6 +1702,19 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       };
     })();
     
+    // Free-run session facts (run-done state, enable_home_v2): the same guards the planned quality
+    // run uses, captured before stopGPSTracking resets hasHadGoodFix. Read only into runMeta.freePace.
+    const freeRunSession = (() => {
+      const st = get();
+      const ss = useSessionStore.getState();
+      return {
+        activeSeconds: Number.isFinite(ss.totalDuration) ? ss.totalDuration : 0,
+        wallSeconds: ss.startTime ? Math.max(0, (Date.now() - ss.startTime) / 1000) : 0,
+        hadGoodGpsFix: st.hasHadGoodFix,
+        isSimulated: st.isSimulationActive,
+      };
+    })();
+
     // Stop all timers and GPS tracking first
     stopGPSTracking();
 
@@ -1872,6 +1885,13 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 timeInZone: get().timeInZone,
                 plan: plannedRunSnapshot ? readPlannedRunPosition() : null,
               });
+              // A free run's guarded pace sample: a covered free run may feed the pace profile
+              // positively from home (run-done state). Never written for planned runs.
+              if (!plannedRunSnapshot) {
+                const { freeRunPaceSample } = await import('../../../core/services/pace-self-correction.service');
+                const sample = freeRunPaceSample(safeDuration, safeDistance, freeRunSession);
+                if (sample) runMeta = { ...(runMeta ?? {}), freePace: sample };
+              }
             }
           } catch (e) {
             console.warn('[useRunningPlayer] runMeta skipped:', e);
@@ -1975,7 +1995,14 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 clearPlannedRunPosition();
                 if (!runDoneWriteEnabledNow()) return;
                 const { classifyRunDoc } = await import('@/lib/run-coverage');
-                const state = classifyRunDoc({ duration: safeDuration, distance: safeDistance }, planTarget, true);
+                const [{ isBeginnerRunPlan }, { runPlacementOf }, { useUserStore }] = await Promise.all([
+                  import('@/lib/calm-return/run-catch-up'),
+                  import('@/features/schedule/utils/runWeekByType'),
+                  import('@/features/user/identity/store/useUserStore'),
+                ]);
+                const running = useUserStore.getState().profile?.running;
+                const beginner = isBeginnerRunPlan(running as never, runPlacementOf(running).level);
+                const state = classifyRunDoc({ duration: safeDuration, distance: safeDistance }, planTarget, true, beginner);
                 if (state === 'partial') return;
                 const { completePlannedRunEntry } = await import('../../../core/services/planned-run-complete');
                 await completePlannedRunEntry(currentUser.uid, {
@@ -1983,6 +2010,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   day: planPos.day,
                   workoutId: savedRunId,
                   coverage: state === 'done' ? 'plan' : 'free',
+                  runDate: new Date().toISOString(),
                 });
               })
               .catch((e) => console.warn('[useRunningPlayer] planned run completion skipped:', e));

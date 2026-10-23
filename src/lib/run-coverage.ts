@@ -12,6 +12,10 @@
  *    >= 50% of the planned time or km 'covers' the slot ('covered'): shown as done.
  *  - Anything shorter is 'partial': a real activity (it stays in the strip) but it counts
  *    toward neither the plan nor the week's run goal. No "missed" wording anywhere.
+ *  - Beginner plans (0→5 km and similar, isBeginnerRunPlan): a shorter run never covers the
+ *    slot — only the planned run itself completes it (the card says "good start" instead).
+ *  - The week's run goal uses the same test: a run counts when it is done / covers its matched
+ *    plan target; with no known target, from 10 minutes.
  *  - Under 60 s AND under 100 m is not saved at all (the existing discard rule, unchanged).
  *
  * No React, no Firebase, no feature imports.
@@ -54,6 +58,13 @@ export interface RunCoverageDoc {
     plan?: { week?: number; day?: number } | null;
     /** Written by the player for planned runs (enable_home_v2): what the plan asked for. */
     target?: PlannedRunTarget | null;
+    /**
+     * A FREE run judged against today's planned run (enable_run_done_state_v1): the plan target
+     * it was matched to, stamped from home when coverage is computed. The week counter uses it.
+     */
+    coverageTarget?: PlannedRunTarget | null;
+    /** Free runs: the player's guarded pace sample (pace self-correction, positive-only). */
+    freePace?: { secPerKm?: number } | null;
   } | null;
 }
 
@@ -106,14 +117,17 @@ export function classifyRunDoc(
   doc: RunCoverageDoc,
   target: PlannedRunTarget | null | undefined,
   planned: boolean,
+  /** Beginner plan: nothing but the planned run itself completes the slot (never 'covered'). */
+  beginner = false,
 ): Exclude<RunDoneState, 'none'> {
   const sec = pos(doc.duration);
   if (!hasTarget(target)) {
-    return sec >= RUN_COVERAGE.UNKNOWN_TARGET_MIN_SEC ? (planned ? 'done' : 'covered') : 'partial';
+    if (sec < RUN_COVERAGE.UNKNOWN_TARGET_MIN_SEC) return 'partial';
+    return planned ? 'done' : beginner ? 'partial' : 'covered';
   }
   const share = runShareOfTarget(doc, target);
   if (planned && share >= RUN_COVERAGE.PLANNED_DONE_RATIO) return 'done';
-  if (sec >= RUN_COVERAGE.COVER_MIN_SEC && share >= RUN_COVERAGE.COVER_RATIO) return 'covered';
+  if (!beginner && sec >= RUN_COVERAGE.COVER_MIN_SEC && share >= RUN_COVERAGE.COVER_RATIO) return 'covered';
   return 'partial';
 }
 
@@ -136,6 +150,7 @@ export function plannedRunDoneToday(
   entry: { week: number; day: number } | null | undefined,
   todaysWorkouts: ReadonlyArray<RunCoverageDoc | null | undefined> | null | undefined,
   entryTarget?: PlannedRunTarget | null,
+  opts: { beginner?: boolean } = {},
 ): PlannedRunDoneResult {
   if (!entry) return { state: 'none' };
   let best: PlannedRunDoneResult = { state: 'none' };
@@ -143,8 +158,8 @@ export function plannedRunDoneToday(
     if (!doc || !isPlainRunDoc(doc)) continue;
     const plan = doc.runMeta?.plan;
     const planned = !!plan && plan.week === entry.week && plan.day === entry.day;
-    const target = (planned ? doc.runMeta?.target : null) ?? entryTarget;
-    const state = classifyRunDoc(doc, target, planned);
+    const target = (planned ? doc.runMeta?.target : doc.runMeta?.coverageTarget) ?? entryTarget;
+    const state = classifyRunDoc(doc, target, planned, !!opts.beginner);
     if (RANK[state] > RANK[best.state]) {
       best = state === 'partial'
         ? { state }
@@ -155,15 +170,21 @@ export function plannedRunDoneToday(
 }
 
 /**
- * Does this doc count toward the week's run goal? Plain runs need WEEK_COUNT_MIN_SEC; every
- * other doc (combined workouts, whose running legs are judged by hybrid-counting) is
- * unchanged. Only called while enable_home_v2 is on.
+ * Does this doc count toward the week's run goal? The same test as the slot: a planned run that
+ * reached its own target, or a run of >= 10 min AND >= 50% of its matched plan target
+ * (runMeta.target / runMeta.coverageTarget); with no known target, a plain run counts from
+ * WEEK_COUNT_MIN_SEC. Every other doc (combined workouts, whose running legs are judged by
+ * hybrid-counting) is unchanged. Only called while enable_home_v2 is on.
  */
 export function runCountsTowardWeek(doc: RunCoverageDoc | null | undefined): boolean {
   if (!doc) return false;
   if (!isPlainRunDoc(doc)) return true;
-  // A planned run that reached its own target counts however short the plan was.
   const own = doc.runMeta?.target;
-  if (doc.runMeta?.plan && hasTarget(own) && classifyRunDoc(doc, own, true) === 'done') return true;
+  const planned = !!doc.runMeta?.plan;
+  if (planned && hasTarget(own) && classifyRunDoc(doc, own, true) === 'done') return true;
+  const matched = (planned ? own : null) ?? doc.runMeta?.coverageTarget;
+  if (hasTarget(matched)) {
+    return pos(doc.duration) >= RUN_COVERAGE.COVER_MIN_SEC && runShareOfTarget(doc, matched) >= RUN_COVERAGE.COVER_RATIO;
+  }
   return pos(doc.duration) >= RUN_COVERAGE.WEEK_COUNT_MIN_SEC;
 }

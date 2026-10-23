@@ -195,6 +195,12 @@ describe('resolveHomeRunSlot — run-done state (enable_home_v2, 23.10.2026)', (
       .toEqual({ kind: 'today', entry: easy, position: 'first', partial: true });
   });
 
+  it('partial on a beginner plan → the "good start" variant', () => {
+    expect(resolveHomeRunSlot({ ...base, doneState: 'partial', beginner: true, dayState: runDay(easy) }))
+      .toEqual({ kind: 'today', entry: easy, position: 'first', partial: true, goodStart: true });
+    expect(resolveHomeRunSlot({ ...base, beginner: true, dayState: runDay(easy) })).toEqual({ kind: 'today', entry: easy, position: 'first' });
+  });
+
   it('partial keeps the weaver position with a strength program', () => {
     expect(resolveHomeRunSlot({ ...base, hasStrengthProgram: true, doneState: 'partial', dayState: runDay(easy) })?.position).toBe('afterFirst');
   });
