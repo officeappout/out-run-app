@@ -26,6 +26,8 @@ import {
 import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import { useTrackRingColors } from '@/features/home/hooks/useTrackRingColors';
 import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -233,6 +235,7 @@ export default function MonthlyCalendarGrid({
   weekOf,
   activityView = false,
 }: MonthlyCalendarGridProps) {
+  const t = useT(home);
   // Cell height is still configurable (TrainingPlannerOverlay passes 56px).
   const effectiveCellHeight = cellHeightProp ?? DEFAULT_CELL_HEIGHT;
 
@@ -496,7 +499,8 @@ export default function MonthlyCalendarGrid({
                         // — mirrors the two params above; suppresses Beast Mode downstream.
                         cell.isToday ? getDayStatus(cell.iso).isRecoveryCompletion : undefined,
                         cell.isPast ? (pastRecoveryMap.get(cell.iso) ?? false) : undefined,
-                      )
+                      ),
+                      t,
                     )}
                   />
                   {/* Community-mix dot — teal badge when day has both personal + community */}
