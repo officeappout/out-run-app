@@ -191,34 +191,65 @@ export const SIM_WALK_TRAIL = {
 // PARK CLUSTER LAYERS
 // ═══════════════════════════════════════════════════════════════════
 
-const CLUSTER_FILTER = [
-  'all',
-  ['has', 'point_count'],
-  ['>', ['coalesce', ['get', 'point_count'], 0], 0],
-] as any;
+// Brand palette (design-language.md: `v2-cyan` #00c9f2 = brand cyan, `v2-ink` #0e1419).
+// Fill is brand INK (not cyan): white count text on brand cyan is only ~2:1, on ink it is
+// ~18:1 (WCAG AA/AAA), and a cyan ring + soft cyan halo makes the disc read on light
+// streets-v12 as well as on dark/satellite styles. (cluster-style, 23.10.2026)
+export const CLUSTER_BRAND = {
+  fill: '#0e1419',
+  ring: '#00c9f2',
+  ringLarge: '#00dcd0', // brand turquoise (v2-teal) for the biggest clusters
+  halo: '#00c9f2',
+  text: '#ffffff',
+} as const;
+
+/** Count thresholds (point_count >= N) and the matching pixel radius per size step. */
+export const CLUSTER_STEPS = {
+  mid: 10,
+  large: 30,
+  xlarge: 100,
+  radius: { small: 18, mid: 22, large: 27, xlarge: 33 },
+  haloRadius: { small: 28, mid: 34, large: 42, xlarge: 50 },
+} as const;
+
+// Single, minimal filter: every clustered feature carries `point_count`. (The old extra
+// `coalesce(...) > 0` clause was redundant — one less expression for the style to evaluate.)
+const CLUSTER_FILTER = ['has', 'point_count'] as any;
+
+// `point_count` is always a number on cluster features; coalesce keeps the step input numeric.
+const COUNT = ['coalesce', ['get', 'point_count'], 0] as const;
 
 export const PARK_CLUSTERS_GLOW = {
   filter: CLUSTER_FILTER,
   paint: {
-    'circle-color': '#06b6d4',
-    'circle-radius': ['step', ['coalesce', ['get', 'point_count'], 0], 28, 10, 34, 30, 42],
-    'circle-opacity': 0.15,
-    'circle-blur': 1,
+    'circle-color': CLUSTER_BRAND.halo,
+    'circle-radius': ['step', COUNT,
+      CLUSTER_STEPS.haloRadius.small,
+      CLUSTER_STEPS.mid, CLUSTER_STEPS.haloRadius.mid,
+      CLUSTER_STEPS.large, CLUSTER_STEPS.haloRadius.large,
+      CLUSTER_STEPS.xlarge, CLUSTER_STEPS.haloRadius.xlarge,
+    ],
+    'circle-opacity': 0.35,
+    'circle-blur': 0.8,
   },
 };
 
 export const PARK_CLUSTERS = {
   filter: CLUSTER_FILTER,
   paint: {
-    'circle-color': ['step', ['coalesce', ['get', 'point_count'], 0],
-      '#06b6d4', 10, '#0891b2', 30, '#0e7490',
+    'circle-color': CLUSTER_BRAND.fill,
+    'circle-radius': ['step', COUNT,
+      CLUSTER_STEPS.radius.small,
+      CLUSTER_STEPS.mid, CLUSTER_STEPS.radius.mid,
+      CLUSTER_STEPS.large, CLUSTER_STEPS.radius.large,
+      CLUSTER_STEPS.xlarge, CLUSTER_STEPS.radius.xlarge,
     ],
-    'circle-radius': ['step', ['coalesce', ['get', 'point_count'], 0],
-      18, 10, 22, 30, 28,
-    ],
-    'circle-opacity': 0.92,
+    'circle-opacity': 1,
     'circle-stroke-width': 3,
-    'circle-stroke-color': 'rgba(255,255,255,0.85)',
+    'circle-stroke-color': ['step', COUNT,
+      CLUSTER_BRAND.ring, CLUSTER_STEPS.xlarge, CLUSTER_BRAND.ringLarge,
+    ],
+    'circle-stroke-opacity': 1,
   },
 };
 
@@ -255,7 +286,7 @@ export const PARK_CLUSTER_COUNT = {
     'text-ignore-placement': true,
   },
   paint: {
-    'text-color': '#ffffff',
+    'text-color': CLUSTER_BRAND.text,
     'text-halo-color': 'rgba(0,0,0,0.15)',
     'text-halo-width': 1,
   },
