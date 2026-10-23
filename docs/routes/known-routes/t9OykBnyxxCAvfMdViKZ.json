@@ -1,0 +1,26 @@
+{
+ "authorityId": "t9OykBnyxxCAvfMdViKZ",
+ "city": "אילת",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "טיילת אילת - דרך פעמי השלום",
+   "aliases": [
+    "טיילת השלום",
+    "דרך פעמי השלום",
+    "טיילת אילת"
+   ],
+   "kind": "walk",
+   "lengthKm": null,
+   "inPark": null,
+   "description": "טיילת הליכה לאורך הנמל, החופים והמרינה, כולל גשר מעבר; טיול של כשלוש שעות לפי המקור.",
+   "sources": [
+    {
+     "url": "https://www.karamel.co.il/טיילת_דרך_פעמי_השלום.asp",
+     "title": "טיילת דרך פעמי השלום (karamel) - fetched"
+    }
+   ]
+  }
+ ],
+ "notes": "The planned 12 km 'טיילת עין סוף' (ynet) is a plan, not an existing route - not listed. OSM has 'טיילת השלום' (pedestrian|unclassified, 1.92 km)."
+}

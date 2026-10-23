@@ -1,0 +1,25 @@
+{
+ "authorityId": "leV6uPoy1rV148F8BvCC",
+ "city": "טבריה",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "טיילת יגאל אלון",
+   "aliases": [
+    "טיילת טבריה",
+    "טיילת אלון"
+   ],
+   "kind": "mixed",
+   "lengthKm": null,
+   "inPark": null,
+   "description": "טיילת לאורך חוף הכנרת עם מסעדות דגים, מתאימה להליכה ולריצה.",
+   "sources": [
+    {
+     "url": "https://www.karamel.co.il/טיילת_טבריה.asp",
+     "title": "טיילת טבריה (karamel) - fetched"
+    }
+   ]
+  }
+ ],
+ "notes": "OSM has 'טיילת יגאל אלון' (footway, only 0.53 km mapped - likely under-mapped). 'טיילת קפלן' not confirmed (OSM has the boulevard 'שדרות אליעזר קפלן', trunk, 2.57 km)."
+}
