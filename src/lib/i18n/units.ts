@@ -21,10 +21,10 @@ let heT: CommonT | undefined;
 /** The Hebrew `common` translator (what every caller used before they could pass their own). */
 export const defaultCommonT = (): CommonT => (heT ??= makeT(SOURCE_LOCALE, common));
 
-/** Units that sit after a number: `{n} ק״מ`. `kmAscii` / `mAscii` keep the ASCII quote / apostrophe two old call sites used. */
-export type UnitId = 'km' | 'kmAscii' | 'm' | 'mAscii' | 'min' | 'hour' | 'minutes' | 'steps';
+/** Units that sit after a number: `{n} ק״מ`. `kmAscii` / `mAscii` / `minAscii` keep the ASCII quote / apostrophe the old call sites used. */
+export type UnitId = 'km' | 'kmAscii' | 'm' | 'mAscii' | 'min' | 'minAscii' | 'hour' | 'minutes' | 'steps';
 /** Units shown on their own, as the `unit` of a value/unit pair ("ק״מ", "דק׳ לק״מ"). */
-export type UnitLabelId = 'km' | 'm' | 'min' | 'hour' | 'minutes' | 'hours' | 'kmh' | 'kg' | 'minPerKm' | 'steps';
+export type UnitLabelId = 'km' | 'kmAscii' | 'm' | 'min' | 'minAscii' | 'hour' | 'minutes' | 'hours' | 'kmh' | 'kg' | 'minPerKm' | 'steps';
 
 /** `withUnit('km', '12.3')` → "12.3 ק״מ". `n` is the already formatted number (a plain string — never a number argument, ICU would add a thousands separator). */
 export function withUnit(unit: UnitId, n: string | number, t: CommonT = defaultCommonT()): string {

@@ -1,5 +1,7 @@
 'use client';
 
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
@@ -368,6 +370,7 @@ export default function StatsOverview({
   weather = null,
 }: StatsOverviewProps) {
   const t = useT(home);
+  const tc = useT(common);
   const { profile } = useUserStore();
   // Calm return (CALM_RETURN_V1) — the LIVE panel toggle (no super-admin override). The
   // episode write + the fresh-week card live in the home page (useCalmReturn there, with
@@ -1087,10 +1090,9 @@ export default function StatsOverview({
   const [pendingTrainAheadIndex, setPendingTrainAheadIndex] = useState<number | null>(null);
 
   // Hebrew name for the target date's day of week (e.g. "חמישי")
-  const HEBREW_DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: weekday names — wave 3 (fmt)
   const targetDayName = useMemo(() => {
     const d = new Date(targetDate + 'T00:00:00');
-    return HEBREW_DAY_NAMES[d.getDay()];
+    return weekdayLabel(d.getDay(), 'long', tc);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetDate]);
 

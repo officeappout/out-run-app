@@ -12,6 +12,9 @@
  * `workouts` array passed from the parent). NO new Firestore calls.
  */
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { unitLabel, weekdayLabels } from '@/lib/i18n/units';
 import React, { useMemo } from 'react';
 import { Footprints, Gauge, Activity, Route, Medal } from 'lucide-react';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
@@ -126,9 +129,10 @@ const HEBREW_DOMAIN_LABEL: Record<string, string> = {
   full_body: 'כל הגוף',
 };
 
-const WEEKDAY_LABELS_SUN_FIRST = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
 export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
+  const tc = useT(common);
+  const WEEKDAY_LABELS_SUN_FIRST = weekdayLabels('letter', tc);
   const strength = useWeeklyVolumeStore((s) => s.strength);
   const activeMinutes = useWeeklyVolumeStore((s) => s.activeMinutes);
   const sessionLogs = useWeeklyVolumeStore((s) => s.sessionLogs);
@@ -347,6 +351,7 @@ function formatPace(minPerKm: number): string {
 }
 
 export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
+  const tc = useT(common);
   const running = useWeeklyVolumeStore((s) => s.running);
   const { stepsToday, todayActivity } = useDailyActivity();
   const locale = useLocaleStore((s) => s.locale);
@@ -388,7 +393,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
                 ? `${running.totalDistance.toFixed(1)} / ${running.weeklyTargetDistance.toFixed(0)}`
                 : `${running.totalDistance.toFixed(1)}`
             }
-            sub='ק״מ'
+            sub={unitLabel('km', tc)}
             progressPct={kmPct}
           />
           <WidgetCardV2
@@ -396,7 +401,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
             iconColor="#65a30d"
             label="קצב ממוצע"
             value={formatPace(avgPaceMinPerKm)}
-            sub='דק׳ לק״מ'
+            sub={unitLabel('minPerKm', tc)}
           />
           <WidgetCardV2
             Icon={Footprints}
@@ -411,7 +416,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
             iconColor="#8b5cf6"
             label="ריצה ארוכה"
             value={longRunKm > 0 ? `${longRunKm.toFixed(1)}` : '—'}
-            sub={longRunKm > 0 ? 'ק״מ' : 'אין נתונים עדיין'}
+            sub={longRunKm > 0 ? unitLabel('km', tc) : 'אין נתונים עדיין'}
           />
         </div>
       </div>
@@ -435,7 +440,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
               ? `${running.totalDistance.toFixed(1)} / ${running.weeklyTargetDistance.toFixed(0)}`
               : `${running.totalDistance.toFixed(1)}`
           }
-          sub='ק״מ'
+          sub={unitLabel('km', tc)}
           progressPct={kmPct}
         />
 
@@ -444,7 +449,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
           iconColor="text-emerald-500"
           label="קצב ממוצע"
           value={formatPace(avgPaceMinPerKm)}
-          sub='דק׳ לק״מ'
+          sub={unitLabel('minPerKm', tc)}
         />
 
         <WidgetCard
@@ -461,7 +466,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
           iconColor="text-purple-500"
           label="ריצה ארוכה"
           value={longRunKm > 0 ? `${longRunKm.toFixed(1)}` : '—'}
-          sub={longRunKm > 0 ? 'ק״מ' : 'אין נתונים עדיין'}
+          sub={longRunKm > 0 ? unitLabel('km', tc) : 'אין נתונים עדיין'}
         />
       </div>
     </div>

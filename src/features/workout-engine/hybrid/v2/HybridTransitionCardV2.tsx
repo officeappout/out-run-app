@@ -7,6 +7,9 @@
  * and "דלג" for the whole station.
  */
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit } from '@/lib/i18n/units';
 import React from 'react';
 import { Pause, Play, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
@@ -17,13 +20,14 @@ import { HYBRID_V2_COLORS, transitionView } from './hybrid-v2-view';
 import { exerciseNameOf } from './exercise-display';
 
 export default function HybridTransitionCardV2({ api }: { api: HybridPlayerV2Api }) {
+  const tc = useT(common);
   const view = api.view;
   if (!view) return null;
   const t = transitionView(view, api.plan, api.names, exerciseNameOf, api.transitionSec);
   const prevLeg = api.legs[view.cursor - 1];
   const ran =
     prevLeg && prevLeg.kind !== 'station' && prevLeg.distanceM > 0
-      ? `${prevLeg.aerobicType === 'walking' ? 'הליכה' : 'ריצה'} הושלמה · ${(prevLeg.distanceM / 1000).toFixed(2)} ק״מ · ${fmtClock(prevLeg.durationSec)}`
+      ? `${prevLeg.aerobicType === 'walking' ? 'הליכה' : 'ריצה'} הושלמה · ${withUnit('km', (prevLeg.distanceM / 1000).toFixed(2), tc)} · ${fmtClock(prevLeg.durationSec)}`
       : null;
 
   return (

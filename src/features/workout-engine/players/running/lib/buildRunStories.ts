@@ -1,3 +1,4 @@
+import { withUnit } from '@/lib/i18n/units';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import type { StoryContext, StorySpec, TrackData } from '../types/story-spec';
 
@@ -21,9 +22,9 @@ const distanceStory: StorySpec = {
   getValue: (ctx) => {
     const dist = ctx.totalDistance.toFixed(2);
     if (ctx.sessionGoal?.type === 'distance' && ctx.sessionGoal.value > 0) {
-      return `${dist} / ${ctx.sessionGoal.value.toFixed(1)} ק"מ`;
+      return `${dist} / ${withUnit('kmAscii', ctx.sessionGoal.value.toFixed(1))}`;
     }
-    return `${dist} ק"מ`;
+    return withUnit('kmAscii', dist);
   },
   getProgress: (ctx) => {
     if (ctx.sessionGoal?.type === 'distance' && ctx.sessionGoal.value > 0) {
@@ -95,7 +96,7 @@ const groupAggregateStory: StorySpec = {
     if (ctx.groupTotalDistance === null || ctx.groupGoalTarget === null) return '—';
     const current = ctx.groupTotalDistance.toFixed(2);
     const target = ctx.groupGoalTarget.toFixed(1);
-    return `יחד ${current} / ${target} ק״מ · ${ctx.groupActiveCount ?? 0} משתתפים`;
+    return `יחד ${current} / ${withUnit('km', target)} · ${ctx.groupActiveCount ?? 0} משתתפים`;
   },
   getProgress: (ctx) => {
     if (ctx.groupTotalDistance === null || !ctx.groupGoalTarget) return null;

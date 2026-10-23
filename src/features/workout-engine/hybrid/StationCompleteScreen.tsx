@@ -11,6 +11,9 @@
  *
  * Copy is gender-neutral by construction ("סיימת" is spelled the same for both forms).
  */
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit } from '@/lib/i18n/units';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BicepsFlexed, Check } from 'lucide-react';
@@ -31,6 +34,7 @@ interface Props {
 }
 
 export default function StationCompleteScreen({ summary, context, onContinue, fastPrompt }: Props) {
+  const tc = useT(common);
   const [fastPromptState, setFastPromptState] = useState<'open' | 'accepted' | 'dismissed'>('open');
   const hasNext = !!context && !context.isFinalStation && context.nextWalkSec != null;
   return (
@@ -54,7 +58,7 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
       <div className="flex items-center gap-3 mb-8 text-[15px] font-bold text-gray-600">
         {summary.exercises > 0 && <span>{summary.exercises === 1 ? 'תרגיל אחד' : `${summary.exercises} תרגילים`}</span>}
         {summary.exercises > 0 && summary.minutes > 0 && <span aria-hidden className="text-gray-300">·</span>}
-        {summary.minutes > 0 && <span>{summary.minutes} דק׳</span>}
+        {summary.minutes > 0 && <span>{withUnit('min', summary.minutes, tc)}</span>}
       </div>
 
       {hasNext && (

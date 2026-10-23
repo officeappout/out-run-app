@@ -6,6 +6,8 @@
  * suggestions (those only make sense today). Built from the shared v2 pieces
  * (Card, SectionHeader, WeekSessionPiece, IconTile); the plan is usePlannedDay → day-plan.ts.
  */
+import { common } from '@/messages/ns/common';
+import { weekdayLabel, type CommonT } from '@/lib/i18n/units';
 import { Dumbbell, Footprints, Moon, Users } from 'lucide-react';
 import { Card, IconTile, SectionHeader, WeekSessionPiece } from '@/components/ui/v2';
 import { RunIcon } from '@/features/content/programs/core/program-icon.util';
@@ -13,13 +15,10 @@ import type { PlannedDay, PlannedDayItem } from '../../utils/day-plan';
 import { useT, type ReactTFunction } from '@/hooks/useT';
 import { home, type HomeKey } from '@/messages/ns/home';
 
-// Weekday names: wave 3 (fmt).
-const HE_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: weekday names (wave 3)
-
 /** "מתוכנן ליום חמישי · 22.10" */
-export function plannedForTitle(dateISO: string, t: ReactTFunction<HomeKey>): string {
+export function plannedForTitle(dateISO: string, t: ReactTFunction<HomeKey>, tc?: CommonT): string {
   const d = new Date(`${dateISO}T00:00:00`);
-  return t('dayPreview.title', { day: HE_DAYS[d.getDay()], date: `${d.getDate()}.${d.getMonth() + 1}` });
+  return t('dayPreview.title', { day: weekdayLabel(d.getDay(), 'long', tc), date: `${d.getDate()}.${d.getMonth() + 1}` });
 }
 
 function RunTile() {
@@ -51,10 +50,11 @@ export interface PlannedDayPreviewProps {
 
 export default function PlannedDayPreview({ dateISO, plan }: PlannedDayPreviewProps) {
   const t = useT(home);
+  const tc = useT(common);
   return (
     <div className="mx-auto mb-4 w-full max-w-[358px] px-4" dir="rtl" data-planned-day-preview={dateISO}>
       <Card padding="md">
-        <SectionHeader as="h3" size={17} title={plannedForTitle(dateISO, t)} />
+        <SectionHeader as="h3" size={17} title={plannedForTitle(dateISO, t, tc)} />
         <div className="mt-3 flex flex-col gap-2">
           {!plan ? (
             <div className="h-[52px] animate-pulse rounded-[14px] bg-v2-surface" />

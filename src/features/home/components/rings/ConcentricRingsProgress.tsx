@@ -18,6 +18,9 @@
  * - Category legend with current values
  */
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { unitLabel } from '@/lib/i18n/units';
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useDailyActivity } from '@/features/activity';
@@ -150,6 +153,7 @@ interface LegendItemProps {
 }
 
 function LegendItem({ color, label, value, max, percentage }: LegendItemProps) {
+  const tc = useT(common);
   return (
     <div className="flex items-center gap-2">
       <div 
@@ -161,7 +165,7 @@ function LegendItem({ color, label, value, max, percentage }: LegendItemProps) {
           {label}
         </span>
         <span className="text-[10px] text-gray-400">
-          {value}/{max} דק' ({Math.round(percentage)}%)
+          {value}/{max} {unitLabel('minAscii', tc)} ({Math.round(percentage)}%)
         </span>
       </div>
     </div>

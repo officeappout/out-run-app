@@ -3,6 +3,7 @@
  * Only real values: a record with no value yet is left out (never "—", never
  * invented). Pure.
  */
+import { unitLabel, withUnit } from '@/lib/i18n/units';
 import { formatDate, formatNumber, monthName } from '@/lib/i18n/core/fmt';
 import type { Locale } from '@/lib/i18n/locales';
 import { bestMonth, type PeriodTotals, type ProgressionRecords } from '@/features/user/progression/records/records.utils';
@@ -58,13 +59,13 @@ export function buildRecordTiles(input: {
     tiles.push({ key: `ex:${ex.exerciseId}`, icon: 'strength', value: String(ex.bestReps), unit: 'חזרות', label: `${ex.name} · בסט`, at: ex.bestAt, isNew: fresh(ex.bestAt) });
   }
   if (records?.fastest5kSec?.value) {
-    tiles.push({ key: '5k', icon: 'run', value: clock(records.fastest5kSec.value), label: '5 ק״מ הכי מהיר', at: records.fastest5kSec.at, isNew: fresh(records.fastest5kSec.at) });
+    tiles.push({ key: '5k', icon: 'run', value: clock(records.fastest5kSec.value), label: `${withUnit('km', 5)} הכי מהיר`, at: records.fastest5kSec.at, isNew: fresh(records.fastest5kSec.at) });
   }
   if (records?.longestRunKm?.value) {
-    tiles.push({ key: 'run', icon: 'run', value: km(records.longestRunKm.value, locale), unit: 'ק״מ', label: 'ריצה הכי ארוכה', at: records.longestRunKm.at, isNew: fresh(records.longestRunKm.at) });
+    tiles.push({ key: 'run', icon: 'run', value: km(records.longestRunKm.value, locale), unit: unitLabel('km'), label: 'ריצה הכי ארוכה', at: records.longestRunKm.at, isNew: fresh(records.longestRunKm.at) });
   }
   if (records?.longestWalkKm?.value) {
-    tiles.push({ key: 'walk', icon: 'walk', value: km(records.longestWalkKm.value, locale), unit: 'ק״מ', label: 'הליכה הכי ארוכה', at: records.longestWalkKm.at, isNew: fresh(records.longestWalkKm.at) });
+    tiles.push({ key: 'walk', icon: 'walk', value: km(records.longestWalkKm.value, locale), unit: unitLabel('km'), label: 'הליכה הכי ארוכה', at: records.longestWalkKm.at, isNew: fresh(records.longestWalkKm.at) });
   }
   if ((input.longestStreak ?? 0) > 1) {
     tiles.push({ key: 'streak', icon: 'streak', value: String(input.longestStreak), unit: 'ימים', label: 'רצף הכי ארוך', at: null, isNew: false });

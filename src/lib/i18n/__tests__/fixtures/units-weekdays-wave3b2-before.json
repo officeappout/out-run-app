@@ -1,0 +1,7723 @@
+{
+ "raceDistanceLabel 0": "0 ק״מ",
+ "raceDistanceLabel 1": "1 ק״מ",
+ "raceDistanceLabel 2": "2 ק״מ",
+ "raceDistanceLabel 10": "10 ק״מ",
+ "raceDistanceLabel 0.05": "0.1 ק״מ",
+ "raceDistanceLabel 0.5": "0.5 ק״מ",
+ "raceDistanceLabel 0.95": "1 ק״מ",
+ "raceDistanceLabel 0.999": "1 ק״מ",
+ "raceDistanceLabel 1.25": "1.3 ק״מ",
+ "raceDistanceLabel 12.34": "12.3 ק״מ",
+ "raceDistanceLabel 99.99": "100 ק״מ",
+ "raceDistanceLabel 100": "100 ק״מ",
+ "raceDistanceLabel 999": "999 ק״מ",
+ "raceDistanceLabel 1000": "1000 ק״מ",
+ "raceDistanceLabel 21.0975": "21.1 ק״מ",
+ "raceDistanceLabel -1": "-1 ק״מ",
+ "raceDistanceLabel NaN": "NaN ק״מ",
+ "raceTime 0": {
+  "value": "--:--",
+  "unit": "דק׳"
+ },
+ "raceTime 1": {
+  "value": "0:01",
+  "unit": "דק׳"
+ },
+ "raceTime 45": {
+  "value": "0:45",
+  "unit": "דק׳"
+ },
+ "raceTime 59": {
+  "value": "0:59",
+  "unit": "דק׳"
+ },
+ "raceTime 60": {
+  "value": "1:00",
+  "unit": "דק׳"
+ },
+ "raceTime 61": {
+  "value": "1:01",
+  "unit": "דק׳"
+ },
+ "raceTime 150": {
+  "value": "2:30",
+  "unit": "דק׳"
+ },
+ "raceTime 180": {
+  "value": "3:00",
+  "unit": "דק׳"
+ },
+ "raceTime 599": {
+  "value": "9:59",
+  "unit": "דק׳"
+ },
+ "raceTime 600": {
+  "value": "10:00",
+  "unit": "דק׳"
+ },
+ "raceTime 3599": {
+  "value": "59:59",
+  "unit": "דק׳"
+ },
+ "raceTime 3600": {
+  "value": "1:00:00",
+  "unit": "שע׳"
+ },
+ "raceTime 3661": {
+  "value": "1:01:01",
+  "unit": "שע׳"
+ },
+ "raceTime 36000": {
+  "value": "10:00:00",
+  "unit": "שע׳"
+ },
+ "raceTime -5": {
+  "value": "--:--",
+  "unit": "דק׳"
+ },
+ "raceTime NaN": {
+  "value": "--:--",
+  "unit": "דק׳"
+ },
+ "doneMeta he 0 undefined": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta he 0 0": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta he 0 0.09": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta he 0 0.1": [
+  "0.1 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta he 0 5.04": [
+  "5 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta he 0 12.34": [
+  "12.3 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta he 0 1234.5": [
+  "1,234.5 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta he 1 undefined": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1 0": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1 0.09": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1 0.1": [
+  "1 דק׳ · 0.1 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1 5.04": [
+  "1 דק׳ · 5 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1 12.34": [
+  "1 דק׳ · 12.3 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1 1234.5": [
+  "1 דק׳ · 1,234.5 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 2 undefined": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 2 0": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 2 0.09": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 2 0.1": [
+  "2 דק׳ · 0.1 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 2 5.04": [
+  "2 דק׳ · 5 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 2 12.34": [
+  "2 דק׳ · 12.3 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 2 1234.5": [
+  "2 דק׳ · 1,234.5 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 10 undefined": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 10 0": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 10 0.09": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 10 0.1": [
+  "10 דק׳ · 0.1 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 10 5.04": [
+  "10 דק׳ · 5 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 10 12.34": [
+  "10 דק׳ · 12.3 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 10 1234.5": [
+  "10 דק׳ · 1,234.5 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 59 undefined": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 59 0": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 59 0.09": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 59 0.1": [
+  "59 דק׳ · 0.1 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 59 5.04": [
+  "59 דק׳ · 5 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 59 12.34": [
+  "59 דק׳ · 12.3 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 59 1234.5": [
+  "59 דק׳ · 1,234.5 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 60 undefined": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 60 0": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 60 0.09": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 60 0.1": [
+  "60 דק׳ · 0.1 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 60 5.04": [
+  "60 דק׳ · 5 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 60 12.34": [
+  "60 דק׳ · 12.3 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 60 1234.5": [
+  "60 דק׳ · 1,234.5 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 61 undefined": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 61 0": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 61 0.09": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 61 0.1": [
+  "61 דק׳ · 0.1 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 61 5.04": [
+  "61 דק׳ · 5 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 61 12.34": [
+  "61 דק׳ · 12.3 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 61 1234.5": [
+  "61 דק׳ · 1,234.5 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 600 undefined": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 600 0": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 600 0.09": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 600 0.1": [
+  "600 דק׳ · 0.1 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 600 5.04": [
+  "600 דק׳ · 5 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 600 12.34": [
+  "600 דק׳ · 12.3 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 600 1234.5": [
+  "600 דק׳ · 1,234.5 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 999 undefined": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 999 0": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 999 0.09": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 999 0.1": [
+  "999 דק׳ · 0.1 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 999 5.04": [
+  "999 דק׳ · 5 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 999 12.34": [
+  "999 דק׳ · 12.3 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 999 1234.5": [
+  "999 דק׳ · 1,234.5 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1000 undefined": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1000 0": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1000 0.09": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1000 0.1": [
+  "1000 דק׳ · 0.1 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1000 5.04": [
+  "1000 דק׳ · 5 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1000 12.34": [
+  "1000 דק׳ · 12.3 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta he 1000 1234.5": [
+  "1000 דק׳ · 1,234.5 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneSteps he 0": null,
+ "doneSteps he 1": "1 צעדים",
+ "doneSteps he 999": "999 צעדים",
+ "doneSteps he 1000": "1,000 צעדים",
+ "doneSteps he 8400": "8,400 צעדים",
+ "doneSteps he 12345": "12,345 צעדים",
+ "doneMeta en 0 undefined": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta en 0 0": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta en 0 0.09": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta en 0 0.1": [
+  "0.1 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta en 0 5.04": [
+  "5 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta en 0 12.34": [
+  "12.3 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta en 0 1234.5": [
+  "1,234.5 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta en 1 undefined": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1 0": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1 0.09": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1 0.1": [
+  "1 דק׳ · 0.1 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1 5.04": [
+  "1 דק׳ · 5 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1 12.34": [
+  "1 דק׳ · 12.3 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1 1234.5": [
+  "1 דק׳ · 1,234.5 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 2 undefined": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 2 0": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 2 0.09": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 2 0.1": [
+  "2 דק׳ · 0.1 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 2 5.04": [
+  "2 דק׳ · 5 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 2 12.34": [
+  "2 דק׳ · 12.3 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 2 1234.5": [
+  "2 דק׳ · 1,234.5 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 10 undefined": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 10 0": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 10 0.09": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 10 0.1": [
+  "10 דק׳ · 0.1 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 10 5.04": [
+  "10 דק׳ · 5 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 10 12.34": [
+  "10 דק׳ · 12.3 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 10 1234.5": [
+  "10 דק׳ · 1,234.5 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 59 undefined": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 59 0": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 59 0.09": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 59 0.1": [
+  "59 דק׳ · 0.1 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 59 5.04": [
+  "59 דק׳ · 5 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 59 12.34": [
+  "59 דק׳ · 12.3 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 59 1234.5": [
+  "59 דק׳ · 1,234.5 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 60 undefined": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 60 0": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 60 0.09": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 60 0.1": [
+  "60 דק׳ · 0.1 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 60 5.04": [
+  "60 דק׳ · 5 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 60 12.34": [
+  "60 דק׳ · 12.3 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 60 1234.5": [
+  "60 דק׳ · 1,234.5 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 61 undefined": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 61 0": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 61 0.09": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 61 0.1": [
+  "61 דק׳ · 0.1 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 61 5.04": [
+  "61 דק׳ · 5 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 61 12.34": [
+  "61 דק׳ · 12.3 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 61 1234.5": [
+  "61 דק׳ · 1,234.5 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 600 undefined": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 600 0": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 600 0.09": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 600 0.1": [
+  "600 דק׳ · 0.1 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 600 5.04": [
+  "600 דק׳ · 5 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 600 12.34": [
+  "600 דק׳ · 12.3 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 600 1234.5": [
+  "600 דק׳ · 1,234.5 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 999 undefined": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 999 0": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 999 0.09": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 999 0.1": [
+  "999 דק׳ · 0.1 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 999 5.04": [
+  "999 דק׳ · 5 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 999 12.34": [
+  "999 דק׳ · 12.3 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 999 1234.5": [
+  "999 דק׳ · 1,234.5 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1000 undefined": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1000 0": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1000 0.09": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1000 0.1": [
+  "1000 דק׳ · 0.1 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1000 5.04": [
+  "1000 דק׳ · 5 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1000 12.34": [
+  "1000 דק׳ · 12.3 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta en 1000 1234.5": [
+  "1000 דק׳ · 1,234.5 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneSteps en 0": null,
+ "doneSteps en 1": "1 צעדים",
+ "doneSteps en 999": "999 צעדים",
+ "doneSteps en 1000": "1,000 צעדים",
+ "doneSteps en 8400": "8,400 צעדים",
+ "doneSteps en 12345": "12,345 צעדים",
+ "doneMeta ru 0 undefined": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta ru 0 0": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta ru 0 0.09": [
+  null,
+  "12 סטים"
+ ],
+ "doneMeta ru 0 0.1": [
+  "0,1 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta ru 0 5.04": [
+  "5 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta ru 0 12.34": [
+  "12,3 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta ru 0 1234.5": [
+  "1 234,5 ק״מ",
+  "12 סטים"
+ ],
+ "doneMeta ru 1 undefined": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1 0": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1 0.09": [
+  "1 דק׳ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1 0.1": [
+  "1 דק׳ · 0,1 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1 5.04": [
+  "1 דק׳ · 5 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1 12.34": [
+  "1 דק׳ · 12,3 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1 1234.5": [
+  "1 דק׳ · 1 234,5 ק״מ · 1 סטים",
+  "1 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 2 undefined": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 2 0": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 2 0.09": [
+  "2 דק׳ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 2 0.1": [
+  "2 דק׳ · 0,1 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 2 5.04": [
+  "2 דק׳ · 5 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 2 12.34": [
+  "2 דק׳ · 12,3 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 2 1234.5": [
+  "2 דק׳ · 1 234,5 ק״מ · 2 סטים",
+  "2 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 10 undefined": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 10 0": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 10 0.09": [
+  "10 דק׳ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 10 0.1": [
+  "10 דק׳ · 0,1 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 10 5.04": [
+  "10 דק׳ · 5 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 10 12.34": [
+  "10 דק׳ · 12,3 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 10 1234.5": [
+  "10 דק׳ · 1 234,5 ק״מ · 1 סטים",
+  "10 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 59 undefined": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 59 0": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 59 0.09": [
+  "59 דק׳ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 59 0.1": [
+  "59 דק׳ · 0,1 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 59 5.04": [
+  "59 דק׳ · 5 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 59 12.34": [
+  "59 דק׳ · 12,3 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 59 1234.5": [
+  "59 דק׳ · 1 234,5 ק״מ · 2 סטים",
+  "59 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 60 undefined": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 60 0": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 60 0.09": [
+  "60 דק׳",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 60 0.1": [
+  "60 דק׳ · 0,1 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 60 5.04": [
+  "60 דק׳ · 5 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 60 12.34": [
+  "60 דק׳ · 12,3 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 60 1234.5": [
+  "60 דק׳ · 1 234,5 ק״מ",
+  "60 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 61 undefined": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 61 0": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 61 0.09": [
+  "61 דק׳ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 61 0.1": [
+  "61 דק׳ · 0,1 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 61 5.04": [
+  "61 דק׳ · 5 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 61 12.34": [
+  "61 דק׳ · 12,3 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 61 1234.5": [
+  "61 דק׳ · 1 234,5 ק״מ · 1 סטים",
+  "61 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 600 undefined": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 600 0": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 600 0.09": [
+  "600 דק׳",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 600 0.1": [
+  "600 דק׳ · 0,1 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 600 5.04": [
+  "600 דק׳ · 5 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 600 12.34": [
+  "600 דק׳ · 12,3 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 600 1234.5": [
+  "600 דק׳ · 1 234,5 ק״מ",
+  "600 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 999 undefined": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 999 0": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 999 0.09": [
+  "999 דק׳",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 999 0.1": [
+  "999 דק׳ · 0,1 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 999 5.04": [
+  "999 דק׳ · 5 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 999 12.34": [
+  "999 דק׳ · 12,3 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 999 1234.5": [
+  "999 דק׳ · 1 234,5 ק״מ",
+  "999 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1000 undefined": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1000 0": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1000 0.09": [
+  "1000 דק׳ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1000 0.1": [
+  "1000 דק׳ · 0,1 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1000 5.04": [
+  "1000 דק׳ · 5 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1000 12.34": [
+  "1000 דק׳ · 12,3 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneMeta ru 1000 1234.5": [
+  "1000 דק׳ · 1 234,5 ק״מ · 1 סטים",
+  "1000 דק׳ · 12 סטים"
+ ],
+ "doneSteps ru 0": null,
+ "doneSteps ru 1": "1 צעדים",
+ "doneSteps ru 999": "999 צעדים",
+ "doneSteps ru 1000": "1 000 צעדים",
+ "doneSteps ru 8400": "8 400 צעדים",
+ "doneSteps ru 12345": "12 345 צעדים",
+ "doneRows": [
+  {
+   "card": {
+    "key": "a",
+    "category": "cardio",
+    "minutes": 30,
+    "workoutType": "walking"
+   },
+   "meta": "30 דק׳ · 3.2 ק״מ",
+   "tappable": true
+  },
+  {
+   "card": {
+    "key": "s",
+    "category": "steps",
+    "minutes": 0,
+    "stepsAchieved": 8400
+   },
+   "meta": "8,400 צעדים",
+   "tappable": false
+  }
+ ],
+ "recordTiles 0.04 he": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "0",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "0",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 0.04 en": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "0",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "0",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 1 he": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "1",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "0.5",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 1 en": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "1",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "0.5",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 5.04 he": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "5",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "2.5",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 5.04 en": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "5",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "2.5",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 12.34 he": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "12.3",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "6.2",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 12.34 en": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "12.3",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "6.2",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 21.0975 he": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "21.1",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "10.5",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 21.0975 en": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "21.1",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "10.5",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 1234.5 he": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "1,234.5",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "617.3",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "recordTiles 1234.5 en": [
+  {
+   "key": "5k",
+   "icon": "run",
+   "value": "25:00",
+   "label": "5 ק״מ הכי מהיר",
+   "at": 1792825200000,
+   "isNew": true
+  },
+  {
+   "key": "run",
+   "icon": "run",
+   "value": "1,234.5",
+   "unit": "ק״מ",
+   "label": "ריצה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "walk",
+   "icon": "walk",
+   "value": "617.3",
+   "unit": "ק״מ",
+   "label": "הליכה הכי ארוכה",
+   "at": 1,
+   "isNew": false
+  },
+  {
+   "key": "streak",
+   "icon": "streak",
+   "value": "5",
+   "unit": "ימים",
+   "label": "רצף הכי ארוך",
+   "at": null,
+   "isNew": false
+  }
+ ],
+ "fmtMeters 0": "0 מ׳",
+ "fmtMeters 1": "1 מ׳",
+ "fmtMeters 50": "50 מ׳",
+ "fmtMeters 99": "99 מ׳",
+ "fmtMeters 99.5": "100 מ׳",
+ "fmtMeters 100": "100 מ׳",
+ "fmtMeters 149": "149 מ׳",
+ "fmtMeters 150": "150 מ׳",
+ "fmtMeters 400": "400 מ׳",
+ "fmtMeters 999": "999 מ׳",
+ "fmtMeters 1000": "1 ק״מ",
+ "fmtMeters 1049": "1 ק״מ",
+ "fmtMeters 1500": "1.5 ק״מ",
+ "fmtMeters 2400": "2.4 ק״מ",
+ "fmtMeters 12345": "12.3 ק״מ",
+ "fmtMeters -5": "-5 מ׳",
+ "fmtMeters NaN": "NaN מ׳",
+ "fmtSeconds 0": "0 שנ׳",
+ "fmtSeconds 1": "1 שנ׳",
+ "fmtSeconds 45": "45 שנ׳",
+ "fmtSeconds 59": "59 שנ׳",
+ "fmtSeconds 60": "1 דק׳",
+ "fmtSeconds 61": "1:01 דק׳",
+ "fmtSeconds 150": "2:30 דק׳",
+ "fmtSeconds 180": "3 דק׳",
+ "fmtSeconds 599": "9:59 דק׳",
+ "fmtSeconds 600": "10 דק׳",
+ "fmtSeconds 3599": "59:59 דק׳",
+ "fmtSeconds 3600": "60 דק׳",
+ "fmtSeconds 3661": "61:01 דק׳",
+ "fmtSeconds 36000": "600 דק׳",
+ "fmtSeconds -5": "0 שנ׳",
+ "fmtSeconds NaN": "NaN דק׳",
+ "blockSize sec 0": "",
+ "blockSize m 0": "",
+ "blockSize sec 1": "1 שנ׳",
+ "blockSize m 1": "1 מ׳",
+ "blockSize sec 45": "45 שנ׳",
+ "blockSize m 45": "45 מ׳",
+ "blockSize sec 59": "59 שנ׳",
+ "blockSize m 59": "59 מ׳",
+ "blockSize sec 60": "1 דק׳",
+ "blockSize m 60": "60 מ׳",
+ "blockSize sec 61": "1:01 דק׳",
+ "blockSize m 61": "61 מ׳",
+ "blockSize sec 150": "2:30 דק׳",
+ "blockSize m 150": "150 מ׳",
+ "blockSize sec 180": "3 דק׳",
+ "blockSize m 180": "180 מ׳",
+ "blockSize sec 599": "9:59 דק׳",
+ "blockSize m 599": "599 מ׳",
+ "blockSize sec 600": "10 דק׳",
+ "blockSize m 600": "600 מ׳",
+ "blockSize sec 3599": "59:59 דק׳",
+ "blockSize m 3599": "3.6 ק״מ",
+ "blockSize sec 3600": "60 דק׳",
+ "blockSize m 3600": "3.6 ק״מ",
+ "blockSize sec 3661": "61:01 דק׳",
+ "blockSize m 3661": "3.7 ק״מ",
+ "blockSize sec 36000": "600 דק׳",
+ "blockSize m 36000": "36 ק״מ",
+ "blockSize sec -5": "",
+ "blockSize m -5": "",
+ "blockSize sec NaN": "",
+ "blockSize m NaN": "",
+ "runTitle tempo 0": null,
+ "runTitle tempo m 0": null,
+ "runTitle tempo 30": "טמפו 1 דק׳",
+ "runTitle tempo m 30": null,
+ "runTitle tempo 600": "טמפו 10 דק׳",
+ "runTitle tempo m 600": null,
+ "runTitle tempo 1200": "טמפו 20 דק׳",
+ "runTitle tempo m 1200": null,
+ "runTitle tempo 2100": "טמפו 35 דק׳",
+ "runTitle tempo m 2100": null,
+ "runTitle tempo 5400": "טמפו 90 דק׳",
+ "runTitle tempo m 5400": null,
+ "runTitle tempo reps": "2 × 400 מ׳",
+ "runTitle long 0": null,
+ "runTitle long m 0": null,
+ "runTitle long 30": "ריצה ארוכה 1 דק׳",
+ "runTitle long m 30": "ריצה ארוכה 30 מ׳",
+ "runTitle long 600": "ריצה ארוכה 10 דק׳",
+ "runTitle long m 600": "ריצה ארוכה 600 מ׳",
+ "runTitle long 1200": "ריצה ארוכה 20 דק׳",
+ "runTitle long m 1200": "ריצה ארוכה 1.2 ק״מ",
+ "runTitle long 2100": "ריצה ארוכה 35 דק׳",
+ "runTitle long m 2100": "ריצה ארוכה 2.1 ק״מ",
+ "runTitle long 5400": "ריצה ארוכה 90 דק׳",
+ "runTitle long m 5400": "ריצה ארוכה 5.4 ק״מ",
+ "runTitle long reps": "2 × 400 מ׳",
+ "runTitle easy 0": null,
+ "runTitle easy m 0": null,
+ "runTitle easy 30": "ריצה קלה 1 דק׳",
+ "runTitle easy m 30": null,
+ "runTitle easy 600": "ריצה קלה 10 דק׳",
+ "runTitle easy m 600": null,
+ "runTitle easy 1200": "ריצה קלה 20 דק׳",
+ "runTitle easy m 1200": null,
+ "runTitle easy 2100": "ריצה קלה 35 דק׳",
+ "runTitle easy m 2100": null,
+ "runTitle easy 5400": "ריצה קלה 90 דק׳",
+ "runTitle easy m 5400": null,
+ "runTitle easy reps": "2 × 400 מ׳",
+ "runTitle intervals 0": null,
+ "runTitle intervals m 0": null,
+ "runTitle intervals 30": null,
+ "runTitle intervals m 30": null,
+ "runTitle intervals 600": null,
+ "runTitle intervals m 600": null,
+ "runTitle intervals 1200": null,
+ "runTitle intervals m 1200": null,
+ "runTitle intervals 2100": null,
+ "runTitle intervals m 2100": null,
+ "runTitle intervals 5400": null,
+ "runTitle intervals m 5400": null,
+ "runTitle intervals reps": "2 × 400 מ׳",
+ "runTitle other 0": null,
+ "runTitle other m 0": null,
+ "runTitle other 30": null,
+ "runTitle other m 30": null,
+ "runTitle other 600": null,
+ "runTitle other m 600": null,
+ "runTitle other 1200": null,
+ "runTitle other m 1200": null,
+ "runTitle other 2100": null,
+ "runTitle other m 2100": null,
+ "runTitle other 5400": null,
+ "runTitle other m 5400": null,
+ "runTitle other reps": "2 × 400 מ׳",
+ "accessText null": null,
+ "accessText 0": "מתחיל כאן",
+ "accessText 1": "1.0 ק״מ ממך",
+ "accessText 2": "2.0 ק״מ ממך",
+ "accessText 10": "10.0 ק״מ ממך",
+ "accessText 0.05": "מתחיל כאן",
+ "accessText 0.5": "500 מ׳ ממך",
+ "accessText 0.95": "950 מ׳ ממך",
+ "accessText 0.999": "1000 מ׳ ממך",
+ "accessText 1.25": "1.3 ק״מ ממך",
+ "accessText 12.34": "12.3 ק״מ ממך",
+ "accessText 99.99": "100.0 ק״מ ממך",
+ "accessText 100": "100.0 ק״מ ממך",
+ "accessText 999": "999.0 ק״מ ממך",
+ "accessText 1000": "1000.0 ק״מ ממך",
+ "accessText 21.0975": "21.1 ק״מ ממך",
+ "accessText -1": "מתחיל כאן",
+ "accessText NaN": null,
+ "swapDelta null": [
+  "אותו זמן",
+  "אותו נפח",
+  "—"
+ ],
+ "swapDelta undefined": [
+  "אותו זמן",
+  "אותו נפח",
+  "—"
+ ],
+ "swapDelta 0": [
+  "אותו זמן",
+  "אותו נפח",
+  "—"
+ ],
+ "swapDelta 59": [
+  "+1 דק׳",
+  "+1 דק׳ · אותו נפח",
+  "—"
+ ],
+ "swapDelta 60": [
+  "+1 דק׳",
+  "+1 דק׳ · אותו נפח",
+  "—"
+ ],
+ "swapDelta 90": [
+  "+2 דק׳",
+  "+2 דק׳ · אותו נפח",
+  "—"
+ ],
+ "swapDelta 120": [
+  "+2 דק׳",
+  "+2 דק׳ · אותו נפח",
+  "—"
+ ],
+ "swapDelta 300": [
+  "+5 דק׳",
+  "+5 דק׳ · אותו נפח",
+  "—"
+ ],
+ "swapDelta -90": [
+  "−1 דק׳",
+  "−1 דק׳ · אותו נפח",
+  "—"
+ ],
+ "swapDelta -600": [
+  "−10 דק׳",
+  "−10 דק׳ · אותו נפח",
+  "—"
+ ],
+ "swapDelta 3600": [
+  "+60 דק׳",
+  "+60 דק׳ · אותו נפח",
+  "—"
+ ],
+ "goalView time 600 0": {
+  "targetText": "יעד 10 דק׳",
+  "remainingText": "נותרו 10:00 דק׳",
+  "progress": 0,
+  "percent": 0,
+  "done": false
+ },
+ "goalView time 600 120": {
+  "targetText": "יעד 10 דק׳",
+  "remainingText": "נותרו 8:00 דק׳",
+  "progress": 0.2,
+  "percent": 20,
+  "done": false
+ },
+ "goalView time 600 600": {
+  "targetText": "יעד 10 דק׳",
+  "remainingText": "הגעת ליעד",
+  "progress": 1,
+  "percent": 100,
+  "done": true
+ },
+ "goalView time 1800 59": {
+  "targetText": "יעד 30 דק׳",
+  "remainingText": "נותרו 29:01 דק׳",
+  "progress": 0.03277777777777778,
+  "percent": 3,
+  "done": false
+ },
+ "goalView time 5 0": {
+  "targetText": "יעד 0 דק׳",
+  "remainingText": "נותרו 0:05 דק׳",
+  "progress": 0,
+  "percent": 0,
+  "done": false
+ },
+ "goalView time 5 1.234": {
+  "targetText": "יעד 0 דק׳",
+  "remainingText": "נותרו 0:03 דק׳",
+  "progress": 0.2468,
+  "percent": 25,
+  "done": false
+ },
+ "goalView time 5 4.5": {
+  "targetText": "יעד 0 דק׳",
+  "remainingText": "נותרו 0:00 דק׳",
+  "progress": 0.9,
+  "percent": 90,
+  "done": false
+ },
+ "goalView time 5 5": {
+  "targetText": "יעד 0 דק׳",
+  "remainingText": "הגעת ליעד",
+  "progress": 1,
+  "percent": 100,
+  "done": true
+ },
+ "goalView time 10.5 3": {
+  "targetText": "יעד 0 דק׳",
+  "remainingText": "נותרו 0:07 דק׳",
+  "progress": 0.2857142857142857,
+  "percent": 29,
+  "done": false
+ },
+ "goalView time 0 0": {
+  "targetText": "יעד 0 דק׳",
+  "remainingText": "נותרו 0:00 דק׳",
+  "progress": 0,
+  "percent": 0,
+  "done": false
+ },
+ "goalView distance 600 0": {
+  "targetText": "יעד 600 ק״מ",
+  "remainingText": "נותרו 600.00 ק״מ",
+  "progress": 0,
+  "percent": 0,
+  "done": false
+ },
+ "goalView distance 600 120": {
+  "targetText": "יעד 600 ק״מ",
+  "remainingText": "נותרו 480.00 ק״מ",
+  "progress": 0.2,
+  "percent": 20,
+  "done": false
+ },
+ "goalView distance 600 600": {
+  "targetText": "יעד 600 ק״מ",
+  "remainingText": "הגעת ליעד",
+  "progress": 1,
+  "percent": 100,
+  "done": true
+ },
+ "goalView distance 1800 59": {
+  "targetText": "יעד 1800 ק״מ",
+  "remainingText": "נותרו 1741.00 ק״מ",
+  "progress": 0.03277777777777778,
+  "percent": 3,
+  "done": false
+ },
+ "goalView distance 5 0": {
+  "targetText": "יעד 5 ק״מ",
+  "remainingText": "נותרו 5.00 ק״מ",
+  "progress": 0,
+  "percent": 0,
+  "done": false
+ },
+ "goalView distance 5 1.234": {
+  "targetText": "יעד 5 ק״מ",
+  "remainingText": "נותרו 3.77 ק״מ",
+  "progress": 0.2468,
+  "percent": 25,
+  "done": false
+ },
+ "goalView distance 5 4.5": {
+  "targetText": "יעד 5 ק״מ",
+  "remainingText": "נותרו 500 מ׳",
+  "progress": 0.9,
+  "percent": 90,
+  "done": false
+ },
+ "goalView distance 5 5": {
+  "targetText": "יעד 5 ק״מ",
+  "remainingText": "הגעת ליעד",
+  "progress": 1,
+  "percent": 100,
+  "done": true
+ },
+ "goalView distance 10.5 3": {
+  "targetText": "יעד 10.5 ק״מ",
+  "remainingText": "נותרו 7.50 ק״מ",
+  "progress": 0.2857142857142857,
+  "percent": 29,
+  "done": false
+ },
+ "goalView distance 0 0": {
+  "targetText": "יעד 0 ק״מ",
+  "remainingText": "נותרו 0 מ׳",
+  "progress": 0,
+  "percent": 0,
+  "done": false
+ },
+ "fmtDistance 0": "0 מ׳",
+ "fmtDistance 1": "1 מ׳",
+ "fmtDistance 50": "50 מ׳",
+ "fmtDistance 99": "99 מ׳",
+ "fmtDistance 99.5": "100 מ׳",
+ "fmtDistance 100": "100 מ׳",
+ "fmtDistance 149": "149 מ׳",
+ "fmtDistance 150": "150 מ׳",
+ "fmtDistance 400": "400 מ׳",
+ "fmtDistance 999": "999 מ׳",
+ "fmtDistance 1000": "1 ק״מ",
+ "fmtDistance 1049": "1.0 ק״מ",
+ "fmtDistance 1500": "1.5 ק״מ",
+ "fmtDistance 2400": "2.4 ק״מ",
+ "fmtDistance 12345": "12.3 ק״מ",
+ "fmtDistance -5": "0 מ׳",
+ "fmtDistance NaN": "0 מ׳",
+ "fmtDistance null": "0 מ׳",
+ "fmtDistance undefined": "0 מ׳",
+ "climbLabel 0 3": "עלייה קלה עכשיו",
+ "climbLabel 0 6": "עלייה עכשיו",
+ "climbLabel 0 9.5": "עלייה עכשיו",
+ "climbLabel 29 3": "עלייה קלה עכשיו",
+ "climbLabel 29 6": "עלייה עכשיו",
+ "climbLabel 29 9.5": "עלייה עכשיו",
+ "climbLabel 30 3": "עלייה קלה בעוד 30 מ׳",
+ "climbLabel 30 6": "עלייה בעוד 30 מ׳",
+ "climbLabel 30 9.5": "עלייה בעוד 30 מ׳",
+ "climbLabel 300 3": "עלייה קלה בעוד 300 מ׳",
+ "climbLabel 300 6": "עלייה בעוד 300 מ׳",
+ "climbLabel 300 9.5": "עלייה בעוד 300 מ׳",
+ "climbLabel 304 3": "עלייה קלה בעוד 300 מ׳",
+ "climbLabel 304 6": "עלייה בעוד 300 מ׳",
+ "climbLabel 304 9.5": "עלייה בעוד 300 מ׳",
+ "climbLabel 999 3": "עלייה קלה בעוד 1000 מ׳",
+ "climbLabel 999 6": "עלייה בעוד 1000 מ׳",
+ "climbLabel 999 9.5": "עלייה בעוד 1000 מ׳",
+ "climbLabel 1000 3": "עלייה קלה בעוד 1.0 ק״מ",
+ "climbLabel 1000 6": "עלייה בעוד 1.0 ק״מ",
+ "climbLabel 1000 9.5": "עלייה בעוד 1.0 ק״מ",
+ "climbLabel 1049 3": "עלייה קלה בעוד 1.0 ק״מ",
+ "climbLabel 1049 6": "עלייה בעוד 1.0 ק״מ",
+ "climbLabel 1049 9.5": "עלייה בעוד 1.0 ק״מ",
+ "climbLabel 2500 3": "עלייה קלה בעוד 2.5 ק״מ",
+ "climbLabel 2500 6": "עלייה בעוד 2.5 ק״מ",
+ "climbLabel 2500 9.5": "עלייה בעוד 2.5 ק״מ",
+ "climbLabel null": null,
+ "climbReason null null profile": "עלייה של 6% ליד המסלול",
+ "climbReason null null maxGrade": "שיפוע מרבי 6%",
+ "climbReason null 45 profile": "עלייה של 6% ליד המסלול",
+ "climbReason null 45 maxGrade": "שיפוע מרבי 6%",
+ "climbReason null 300 profile": "עלייה של 6% ליד המסלול",
+ "climbReason null 300 maxGrade": "שיפוע מרבי 6%",
+ "climbReason null 304 profile": "עלייה של 6% ליד המסלול",
+ "climbReason null 304 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 0 null profile": "עלייה של 6% ליד המסלול",
+ "climbReason 0 null maxGrade": "שיפוע מרבי 6%",
+ "climbReason 0 45 profile": "עלייה של 6% באורך 50 מ׳ בק״מ 0",
+ "climbReason 0 45 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 0 300 profile": "עלייה של 6% באורך 300 מ׳ בק״מ 0",
+ "climbReason 0 300 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 0 304 profile": "עלייה של 6% באורך 300 מ׳ בק״מ 0",
+ "climbReason 0 304 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 1200 null profile": "עלייה של 6% ליד המסלול",
+ "climbReason 1200 null maxGrade": "שיפוע מרבי 6%",
+ "climbReason 1200 45 profile": "עלייה של 6% באורך 50 מ׳ בק״מ 1.2",
+ "climbReason 1200 45 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 1200 300 profile": "עלייה של 6% באורך 300 מ׳ בק״מ 1.2",
+ "climbReason 1200 300 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 1200 304 profile": "עלייה של 6% באורך 300 מ׳ בק״מ 1.2",
+ "climbReason 1200 304 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 1250 null profile": "עלייה של 6% ליד המסלול",
+ "climbReason 1250 null maxGrade": "שיפוע מרבי 6%",
+ "climbReason 1250 45 profile": "עלייה של 6% באורך 50 מ׳ בק״מ 1.3",
+ "climbReason 1250 45 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 1250 300 profile": "עלייה של 6% באורך 300 מ׳ בק״מ 1.3",
+ "climbReason 1250 300 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 1250 304 profile": "עלייה של 6% באורך 300 מ׳ בק״מ 1.3",
+ "climbReason 1250 304 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 5000 null profile": "עלייה של 6% ליד המסלול",
+ "climbReason 5000 null maxGrade": "שיפוע מרבי 6%",
+ "climbReason 5000 45 profile": "עלייה של 6% באורך 50 מ׳ בק״מ 5",
+ "climbReason 5000 45 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 5000 300 profile": "עלייה של 6% באורך 300 מ׳ בק״מ 5",
+ "climbReason 5000 300 maxGrade": "שיפוע מרבי 6%",
+ "climbReason 5000 304 profile": "עלייה של 6% באורך 300 מ׳ בק״מ 5",
+ "climbReason 5000 304 maxGrade": "שיפוע מרבי 6%",
+ "fitDistance loop 0.2 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 0.2 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 0.2 1": {
+  "verdict": "laps",
+  "laps": 2.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.875,
+  "reason": "הלוך-חזור · 2.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 0.2 2": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 0.2 3": {
+  "verdict": "laps",
+  "laps": 7.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.65,
+  "reason": "הלוך-חזור · 7.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 0.2 5": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance loop 0.2 7.5": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance loop 0.2 10": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance loop 0.2 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance loop 0.5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 0.5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 0.5 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance loop 0.5 2": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 0.5 3": {
+  "verdict": "laps",
+  "laps": 3,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.85,
+  "reason": "הלוך-חזור · 3 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 0.5 5": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 0.5 7.5": {
+  "verdict": "laps",
+  "laps": 7.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.65,
+  "reason": "הלוך-חזור · 7.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 0.5 10": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.5 ק״מ)"
+ },
+ "fitDistance loop 0.5 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.5 ק״מ)"
+ },
+ "fitDistance loop 1 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 1 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 1 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance loop 1 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance loop 1 3": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 1 5": {
+  "verdict": "laps",
+  "laps": 2.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.875,
+  "reason": "הלוך-חזור · 2.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 1 7.5": {
+  "verdict": "laps",
+  "laps": 4,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.8,
+  "reason": "הלוך-חזור · 4 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 1 10": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 1 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (1 ק״מ)"
+ },
+ "fitDistance loop 1.5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 1.5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 1.5 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance loop 1.5 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance loop 1.5 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance loop 1.5 5": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 1.5 7.5": {
+  "verdict": "laps",
+  "laps": 2.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.875,
+  "reason": "הלוך-חזור · 2.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 1.5 10": {
+  "verdict": "laps",
+  "laps": 3.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.825,
+  "reason": "הלוך-חזור · 3.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 1.5 21.1": {
+  "verdict": "laps",
+  "laps": 7,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.65,
+  "reason": "הלוך-חזור · 7 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 2.4 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 2.4 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 2.4 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance loop 2.4 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance loop 2.4 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance loop 2.4 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.4,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.4",
+  "caution": null
+ },
+ "fitDistance loop 2.4 7.5": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 2.4 10": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 2.4 21.1": {
+  "verdict": "laps",
+  "laps": 4.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.775,
+  "reason": "הלוך-חזור · 4.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 5 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance loop 5 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance loop 5 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance loop 5 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.5",
+  "caution": null
+ },
+ "fitDistance loop 5 7.5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 3.8,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 3.8",
+  "caution": null
+ },
+ "fitDistance loop 5 10": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 5,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 5",
+  "caution": null
+ },
+ "fitDistance loop 5 21.1": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance loop 10 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 10 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 10 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance loop 10 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance loop 10 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance loop 10 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.5",
+  "caution": null
+ },
+ "fitDistance loop 10 7.5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 3.8,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 3.8",
+  "caution": null
+ },
+ "fitDistance loop 10 10": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 5",
+  "caution": null
+ },
+ "fitDistance loop 10 21.1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 10,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 10",
+  "caution": null
+ },
+ "fitDistance loop 25 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 25 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance loop 25 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance loop 25 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance loop 25 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance loop 25 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.5",
+  "caution": null
+ },
+ "fitDistance loop 25 7.5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 3.8,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 3.8",
+  "caution": null
+ },
+ "fitDistance loop 25 10": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 5",
+  "caution": null
+ },
+ "fitDistance loop 25 21.1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 10.6,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 10.6",
+  "caution": null
+ },
+ "fitDistance out_and_back 0.2 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 0.2 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 0.2 1": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 0.2 2": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance out_and_back 0.2 3": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance out_and_back 0.2 5": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance out_and_back 0.2 7.5": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance out_and_back 0.2 10": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance out_and_back 0.2 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance out_and_back 0.5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 0.5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 0.5 1": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 0.5 2": {
+  "verdict": "laps",
+  "laps": 4,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.8,
+  "reason": "הלוך-חזור · 4 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 0.5 3": {
+  "verdict": "laps",
+  "laps": 6,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.7,
+  "reason": "הלוך-חזור · 6 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 0.5 5": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.5 ק״מ)"
+ },
+ "fitDistance out_and_back 0.5 7.5": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.5 ק״מ)"
+ },
+ "fitDistance out_and_back 0.5 10": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.5 ק״מ)"
+ },
+ "fitDistance out_and_back 0.5 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.5 ק״מ)"
+ },
+ "fitDistance out_and_back 1 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 1 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 1 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 1,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 1 2": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1 3": {
+  "verdict": "laps",
+  "laps": 3,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.85,
+  "reason": "הלוך-חזור · 3 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1 5": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1 7.5": {
+  "verdict": "laps",
+  "laps": 7.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.65,
+  "reason": "הלוך-חזור · 7.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1 10": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (1 ק״מ)"
+ },
+ "fitDistance out_and_back 1 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (1 ק״מ)"
+ },
+ "fitDistance out_and_back 1.5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 1.5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 1.5 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 1.5 2": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1.5 3": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1.5 5": {
+  "verdict": "laps",
+  "laps": 3.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.825,
+  "reason": "הלוך-חזור · 3.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1.5 7.5": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1.5 10": {
+  "verdict": "laps",
+  "laps": 6.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.675,
+  "reason": "הלוך-חזור · 6.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 1.5 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (1.5 ק״מ)"
+ },
+ "fitDistance out_and_back 2.4 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 2.4 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 2.4 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 2.4 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance out_and_back 2.4 3": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 2.4 5": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 2.4 7.5": {
+  "verdict": "laps",
+  "laps": 3,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.85,
+  "reason": "הלוך-חזור · 3 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 2.4 10": {
+  "verdict": "laps",
+  "laps": 4,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.8,
+  "reason": "הלוך-חזור · 4 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 2.4 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (2.4 ק״מ)"
+ },
+ "fitDistance out_and_back 5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 5 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 5 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance out_and_back 5 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 5 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 1,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 5 7.5": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 5 10": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 5 21.1": {
+  "verdict": "laps",
+  "laps": 4,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.8,
+  "reason": "הלוך-חזור · 4 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 10 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 10 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 10 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 10 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance out_and_back 10 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 10 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 10 7.5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 3.8,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 3.8",
+  "caution": null
+ },
+ "fitDistance out_and_back 10 10": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 5,
+  "score": 1,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 10 21.1": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance out_and_back 25 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 25 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance out_and_back 25 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 25 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance out_and_back 25 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 25 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.5",
+  "caution": null
+ },
+ "fitDistance out_and_back 25 7.5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 3.8,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 3.8",
+  "caution": null
+ },
+ "fitDistance out_and_back 25 10": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 5",
+  "caution": null
+ },
+ "fitDistance out_and_back 25 21.1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 10.6,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 10.6",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.2 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 0.2 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 0.2 1": {
+  "verdict": "laps",
+  "laps": 2.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.875,
+  "reason": "הלוך-חזור · 2.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.2 2": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.2 3": {
+  "verdict": "laps",
+  "laps": 7.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.65,
+  "reason": "הלוך-חזור · 7.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.2 5": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance point_to_point 0.2 7.5": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance point_to_point 0.2 10": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance point_to_point 0.2 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.2 ק״מ)"
+ },
+ "fitDistance point_to_point 0.5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 0.5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 0.5 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.5 2": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.5 3": {
+  "verdict": "laps",
+  "laps": 3,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.85,
+  "reason": "הלוך-חזור · 3 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.5 5": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.5 7.5": {
+  "verdict": "laps",
+  "laps": 7.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.65,
+  "reason": "הלוך-חזור · 7.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 0.5 10": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.5 ק״מ)"
+ },
+ "fitDistance point_to_point 0.5 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (0.5 ק״מ)"
+ },
+ "fitDistance point_to_point 1 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 1 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 1 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 1 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance point_to_point 1 3": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 1 5": {
+  "verdict": "laps",
+  "laps": 2.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.875,
+  "reason": "הלוך-חזור · 2.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 1 7.5": {
+  "verdict": "laps",
+  "laps": 4,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.8,
+  "reason": "הלוך-חזור · 4 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 1 10": {
+  "verdict": "laps",
+  "laps": 5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.75,
+  "reason": "הלוך-חזור · 5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 1 21.1": {
+  "verdict": "no",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0,
+  "reason": null,
+  "caution": "מסלול קצר מדי (1 ק״מ)"
+ },
+ "fitDistance point_to_point 1.5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 1.5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 1.5 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 1.5 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance point_to_point 1.5 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 1.5 5": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 1.5 7.5": {
+  "verdict": "laps",
+  "laps": 2.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.875,
+  "reason": "הלוך-חזור · 2.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 1.5 10": {
+  "verdict": "laps",
+  "laps": 3.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.825,
+  "reason": "הלוך-חזור · 3.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 1.5 21.1": {
+  "verdict": "laps",
+  "laps": 7,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.65,
+  "reason": "הלוך-חזור · 7 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.4,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.4",
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 7.5": {
+  "verdict": "laps",
+  "laps": 1.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 1.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 10": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 2.4 21.1": {
+  "verdict": "laps",
+  "laps": 4.5,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.775,
+  "reason": "הלוך-חזור · 4.5 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 5 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 5 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 5 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 5 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance point_to_point 5 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 5 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 5 7.5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 3.8,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 3.8",
+  "caution": null
+ },
+ "fitDistance point_to_point 5 10": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 5,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 5",
+  "caution": null
+ },
+ "fitDistance point_to_point 5 21.1": {
+  "verdict": "laps",
+  "laps": 2,
+  "endsAtStart": true,
+  "turnaroundKm": null,
+  "score": 0.9,
+  "reason": "הלוך-חזור · 2 סיבובים",
+  "caution": null
+ },
+ "fitDistance point_to_point 10 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 10 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 10 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 10 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance point_to_point 10 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 10 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 10 7.5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 3.8,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 3.8",
+  "caution": null
+ },
+ "fitDistance point_to_point 10 10": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 5",
+  "caution": null
+ },
+ "fitDistance point_to_point 10 21.1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 10,
+  "score": 1,
+  "reason": "הלוך-חזור · סיבוב בק״מ 10",
+  "caution": null
+ },
+ "fitDistance point_to_point 25 null": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 25 0": {
+  "verdict": "unknown",
+  "laps": null,
+  "endsAtStart": false,
+  "turnaroundKm": null,
+  "score": 0.5,
+  "reason": null,
+  "caution": null
+ },
+ "fitDistance point_to_point 25 1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 0.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 0.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 25 2": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1",
+  "caution": null
+ },
+ "fitDistance point_to_point 25 3": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 1.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 1.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 25 5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 2.5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 2.5",
+  "caution": null
+ },
+ "fitDistance point_to_point 25 7.5": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 3.8,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 3.8",
+  "caution": null
+ },
+ "fitDistance point_to_point 25 10": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 5,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 5",
+  "caution": null
+ },
+ "fitDistance point_to_point 25 21.1": {
+  "verdict": "fits",
+  "laps": 1,
+  "endsAtStart": true,
+  "turnaroundKm": 10.6,
+  "score": 0.9,
+  "reason": "הלוך-חזור · סיבוב בק״מ 10.6",
+  "caution": null
+ },
+ "rateLabels pace": {
+  "page": "קצב",
+  "current": "קצב נוכחי",
+  "average": "קצב ממוצע",
+  "now": "קצב עכשיו",
+  "unitLine": "דק׳ לק״מ · ממוצע 15 שנ׳"
+ },
+ "rateLabels speed": {
+  "page": "מהירות",
+  "current": "מהירות",
+  "average": "מהירות ממוצעת",
+  "now": "מהירות עכשיו",
+  "unitLine": "קמ״ש"
+ },
+ "stories 0 undefined": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 0 {\"type\":\"distance\",\"value\":5}": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 / 5.0 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 0 {\"type\":\"distance\",\"value\":0}": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 0 {\"type\":\"time\",\"value\":600}": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00 / 10:00"
+  ]
+ ],
+ "stories 0 {\"type\":\"distance\",\"value\":10.25}": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 / 10.3 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 0.004 undefined": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 0.004 {\"type\":\"distance\",\"value\":5}": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 / 5.0 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 0.004 {\"type\":\"distance\",\"value\":0}": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 0.004 {\"type\":\"time\",\"value\":600}": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00 / 10:00"
+  ]
+ ],
+ "stories 0.004 {\"type\":\"distance\",\"value\":10.25}": [
+  [
+   "distance",
+   "מרחק",
+   "0.00 / 10.3 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 1 undefined": [
+  [
+   "distance",
+   "מרחק",
+   "1.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 1 {\"type\":\"distance\",\"value\":5}": [
+  [
+   "distance",
+   "מרחק",
+   "1.00 / 5.0 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 1 {\"type\":\"distance\",\"value\":0}": [
+  [
+   "distance",
+   "מרחק",
+   "1.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 1 {\"type\":\"time\",\"value\":600}": [
+  [
+   "distance",
+   "מרחק",
+   "1.00 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00 / 10:00"
+  ]
+ ],
+ "stories 1 {\"type\":\"distance\",\"value\":10.25}": [
+  [
+   "distance",
+   "מרחק",
+   "1.00 / 10.3 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 1.234 undefined": [
+  [
+   "distance",
+   "מרחק",
+   "1.23 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 1.234 {\"type\":\"distance\",\"value\":5}": [
+  [
+   "distance",
+   "מרחק",
+   "1.23 / 5.0 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 1.234 {\"type\":\"distance\",\"value\":0}": [
+  [
+   "distance",
+   "מרחק",
+   "1.23 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 1.234 {\"type\":\"time\",\"value\":600}": [
+  [
+   "distance",
+   "מרחק",
+   "1.23 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00 / 10:00"
+  ]
+ ],
+ "stories 1.234 {\"type\":\"distance\",\"value\":10.25}": [
+  [
+   "distance",
+   "מרחק",
+   "1.23 / 10.3 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 12.5 undefined": [
+  [
+   "distance",
+   "מרחק",
+   "12.50 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 12.5 {\"type\":\"distance\",\"value\":5}": [
+  [
+   "distance",
+   "מרחק",
+   "12.50 / 5.0 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 12.5 {\"type\":\"distance\",\"value\":0}": [
+  [
+   "distance",
+   "מרחק",
+   "12.50 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "stories 12.5 {\"type\":\"time\",\"value\":600}": [
+  [
+   "distance",
+   "מרחק",
+   "12.50 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00 / 10:00"
+  ]
+ ],
+ "stories 12.5 {\"type\":\"distance\",\"value\":10.25}": [
+  [
+   "distance",
+   "מרחק",
+   "12.50 / 10.3 ק\"מ"
+  ],
+  [
+   "time",
+   "זמן",
+   "00:00"
+  ]
+ ],
+ "introDistance 0": "0 מ׳",
+ "introDistance 1": "1 מ׳",
+ "introDistance 50": "50 מ׳",
+ "introDistance 99": "99 מ׳",
+ "introDistance 99.5": "100 מ׳",
+ "introDistance 100": "100 מ׳",
+ "introDistance 149": "150 מ׳",
+ "introDistance 150": "150 מ׳",
+ "introDistance 400": "400 מ׳",
+ "introDistance 999": "1000 מ׳",
+ "introDistance 1000": "1.0 ק\"מ",
+ "introDistance 1049": "1.0 ק\"מ",
+ "introDistance 1500": "1.5 ק\"מ",
+ "introDistance 2400": "2.4 ק\"מ",
+ "introDistance 12345": "12.3 ק\"מ",
+ "introDistance -5": "-5 מ׳",
+ "introDistance NaN": "NaN ק\"מ",
+ "introMinutes 0 walking": "1 דק׳ הליכה",
+ "introMinutes 0 running": "1 דק׳ ריצה",
+ "introMinutes 0 cycling": "1 דק׳ רכיבה",
+ "introMinutes 1 walking": "1 דק׳ הליכה",
+ "introMinutes 1 running": "1 דק׳ ריצה",
+ "introMinutes 1 cycling": "1 דק׳ רכיבה",
+ "introMinutes 45 walking": "1 דק׳ הליכה",
+ "introMinutes 45 running": "1 דק׳ ריצה",
+ "introMinutes 45 cycling": "1 דק׳ רכיבה",
+ "introMinutes 59 walking": "1 דק׳ הליכה",
+ "introMinutes 59 running": "1 דק׳ ריצה",
+ "introMinutes 59 cycling": "1 דק׳ רכיבה",
+ "introMinutes 60 walking": "1 דק׳ הליכה",
+ "introMinutes 60 running": "1 דק׳ ריצה",
+ "introMinutes 60 cycling": "1 דק׳ רכיבה",
+ "introMinutes 61 walking": "1 דק׳ הליכה",
+ "introMinutes 61 running": "1 דק׳ ריצה",
+ "introMinutes 61 cycling": "1 דק׳ רכיבה",
+ "introMinutes 150 walking": "3 דק׳ הליכה",
+ "introMinutes 150 running": "3 דק׳ ריצה",
+ "introMinutes 150 cycling": "3 דק׳ רכיבה",
+ "introMinutes 180 walking": "3 דק׳ הליכה",
+ "introMinutes 180 running": "3 דק׳ ריצה",
+ "introMinutes 180 cycling": "3 דק׳ רכיבה",
+ "introMinutes 599 walking": "10 דק׳ הליכה",
+ "introMinutes 599 running": "10 דק׳ ריצה",
+ "introMinutes 599 cycling": "10 דק׳ רכיבה",
+ "introMinutes 600 walking": "10 דק׳ הליכה",
+ "introMinutes 600 running": "10 דק׳ ריצה",
+ "introMinutes 600 cycling": "10 דק׳ רכיבה",
+ "introMinutes 3599 walking": "60 דק׳ הליכה",
+ "introMinutes 3599 running": "60 דק׳ ריצה",
+ "introMinutes 3599 cycling": "60 דק׳ רכיבה",
+ "introMinutes 3600 walking": "60 דק׳ הליכה",
+ "introMinutes 3600 running": "60 דק׳ ריצה",
+ "introMinutes 3600 cycling": "60 דק׳ רכיבה",
+ "introMinutes 3661 walking": "61 דק׳ הליכה",
+ "introMinutes 3661 running": "61 דק׳ ריצה",
+ "introMinutes 3661 cycling": "61 דק׳ רכיבה",
+ "introMinutes 36000 walking": "600 דק׳ הליכה",
+ "introMinutes 36000 running": "600 דק׳ ריצה",
+ "introMinutes 36000 cycling": "600 דק׳ רכיבה",
+ "introMinutes -5 walking": "1 דק׳ הליכה",
+ "introMinutes -5 running": "1 דק׳ ריצה",
+ "introMinutes -5 cycling": "1 דק׳ רכיבה",
+ "introMinutes NaN walking": "1 דק׳ הליכה",
+ "introMinutes NaN running": "1 דק׳ ריצה",
+ "introMinutes NaN cycling": "1 דק׳ רכיבה",
+ "runLabel m 0": "ריצה",
+ "runLabel m 1": "ריצה 1 מ׳",
+ "runLabel m 50": "ריצה 50 מ׳",
+ "runLabel m 99": "ריצה 99 מ׳",
+ "runLabel m 99.5": "ריצה 99.5 מ׳",
+ "runLabel m 100": "ריצה 100 מ׳",
+ "runLabel m 149": "ריצה 149 מ׳",
+ "runLabel m 150": "ריצה 150 מ׳",
+ "runLabel m 400": "ריצה 400 מ׳",
+ "runLabel m 999": "ריצה 999 מ׳",
+ "runLabel m 1000": "ריצה 1000 מ׳",
+ "runLabel m 1049": "ריצה 1049 מ׳",
+ "runLabel m 1500": "ריצה 1500 מ׳",
+ "runLabel m 2400": "ריצה 2400 מ׳",
+ "runLabel m 12345": "ריצה 12345 מ׳",
+ "runLabel m -5": "ריצה",
+ "runLabel m NaN": "ריצה",
+ "runLabel m undefined": "ריצה",
+ "runLabel s 0": "ריצה",
+ "runLabel s 1": "ריצה 0 דק׳",
+ "runLabel s 45": "ריצה 1 דק׳",
+ "runLabel s 59": "ריצה 1 דק׳",
+ "runLabel s 60": "ריצה 1 דק׳",
+ "runLabel s 61": "ריצה 1 דק׳",
+ "runLabel s 150": "ריצה 3 דק׳",
+ "runLabel s 180": "ריצה 3 דק׳",
+ "runLabel s 599": "ריצה 10 דק׳",
+ "runLabel s 600": "ריצה 10 דק׳",
+ "runLabel s 3599": "ריצה 60 דק׳",
+ "runLabel s 3600": "ריצה 60 דק׳",
+ "runLabel s 3661": "ריצה 61 דק׳",
+ "runLabel s 36000": "ריצה 600 דק׳",
+ "runLabel s -5": "ריצה",
+ "runLabel s NaN": "ריצה",
+ "runLabel s undefined": "ריצה",
+ "runLabel custom": "x",
+ "journey undefined": [
+  {
+   "key": "leg-0",
+   "kind": "aerobic",
+   "subtype": "running"
+  },
+  {
+   "key": "leg-1",
+   "kind": "aerobic",
+   "subtype": "walking",
+   "seconds": 600
+  }
+ ],
+ "journey 0": [
+  {
+   "key": "leg-0",
+   "kind": "aerobic",
+   "subtype": "running"
+  },
+  {
+   "key": "leg-1",
+   "kind": "aerobic",
+   "subtype": "walking",
+   "seconds": 600
+  }
+ ],
+ "journey 0.4": [
+  {
+   "key": "leg-0",
+   "kind": "aerobic",
+   "subtype": "running",
+   "label": "0.4 ק״מ"
+  },
+  {
+   "key": "leg-1",
+   "kind": "aerobic",
+   "subtype": "walking",
+   "seconds": 600
+  }
+ ],
+ "journey 1": [
+  {
+   "key": "leg-0",
+   "kind": "aerobic",
+   "subtype": "running",
+   "label": "1 ק״מ"
+  },
+  {
+   "key": "leg-1",
+   "kind": "aerobic",
+   "subtype": "walking",
+   "seconds": 600
+  }
+ ],
+ "journey 2.5": [
+  {
+   "key": "leg-0",
+   "kind": "aerobic",
+   "subtype": "running",
+   "label": "2.5 ק״מ"
+  },
+  {
+   "key": "leg-1",
+   "kind": "aerobic",
+   "subtype": "walking",
+   "seconds": 600
+  }
+ ],
+ "journey 10": [
+  {
+   "key": "leg-0",
+   "kind": "aerobic",
+   "subtype": "running",
+   "label": "10 ק״מ"
+  },
+  {
+   "key": "leg-1",
+   "kind": "aerobic",
+   "subtype": "walking",
+   "seconds": 600
+  }
+ ],
+ "aerobicRings undefined undefined": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings undefined undefined": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings undefined 0": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings undefined 0": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings undefined 5.5": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "5:30",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings undefined 5.5": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings undefined 6.0166": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "6:01",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings undefined 6.0166": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "rideRings undefined undefined": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings undefined 0": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings undefined 12.4": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "12",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings undefined 350": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "350",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "hybridRings undefined": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "ריצה",
+   "sub": null,
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "sets",
+   "value": "4/9",
+   "unit": "סטים",
+   "label": "כוח",
+   "pct": 44,
+   "color": "#00baf7"
+  },
+  {
+   "key": "segments",
+   "value": "2/2",
+   "unit": "מקטעים",
+   "label": "הושלמו",
+   "pct": 100,
+   "color": "#0284c7"
+  }
+ ],
+ "aerobicRings 0 undefined": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 0 undefined": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 0 0": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 0 0": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 0 5.5": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "5:30",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 0 5.5": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 0 6.0166": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "6:01",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 0 6.0166": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "--",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 0,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "rideRings 0 undefined": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 0 0": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 0 12.4": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "12",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 0 350": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "350",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "hybridRings 0": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "ריצה",
+   "sub": null,
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "sets",
+   "value": "4/9",
+   "unit": "סטים",
+   "label": "כוח",
+   "pct": 44,
+   "color": "#00baf7"
+  },
+  {
+   "key": "segments",
+   "value": "2/2",
+   "unit": "מקטעים",
+   "label": "הושלמו",
+   "pct": 100,
+   "color": "#0284c7"
+  }
+ ],
+ "aerobicRings 0.5 undefined": [
+  {
+   "key": "distance",
+   "value": "0.50",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 0.5 undefined": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 0.5 0": [
+  {
+   "key": "distance",
+   "value": "0.50",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 0.5 0": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 0.5 5.5": [
+  {
+   "key": "distance",
+   "value": "0.50",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "5:30",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 0.5 5.5": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 0.5 6.0166": [
+  {
+   "key": "distance",
+   "value": "0.50",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "6:01",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 0.5 6.0166": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "0.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "rideRings 0.5 undefined": [
+  {
+   "key": "speed",
+   "value": "0.5",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 0.5 0": [
+  {
+   "key": "speed",
+   "value": "0.5",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 0.5 12.4": [
+  {
+   "key": "speed",
+   "value": "0.5",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "12",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 0.5 350": [
+  {
+   "key": "speed",
+   "value": "0.5",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "350",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "hybridRings 0.5": [
+  {
+   "key": "distance",
+   "value": "0.50",
+   "unit": "ק״מ",
+   "label": "ריצה",
+   "sub": "מתוך 0.5 ק״מ",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "sets",
+   "value": "4/9",
+   "unit": "סטים",
+   "label": "כוח",
+   "pct": 44,
+   "color": "#00baf7"
+  },
+  {
+   "key": "segments",
+   "value": "2/2",
+   "unit": "מקטעים",
+   "label": "הושלמו",
+   "pct": 100,
+   "color": "#0284c7"
+  }
+ ],
+ "aerobicRings 5.123 undefined": [
+  {
+   "key": "distance",
+   "value": "5.12",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 5.123 undefined": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 5.123 0": [
+  {
+   "key": "distance",
+   "value": "5.12",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 5.123 0": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 5.123 5.5": [
+  {
+   "key": "distance",
+   "value": "5.12",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "5:30",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 5.123 5.5": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 5.123 6.0166": [
+  {
+   "key": "distance",
+   "value": "5.12",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "6:01",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 5.123 6.0166": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "5.12",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "rideRings 5.123 undefined": [
+  {
+   "key": "speed",
+   "value": "5.1",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 5.123 0": [
+  {
+   "key": "speed",
+   "value": "5.1",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 5.123 12.4": [
+  {
+   "key": "speed",
+   "value": "5.1",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "12",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 5.123 350": [
+  {
+   "key": "speed",
+   "value": "5.1",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "350",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "hybridRings 5.123": [
+  {
+   "key": "distance",
+   "value": "5.12",
+   "unit": "ק״מ",
+   "label": "ריצה",
+   "sub": "מתוך 5.1 ק״מ",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "sets",
+   "value": "4/9",
+   "unit": "סטים",
+   "label": "כוח",
+   "pct": 44,
+   "color": "#00baf7"
+  },
+  {
+   "key": "segments",
+   "value": "2/2",
+   "unit": "מקטעים",
+   "label": "הושלמו",
+   "pct": 100,
+   "color": "#0284c7"
+  }
+ ],
+ "aerobicRings 42.195 undefined": [
+  {
+   "key": "distance",
+   "value": "42.20",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 42.195 undefined": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 42.195 0": [
+  {
+   "key": "distance",
+   "value": "42.20",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 42.195 0": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "--",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 0,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 42.195 5.5": [
+  {
+   "key": "distance",
+   "value": "42.20",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "5:30",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 42.195 5.5": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "5:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "aerobicRings 42.195 6.0166": [
+  {
+   "key": "distance",
+   "value": "42.20",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "6:01",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "30:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "runTypeRings 42.195 6.0166": [
+  [
+   {
+    "key": "reps",
+    "value": "2/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 33,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "5:05",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": null,
+    "pct": 100,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "30:00"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": null
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  [
+   {
+    "key": "distance",
+    "value": "42.20",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "30:00",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:01",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ]
+ ],
+ "rideRings 42.195 undefined": [
+  {
+   "key": "speed",
+   "value": "42.2",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 42.195 0": [
+  {
+   "key": "speed",
+   "value": "42.2",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 42.195 12.4": [
+  {
+   "key": "speed",
+   "value": "42.2",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "12",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "rideRings 42.195 350": [
+  {
+   "key": "speed",
+   "value": "42.2",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "350",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "hybridRings 42.195": [
+  {
+   "key": "distance",
+   "value": "42.20",
+   "unit": "ק״מ",
+   "label": "ריצה",
+   "sub": "מתוך 42.2 ק״מ",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "sets",
+   "value": "4/9",
+   "unit": "סטים",
+   "label": "כוח",
+   "pct": 44,
+   "color": "#00baf7"
+  },
+  {
+   "key": "segments",
+   "value": "2/2",
+   "unit": "מקטעים",
+   "label": "הושלמו",
+   "pct": 100,
+   "color": "#0284c7"
+  }
+ ],
+ "repsTitle 60": [
+  "6 × 1 דק׳",
+  "2 × 600 מ׳"
+ ],
+ "repsTitle 90": [
+  "6 × 1:30",
+  "2 × 900 מ׳"
+ ],
+ "repsTitle 120": [
+  "6 × 2 דק׳",
+  "2 × 1.2 ק״מ"
+ ],
+ "repsTitle 180": [
+  "6 × 3 דק׳",
+  "2 × 1.8 ק״מ"
+ ],
+ "repsTitle 600": [
+  "6 × 10 דק׳",
+  "2 × 6 ק״מ"
+ ],
+ "legTarget null": "",
+ "legTarget {\"distanceKm\":2.4}": "2.4 ק״מ",
+ "legTarget {\"distanceKm\":0.4}": "400 מ׳",
+ "legTarget {\"durationSec\":30}": "1 דק׳",
+ "legTarget {\"durationSec\":600}": "10 דק׳",
+ "legTarget {}": "",
+ "miniView 0": {
+  "color": "#84cc16",
+  "title": "ריצה",
+  "subtitle": "28:08 · 0.00 ק״מ"
+ },
+ "listTotals 0": "28:08 · 0.00 ק״מ",
+ "miniView 1": {
+  "color": "#84cc16",
+  "title": "ריצה",
+  "subtitle": "28:08 · 1.00 ק״מ"
+ },
+ "listTotals 1": "28:08 · 1.00 ק״מ",
+ "miniView 4.4": {
+  "color": "#84cc16",
+  "title": "ריצה",
+  "subtitle": "28:08 · 4.40 ק״מ"
+ },
+ "listTotals 4.4": "28:08 · 4.40 ק״מ",
+ "miniView 12.345": {
+  "color": "#84cc16",
+  "title": "ריצה",
+  "subtitle": "28:08 · 12.35 ק״מ"
+ },
+ "listTotals 12.345": "28:08 · 12.35 ק״מ",
+ "plannedWalkSlot time 30": {
+  "kind": "planned_walk",
+  "id": "planned_walk",
+  "title": "ההליכה של היום",
+  "subtitle": "30 דק׳ · ~3,300 צעדים",
+  "bolts": 1,
+  "recommended": false,
+  "accent": "#f59e0b",
+  "reason": "בתוכנית שלך להיום — נמצא לה מסלול שמתאים",
+  "entry": {
+   "date": "2026-10-24",
+   "entryId": "e",
+   "plannedRun": {
+    "goal": {
+     "type": "time",
+     "value": 30
+    }
+   }
+  }
+ },
+ "plannedWalkSlot time 45": {
+  "kind": "planned_walk",
+  "id": "planned_walk",
+  "title": "ההליכה של היום",
+  "subtitle": "45 דק׳ · ~5,000 צעדים",
+  "bolts": 1,
+  "recommended": false,
+  "accent": "#f59e0b",
+  "reason": "בתוכנית שלך להיום — נמצא לה מסלול שמתאים",
+  "entry": {
+   "date": "2026-10-24",
+   "entryId": "e",
+   "plannedRun": {
+    "goal": {
+     "type": "time",
+     "value": 45
+    }
+   }
+  }
+ },
+ "plannedWalkSlot distance 2.5": {
+  "kind": "planned_walk",
+  "id": "planned_walk",
+  "title": "ההליכה של היום",
+  "subtitle": "2.5 ק״מ · ~3,100 צעדים",
+  "bolts": 1,
+  "recommended": false,
+  "accent": "#f59e0b",
+  "reason": "בתוכנית שלך להיום — נמצא לה מסלול שמתאים",
+  "entry": {
+   "date": "2026-10-24",
+   "entryId": "e",
+   "plannedRun": {
+    "goal": {
+     "type": "distance",
+     "value": 2.5
+    }
+   }
+  }
+ },
+ "plannedWalkSlot distance 0.4": {
+  "kind": "planned_walk",
+  "id": "planned_walk",
+  "title": "ההליכה של היום",
+  "subtitle": "0.4 ק״מ · ~500 צעדים",
+  "bolts": 1,
+  "recommended": false,
+  "accent": "#f59e0b",
+  "reason": "בתוכנית שלך להיום — נמצא לה מסלול שמתאים",
+  "entry": {
+   "date": "2026-10-24",
+   "entryId": "e",
+   "plannedRun": {
+    "goal": {
+     "type": "distance",
+     "value": 0.4
+    }
+   }
+  }
+ },
+ "plannedWalkSlot steps 5": {
+  "kind": "planned_walk",
+  "id": "planned_walk",
+  "title": "ההליכה של היום",
+  "subtitle": "הליכה",
+  "bolts": 1,
+  "recommended": false,
+  "accent": "#f59e0b",
+  "reason": "בתוכנית שלך להיום — נמצא לה מסלול שמתאים",
+  "entry": {
+   "date": "2026-10-24",
+   "entryId": "e",
+   "plannedRun": {
+    "goal": {
+     "type": "steps",
+     "value": 5
+    }
+   }
+  }
+ },
+ "plannedWalkSlot time 0": {
+  "kind": "planned_walk",
+  "id": "planned_walk",
+  "title": "ההליכה של היום",
+  "subtitle": "0 דק׳",
+  "bolts": 1,
+  "recommended": false,
+  "accent": "#f59e0b",
+  "reason": "בתוכנית שלך להיום — נמצא לה מסלול שמתאים",
+  "entry": {
+   "date": "2026-10-24",
+   "entryId": "e",
+   "plannedRun": {
+    "goal": {
+     "type": "time",
+     "value": 0
+    }
+   }
+  }
+ }
+}

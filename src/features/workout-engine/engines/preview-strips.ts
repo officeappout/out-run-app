@@ -4,6 +4,7 @@
  *   ProfileStrip   (effort per block: width = duration, height = intensity)
  * Both read the same plan; the intensity numbers come from intensity-profile.
  */
+import { withUnit } from '@/lib/i18n/units';
 import type { JourneyStripItem } from '@/components/ui/v2/journey-strip';
 import type { ProfileStripSegment } from '@/components/ui/v2/ProfileStrip';
 import type { HybridPlannedSegment } from '../hybrid/compose-hybrid-session.service';
@@ -34,7 +35,7 @@ export function hybridJourneyItems(plan: readonly HybridPlannedSegment[]): Journ
       const sec = seg.durationSec ?? seg.content?.estimatedDurationSec;
       return { key: `st-${i}`, kind: 'strength', ...(seg.domainFocus ? { subtype: String(seg.domainFocus) } : {}), ...(sec ? { seconds: sec } : {}) };
     }
-    const label = !seg.durationSec && seg.distanceKm ? `${seg.distanceKm} ק״מ` : undefined;
+    const label = !seg.durationSec && seg.distanceKm ? withUnit('km', seg.distanceKm) : undefined;
     return {
       key: `leg-${i}`,
       kind: 'aerobic',

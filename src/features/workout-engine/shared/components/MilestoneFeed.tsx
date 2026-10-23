@@ -1,5 +1,8 @@
 'use client';
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit } from '@/lib/i18n/units';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { MilestoneEvent } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
@@ -11,6 +14,7 @@ interface MilestoneFeedProps {
 const AUTO_DISMISS_MS = 3000;
 
 export default function MilestoneFeed({ milestones }: MilestoneFeedProps) {
+  const tc = useT(common);
   // Queue of milestone ids already shown — avoids re-displaying on re-render.
   const shownRef = useRef<Set<string>>(new Set());
   const [current, setCurrent] = useState<MilestoneEvent | null>(null);
@@ -41,8 +45,8 @@ export default function MilestoneFeed({ milestones }: MilestoneFeedProps) {
 
   const label = current
     ? current.type === 'collective'
-      ? `יחד עברתם ${current.distanceKm} ק"מ 💪`
-      : `${current.name} · ${current.distanceKm} ק"מ 🏃`
+      ? `יחד עברתם ${withUnit('kmAscii', current.distanceKm, tc)} 💪`
+      : `${current.name} · ${withUnit('kmAscii', current.distanceKm, tc)} 🏃`
     : '';
 
   return (

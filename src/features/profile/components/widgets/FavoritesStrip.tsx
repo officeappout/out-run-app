@@ -1,5 +1,8 @@
 'use client';
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit, type CommonT } from '@/lib/i18n/units';
 import React, { useEffect } from 'react';
 import { Heart, Dumbbell, Clock } from 'lucide-react';
 import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
@@ -17,12 +20,13 @@ const DIFFICULTY_COLORS: Record<number, string> = {
   3: 'bg-red-100 text-red-700',
 };
 
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number, t?: CommonT): string {
   const m = Math.round(seconds / 60);
-  return `${m} דק׳`;
+  return withUnit('min', m, t);
 }
 
 function FavoriteCard({ fav }: { fav: FavoriteWorkout }) {
+  const tc = useT(common);
   return (
     <div
       className="flex-shrink-0 w-44 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between"
@@ -41,7 +45,7 @@ function FavoriteCard({ fav }: { fav: FavoriteWorkout }) {
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-gray-400" />
             <span className="text-[10px] font-bold text-gray-500">
-              {formatDuration(fav.estimatedDuration)}
+              {formatDuration(fav.estimatedDuration, tc)}
             </span>
           </div>
         )}

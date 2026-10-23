@@ -3,6 +3,7 @@
  * Boards U-D1..U-D4, F-2b/F-2c, F-3b. No live pace on legs under 400 m
  * (the sequencer's `leg.showPace`), no emoji.
  */
+import { withUnit } from '@/lib/i18n/units';
 import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
 import type { SequencerView } from '../../engines/hybrid/sequencer.selectors';
 import { isShortLegTarget } from '../../engines/leg-pace';
@@ -60,7 +61,7 @@ export function legLabel(plan: readonly HybridPlannedSegment[], i: number, names
 export function legTargetText(seg: HybridPlannedSegment | null | undefined): string {
   if (!seg) return '';
   if (seg.distanceKm && seg.distanceKm > 0) return fmtDistance(seg.distanceKm * 1000);
-  if (seg.durationSec && seg.durationSec > 0) return `${Math.max(1, Math.round(seg.durationSec / 60))} דק׳`;
+  if (seg.durationSec && seg.durationSec > 0) return withUnit('min', Math.max(1, Math.round(seg.durationSec / 60)));
   return '';
 }
 
@@ -170,7 +171,7 @@ export function transitionView(
     countdown: fmtClock(Math.ceil(ms / 1000)),
     fraction: transitionSec > 0 ? Math.min(1, ms / (transitionSec * 1000)) : 0,
     stationLabel: legLabel(plan, view.cursor, names),
-    stationMeta: [list.length ? `${list.length} תרגילים` : '', sets ? `${sets} סטים` : '', min ? `${min} דק׳` : ''].filter(Boolean).join(' · '),
+    stationMeta: [list.length ? `${list.length} תרגילים` : '', sets ? `${sets} סטים` : '', min ? withUnit('min', min) : ''].filter(Boolean).join(' · '),
     first: first
       ? { name: nameOf(first.exercise), target: repsText(first), setsText: first.sets ? `סט 1 מתוך ${first.sets}` : '' }
       : null,
@@ -185,6 +186,6 @@ export function miniView(view: SequencerView, plan: readonly HybridPlannedSegmen
   return {
     color: view.phase === 'transition' || view.phase === 'station' ? HYBRID_V2_COLORS.strength : HYBRID_V2_COLORS.run,
     title: extra ? `${label} · ${extra}` : label,
-    subtitle: `${fmtClock(totalSec)} · ${totalKm.toFixed(2)} ק״מ`,
+    subtitle: `${fmtClock(totalSec)} · ${withUnit('km', totalKm.toFixed(2))}`,
   };
 }

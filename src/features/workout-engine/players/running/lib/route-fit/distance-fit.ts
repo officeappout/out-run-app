@@ -11,6 +11,7 @@
  *     non-loop line)
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { pathLengthMeters, isOutAndBackPath } from '@/features/parks/core/services/geoUtils';
 import { isLoopRoute } from '@/features/parks/core/services/route-shape';
@@ -67,7 +68,7 @@ export function fitDistance(route: Pick<Route, 'distance' | 'path' | 'routeShape
 
   if (shape === 'loop') {
     const laps = targetKm / D;
-    if (laps > MAX_LAPS + 0.5) return no(`מסלול קצר מדי (${fmtNum(round1(D))} ק״מ)`);
+    if (laps > MAX_LAPS + 0.5) return no(`מסלול קצר מדי (${withUnit('km', fmtNum(round1(D)))})`);
     const whole = Math.max(1, Math.round(laps));
     if (Math.abs(whole * D - targetKm) <= tolKm(targetKm, FIT_TOLERANCE)) {
       return {
@@ -87,17 +88,17 @@ export function fitDistance(route: Pick<Route, 'distance' | 'path' | 'routeShape
       return {
         verdict: 'close', laps: best, endsAtStart: Number.isInteger(best), turnaroundKm: null,
         score: 0.45, reason: best === 1 ? null : lapsLabel(best),
-        caution: `${fmtNum(round1(best * D))} ק״מ מתוך ${fmtNum(targetKm)}`,
+        caution: `${withUnit('km', fmtNum(round1(best * D)))} מתוך ${fmtNum(targetKm)}`,
       };
     }
-    return no(D > targetKm ? `ארוך מהאימון (${fmtNum(round1(D))} ק״מ)` : `${fmtNum(round1(best * D))} ק״מ מתוך ${fmtNum(targetKm)}`);
+    return no(D > targetKm ? `ארוך מהאימון (${withUnit('km', fmtNum(round1(D)))})` : `${withUnit('km', fmtNum(round1(best * D)))} מתוך ${fmtNum(targetKm)}`);
   }
 
   // Out-and-back (round trip D) or a line run there-and-back (round trip 2D):
   // you can always turn round early, so any distance ends at the start.
   const roundTrip = shape === 'out_and_back' ? D : 2 * D;
   const reps = targetKm / roundTrip;
-  if (reps > MAX_LAPS + 0.5) return no(`מסלול קצר מדי (${fmtNum(round1(D))} ק״מ)`);
+  if (reps > MAX_LAPS + 0.5) return no(`מסלול קצר מדי (${withUnit('km', fmtNum(round1(D)))})`);
   if (reps <= 1 + FIT_TOLERANCE) {
     const turn = round1(Math.min(targetKm, roundTrip) / 2);
     const fullLength = Math.abs(roundTrip - targetKm) <= tolKm(targetKm, FIT_TOLERANCE);

@@ -14,6 +14,7 @@
  * says exactly what the old "מבנה האימון" list said.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { AerobicLeg, AerobicMetaItem, GroupLeg, OverviewDrill, OverviewLeg } from '@/features/parks/core/components/overview/overview-legs';
 import type { RunBlock } from '../../types/run-block.type';
 import { fmtBand, isRestBlock } from '../../lib/planned-rep-results';
@@ -88,8 +89,8 @@ function sumBlocks(blocks: readonly RunBlock[], ctx: RunPaceContext): Totals {
 function metas(t: Totals, approx: boolean): AerobicMetaItem[] {
   const out: AerobicMetaItem[] = [];
   const pre = approx ? '~' : '';
-  if (t.meters > 0) out.push({ key: 'km', icon: 'distance', text: `${pre}${(t.meters / 1000).toFixed(1)} ק״מ` });
-  if (t.seconds > 0) out.push({ key: 'min', icon: 'time', text: `${pre}${roundMinutes(t.seconds)} דק׳` });
+  if (t.meters > 0) out.push({ key: 'km', icon: 'distance', text: `${pre}${withUnit('km', (t.meters / 1000).toFixed(1))}` });
+  if (t.seconds > 0) out.push({ key: 'min', icon: 'time', text: `${pre}${withUnit('min', roundMinutes(t.seconds))}` });
   return out;
 }
 

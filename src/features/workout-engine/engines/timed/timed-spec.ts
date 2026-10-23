@@ -9,6 +9,7 @@
  * Validation mirrors resolveBlockProtocol (players/strength/protocols): bad
  * plan data never crashes a workout, it falls back.
  */
+import { withUnit } from '@/lib/i18n/units';
 import type { WorkoutSegment, Exercise } from '@/features/parks/core/types/route.types';
 import type {
   AmrapProtocolConfig,
@@ -42,8 +43,8 @@ export function itemFromExercise(ex: Exercise): TimedItem {
 /** Run label, e.g. "ריצה 300 מ׳" / "ריצה 2 דק׳". */
 export function runLabel(spec: { distanceM?: number; durationSec?: number; label?: string }): string {
   if (spec.label) return spec.label;
-  if (pos(spec.distanceM)) return `ריצה ${spec.distanceM} מ׳`;
-  if (pos(spec.durationSec)) return `ריצה ${Math.round(spec.durationSec / 60)} דק׳`;
+  if (pos(spec.distanceM)) return `ריצה ${withUnit('m', spec.distanceM)}`;
+  if (pos(spec.durationSec)) return `ריצה ${withUnit('min', Math.round(spec.durationSec / 60))}`;
   return 'ריצה';
 }
 

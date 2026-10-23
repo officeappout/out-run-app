@@ -17,6 +17,8 @@
  * the RIGHT (x = W at 0 m, x = 0 at the finish).
  */
 
+import { withUnit } from '@/lib/i18n/units';
+
 export interface ElevationSamples {
   /** Distance between consecutive samples (m). */
   stepM: number;
@@ -126,7 +128,7 @@ export function climbLabel(c: ClimbAhead | null): string | null {
   if (!c) return null;
   const kind = c.gradePct < 6 ? 'עלייה קלה' : 'עלייה';
   if (c.inM < 30) return `${kind} עכשיו`;
-  const m = c.inM < 1000 ? `${Math.round(c.inM / 10) * 10} מ׳` : `${(c.inM / 1000).toFixed(1)} ק״מ`;
+  const m = c.inM < 1000 ? withUnit('m', Math.round(c.inM / 10) * 10) : withUnit('km', (c.inM / 1000).toFixed(1));
   return `${kind} בעוד ${m}`;
 }
 

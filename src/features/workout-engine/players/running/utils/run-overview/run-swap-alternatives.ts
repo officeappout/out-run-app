@@ -18,6 +18,7 @@
  * Levels use the strength swap's words: lower / same / higher.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { RunZoneType } from '../../../../core/types/running.types';
 import type { RunPaceContext } from '../run-preview/run-estimates';
 import { roundRecovery } from './run-variants';
@@ -81,7 +82,7 @@ function equalVolume(a: MainSetSpec, b: MainSetSpec): boolean {
 }
 
 function bare(unit: MainSetUnit, size: number): string {
-  if (unit === 'm') return size >= 1000 ? `${size / 1000} ק״מ` : String(size);
+  if (unit === 'm') return size >= 1000 ? withUnit('km', size / 1000) : String(size);
   return size < 60 ? `${size}″` : size % 60 ? `${Math.floor(size / 60)}:${String(size % 60).padStart(2, '0')}′` : `${size / 60}′`;
 }
 
@@ -111,7 +112,7 @@ export function swapDeltaText(alt: Pick<SwapAlternative, 'deltaSec' | 'equalVolu
   if (alt.current) return '—';
   const min = alt.deltaSec == null ? 0 : Math.round(alt.deltaSec / 60);
   const parts: string[] = [];
-  if (min !== 0) parts.push(`${min > 0 ? '+' : '−'}${Math.abs(min)} דק׳`);
+  if (min !== 0) parts.push(`${min > 0 ? '+' : '−'}${withUnit('min', Math.abs(min))}`);
   if (alt.equalVolume) parts.push('אותו נפח');
   return parts.join(' · ') || 'אותו זמן';
 }

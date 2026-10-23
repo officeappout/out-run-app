@@ -5,6 +5,7 @@
  * the template name then.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { RunBlock } from '../../types/run-block.type';
 import type { RunKind } from './run-kind';
 import { coreWorkBlocks, findMainRep } from './run-estimates';
@@ -13,9 +14,9 @@ import { coreWorkBlocks, findMainRep } from './run-estimates';
 export function fmtMeters(m: number): string {
   if (m >= 1000) {
     const km = m / 1000;
-    return `${Number.isInteger(km) ? km : km.toFixed(1).replace(/\.0$/, '')} ק״מ`;
+    return withUnit('km', Number.isInteger(km) ? km : km.toFixed(1).replace(/\.0$/, ''));
   }
-  return `${Math.round(m)} מ׳`;
+  return withUnit('m', Math.round(m));
 }
 
 /** 45 → "45 שנ׳", 180 → "3 דק׳", 150 → "2:30 דק׳". */
@@ -24,7 +25,7 @@ export function fmtSeconds(s: number): string {
   if (t < 60) return `${t} שנ׳`;
   const m = Math.floor(t / 60);
   const sec = t % 60;
-  return sec > 0 ? `${m}:${String(sec).padStart(2, '0')} דק׳` : `${m} דק׳`;
+  return sec > 0 ? withUnit('min', `${m}:${String(sec).padStart(2, '0')}`) : withUnit('min', m);
 }
 
 /** Whole minutes for headline numbers ("41"), never 0 for a non-empty run. */
@@ -68,18 +69,18 @@ export function buildRunDisplayTitle(
   const core = coreWorkBlocks(blocks);
   const coreSeconds = core.reduce((s, b) => s + (b.durationSeconds ?? 0), 0);
 
-  if (kind === 'tempo' && coreSeconds > 0) return `טמפו ${roundMinutes(coreSeconds)} דק׳`;
+  if (kind === 'tempo' && coreSeconds > 0) return `טמפו ${withUnit('min', roundMinutes(coreSeconds))}`;
 
   if (kind === 'long') {
     const plannedMeters = core.every((b) => !b.durationSeconds && (b.distanceMeters ?? 0) > 0)
       ? core.reduce((s, b) => s + (b.distanceMeters ?? 0), 0)
       : 0;
     if (plannedMeters > 0) return `ריצה ארוכה ${fmtMeters(plannedMeters)}`;
-    if (totals.seconds) return `ריצה ארוכה ${roundMinutes(totals.seconds)} דק׳`;
+    if (totals.seconds) return `ריצה ארוכה ${withUnit('min', roundMinutes(totals.seconds))}`;
     return null;
   }
 
-  if (kind === 'easy' && totals.seconds) return `ריצה קלה ${roundMinutes(totals.seconds)} דק׳`;
+  if (kind === 'easy' && totals.seconds) return `ריצה קלה ${withUnit('min', roundMinutes(totals.seconds))}`;
 
   // A single continuous block of another kind: "<size> <label>".
   if (rep && rep.count === 1 && core.length === 1) {

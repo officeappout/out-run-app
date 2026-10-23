@@ -12,6 +12,7 @@
  * A stored official route gets +3 over a generated one (the owner prefers real routes).
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { climbReason, findClimbForRoute } from './climb-match';
 import { fitDistance, lapsLabel } from './distance-fit';
@@ -33,8 +34,8 @@ function accessScore(km: number, radiusKm: number): number {
 function accessReason(km: number): string | null {
   if (!Number.isFinite(km)) return null;
   if (km <= 0.15) return 'מתחיל לידך';
-  if (km < 1) return `${Math.round((km * 1000) / 50) * 50} מ׳ ממך`;
-  return `${km.toFixed(1)} ק״מ ממך`;
+  if (km < 1) return `${withUnit('m', Math.round((km * 1000) / 50) * 50)} ממך`;
+  return `${withUnit('km', km.toFixed(1))} ממך`;
 }
 
 /** Climb part 0..1: meets spec 1; profile-proven but short/shallow scaled by grade; terrain hint .6; maxGrade hint .35. */

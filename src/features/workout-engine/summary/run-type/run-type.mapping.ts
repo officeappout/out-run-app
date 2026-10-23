@@ -6,6 +6,7 @@
  * optional `runMeta`, and the running program on the user profile).
  * Anything missing is left out — never invented.
  */
+import { unitLabel, withUnit } from '@/lib/i18n/units';
 import type { MetricRing } from '@/components/ui/v2/MetricRings';
 import type { RepPaceRow } from '@/components/ui/v2/RepPaceTable';
 import { programRingModel, type ProgramRingModel } from '@/components/ui/v2/summary';
@@ -69,7 +70,7 @@ export function repsTitle(records: readonly PlannedBlockRecord[] | null | undefi
   if (d && list.every((r) => r.plannedDistanceMeters === d)) return `${n} × ${fmtDistance(d)}`;
   const t = list[0].plannedDurationSeconds;
   if (t && list.every((r) => r.plannedDurationSeconds === t)) {
-    return t % 60 === 0 ? `${n} × ${t / 60} דק׳` : `${n} × ${fmtClock(t)}`;
+    return t % 60 === 0 ? `${n} × ${withUnit('min', t / 60)}` : `${n} × ${fmtClock(t)}`;
   }
   return null;
 }
@@ -107,7 +108,7 @@ export function runTypeRings(w: RunLike, kind: RunSummaryKind): MetricRing[] {
   const distance: MetricRing = {
     key: 'distance',
     value: km > 0 ? km.toFixed(2) : '--',
-    unit: 'ק״מ',
+    unit: unitLabel('km'),
     label: 'מרחק',
     pct: km > 0 ? 100 : 0,
     color: RING_COLORS.distance,
@@ -122,7 +123,7 @@ export function runTypeRings(w: RunLike, kind: RunSummaryKind): MetricRing[] {
   const pace: MetricRing = {
     key: 'pace',
     value: paceLabel(w.pace),
-    unit: 'דק׳/ק״מ',
+    unit: `${unitLabel('min')}/${unitLabel('km')}`,
     label: 'קצב ממוצע',
     pct: (w.pace ?? 0) > 0 ? 100 : 0,
     color: RING_COLORS.pace,
@@ -147,7 +148,7 @@ export function runTypeRings(w: RunLike, kind: RunSummaryKind): MetricRing[] {
       {
         key: 'repPace',
         value: repPace ? fmtPace(repPace) : '--',
-        unit: 'דק׳/ק״מ',
+        unit: `${unitLabel('min')}/${unitLabel('km')}`,
         label: 'קצב חזרה',
         sub: s.label,
         pct: s.scored > 0 ? Math.round((s.inRange / s.scored) * 100) : repPace ? 100 : 0,
@@ -241,7 +242,7 @@ export interface CourseItem {
 }
 
 function minutesLabel(sec: number): string {
-  return `${Math.max(1, Math.round(sec / 60))} דק׳`;
+  return withUnit('min', Math.max(1, Math.round(sec / 60)));
 }
 
 /** Warm-up · reps in groups of three · cool-down (R4-prop-intervals "מהלך האימון"). */
@@ -365,7 +366,7 @@ export function runTypeModel(w: RunLike, planInput?: RunPlanInput | null): RunTy
   const splits = kmSplitModel(rawSplits, kind === 'free' ? null : mainBand(w.runMeta));
   const extras: RunTypeExtra[] = [];
   if (kind === 'long') {
-    if ((w.elevationGain ?? 0) > 0) extras.push({ key: 'ascent', label: 'עלייה', value: `+${Math.round(w.elevationGain as number)} מ׳` });
+    if ((w.elevationGain ?? 0) > 0) extras.push({ key: 'ascent', label: 'עלייה', value: `+${withUnit('m', Math.round(w.elevationGain as number))}` });
     if (splits?.lastKmPace) extras.push({ key: 'lastKm', label: 'ק״מ אחרון', value: splits.lastKmPace });
   }
   return {

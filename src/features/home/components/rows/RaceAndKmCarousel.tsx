@@ -16,6 +16,9 @@
  * via `h-full`.
  */
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit, unitLabel } from '@/lib/i18n/units';
 import React from 'react';
 import { Footprints, Activity } from 'lucide-react';
 import { useUserStore } from '@/features/user';
@@ -35,6 +38,7 @@ function formatTime(totalSeconds: number): string {
 }
 
 function RacePaceTile() {
+  const tc = useT(common);
   const profile = useUserStore((s) => s.profile);
   const basePace = profile?.running?.paceProfile?.basePace ?? 0;
   const has5kPrediction = basePace > 0;
@@ -45,7 +49,7 @@ function RacePaceTile() {
   return (
     <CompactMetricTile
       icon={<Activity size={16} />}
-      label="צפי 5 ק״מ"
+      label={`צפי ${withUnit('km', 5, tc)}`}
       value={has5kPrediction ? formatTime(fiveKSeconds) : '—'}
       unit={has5kPrediction ? 'ריצה רציפה' : 'נדרש מבחן ריצה'}
       ariaLabel={`צפי לריצת 5 קילומטר: ${has5kPrediction ? formatTime(fiveKSeconds) : 'לא זמין'}`}
@@ -54,6 +58,7 @@ function RacePaceTile() {
 }
 
 function WeeklyKmTile() {
+  const tc = useT(common);
   const { km, loading } = useWeeklyRunningKm();
   // The km are walks + runs together (every cardio workout) — fine, owner 20.10.2026; under
   // enable_home_v2 the label says so. The weekly RUN count is runs only (useWeeklyRunCount).
@@ -65,9 +70,9 @@ function WeeklyKmTile() {
     <CompactMetricTile
       percentage={percentage}
       icon={<Footprints size={16} className="-scale-x-100" />}
-      label={v2 ? 'ק״מ השבוע · הליכה + ריצה' : 'ק״מ השבוע'}
+      label={v2 ? `${unitLabel('km', tc)} השבוע · הליכה + ריצה` : `${unitLabel('km', tc)} השבוע`}
       value={loading ? '—' : km.toFixed(1)}
-      unit={`/ ${target} ק״מ יעד`}
+      unit={`/ ${withUnit('km', target, tc)} יעד`}
       ariaLabel={`קילומטרים שנצברו השבוע: ${loading ? 'טוען' : km.toFixed(1)}`}
     />
   );
