@@ -2,7 +2,9 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { INTRO_IMG, INTRO_UI, type BarrierStory } from '../intro-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
+import { INTRO_IMG, introUi, type BarrierStory } from '../intro-copy';
 import { HANDOFF_S, trackProps } from '../story-timeline';
 import { storyTracks } from '../story-schedule';
 import { IntroShell } from './IntroShell';
@@ -29,6 +31,7 @@ export interface StoryScreenProps {
  * "דלג" are live throughout.
  */
 export function StoryScreen({ story, index, reduce, onNext, onSkip }: StoryScreenProps) {
+  const ui = introUi(useT(onboardingNs));
   const badgeRing = useRef<HTMLSpanElement>(null);
   const [handoff, setHandoff] = useState(!reduce);
   const delay = reduce ? 0 : HANDOFF_S;
@@ -43,7 +46,7 @@ export function StoryScreen({ story, index, reduce, onNext, onSkip }: StoryScree
   }, [handoff]);
 
   return (
-    <IntroShell cta={INTRO_UI.next} onCta={onNext} onSkip={onSkip}>
+    <IntroShell cta={ui.next} onCta={onNext} onSkip={onSkip}>
       <StoryHeader story={story} index={index} reduce={reduce} ringRef={badgeRing} />
 
       <motion.div

@@ -2,7 +2,9 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BARRIER_STORIES, INTRO_UI, RING_GREY, RING_TONES, type BarrierStory } from '../intro-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
+import { BARRIER_STORY_META, introUi, RING_GREY, RING_TONES, type BarrierStory } from '../intro-copy';
 import { BADGE, BADGE_S, trackProps } from '../story-timeline';
 import { BarrierRing } from './BarrierRing';
 import { cy } from './IntroCanvas';
@@ -22,7 +24,8 @@ export interface StoryHeaderProps {
  * + "i מתוך 5"), the two-line title and the sub. Canvas coordinates.
  */
 export function StoryHeader({ story, index, reduce, ringRef }: StoryHeaderProps) {
-  const total = BARRIER_STORIES.length;
+  const ui = introUi(useT(onboardingNs));
+  const total = BARRIER_STORY_META.length;
   return (
     <div
       className="absolute inset-x-0 flex flex-col items-center gap-[9px] px-[26px] text-center"
@@ -41,7 +44,7 @@ export function StoryHeader({ story, index, reduce, ringRef }: StoryHeaderProps)
           />
         </span>
         <span className="text-[13px] font-bold" style={{ color: DEEP }}>{story.barrier}</span>
-        <span className="text-[12px] text-slate-400">{INTRO_UI.of(index + 1, total)}</span>
+        <span className="text-[12px] text-slate-400">{ui.of(index + 1, total)}</span>
       </motion.span>
       <h1 className="m-0 text-[30px] font-bold leading-[35px] !tracking-[-0.02em]">
         {story.titleLines[0]}
