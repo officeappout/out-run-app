@@ -478,3 +478,5 @@ src/features/home/components/SmartWeeklySchedule.tsx
 src/features/home/components/StatsOverview.tsx
 src/features/home/components/widgets/NextRunWorkoutCard.tsx
 src/features/home/utils/day-display.utils.tsx
+src/app/legal/credits/page.tsx
+src/features/parks/client/components/route-preview/RouteOsmSourceLine.tsx

@@ -101,6 +101,7 @@ interface FlagState {
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
   enable_app_session_signal: boolean;
+  enable_osm_attribution: boolean;
   admin_ai_assistant_v1: boolean;
   enable_city_mapping_hub: boolean;
   pyramid_injection_off: boolean;
@@ -792,6 +793,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-slate-600',
     title: 'אנליטיקה: כניסות לאפליקציה',
     description: 'מונה יומי לכל משתמש: כמה פעמים נכנס לאפליקציה וכמה מהכניסות היו מהקשה על פוש — כדי לדעת מי חוזר בלי פוש. בלי מיקום ובלי פרטים אישיים, כתיבה אחת לכניסה (עד 12 ביום). להדליק רק אחרי פריסת חוקי Firestore.',
+  },
+  // OSM attribution + credits page (22.10.2026).
+  {
+    key: 'enable_osm_attribution',
+    icon: Languages,
+    iconBg: 'bg-slate-50',
+    iconColor: 'text-slate-600',
+    title: 'קרדיטים ורישיונות (OpenStreetMap)',
+    description: 'מדליק את דף "רישיונות וקרדיטים" (/legal/credits), את השורה "מקור: OpenStreetMap" במסך פרטי מסלול שמקורו ב-OSM, ואת הקישור אליו מההגדרות. כבוי = הדף מחזיר 404 ושום דבר לא מוצג.',
   },
   // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
   {
