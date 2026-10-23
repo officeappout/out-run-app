@@ -61,10 +61,16 @@ export interface UsePlannedRunWorkoutArgs {
   weatherFlag?: WeatherFlag | null;
   /** Calm return's lighter load, or null. */
   calmLoad: CalmReturnState['load'] | null;
+  /**
+   * Target-only read (run-done state): materialize the workout for its blocks and skip the
+   * copy metadata + the generation-review capture (that card is not being shown). Default
+   * false = exactly the card's loader.
+   */
+  quiet?: boolean;
 }
 
 export function usePlannedRunWorkout({
-  enabled, profile, workoutId, week, currentWeek, weatherFlag = null, calmLoad,
+  enabled, profile, workoutId, week, currentWeek, weatherFlag = null, calmLoad, quiet = false,
 }: UsePlannedRunWorkoutArgs): { workout: RunWorkout | null; loading: boolean } {
   const running = profile?.running;
   const targetDist = running?.generatedProgramTemplate?.targetDistance ?? '5k';
@@ -108,7 +114,8 @@ export function usePlannedRunWorkout({
         );
 
         try {
-          const metadata = await resolveWorkoutMetadata({
+          // quiet = target-only: no copy metadata read.
+          const metadata = quiet ? null : await resolveWorkoutMetadata({
             // `identity` isn't on the store's profile type (same read the card always did).
             persona: (profile as { identity?: { persona?: MetadataPersona | null } } | null | undefined)?.identity?.persona ?? null,
             location: 'park',
@@ -137,17 +144,19 @@ export function usePlannedRunWorkout({
             weather: weatherFlag ?? undefined,
           });
 
-          if (metadata.title) w.title = metadata.title;
-          if (metadata.description) w.description = metadata.description;
-          w.logicCue = metadata.logicCue ?? undefined;
-          w.aiCue = metadata.aiCue ?? undefined;
-          w.metadataSource = metadata.source;
+          if (metadata) {
+            if (metadata.title) w.title = metadata.title;
+            if (metadata.description) w.description = metadata.description;
+            w.logicCue = metadata.logicCue ?? undefined;
+            w.aiCue = metadata.aiCue ?? undefined;
+            w.metadataSource = metadata.source;
+          }
         } catch {
           // Firestore metadata is best-effort — use template fallbacks
         }
 
         setWorkout(w);
-        logPlannedRun(w); // generation review (flag-gated)
+        if (!quiet) logPlannedRun(w); // generation review (flag-gated)
         loadedIdRef.current = workoutId;
         setLoading(false);
       })

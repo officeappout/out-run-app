@@ -130,6 +130,10 @@
   "stage.exercise": "תרגיל {index} מתוך {total}",
   "stage.paused": "מושהה",
   "stage.friends": "החברים",
+  "stage.round": "סבב {round}",
+  "stage.mode.tabata": "טבטה",
+  "stage.mode.emom": "EMOM",
+  "stage.mode.amrap": "AMRAP",
 
   "joined.eyebrow": "מחובר לחדר",
   "joined.title": "הצטרפת לאימון של {host}",

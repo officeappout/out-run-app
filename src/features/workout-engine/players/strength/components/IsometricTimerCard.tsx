@@ -32,6 +32,7 @@ import WideNextUp from '../../shared/v2/WideNextUp';
 import WideKeyHints from '../../shared/v2/WideKeyHints';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import type { CardClockReport } from '../tv/card-clock';
 
 interface IsometricTimerCardProps {
   duration: number;
@@ -89,6 +90,11 @@ interface IsometricTimerCardProps {
   drawer?: SnapDrawerState | null;
   /** enable_wide_player_v1: next exercise for the wide panel's next-up card. */
   nextUp?: { name: string; caption?: string | null; imageUrl?: string | null };
+  /**
+   * enable_tv_mode_v1: told when the clock's phase or pause changes (never per tick), with the reading at that
+   * moment, so a connected TV can show the same clock. Absent (flag off / no TV) = nothing runs.
+   */
+  onClockState?: (r: CardClockReport | null) => void;
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -162,6 +168,7 @@ export default function IsometricTimerCard({
   guidanceLine,
   drawer = null,
   nextUp,
+  onClockState,
 }: IsometricTimerCardProps) {
   // enable_wide_player_v1: the same card as the wide side panel (hero clock, no sheet chrome).
   const { wide } = useWidePlayer();
@@ -180,6 +187,24 @@ export default function IsometricTimerCard({
   // re-runs on [phase, isPaused, duration], so a direct closure would go stale.
   const onCompleteRef = useRef(onComplete);
   useEffect(() => { onCompleteRef.current = onComplete; });
+
+  // ── TV mode: report the clock on phase / pause changes only (elapsed is read as of that render) ──
+  const onClockStateRef = useRef(onClockState);
+  onClockStateRef.current = onClockState;
+  const tvOn = !!onClockState;
+  useEffect(() => {
+    onClockStateRef.current?.({
+      phase,
+      paused: isPaused || externalPaused,
+      elapsedSec: elapsed,
+      prepLeftSec: prepCountdown,
+      prepTotalSec: prepSeconds,
+      durationSec: duration,
+      at: Date.now(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tvOn, phase, isPaused, externalPaused, duration]);
+  useEffect(() => () => onClockStateRef.current?.(null), []);
 
   // ── Reset ───────────────────────────────────────────────────────────────
 

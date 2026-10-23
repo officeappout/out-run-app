@@ -19,6 +19,7 @@ import { useWidePlayer, WidePlayerProvider } from '../../shared/v2/WidePlayerCon
 import AmbientMedia from '../../shared/v2/AmbientMedia';
 import { decidePlayerMode, isAmbientColumn, videoAspect, type VideoAspect } from '../../shared/v2/immersive-mode';
 import ImmersiveOverlay from './ImmersiveOverlay';
+import type { CardClockReport } from '../tv/card-clock';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import ActiveRepsWidePanel from './ActiveRepsWidePanel';
@@ -147,6 +148,8 @@ export interface ActiveExerciseViewProps {
   onSetVideoProgress?: (progress: number) => void;
   /** enable_wide_player_v1: the next exercise, for the wide panel's next-up card. */
   nextUp?: { name: string; caption?: string | null; imageUrl?: string | null };
+  /** enable_tv_mode_v1: the timer card reports its clock here (see IsometricTimerCard). Absent = off. */
+  onClockState?: (r: CardClockReport | null) => void;
   /** enable_wide_player_v1: this exercise's poster — the ambient blurred fill behind a portrait clip. */
   posterUrl?: string | null;
   /** enable_wide_player_v1: true while immersive (the orchestrator hides its header / story bars). */
@@ -196,6 +199,7 @@ export default function ActiveExerciseView({
   autoStartTimer = false,
   onSetVideoProgress,
   nextUp,
+  onClockState,
   posterUrl,
   onImmersiveChange,
   onMinimize,
@@ -263,6 +267,7 @@ export default function ActiveExerciseView({
           guidanceLine={guidanceLine}
           drawer={drawer}
           nextUp={split ? nextUp : undefined}
+          onClockState={onClockState}
         />
   ) : null;
   const videoEl = (

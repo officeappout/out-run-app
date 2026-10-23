@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { animate, type MotionValue } from 'framer-motion';
+import {
+  chainOffset,
+  fingerVelocity,
+  nextChainAnchor,
+  shouldChain,
+  shouldCloseChain,
+} from './sheet-scroll-chain-logic';
 
 export interface UseSheetScrollChainOptions {
   /** Whether the sheet is currently open — listeners are only attached when true. */
@@ -15,7 +22,7 @@ export interface UseSheetScrollChainOptions {
    * When provided the hook uses it directly; otherwise it creates an internal ref.
    */
   scrollRef?: React.RefObject<HTMLDivElement>;
-  /** Minimum downward offset (px) from the snap-back position that triggers dismiss. Default: 160. */
+  /** Minimum downward offset (px) from the snap-back position that triggers dismiss. Default: 120 (the shared Sheet rule). A fast downward flick also closes. */
   threshold?: number;
   /**
    * Drag resistance factor applied to the raw touch deltaY.
@@ -64,7 +71,7 @@ export function useSheetScrollChain({
   y,
   onClose,
   scrollRef: externalRef,
-  threshold = 160,
+  threshold = 120,
   resistance = 0.65,
   snapBackY = 0,
 }: UseSheetScrollChainOptions) {
@@ -77,6 +84,9 @@ export function useSheetScrollChain({
 
   const touchStartY = useRef(0);
   const isChaining = useRef(false);
+  // Last finger sample, for the release velocity (a flick closes too).
+  const lastSample = useRef({ y: 0, t: 0 });
+  const velocityY = useRef(0);
   const animRef = useRef<ReturnType<typeof animate> | null>(null);
 
   /** Cancel any in-flight spring and decide: dismiss or snap back. */
@@ -86,7 +96,7 @@ export function useSheetScrollChain({
       animRef.current = null;
     }
     const currentY = y.get();
-    if (currentY > threshold) {
+    if (shouldCloseChain(currentY, velocityY.current, threshold)) {
       // Let AnimatePresence run the exit animation — just signal close.
       onCloseRef.current();
     } else {
@@ -106,6 +116,8 @@ export function useSheetScrollChain({
 
     const onTouchStart = (e: TouchEvent) => {
       touchStartY.current = e.touches[0].clientY;
+      lastSample.current = { y: touchStartY.current, t: e.timeStamp };
+      velocityY.current = 0;
       isChaining.current = false;
     };
 
@@ -114,23 +126,32 @@ export function useSheetScrollChain({
       // Guard: a missing touch or an unset touchStart yields NaN → y.set(NaN) →
       // opacity=useTransform(y,…)=NaN → "NaN is an invalid value for opacity" warning.
       if (!touch || !Number.isFinite(touchStartY.current)) return;
-      const deltaY = touch.clientY - touchStartY.current;
       const scrollTop = el.scrollTop;
+      // Re-anchor while the content is still scrolling (scrollTop > 0).
+      touchStartY.current = isChaining.current
+        ? touchStartY.current
+        : nextChainAnchor(touchStartY.current, touch.clientY, scrollTop);
+      const deltaY = touch.clientY - touchStartY.current;
+      velocityY.current = fingerVelocity(lastSample.current.y, lastSample.current.t, touch.clientY, e.timeStamp) * resistance;
+      lastSample.current = { y: touch.clientY, t: e.timeStamp };
 
-      if ((scrollTop <= 0 && deltaY > 0) || isChaining.current) {
+      if (shouldChain(scrollTop, deltaY, isChaining.current)) {
         isChaining.current = true;
-        // non-passive → preventDefault() is allowed here
-        e.preventDefault();
+        // non-passive → preventDefault() is allowed (unless the browser already
+        // took the gesture for a native scroll — then it is not cancelable).
+        if (e.cancelable) e.preventDefault();
         if (animRef.current) {
           animRef.current.stop();
           animRef.current = null;
         }
-        y.set(Math.max(0, deltaY * resistance));
+        y.set(chainOffset(deltaY, resistance));
       }
     };
 
-    const onTouchEnd = () => {
+    const onTouchEnd = (e: TouchEvent) => {
       if (!isChaining.current) return;
+      // A finger that rested before lifting is not a flick.
+      if (e.timeStamp - lastSample.current.t > 100) velocityY.current = 0;
       isChaining.current = false;
       resolveGesture();
     };

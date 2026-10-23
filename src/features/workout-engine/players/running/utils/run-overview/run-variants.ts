@@ -15,7 +15,7 @@
 
 import type { RunBlock } from '../../types/run-block.type';
 import { isRestBlock } from '../../lib/planned-rep-results';
-import { coreWorkBlocks, estimateBlockSeconds, findMainRep, type RunPaceContext } from '../run-preview/run-estimates';
+import { coreWorkBlocks, estimateBlockSeconds, estimateRunTotals, findMainRep, type RunPaceContext } from '../run-preview/run-estimates';
 import { blockPhase } from '../run-preview/run-strip';
 import { blockSizeLabel, cleanBlockLabel } from '../run-preview/run-title';
 
@@ -106,11 +106,24 @@ const REP_SUFFIX = /\(\d+\/\d+\)\s*$/;
 const roundTo = (n: number, step: number) => Math.max(step, Math.round(n / step) * step);
 
 function scaleBlock(b: RunBlock, f: number): RunBlock {
-  return {
-    ...b,
-    durationSeconds: b.durationSeconds != null ? roundTo(b.durationSeconds * f, 30) : undefined,
-    distanceMeters: b.distanceMeters != null ? roundTo(b.distanceMeters * f, 100) : undefined,
-  };
+  // Only fields that are really set (> 0) scale: a 0 means "not used" (a distance-based block has
+  // durationSeconds 0) and must stay 0 — roundTo would turn it into the 30 s minimum.
+  const out: RunBlock = { ...b };
+  if (b.durationSeconds != null) out.durationSeconds = b.durationSeconds > 0 ? roundTo(b.durationSeconds * f, 30) : b.durationSeconds;
+  if (b.distanceMeters != null) out.distanceMeters = b.distanceMeters > 0 ? roundTo(b.distanceMeters * f, 100) : b.distanceMeters;
+  return out;
+}
+
+/** Whole-workout minutes shown on a level's option ("קליל · 34׳"); null when it can't be estimated. */
+export function variantMinutes(v: RunVariant, ctx: RunPaceContext): number | null {
+  const sec = estimateRunTotals(v.blocks, ctx).seconds;
+  return sec ? Math.max(1, Math.round(sec / 60)) : null;
+}
+
+/** False when two levels would show the same minutes — the selector would offer no real choice. */
+export function variantsAreDistinct(variants: readonly RunVariant[], ctx: RunPaceContext): boolean {
+  const mins = variants.map((v) => variantMinutes(v, ctx));
+  return mins.every((m) => m != null) && new Set(mins).size === mins.length;
 }
 
 export const LIGHTER_RECOVERY = 4 / 3;

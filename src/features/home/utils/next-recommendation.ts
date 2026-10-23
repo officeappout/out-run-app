@@ -16,6 +16,9 @@
  */
 import type { PlanKind } from './day-plan';
 import { doneKindsOfDoc } from '@/features/workout-engine/hybrid/hybrid-counting';
+import { makeT } from '@/lib/i18n/t';
+import { home } from '@/messages/ns/home';
+import type { HomeT } from './home-run-slot';
 
 export type NextKind = 'walk' | 'run' | 'strength' | 'rest';
 
@@ -107,18 +110,18 @@ export function dropStepsDuplicate<T extends { generatorId: string }>(items: rea
   return shortWalkShown ? items.filter((s) => s.generatorId !== 'safety-net') : [...items];
 }
 
-/** The header above the cards after a workout. */
-export function nextHeaderHe(next: NextRecommendation): string {
+/** The header above the cards after a workout (Hebrew unless a `t` is passed). */
+export function nextHeaderHe(next: NextRecommendation, t: HomeT = makeT('he', home)): string {
   switch (next.kind) {
     case 'walk':
-      return next.why === 'planned' ? 'עוד מחכה לך היום: הליכה' : 'נשארו צעדים — הליכה קצרה תסגור את היום';
+      return next.why === 'planned' ? t('nextHeader.walk.planned') : t('nextHeader.walk.steps');
     case 'strength':
-      if (next.why === 'topup') return 'אימון משלים — לסגור את יעד הכוח של היום';
-      return next.why === 'planned' ? 'עוד מחכה לך היום: אימון כוח' : 'נשאר אימון כוח השבוע';
+      if (next.why === 'topup') return t('nextHeader.strength.topup', { sets: next.sets ?? 0 });
+      return next.why === 'planned' ? t('nextHeader.strength.planned') : t('nextHeader.strength.week');
     case 'run':
-      return next.why === 'planned' ? 'עוד מחכה לך היום: ריצה' : 'נשארה ריצה השבוע';
+      return next.why === 'planned' ? t('nextHeader.run.planned') : t('nextHeader.run.week');
     default:
-      return 'סיימת הכל, מגיע לך מנוחה';
+      return t('nextHeader.rest.done');
   }
 }
 
