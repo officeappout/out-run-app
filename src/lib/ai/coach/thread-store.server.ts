@@ -89,6 +89,8 @@ export interface ThreadSnapshot {
   pending: PendingTurn | null;
   /** Last COACH_HISTORY_TURNS * 2 messages, oldest first. */
   recent: StoredMessage[];
+  /** Unified Kelly: the thread is in the team queue (an open handoff). Absent = not known / no. */
+  needsHuman?: boolean;
 }
 
 const threadRef = (db: Firestore, uid: string) => db.collection(AI_COACH_THREADS).doc(uid);
@@ -150,6 +152,7 @@ export async function loadThread(db: Firestore, uid: string, now = Date.now()): 
     summarizedUntilMs: msOf(t.summarizedUntil),
     pending: parsePending(t.pending, now),
     recent: mSnap.docs.map((d) => toStored(d.id, d.data())).reverse(),
+    ...(t.needsHuman === true ? { needsHuman: true } : {}),
   };
 }
 

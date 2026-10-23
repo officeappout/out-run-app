@@ -442,7 +442,7 @@ export async function POST(request: Request) {
             maxRounds: COACH_MAX_TOOL_ROUNDS,
             maxTokens: modelOptions?.maxTokens ?? COACH_MODEL_MAX_TOKENS,
             ...(modelOptions ? { modelOptions: { thinking: modelOptions.thinking, effort: modelOptions.effort } } : {}),
-            guards: { sheet, todayDow, userGender: gender, ...(round4 ? { round4: true } : {}) },
+            guards: { sheet, todayDow, userGender: gender, ...(round4 ? { round4: true } : {}), ...(thread.needsHuman ? { handoffOpen: true } : {}) },
           },
           state,
           {

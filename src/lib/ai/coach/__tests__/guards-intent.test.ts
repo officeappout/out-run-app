@@ -9,6 +9,7 @@ import {
   correctionNote,
   factsFromEvidence,
   findForeignWords,
+  findHandoffClaim,
   findUngroundedClaims,
   stripForeignWords,
 } from '../reply-guards';
@@ -190,5 +191,20 @@ describe('safety gate — genuine symptoms only', () => {
     expect(safetyReply('chest', 'male')).toContain('אני עוצר');
     expect(safetyReply('chest', 'female')).toContain('התקשרי');
     expect(safetyReply('injury', 'other')).toContain('צריך להתקשר');
+  });
+});
+
+describe('handoff claims need a real handoff (owner thread 18.10.2026: "העברתי להם" with no tool call)', () => {
+  it('flags "passed to the team" when handoff_to_human never ran', () => {
+    for (const t of ['העברתי להם את הבקשה, הם יחזרו אליך.', 'הועבר לצוות קלי.', 'שלחתי את זה לצוות שלנו.']) {
+      expect(findHandoffClaim(t, { toolNames: [] })).not.toBeNull();
+      expect(checkReply(t, null, 'male', { userText: 'x', toolNames: [] }).map((i) => i.kind)).toContain('unconfirmed_handoff');
+    }
+  });
+
+  it('is fine after a real handoff this turn, or while one is open in the queue', () => {
+    expect(findHandoffClaim('העברתי לצוות.', { toolNames: ['handoff_to_human'] })).toBeNull();
+    expect(findHandoffClaim('העברתי לצוות.', { toolNames: [], handoffOpen: true })).toBeNull();
+    expect(findHandoffClaim('אפשר להעביר את זה לצוות אם תרצה.', { toolNames: [] })).toBeNull();
   });
 });

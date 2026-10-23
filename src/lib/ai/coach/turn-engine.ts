@@ -88,6 +88,8 @@ export interface TurnGuardConfig {
   userGender?: CoachGender | null;
   /** Kelly round 4 on (the round 4 "can't" checks). */
   round4?: boolean;
+  /** The thread is already in the team queue (needsHuman): a "passed to the team" line is true. */
+  handoffOpen?: boolean;
 }
 
 export interface TurnConfig {
@@ -261,7 +263,12 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
         const userGender = cfg.guards?.userGender ?? null;
         // "Can't see it" checks need the request and the tools used; only with guards on.
         const blind = cfg.guards
-          ? { userText: turnUserText(state), toolNames: (state.log?.toolCalls ?? []).map((c) => c.name), ...(cfg.guards.round4 ? { round4: true } : {}) }
+          ? {
+              userText: turnUserText(state),
+              toolNames: (state.log?.toolCalls ?? []).map((c) => c.name),
+              ...(cfg.guards.round4 ? { round4: true } : {}),
+              ...(cfg.guards.handoffOpen ? { handoffOpen: true } : {}),
+            }
           : null;
         const issues = checkReply(text, facts, userGender, blind);
         if (issues.length && !state.correctionUsed) {
@@ -353,6 +360,8 @@ function guardType(i: ReplyIssue): string {
       return 'tool_routing';
     case 'unconfirmed_save':
       return 'proposal_not_saved';
+    case 'unconfirmed_handoff':
+      return 'handoff_not_sent';
   }
 }
 
@@ -364,7 +373,7 @@ function issueDetail(i: ReplyIssue): string {
         ? i.words
         : i.kind === 'feminine'
           ? i.forms
-          : i.kind === 'unconfirmed_save'
+          : i.kind === 'unconfirmed_save' || i.kind === 'unconfirmed_handoff'
             ? [i.claim]
             : [`${i.claim} → ${i.tools.join('+')}`];
   return parts.join(', ').slice(0, 200);
