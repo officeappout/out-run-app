@@ -66,7 +66,7 @@ describe('preloadLemurMarkerImages', () => {
     preloadLemurMarkerImages();
     preloadLemurMarkerImages();
     const unique = new Set(Object.values(LEMUR_MARKER_IMAGES));
-    expect(created.sort()).toEqual([...unique].sort());
+    expect(created.sort()).toEqual(Array.from(unique).sort());
     expect(__lemurMarkerCacheSizeForTests()).toBe(unique.size);
   });
 });
