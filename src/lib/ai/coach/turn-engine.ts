@@ -60,6 +60,10 @@ export interface TurnDeps {
 /** The per-message review log (saved as `log` on assistant messages). */
 export interface TurnLog {
   model: string;
+  /** Kelly model routing (ai_coach_smart_routing / ai_coach_fast_thinking live for the user): the tier. Absent = routing off. */
+  tier?: 'fast' | 'smart';
+  /** Why the classifier picked the tier (model-routing.ts RoutingReason, or 'continuation'). */
+  tierReason?: string;
   usage: { in: number; out: number; cacheRead: number };
   toolCalls: Array<{ name: string; input: unknown; resultSummary: string }>;
   guards: Array<{ type: string; action: string }>;
@@ -88,6 +92,11 @@ export interface TurnConfig {
   history: Anthropic.MessageParam[];
   maxRounds: number;
   maxTokens: number;
+  /**
+   * Kelly model routing: thinking + effort for this turn (model-routing.ts coachModelOptions).
+   * Omitted = COACH_THINKING / COACH_EFFORT, the exact request sent before routing existed.
+   */
+  modelOptions?: { thinking: Anthropic.ThinkingConfigParam; effort: 'low' | 'medium' | 'high' };
   /** Reply guards. Omitted → only the Hebrew-only check runs (no grounding facts). */
   guards?: TurnGuardConfig;
 }
@@ -102,6 +111,14 @@ export interface TurnState {
   log?: TurnLog;
   /** The one corrective re-prompt of this turn was used. */
   correctionUsed?: boolean;
+  /** Kelly model routing: the tier this turn runs on, kept across the client-tool round trip. */
+  tier?: 'fast' | 'smart';
+  /**
+   * Kelly model routing: fingerprint of system + tools + history when this state's thinking
+   * blocks were produced. A resumed turn whose prefix changed drops them (stripThinkingBlocks)
+   * instead of replaying them — a replayed block after a prefix edit is a 400 on enforced accounts.
+   */
+  prefixKey?: string;
 }
 
 export interface ClientToolCall {
@@ -183,6 +200,8 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
     turnText: initial.turnText,
     log: initial.log ? JSON.parse(JSON.stringify(initial.log)) : newTurnLog(cfg.model),
     correctionUsed: initial.correctionUsed ?? false,
+    ...(initial.tier ? { tier: initial.tier } : {}),
+    ...(initial.prefixKey ? { prefixKey: initial.prefixKey } : {}),
   };
   const log = state.log!;
   log.model = cfg.model;
@@ -196,8 +215,8 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
       system: cfg.system,
       tools: cfg.tools,
       tool_choice: lastCall ? { type: 'none' } : { type: 'auto' },
-      thinking: COACH_THINKING,
-      output_config: { effort: COACH_EFFORT },
+      thinking: cfg.modelOptions?.thinking ?? COACH_THINKING,
+      output_config: { effort: cfg.modelOptions?.effort ?? COACH_EFFORT },
       messages: [...cfg.history, ...state.turnMessages],
     };
 
@@ -437,6 +456,33 @@ export function resumeWithClientResult(
     turnText: state.turnText,
     log,
     correctionUsed: state.correctionUsed ?? false,
+    ...(state.tier ? { tier: state.tier } : {}),
+    ...(state.prefixKey ? { prefixKey: state.prefixKey } : {}),
+  };
+}
+
+function isThinkingBlock(b: { type: string }): boolean {
+  return b.type === 'thinking' || b.type === 'redacted_thinking';
+}
+
+/** This turn's messages carry thinking blocks (a thinking-on round produced them). */
+export function stateHasThinking(state: TurnState): boolean {
+  return state.turnMessages.some((m) => m.role === 'assistant' && typeof m.content !== 'string' && m.content.some(isThinkingBlock));
+}
+
+/**
+ * Drops every thinking block of this turn (prefixKey cleared). Used when a resumed turn's
+ * prefix (system / tools / history) or model changed since the blocks were produced: removing
+ * thinking blocks is never an "edit" for the API's history check, replaying stale ones is.
+ */
+export function stripThinkingBlocks(state: TurnState): TurnState {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { prefixKey: _pk, ...rest } = state;
+  return {
+    ...rest,
+    turnMessages: state.turnMessages.map((m) =>
+      m.role === 'assistant' && typeof m.content !== 'string' ? { ...m, content: m.content.filter((b) => !isThinkingBlock(b)) } : m,
+    ),
   };
 }
 

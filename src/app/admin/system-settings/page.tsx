@@ -60,6 +60,9 @@ interface FlagState {
   ai_coach_proactive_llm: boolean;
   ai_coach_memory: boolean;
   ai_coach_round4: boolean;
+  ai_coach_smart_routing: boolean;
+  ai_coach_fast_thinking: boolean;
+  ai_coach_model_routing_all_users: boolean;
   enable_keyboard_insets_v1: boolean;
   enable_fast_startup_v1: boolean;
   enable_budget_light_mode: boolean;
@@ -431,6 +434,34 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-fuchsia-500',
     title: 'קלי — סבב 4 (אירובי, פארקים, מזג אוויר, הדרכה)',
     description: 'קלי בונה הליכה או ריצה (וגם ריצה ובסוף בטן, הליכה ועוד כוח) לפי תוכנית הריצה, ובלי תוכנית ריצה מציע את שאלון הריצה ובינתיים ריצה קלה לפי תחושה או הליכה, עם מסלול מעגלי אם יש מיקום. מוצא 3 גינות כושר קרובות לפי הציוד, יודע את מזג האוויר (לפי מתג מזג האוויר), אומר בכנות כשבבית אין מספיק תוכן ברמה של המשתמש ומציע גינה. "איך משתמשים": הסיור הראשון אפשר להפעיל שוב מההגדרות ומקלי, ומסך "איך משתמשים ושאלות נפוצות" עם חיפוש. כבוי = כמו היום.',
+    parentKey: 'ai_coach_enabled',
+  },
+  // Kelly model routing (23.10.2026).
+  {
+    key: 'ai_coach_smart_routing',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — מודל חכם לשאלות מורכבות',
+    description: 'הודעות פשוטות (שלום, תודה, "מה יש לי היום", "מה הרמה שלי") נשארות על המודל המהיר והזול. בקשות מורכבות — בניית אימון או שינוי שלו, שילובים ("מתח ופלאנץ׳", "ריצה ובסוף בטן"), טבטה / EMOM / AMRAP / משהו עצים או קצר, תכנון השבוע ושינוי לו״ז, הודעה ארוכה עם כמה בקשות, תלונה או תיקון ("לא קשור", "למה", "טעית") והמשך של שיחה כזו — עוברות למודל החכם (Sonnet), שחושב לפני שהוא עונה. ⚠️ תור במודל החכם יקר בערך פי 20 מתור במודל המהיר. כבוי = כמו היום (הכול על המודל המהיר).',
+    parentKey: 'ai_coach_enabled',
+  },
+  {
+    key: 'ai_coach_fast_thinking',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — המודל המהיר חושב לפני שעונה',
+    description: 'גם בתשובות של המודל המהיר (Haiku) קלי חושב קצת לפני התשובה, במקום לענות מיד. תשובות טבעיות יותר, קצת יותר איטי ויקר (עדיין זול מאוד). כבוי = כמו היום.',
+    parentKey: 'ai_coach_enabled',
+  },
+  {
+    key: 'ai_coach_model_routing_all_users',
+    icon: ShieldAlert,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — מודל חכם / חשיבה: לכל המשתמשים',
+    description: 'כבוי = שני המתגים "מודל חכם לשאלות מורכבות" ו"המודל המהיר חושב" פועלים רק לסופר-אדמינים (לבדיקה על החשבון שלך). דלוק = לכל המשתמשים עם AI. בשימוש בקלי, כל תור נרשם בעלויות לפי המודל (ai_coach_chat_fast / ai_coach_chat_smart).',
     parentKey: 'ai_coach_enabled',
   },
   // iOS keyboard insets (19.10.2026).

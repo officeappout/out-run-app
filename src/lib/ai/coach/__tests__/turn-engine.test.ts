@@ -9,6 +9,8 @@ import {
   newTurnState,
   resumeWithClientResult,
   runCoachTurn,
+  stateHasThinking,
+  stripThinkingBlocks,
   type TurnConfig,
   type TurnDeps,
 } from '../turn-engine';
@@ -342,5 +344,89 @@ describe('dropHebrewlessSentences', () => {
     expect(dropHebrewlessSentences(',.')).toBe('');
     expect(dropHebrewlessSentences('בודק.\n,.\nעוד רגע.')).toBe('בודק.\nעוד רגע.');
     expect(dropHebrewlessSentences('יש לך 2 אימונים.')).toBe('יש לך 2 אימונים.');
+  });
+});
+
+// ─── Kelly model routing (model-routing.ts) ───────────────────────────────────
+
+
+describe('runCoachTurn — model options (Kelly model routing)', () => {
+  it('no modelOptions → byte-identical params to the pre-routing request', async () => {
+    const { deps, calls } = harness([msg('end_turn', { type: 'text', text: 'היי' })]);
+    await runCoachTurn(CFG, newTurnState('שלום'), deps);
+    expect(JSON.stringify(calls[0])).toBe(
+      JSON.stringify({
+        model: 'claude-haiku-5-5',
+        max_tokens: 600,
+        system: [{ type: 'text', text: 'sys' }],
+        tools: [],
+        tool_choice: { type: 'auto' },
+        thinking: { type: 'disabled' },
+        output_config: { effort: 'low' },
+        messages: [{ role: 'user', content: 'שלום' }],
+      }),
+    );
+  });
+
+  it('modelOptions → adaptive thinking + effort on every call of the turn', async () => {
+    const { deps, calls } = harness([
+      msg('tool_use', { type: 'tool_use', id: 't1', name: 'get_user_context', input: {} }),
+      msg('end_turn', { type: 'text', text: 'הנה' }),
+    ]);
+    await runCoachTurn(
+      { ...CFG, model: 'claude-sonnet-5-5', maxTokens: 6000, modelOptions: { thinking: { type: 'adaptive' }, effort: 'medium' } },
+      newTurnState('תבנה לי שבוע'),
+      deps,
+    );
+    expect(calls).toHaveLength(2);
+    for (const c of calls) {
+      expect(c.model).toBe('claude-sonnet-5-5');
+      expect(c.thinking).toEqual({ type: 'adaptive' });
+      expect(c.output_config).toEqual({ effort: 'medium' });
+      expect(c.max_tokens).toBe(6000);
+    }
+  });
+
+  it('tier + prefixKey survive the run and the client round trip', async () => {
+    const { deps } = harness([msg('tool_use', { type: 'tool_use', id: 'gw', name: 'generate_workout', input: WORKOUT_INPUT })]);
+    const initial = { ...newTurnState('אימון בטן'), tier: 'smart' as const, prefixKey: 'k1' };
+    const out = await runCoachTurn(CFG, initial, deps);
+    expect(out.kind).toBe('client_tool');
+    expect(out.state).toMatchObject({ tier: 'smart', prefixKey: 'k1' });
+    const resumed = resumeWithClientResult(out.state, [], { type: 'tool_result', tool_use_id: 'gw', content: '{}' });
+    expect(resumed).toMatchObject({ tier: 'smart', prefixKey: 'k1' });
+  });
+
+  it('without routing the persisted state carries no tier / prefixKey keys', async () => {
+    const { deps } = harness([msg('tool_use', { type: 'tool_use', id: 'gw', name: 'generate_workout', input: WORKOUT_INPUT })]);
+    const out = await runCoachTurn(CFG, newTurnState('אימון בטן'), deps);
+    expect(Object.keys(out.state).sort()).toEqual(['correctionUsed', 'log', 'roundsUsed', 'turnMessages', 'turnText']);
+  });
+});
+
+describe('stripThinkingBlocks', () => {
+  it('drops thinking / redacted_thinking blocks and the prefixKey, keeps tool_use', () => {
+    const state = {
+      ...newTurnState('x'),
+      prefixKey: 'k',
+      tier: 'smart' as const,
+      turnMessages: [
+        { role: 'user' as const, content: 'x' },
+        {
+          role: 'assistant' as const,
+          content: [
+            { type: 'thinking', thinking: '', signature: 'sig' },
+            { type: 'redacted_thinking', data: 'd' },
+            { type: 'tool_use', id: 'gw', name: 'generate_workout', input: {} },
+          ] as Anthropic.ContentBlockParam[],
+        },
+      ],
+    };
+    expect(stateHasThinking(state)).toBe(true);
+    const out = stripThinkingBlocks(state);
+    expect(stateHasThinking(out)).toBe(false);
+    expect((out.turnMessages[1].content as Anthropic.ContentBlockParam[]).map((b) => b.type)).toEqual(['tool_use']);
+    expect('prefixKey' in out).toBe(false);
+    expect(out.tier).toBe('smart');
   });
 });

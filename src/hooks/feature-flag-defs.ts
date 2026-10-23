@@ -243,6 +243,19 @@ export const FLAG_DEFS = [
   // server is the enforcer (route.ts reads the real value). Fail-closed; superAdminValue false.
   // Off = byte-identical Kelly (prompt, tools, stream, stored messages) and no hub row.
   { key: 'aiCoachRound4', firestoreKey: 'ai_coach_round4', defaultValue: false, superAdminValue: false },
+  // Kelly model routing (23.10.2026, owner-approved — src/lib/ai/coach/model-routing.ts). The
+  // server is the enforcer (the chat route reads the real values via the Admin SDK and applies
+  // the audience gate itself). All three fail-closed; superAdminValue false — the panel toggles
+  // are the switches. Off = byte-identical Kelly request (Haiku, thinking off, effort low).
+  // aiCoachSmartRouting — per turn: simple messages stay on the fast model (Haiku 5.5), complex
+  // ones (build / change a workout, week planning, long messages, complaints, follow-ups of a
+  // smart turn) go to the smart model (Sonnet 5.5) with adaptive thinking. Costs more per turn.
+  { key: 'aiCoachSmartRouting', firestoreKey: 'ai_coach_smart_routing', defaultValue: false, superAdminValue: false },
+  // aiCoachFastThinking — fast-model turns run with adaptive thinking at effort medium.
+  { key: 'aiCoachFastThinking', firestoreKey: 'ai_coach_fast_thinking', defaultValue: false, superAdminValue: false },
+  // aiCoachModelRoutingAllUsers — audience for BOTH flags above: OFF = super admins only (the
+  // owner tries it alone first), ON = every AI user.
+  { key: 'aiCoachModelRoutingAllUsers', firestoreKey: 'ai_coach_model_routing_all_users', defaultValue: false, superAdminValue: false },
   // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
   // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
   // the focused field is scrolled into view, and the Capacitor Keyboard plugin is

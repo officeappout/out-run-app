@@ -5,6 +5,7 @@
  * budget, per-user rate limit). Every model call goes through the Phase 0 wrapper
  * (getAnthropicClient / getAiModel('fast') / withPromptCaching) and is logged with
  * recordAiUsage. Protocol: src/lib/ai/coach/protocol.ts. Turn loop: turn-engine.ts.
+ * Model routing (flags, default off): complex turns on getAiModel('smart') — model-routing.ts.
  *
  * Rate limit: one user message = one unit. The client-tool continuation ({toolResult}) is a
  * second request that passes the same gate EXCEPT the per-user rate limit (kill switch and
@@ -19,6 +20,7 @@
  * the fixed safety reply. Without unified Kelly the denial is returned as before (the screen
  * shows its error card).
  */
+import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import type { AiDenial } from '@/lib/ai/verify-ai-request.server';
 import Anthropic from '@anthropic-ai/sdk';
@@ -48,9 +50,19 @@ import {
   newTurnState,
   resumeWithClientResult,
   runCoachTurn,
+  stateHasThinking,
+  stripThinkingBlocks,
   turnUserText,
   type TurnState,
 } from '@/lib/ai/coach/turn-engine';
+import {
+  classifyCoachTurn,
+  coachModelOptions,
+  coachModelRoutingFor,
+  coachUsageFeature,
+  isModelRoutingActive,
+  type CoachModelTier,
+} from '@/lib/ai/coach/model-routing';
 import {
   appendAiPausedUserMessage,
   appendMessage,
@@ -81,8 +93,6 @@ import { weekBuilderFor } from '@/lib/ai/coach/schedule-proposal/builder-gate';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-const FEATURE = 'ai_coach_chat';
 
 function streamErrorCode(err: unknown): CoachStreamErrorCode {
   if (err instanceof Anthropic.RateLimitError) return 'rate_limited';
@@ -249,7 +259,28 @@ export async function POST(request: Request) {
   // earlier turns; this turn's messages travel in `state`.
   const history = historyToModelMessages(unified ? labelTeamMessagesForModel(thread.recent) : thread.recent);
 
-  const model = getAiModel('fast');
+  // Kelly model routing (ai_coach_smart_routing / ai_coach_fast_thinking, audience gate
+  // ai_coach_model_routing_all_users — model-routing.ts). Off for this user = tier 'fast',
+  // no model options, label 'ai_coach_chat': the exact request and ledger write as before.
+  const routing = coachModelRoutingFor(auth.flags, profile.core?.isSuperAdmin === true);
+  const routingActive = isModelRoutingActive(routing);
+  let tier: CoachModelTier = 'fast';
+  let tierReason: string | null = null;
+  if (routing.smartRouting) {
+    if ('toolResult' in body) {
+      // The rest of a turn that already went smart stays smart (same model for its thinking).
+      tier = state.tier === 'smart' ? 'smart' : 'fast';
+      tierReason = 'continuation';
+    } else {
+      const lastKelly = [...thread.recent].reverse().find((m) => m.role === 'assistant' && m.source !== 'human');
+      const decision = classifyCoachTurn({ text: turnUserText(state), previousTurnSmart: lastKelly?.tier === 'smart' });
+      tier = decision.tier;
+      tierReason = decision.reason;
+    }
+  }
+  const model = getAiModel(tier);
+  const modelOptions = coachModelOptions(tier, routing);
+  const usageFeature = coachUsageFeature(tier, routing);
   // Schedule advisor (phase A): read-only recommend_week / recommend_today, the sheet's
   // plan section, the derived "done" for today, the open_builder chip. Fail-closed: a flag
   // read error returns the FLAG_DEFS defaults (off).
@@ -350,6 +381,26 @@ export async function POST(request: Request) {
     },
   ];
 
+  if (routingActive) {
+    state.tier = tier;
+    if (state.log) {
+      state.log.tier = tier;
+      if (tierReason) state.log.tierReason = tierReason;
+    }
+  }
+  // Thinking blocks are bound to the model and to the exact system / tools / history they were
+  // produced under. A resumed turn whose prefix changed (the session block is rebuilt per
+  // request: hour, sheet, nudge state) or that now runs without thinking drops them instead of
+  // replaying them — a replay after a prefix edit is a 400 on enforced accounts.
+  if (stateHasThinking(state) || modelOptions) {
+    const prefixKey = createHash('sha256').update(JSON.stringify({ model, system, tools: cached.tools ?? [], history })).digest('hex').slice(0, 32);
+    if (stateHasThinking(state) && (!modelOptions || state.prefixKey !== prefixKey)) {
+      state = stripThinkingBlocks(state);
+      state.log?.guards.push({ type: 'model_routing', action: 'dropped_stale_thinking_blocks' });
+    }
+    if (modelOptions) state.prefixKey = prefixKey;
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -384,7 +435,8 @@ export async function POST(request: Request) {
             tools: cached.tools ?? [],
             history,
             maxRounds: COACH_MAX_TOOL_ROUNDS,
-            maxTokens: COACH_MODEL_MAX_TOKENS,
+            maxTokens: modelOptions?.maxTokens ?? COACH_MODEL_MAX_TOKENS,
+            ...(modelOptions ? { modelOptions: { thinking: modelOptions.thinking, effort: modelOptions.effort } } : {}),
             guards: { sheet, todayDow, userGender: gender, ...(round4 ? { round4: true } : {}) },
           },
           state,
@@ -396,7 +448,7 @@ export async function POST(request: Request) {
               const s = getAnthropicClient().messages.stream(params);
               s.on('text', (delta) => onText(delta));
               const final = await s.finalMessage();
-              await recordAiUsage(uid, model, usageFromSdk(final.usage), { feature: FEATURE });
+              await recordAiUsage(uid, model, usageFromSdk(final.usage), routingActive ? { feature: usageFeature, featureCost: true } : { feature: usageFeature });
               return final;
             },
             executeServerTool: (name, input) => executeServerTool(toolCtx, name, input),
