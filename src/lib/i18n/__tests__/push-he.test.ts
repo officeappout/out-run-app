@@ -22,6 +22,46 @@ const old = JSON.parse(
 
 const t = makeT('he', push);
 
+/** Keys of the library defaults: `<pushType>.<index>.title|body`. */
+const isDefaultKey = (k: string) => /^[a-z_]+\.\d+\.(title|body)$/.test(k);
+
+/**
+ * The other static push words (senders + the first-week home card), each pasted VERBATIM from the code
+ * as it was on origin/main before the extraction.
+ */
+const OLD_SENDER_LITERALS: Record<string, string> = {
+  'chat.someone': 'מישהו',
+  'chat.newMessage': '💬 הודעה חדשה',
+  'kudos.someone': 'מישהו',
+  'kelly.pushTitle': 'קלי',
+  'legacy.friend': 'חבר',
+  'legacy.near': 'קרוב',
+  'workoutType.strength': 'אימון כוח',
+  'workoutType.cardio': 'ריצה',
+  'workoutType.maintenance': 'אימון קל',
+  'workoutType.walking': 'הליכה',
+  'workoutType.generic': 'אימון',
+  'firstWeekCard.welcome.title': 'הכול מוכן',
+  'firstWeekCard.welcome.body': 'בנינו לך אימון ראשון של 12 דקות. בלי ציוד, בלי לחץ.',
+  'firstWeekCard.routine.title': 'האימון שלך מחכה בכניסה',
+  'firstWeekCard.routine.body': 'הוא כבר חימם את עצמו. 12 דקות ואתם חברים',
+  'firstWeekCard.low_bar.title': 'הורדנו את הרף. ממש נמוך',
+  'firstWeekCard.low_bar.body': '10 דקות הליכה. זה הכול. גם זה נספר',
+  'firstWeekCard.low_bar.cta': 'יוצאים להליכה',
+  'firstWeekCard.social.title': 'לא חייבים לבד',
+  'firstWeekCard.social.body': 'בגינות ליד הבית יש אנשים שמתאמנים. בואו לראות מי',
+  'firstWeekCard.social.cta': 'למפה',
+  'firstWeekCard.steps.title': 'הרגליים עשו עבודה יפה היום',
+  'firstWeekCard.steps.body': 'כל צעד נספר. סיבוב קצר מסביב לבניין סוגר יום',
+  'firstWeekCard.steps.cta': 'לצעדים של היום',
+  'firstWeekCard.evening.title': 'היום היה של כולם',
+  'firstWeekCard.evening.body': '10 הדקות הבאות יכולות להיות רק שלך',
+  'firstWeekCard.in_app.title': 'עוד יום והשבוע הראשון מאחורינו',
+  'firstWeekCard.in_app.body': 'אימון קצר של 10 דקות, ומתחילים אותו ברגל ימין',
+  'firstWeekCard.fresh_start.title': 'שבוע חדש, דף חדש',
+  'firstWeekCard.fresh_start.body': 'בלי להסתכל אחורה. אימון של 10 דקות ומתחילים',
+};
+
 describe('push (he) — every key equals the old literal', () => {
   it('covers every default of every pushType, no more, no fewer', () => {
     const expected: Record<string, string> = {};
@@ -29,8 +69,21 @@ describe('push (he) — every key equals the old literal', () => {
       expected[`${e.pushType}.${i}.title`] = d.title;
       expected[`${e.pushType}.${i}.body`] = d.body;
     });
-    expect(Object.keys(he)).toEqual(Object.keys(expected));
+    expect(Object.keys(he).filter(isDefaultKey)).toEqual(Object.keys(expected));
     for (const [key, literal] of Object.entries(expected)) expect(t(key as keyof typeof he)).toBe(literal);
+  });
+
+  it('sender words and the first-week card: every key equals the old literal; templated keys keep their old shape', () => {
+    expect(Object.keys(he).filter((k) => !isDefaultKey(k)).sort()).toEqual(
+      [...Object.keys(OLD_SENDER_LITERALS), 'distance.meters', 'distance.km', 'firstWeekCard.welcome.titleNamed'].sort(),
+    );
+    for (const [key, literal] of Object.entries(OLD_SENDER_LITERALS)) expect(t(key as keyof typeof he)).toBe(literal);
+    // the old templates: `${meters} מטר`, `${(m / 1000).toFixed(1)} ק"מ`, `${name}, הכול מוכן`
+    for (const m of [0, 1, 999, 999.5, 1234, 1234567]) expect(t('distance.meters', { meters: String(m) })).toBe(`${m} מטר`);
+    for (const m of [1000, 1049, 1050, 1234567]) expect(t('distance.km', { km: (m / 1000).toFixed(1) })).toBe(`${(m / 1000).toFixed(1)} ק"מ`);
+    for (const name of ['דנה', "O'Neil {x} <b>", '{name}', '#', 'a,b', '1234']) {
+      expect(t('firstWeekCard.welcome.titleNamed', { name })).toBe(`${name}, הכול מוכן`);
+    }
   });
 
   it('the live catalog resolves to the same text', () => {
@@ -42,7 +95,7 @@ describe('push (he) — every key equals the old literal', () => {
   });
 
   it('plain copy: the same text for male / female / other / unset gender and any number (no ICU branches to miss)', () => {
-    for (const key of Object.keys(he) as Array<keyof typeof he>) {
+    for (const key of (Object.keys(he) as Array<keyof typeof he>).filter(isDefaultKey)) {
       for (const gender of ['male', 'female', 'other', undefined, 'whatever']) {
         expect(t(key, { gender })).toBe(he[key]);
       }
@@ -51,7 +104,10 @@ describe('push (he) — every key equals the old literal', () => {
   });
 
   it('no message contains ICU syntax (copy uses @vars, never braces, quotes or tags)', () => {
-    for (const [key, msg] of Object.entries(he)) expect(/[{}'<>]/.test(msg), key).toBe(false);
+    for (const [key, msg] of Object.entries(he)) {
+      if (/^(distance\.|firstWeekCard\.welcome\.titleNamed$)/.test(key)) continue; // the three templated keys: one {arg} each
+      expect(/[{}'<>]/.test(msg), key).toBe(false);
+    }
   });
 });
 

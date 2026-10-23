@@ -102,6 +102,7 @@ import type { PersonaResolvableProfile } from './services/persona-alias-map.serv
 import { resolveUserStepGoal } from './lib/resolveUserStepGoal';
 import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
 import { isDemoUid } from './lib/demo';
+import { getT } from './shared/i18n-t';
 import { readEngagementFlags, resolveTonedCopy, toneSegmentFrom } from './services/push-tone.service';
 import { toneOrder, type PushTone } from './shared/first-week.core';
 
@@ -261,7 +262,8 @@ async function withResolvedGoals(users: CandidateUser[], dateStr: string): Promi
 
 /** @מרחק — same formatting the client-side tag used (meters under 1 km). */
 function formatDistance(meters: number): string {
-  return meters < 1000 ? `${meters} מטר` : `${(meters / 1000).toFixed(1)} ק"מ`;
+  const t = getT('he', 'push'); // the user's locale arrives with wave 5B
+  return meters < 1000 ? t('distance.meters', { meters: String(meters) }) : t('distance.km', { km: (meters / 1000).toFixed(1) });
 }
 
 /** Push-library context for one user at one bucket. Exported for tests. */

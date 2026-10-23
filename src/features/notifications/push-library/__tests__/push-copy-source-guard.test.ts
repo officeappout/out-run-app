@@ -3,7 +3,7 @@
  * descriptions and "when sent" notes are Hebrew-only by decision, so Check 5 would block legitimate edits), so
  * this test is the guard for the part that IS copy: every `defaults[].title|body` must be a `T('<pushType>.<i>.title|body')`
  * call whose key exists in src/messages/he/push.json — a Hebrew literal there fails the test — and every
- * catalog key must be used by exactly one default.
+ * default key in the catalog (`<pushType>.<index>.title|body`) must be used by exactly one default.
  */
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -46,7 +46,7 @@ describe('push-library.core.ts defaults are catalog keys', () => {
   });
 
   it('the catalog and the code use exactly the same keys', () => {
-    expect([...used].sort()).toEqual(Object.keys(he).sort());
+    expect([...used].sort()).toEqual(Object.keys(he).filter((k) => /^[a-z_]+\.\d+\.(title|body)$/.test(k)).sort());
     expect(new Set(used).size).toBe(used.length);
   });
 });

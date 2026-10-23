@@ -16,10 +16,10 @@ import { makeT } from '@/lib/i18n/t';
 import { push } from '@/messages/ns/push';
 import { isLocale, SOURCE_LOCALE } from '@/lib/i18n/locales';
 
-/** A key of the `push` namespace → its text. Untyped on purpose: the keys are built from `<pushType>.<index>`. */
-export type PushCopyT = (key: string) => string;
+/** A key of the `push` namespace (+ ICU values, all strings) → its text. Untyped on purpose: the keys are built from `<pushType>.<index>`. */
+export type PushCopyT = (key: string, values?: Record<string, string>) => string;
 
 export function pushCopyT(locale: string = SOURCE_LOCALE): PushCopyT {
   const t = makeT(isLocale(locale) ? locale : SOURCE_LOCALE, push);
-  return (key) => (t as unknown as (k: string) => string)(key);
+  return (key, values) => (t as unknown as (k: string, v?: Record<string, string>) => string)(key, values);
 }

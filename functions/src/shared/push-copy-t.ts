@@ -7,10 +7,10 @@
 import { makeT } from './i18n-t';
 import { SOURCE_LOCALE } from './locales';
 
-/** A key of the `push` namespace → its text. Untyped on purpose: the keys are built from `<pushType>.<index>`. */
-export type PushCopyT = (key: string) => string;
+/** A key of the `push` namespace (+ ICU values, all strings) → its text. Untyped on purpose: the keys are built from `<pushType>.<index>`. */
+export type PushCopyT = (key: string, values?: Record<string, string>) => string;
 
 export function pushCopyT(locale: string = SOURCE_LOCALE): PushCopyT {
   const t = makeT(locale, 'push');
-  return (key) => t(key);
+  return (key, values) => t(key, values);
 }

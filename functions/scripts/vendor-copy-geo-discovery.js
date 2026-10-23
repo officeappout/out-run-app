@@ -254,9 +254,10 @@ if (missingPackages.size > 0) {
 // src/features/user/scheduling/utils/__tests__/recurring-day.core.test.ts,
 // src/features/activity/lib/__tests__/streak-day.core.test.ts), so drift can't merge.
 // Mirrored files that may import ONE hand-written sibling, because the sibling exists in both trees under the
-// same relative name with the same API: push-library.core.ts → ./push-copy-t (i18n wave 2A).
+// same relative name with the same API: push-library.core.ts and first-week.core.ts → ./push-copy-t (i18n wave 2A).
 const MIRROR_SIBLING_IMPORTS = {
   'src/features/notifications/push-library/push-library.core.ts': ['./push-copy-t'],
+  'src/features/notifications/first-week/first-week.core.ts': ['./push-copy-t'],
 };
 const COMMITTED_MIRRORS = {
   // The ONE step-goal resolver — app + stepGoalNudgeScheduler / pushOutcomeSweeper.

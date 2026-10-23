@@ -7,6 +7,8 @@
  *   - stepGoalCopyContext: the vars of the step-goal push (@מרחק across the meters/km boundary, @דקות...)
  * Pure functions: no clock involved.
  */
+import { readFileSync } from 'fs';
+import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('firebase-admin', () => {
@@ -23,6 +25,8 @@ vi.mock('geofire-common', () => ({ geohashQueryBounds: () => [['0', '~']], dista
 import { personaliseNotificationText } from '../services/notification-content.service';
 import { categoryLabel } from '../trainingReminderScheduler';
 import { stepGoalCopyContext, type CandidateUser } from '../stepGoalNudgeScheduler';
+import { chatBodyOrFallback, chatSenderName } from '../chatMessageNotification';
+import { KELLY_PUSH_TITLE } from '../onKellyThreadMessage';
 
 const snap = (name: string) => `./__snapshots__/push-senders-copy-i18n/${name}.json`;
 const json = (v: unknown) => JSON.stringify(v, null, 2) + '\n';
@@ -73,5 +77,36 @@ describe('static words around the push copy', () => {
       }
     }
     await expect(json(out)).toMatchFileSnapshot(snap('step-goal-vars'));
+  });
+});
+
+/** Added after the extraction: the handler-only words, compared with the literals as they were (pasted verbatim). */
+describe('handler-only words equal the old literals', () => {
+  it('chat push: sender-name fallback and empty-body line', () => {
+    for (const raw of [undefined, null, '', '   ', 42, {}]) expect(chatSenderName(raw)).toBe('מישהו');
+    expect(chatSenderName('  דנה כהן ')).toBe('דנה כהן');
+    expect(chatBodyOrFallback('')).toBe('💬 הודעה חדשה');
+    expect(chatBodyOrFallback('היי')).toBe('היי');
+  });
+
+  it("Kelly's push title", () => {
+    expect(KELLY_PUSH_TITLE).toBe('קלי');
+  });
+
+  it('the moved literals are gone from the sender sources (guard against re-adding them)', () => {
+    const dir = path.resolve(__dirname, '..');
+    const banned: Record<string, string[]> = {
+      'chatMessageNotification.ts': ["'מישהו'", "'💬 הודעה חדשה'"],
+      'onKudosCreated.ts': ["'מישהו'"],
+      'onKellyThreadMessage.ts': ["'קלי'"],
+      'services/notification-content.service.ts': ["'חבר'", "'קרוב'", 'מטר`', 'ק"מ`'],
+      'stepGoalNudgeScheduler.ts': ['מטר`', 'ק"מ`'],
+      'trainingReminderScheduler.ts': ["'אימון כוח'", "'ריצה'", "'אימון קל'", "'הליכה'", "'אימון'"],
+    };
+    for (const [file, list] of Object.entries(banned)) {
+      // code only: comment lines may still name the fallback words
+      const src = readFileSync(path.join(dir, file), 'utf8').split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+      for (const lit of list) expect(src.includes(lit), `${file} still has ${lit}`).toBe(false);
+    }
   });
 });
