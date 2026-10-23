@@ -18,7 +18,8 @@
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import Map, { Source, Layer, Popup, type MapRef, type MapLayerMouseEvent } from 'react-map-gl';
+import { attributionControlStyle } from '@/lib/map-attribution';
+import Map, { Source, Layer, Popup, AttributionControl, type MapRef, type MapLayerMouseEvent } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Activity, Users, Filter, Clock, Radio, Loader2, CalendarDays, Route as RouteIcon, Trees } from 'lucide-react';
 import {
@@ -473,6 +474,12 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
         onMouseLeave={handleMapMouseLeave}
         cursor={hoveredRoute || hoveredPark ? 'pointer' : 'auto'}
       >
+        {/* Legal: streets-v12 is OSM-derived (ODbL) — compact credit, lifted above the stats panel. */}
+        <AttributionControl
+          compact
+          position="bottom-right"
+          style={attributionControlStyle(!!stats && stats.totalActive > 0)}
+        />
         <Source id="active-workouts" type="geojson" data={geojson}>
           <Layer {...HEATMAP_LAYER_STYLE} />
         </Source>

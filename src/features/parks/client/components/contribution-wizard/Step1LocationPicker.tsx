@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import Map, { Marker, MapRef } from 'react-map-gl';
+import Map, { Marker, AttributionControl, MapRef } from 'react-map-gl';
 import { MapPin, AlertTriangle, Dumbbell, Armchair, Dog, Droplet, type LucideIcon } from 'lucide-react';
 import { useWizardV2, V2_LABEL, v2Card, v2Chip, V2PrimaryButton } from './wizard-v2';
 import { checkDuplicateNearby } from '@/features/parks/core/services/contribution.service';
@@ -124,6 +124,8 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
             onClick={handleMapClick}
             attributionControl={false}
           >
+            {/* Legal: streets-v12 is OSM-derived (ODbL) — compact credit, bottom-right. */}
+            <AttributionControl compact position="bottom-right" />
             {data.location && (
               <Marker latitude={data.location.lat} longitude={data.location.lng} anchor="bottom">
                 <div className="animate-bounce">
