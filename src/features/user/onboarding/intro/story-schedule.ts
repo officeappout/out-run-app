@@ -8,11 +8,16 @@
  * next one starts, with hold times derived from the copy length:
  *
  *   1 thought   — bubble eases in (≤300 ms), holds readMs(thought), eases out
- *   2 phone     — appears small next to the person, the push "dings" onto it
+ *   2 phone     — appears small next to the person
  *   3 grow      — the person fades while the phone grows to the centre
- *   4 read      — the push, now full size, holds readMs(push)
+ *   4 push      — the push slides in on the FULL-SIZE phone and holds pushHoldMs(push)
  *   5 tap       — the finger taps it, the lock screen fades to the app screen
  *   6 happy     — the happy person settles in the bottom corner
+ *
+ * Owner notes 23.10: the push still read as "too short / stuck" — it landed on
+ * the 42 % phone (too small to see it arrive), rode the grow without moving, and
+ * held only its bare reading time. It now arrives at full size, where its
+ * slide-in is visible, and holds reading time + a settle beat (≥ 2.5 s).
  *
  * Pure data, no React. Times are seconds from the story's start (after the ring
  * hand-off); `storyTracks` turns them into the 0..1 Tracks trackProps plays.
@@ -34,6 +39,14 @@ export function readMs(text: string): number {
   return Math.max(READ_MIN_MS, readableLength(text) * READ_MS_PER_CHAR);
 }
 
+/** The push stays up for its reading time plus a settle beat, never under 2.5 s. */
+export const PUSH_HOLD_MIN_MS = 2500;
+export const PUSH_SETTLE_MS = 800;
+
+export function pushHoldMs(text: string): number {
+  return Math.max(PUSH_HOLD_MIN_MS, readMs(text) + PUSH_SETTLE_MS);
+}
+
 /** Beat durations (seconds). UI enters/exits stay ≤ 0.3 s; the grow is a storytelling beat. */
 export const BEAT = {
   /** pause before the bubble, so the screen settles after the hand-off */
@@ -41,12 +54,12 @@ export const BEAT = {
   bubbleIn: 0.28,
   bubbleOut: 0.24,
   phoneIn: 0.3,
-  /** small phone on screen before the push lands on it */
-  pushAfterPhone: 0.35,
-  pushIn: 0.3,
-  /** the push sits on the small phone before the phone grows */
-  dingHold: 0.45,
+  /** the small phone sits next to the person before it grows */
+  smallHold: 0.45,
   grow: 1.3,
+  /** the full-size phone settles before the push slides in */
+  pushAfterGrow: 0.15,
+  pushIn: 0.3,
   sadOut: 0.3,
   tapIn: 0.3,
   tapPress: 0.3,
@@ -76,14 +89,14 @@ export function storySchedule(copy: { thought: string; push: string }): StorySch
   const bubbleHoldEnd = bubbleIn + BEAT.bubbleIn + readMs(copy.thought) / 1000;
   const bubbleGone = bubbleHoldEnd + BEAT.bubbleOut;
   const phoneIn = bubbleGone;
-  const pushIn = phoneIn + BEAT.phoneIn + BEAT.pushAfterPhone;
-  const growStart = pushIn + BEAT.pushIn + BEAT.dingHold;
+  const growStart = phoneIn + BEAT.phoneIn + BEAT.smallHold;
   const growEnd = growStart + BEAT.grow;
-  const tapStart = growEnd + readMs(copy.push) / 1000;
+  const pushIn = growEnd + BEAT.pushAfterGrow;
+  const tapStart = pushIn + BEAT.pushIn + pushHoldMs(copy.push) / 1000;
   const lockOut = tapStart + BEAT.tapIn + BEAT.tapPress;
   const happyIn = lockOut + BEAT.lockOut;
   const total = happyIn + BEAT.happyIn + BEAT.tail;
-  return { bubbleIn, bubbleHoldEnd, bubbleGone, phoneIn, pushIn, growStart, growEnd, tapStart, lockOut, happyIn, total };
+  return { bubbleIn, bubbleHoldEnd, bubbleGone, phoneIn, growStart, growEnd, pushIn, tapStart, lockOut, happyIn, total };
 }
 
 type Values = Record<string, number | string>;
@@ -112,7 +125,7 @@ export interface StoryTracks {
   happy: Track;
 }
 
-/** Small phone sits beside the person (mockup offsets); the push lands on it before it grows. */
+/** Small phone sits beside the person (mockup offsets) before it grows to the centre. */
 export const PHONE_SMALL = { x: 105, y: 150, scale: 0.42 } as const;
 
 export function storyTracks(story: { thought: string; push: string; side: StorySide }): StoryTracks {
@@ -140,8 +153,8 @@ export function storyTracks(story: { thought: string; push: string; side: StoryS
       [s.growEnd, { opacity: 1, x: 0, y: 0, scale: 1 }],
     ], EASE_IN_OUT),
     push: keyframesTrack(T, [
-      [s.pushIn, { opacity: 0, y: -12 }],
-      [s.pushIn + BEAT.pushIn, { opacity: 1, y: 0 }],
+      [s.pushIn, { opacity: 0, y: -16, scale: 0.96 }],
+      [s.pushIn + BEAT.pushIn, { opacity: 1, y: 0, scale: 1 }],
     ], EASE_OUT),
     tap: keyframesTrack(T, [
       [s.tapStart, { opacity: 0, x: 30, y: 60, scale: 1 }],
