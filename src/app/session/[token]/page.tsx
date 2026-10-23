@@ -15,6 +15,9 @@ import { onAuthStateChange } from '@/lib/auth.service';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
+import { useTogetherLayerV1 } from '@/features/workout-engine/together/hooks/useTogetherLayerV1';
+import JoinedForLater from '@/features/workout-engine/together/components/JoinedForLater';
+import { isJoinedForLater, sessionStartMs } from '@/features/workout-engine/together/core/schedule';
 import { LEGACY_GATEWAY_ROUTE, WELCOME_ROUTE } from '@/lib/landing-fallback/fallback-routes';
 
 export default function SessionTokenPage() {
@@ -29,6 +32,8 @@ export default function SessionTokenPage() {
   const [joining, setJoining] = useState(false);
   const { enabled: realFallback } = useLandingRealFallback();
   const groupFixes = useGroupFixesV1();
+  const togetherOn = useTogetherLayerV1();
+  const [later, setLater] = useState<{ uid: string; startMs: number; next: string } | null>(null);
 
   useEffect(() => {
     if (!token) { setError('not_found'); setLoading(false); return; }
@@ -96,7 +101,15 @@ export default function SessionTokenPage() {
           useSharedSession.getState().setMembershipReady();
 
           // enable_group_fixes_v1: every join lands on the group page by id.
-          router.push(groupFixes ? resolveJoinLanding(groupId, { joined: false }) : `/community?groupId=${groupId}`);
+          const next = groupFixes ? resolveJoinLanding(groupId, { joined: false }) : `/community?groupId=${groupId}`;
+          // enable_together_layer_v1: joined well before the lobby opens → "registered, we'll remind you".
+          const startMs = sessionStartMs(attendanceId);
+          if (togetherOn && startMs != null && isJoinedForLater(startMs, Date.now())) {
+            setLater({ uid: user.uid, startMs, next });
+            setJoining(false);
+            return;
+          }
+          router.push(next);
         }
       } catch (err) {
         console.error('[SessionTokenPage] consume failed:', err);
@@ -140,6 +153,10 @@ export default function SessionTokenPage() {
         </button>
       </div>
     );
+  }
+
+  if (later && invitation) {
+    return <JoinedForLater uid={later.uid} groupName={invitation.groupName} startMs={later.startMs} onContinue={() => router.push(later.next)} />;
   }
 
   // ── Session preview ──────────────────────────────────────────────────────────

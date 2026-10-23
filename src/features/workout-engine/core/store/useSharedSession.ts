@@ -38,6 +38,11 @@ interface SharedSessionState {
    */
   sessionGoal: SessionGoalSpec | undefined;
 
+  /** enable_together_layer_v1: server-clock ms of the synced "go" (host-stamped); null = none yet. */
+  togetherStartAtMs: number | null;
+  /** enable_together_layer_v1: what the system chose when the host started ('same' | 'each'). */
+  togetherMode: 'same' | 'each' | null;
+
   /**
    * Current member's personal goal override (read from member_statuses/{uid}).
    * Fetched once at session start via getDoc.
@@ -112,7 +117,11 @@ function subscribeToAttendance(
       const memberIds = attendance?.attendees?.length ? attendance.attendees : seedMemberIds;
       const attendeeProfiles = attendance?.attendeeProfiles ?? seedProfiles;
 
-      set({ phase, memberIds, attendeeProfiles, sessionGoal: attendance?.sessionGoal });
+      set({
+        phase, memberIds, attendeeProfiles, sessionGoal: attendance?.sessionGoal,
+        togetherStartAtMs: attendance?.togetherStartAt?.toMillis?.() ?? null,
+        togetherMode: attendance?.togetherMode ?? null,
+      });
       console.debug('[SharedSession] phase:', phase, 'members:', memberIds.length);
     },
     (err) => {
@@ -132,6 +141,8 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
   entryMethod: null,
   sessionRef: null,
   sessionGoal: undefined,
+  togetherStartAtMs: null,
+  togetherMode: null,
   myPersonalGoal: undefined,
   membershipReady: false,
 
@@ -230,6 +241,8 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
       entryMethod: null,
       sessionRef: null,
       sessionGoal: undefined,
+      togetherStartAtMs: null,
+      togetherMode: null,
       myPersonalGoal: undefined,
       membershipReady: false,
     });

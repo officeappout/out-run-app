@@ -37,6 +37,12 @@ export interface PresenceStatus {
   clientMs: number;
   /** Monotonic per-publisher counter, so a late snapshot never wins. */
   seq: number;
+  /** Lobby: "I'm here and ready". */
+  ready?: boolean;
+  /** Lobby: strength level (strengthLevelOf) for the same / each decision. */
+  level?: number;
+  /** Lobby: usual pace (sec/km) for runs, for the same / each decision. */
+  usualPaceSecPerKm?: number;
   /** Cheers this participant sent: recipient uid → count (cumulative). */
   cheersSent?: Record<string, number>;
 }

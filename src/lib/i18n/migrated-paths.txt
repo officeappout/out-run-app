@@ -543,3 +543,4 @@ src/features/home/components/start-cards/ProgramStartSlide.tsx
 src/features/home/hooks/useTryRunningNudge.ts
 src/features/home/utils/walk-streak.ts
 src/features/home/utils/try-running.ts
+src/features/workout-engine/together/

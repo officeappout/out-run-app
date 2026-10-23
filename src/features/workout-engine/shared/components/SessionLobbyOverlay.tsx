@@ -15,6 +15,8 @@ import { setSessionPhase } from '@/features/arena/services/session-phase.service
 import { createRunInvite } from '@/lib/workoutInvite';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useTogetherLayerV1 } from '@/features/workout-engine/together/hooks/useTogetherLayerV1';
+import TogetherLobby from '@/features/workout-engine/together/components/TogetherLobby';
 
 interface SessionLobbyOverlayProps {
   onStartFreeRun: () => void;
@@ -33,7 +35,13 @@ function parseAttendanceId(id: string): { date: string; time: string } {
   return { date: date ?? '', time };
 }
 
-export default function SessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: SessionLobbyOverlayProps) {
+/** enable_together_layer_v1 swaps in the together lobby; flag off = the classic overlay below, untouched. */
+export default function SessionLobbyOverlay(props: SessionLobbyOverlayProps) {
+  const togetherOn = useTogetherLayerV1();
+  return togetherOn ? <TogetherLobby {...props} /> : <ClassicSessionLobbyOverlay {...props} />;
+}
+
+function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: SessionLobbyOverlayProps) {
   const gender = useUiGender();
   const profile = useUserStore((s) => s.profile);
   const uid = (profile as any)?.id as string | undefined;

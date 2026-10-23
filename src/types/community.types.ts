@@ -122,6 +122,10 @@ export interface SessionAttendance {
   /** Leader extends the lobby window when a member marks herself late */
   lobbyExtendedUntil?: import('firebase/firestore').Timestamp;
 
+  /** enable_together_layer_v1: the host-stamped instant (server clock) every device counts 3-2-1 to. */
+  togetherStartAt?: import('firebase/firestore').Timestamp;
+  togetherMode?: 'same' | 'each';
+
   /**
    * Session-level goal set by the session creator (coach, peer, or system).
    * Written at attendance-doc creation time (from ScheduleSlot.workoutGoal for scheduled
