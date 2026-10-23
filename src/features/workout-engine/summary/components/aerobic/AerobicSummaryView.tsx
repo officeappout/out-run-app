@@ -29,6 +29,7 @@ import DopamineStreakBlock from '../shared/DopamineStreakBlock';
 import AerobicHeroBlock from './AerobicHeroBlock';
 import AerobicStatRingsBlock from './AerobicStatRingsBlock';
 import TogetherBlock from './TogetherBlock';
+import TogetherSummaryLayer from './TogetherSummaryLayer';
 import ParticipantsBlock from './ParticipantsBlock';
 import MomentSentence from './MomentSentence';
 import PersonalRecordTag from './PersonalRecordTag';
@@ -257,6 +258,11 @@ export default function AerobicSummaryView({
         <div className="text-center text-[13px] font-semibold text-v2-ink-2">
           {`רצתם ${groupCtx.collectiveDistanceKm.toFixed(1)} ק״מ יחד`}
         </div>
+      )}
+
+      {/* enable_together_layer_v1: collective line, equal list, closeness, duel (renders nothing when off) */}
+      {(effectiveVariant === 'group' || effectiveVariant === 'pair') && (
+        <TogetherSummaryLayer groupId={workout.groupId} attendanceId={workout.attendanceId} currentUid={currentUid} readOnly={isReadOnly} />
       )}
 
       {/* Emotional layer */}

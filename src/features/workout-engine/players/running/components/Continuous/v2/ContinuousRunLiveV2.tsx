@@ -20,16 +20,18 @@ import { LocateFixed } from 'lucide-react';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
-import { HeaderProgressBar, MiniPlayer, PlayerHeaderCard, PlayerShell, RunHeaderStrip, RunMetricsDrawer, usePublishedPlayerChrome } from '../../../../shared/v2';
+import { HeaderProgressBar, MiniPlayer, PlayerHeaderCard, PlayerShell, RunHeaderStrip, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
 import { useZoneTracking } from '../../../hooks/useZoneTracking';
 import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, isShortLeg, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
-import { rateLabels } from '../../../lib/aerobic-activity';
 import { blockGoal, continuousMainIndex, continuousZone, goalView, heroKind, v2BlockTextColor, zoneLabel } from '../../../lib/continuous-run';
 import PlannedSessionListV2 from '../../PlannedRun/v2/PlannedSessionListV2';
+import { usePlannedChromeNodes } from '../../PlannedRun/v2/usePlannedChromeNodes';
+import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, useMeasuredHeight } from '../../../../shared/v2/run-chrome';
+import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import ContinuousRunCardV2 from './ContinuousRunCardV2';
@@ -80,8 +82,10 @@ export default function ContinuousRunLiveV2({
   const [listOpen, setListOpen] = useState(false);
   // Map camera keeps the runner's marker between the header and the card.
   const chrome = usePublishedPlayerChrome(
-    drawerV1 ? { bottomGapPx: 12, headerIncludesSafeTop: true, drawer: true } : { topGapPx: 8, bottomGapPx: 12 },
+    drawerV1 ? { bottomGapPx: 0, headerIncludesSafeTop: true, drawer: true } : { topGapPx: 8, bottomGapPx: 12 },
   );
+  const [chromeHeaderRef, chromeHeaderH] = useMeasuredHeight();
+  const setHeaderNodes = useCallback((n: HTMLDivElement | null) => { chrome.headerRef(n); chromeHeaderRef(n); }, [chrome, chromeHeaderRef]);
 
   const zone = useMemo(
     () => continuousZone(block, engine.basePace, engine.zones, engine.showNumbers),
@@ -143,6 +147,8 @@ export default function ContinuousRunLiveV2({
         <HeaderProgressBar progress={blockProgress} color={color} />
       ),
   };
+  const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused });
+  const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: chromeHeaderH + 56, enabled: drawerV1 });
   const card = (
     <ContinuousRunCardV2
       data={{
@@ -204,18 +210,21 @@ export default function ContinuousRunLiveV2({
       {({ startDrag }) => (
         <>
           {drawerV1 ? (
-            <RunHeaderStrip
-              outerRef={chrome.headerRef}
+            <RunHeaderChrome
+              outerRef={setHeaderNodes}
               onPointerDown={startDrag}
-              {...headerProps}
-              trailing={
-                <div className="flex shrink-0 items-center gap-2">
-                  {headerProps.trailing}
-                  <div className="pointer-events-none">
-                    <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
+              layers={tg.layers(
+                <div className="px-5">
+                  <div className="flex h-[46px] flex-col justify-center">
+                    {headerProps.strip}
+                    <div className="mt-2 text-center text-[13px] font-extrabold text-slate-600">{headerProps.eyebrow}</div>
                   </div>
-                </div>
-              }
+                </div>,
+              )}
+              index={tg.layerIndex}
+              onIndexChange={tg.setLayerIndex}
+              strip={chromeNodes.strip}
+              trailing={<GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />}
             />
           ) : (
           <div ref={chrome.headerRef} className="absolute inset-x-3" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
@@ -245,27 +254,21 @@ export default function ContinuousRunLiveV2({
           </AnimatePresence>
 
           {drawerV1 ? (
-            <RunMetricsDrawer
+            <RunDrawerSheet
               cardRef={chrome.cardRef}
-              bottomGapPx={12}
+              onHeight={tg.setSheetHeight}
               onOpenList={() => setListOpen(true)}
-              full={card}
-              compact={{
-                time: fmtClock(totals.durationSec),
-                distanceKm: totals.distanceKm.toFixed(2),
-                rate: fmtPace(engine.currentPaceSeconds),
-                rateLabel: rateLabels('pace').page,
-                isPaused,
-                onPause,
-                onResume,
-                onStop: onEnd,
-              }}
+              compact={chromeNodes.compact}
+              large={chromeNodes.large}
+              override={tg.vsPanel}
+              buttons={<RunFloatingButtons isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
             />
           ) : (
             <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
               {card}
             </div>
           )}
+          {drawerV1 && tg.overlay}
         </>
       )}
     </PlayerShell>
