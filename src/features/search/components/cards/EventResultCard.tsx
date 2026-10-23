@@ -5,14 +5,14 @@ import Highlight from '../Highlight';
 import { formatKm } from './PlaceRow';
 import type { CommunityEvent } from '@/types/community.types';
 import { useT } from '@/hooks/useT';
+import { monthLabel } from '@/lib/i18n/fmt-display';
+import type { Locale } from '@/lib/i18n/locales';
 import { library } from '@/messages/ns/library';
 
-const MONTHS = ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני', 'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳']; // i18n-allow-hebrew: month names, move to fmt.formatDate in wave 3
-
-function dateParts(d: Date | string | undefined): { month: string; day: string } | null {
+function dateParts(d: Date | string | undefined, locale: Locale): { month: string; day: string } | null {
   const t = d instanceof Date ? d : d ? new Date(d) : null;
   if (!t || !Number.isFinite(t.getTime())) return null;
-  return { month: MONTHS[t.getMonth()], day: String(t.getDate()) };
+  return { month: monthLabel(t.getMonth(), locale, 'short'), day: String(t.getDate()) };
 }
 
 interface Props {
@@ -28,7 +28,7 @@ interface Props {
 /** Event card (Events board): date tile, category pill, name, time · place · distance, "אני בא". */
 export default function EventResultCard({ event, distanceKm, query, joined, joining, onOpen, onJoin }: Props) {
   const t = useT(library);
-  const dp = dateParts(event.date as unknown as Date);
+  const dp = dateParts(event.date as unknown as Date, t.locale);
   const km = formatKm(t, distanceKm);
   const meta = [event.startTime, event.location?.address, km ? t('search.event.distanceFromYou', { km }) : null].filter(Boolean).join(' · ');
   const spots = typeof event.maxParticipants === 'number' ? Math.max(0, event.maxParticipants - (event.currentRegistrations ?? 0)) : null;

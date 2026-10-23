@@ -7,6 +7,7 @@ import type { PolicyAddOn } from '../recommendation-policy/types';
 import { walkTargetLabelHe } from './walkPlan';
 import { LONG_WALK_TITLE_HE, WALK_TITLE_HE } from './walkSchedule';
 import type { PlannedWalk, WalkGoal, WalkPlan, WalkWeek } from './walkPlan.types';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 
 export const WALK_GOAL_COPY: Record<WalkGoal, { title: string; sub: string }> = {
   weight_loss: { title: 'ירידה במשקל', sub: 'הליכה מהירה רוב הימים, נבנה בהדרגה' },
@@ -15,7 +16,7 @@ export const WALK_GOAL_COPY: Record<WalkGoal, { title: string; sub: string }> = 
   belly: { title: 'להוריד בטן', sub: 'הליכה + ליבה קצרה פעמיים בשבוע' },
 };
 
-const fmt = (n: number) => n.toLocaleString('he-IL');
+const fmt = (n: number) => formatNumber(n, 'he');
 
 export function walkPieceTitle(w: Pick<PlannedWalk, 'isLong'>): string {
   return w.isLong ? LONG_WALK_TITLE_HE : WALK_TITLE_HE;

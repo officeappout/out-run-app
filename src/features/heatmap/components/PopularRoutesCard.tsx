@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { formatDate, formatNumber } from '@/lib/i18n/core/fmt';
 import { Loader2, Footprints, Bike, Activity, Trophy } from 'lucide-react';
 import {
   fetchPopularRoutes,
@@ -42,7 +43,7 @@ function formatRelativeHebrew(date: Date | null): string {
     const weeks = Math.floor(diffDays / 7);
     return weeks === 1 ? 'לפני שבוע' : `לפני ${weeks} שבועות`;
   }
-  return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatDate(date, 'he', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function PopularRoutesCard({ authorityId }: PopularRoutesCardProps) {
@@ -126,7 +127,7 @@ export default function PopularRoutesCard({ authorityId }: PopularRoutesCardProp
 
                 <div className="shrink-0 text-end" dir="rtl">
                   <div className="text-sm font-black text-gray-900">
-                    {route.usageCount.toLocaleString('he-IL')}
+                    {formatNumber(route.usageCount, 'he')}
                   </div>
                   <div className="text-[10px] text-gray-400 leading-none">שימושים</div>
                 </div>

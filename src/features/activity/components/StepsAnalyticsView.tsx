@@ -59,6 +59,8 @@ import {
 import type { DailyStepsSnapshot } from '../services/activity-history.service';
 import { STEPS_COLOR } from '@/features/activity/config/health-goals.config';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import type { Locale } from '@/lib/i18n/locales';
 import { profile } from '@/messages/ns/profile';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -81,8 +83,8 @@ const PAGE_BACKDROP =
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtNumber(n: number): string {
-  return n.toLocaleString('he-IL');
+function fmtNumber(n: number, locale: Locale): string {
+  return formatNumber(n, locale);
 }
 
 function shortDate(dateKey: string | undefined | null): string | null {
@@ -211,7 +213,7 @@ function GoalProgressBar({ steps, goal }: { steps: number; goal: number }) {
         </span>
         <span>
           {t.rich('steps.goal.target', {
-            goal: fmtNumber(goal),
+            goal: fmtNumber(goal, t.locale),
             num: (chunks: React.ReactNode) => <span className="tabular-nums" dir="ltr">{chunks}</span>,
           })}
         </span>
@@ -422,7 +424,7 @@ export default function StepsAnalyticsView({
   const renderTooltip = (d: BarDatum) => (
     <div className="text-center">
       <div className="text-[18px] font-black tabular-nums tracking-[-0.02em] text-v2-ink leading-tight" dir="ltr">
-        {fmtNumber(d.value)}
+        {fmtNumber(d.value, t.locale)}
       </div>
       <div className="text-[10px] font-bold text-v2-muted leading-tight">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}צעדים</div>
       <div className="mt-0.5 text-[11px] font-semibold text-v2-ink-2 leading-tight">
@@ -567,7 +569,7 @@ export default function StepsAnalyticsView({
                             {dayLabel(offset, snap?.date)}
                           </span>
                           <span className="text-[24px] font-black text-v2-ink-2 tabular-nums" dir="ltr">
-                            {fmtNumber(steps)}
+                            {fmtNumber(steps, t.locale)}
                           </span>
                         </div>
                       </StepsRing>
@@ -606,7 +608,7 @@ export default function StepsAnalyticsView({
                             <span className="text-[12px] font-extrabold text-[#00865a] mb-1.5">{label}</span>
                             <StatNumber value={steps} size="lg" countUp align="center" />
                             <span className="text-[12px] font-semibold text-v2-muted mt-1.5">
-                              {t('steps.ring.ofGoal', { goal: fmtNumber(goal) })}
+                              {t('steps.ring.ofGoal', { goal: fmtNumber(goal, t.locale) })}
                             </span>
                           </motion.div>
                         </AnimatePresence>
@@ -640,7 +642,7 @@ export default function StepsAnalyticsView({
                               {dayLabel(offset, snap?.date)}
                             </span>
                             <span className="text-[24px] font-black text-v2-ink-2 tabular-nums" dir="ltr">
-                              {fmtNumber(steps)}
+                              {fmtNumber(steps, t.locale)}
                             </span>
                           </div>
                         )}
@@ -742,7 +744,7 @@ export default function StepsAnalyticsView({
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-v2-muted">
                       <span className="w-4 border-t-[1.5px] border-dashed border-v2-ink/30" />
                       {t.rich('steps.chart.dailyGoal', {
-                        goal: fmtNumber(stats.dailyGoal),
+                        goal: fmtNumber(stats.dailyGoal, t.locale),
                         num: (chunks: React.ReactNode) => <span className="tabular-nums" dir="ltr">{chunks}</span>,
                       })}
                     </span>
@@ -806,7 +808,7 @@ export default function StepsAnalyticsView({
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-v2-muted">
                       <span className="w-4 border-t-[1.5px] border-dashed border-v2-ink/30" />
                       {t.rich('steps.chart.dailyGoal', {
-                        goal: fmtNumber(stats.dailyGoal),
+                        goal: fmtNumber(stats.dailyGoal, t.locale),
                         num: (chunks: React.ReactNode) => <span className="tabular-nums" dir="ltr">{chunks}</span>,
                       })}
                     </span>

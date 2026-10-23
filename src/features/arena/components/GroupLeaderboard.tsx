@@ -22,6 +22,7 @@ import {
 } from '@/features/arena/services/ranking.service';
 import type { LeaderboardTimeWindow, LeaderboardGenderFilter } from '@/features/arena/services/ranking.service';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { community } from '@/messages/ns/community';
 
 
@@ -130,7 +131,7 @@ export function GroupLeaderboardView({
               entries.slice(0, 3).map((e) => ({
                 key: e.groupId,
                 name: e.groupName,
-                value: e.avgScore.toLocaleString('he-IL'),
+                value: formatNumber(e.avgScore, t.locale),
                 sub: t('leagues.groupBoard.podiumSub', { n: e.activeMemberCount, count: String(e.activeMemberCount) }),
               })) as [PodiumEntry, PodiumEntry, PodiumEntry]
             }
@@ -143,7 +144,7 @@ export function GroupLeaderboardView({
               rank={entry.rank}
               name={entry.groupName}
               sub={t('leagues.groupBoard.active', { n: entry.activeMemberCount, count: String(entry.activeMemberCount) })}
-              value={entry.avgScore.toLocaleString('he-IL')}
+              value={formatNumber(entry.avgScore, t.locale)}
               unit={t('leagues.groupBoard.unit')}
             />
           ))}

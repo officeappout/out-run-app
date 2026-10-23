@@ -45,8 +45,8 @@ export default function RunTab() {
   if (loading && !data) return <TabSkeleton />;
   if (runs.length === 0) return <TabEmpty kind="run" text={t('hub.run.empty')} />;
 
-  const month = monthName(now.getMonth());
-  const prevMonth = monthName(now.getMonth() - 1);
+  const month = monthName(now.getMonth(), t.locale);
+  const prevMonth = monthName(now.getMonth() - 1, t.locale);
   const recent = [...runs].reverse().slice(0, 3);
 
   return (

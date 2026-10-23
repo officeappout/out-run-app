@@ -4,6 +4,7 @@
  */
 
 import { NotificationTriggerType } from './branding.types';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { UserFullProfile } from '@/features/user';
 import { getUserFirstName, getUserGoalHebrew } from './branding.service';
 import { RUNNING_WORKOUT_CATEGORY_LABELS_HE as RUN_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
@@ -268,7 +269,7 @@ export function resolveNotificationText(
     ));
     resolved = resolved.replace(tagPattern('@פער_צעדים'), () => (
       typeof context.stepDelta === 'number' && Number.isFinite(context.stepDelta)
-        ? context.stepDelta.toLocaleString('he-IL')
+        ? formatNumber(context.stepDelta, 'he')
         : 'כמה'
     ));
   }
@@ -1118,7 +1119,7 @@ export function resolveDescription(
   // activityType-agnostic: steps today, could carry a different unit later)
   resolved = resolved.replace(tagPattern('@צעדים_שנותרו'), () => {
     return context.stepsLeft !== undefined && context.stepsLeft !== null
-      ? context.stepsLeft.toLocaleString('he-IL')
+      ? formatNumber(context.stepsLeft, 'he')
       : '0';
   });
 

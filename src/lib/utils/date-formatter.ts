@@ -1,4 +1,6 @@
 import { isSerializedSentinel } from '@/lib/firestore-sanitize';
+import { formatDate } from '@/lib/i18n/core/fmt';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
 /**
  * Date Formatter Utility (SSR Safe)
  * Handles Firebase Timestamps and various date formats
@@ -72,7 +74,7 @@ export function formatDateHebrew(date: Date | null | undefined): string {
     return 'N/A';
   }
   
-  return date.toLocaleDateString('he-IL', {
+  return formatDate(date, SOURCE_LOCALE, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -87,7 +89,7 @@ export function formatDateTimeHebrew(date: Date | null | undefined): string {
     return 'N/A';
   }
   
-  return date.toLocaleString('he-IL', {
+  return formatDate(date, SOURCE_LOCALE, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

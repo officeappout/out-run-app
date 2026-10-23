@@ -33,7 +33,7 @@ export default function WalkTab() {
     <div className="space-y-3">
       <TabHeaderCard
         kind="walk"
-        title={t('hub.walk.title', { month: monthName(now.getMonth()) })}
+        title={t('hub.walk.title', { month: monthName(now.getMonth(), t.locale) })}
         subtitle={t('hub.walk.subtitle')}
         current={cmp.current.km}
         previous={cmp.previous.km}

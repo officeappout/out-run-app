@@ -10,6 +10,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { formatKm } from './league-board-logic';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { community } from '@/messages/ns/community';
 import { common } from '@/messages/ns/common';
 import type { CommunityKey } from './league-t';
@@ -97,7 +98,7 @@ export function UnitLeagueTableView({
 }: UnitLeagueTableViewProps) {
   const t = useT(community);
   const tc = useT(common);
-  const kmText = (avgKm: number | null) => (showKm && avgKm && avgKm > 0 ? t('leagues.units.kmPerDay', { km: formatKm(avgKm) }) : null);
+  const kmText = (avgKm: number | null) => (showKm && avgKm && avgKm > 0 ? t('leagues.units.kmPerDay', { km: formatKm(avgKm, t.locale) }) : null);
   const [isOpen, setIsOpen] = useState(false);
   const activeOpt = RANGE_OPTIONS.find((o) => o.value === range) ?? RANGE_OPTIONS[0];
 
@@ -158,7 +159,7 @@ export function UnitLeagueTableView({
                 result.entries.slice(0, 3).map((e) => ({
                   key: e.directoryId,
                   name: e.name,
-                  value: e.avgSteps.toLocaleString('he-IL'),
+                  value: formatNumber(e.avgSteps, t.locale),
                   unit: t('leagues.units.steps'),
                   isMe: e.isMyUnit,
                   sub: [t('leagues.units.active', { count: String(e.activeParticipantCount) }), kmText(e.avgKm)].filter(Boolean).join(' · '),
@@ -176,7 +177,7 @@ export function UnitLeagueTableView({
                 isMe={entry.isMyUnit}
                 leading={<UnitIconBadge unitId={entry.unitId} iconUrl={entry.iconUrl} name={entry.name} size={32} />}
                 sub={[entry.parentBreadcrumb, t('leagues.units.activeParticipants', { count: String(entry.activeParticipantCount) }), kmText(entry.avgKm)].filter(Boolean).join(' · ')}
-                value={entry.avgSteps.toLocaleString('he-IL')}
+                value={formatNumber(entry.avgSteps, t.locale)}
                 unit={t('leagues.units.steps')}
               />
             ))}

@@ -1,16 +1,18 @@
 /** Progress tab v2 — Hebrew display helpers. Pure. */
+import { formatNumber, weekdayName } from '@/lib/i18n/core/fmt';
+import { monthLabel } from '@/lib/i18n/fmt-display';
+import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 
-const MONTHS_SHORT = ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני', 'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳'];
-const MONTHS_LONG = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
-export const WEEKDAY_SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+/** Sunday-first narrow weekday names ("א׳"…"ש׳"), Hebrew — the same text `Intl` gives for weekday: 'narrow'. */
+export const WEEKDAY_SHORT = Array.from({ length: 7 }, (_, i) => weekdayName(i, SOURCE_LOCALE, 'narrow'));
 const WEEKDAY_LONG = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
-export function monthName(m: number): string {
-  return MONTHS_LONG[((m % 12) + 12) % 12];
+export function monthName(m: number, locale: Locale = SOURCE_LOCALE): string {
+  return monthLabel(m, locale, 'long');
 }
 
-export function monthShort(m: number): string {
-  return MONTHS_SHORT[((m % 12) + 12) % 12];
+export function monthShort(m: number, locale: Locale = SOURCE_LOCALE): string {
+  return monthLabel(m, locale, 'short');
 }
 
 /** "19–25 באוק׳" (same month) / "29 בספט׳–5 באוק׳". */
@@ -20,9 +22,9 @@ export function weekRangeLabel(start: Date, end: Date): string {
 }
 
 /** "214" דק׳ under 10h, else "12:40" שע׳. */
-export function formatMinutes(min: number): { value: string; unit: string } {
+export function formatMinutes(min: number, locale: Locale = SOURCE_LOCALE): { value: string; unit: string } {
   const m = Math.max(0, Math.round(min));
-  if (m < 600) return { value: m.toLocaleString('he-IL'), unit: 'דק׳' };
+  if (m < 600) return { value: formatNumber(m, locale), unit: 'דק׳' };
   return { value: `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`, unit: 'שע׳' };
 }
 
@@ -32,8 +34,8 @@ export function formatHours(min: number): string {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
 
-export function formatKm(km: number): string {
-  return (Math.round(km * 10) / 10).toLocaleString('he-IL', { maximumFractionDigits: 1 });
+export function formatKm(km: number, locale: Locale = SOURCE_LOCALE): string {
+  return formatNumber(Math.round(km * 10) / 10, locale, { maximumFractionDigits: 1 });
 }
 
 /** min/km → "5:42". */
@@ -48,8 +50,8 @@ export function formatPace(pace: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export function formatCount(n: number): string {
-  return Math.round(n).toLocaleString('he-IL');
+export function formatCount(n: number, locale: Locale = SOURCE_LOCALE): string {
+  return formatNumber(Math.round(n), locale);
 }
 
 /** "היום" / "אתמול" / "שלישי" (this week) / "לפני 9 ימים" / "4 באוק׳". */

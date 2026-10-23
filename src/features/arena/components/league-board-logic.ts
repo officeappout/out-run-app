@@ -9,6 +9,8 @@
  */
 import type { LeaderboardMode } from './format-leaderboard-score';
 import { formatLeaderboardScore } from './format-leaderboard-score';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 import { leagueHeT, type LeagueT } from './league-t';
 
 /** Rows shown before the "show all" toggle. Anyone below this is outside the
@@ -190,11 +192,11 @@ export function rankByMeasure<T extends ScoredScope>(entries: T[], measure: Grou
 
 // ── km next to the points (home v2 leagues, 18.10.2026) ─────────────────────
 
-/** "1,240" for big totals, "4.2" under 100 km, "0" for nothing — he-IL digits. */
-export function formatKm(km: number | undefined | null): string {
+/** "1,240" for big totals, "4.2" under 100 km, "0" for nothing — digits of `locale` (default Hebrew). */
+export function formatKm(km: number | undefined | null, locale: Locale = SOURCE_LOCALE): string {
   const n = typeof km === 'number' && Number.isFinite(km) && km > 0 ? km : 0;
-  if (n >= 100) return Math.round(n).toLocaleString('he-IL');
-  return (Math.round(n * 10) / 10).toLocaleString('he-IL', { maximumFractionDigits: 1 });
+  if (n >= 100) return formatNumber(Math.round(n), locale);
+  return formatNumber(Math.round(n * 10) / 10, locale, { maximumFractionDigits: 1 });
 }
 
 interface KmScope {

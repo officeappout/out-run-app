@@ -99,8 +99,8 @@ export default function PeriodSummaryRingCard({ period, ranges, current, previou
   const title =
     period === 'week'
       ? t('hub.summary.title.week', { range: weekRangeLabel(start, end) })
-      : t('hub.summary.title.month', { month: monthName(start.getMonth()), year: String(start.getFullYear()) });
-  const vs = period === 'week' ? t('hub.summary.vs.week') : t('hub.summary.vs.month', { month: monthName(ranges.previous.start.getMonth()) });
+      : t('hub.summary.title.month', { month: monthName(start.getMonth(), t.locale), year: String(start.getFullYear()) });
+  const vs = period === 'week' ? t('hub.summary.vs.week') : t('hub.summary.vs.month', { month: monthName(ranges.previous.start.getMonth(), t.locale) });
   const time = formatMinutes(current.minutes);
   const split = activitySplit(current);
   const ring = (

@@ -13,6 +13,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { Loader2, Trophy, Trees, Clock } from 'lucide-react';
 import {
   fetchPopularParks,
@@ -108,7 +109,7 @@ export default function PopularParksCard({ authorityId }: PopularParksCardProps)
 
                 <div className="shrink-0 text-end" dir="rtl">
                   <div className="text-sm font-black text-gray-900">
-                    {park.visitCount.toLocaleString('he-IL')}
+                    {formatNumber(park.visitCount, 'he')}
                   </div>
                   <div className="text-[10px] text-gray-400 leading-none">ביקורים החודש</div>
                 </div>

@@ -16,6 +16,8 @@ import { STREAK_MINIMUM_MINUTES } from '@/features/activity/types/activity.types
 import { sortTones, type FlameTone } from '@/components/ui/v2/streak';
 import type { ProgressDay, ProgressWorkout } from './progress-model';
 import { toISODate } from './progress-period';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
 
 export type ConsistencyReason = 'strength' | 'run' | 'walk' | 'steps' | 'recovery' | 'active';
 
@@ -58,8 +60,8 @@ export const REASON_LABEL: Record<ConsistencyReason, string> = {
   active: 'דקות פעילות',
 };
 
-const fmtInt = (n: number) => Math.round(n).toLocaleString('he-IL');
-const fmtKm = (n: number) => (Math.round(n * 10) / 10).toLocaleString('he-IL', { maximumFractionDigits: 1 });
+const fmtInt = (n: number) => formatNumber(Math.round(n), SOURCE_LOCALE);
+const fmtKm = (n: number) => formatNumber(Math.round(n * 10) / 10, SOURCE_LOCALE, { maximumFractionDigits: 1 });
 
 function addDays(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);

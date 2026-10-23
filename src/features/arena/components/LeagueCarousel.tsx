@@ -21,6 +21,8 @@ import Image from 'next/image';
 import { Plus } from 'lucide-react';
 import { leagueIconFor } from './league-icons';
 import { useT } from '@/hooks/useT';
+import { useLocaleStore } from '@/store/useLocaleStore';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { community } from '@/messages/ns/community';
 
 /** Design v2: lucide icon per league key instead of the card's emoji. */
@@ -215,7 +217,7 @@ function LeagueSheetList({
                 <div className="flex flex-col items-center leading-none">
                   <span className="font-black tabular-nums text-[16px] text-v2-ink">
                     {league.memberCount != null
-                      ? league.memberCount.toLocaleString('he-IL')
+                      ? formatNumber(league.memberCount, t.locale)
                       : '—'}
                   </span>
                   <span className="text-v2-muted font-bold mt-0.5 text-[11px]">{t('leagues.picker.members')}</span>
@@ -253,6 +255,7 @@ export default function LeagueCarousel({
   isLoading = false,
   mode = 'carousel',
 }: LeagueCarouselProps) {
+  const locale = useLocaleStore((s) => s.locale);
   if (mode === 'sheet') {
     return (
       <LeagueSheetList
@@ -352,7 +355,7 @@ export default function LeagueCarousel({
                       style={{ fontSize: 12 }}
                     >
                       {league.memberCount != null
-                        ? league.memberCount.toLocaleString('he-IL')
+                        ? formatNumber(league.memberCount, locale)
                         : '—'}
                     </span>
                     <span className="text-gray-500" style={{ fontSize: 8 }}>
