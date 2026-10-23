@@ -22,8 +22,8 @@ const session: TvSession = {
   mirror: null, timerAnchorAtMs: null, volume: 0.6, cmd: null,
 };
 const people: TvParticipant[] = [
-  { uid: 'noa', name: 'נועה', joinedAtMs: 1, state: 'joined', seq: 0 },
-  { uid: 'dani', name: 'דני', joinedAtMs: 2, state: 'active', set: 3, totalSets: 5, seq: 1 },
+  { uid: 'noa', name: 'נועה', joinedAtMs: 1, avatar: 0, state: 'joined', seq: 0 },
+  { uid: 'dani', name: 'דני', joinedAtMs: 2, avatar: 5, state: 'active', set: 3, totalSets: 5, seq: 1 },
 ];
 
 describe('TV pairing / lobby', () => {
@@ -45,6 +45,14 @@ describe('TV pairing / lobby', () => {
     expect(html).toContain('שני משתתפים');
     expect(html).toContain('ממתינים שהמארחת תתחיל');
     expect(html).toContain('אימון כוח · מתח רחב');
+  });
+  it('lobby: guests show their nickname, the hint says no registration is needed', () => {
+    const guests: TvParticipant[] = [...people, { uid: 'g1', name: 'גיא הגדול', joinedAtMs: 3, avatar: 7, state: 'joined', seq: 0 }];
+    const html = renderToStaticMarkup(<TvLobbyScreen session={session} participants={guests} origin="https://outrun.co.il" />);
+    expect(html).toContain('גיא הגדול');
+    expect(html).toContain('3 משתתפים');
+    expect(html).toContain('בלי הרשמה');
+    expect(html.match(/מארח</g)).toHaveLength(1);
   });
   it('gate: one autofocus button', () => {
     const html = renderToStaticMarkup(<FullscreenGate onStart={() => {}} />);

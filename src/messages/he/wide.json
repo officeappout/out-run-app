@@ -124,7 +124,6 @@
   "lobby.waitingHost": "{hostGender, select, female {ממתינים שהמארחת תתחיל} male {ממתינים שהמארח יתחיל} other {ממתינים להתחלת האימון}}",
   "lobby.noName": "משתתף",
 
-  "stage.next": "הבא",
   "stage.rest": "מנוחה",
   "stage.done": "כל הכבוד, סיימתם",
   "stage.set": "סט {set} מתוך {total}",

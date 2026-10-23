@@ -24,7 +24,7 @@ export default function TvLobbyScreen({ session, participants, origin }: { sessi
         <ul className="mt-[4vh] flex flex-col gap-[1.8vh]" aria-label={t('lobby.count', { n: participants.length })}>
           {shown.map((p) => (
             <li key={p.uid} className="flex items-center gap-[1.2vw]">
-              <Avatar uid={p.uid} name={p.name} size={64} />
+              <Avatar uid={p.uid} name={p.name} avatar={p.avatar} size={64} />
               <span className="text-[2.4vw] font-black">{p.name || t('lobby.noName')}</span>
               <span
                 className={`rounded-full px-[1vw] py-[0.4vh] text-[1.4vw] font-extrabold ${
