@@ -253,7 +253,9 @@ export default function GeneratedWorkoutExerciseList({
         </div>
         )}
 
-        {actions && (
+        {actions?.menu ? (
+          <div className="flex items-center gap-1 flex-shrink-0">{actions.menu}</div>
+        ) : actions && (
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={actions.onShare}

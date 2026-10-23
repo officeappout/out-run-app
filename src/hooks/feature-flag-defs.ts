@@ -646,6 +646,11 @@ export const FLAG_DEFS = [
   // before the workout starts. Needs the tvSessions rules (docs/tv-mode — owner deploys) to work.
   // Fail-closed; super admins preview it. Off = nothing changes anywhere (no ⋯ button, /tv shows "not available").
   { key: 'enableTvModeV1', firestoreKey: 'enable_tv_mode_v1', defaultValue: false, superAdminValue: true },
+  // Workout overview single ⋯ menu (23.10.2026, owner-approved canvas W-17 variant B): the share / favourite /
+  // download icon row collapses into ONE ⋯ button that opens a dropdown (download to phone, liked, share, and
+  // "show on a big screen" when enable_tv_mode_v1 is on). Same handlers as the icons. Fail-closed; super admins
+  // preview it. Off = the icon row is byte-identical to today.
+  { key: 'enableOverviewMoreMenuV1', firestoreKey: 'enable_overview_more_menu_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

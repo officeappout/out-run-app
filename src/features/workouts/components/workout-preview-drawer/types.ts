@@ -136,6 +136,8 @@ export interface WorkoutActions {
   onDownload: () => void;
   /** Extra control rendered after the download button (TV mode's ⋯ menu, enable_tv_mode_v1). */
   trailing?: React.ReactNode;
+  /** enable_overview_more_menu_v1: when set, replaces the share / favourite / download icons AND `trailing` with this one ⋯ menu. */
+  menu?: React.ReactNode;
 }
 
 // ── Pyramid Step Shape ───────────────────────────────────────────────────
