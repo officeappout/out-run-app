@@ -221,7 +221,7 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
     expect(count('marker.')).toBe(2);
     expect(count('searchBar.')).toBe(1);
     expect(count('legPlan.')).toBe(4);
-    expect(count('layers.')).toBe(14);
+    expect(count('layers.')).toBe(24); // +10 layers.surface.* (enable_map_surface_filter_v1)
     expect(count('modes.')).toBe(4);
     expect(count('navBanner.')).toBe(8);
     expect(count('routeCard.')).toBe(2);

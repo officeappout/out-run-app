@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Layers, X, ChevronLeft } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import { useMapStore, LayerType } from '../store/useMapStore';
@@ -8,6 +8,14 @@ import { PartnerFilterSheet, usePartnerFilters } from '@/features/partners';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { useMapPolishV1 } from '../map-polish';
+import {
+    activeSurfaceFilterCount,
+    loadSurfaceFilter,
+    saveSurfaceFilter,
+    surfaceFamilyFor,
+    useMapSurfaceFilterV1,
+} from '../map-surface-filter';
+import type { SurfaceFilter } from '../utils/route-surface';
 
 const LAYER_OPTIONS = [
     { id: 'water', labelKey: 'layers.option.water', icon: '💧' },
@@ -27,13 +35,19 @@ export function layerOptionsFor(polish: boolean): ReadonlyArray<(typeof POLISH_L
     return polish ? POLISH_LAYER_OPTIONS : LAYER_OPTIONS;
 }
 
-export function MapLayersButton({ onClick }: { onClick: () => void }) {
+export function MapLayersButton({ onClick, activeCount = 0 }: { onClick: () => void; activeCount?: number }) {
     return (
         <button
             onClick={onClick}
-            className="w-11 h-11 rounded-full flex items-center justify-center bg-white/80 backdrop-blur-md shadow-lg border border-white/40 pointer-events-auto active:scale-95 transition-all"
+            className={`w-11 h-11 rounded-full flex items-center justify-center bg-white/80 backdrop-blur-md shadow-lg border border-white/40 pointer-events-auto active:scale-95 transition-all${activeCount > 0 ? ' relative' : ''}`}
         >
             <Layers size={18} className="text-gray-700" />
+            {/* enable_map_surface_filter_v1: active-filter badge (no z-index — it lives in the button's own stacking). */}
+            {activeCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#00E5FF] text-gray-900 text-[10px] font-black leading-none flex items-center justify-center border border-white">
+                    {activeCount}
+                </span>
+            )}
         </button>
     );
 }
@@ -61,6 +75,26 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
     const polish = useMapPolishV1();
     const layerOptions = layerOptionsFor(polish);
 
+    // enable_map_surface_filter_v1 — surface filter section. Flag off: none of this renders or runs.
+    const surfaceOn = useMapSurfaceFilterV1();
+    const surfaceFilter = useMapStore((s) => s.surfaceFilter) ?? 'any';
+    const setSurfaceFilter = useMapStore((s) => s.setSurfaceFilter);
+    const surfaceStats = useMapStore((s) => s.surfaceStats) ?? { shown: 0, total: 0, activity: null };
+    useEffect(() => {
+        if (surfaceOn) setSurfaceFilter(loadSurfaceFilter());
+    }, [surfaceOn, setSurfaceFilter]);
+    const pickSurface = (f: SurfaceFilter) => {
+        setSurfaceFilter(f);
+        saveSurfaceFilter(f);
+    };
+    const bike = surfaceFamilyFor(surfaceStats.activity as Parameters<typeof surfaceFamilyFor>[0]) === 'bike';
+    const surfaceChoices: ReadonlyArray<{ id: SurfaceFilter; labelKey: Parameters<typeof t>[0] }> = [
+        { id: 'any', labelKey: 'layers.surface.any' },
+        { id: 'paved', labelKey: bike ? 'layers.surface.bikeRoad' : 'layers.surface.paved' },
+        { id: 'offroad', labelKey: bike ? 'layers.surface.bikeOffroad' : 'layers.surface.offroad' },
+    ];
+    const surfaceBadge = activeSurfaceFilterCount(surfaceFilter, surfaceOn);
+
     // Compose the summary line shown beneath the row title:
     //   - liveUsersVisible=false  → 'אין סינון פעיל' (dimmed)
     //   - liveActivity='all'      → 'הכל'
@@ -82,7 +116,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
 
     return (
         <>
-            <MapLayersButton onClick={() => setIsOpen(true)} />
+            <MapLayersButton onClick={() => setIsOpen(true)} activeCount={surfaceBadge} />
 
             {isOpen && (
                 // z-[48] sits ABOVE the PartnerOverlay (z-[45]) so the sheet
@@ -139,6 +173,45 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
 
                             {/* Toggle list — RTL via dir: label+icon on right, switch on left */}
                             <div className="px-5" dir="rtl">
+                                {surfaceOn && (
+                                    <div className="py-4 border-b border-gray-100">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-[15px] font-semibold text-gray-900">{t('layers.surface.title')}</span>
+                                            {surfaceFilter !== 'any' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => pickSurface('any')}
+                                                    className="text-[13px] font-bold text-cyan-700 active:opacity-70"
+                                                >
+                                                    {t('layers.surface.reset')}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div role="radiogroup" aria-label={t('layers.surface.title')} className="flex gap-1 p-1 rounded-xl bg-gray-100">
+                                            {surfaceChoices.map((c) => {
+                                                const on = surfaceFilter === c.id;
+                                                return (
+                                                    <button
+                                                        key={c.id}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={on}
+                                                        onClick={() => pickSurface(c.id)}
+                                                        className={`flex-1 h-9 rounded-lg text-[13px] font-bold transition-colors ${on ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                                                    >
+                                                        {t(c.labelKey)}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="mt-2 text-[12px] font-medium text-gray-500">
+                                            {t('layers.surface.count', { shown: String(surfaceStats.shown), total: String(surfaceStats.total) })}
+                                        </p>
+                                        {surfaceFilter !== 'any' && surfaceStats.total > 0 && surfaceStats.shown === 0 && (
+                                            <p className="mt-1 text-[12px] font-semibold text-amber-700">{t('layers.surface.empty')}</p>
+                                        )}
+                                    </div>
+                                )}
                                 {layerOptions.map((layer) => {
                                     const isActive = visibleLayers.includes(layer.id);
                                     return (

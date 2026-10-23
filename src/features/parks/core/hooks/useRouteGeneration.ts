@@ -146,7 +146,7 @@ export function useRouteGeneration(
     const mergedAll = [...dynamicRoutes, ...nearbyOfficial];
     let merged = mergedAll;
     if (surfaceOn) {
-      const res = applySurfaceFilter(mergedAll, surfaceFilter, surfaceActivity, true);
+      const res = applySurfaceFilter(mergedAll as Route[], surfaceFilter, surfaceActivity, true);
       merged = res.routes.slice();
       surfaceStatsRef.current = { shown: res.shown, total: res.total, activity: surfaceActivity };
     }
