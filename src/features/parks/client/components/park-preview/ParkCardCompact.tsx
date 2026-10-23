@@ -2,8 +2,9 @@
 
 /**
  * ParkCardCompact — the map's floating park card, compact (enable_map_polish_v1):
- * ~2/3 the height of the classic card — an 84px hero, the name, ONE meta line
- * (rating · city · distance · machines) and at most 3 amenity chips. The
+ * one photo card — the park photo fills it under a dark gradient carrying the
+ * name, ONE meta line (rating · city · distance · machines) and at most 3
+ * amenity chips (no white body band; owner 23.10.2026). The
  * shelter strip moved to the park page (ParkShelterTag). 24px side insets,
  * v2 tokens. Tap → the park page (the caller's onOpen). Render-only.
  */
@@ -15,7 +16,10 @@ import type { ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 
-export const COMPACT_HERO_PX = 84;
+/** The whole card is the photo (gradient + text over it). */
+export const COMPACT_CARD_PX = 148;
+/** Bottom-up scrim so white text reads on any photo; the top stays clear. */
+export const COMPACT_GRADIENT = 'linear-gradient(to top, rgba(9,20,30,0.86) 0%, rgba(9,20,30,0.55) 42%, rgba(9,20,30,0) 78%)';
 export const COMPACT_MAX_CHIPS = 3;
 
 export interface ParkCardCompactProps {
@@ -46,33 +50,38 @@ export default function ParkCardCompact({
       onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(); } }}
       data-testid="park-card-compact"
     >
-      <div className="overflow-hidden rounded-v2-card bg-white shadow-v2-float" dir="rtl">
-        <div className="relative bg-v2-tint" style={{ height: COMPACT_HERO_PX }}>
-          {heroSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={heroSrc} alt={name} className="absolute inset-0 h-full w-full object-cover"
-              style={{ objectPosition }} loading="lazy" />
-          ) : (
-            <div className="absolute inset-0 grid place-items-center">
-              <span className="material-icons-round text-3xl text-v2-pill-border">park</span>
-            </div>
-          )}
-          <button type="button" aria-label={t('parkCard.close')}
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
-            className="absolute left-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-v2-ring backdrop-blur-sm transition-transform duration-150 ease-v2 active:scale-[0.96]">
-            <X size={15} className="text-v2-ink" />
-          </button>
-          <button type="button" aria-label={t('parkCard.navigate')}
-            onClick={(e) => { e.stopPropagation(); onNavigate(); }}
-            className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-v2-accent text-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.96]">
-            <Navigation size={14} fill="currentColor" />
-          </button>
-        </div>
+      {/* One photo card: the photo fills the whole card and a dark gradient carries
+          the text — no white body band under an 84px strip (owner, 23.10.2026).
+          The dark base colour means a sub-pixel gap at the rounded edge never reads
+          as a white line, and isolation + translateZ makes WebKit (iOS) clip the
+          photo to the radius during the slide-in animation. */}
+      <div className="relative overflow-hidden rounded-v2-card shadow-v2-float" dir="rtl"
+        style={{ height: COMPACT_CARD_PX, background: '#0e1419', isolation: 'isolate', transform: 'translateZ(0)' }}>
+        {heroSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={heroSrc} alt={name} className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition }} loading="lazy" />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-[#0f6d8c] to-[#0e1419]">
+            <span className="material-icons-round text-4xl text-white/40">park</span>
+          </div>
+        )}
+        <div className="pointer-events-none absolute inset-0" style={{ background: COMPACT_GRADIENT }} aria-hidden />
+        <button type="button" aria-label={t('parkCard.close')}
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          className="absolute left-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-v2-ring backdrop-blur-sm transition-transform duration-150 ease-v2 active:scale-[0.96]">
+          <X size={15} className="text-v2-ink" />
+        </button>
+        <button type="button" aria-label={t('parkCard.navigate')}
+          onClick={(e) => { e.stopPropagation(); onNavigate(); }}
+          className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-v2-accent text-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.96]">
+          <Navigation size={14} fill="currentColor" />
+        </button>
 
-        <div className="px-3.5 pb-3 pt-2">
-          <h3 className="truncate text-[15.5px] font-black leading-snug !tracking-[-0.02em] text-v2-ink">{name}</h3>
+        <div className="absolute inset-x-0 bottom-0 z-[1] px-3.5 pb-3">
+          <h3 className="truncate text-[16px] font-black leading-snug !tracking-[-0.02em] text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.35)]">{name}</h3>
           {(rating || metaParts.length > 0) && (
-            <div className="mt-0.5 flex items-center gap-1 truncate text-[12.5px] font-bold text-v2-muted">
+            <div className="mt-0.5 flex items-center gap-1 truncate text-[12.5px] font-bold text-white/85">
               {rating && (
                 <>
                   <span>{rating.avg}</span>

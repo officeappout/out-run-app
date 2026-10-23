@@ -24,6 +24,19 @@ export const TRACK_RGB: Record<TrackKey, string> = {
   walk: '249,140,22',
 };
 
+/**
+ * Steps + walking — ONE shared orange (owner decision 23.10.2026, progress hub boards PG-1…PG-6):
+ * the home progress slot's walking card / activity ring and the progress hub's steps + walking
+ * pages read this. `fill` for rings, bars and dots; `text` for orange copy on white (WCAG AA);
+ * `rgb` for soft washes (rgba(${rgb},0.12)). Running stays TRACK_COLORS.run (green), strength cyan.
+ * TRACK_COLORS.walk (amber) is unchanged so every flag-off surface stays byte-identical.
+ */
+export const STEPS_WALK_COLORS = {
+  fill: '#f97316',
+  text: '#c2410c',
+  rgb: '249,115,22',
+} as const;
+
 /** Recovery / mobility — not a track, but it shares the flame palette. */
 export const MAINTENANCE_COLOR = '#a855f7';
 

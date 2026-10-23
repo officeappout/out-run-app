@@ -24,6 +24,11 @@ describe('parkTarget', () => {
     expect(parkTarget({ location: { lat: 32.1, lng: 34.8 }, name: 'גינת מאיר' }))
       .toEqual({ coords: [34.8, 32.1], label: 'גינת מאיר' });
   });
+  it('a park with an id carries its id + marker photo (the map pins the park itself, not a flag)', () => {
+    expect(parkTarget({ id: 'p1', location: { lat: 32.1, lng: 34.8 }, name: 'גינת מאיר', imageUrl: 'https://example.com/a.jpg' }))
+      .toEqual({ coords: [34.8, 32.1], label: 'גינת מאיר', park: { id: 'p1', photoUrl: expect.stringContaining('a.jpg') } });
+    expect(parkTarget({ id: 'p2', location: { lat: 32.1, lng: 34.8 }, name: 'x' })?.park).toEqual({ id: 'p2', photoUrl: null });
+  });
   it('missing / invalid location → null', () => {
     expect(parkTarget({ name: 'x' })).toBeNull();
     expect(parkTarget({ location: { lat: null, lng: 34 } })).toBeNull();

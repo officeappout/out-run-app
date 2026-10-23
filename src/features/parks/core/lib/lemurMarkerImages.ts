@@ -32,7 +32,7 @@ const cache = new Map<string, HTMLImageElement>();
 /** Fetch + decode the marker images ahead of time. Idempotent, SSR-safe. */
 export function preloadLemurMarkerImages(): void {
   if (typeof window === 'undefined' || typeof Image === 'undefined') return;
-  for (const src of new Set(Object.values(LEMUR_MARKER_IMAGES))) {
+  for (const src of Array.from(new Set(Object.values(LEMUR_MARKER_IMAGES)))) {
     if (cache.has(src)) continue;
     const img = new Image();
     img.decoding = 'async';

@@ -25,7 +25,7 @@ vi.mock('firebase/firestore', () => ({ doc: () => ({}), getDoc: () => new Promis
 vi.mock('@/features/social/store/useChatStore', () => ({ useChatStore: { getState: () => ({ openDM: () => {} }) } }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }));
 
-import ParkCardCompact, { COMPACT_HERO_PX, COMPACT_MAX_CHIPS } from '@/features/parks/client/components/park-preview/ParkCardCompact';
+import ParkCardCompact, { COMPACT_CARD_PX, COMPACT_GRADIENT, COMPACT_MAX_CHIPS } from '@/features/parks/client/components/park-preview/ParkCardCompact';
 import UserProfileSheet from '@/features/parks/client/components/UserProfileSheet';
 import RouteCreditsLine from '@/features/parks/core/components/overview/route/RouteCreditsLine';
 import { layerOptionsFor } from '@/features/parks/core/components/MapLayersControl';
@@ -42,9 +42,10 @@ describe('ParkCardCompact', () => {
       onOpen={noop} onClose={noop} onNavigate={noop}
     />,
   );
-  it('84px hero, 24px insets, v2 card', () => {
-    expect(COMPACT_HERO_PX).toBe(84);
-    expect(html).toContain('height:84px');
+  it('one photo card with a gradient over the photo, no white body band; 24px insets, v2 card', () => {
+    expect(html).toContain(`height:${COMPACT_CARD_PX}px`);
+    expect(html).toContain(COMPACT_GRADIENT);
+    expect(html).not.toContain('bg-white shadow-v2-float');
     expect(html).toContain('left-6 right-6');
     expect(html).toContain('rounded-v2-card');
   });

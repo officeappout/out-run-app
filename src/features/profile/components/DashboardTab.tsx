@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import { Flame, Trophy, Settings2, Bookmark, Dumbbell, Target, BarChart3 } from 'lucide-react';
+import { Flame, Trophy, Settings, Settings2, Bookmark, Dumbbell, Target, BarChart3 } from 'lucide-react';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getLevelName } from '@/features/user/progression/config/lemur-stages';
@@ -189,7 +189,8 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
                   : 'w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95 transition-all'
               }
             >
-              <Settings2 className={v2 ? 'w-[18px] h-[18px] text-v2-ink' : 'w-5 h-5 text-gray-700'} />
+              {/* v2: a real gear — the sliders glyph read as "filters", not settings (owner 23.10). */}
+              {v2 ? <Settings className="w-[18px] h-[18px] text-v2-ink" /> : <Settings2 className="w-5 h-5 text-gray-700" />}
             </button>
           )}
           <button

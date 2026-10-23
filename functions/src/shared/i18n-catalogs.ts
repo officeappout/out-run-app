@@ -55,7 +55,8 @@ export const FUNCTIONS_CATALOGS = {
       "weekdays.letter.3": "ד",
       "weekdays.letter.4": "ה",
       "weekdays.letter.5": "ו",
-      "weekdays.letter.6": "ש"
+      "weekdays.letter.6": "ש",
+      "sync.backfillChip": "מסנכרן — ייקח 1-2 דקות לטעון 3 חודשים של נתונים"
     },
     "en": {
       "actions.continue": "Continue",
@@ -66,7 +67,8 @@ export const FUNCTIONS_CATALOGS = {
       "status.loading": "Loading...",
       "status.error": "Something went wrong, please try again",
       "greeting.ready": "Ready?",
-      "count.minutes": "{count, plural, one {# minute} other {# minutes}}"
+      "count.minutes": "{count, plural, one {# minute} other {# minutes}}",
+      "sync.backfillChip": "Syncing — loading 3 months of data takes 1-2 minutes"
     },
     "ru": {},
     "de": {},

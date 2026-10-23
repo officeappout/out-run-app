@@ -39,6 +39,17 @@ export type GlobalSheetState =
   | { type: 'route'; route: Route }
   | null;
 
+/**
+ * An A→B destination (commute / destination planner). `coords` = [lng, lat].
+ * `park` is set only when the destination is a park (map-polish parkTarget):
+ * the map then pins it with the park's own photo marker, not the flag pin.
+ */
+export interface CommuteTarget {
+  coords: [number, number];
+  label?: string;
+  park?: { id: string; photoUrl: string | null };
+}
+
 interface MapStore {
   selectedFacilityType: FacilityType | null;
   facilities: MapFacility[];
@@ -292,10 +303,8 @@ interface MapStore {
    * `null` = no commute in flight; non-null = an A-to-B target is
    * pinned and the destination marker should be visible.
    */
-  commuteDestination: { coords: [number, number]; label?: string } | null;
-  setCommuteDestination: (
-    target: { coords: [number, number]; label?: string } | null,
-  ) => void;
+  commuteDestination: CommuteTarget | null;
+  setCommuteDestination: (target: CommuteTarget | null) => void;
   /**
    * One-shot commute request. Written by entity cards (ParkPreview /
    * RouteDetailSheet "Navigate" buttons) when the user wants to commute
@@ -307,11 +316,9 @@ interface MapStore {
    * entity cards are mounted globally — they don't have a parent that
    * owns the local `mapMode` state.
    */
-  pendingCommute: { coords: [number, number]; label?: string } | null;
-  setPendingCommute: (
-    target: { coords: [number, number]; label?: string } | null,
-  ) => void;
-  consumePendingCommute: () => { coords: [number, number]; label?: string } | null;
+  pendingCommute: CommuteTarget | null;
+  setPendingCommute: (target: CommuteTarget | null) => void;
+  consumePendingCommute: () => CommuteTarget | null;
   /**
    * One-shot "start this exact route now" request (real-steps-connect plan, Bug 1 fix,
    * 04.09.2026) — same pattern as `pendingCommute` immediately above, for the sibling case:

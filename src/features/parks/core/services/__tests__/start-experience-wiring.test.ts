@@ -177,33 +177,12 @@ describe('DiscoverLayer.tsx — userPosition threaded into BottomJourneyContaine
   });
 });
 
-describe('AppMap.tsx — cheap fixed-pixel start-experience radius ring (v1.1)', () => {
+describe('AppMap.tsx — start-experience radius ring removed (23.10.2026 owner field test)', () => {
   const src = read('../../components/AppMap.tsx');
 
-  it('defines START_RADIUS_RING_LAYER as a circle layer (pixel radius, not geo-accurate)', () => {
-    const match = src.match(/const START_RADIUS_RING_LAYER: mapboxgl\.CircleLayer = \{([\s\S]*?)\n\};/);
-    expect(match, 'START_RADIUS_RING_LAYER not found').toBeTruthy();
-    expect(match![1]).toContain("type: 'circle'");
-    expect(match![1]).toContain("source: 'start-radius-ring'");
-  });
-
-  it('only renders when startRadiusRingGeoJSON is non-null (fails open — no ring, no crash, on bad/missing data)', () => {
-    const match = src.match(/\{startRadiusRingGeoJSON && \(([\s\S]*?)\n {8}\)\}/);
-    expect(match, 'guarded radius-ring block not found').toBeTruthy();
-    expect(match![1]).toContain('id="start-radius-ring"');
-    expect(match![1]).toContain('<Layer {...START_RADIUS_RING_LAYER} />');
-  });
-
-  it('startRadiusRingGeoJSON itself fails open to null on a non-finite currentLocation (12.10.2026 memoization fix)', () => {
-    const match = src.match(/const startRadiusRingGeoJSON = useMemo\(\(\) => \{([\s\S]*?)\n {2}\}, \[/);
-    expect(match, 'startRadiusRingGeoJSON memo not found').toBeTruthy();
-    expect(match![1]).toContain('if (!isFiniteLatLng(currentLocation)) return null;');
-  });
-
-  it('startRadiusRingGeoJSON is keyed on coordinates rounded to 4 decimal degrees — removes the per-GPS-tick setData() churn without changing the rendered position meaningfully', () => {
-    const match = src.match(/const startRadiusRingGeoJSON = useMemo\(\(\) => \{[\s\S]*?\n {2}\}, \[([\s\S]*?)\]\);/);
-    expect(match, 'startRadiusRingGeoJSON memo dependency array not found').toBeTruthy();
-    expect(match![1]).toContain('Math.round(currentLocation.lng * 10_000)');
-    expect(match![1]).toContain('Math.round(currentLocation.lat * 10_000)');
+  it('no longer draws the big translucent ring around the user marker', () => {
+    expect(src).not.toContain('START_RADIUS_RING_LAYER: mapboxgl');
+    expect(src).not.toContain('id="start-radius-ring"');
+    expect(src).not.toContain('startRadiusRingGeoJSON');
   });
 });

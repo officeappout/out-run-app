@@ -639,6 +639,14 @@ export const FLAG_DEFS = [
   // since 22.10.2026 (written always, additive). Older docs keep today's reduced view.
   // Fail-closed; super admins preview it. Off = byte-identical history screen.
   { key: 'enableHistorySummaryParity', firestoreKey: 'enable_history_summary_parity', defaultValue: false, superAdminValue: true },
+  // Progress hub v2 (23.10.2026, owner-approved canvas page 12 PG-2…PG-6 —
+  // agent-briefs/progress-hub-build-brief.md). Inside enable_home_v2's progress tab: the main page keeps
+  // the header, week/month switch and summary ring, then three domain cards (strength · running —
+  // walking variant for a walking plan · steps in orange); each opens a rich page inside progress
+  // (/progress/strength, /progress/run, /progress/steps) with a back arrow + edge swipe.
+  // The week strip, consistency block and records shortcut leave the main page. Needs enable_home_v2.
+  // Fail-closed; super admins preview it. Off = byte-identical progress tab.
+  { key: 'enableProgressHubV2', firestoreKey: 'enable_progress_hub_v2', defaultValue: false, superAdminValue: true },
   // Workout insights (22.10.2026, owner — agent-briefs/kelly-insights-build-brief.md, canvas page 7
   // IN-5 / LV-1…LV-5). After a strength workout: Kelly writes one insight + praise line inside the
   // green "שיפור מהפעם הקודמת" card (AI-star → Kelly chat about this workout), and the lemur says a
