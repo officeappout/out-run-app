@@ -41,7 +41,7 @@ export function usePublishPresence(
 
   // Offer every new status; the publisher decides whether it is time to write.
   const key = status
-    ? [status.uid, status.state, status.distanceKm?.toFixed(2), Math.round(status.paceSecPerKm ?? 0), status.set, status.round, status.minute, status.roundsDone, JSON.stringify(status.cheersSent ?? {})].join('|')
+    ? [status.uid, status.state, status.distanceKm?.toFixed(2), Math.round(status.paceSecPerKm ?? 0), status.set, status.round, status.minute, status.roundsDone, status.totalReps, status.duelUid ?? '', JSON.stringify(status.cheersSent ?? {})].join('|')
     : '';
   useEffect(() => {
     if (statusRef.current) pubRef.current?.update(statusRef.current);

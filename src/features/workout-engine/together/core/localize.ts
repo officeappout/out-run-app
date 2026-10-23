@@ -11,7 +11,8 @@ const FIXED: Record<string, number> = { km: 1, gapKm: 2 };
 export function localizeParams(params: Record<string, string | number>, locale: Locale, fixed: Record<string, number> = FIXED): Record<string, string | number> {
   const out: Record<string, string | number> = {};
   for (const [k, v] of Object.entries(params)) {
-    if (typeof v !== 'number' || !Number.isFinite(v)) { out[k] = v; continue; }
+    // `n` is the ICU plural/select selector — it must stay a number.
+    if (k === 'n' || typeof v !== 'number' || !Number.isFinite(v)) { out[k] = v; continue; }
     const d = fixed[k];
     out[k] = formatNumber(v, locale, d != null ? { minimumFractionDigits: d, maximumFractionDigits: d } : undefined);
   }

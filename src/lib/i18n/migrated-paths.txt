@@ -546,3 +546,5 @@ src/features/home/hooks/useTryRunningNudge.ts
 src/features/home/utils/walk-streak.ts
 src/features/home/utils/try-running.ts
 src/features/workout-engine/together/
+src/features/workout-engine/players/shared/v2/run-chrome/
+src/features/workout-engine/players/shared/v2/run-chrome/

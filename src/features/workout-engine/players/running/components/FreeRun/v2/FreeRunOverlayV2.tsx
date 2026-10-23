@@ -20,12 +20,14 @@ import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
-import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, RunMetricsDrawer, usePublishedPlayerChrome } from '../../../../shared/v2';
+import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, usePublishedPlayerChrome } from '../../../../shared/v2';
+import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome } from '../../../../shared/v2/run-chrome';
+import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
+import { useFreeChromeNodes } from './useFreeChromeNodes';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import { useGroupSessionGoal } from '../../../hooks/useGroupSessionGoal';
 import { useZoneTracking } from '../../../hooks/useZoneTracking';
 import { V2_BLOCK_COLORS, fmtClock, fmtPace } from '../../../lib/planned-rep-results';
-import { fmtSpeed, paceSecToKmh, rateLabels } from '../../../lib/aerobic-activity';
 import { goalView, heroKind } from '../../../lib/continuous-run';
 import ContinuousRunCardV2 from '../../Continuous/v2/ContinuousRunCardV2';
 import SideRail from '../SideRail';
@@ -116,7 +118,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   const headerRef = useRef<HTMLDivElement>(null);
   // Map camera keeps the runner's marker between the header and the card
   // (the legacy framing put it right under the bottom card).
-  const chrome = usePublishedPlayerChrome({ bottomGapPx: 12, headerIncludesSafeTop: true, drawer: drawerV1 });
+  const chrome = usePublishedPlayerChrome({ bottomGapPx: drawerV1 ? 0 : 12, headerIncludesSafeTop: true, drawer: drawerV1 });
   const [headerH, setHeaderH] = useState(96);
   const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
   const navCardH = useMapStore((s) => s.navCardHeight);
@@ -134,6 +136,9 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
     setStoreStoryBarHeight(headerH);
     return () => setStoreStoryBarHeight(0);
   }, [headerH, setStoreStoryBarHeight]);
+
+  const chromeNodes = useFreeChromeNodes({ totals: live.totals, currentPaceSec: live.currentPaceSec, metric: live.metric, isPaused: live.isPaused });
+  const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: headerH + 56, metric: live.metric === 'speed' ? 'speed' : 'pace', enabled: drawerV1 });
 
   const startShellDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
@@ -169,13 +174,25 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
       onStop={live.stop}
     />
   );
-  const rateText =
-    live.currentPaceSec > 0 ? (live.metric === 'speed' ? fmtSpeed(paceSecToKmh(live.currentPaceSec)) : fmtPace(live.currentPaceSec)) : '--:--';
-
   return (
     <>
       {drawerV1 ? (
-        <RunHeaderStrip outerRef={chrome.headerRef} innerRef={headerRef} onPointerDown={startShellDrag} {...headerProps} />
+        <RunHeaderChrome
+          outerRef={chrome.headerRef}
+          innerRef={headerRef}
+          onPointerDown={startShellDrag}
+          layers={tg.layers(
+            <div className="px-5">
+              <div className="flex h-[46px] flex-col justify-center">
+                {headerProps.strip}
+                <div className="mt-2 text-center text-[13px] font-extrabold text-slate-600">{headerProps.eyebrow}</div>
+              </div>
+            </div>,
+          )}
+          index={tg.layerIndex}
+          onIndexChange={tg.setLayerIndex}
+          strip={chromeNodes.strip}
+        />
       ) : (
       <div ref={chrome.headerRef} className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div ref={headerRef} className="px-3 pt-2">
@@ -211,31 +228,25 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         </Toast>
       )}
 
-      <SideRail participants={sideRailParticipants ?? []} storyBarHeight={headerH} onSelect={onSelectParticipant} />
+      {!(drawerV1 && tg.on) && <SideRail participants={sideRailParticipants ?? []} storyBarHeight={headerH} onSelect={onSelectParticipant} />}
 
       {drawerV1 ? (
-        <RunMetricsDrawer
+        <RunDrawerSheet
           cardRef={chrome.cardRef}
-          bottomGapPx={12}
-          className="z-10"
+          onHeight={tg.setSheetHeight}
           onOpenList={onMinimize}
-          full={card}
-          compact={{
-            time: fmtClock(live.totals.durationSec),
-            distanceKm: live.totals.distanceKm.toFixed(2),
-            rate: rateText,
-            rateLabel: rateLabels(live.metric ?? 'pace').page,
-            isPaused: live.isPaused,
-            onPause: live.pause,
-            onResume: live.resume,
-            onStop: live.stop,
-          }}
+          compact={chromeNodes.compact}
+          large={chromeNodes.large}
+          override={tg.vsPanel}
+          buttons={<RunFloatingButtons isPaused={live.isPaused} onPause={live.pause} onResume={live.resume} onLap={live.lap} onStop={live.stop} />}
         />
       ) : (
         <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
           {card}
         </div>
       )}
+
+      {drawerV1 && tg.overlay}
 
       <WorkoutSettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>

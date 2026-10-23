@@ -20,13 +20,15 @@ import { LocateFixed } from 'lucide-react';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
-import { MiniPlayer, PlayerShell, RunMetricsDrawer, usePublishedPlayerChrome } from '../../../../shared/v2';
+import { MiniPlayer, PlayerShell, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
-import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
-import { rateLabels } from '../../../lib/aerobic-activity';
+import { blockDisplayLabel, fmtClock, fmtDistance, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
+import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, useMeasuredHeight } from '../../../../shared/v2/run-chrome';
+import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
+import { usePlannedChromeNodes } from './usePlannedChromeNodes';
 import PlannedLiveCardV2 from './PlannedLiveCardV2';
 import PlannedSessionListV2 from './PlannedSessionListV2';
 import { useT } from '@/hooks/useT';
@@ -79,7 +81,10 @@ export default function PlannedRunLiveV2({
 
   const [listOpen, setListOpen] = useState(false);
   // Map camera keeps the runner's marker between the header and the card.
-  const chrome = usePublishedPlayerChrome({ bottomGapPx: 14, headerIncludesSafeTop: true, drawer: drawerV1 });
+  const chrome = usePublishedPlayerChrome({ bottomGapPx: drawerV1 ? 0 : 14, headerIncludesSafeTop: true, drawer: drawerV1 });
+  // enable_run_player_drawer_v1: the attached chrome (header layers + sheet + floating buttons); together parts need enable_together_layer_v1.
+  const [chromeHeaderRef, chromeHeaderH] = useMeasuredHeight();
+  const setHeaderNodes = useCallback((n: HTMLDivElement | null) => { chrome.headerRef(n); chromeHeaderRef(n); }, [chrome, chromeHeaderRef]);
 
   const segments = useMemo(() => blocks.map((b, i) => ({ key: b.id ?? String(i), color: v2BlockColor(b) })), [blocks]);
   const cartItems = useMemo(
@@ -92,6 +97,8 @@ export default function PlannedRunLiveV2({
     distanceKm: Number.isFinite(totalDistance) ? totalDistance : 0,
     calories: Number.isFinite(totalCalories) ? totalCalories : 0,
   };
+  const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused });
+  const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: chromeHeaderH + 56, enabled: drawerV1 });
   const currentRemaining = !currentBlock
     ? '--'
     : currentBlock.durationSeconds && currentBlock.durationSeconds > 0
@@ -157,6 +164,24 @@ export default function PlannedRunLiveV2({
       {({ startDrag }) => (
           <>
             {/* Header — also the drag handle. */}
+            {drawerV1 ? (
+              <RunHeaderChrome
+                outerRef={setHeaderNodes}
+                onPointerDown={startDrag}
+                layers={tg.layers(
+                  <div className="px-5">
+                    <div className="flex h-[46px] flex-col justify-center">
+                      <StoryBars segments={segments} currentIndex={currentBlockIndex} progress={blockProgress} />
+                      {chromeNodes.caption && <div className="mt-2 text-center text-[13px] font-extrabold text-slate-600">{chromeNodes.caption}</div>}
+                    </div>
+                  </div>,
+                )}
+                index={tg.layerIndex}
+                onIndexChange={tg.setLayerIndex}
+                strip={chromeNodes.strip}
+                trailing={<GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />}
+              />
+            ) : (
             <header
               ref={chrome.headerRef}
               className="pointer-events-auto absolute inset-x-0 top-0 px-4 pb-8"
@@ -181,6 +206,7 @@ export default function PlannedRunLiveV2({
                 </div>
               </div>
             </header>
+            )}
 
             {/* Re-centre (map follow) */}
             <AnimatePresence>
@@ -201,27 +227,21 @@ export default function PlannedRunLiveV2({
 
             {/* The card over the map. */}
             {drawerV1 ? (
-              <RunMetricsDrawer
+              <RunDrawerSheet
                 cardRef={chrome.cardRef}
-                bottomGapPx={14}
+                onHeight={tg.setSheetHeight}
                 onOpenList={() => setListOpen(true)}
-                full={card}
-                compact={{
-                  time: fmtClock(totals.durationSec),
-                  distanceKm: totals.distanceKm.toFixed(2),
-                  rate: fmtPace(engine.currentPaceSeconds),
-                  rateLabel: rateLabels('pace').page,
-                  isPaused,
-                  onPause,
-                  onResume,
-                  onStop: onEnd,
-                }}
+                compact={chromeNodes.compact}
+                large={chromeNodes.large}
+                override={tg.vsPanel}
+                buttons={<RunFloatingButtons isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
               />
             ) : (
               <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>
                 {card}
               </div>
             )}
+            {drawerV1 && tg.overlay}
           </>
       )}
     </PlayerShell>
