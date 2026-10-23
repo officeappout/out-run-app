@@ -1,0 +1,117 @@
+    // ============================================================
+    // TV MODE — tvSessions  (PROPOSAL, enable_tv_mode_v1, 23.10.2026)
+    // NOT part of firestore.rules: the owner reviews, pastes it inside
+    // `match /databases/{database}/documents { … }` and deploys from main.
+    // Uses the existing helpers isAuthenticated() / isAnonymous().
+    // Tests: tests/firestore-tv-sessions.rules.test.ts (reads THIS file).
+    //
+    //   tvSessions/{code}               code = 6 digits, doc id
+    //   tvSessions/{code}/participants/{uid}
+    //
+    // Who can do what
+    //   TV (no account)  : get ONE session by its code, list/get that session's participants,
+    //                      only while it has not expired. Cannot write anything.
+    //   server (Admin)   : creates and deletes the session doc (POST /api/tv/session).
+    //   first real user  : claims the host role ONCE (hostUid null → own uid).
+    //   host             : writes status / workout / mirror / timerAnchorAt / hostBeatAt / volume / cmd.
+    //   anyone signed in : creates + updates ONLY their own participants/{uid}. Guests (anonymous
+    //                      Firebase users) join like Kahoot: a validated nickname + a default avatar,
+    //                      no registration. This is an owner-approved EXCEPTION (23.10.2026) to the
+    //                      SPEC-03 "visible to others = real account" rule, limited to a nickname on a
+    //                      room screen. There is no "remove participant"
+    //                      action and no participant cap (owner decision).
+    //   guests           : can NOT claim the host role, create sessions, or write any session field
+    //                      (so no commands, no volume, no status). Hosting needs a real account.
+    // ============================================================
+
+    function tvSessionPath(code) {
+      return /databases/$(database)/documents/tvSessions/$(code);
+    }
+
+    function tvLive(s) {
+      return s != null && s.data.expiresAt > request.time;
+    }
+
+    function tvShortString(v, max) {
+      return v is string && v.size() > 0 && v.size() <= max;
+    }
+
+    // Guest nickname: 1..20 characters, letters / marks / digits / space . _ ' - (no leading or
+    // trailing space). Same pattern as src/features/tv-mode/core/nickname.ts.
+    function tvNickname(v) {
+      return v is string && v.size() >= 1 && v.size() <= 20
+        && v.matches("^[\\p{L}\\p{M}\\p{N}._'-]([\\p{L}\\p{M}\\p{N} ._'-]*[\\p{L}\\p{M}\\p{N}._'-])?$");
+    }
+
+    // Accounts show their first name (up to 40 chars); guests only a validated nickname.
+    function tvParticipantName(v) {
+      return isAnonymous() ? tvNickname(v) : tvShortString(v, 40);
+    }
+
+    match /tvSessions/{code} {
+      // A code is a capability: read it by id, never list the collection.
+      allow get: if resource.data.expiresAt > request.time;
+      allow list: if false;
+      allow create, delete: if false;
+
+      allow update: if isAuthenticated() && !isAnonymous()
+        && resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt == resource.data.expiresAt
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.code == resource.data.code
+        && (
+          // 1) claim: first real user on a free session becomes host
+          (
+            resource.data.hostUid == null
+            && request.resource.data.hostUid == request.auth.uid
+            && request.resource.data.status == 'lobby'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hostUid', 'hostName', 'hostGender', 'status'])
+            && tvShortString(request.resource.data.hostName, 40)
+            && (request.resource.data.hostGender == null || request.resource.data.hostGender in ['male', 'female', 'other'])
+          )
+          ||
+          // 2) the host's own writes
+          (
+            resource.data.hostUid == request.auth.uid
+            && request.resource.data.hostUid == resource.data.hostUid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'workout', 'mirror', 'timerAnchorAt', 'hostBeatAt', 'volume', 'cmd'])
+            && request.resource.data.status in ['lobby', 'live', 'ended']
+            && resource.data.status != 'ended'
+            && (!('timerAnchorAt' in request.resource.data.diff(resource.data).affectedKeys()) || request.resource.data.timerAnchorAt == request.time)
+            && (!('hostBeatAt' in request.resource.data.diff(resource.data).affectedKeys()) || request.resource.data.hostBeatAt == request.time)
+            && request.resource.data.volume is number && request.resource.data.volume >= 0 && request.resource.data.volume <= 1
+            && (!('mirror' in request.resource.data.diff(resource.data).affectedKeys()) || (request.resource.data.mirror is map && request.resource.data.mirror.v == 1))
+          )
+        );
+
+      match /participants/{uid} {
+        // The TV lists them (nicknames / first names only).
+        allow get, list: if tvLive(get(tvSessionPath(code)));
+
+        // getAfter: the host's claim and its own participant doc go in ONE transaction.
+        allow create: if isAuthenticated()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && tvLive(get(tvSessionPath(code)))
+          && getAfter(tvSessionPath(code)).data.hostUid != null
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'avatar', 'joinedAt', 'expiresAt', 'state', 'seq'])
+          && tvParticipantName(request.resource.data.name)
+          && request.resource.data.avatar is int
+          && request.resource.data.avatar >= 0 && request.resource.data.avatar < 8
+          && request.resource.data.joinedAt == request.time
+          && request.resource.data.expiresAt == get(tvSessionPath(code)).data.expiresAt
+          && request.resource.data.state == 'joined'
+          && request.resource.data.seq == 0;
+
+        // Own presence only; identity (name, avatar) and join time are frozen.
+        allow update: if isAuthenticated()
+          && request.auth.uid == uid
+          && tvLive(get(tvSessionPath(code)))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'set', 'totalSets', 'seq'])
+          && request.resource.data.state in ['joined', 'active', 'resting', 'done', 'left'];
+
+        // A person leaves with state 'left'; the TTL policy removes the doc.
+        allow delete: if false;
+      }
+    }

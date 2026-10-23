@@ -640,6 +640,12 @@ export const FLAG_DEFS = [
   // 3-2-1 from a server timestamp, a head-to-head race bar, tap-to-cheer and the richer "together"
   // summary. Needs enable_home_v2 too. Fail-closed; super admins preview it. Off = identical.
   { key: 'enableTogetherLayerV1', firestoreKey: 'enable_together_layer_v1', defaultValue: false, superAdminValue: true },
+  // TV mode (23.10.2026, owner-approved canvas W-13..W-20): show a strength workout on a big screen.
+  // The TV opens outrun.co.il/tv (QR + 6-digit code), the first phone to enter the code is the host /
+  // remote, later phones join as participants. Entry is ⋯ → "הצגה על מסך גדול" in the workout overview,
+  // before the workout starts. Needs the tvSessions rules (docs/tv-mode — owner deploys) to work.
+  // Fail-closed; super admins preview it. Off = nothing changes anywhere (no ⋯ button, /tv shows "not available").
+  { key: 'enableTvModeV1', firestoreKey: 'enable_tv_mode_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
