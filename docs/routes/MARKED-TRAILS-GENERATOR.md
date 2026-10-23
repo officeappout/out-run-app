@@ -15,7 +15,9 @@ Owner idea 22.10.2026: OSM has many trails with no name (colour-marked hiking ro
 | Trail COLOUR (`osmc:symbol` red/blue/green/black) | **No.** GraphHopper has no encoded value for it. |
 | Route relations that have no `network` tag | They map to `foot_network` OTHER or MISSING depending on tagging, so a marked trail with sloppy relation tags can look like "no network". |
 
-Not verified (needs a live check by the owner): how many Israeli marked-trail edges actually carry a non-MISSING `foot_network` in the baked graph, and that the live GraphHopper 11.1 accepts the new expression (`foot_network == MISSING && (...)`). Compile-time validation happens on the first request; the app falls back to the plain recipe only on a server error, so check with one request first (below).
+Not verified (needs a live check by the owner): how many Israeli marked-trail edges actually carry a non-MISSING `foot_network` in the baked graph, and that the live GraphHopper 11.1 accepts the new expression (`foot_network == MISSING && (...)`). Compile-time validation happens on the first request. Worst case if the expression is rejected: GraphHopper answers HTTP 400, `tryGraphhopperLoops` (`graphhopper-loops/index.ts`) catches ANY throw and returns null, and the generator falls back to the MAPBOX pipeline (there is no plain-recipe GraphHopper retry). So flag-on + a bad expression means affected users (running/walking outside the big cities) get Mapbox routes instead of GraphHopper ones, not an outage.
+
+**HARD pre-enablement gate:** before turning the flag on, make one live `/route` call with the new custom model and confirm HTTP 200 (see `infra/graphhopper/README.md` smoke). Do not enable the flag without it.
 
 ## What is implemented (app side only; no graph rebuild needed)
 
@@ -26,7 +28,7 @@ Not verified (needs a live check by the owner): how many Israeli marked-trail ed
 
 ## Owner steps to make it effective
 
-1. Merge, then turn the flag on in the admin panel (system settings). It already works on the current graph for the `road_class` part. Before enabling widely: call `/route` once with the new custom model (see `infra/graphhopper/README.md` smoke) and confirm HTTP 200, then compare loops in `/admin/routes/quality`.
+1. Merge, then turn the flag on in the admin panel (system settings). It already works on the current graph for the `road_class` part. Before enabling (hard gate, see above): the live smoke call must return HTTP 200. Then compare loops in `/admin/routes/quality`.
 2. To see trail colour or to rely on marked-trail membership reliably (optional, needs a graph rebuild + redeploy, see `infra/graphhopper/scripts/build.sh` / `deploy.sh`):
    * Add a custom GraphHopper encoded value / tag parser for `osmc:symbol` (a small Java plugin extending the import) or pre-filter the PBF with osmium to tag member ways, then add it to `graph.encoded_values`.
    * Rebuild the image (`IMPORT_XMX` 5g) and redeploy; then change the statement to use the new value and (only then) consider a different multiplier.

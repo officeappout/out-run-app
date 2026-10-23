@@ -34,6 +34,9 @@ const SAFE_CROSSINGS: CustomModelStatement[] = [
  * get from the start onto a trail. Never touches access (a forbidden edge keeps priority 0).
  */
 export const PREFER_TRAILS_PAVED_MULTIPLIER = '0.85';
+// MUST stay a separate, multiplicative statement applied AFTER QUIET_FOOT. Do not fold it into
+// QUIET_FOOT's if/else_if chain: those road classes are already matched there, so an else_if branch
+// would never fire for them.
 const PREFER_TRAILS_FOOT: CustomModelStatement[] = [
   {
     if: 'foot_network == MISSING && (road_class == TERTIARY || road_class == UNCLASSIFIED || road_class == RESIDENTIAL || road_class == SERVICE)',
