@@ -7,8 +7,9 @@ import type { TvJoinRole, TvMirror, TvParticipantState, TvWorkoutInfo } from '..
 export interface TvRemoteControls {
   togglePause: () => void;
   next: () => void;
-  prev: () => void;
-  skipExercise: () => void;
+  /** Absent = the player has no such action (the remote hides the button). */
+  prev?: () => void;
+  skipExercise?: () => void;
 }
 
 export interface TvParticipantProgress {
@@ -40,19 +41,22 @@ interface TvPhoneState {
   progress: TvParticipantProgress | null;
   /** Host chose "continue on phone only" after losing the screen. */
   phoneOnly: boolean;
+  /** Host: people in the room besides the host (feeds the mirror's "together" chip). */
+  others: number;
 
   openPair: (pending: TvPending | null, initialCode?: string) => void;
   setConnected: (code: string, role: TvJoinRole) => void;
   setMirror: (mirror: TvMirror | null, controls: TvRemoteControls | null) => void;
   setProgress: (p: TvParticipantProgress | null) => void;
   setPhoneOnly: (v: boolean) => void;
+  setOthers: (n: number) => void;
   closePair: () => void;
   /** Hide the full-screen panel but stay connected (the workout runs on). */
   hide: () => void;
   reset: () => void;
 }
 
-const BLANK = { view: 'none' as TvPhoneView, code: null, role: null, pending: null, mirror: null, controls: null, progress: null, phoneOnly: false };
+const BLANK = { view: 'none' as TvPhoneView, code: null, role: null, pending: null, mirror: null, controls: null, progress: null, phoneOnly: false, others: 0 };
 
 export const useTvPhoneStore = create<TvPhoneState>((set) => ({
   ...BLANK,
@@ -61,6 +65,7 @@ export const useTvPhoneStore = create<TvPhoneState>((set) => ({
   setMirror: (mirror, controls) => set({ mirror, controls }),
   setProgress: (progress) => set({ progress }),
   setPhoneOnly: (phoneOnly) => set({ phoneOnly }),
+  setOthers: (others) => set((s) => (s.others === others ? s : { others })),
   closePair: () => set((s) => (s.role ? { view: s.role === 'host' ? 'host' : 'joined' } : { ...BLANK })),
   hide: () => set({ view: 'none' }),
   reset: () => set({ ...BLANK }),

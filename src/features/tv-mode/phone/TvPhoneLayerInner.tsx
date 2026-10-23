@@ -64,6 +64,10 @@ export default function TvPhoneLayerInner() {
   }, [code, sv.screen, reset]);
 
   const live = session?.status === 'live';
+  const others = session?.hostUid ? sv.participants.filter((p) => p.uid !== session.hostUid).length : 0;
+  useEffect(() => {
+    if (role === 'host') useTvPhoneStore.getState().setOthers(others);
+  }, [role, others]);
 
   // A host who comes back (app reload) into a workout that is already running must not meet the lobby panel.
   useEffect(() => {

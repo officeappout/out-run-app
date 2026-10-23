@@ -1,5 +1,6 @@
 import { timerProgress, timerReading } from '../core/mirror';
-import type { TvMirror, TvParticipant } from '../core/types';
+import { TV_MAX_PARTICIPANTS } from '../core/constants';
+import type { TvMedia, TvMirror, TvMode, TvParticipant } from '../core/types';
 
 export type StageTone = 'accent' | 'warn' | 'ok' | 'idle';
 
@@ -25,7 +26,17 @@ export interface WideStageModel {
   repsMax?: number;
   holdSec?: number;
   nextName?: string;
+  /** Media of what is on screen (during a rest: the exercise that comes next). */
+  media?: TvMedia;
+  /** Media of the next-up card. */
+  nextMedia?: TvMedia;
+  mode: TvMode;
+  /** The clock is counting down right now (drives the countdown beeps). */
+  clockRunningDown: boolean;
+  /** At most TV_MAX_PARTICIPANTS people; the rest are counted. */
   friends: TvParticipant[];
+  moreFriends: number;
+  hostUid: string | null;
 }
 
 export function buildStageModel(args: {
@@ -33,6 +44,7 @@ export function buildStageModel(args: {
   timerAnchorAtMs: number | null;
   serverNowMs: number;
   friends: TvParticipant[];
+  hostUid?: string | null;
 }): WideStageModel {
   const { mirror, timerAnchorAtMs, serverNowMs, friends } = args;
   const clockMs = timerReading(mirror.timer, timerAnchorAtMs, serverNowMs);
@@ -53,7 +65,13 @@ export function buildStageModel(args: {
     repsMax: mirror.repsMax,
     holdSec: mirror.holdSec,
     nextName: mirror.nextExerciseName,
+    media: mirror.phase === 'rest' ? (mirror.nextMedia ?? mirror.media) : mirror.media,
+    nextMedia: mirror.nextMedia,
+    mode: mirror.mode ?? 'strength',
+    clockRunningDown: mirror.timer.dir === 'down' && mirror.timer.running && !mirror.paused && mirror.phase !== 'done',
     // The host is one of the friends on the screen — equal list, no ranking.
-    friends,
+    friends: friends.slice(0, TV_MAX_PARTICIPANTS),
+    moreFriends: Math.max(0, friends.length - TV_MAX_PARTICIPANTS),
+    hostUid: args.hostUid ?? null,
   };
 }

@@ -11,6 +11,8 @@ export const TV_HEARTBEAT_MS = 5000;
 export const TV_LOST_AFTER_MS = 20_000;
 /** Participants refresh their presence at most this often. */
 export const TV_PRESENCE_MIN_GAP_MS = 3000;
+/** The runner's mirror is written at most this often (first change at once, the rest coalesced). */
+export const TV_MIRROR_MIN_GAP_MS = 250;
 /** Server-clock offset samples kept (the lowest-latency one wins). */
 export const TV_CLOCK_SAMPLES = 12;
 /** The TV draws at most this many people (the rest are counted, not drawn). */
