@@ -333,6 +333,11 @@ export const FLAG_DEFS = [
   // The exercise library under "תרגילים" is the same component as today. Fail-closed; super
   // admins preview it. Off = today's /search and map search, byte-identical.
   { key: 'enableUnifiedSearch', firestoreKey: 'enable_unified_search', defaultValue: false, superAdminValue: true },
+  // Shared strength workout link (22.10.2026, owner loose-ends batch): /workouts/[id] renders the
+  // same exercise list as the in-app strength preview (sections, supersets, equipment / muscle
+  // chips), rebuilt from the shared doc; falls back to the current layout when the doc lacks data.
+  // Fail-closed; super admins preview it. Off = today's shared page, byte-identical.
+  { key: 'enableSharedWorkoutPreviewV1', firestoreKey: 'enable_shared_workout_preview_v1', defaultValue: false, superAdminValue: true },
   // Entry flow v2 — step 2 on the map (20.10.2026, owner-approved design canvas N2/N2b/N2k,
   // R1–R3, R6). After the location step (enable_entry_globe_v1) lands on /map with entry=v2,
   // a one-time "מה בא לך עכשיו?" drawer (route card when a park / route is near, the personal

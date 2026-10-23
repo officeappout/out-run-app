@@ -24,6 +24,8 @@ vi.mock('next/navigation', () => {
   const router = { push: () => {}, replace: () => {}, back: () => {}, prefetch: () => {} }; // stable
   return { useRouter: () => router };
 });
+vi.mock('@/hooks/useFeatureFlags', () => ({ useFeatureFlags: () => ({ flags: { enableSharedWorkoutPreviewV1: false }, loading: false }) }));
+vi.mock('@/features/workouts/components/workout-preview-drawer/components/exercise-list/GeneratedWorkoutExerciseList', () => ({ default: () => null }));
 vi.mock('@/lib/firebase', () => ({ db: {}, app: {}, auth: { currentUser: null } }));
 vi.mock('@/features/workout-engine/services/share.service', () => ({
   getSharedWorkout: () => (S.sharedPending ? new Promise(() => {}) : Promise.resolve(S.shared)),
