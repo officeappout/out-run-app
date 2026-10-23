@@ -28,6 +28,11 @@ import { computeCrmTimeline } from '@/lib/admin-analytics/crm-timeline.server';
 import { getFinanceOverview } from '@/lib/admin-analytics/finance-overview.server';
 import { getSignupsOverview, getWorkoutsOverview } from '@/lib/admin-analytics/users-activity.server';
 import { getUserLookup } from '@/lib/admin-analytics/user-lookup.server';
+import { getRouteOverview } from '@/lib/admin-analytics/route-overview.server';
+import { getParkOverview } from '@/lib/admin-analytics/park-overview.server';
+import { getContentLeaderboard, type LeaderboardBy, type LeaderboardKind } from '@/lib/admin-analytics/content-leaderboard.server';
+import type { ContentLookup } from '@/lib/admin-analytics/content-common.server';
+import { parkLinks, routeLinks } from './content-links.server';
 import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
 import { validateAdminToolInput } from './tools';
 import { capToolResult, numbersIn, wrapToolData } from './tool-result';
@@ -209,6 +214,27 @@ export async function executeAdminTool(ctx: AdminToolContext, name: string, rawI
         const r = dataResult(name, { ...found.result, value: { matchedBy: found.matchedBy, ...profile, ...(link ? { buttonShownToUser: link.title } : {}) } });
         return link ? { ...r, link } : r;
       }
+      case 'get_route_overview':
+      case 'get_park_overview': {
+        const { query } = v.input as { query: string };
+        const isRoute = name === 'get_route_overview';
+        const found: ContentLookup<any> = isRoute ? await getRouteOverview(ctx.db, query, { now: ctx.now }) : await getParkOverview(ctx.db, query, { now: ctx.now });
+        if (found.kind === 'unavailable') return errorResult(`${name}: could not be computed right now (this is NOT zero)`);
+        if (found.kind !== 'resolved') {
+          const json = JSON.stringify(
+            found.kind === 'ambiguous'
+              ? { resolved: false, candidates: found.candidates, note: 'several records match — ask the admin which one, or call again with the id' }
+              : { resolved: false, candidates: [], note: `no ${isRoute ? 'route' : 'park'} with this name — ask the admin to check the spelling` },
+          );
+          return { content: wrapToolData(json), isError: false, resultChars: json.length, truncated: false };
+        }
+        const ov = found.result.value!;
+        const links = await (isRoute ? routeLinks(ctx, ov.route) : parkLinks(ctx, ov.park)).catch(() => [] as AdminToolLink[]);
+        const r = dataResult(name, { ...found.result, value: { matchedBy: found.matchedBy, ...ov, buttonsShownToUser: links.map((l) => l.title) } });
+        return links.length ? { ...r, links } : r;
+      }
+      case 'get_content_leaderboard':
+        return dataResult(name, await getContentLeaderboard(ctx.db, v.input as { kind: LeaderboardKind; by: LeaderboardBy; authorityId: string | null; limit: number | null }, { now: ctx.now }));
       case 'get_push_funnel':
         return dataResult(name, await getPushFunnel(ctx.db, { now: ctx.now }));
       case 'compare_authorities': {

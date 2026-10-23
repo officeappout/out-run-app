@@ -220,6 +220,11 @@ AUTHORIZED_ROUTE_WRITERS=(
   # flip of PENDING official_routes to published. Static fields go through
   # buildValidatedDoc (update mode); server timestamps are added after.
   "src/lib/city-mapping-hub/bulk-routes.server.ts"
+  # Admin AI get_route_overview / get_content_leaderboard (22.10.2026): READ-ONLY reads
+  # of official_routes / curated_routes (name index, one doc, usage counter ordering).
+  # No write verb in either file; both also on the migrated list.
+  "src/lib/admin-analytics/route-overview.server.ts"
+  "src/lib/admin-analytics/content-leaderboard.server.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -258,6 +263,8 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "src/lib/city-mapping-hub/layers.server.ts"
   "src/lib/admin-analytics/authority-overview.server.ts"
   "src/lib/city-mapping-hub/bulk-routes.server.ts"
+  "src/lib/admin-analytics/route-overview.server.ts"
+  "src/lib/admin-analytics/content-leaderboard.server.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

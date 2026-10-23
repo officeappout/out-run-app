@@ -26,6 +26,8 @@ export const ADMIN_PAGE_SYNONYMS: Record<string, string[]> = {
   '/admin/notifications/library': ['ספריית התראות', 'נוסחי פוש'],
   '/admin/exercises': ['תרגילים', 'מאגר תרגילים'],
   '/admin/locations': ['פארקים', 'גינות כושר', 'מסלולים', 'מפה'],
+  '/admin/parks': ['ניהול פארקים', 'עריכת פארק', 'גינת כושר', 'פרטי פארק', 'ציוד בפארק'],
+  '/admin/routes': ['ניהול מסלולים', 'מסלולים חכמים', 'עריכת מסלול', 'פרטי מסלול'],
   '/admin/heatmap': ['מפת חום', 'פעילות חיה'],
   '/admin/ai-coach/kelly': ['קלי', 'צאט קלי', 'הודעות ממתינות'],
   '/admin/ai-coach/reviews': ['ביקורת שיחות', 'איכות קלי'],
