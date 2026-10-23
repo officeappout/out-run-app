@@ -26,6 +26,7 @@ import { Popup } from 'react-map-gl';
 import ParkCoachAnchor from './coach/ParkCoachAnchor';
 import { useParkCoachAnchorWanted } from './coach/park-coach-anchor';
 import LemurMarker from '@/features/parks/core/components/LemurMarker';
+import { preloadLemurMarkerImages } from '@/features/parks/core/lib/lemurMarkerImages';
 import PartnerMarker from './PartnerMarker';
 import ParkPhotoMarker from './ParkPhotoMarker';
 import { isLayerOn, withLayerVisibility } from '../map-polish/layer-visibility';
@@ -439,6 +440,10 @@ export default function AppMap({
   activityType,
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
+  // Warm the lemur marker art on map mount: the entry camera starts zoomed out
+  // (pulse dot) and the <LemurMarker> <img> only mounts once zoom >= 10, so
+  // without this the request started at that moment. Idempotent (memory cache).
+  useEffect(() => { preloadLemurMarkerImages(); }, []);
   const parkCoachAnchorWanted = useParkCoachAnchorWanted();
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   // Entry camera plan — latched for the life of this mount (see entry-camera.ts).
