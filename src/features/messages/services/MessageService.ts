@@ -29,6 +29,12 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { makeT, type TFunction } from '@/lib/i18n/t';
+import { social } from '@/messages/ns/social';
+
+type SocialT = TFunction<NamespaceKey<typeof social>>;
 
 // ============================================================================
 // LOCAL STORAGE CONFIG
@@ -133,76 +139,83 @@ const COLLECTION_NAME = 'smart_messages';
 
 /** Message type labels in Hebrew */
 export const MESSAGE_TYPE_LABELS: Record<MessageType, string> = {
-  post_workout: 'אחרי אימון',
-  partial_workout: 'אימון חלקי',
-  re_engagement: 'חזרה לפעילות',
-  pr_record: 'שיא אישי',
-  streak_milestone: 'אבן דרך ברצף',
-  level_up: 'עליית רמה',
-  first_workout: 'אימון ראשון',
-  community_session: 'מפגשים',
-  missed_workout: 'פספוס אימון',
-  default: 'ברירת מחדל',
+  post_workout: 'אחרי אימון', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  partial_workout: 'אימון חלקי', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  re_engagement: 'חזרה לפעילות', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  pr_record: 'שיא אישי', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  streak_milestone: 'אבן דרך ברצף', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  level_up: 'עליית רמה', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  first_workout: 'אימון ראשון', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  community_session: 'מפגשים', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  missed_workout: 'פספוס אימון', // i18n-allow-hebrew: admin screen label (Hebrew only)
+  default: 'ברירת מחדל', // i18n-allow-hebrew: admin screen label (Hebrew only)
 };
 
-/** Default messages for each type (fallback when no messages in DB) */
-export const DEFAULT_MESSAGES: Record<MessageType, SmartMessage[]> = {
-  post_workout: [
-    { id: 'default-pw-1', type: 'post_workout', text: 'כל הכבוד!', subText: 'סיימת את האימון בהצלחה', priority: 5, isActive: true },
-    { id: 'default-pw-2', type: 'post_workout', text: 'מדהים!', subText: 'עוד אימון בכיס', priority: 5, isActive: true },
-    // Personal praise stays gendered; no "חיה" (owner decisions 6 + 9, 21.10.2026).
-    { id: 'default-pw-3', type: 'post_workout', text: 'איזה אימון!', subText: 'המשך כך', priority: 5, isActive: true, targetGender: 'male' },
-    { id: 'default-pw-3f', type: 'post_workout', text: 'איזה אימון!', subText: 'המשיכי כך', priority: 5, isActive: true, targetGender: 'female' },
-    { id: 'default-pw-4', type: 'post_workout', text: 'סיימת!', subText: 'הגוף שלך מודה לך', priority: 5, isActive: true },
-    { id: 'default-pw-5', type: 'post_workout', text: 'אלוף!', subText: 'עוד צעד קדימה', priority: 5, isActive: true, targetGender: 'male' },
-    { id: 'default-pw-5f', type: 'post_workout', text: 'אלופה!', subText: 'עוד צעד קדימה', priority: 5, isActive: true, targetGender: 'female' },
-  ],
-  partial_workout: [
-    { id: 'default-part-1', type: 'partial_workout', text: 'גם זה משהו!', subText: 'כל תנועה חשובה', priority: 5, isActive: true },
-    { id: 'default-part-2', type: 'partial_workout', text: 'התחלה טובה!', subText: 'בפעם הבאה נשלים', priority: 5, isActive: true },
-    { id: 'default-part-3', type: 'partial_workout', text: 'לא נורא!', subText: 'העיקר שזז', priority: 4, isActive: true },
-  ],
-  // Calm return copy (18.10.2026): warm and short, no day counts, no "where were you".
-  re_engagement: [
-    { id: 'default-re-1', type: 're_engagement', text: 'כיף לראות אותך!', subText: 'בוא נתחיל בקטנה', priority: 5, isActive: true, targetGender: 'male' },
-    { id: 'default-re-1f', type: 're_engagement', text: 'כיף לראות אותך!', subText: 'בואי נתחיל בקטנה', priority: 5, isActive: true, targetGender: 'female' },
-    { id: 'default-re-2', type: 're_engagement', text: 'טוב שחזרת', subText: 'מוכן לאימון קליל?', priority: 5, isActive: true, targetGender: 'male' },
-    { id: 'default-re-2f', type: 're_engagement', text: 'טוב שחזרת', subText: 'מוכנה לאימון קליל?', priority: 5, isActive: true, targetGender: 'female' },
-    { id: 'default-re-3', type: 're_engagement', text: 'שבוע חדש מתחיל היום', subText: 'אימון קליל להיום', priority: 6, isActive: true },
-    { id: 'default-re-4', type: 're_engagement', text: 'חוזרים בקטנה', subText: 'גם קצת זה מספיק להיום', priority: 4, isActive: true },
-  ],
-  pr_record: [
-    { id: 'default-pr-1', type: 'pr_record', text: 'שיא חדש! 🏆', subText: 'שברת את עצמך', priority: 10, isActive: true },
-    { id: 'default-pr-2', type: 'pr_record', text: 'וואו!', subText: 'שיא אישי חדש!', priority: 10, isActive: true },
-    { id: 'default-pr-3', type: 'pr_record', text: 'מטורף!', subText: 'הרמת את הרף', priority: 10, isActive: true },
-  ],
-  streak_milestone: [
-    { id: 'default-sm-1', type: 'streak_milestone', text: 'רצף מדהים!', subText: 'ההתמדה משתלמת', priority: 8, isActive: true },
-    { id: 'default-sm-2', type: 'streak_milestone', text: 'על גל!', subText: 'תמשיך ככה', priority: 8, isActive: true },
-  ],
-  level_up: [
-    { id: 'default-lu-1', type: 'level_up', text: 'עלית רמה! 🎉', subText: 'ההתקדמות ניכרת', priority: 10, isActive: true },
-    { id: 'default-lu-2', type: 'level_up', text: 'כבוד!', subText: 'רמה חדשה נפתחה', priority: 10, isActive: true },
-  ],
-  first_workout: [
-    { id: 'default-fw-1', type: 'first_workout', text: 'צעד ראשון!', subText: 'ברוכים הבאים למסע', priority: 10, isActive: true },
-    { id: 'default-fw-2', type: 'first_workout', text: 'מתחילים!', subText: 'האימון הראשון הוא הכי חשוב', priority: 10, isActive: true },
-  ],
-  community_session: [
-    { id: 'default-cs-1', type: 'community_session', text: 'מפגש קהילתי היום!', subText: 'אשר הגעה ובוא להתאמן עם הקהילה', priority: 8, isActive: true },
-    { id: 'default-cs-2', type: 'community_session', text: 'מחכים לך!', subText: 'יש לך מפגש קהילתי בקרוב', priority: 7, isActive: true },
-    { id: 'default-cs-3', type: 'community_session', text: 'מפגש מחר!', subText: 'אל תשכח לאשר הגעה', priority: 6, isActive: true },
-  ],
-  missed_workout: [
-    { id: 'default-mw-1', type: 'missed_workout', text: 'האימון של אתמול עוד כאן', subText: 'רוצה לעשות אותו היום?', priority: 7, isActive: true },
-    { id: 'default-mw-2', type: 'missed_workout', text: 'הכל בסדר', subText: 'אם בא לך, אפשר להשלים היום', priority: 6, isActive: true },
-  ],
-  default: [
-    { id: 'default-def-1', type: 'default', text: 'היי!', subText: 'מוכן להתאמן?', priority: 5, isActive: true },
-    { id: 'default-def-2', type: 'default', text: 'מה קורה?', subText: 'בוא נזוז', priority: 5, isActive: true },
-    { id: 'default-def-3', type: 'default', text: 'שלום!', subText: 'הגוף מחכה לך', priority: 4, isActive: true },
-  ],
-};
+/**
+ * Default messages for each type (fallback when no messages in DB), from the `social` catalog (`defaults.<id>.text|sub`).
+ * `t` defaults to Hebrew; `seedDefaultMessages` writes whatever this returns, so it stays Hebrew.
+ */
+export function buildDefaultMessages(t: SocialT = makeT(SOURCE_LOCALE, social)): Record<MessageType, SmartMessage[]> {
+  return {
+    post_workout: [
+      { id: 'default-pw-1', type: 'post_workout', text: t('defaults.default-pw-1.text'), subText: t('defaults.default-pw-1.sub'), priority: 5, isActive: true },
+      { id: 'default-pw-2', type: 'post_workout', text: t('defaults.default-pw-2.text'), subText: t('defaults.default-pw-2.sub'), priority: 5, isActive: true },
+      // Personal praise stays gendered; no "חיה" (owner decisions 6 + 9, 21.10.2026).
+      { id: 'default-pw-3', type: 'post_workout', text: t('defaults.default-pw-3.text'), subText: t('defaults.default-pw-3.sub'), priority: 5, isActive: true, targetGender: 'male' },
+      { id: 'default-pw-3f', type: 'post_workout', text: t('defaults.default-pw-3f.text'), subText: t('defaults.default-pw-3f.sub'), priority: 5, isActive: true, targetGender: 'female' },
+      { id: 'default-pw-4', type: 'post_workout', text: t('defaults.default-pw-4.text'), subText: t('defaults.default-pw-4.sub'), priority: 5, isActive: true },
+      { id: 'default-pw-5', type: 'post_workout', text: t('defaults.default-pw-5.text'), subText: t('defaults.default-pw-5.sub'), priority: 5, isActive: true, targetGender: 'male' },
+      { id: 'default-pw-5f', type: 'post_workout', text: t('defaults.default-pw-5f.text'), subText: t('defaults.default-pw-5f.sub'), priority: 5, isActive: true, targetGender: 'female' },
+    ],
+    partial_workout: [
+      { id: 'default-part-1', type: 'partial_workout', text: t('defaults.default-part-1.text'), subText: t('defaults.default-part-1.sub'), priority: 5, isActive: true },
+      { id: 'default-part-2', type: 'partial_workout', text: t('defaults.default-part-2.text'), subText: t('defaults.default-part-2.sub'), priority: 5, isActive: true },
+      { id: 'default-part-3', type: 'partial_workout', text: t('defaults.default-part-3.text'), subText: t('defaults.default-part-3.sub'), priority: 4, isActive: true },
+    ],
+    // Calm return copy (18.10.2026): warm and short, no day counts, no "where were you".
+    re_engagement: [
+      { id: 'default-re-1', type: 're_engagement', text: t('defaults.default-re-1.text'), subText: t('defaults.default-re-1.sub'), priority: 5, isActive: true, targetGender: 'male' },
+      { id: 'default-re-1f', type: 're_engagement', text: t('defaults.default-re-1f.text'), subText: t('defaults.default-re-1f.sub'), priority: 5, isActive: true, targetGender: 'female' },
+      { id: 'default-re-2', type: 're_engagement', text: t('defaults.default-re-2.text'), subText: t('defaults.default-re-2.sub'), priority: 5, isActive: true, targetGender: 'male' },
+      { id: 'default-re-2f', type: 're_engagement', text: t('defaults.default-re-2f.text'), subText: t('defaults.default-re-2f.sub'), priority: 5, isActive: true, targetGender: 'female' },
+      { id: 'default-re-3', type: 're_engagement', text: t('defaults.default-re-3.text'), subText: t('defaults.default-re-3.sub'), priority: 6, isActive: true },
+      { id: 'default-re-4', type: 're_engagement', text: t('defaults.default-re-4.text'), subText: t('defaults.default-re-4.sub'), priority: 4, isActive: true },
+    ],
+    pr_record: [
+      { id: 'default-pr-1', type: 'pr_record', text: t('defaults.default-pr-1.text'), subText: t('defaults.default-pr-1.sub'), priority: 10, isActive: true },
+      { id: 'default-pr-2', type: 'pr_record', text: t('defaults.default-pr-2.text'), subText: t('defaults.default-pr-2.sub'), priority: 10, isActive: true },
+      { id: 'default-pr-3', type: 'pr_record', text: t('defaults.default-pr-3.text'), subText: t('defaults.default-pr-3.sub'), priority: 10, isActive: true },
+    ],
+    streak_milestone: [
+      { id: 'default-sm-1', type: 'streak_milestone', text: t('defaults.default-sm-1.text'), subText: t('defaults.default-sm-1.sub'), priority: 8, isActive: true },
+      { id: 'default-sm-2', type: 'streak_milestone', text: t('defaults.default-sm-2.text'), subText: t('defaults.default-sm-2.sub'), priority: 8, isActive: true },
+    ],
+    level_up: [
+      { id: 'default-lu-1', type: 'level_up', text: t('defaults.default-lu-1.text'), subText: t('defaults.default-lu-1.sub'), priority: 10, isActive: true },
+      { id: 'default-lu-2', type: 'level_up', text: t('defaults.default-lu-2.text'), subText: t('defaults.default-lu-2.sub'), priority: 10, isActive: true },
+    ],
+    first_workout: [
+      { id: 'default-fw-1', type: 'first_workout', text: t('defaults.default-fw-1.text'), subText: t('defaults.default-fw-1.sub'), priority: 10, isActive: true },
+      { id: 'default-fw-2', type: 'first_workout', text: t('defaults.default-fw-2.text'), subText: t('defaults.default-fw-2.sub'), priority: 10, isActive: true },
+    ],
+    community_session: [
+      { id: 'default-cs-1', type: 'community_session', text: t('defaults.default-cs-1.text'), subText: t('defaults.default-cs-1.sub'), priority: 8, isActive: true },
+      { id: 'default-cs-2', type: 'community_session', text: t('defaults.default-cs-2.text'), subText: t('defaults.default-cs-2.sub'), priority: 7, isActive: true },
+      { id: 'default-cs-3', type: 'community_session', text: t('defaults.default-cs-3.text'), subText: t('defaults.default-cs-3.sub'), priority: 6, isActive: true },
+    ],
+    missed_workout: [
+      { id: 'default-mw-1', type: 'missed_workout', text: t('defaults.default-mw-1.text'), subText: t('defaults.default-mw-1.sub'), priority: 7, isActive: true },
+      { id: 'default-mw-2', type: 'missed_workout', text: t('defaults.default-mw-2.text'), subText: t('defaults.default-mw-2.sub'), priority: 6, isActive: true },
+    ],
+    default: [
+      { id: 'default-def-1', type: 'default', text: t('defaults.default-def-1.text'), subText: t('defaults.default-def-1.sub'), priority: 5, isActive: true },
+      { id: 'default-def-2', type: 'default', text: t('defaults.default-def-2.text'), subText: t('defaults.default-def-2.sub'), priority: 5, isActive: true },
+      { id: 'default-def-3', type: 'default', text: t('defaults.default-def-3.text'), subText: t('defaults.default-def-3.sub'), priority: 4, isActive: true },
+    ],
+  };
+}
+
+export const DEFAULT_MESSAGES: Record<MessageType, SmartMessage[]> = buildDefaultMessages();
 
 // ============================================================================
 // INITIAL SEED DATA (Hebrew)
@@ -210,25 +223,25 @@ export const DEFAULT_MESSAGES: Record<MessageType, SmartMessage[]> = {
 
 const INITIAL_SEED_DATA: SmartMessage[] = [
   // Post Workout
-  { id: 'seed-pw-1', type: 'post_workout', text: 'סחטיין!', subText: 'אימון מעולה', priority: 8, isActive: true },
-  { id: 'seed-pw-2', type: 'post_workout', text: 'איזה מכונה!', subText: 'עכשיו מגיע לך מנוחה', priority: 7, isActive: true },
-  { id: 'seed-pw-3', type: 'post_workout', text: 'עבודה טובה!', subText: 'כל אימון מקרב אותך למטרה', priority: 6, isActive: true },
+  { id: 'seed-pw-1', type: 'post_workout', text: 'סחטיין!', subText: 'אימון מעולה', priority: 8, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
+  { id: 'seed-pw-2', type: 'post_workout', text: 'איזה מכונה!', subText: 'עכשיו מגיע לך מנוחה', priority: 7, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
+  { id: 'seed-pw-3', type: 'post_workout', text: 'עבודה טובה!', subText: 'כל אימון מקרב אותך למטרה', priority: 6, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
   
   // Partial Workout
-  { id: 'seed-part-1', type: 'partial_workout', text: 'לפחות התחלת!', subText: 'זה יותר מרוב האנשים', priority: 6, isActive: true },
-  { id: 'seed-part-2', type: 'partial_workout', text: 'חצי אימון', subText: 'עדיף מאפס אימונים', priority: 5, isActive: true },
+  { id: 'seed-part-1', type: 'partial_workout', text: 'לפחות התחלת!', subText: 'זה יותר מרוב האנשים', priority: 6, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
+  { id: 'seed-part-2', type: 'partial_workout', text: 'חצי אימון', subText: 'עדיף מאפס אימונים', priority: 5, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
   
   // Re-engagement
-  { id: 'seed-re-1', type: 're_engagement', text: 'טוב לראות אותך', subText: 'בוא נזוז קצת', priority: 7, isActive: true, targetGender: 'male' },
-  { id: 'seed-re-1f', type: 're_engagement', text: 'טוב לראות אותך', subText: 'בואי נזוז קצת', priority: 7, isActive: true, targetGender: 'female' },
-  { id: 'seed-re-2', type: 're_engagement', text: 'הופה!', subText: 'אימון קליל להיום?', priority: 6, isActive: true },
+  { id: 'seed-re-1', type: 're_engagement', text: 'טוב לראות אותך', subText: 'בוא נזוז קצת', priority: 7, isActive: true, targetGender: 'male' }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
+  { id: 'seed-re-1f', type: 're_engagement', text: 'טוב לראות אותך', subText: 'בואי נזוז קצת', priority: 7, isActive: true, targetGender: 'female' }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
+  { id: 'seed-re-2', type: 're_engagement', text: 'הופה!', subText: 'אימון קליל להיום?', priority: 6, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
   
   // PR Record
-  { id: 'seed-pr-1', type: 'pr_record', text: 'שיא חדש!', subText: 'עוד שיא אישי. ככה בונים כוח', priority: 10, isActive: true },
+  { id: 'seed-pr-1', type: 'pr_record', text: 'שיא חדש!', subText: 'עוד שיא אישי. ככה בונים כוח', priority: 10, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
   
   // Default
-  { id: 'seed-def-1', type: 'default', text: 'יאללה!', subText: 'בוא נתחיל', priority: 5, isActive: true },
-  { id: 'seed-def-2', type: 'default', text: 'מה נשמע?', subText: 'מוכן לעוד יום טוב?', priority: 4, isActive: true },
+  { id: 'seed-def-1', type: 'default', text: 'יאללה!', subText: 'בוא נתחיל', priority: 5, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
+  { id: 'seed-def-2', type: 'default', text: 'מה נשמע?', subText: 'מוכן לעוד יום טוב?', priority: 4, isActive: true }, // i18n-allow-hebrew: seed data written to Firestore / localStorage
 ];
 
 // ============================================================================
