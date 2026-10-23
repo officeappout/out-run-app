@@ -8,7 +8,7 @@ const t = makeT('he', player);
 
 describe('player wide.* (he)', () => {
   it('key count', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('wide.')).length).toBe(18);
+    expect(Object.keys(he).filter((k) => k.startsWith('wide.')).length).toBe(20);
   });
   it('strings and values', () => {
     expect(t('wide.nextUp')).toBe('הבא בתור');
@@ -28,6 +28,8 @@ describe('player wide.* (he)', () => {
     expect(t('wide.immersive.exit')).toBe('יציאה ממסך מלא');
     expect(t('wide.immersive.minimize')).toBe('מזעור');
     expect(t('wide.immersive.toggleAria')).toBe('הצגה או הסתרה של הכפתורים');
+    expect(t('wide.panel.collapse')).toBe('הסתרת הפאנל');
+    expect(t('wide.panel.expand')).toBe('הצגת הפאנל');
     expect(t('wide.keys.label')).toBe('קיצורי מקלדת');
   });
 });

@@ -547,5 +547,7 @@
   "wide.immersive.enter": "מסך מלא",
   "wide.immersive.exit": "יציאה ממסך מלא",
   "wide.immersive.minimize": "מזעור",
-  "wide.immersive.toggleAria": "הצגה או הסתרה של הכפתורים"
+  "wide.immersive.toggleAria": "הצגה או הסתרה של הכפתורים",
+  "wide.panel.collapse": "הסתרת הפאנל",
+  "wide.panel.expand": "הצגת הפאנל"
 }

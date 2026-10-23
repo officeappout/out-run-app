@@ -27,7 +27,12 @@ describe('WideSplit', () => {
     expect(html.indexOf('data-wide-media')).toBeLessThan(html.indexOf('data-wide-panel'));
     expect(html).toContain('id="m"');
     expect(html).toContain('id="f"');
-    expect(html).toContain('padding-inline');
+    expect(html).toContain('margin-inline-start');
+    expect(html).toContain('bg-v2-surface'); // light surface around the video
+    expect(html).not.toContain('bg-black flex'); // no dark page behind
+    expect(html).toContain('data-wide-handle'); // drag / tap handle of the side drawer
+    expect(html).toContain('border-start-start-radius:28px'); // rounded on the video side only
+    expect(html).toContain('data-collapsed="false"');
     expect(html).toContain('button:focus-visible]:ring-4');
     expect(html).toContain('zoom:2');
     expect(html).not.toContain('dir="rtl"'); // direction follows the document, not a hard-coded side

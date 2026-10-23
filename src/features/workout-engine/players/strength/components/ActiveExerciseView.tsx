@@ -307,11 +307,10 @@ export default function ActiveExerciseView({
       type="button"
       onClick={() => setUserImmersive(true)}
       aria-label={t('wide.immersive.enter')}
-      className="absolute z-20 flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-[13px] font-bold text-white backdrop-blur-md"
+      className="absolute z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white backdrop-blur-md"
       style={{ insetInlineEnd: 16, top: split ? 16 : 'calc(env(safe-area-inset-top, 0px) + 6.5rem)' }}
     >
-      <Maximize2 size={16} aria-hidden />
-      {t('wide.immersive.enter')}
+      <Maximize2 size={18} aria-hidden />
     </button>
   ) : null;
 
