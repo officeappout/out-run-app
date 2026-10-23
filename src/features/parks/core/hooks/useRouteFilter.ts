@@ -7,7 +7,9 @@ import { calculateCalories } from '@/lib/calories.utils';
 import { generateDynamicRoutes, MIN_GENERATION_KM } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { Park } from '../types/park.types';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import { routeMatchesActivity } from '../utils/route-activity-match';
+import { CYCLING_SPEED_KMH } from '@/lib/cycling-pace';
 
 let _parksCache: Park[] | null = null;
 async function getCachedParks(): Promise<Park[]> {
@@ -89,7 +91,7 @@ export function useRouteFilter(
       setIsGenerating(true);
 
       let speedKmH = 10;
-      if (preferences.activity === 'cycling') speedKmH = 20;
+      if (preferences.activity === 'cycling') speedKmH = CYCLING_SPEED_KMH;
       if (preferences.activity === 'walking') speedKmH = 5;
       const targetDistance = (preferences.duration / 60) * speedKmH;
 
@@ -136,7 +138,7 @@ export function useRouteFilter(
     }
 
     let speedKmH = 10;
-    if (preferences.activity === 'cycling') speedKmH = 20;
+    if (preferences.activity === 'cycling') speedKmH = CYCLING_SPEED_KMH;
     if (preferences.activity === 'walking') speedKmH = 5;
 
     const targetTotalDistance = (preferences.duration / 60) * speedKmH;
@@ -144,7 +146,7 @@ export function useRouteFilter(
     let candidates = allRoutes.filter((route) => {
       // Walking/running are one on-foot family at the route level (phase 1.3);
       // cycling keeps strict equality — see route-activity-match.ts.
-      if (!routeMatchesActivity(route, preferences.activity)) return false;
+      if (!routeMatchesActivity(route, preferences.activity, readLiveFlag('enableCyclingFixesV1'))) return false;
       if (preferences.includeStrength && !route.features?.hasGym) return false;
       return true;
     });

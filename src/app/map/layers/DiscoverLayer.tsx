@@ -78,6 +78,7 @@ import { useUserCityName } from '@/features/parks/core/hooks/useUserCityName';
 import type { SavedPlaceKind } from '@/features/user/places/store/useSavedPlacesStore';
 import { useRecentSearchesStore } from '@/features/parks/core/store/useRecentSearchesStore';
 import { SearchDestinationCard, SearchRouteCard, type SearchDestinationPick } from '@/features/parks/core/components/SearchPickCards';
+import { DestinationPlanner, defaultPlannerMode } from '@/features/parks/core/dest-planner';
 import { findOfficialRouteById } from '@/features/parks/core/hooks/useSearchNavigation';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import {
@@ -817,6 +818,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   const { flags: mapFeatureFlags, rawFlags: mapRawFlags, loading: mapFlagsLoading } = useFeatureFlags(isSuperAdmin);
   // enable_map_polish_v1 (inside v2): route details stay in the v2 overview (no legacy sheet).
   const mapPolish = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && mapFeatureFlags.enableMapPolishV1;
+  // enable_destination_planner_v1 (inside v2): the planner sheet replaces the commute carousel.
+  const destPlanner = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && mapFeatureFlags.enableDestinationPlannerV1;
 
   // v2: a route opened outside the map (GlobalDetailOverlay) arrives here → the ONE
   // route overview drawer (ROUTE_CARD), selected + focused like a tap on the map.
@@ -2027,6 +2030,63 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
         // stays visible (just the floating search) so the user can
         // change their destination at any time.
         if (!userLocation || !commuteRouteConfig) return null;
+        const exitCommute = () => {
+          // Drop the commute flow and clear the destination pin.
+          logic.setFocusedRoute(null);
+          setCommuteRouteConfig(null);
+          useMapStore.getState().setCommuteDestination(null);
+          setMapMode('idle');
+        };
+        const startCommuteRoute = (route: Route, activity: ActivityType) => {
+          // Stage the commute intent on useRunningPlayer BEFORE
+          // startActiveWorkout fires. The pre-flight chain
+          // (clearRunningData → initializeRunningData) does not
+          // touch sessionMode / commuteContext, so the staged
+          // values survive into the active session and the HUD
+          // boots in commute flavour on first paint (no flash
+          // from the workout HUD to the commute HUD). See
+          // useRunningPlayer.SessionMode jsdoc for the contract.
+          useRunningPlayer.getState().setCommuteContext({
+            destination: commuteRouteConfig.destination,
+            label: commuteRouteConfig.label,
+          });
+          // Mirror the commute-picker activity into the user
+          // preferences right before starting so downstream
+          // running-player logic (UI accents, calorie formula)
+          // operates with the activity the user actually chose
+          // for this commute, not the stale "last free-run"
+          // activity. This is a write-only mirror; it stays
+          // local to this session start and isn't persisted.
+          logic.handleActivityChange(activity);
+          // Also mirror into the running player itself so the unified
+          // session mode + the saved doc file a walking commute as
+          // walking (cycling falls back to 'running' — no pipeline yet).
+          useRunningPlayer.getState().setActivityType(
+            // cycling-fixes-v1 (owner approved 22.10.2026)
+            activity === 'walking' ? 'walking' : mapFeatureFlags.enableCyclingFixesV1 && activity === 'cycling' ? 'cycling' : 'running',
+          );
+          logic.setFocusedRoute(route);
+          setMapMode('idle');
+          setCommuteRouteConfig(null);
+          logic.startActiveWorkoutForRoute(route);
+        };
+        if (destPlanner) {
+          return (
+            <>
+              {!topChromeFolded && renderTopBar()}
+              <DestinationPlanner
+                key={`${commuteRouteConfig.destination.lat},${commuteRouteConfig.destination.lng}`}
+                userPosition={userLocation}
+                destination={commuteRouteConfig.destination}
+                destinationLabel={commuteRouteConfig.label}
+                initialMode={defaultPlannerMode(logic.preferences.activity)}
+                onFocusChange={(route) => logic.setFocusedRoute(route)}
+                onBack={exitCommute}
+                onStart={(route, mode) => startCommuteRoute(route, mode)}
+              />
+            </>
+          );
+        }
         return (
           <>
             {/* route-preview: the top chrome must never show while the hybrid overview
@@ -2059,38 +2119,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 useMapStore.getState().setCommuteDestination(null);
                 setMapMode('idle');
               }}
-              onSelect={(route) => {
-                // Stage the commute intent on useRunningPlayer BEFORE
-                // startActiveWorkout fires. The pre-flight chain
-                // (clearRunningData → initializeRunningData) does not
-                // touch sessionMode / commuteContext, so the staged
-                // values survive into the active session and the HUD
-                // boots in commute flavour on first paint (no flash
-                // from the workout HUD to the commute HUD). See
-                // useRunningPlayer.SessionMode jsdoc for the contract.
-                useRunningPlayer.getState().setCommuteContext({
-                  destination: commuteRouteConfig.destination,
-                  label: commuteRouteConfig.label,
-                });
-                // Mirror the commute-picker activity into the user
-                // preferences right before starting so downstream
-                // running-player logic (UI accents, calorie formula)
-                // operates with the activity the user actually chose
-                // for this commute, not the stale "last free-run"
-                // activity. This is a write-only mirror; it stays
-                // local to this session start and isn't persisted.
-                logic.handleActivityChange(commuteActivity);
-                // Also mirror into the running player itself so the unified
-                // session mode + the saved doc file a walking commute as
-                // walking (cycling falls back to 'running' — no pipeline yet).
-                useRunningPlayer.getState().setActivityType(
-                  commuteActivity === 'walking' ? 'walking' : 'running',
-                );
-                logic.setFocusedRoute(route);
-                setMapMode('idle');
-                setCommuteRouteConfig(null);
-                logic.startActiveWorkoutForRoute(route);
-              }}
+              onSelect={(route) => startCommuteRoute(route, commuteActivity)}
             />
           </>
         );
@@ -2302,7 +2331,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   // into this run.
                   useRunningPlayer.getState().clearCommuteContext();
                   useRunningPlayer.getState().setActivityType(
-                    compiled.route.activityType === 'walking' ? 'walking' : 'running',
+                    // cycling-fixes-v1 (owner approved 22.10.2026)
+                    compiled.route.activityType === 'walking' ? 'walking' : mapFeatureFlags.enableCyclingFixesV1 && compiled.route.activityType === 'cycling' ? 'cycling' : 'running',
                   );
                   logic.handleActivityChange(
                     compiled.route.activityType === 'cycling' ? 'cycling' :

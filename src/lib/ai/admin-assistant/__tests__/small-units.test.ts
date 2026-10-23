@@ -97,8 +97,9 @@ describe('prompt + tools (cache-friendly)', () => {
     expect(defs.map((d) => d.name)).toEqual(ADMIN_TOOLS.map((t) => t.name));
     expect(defs.map((d) => d.name).some((n) => /set|update|write|delete|send/.test(n))).toBe(false);
   });
-  it('rough size: rules + dictionary + tools ≈ the plan\'s lean prefix (< 20K chars)', () => {
-    expect(adminAssistantSystemPrompt().length + JSON.stringify(adminToolDefinitions()).length).toBeLessThan(20_000);
+  it('rough size: rules + dictionary + tools ≈ the plan\'s lean prefix (< 24K chars)', () => {
+    // raised from 20K as the tool list grew (authority / users / places / business batches); still a cheap cached prefix
+    expect(adminAssistantSystemPrompt().length + JSON.stringify(adminToolDefinitions()).length).toBeLessThan(24_000);
   });
 });
 

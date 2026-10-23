@@ -66,6 +66,7 @@ interface FlagState {
   enable_route_quality_v1: boolean;
   enable_graphhopper_routes: boolean;
   enable_loops_prefer_official: boolean;
+  enable_cycling_fixes_v1: boolean;
   enable_route_pref_shade: boolean;
   enable_route_time_aware: boolean;
   enable_route_shade_tag: boolean;
@@ -88,6 +89,7 @@ interface FlagState {
   enable_haptics_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
+  enable_destination_planner_v1: boolean;
   enable_push_measure_all: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
@@ -107,6 +109,8 @@ interface FlagState {
   enable_strength_drawer_v1: boolean;
   enable_site_qr_links: boolean;
   enable_history_summary_parity: boolean;
+  enable_workout_insights_v1: boolean;
+  enable_group_fixes_v1: boolean;
 }
 
 // ============================================================================
@@ -481,6 +485,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'אפשרות "המסלול המוצל ביותר"',
     description: 'שורה חדשה בהגדרות הנוספות של ריצה חופשית: "המסלול המוצל ביותר". השרת מבקש מ-GraphHopper 6 מסלולים ומדרג אותם לפי מפות הצל של הטכניון, ב-13 הערים שיש להן שכבה. בשאר הערים חוזרים 3 המסלולים הרגילים. מוצג רק כש"מסלולים מעגליים משרת הניווט שלנו" דלוק. כבוי = כמו היום.',
   },
+  // Cycling fixes v1 (22.10.2026).
+  {
+    key: 'enable_cycling_fixes_v1',
+    icon: RouteIcon,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-700',
+    title: 'תיקוני רכיבה באופניים (v1)',
+    description: 'מתקן כמה פערים ברכיבה: מסלולים מעורבים (הליכה, ריצה ואופניים) מוצעים גם לרוכבים; לולאות "מעדיפות מסלולים שלנו" נצמדות רק למסלולים מאותה פעילות; מהירות אופניים אחת בכל חישובי הזמן והקלוריות של מסלולים חדשים; רכיבה ביעד (Commute) ובתכנון מקטעים נשארת רכיבה; ורכיבה שהתחילה מהמפה מוצגת ונשמרת בהיסטוריה כרכיבה ולא כריצה. ה-XP לא משתנה (אותה נוסחה כמו ריצה). כבוי = כמו היום.',
+  },
   // Time-aware route preference (RC7, 21.10.2026).
   {
     key: 'enable_route_time_aware',
@@ -661,6 +674,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'מפה: ניווט אחד וכרטיסים קומפקטיים',
     description: 'כל כפתור "ניווט לשם" (גינה, מסלול, משתמש חי) נכנס לניווט שבתוך האפליקציה, פרטי מסלול נשארים במסך המסלול החדש, כרטיס גינה קטן יותר, ובשכבות אפשר להסתיר גינות כושר ומסלולים.',
   },
+  // Destination planner — address pick → planner → commute player (22.10.2026).
+  {
+    key: 'enable_destination_planner_v1',
+    icon: MapIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'מפה: תכנון דרך ליעד',
+    description: 'אחרי בחירת כתובת או "נווט לכאן": מסך תכנון עם הליכה / ריצה / רכיבה וזמן לכל אחת, העדפות (דרך גינת כושר, הכי קצר, מואר ומוצל רק איפה שיש נתונים) ועד 2 דרכים לבחירה עם תגים מנתונים אמיתיים בלבד. "התחל" מפעיל את הניווט הקיים עם הדרך שנבחרה. דורש את הבית החדש.',
+  },
   // Analytics — measure every push type (22.10.2026).
   {
     key: 'enable_push_measure_all',
@@ -840,6 +862,24 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'היסטוריה: אותו סיכום אימון כוח כמו מיד אחריו',
     description: 'אימון כוח שנפתח מההיסטוריה מציג את אותו סיכום שראו בסוף האימון: הבלוקים של התוכנית עם הסטים המתוכננים והתמונות, "השתפרת מהפעם הקודמת", טבעת הרמה וההתקדמות של אותו אימון, כרטיס הרצף של אותו שבוע והקלוריות האמיתיות. הנתונים נשמרים עם כל אימון חדש מעכשיו; אימונים ישנים נשארים בתצוגה המצומצמת של היום. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = מסך ההיסטוריה כמו היום.',
     parentKey: 'enable_home_v2',
+  },
+  // Workout insights (22.10.2026) — Kelly in the green card + the lemur's funny line.
+  {
+    key: 'enable_workout_insights_v1',
+    icon: Bot,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-600',
+    title: 'תובנות קלי והלמור אחרי אימון כוח',
+    description: 'אחרי אימון כוח: בכרטיס הירוק "שיפור מהפעם הקודמת" קלי כותב שורת תובנה ומחמאה, וכפתור כוכב פותח שיחה איתו על האימון. במסך עליית האחוזים הלמור אומר משפט מצחיק בבועה מתחת לטבעת (למשל כמה גורי פילים הרמת, לפי משקל הגוף). המשפטים נכתבים ב-AI תחת מגבלות קלי (בגיר, הרשאת AI, תקציב יומי ומתג כיבוי); אם אין תשובה — פשוט לא מוצג כלום. מנהל-על רואה את זה כבר עכשיו. כבוי = המסכים כמו היום.',
+  },
+  // Group / together-training fixes (22.10.2026) — group audit P1 + P2.
+  {
+    key: 'enable_group_fixes_v1',
+    icon: Users,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-600',
+    title: 'קבוצות ואימון משותף — תיקונים',
+    description: 'כל ההצטרפויות (קישור הזמנה, קישור אימון, גוגל, זהות מהירה, התראות) נוחתות בדף הקבוצה לפי מזהה — גם לקבוצה מעיר אחרת ובלי עיר; הזמנה ממתינה לא הולכת לאיבוד אחרי התחברות; המצטרף נכנס לצ׳אט הקבוצה ומאמן שהוגדר מקבל ניהול; סיכום "יחד" מחושב בשרת; ריצה עם "הזמן חבר" נשמרת כריצה קבוצתית; הזמנה חוזרת רק בריצה קבוצתית ובשעה המקומית; הרשמה לאימון בטרנזקציה עם הודעת שגיאה ומונה מסונכרן; מנהל יחיד לא יכול לעזוב בלי למנות מחליף; /join מחכה לטעינת הפרופיל ומראה שגיאות; "להוסיף ליומן" עובד גם מהבית. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
 ];
 

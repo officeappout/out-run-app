@@ -22,6 +22,12 @@ import {
 } from '@/lib/admin-analytics/product-metrics.server';
 import type { NorthStarFilters } from '@/lib/admin-analytics/north-star.server';
 import { getAuthorityOverview } from '@/lib/admin-analytics/authority-overview.server';
+import { compareAuthorities, resolveOneAuthority } from '@/lib/admin-analytics/authority-compare.server';
+import { getAuthoritiesRanking, type RankingDirection, type RankingKind, type RankingMetric } from '@/lib/admin-analytics/authority-ranking.server';
+import { computeCrmTimeline } from '@/lib/admin-analytics/crm-timeline.server';
+import { getFinanceOverview } from '@/lib/admin-analytics/finance-overview.server';
+import { getSignupsOverview, getWorkoutsOverview } from '@/lib/admin-analytics/users-activity.server';
+import { getUserLookup } from '@/lib/admin-analytics/user-lookup.server';
 import { getRouteOverview } from '@/lib/admin-analytics/route-overview.server';
 import { getParkOverview } from '@/lib/admin-analytics/park-overview.server';
 import { getContentLeaderboard, type LeaderboardBy, type LeaderboardKind } from '@/lib/admin-analytics/content-leaderboard.server';
@@ -82,6 +88,11 @@ export async function authorityLinks(ctx: AdminToolContext, authorityId: string,
     if (built.ok) out.push({ href: built.href, title: `ניהול רשות · ${name}`, pageId: crm.id });
   }
   return out;
+}
+
+function plainResult(obj: unknown): AdminToolExecution {
+  const json = JSON.stringify(obj);
+  return { content: wrapToolData(json), isError: false, resultChars: json.length, truncated: false };
 }
 
 function dataResult(tool: string, res: MetricResult<unknown>): AdminToolExecution {
@@ -173,6 +184,36 @@ export async function executeAdminTool(ctx: AdminToolContext, name: string, rawI
         });
         return links.length ? { ...r, links } : r;
       }
+      case 'get_signups_overview': {
+        const i = v.input as { days: number; groupBy: 'day' | 'week'; authorityId: string | null; source: string | null };
+        return dataResult(name, await getSignupsOverview(ctx.db, i, { now: ctx.now }));
+      }
+      case 'get_workouts_overview': {
+        const i = v.input as { days: number; authorityId: string | null };
+        return dataResult(name, await getWorkoutsOverview(ctx.db, i, { now: ctx.now }));
+      }
+      case 'get_user_lookup': {
+        const { query } = v.input as { query: string };
+        const found = await getUserLookup(ctx.db, query, { now: ctx.now });
+        if (found.kind === 'unavailable') return errorResult(`${name}: could not be computed right now (this is NOT zero)`);
+        if (found.kind !== 'resolved') {
+          const json = JSON.stringify(
+            found.kind === 'ambiguous'
+              ? { resolved: false, candidates: found.candidates, moreMatchesExist: found.more, note: 'several users match — ask the admin which one (by masked email / city), or call again with the uid' }
+              : { resolved: false, candidates: [], note: 'no user found — email must be the full address, a name must be the start of the display name' },
+          );
+          return { content: wrapToolData(json), isError: false, resultChars: json.length, truncated: false };
+        }
+        const profile = found.result.value!;
+        const page = adminPageById('admin/users/[uid]');
+        let link: AdminToolLink | undefined;
+        if (page && canRoleSee(page, ctx.role)) {
+          const built = buildAdminHref(page, { uid: profile.uid });
+          if (built.ok) link = { href: built.href, title: `משתמש · ${profile.displayName ?? profile.uid}`, pageId: page.id };
+        }
+        const r = dataResult(name, { ...found.result, value: { matchedBy: found.matchedBy, ...profile, ...(link ? { buttonShownToUser: link.title } : {}) } });
+        return link ? { ...r, link } : r;
+      }
       case 'get_route_overview':
       case 'get_park_overview': {
         const { query } = v.input as { query: string };
@@ -196,6 +237,38 @@ export async function executeAdminTool(ctx: AdminToolContext, name: string, rawI
         return dataResult(name, await getContentLeaderboard(ctx.db, v.input as { kind: LeaderboardKind; by: LeaderboardBy; authorityId: string | null; limit: number | null }, { now: ctx.now }));
       case 'get_push_funnel':
         return dataResult(name, await getPushFunnel(ctx.db, { now: ctx.now }));
+      case 'compare_authorities': {
+        const { ids_or_names } = v.input as { ids_or_names: string[] };
+        const found = await compareAuthorities(ctx.db, ids_or_names, { now: ctx.now });
+        if (found.kind === 'unavailable') return errorResult(`${name}: could not be computed right now (this is NOT zero)`);
+        if (found.kind === 'too_few') return plainResult({ compared: false, note: found.note });
+        if (found.kind === 'unresolved') {
+          return plainResult({ compared: false, problems: found.problems, note: 'some names are ambiguous or unknown — ask the admin which authority they mean (use the candidates), then call again with ids' });
+        }
+        return dataResult(name, found.result);
+      }
+      case 'get_authorities_ranking': {
+        const a = v.input as { by: RankingMetric; kind: RankingKind | null; direction: RankingDirection | null; limit: number | null };
+        return dataResult(name, await getAuthoritiesRanking(ctx.db, a, { now: ctx.now }));
+      }
+      case 'get_crm_authority_timeline': {
+        const { query } = v.input as { query: string };
+        const r = await resolveOneAuthority(ctx.db, query);
+        if (r.kind === 'ambiguous') return plainResult({ resolved: false, candidates: r.candidates, note: 'several authorities match — ask the admin which one, or call again with the id' });
+        if (r.kind === 'none') return plainResult({ resolved: false, candidates: [], note: 'no authority with this name — ask the admin to check the spelling' });
+        const res = await computeCrmTimeline(ctx.db, r.row.id, ctx.now);
+        if (!res) return plainResult({ resolved: false, candidates: [], note: 'no authority with this name — ask the admin to check the spelling' });
+        const links = (await authorityLinks(ctx, r.row.id, r.row.name).catch(() => [] as AdminToolLink[])).filter((l) => l.pageId === 'admin/authorities/[id]');
+        const out = dataResult(name, { ...res, value: { matchedBy: r.matchedBy, ...res.value!, buttonsShownToUser: links.map((l) => l.title) } });
+        return links.length ? { ...out, links } : out;
+      }
+      case 'get_finance_overview': {
+        const { months } = v.input as { months: number | null };
+        const out = dataResult(name, await getFinanceOverview(ctx.db, months, { now: ctx.now }));
+        const page = adminPageById('admin/finance/expenses');
+        const built = page && canRoleSee(page, ctx.role) ? buildAdminHref(page, {}) : null;
+        return !out.isError && page && built?.ok ? { ...out, links: [{ href: built.href, title: page.title, pageId: page.id }] } : out;
+      }
       default:
         return errorResult(`unknown tool ${name}`);
     }

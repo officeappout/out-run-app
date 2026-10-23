@@ -3,6 +3,8 @@
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { CompletedExercise } from '../../utils/summary.utils';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * ExerciseRow — single exercise line inside the per-category summary list.
@@ -29,6 +31,7 @@ export interface ExerciseRowProps {
 }
 
 export default function ExerciseRow({ exercise }: ExerciseRowProps) {
+  const t = useT(player);
   const wasPerformed = exercise.sets.length > 0;
   const estimatedTarget = wasPerformed
     ? Math.max(...exercise.sets) * exercise.sets.length
@@ -62,7 +65,7 @@ export default function ExerciseRow({ exercise }: ExerciseRowProps) {
               ? 'text-slate-400 dark:text-slate-500'
               : 'text-slate-800 dark:text-white'
         }`}>
-          {wasPerformed ? `${completionPercent}%` : 'לא בוצע'}
+          {wasPerformed ? `${completionPercent}%` : t('exerciseRow.notPerformed')}
         </span>
       </div>
 

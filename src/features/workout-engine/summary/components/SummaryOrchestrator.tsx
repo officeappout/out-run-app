@@ -1,6 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 import SummaryHeader from './shared/SummaryHeader';
 import SummaryStatsGrid from './shared/SummaryStatsGrid';
 import DopamineStreakBlock from './shared/DopamineStreakBlock';
@@ -36,6 +38,7 @@ export default function SummaryOrchestrator({
   workoutType,
   streakDays = 0,
 }: SummaryOrchestratorProps) {
+  const t = useT(summary);
   // Extract start and end coordinates for map markers
   const startCoord =
     workoutData.routeCoords.length > 0 ? workoutData.routeCoords[0] : undefined;
@@ -65,7 +68,7 @@ export default function SummaryOrchestrator({
               </div>
             ) : (
               <div style={{ height: 200, borderRadius: 12, background: '#E7F1ED', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa3a1', fontSize: 13, marginBottom: 16 }}>
-                אין נתוני מסלול
+                {t('fallback.map.noRoute')}
               </div>
             )}
             <SummaryStatsGrid
@@ -101,7 +104,7 @@ export default function SummaryOrchestrator({
               </div>
             ) : (
               <div style={{ height: 200, borderRadius: 12, background: '#E7F1ED', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa3a1', fontSize: 13, marginBottom: 16 }}>
-                אין נתוני מסלול
+                {t('fallback.map.noRoute')}
               </div>
             )}
             <SummaryStatsGrid

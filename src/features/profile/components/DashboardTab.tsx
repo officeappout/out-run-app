@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import type { LucideIcon } from 'lucide-react';
 import { Flame, Trophy, Settings2, Bookmark, Dumbbell, Target, BarChart3 } from 'lucide-react';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -27,6 +28,8 @@ import ProgressLinkRow from './ProgressLinkRow';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import StreakFlame from '@/components/ui/v2/StreakFlame';
 import { EASE_V2 } from '@/components/ui/v2';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs, type ProfileKey } from '@/messages/ns/profile';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
@@ -46,14 +49,15 @@ interface DashboardTabProps {
 // IA shell (Phase a) — visual-only tab bar. Tapping only changes which tab
 // looks selected; content wiring per tab is a later phase.
 const PROFILE_TABS = [
-  { id: 'workouts', label: 'אימונים', Icon: Dumbbell },
-  { id: 'skills', label: 'סקילים', Icon: Target },
-  { id: 'badges', label: 'הישגים', Icon: Trophy },
-  { id: 'programs', label: 'תוכניות', Icon: BarChart3 },
-] as const;
+  { id: 'workouts', labelKey: 'dashboard.tab.workouts', Icon: Dumbbell },
+  { id: 'skills', labelKey: 'dashboard.tab.skills', Icon: Target },
+  { id: 'badges', labelKey: 'dashboard.tab.badges', Icon: Trophy },
+  { id: 'programs', labelKey: 'dashboard.tab.programs', Icon: BarChart3 },
+] as const satisfies readonly { id: string; labelKey: ProfileKey; Icon: LucideIcon }[];
 
 export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: DashboardTabProps) {
   const router = useRouter();
+  const t = useT(profileNs);
   const {
     globalXP,
     globalLevel,
@@ -80,8 +84,8 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
     if (new URLSearchParams(window.location.search).get('tab') !== 'badges') return;
     setActiveTab('badges');
     if (window.location.hash === '#records') {
-      const t = window.setTimeout(() => document.getElementById('records')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250);
-      return () => window.clearTimeout(t);
+      const timer = window.setTimeout(() => document.getElementById('records')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250);
+      return () => window.clearTimeout(timer);
     }
   }, [v2]);
 
@@ -154,7 +158,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   const totalWorkouts = v2 && typeof lifetimeCount === 'number' && lifetimeCount >= workouts.length ? lifetimeCount : workouts.length;
   // v2: skills + programs moved to the progress tab (/progression); the
   // profile keeps identity & social — workouts and achievements.
-  const visibleTabs = v2 ? PROFILE_TABS.filter((t) => t.id === 'workouts' || t.id === 'badges') : PROFILE_TABS;
+  const visibleTabs = v2 ? PROFILE_TABS.filter((tab) => tab.id === 'workouts' || tab.id === 'badges') : PROFILE_TABS;
 
   return (
     <div className="space-y-4 pb-24" dir="rtl">
@@ -177,7 +181,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             <button
               type="button"
               onClick={onOpenSettings}
-              aria-label="הגדרות"
+              aria-label={t('dashboard.settings.aria')}
               className={
                 v2
                   ? 'grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
@@ -190,7 +194,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           <button
             type="button"
             onClick={() => setIsFavoritesSheetOpen(true)}
-            aria-label="אימונים שמורים"
+            aria-label={t('dashboard.saved.aria')}
             className={
                 v2
                   ? 'grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
@@ -232,14 +236,14 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
               {
                 key: 'workouts',
                 value: historyLoading && !(v2 && typeof lifetimeCount === 'number') ? '—' : totalWorkouts,
-                label: 'אימונים',
+                label: t('dashboard.stat.workouts'),
                 onClick: onNavigateToHistory,
               },
-              { key: 'partners', value: partnerCount, label: 'שותפים' },
-              { key: 'streak', value: currentStreak, label: 'ימי רצף' },
+              { key: 'partners', value: partnerCount, label: t('dashboard.stat.partners') },
+              { key: 'streak', value: currentStreak, label: t('dashboard.stat.streak') },
             ]}
             bio={profile?.core?.bio ?? null}
-            bioPlaceholder="עדיין אין תיאור אישי"
+            bioPlaceholder={t('dashboard.bio.placeholder')}
             roleLine={
               IS_XP_ENABLED ? (
                 <p className="text-xs font-bold text-[#00ADEF] mt-0.5">{levelName}</p>
@@ -259,7 +263,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
                     : 'w-full mt-4 py-2.5 text-sm font-bold text-[#00ADEF] text-center active:bg-gray-50 transition-colors rounded-lg'
                 }
               >
-                עריכת פרופיל
+                {t('dashboard.edit')}
               </button>
             }
           />
@@ -276,7 +280,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
               </div>
             ) : isMaxLevel ? (
               <div className="bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] rounded-full py-2 px-4 text-center">
-                <span className="text-on-brand text-xs font-black">הגעת לשיא!</span>
+                <span className="text-on-brand text-xs font-black">{t('dashboard.xp.max')}</span>
               </div>
             ) : (
               <>
@@ -293,7 +297,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
                     {globalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
                   </span>
                   <span className="text-[11px] font-bold text-[#007EA8]">
-                    שלב {globalLevel + 1} →
+                    {t('dashboard.xp.nextLevel', { level: String(globalLevel + 1) })}
                   </span>
                 </div>
               </>
@@ -334,7 +338,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         className={v2 ? 'sticky top-0 z-[2] -mx-4 bg-v2-surface/95 px-4 pb-2 pt-1 backdrop-blur-sm' : 'border-b border-gray-100'}
       >
         {v2 ? (
-          <div className="grid grid-cols-2 rounded-full bg-white p-1 shadow-v2-ring" role="tablist" aria-label="תצוגת פרופיל">
+          <div className="grid grid-cols-2 rounded-full bg-white p-1 shadow-v2-ring" role="tablist" aria-label={t('dashboard.tablist.aria')}>
             {visibleTabs.map((tab) => {
               const on = activeTab === tab.id;
               return (
@@ -354,13 +358,13 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
                     />
                   )}
                   <tab.Icon className="relative h-3.5 w-3.5" aria-hidden />
-                  <span className="relative">{tab.label}</span>
+                  <span className="relative">{t(tab.labelKey)}</span>
                 </button>
               );
             })}
           </div>
         ) : (
-        <div className="flex" role="tablist" aria-label="תצוגת פרופיל">
+        <div className="flex" role="tablist" aria-label={t('dashboard.tablist.aria')}>
           {PROFILE_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -373,7 +377,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
               }`}
             >
               <tab.Icon className="w-5 h-5" />
-              <span className="text-[10px] font-bold">{tab.label}</span>
+              <span className="text-[10px] font-bold">{t(tab.labelKey)}</span>
               {activeTab === tab.id && (
                 <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2]" />
               )}
@@ -405,14 +409,14 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
         >
           <div className="flex items-center justify-between mb-3">
-            <h3 className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-black text-gray-800'}>האימונים שלי</h3>
+            <h3 className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-black text-gray-800'}>{t('dashboard.workouts.title')}</h3>
             {onNavigateToHistory && (
               <button
                 type="button"
                 onClick={onNavigateToHistory}
                 className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-semibold text-[#00ADEF]'}
               >
-                הכל
+                {t('dashboard.workouts.all')}
               </button>
             )}
           </div>
@@ -454,11 +458,11 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         >
           <div className="flex items-center justify-between mb-3">
             {v2 ? (
-              <h3 className="text-[15px] font-black text-v2-ink">הישגים</h3>
+              <h3 className="text-[15px] font-black text-v2-ink">{t('dashboard.badges.title')}</h3>
             ) : (
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-amber-500" />
-              <h3 className="text-sm font-bold text-gray-800">הישגים</h3>
+              <h3 className="text-sm font-bold text-gray-800">{t('dashboard.badges.title')}</h3>
             </div>
             )}
             <button
@@ -466,7 +470,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
               onClick={() => setIsAchievementSheetOpen(true)}
               className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-semibold text-[#00ADEF]'}
             >
-              כל ההישגים
+              {t('dashboard.badges.all')}
             </button>
           </div>
 

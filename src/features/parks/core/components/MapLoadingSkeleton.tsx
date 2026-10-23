@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface MapLoadingSkeletonProps {
   /**
@@ -35,6 +37,7 @@ interface MapLoadingSkeletonProps {
  * AppMap reuse the cached Mapbox style and skip the skeleton entirely.
  */
 export default function MapLoadingSkeleton({ visible }: MapLoadingSkeletonProps) {
+  const t = useT(mapNs);
   return (
     <AnimatePresence>
       {visible && (
@@ -81,7 +84,7 @@ export default function MapLoadingSkeleton({ visible }: MapLoadingSkeletonProps)
             WebkitBackdropFilter: 'blur(24px) saturate(160%)',
           }}
           aria-busy="true"
-          aria-label="טוען מפה"
+          aria-label={t('mapLoading.ariaLabel')}
         >
           {/* ── Subtle radial vignette ─────────────────────────────────────
               Focuses attention on the centre logo while letting the
@@ -221,7 +224,7 @@ export default function MapLoadingSkeleton({ visible }: MapLoadingSkeletonProps)
               className="text-cyan-200/80 text-[11px] font-semibold tracking-[0.22em] uppercase"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              מנתח את הסביבה
+              {t('mapLoading.caption')}
             </motion.p>
           </div>
         </motion.div>

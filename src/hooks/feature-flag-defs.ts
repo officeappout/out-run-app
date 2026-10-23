@@ -289,6 +289,13 @@ export const FLAG_DEFS = [
   // device via readLiveFlag, so superAdminValue false — the panel toggle is the one switch.
   // Off = the generator is byte-identical. A/B: /admin/routes/quality.
   { key: 'enableLoopsPreferOfficial', firestoreKey: 'enable_loops_prefer_official', defaultValue: false, superAdminValue: false },
+  // Cycling fixes v1 (22.10.2026, owner-approved, docs/routes/BIKE-GENERATOR-AUDIT.md) — ONE switch
+  // for every user-visible cycling change: known-route `mixed` docs reach cyclists, loops-prefer-official
+  // filters our routes by activity, one shared bike speed, commute / leg-plan rides keep 'cycling', and a
+  // ride started from the map is recorded as a ride (live screen, calories, history label). XP awarding is
+  // untouched (XP_Progression_Truth.md defines no cycling). Read on the device via readLiveFlag, so
+  // superAdminValue false — the panel toggle is the one switch. Off = byte-identical.
+  { key: 'enableCyclingFixesV1', firestoreKey: 'enable_cycling_fixes_v1', defaultValue: false, superAdminValue: false },
   // "Shadiest route" (RC6, 21.10.2026, owner-approved) — a "המסלול המוצל ביותר" row in the
   // free-run extras sheet. The app sends preferShade to /api/routes/generate, which asks
   // GraphHopper for 6 candidates and ranks them by Technion shade (src/lib/shade) in the 13 cities
@@ -559,6 +566,28 @@ export const FLAG_DEFS = [
   // since 22.10.2026 (written always, additive). Older docs keep today's reduced view.
   // Fail-closed; super admins preview it. Off = byte-identical history screen.
   { key: 'enableHistorySummaryParity', firestoreKey: 'enable_history_summary_parity', defaultValue: false, superAdminValue: true },
+  // Workout insights (22.10.2026, owner — agent-briefs/kelly-insights-build-brief.md, canvas page 7
+  // IN-5 / LV-1…LV-5). After a strength workout: Kelly writes one insight + praise line inside the
+  // green "שיפור מהפעם הקודמת" card (AI-star → Kelly chat about this workout), and the lemur says a
+  // funny line under the level-up ring. Lines come from POST /api/insights/workout (Kelly's AI gate:
+  // adult + AI entitlement + kill switch / daily budget). Fail-closed; super admins preview it.
+  // Off = byte-identical summary and level-up screens, no request.
+  { key: 'enableWorkoutInsightsV1', firestoreKey: 'enable_workout_insights_v1', defaultValue: false, superAdminValue: true },
+  // Destination planner (22.10.2026, owner-approved design M-2a…M-2e — agent-briefs/dest-planner-brief.md).
+  // Inside enable_home_v2's map: after an address pick / "נווט לכאן" (every entry into the commute
+  // flow), a planner sheet replaces the commute carousel — mode tabs with minutes (default = last
+  // activity), preference chips, up to 2 options (via a nearby fitness park / shortest) with
+  // data-only tags, one start button → the existing commute player. Fail-closed; super admins
+  // preview it. Off = byte-identical commute flow.
+  { key: 'enableDestinationPlannerV1', firestoreKey: 'enable_destination_planner_v1', defaultValue: false, superAdminValue: true },
+  // Group / together-training fixes (22.10.2026, owner — agent-briefs/group-fixes-brief.md).
+  // One resolveJoinLanding for every join path (group page by id), one consumePendingInvites()
+  // with an in-flight guard, joinEngine adds the group chat + promotes the designated leader +
+  // keeps attendance currentCount in sync, server-computed "together" summary, invite-run saved
+  // as a group run, re-invite only while isGroupRun, "now" invites in the client's local time,
+  // transactional RSVP with visible errors, last-admin leave guard, /join waits for the profile.
+  // Server routes read the real value OR the caller's own isSuperAdmin. Default OFF.
+  { key: 'enableGroupFixesV1', firestoreKey: 'enable_group_fixes_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

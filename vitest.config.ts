@@ -43,6 +43,8 @@ export default defineConfig({
       'src/features/workout-engine/players/running/components/**/__tests__/**/*.test.tsx',
       // Run / walk metrics drawer + attached header (enable_run_player_drawer_v1) — static markup.
       'src/features/workout-engine/players/shared/v2/__tests__/**/*.test.tsx',
+      // Workout insights (enable_workout_insights_v1) — request builder, API fallbacks, render fallbacks.
+      'src/features/workout-engine/components/strength/insights/__tests__/**/*.test.tsx',
       // Unified search (enable_unified_search) — flag-off parity + card render tests, static markup.
       'src/features/search/__tests__/**/*.test.tsx',
       // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.
@@ -82,6 +84,8 @@ export default defineConfig({
       // i18n wave 2 (app pages: legal / join / session / settings / map error / league / workout history) —
       // Hebrew markup parity of the route pages' own copy (static markup + jsdom).
       'src/app/__tests__/app-pages-i18n/**/*.test.tsx',
+      // i18n wave 2 batch ae (onboarding namespace, programPath.page.*) — strength program-path page, Hebrew markup parity (jsdom).
+      'src/app/onboarding-new/program-path/__tests__/**/*.test.tsx',
       // i18n wave 2 batch w (coach namespace) — Kelly / ai-coach screens, Hebrew markup parity (static + jsdom).
       'src/features/ai-coach/__tests__/**/*.test.tsx',
       // i18n wave 2 (map namespace) — parks/core map UI (cards, search, banners), Hebrew markup parity (static + jsdom).
