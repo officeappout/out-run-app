@@ -11,6 +11,8 @@ import { Card } from '@/components/ui/v2';
 import { MuscleIcon, RunIcon, WalkingIcon } from '@/features/content/programs/core/program-icon.util';
 import { useProfileRecords } from '../../hooks/useProfileRecords';
 import { dateLabel, type RecordIcon } from './record-tiles';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 const TONE: Record<RecordIcon, { bg: string; fg: string }> = {
   strength: { bg: 'rgba(0,186,247,0.12)', fg: '#0284c7' },
@@ -30,19 +32,20 @@ function Glyph({ icon }: { icon: RecordIcon }) {
 }
 
 export default function PersonalRecordsCard({ active }: { active: boolean }) {
+  const t = useT(profileNs);
   const { tiles, loading } = useProfileRecords(active);
-  const fresh = tiles.filter((t) => t.isNew).sort((a, b) => (b.at ?? 0) - (a.at ?? 0))[0];
+  const fresh = tiles.filter((tile) => tile.isNew).sort((a, b) => (b.at ?? 0) - (a.at ?? 0))[0];
 
   return (
     <section id="records" className="scroll-mt-20">
-      <h3 className="mb-3 text-[15px] font-black text-v2-ink">השיאים שלך</h3>
+      <h3 className="mb-3 text-[15px] font-black text-v2-ink">{t('records.title')}</h3>
       {fresh && (
         <div className="mb-3 flex items-center gap-3 rounded-v2-card bg-v2-tint p-3.5 ring-1 ring-inset ring-v2-accent/40">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-v2-gold text-v2-on-gold" aria-hidden>
             <Trophy className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <p className="whitespace-nowrap text-[15px] font-black text-v2-ink">שברת שיא השבוע</p>
+            <p className="whitespace-nowrap text-[15px] font-black text-v2-ink">{t('records.banner')}</p>
             <p className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-deep">
               {fresh.label} · {fresh.value}
               {fresh.unit ? ` ${fresh.unit}` : ''}
@@ -53,27 +56,27 @@ export default function PersonalRecordsCard({ active }: { active: boolean }) {
       {tiles.length === 0 ? (
         !loading && (
           <Card padding="none" className="px-4 py-5 text-center">
-            <p className="text-[13.5px] font-bold text-v2-ink-2">השיאים שלך יתחילו להופיע מהאימון הבא.</p>
+            <p className="text-[13.5px] font-bold text-v2-ink-2">{t('records.empty')}</p>
           </Card>
         )
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          {tiles.map((t) => (
-            <Card key={t.key} padding="none" className="p-3.5">
+          {tiles.map((tile) => (
+            <Card key={tile.key} padding="none" className="p-3.5">
               <div className="flex items-center justify-between">
-                <span className="grid h-8 w-8 place-items-center rounded-[10px]" style={{ background: TONE[t.icon].bg, color: TONE[t.icon].fg }}>
-                  <Glyph icon={t.icon} />
+                <span className="grid h-8 w-8 place-items-center rounded-[10px]" style={{ background: TONE[tile.icon].bg, color: TONE[tile.icon].fg }}>
+                  <Glyph icon={tile.icon} />
                 </span>
-                {t.isNew && (
-                  <span className="whitespace-nowrap rounded-full bg-v2-gold px-2 py-0.5 text-[11px] font-extrabold text-v2-on-gold">שיא חדש</span>
+                {tile.isNew && (
+                  <span className="whitespace-nowrap rounded-full bg-v2-gold px-2 py-0.5 text-[11px] font-extrabold text-v2-on-gold">{t('records.new')}</span>
                 )}
               </div>
               <p className="mt-2 flex items-baseline gap-1">
-                <span className="text-[24px] font-black leading-none tabular-nums text-v2-ink">{t.value}</span>
-                {t.unit && <span className="text-[12.5px] font-bold text-v2-muted">{t.unit}</span>}
+                <span className="text-[24px] font-black leading-none tabular-nums text-v2-ink">{tile.value}</span>
+                {tile.unit && <span className="text-[12.5px] font-bold text-v2-muted">{tile.unit}</span>}
               </p>
-              <p className="mt-1 truncate whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">{t.label}</p>
-              {t.at != null && <p className="whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{dateLabel(t.at)}</p>}
+              <p className="mt-1 truncate whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">{tile.label}</p>
+              {tile.at != null && <p className="whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{dateLabel(tile.at)}</p>}
             </Card>
           ))}
         </div>
