@@ -111,6 +111,7 @@ interface FlagState {
   enable_hide_route_connectors: boolean;
   enable_scoped_official_routes: boolean;
   enable_swap_fixes_v1: boolean;
+  enable_location_gate_v1: boolean;
   enable_strength_drawer_v1: boolean;
   enable_wide_player_v1: boolean;
   enable_site_qr_links: boolean;
@@ -886,6 +887,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-500',
     title: 'החלפת תרגיל — תיקונים',
     description: 'תרגיל שכבר באימון לא מוצע להחלפה; בתצוגה מקדימה ההחלפה לפי המקום ולא לפי התרגיל; באימון פעיל טווח הרמות סביב רמת התרגיל עצמו והחזרות/ההחזקה מותאמות; בתחנה סינון לפי ציוד הפארק לפני הבחירה של 3; החלפה נשמרת בהמשך אימון ומופיעה בסיכום; אין החלפה בזמן עבודה בטבטה; החלפת שלב בפירמידה משולבת מחליפה רק את השלב ולפי ציוד הפארק; תמונה לפי שיטת הביצוע שנבחרה. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Location-switch gate (23.10.2026) — agent-briefs/variant-empty-media-audit.md.
+  {
+    key: 'enable_location_gate_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'מעבר מיקום באימון: שער כיסוי תוכן',
+    description: 'במעבר מיקום בתצוגה המקדימה (בית / פארק / שירות) נבדק מראש שלכל תרגיל יש וידאו או תמונה במיקום החדש, או תרגיל חלופי מתאים (אותה קבוצת תנועה, אותו שריר ראשי, חזרות/החזקה כמו המקור, לא כבר באימון, תרגילי יעד/מיומנות רק בתוך המשפחה שלהם, קל יותר ברמה אחת רק כשאין באותה רמה). אם הכיסוי נמוך מהסף (80% והחסרים לכל היותר אחד) האפשרות מוצגת באפור עם הסבר קצר והמעבר נחסם; הנגן מנגן רק מה שהוחלט בתצוגה. בנוסף: שיטה עם וידאו בלי תמונה מציגה תמונה שנגזרת מהוידאו. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Strength / timed players — collapsible drawer, details in the list (22.10.2026).
   {

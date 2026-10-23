@@ -88,6 +88,7 @@ import { useWeather } from '@/features/weather/hooks/useWeather';
 import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import type { WorkoutWeather } from '@/features/weather/core/weather.types';
 import { useSwapAll } from '@/features/workouts/components/workout-preview-drawer/hooks/useSwapAll';
+import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
 import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
@@ -1502,12 +1503,14 @@ export default function HomePage() {
     setSwappedWorkoutById((prev) => ({ ...prev, [activePreWorkoutSuggestion.id]: gw }));
   }, [activePreWorkoutSuggestion]);
 
+  const carouselLocationGateOn = useLocationGateV1(); // enable_location_gate_v1
   const { swapAll: carouselSwapAll } = useSwapAll({
     generatedWorkout: activeCarouselWorkout,
     onGeneratedWorkoutUpdate: writeSwappedCarouselOption,
     userProfile: profile,
     currentLocation: activeCarouselLocation,
     exercisePool: carouselExercisePool,
+    locationGateEnabled: carouselLocationGateOn,
   });
 
   /** Carousel location chip → swap methods/exercises in place (NOT a regen) — same pattern as

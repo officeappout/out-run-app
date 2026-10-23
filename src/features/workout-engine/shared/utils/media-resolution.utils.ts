@@ -117,7 +117,7 @@ export function byParkFirst(allMethods: any[]): any[] {
  * which is why this always returned undefined for machine-pseudo-exercise
  * videos and the live player fell through to <img>/black.
  */
-function methodBunnyId(media: Record<string, any> | undefined): string | undefined {
+export function methodBunnyId(media: Record<string, any> | undefined): string | undefined {
   if (!media) return undefined;
   const preview = resolvePreviewForLang(media as any)?.videoId;
   if (preview) return preview;

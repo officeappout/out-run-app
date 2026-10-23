@@ -26,6 +26,7 @@ import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { useToast } from '@/components/ui/Toast';
 import { hapticMedium } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
+import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
 import { home } from '@/messages/ns/home';
 
 // ─── Layout — tuned for 260px card on a 390px viewport ──────────────────────
@@ -291,9 +292,10 @@ function TrioCard({
   const iconsReady = useEquipmentIconsReady();
 
   const heroExercise = useMemo(() => pickHeroExercise(exercises), [exercises]);
+  const posterFromVideo = useLocationGateV1(); // enable_location_gate_v1
   const heroMedia = useMemo(
-    () => resolveHeroMedia(heroExercise, workoutLocation),
-    [heroExercise, workoutLocation],
+    () => resolveHeroMedia(heroExercise, workoutLocation, posterFromVideo ? { posterFromVideo } : undefined),
+    [heroExercise, workoutLocation, posterFromVideo],
   );
 
   const equipmentIcons = useMemo(() => {

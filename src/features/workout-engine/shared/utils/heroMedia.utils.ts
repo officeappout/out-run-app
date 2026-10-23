@@ -4,6 +4,7 @@ import {
   findMethodForLocation,
 } from '@/features/content/exercises/core/exercise.types';
 import { resolveExerciseMedia } from './media-resolution.utils';
+import { resolveMethodPoster } from './method-media.utils';
 
 /**
  * Pick the exercise whose media drives the workout hero.
@@ -85,6 +86,8 @@ export function isLocationAgnosticHeroExercise(ex: WorkoutExercise | undefined):
 export function resolveHeroMedia(
   ex: WorkoutExercise | undefined,
   location?: string | null,
+  /** enable_location_gate_v1: prefer a still from the chosen method's OWN video over another method's image. */
+  opts?: { posterFromVideo?: boolean },
 ): { thumbnailUrl: string; videoUrl: string } {
   if (!ex) {
     return { thumbnailUrl: '', videoUrl: '' };
@@ -124,5 +127,6 @@ export function resolveHeroMedia(
     ? resolveExerciseMedia(ex.exercise, method)
     : { imageUrl: '', videoUrl: '' };
 
-  return { thumbnailUrl: imageUrl || '', videoUrl: videoUrl || '' };
+  const poster = opts?.posterFromVideo && hasMethodForLocation ? resolveMethodPoster(method) : undefined;
+  return { thumbnailUrl: poster || imageUrl || '', videoUrl: videoUrl || '' };
 }
