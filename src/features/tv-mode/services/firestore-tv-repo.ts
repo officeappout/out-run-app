@@ -11,6 +11,8 @@ import {
 } from 'firebase/firestore';
 import { TV_COLLECTION, TV_PARTICIPANTS } from '../core/constants';
 import { isExpired } from '../core/expiry';
+import { checkNickname } from '../core/nickname';
+import { defaultAvatar } from '../core/participants';
 import type { TvCommand, TvJoinResult, TvMirror, TvParticipant, TvSession, TvWorkoutInfo } from '../core/types';
 import { parseParticipant, parseSession, stripUndefinedDeep } from './firestore-tv-parse';
 import type { PresencePatch, TvSessionRepo, TvUser } from './tv-session-repo';
@@ -50,6 +52,14 @@ export function createFirestoreTvRepo(db: Firestore, now: () => number = Date.no
     },
 
     async join(code, user: TvUser): Promise<TvJoinResult> {
+      // A guest's nickname is shown on a shared screen: same check as the rules (core/nickname.ts).
+      let name = user.name;
+      if (user.guest) {
+        const nick = checkNickname(user.name);
+        if (!nick.ok) return { ok: false, error: 'invalid-nickname' };
+        name = nick.value;
+      }
+      const avatar = user.avatar ?? defaultAvatar(user.uid);
       try {
         return await runTransaction(db, async (tx) => {
           const sRef = sessionRef(code);
@@ -62,12 +72,14 @@ export function createFirestoreTvRepo(db: Firestore, now: () => number = Date.no
           const pRef = partRef(code, user.uid);
           const pSnap = await tx.get(pRef);
           const claim = session.hostUid === null;
+          // Only a signed-in account can host; a guest who arrives first waits for the host.
+          if (claim && user.guest) return { ok: false, error: 'host-required' } as const;
           const role = claim || session.hostUid === user.uid ? 'host' : 'participant';
 
           if (claim) {
             tx.update(sRef, {
               hostUid: user.uid,
-              hostName: user.name,
+              hostName: name,
               hostGender: user.gender ?? null,
               status: 'lobby',
             });
@@ -75,10 +87,10 @@ export function createFirestoreTvRepo(db: Firestore, now: () => number = Date.no
           if (pSnap.exists()) {
             tx.update(pRef, { state: 'joined' });
           } else {
-            tx.set(pRef, { uid: user.uid, name: user.name, joinedAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(session.expiresAtMs), state: 'joined', seq: 0 });
+            tx.set(pRef, { uid: user.uid, name, avatar, joinedAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(session.expiresAtMs), state: 'joined', seq: 0 });
           }
           const next: TvSession = claim
-            ? { ...session, hostUid: user.uid, hostName: user.name, hostGender: user.gender ?? null, status: 'lobby' }
+            ? { ...session, hostUid: user.uid, hostName: name, hostGender: user.gender ?? null, status: 'lobby' }
             : session;
           return { ok: true, role, session: next } as const;
         });

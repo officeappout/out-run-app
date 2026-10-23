@@ -6,6 +6,13 @@
  * The app's own repo (src/features/tv-mode/services/firestore-tv-repo.ts) is run against the
  * emulator, so a green run proves the client writes and the rules agree.
  *
+ * Guests (anonymous auth) join as participants with a nickname (Kahoot model, owner decision 23.10); only a
+ * signed-in account can host. The guest cases below pin: own participants/{uid} only, validated fields, no host
+ * fields, no session create / claim / commands.
+ *
+ * To check the rules AFTER they were pasted into firestore.rules, run the same suite against the real file:
+ *   TV_RULES_FILE=firestore.rules firebase emulators:exec ... (same command as below)
+ *
  * Run: isolated emulator on 127.0.0.1:8089 —
  *   firebase emulators:exec --only firestore --config firebase-audit.json --project appout-1-audit-test \
  *     "npx vitest run tests/firestore-tv-sessions.rules.test.ts"
@@ -39,7 +46,9 @@ const HELPERS = `
     function isAuthenticated() { return request.auth != null; }
     function isAnonymous() { return isAuthenticated() && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
 `;
-const rules = `rules_version = '2';
+const rules = process.env.TV_RULES_FILE
+  ? readFileSync(process.env.TV_RULES_FILE, 'utf8')
+  : `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 ${HELPERS}
@@ -51,17 +60,23 @@ let env: RulesTestEnvironment;
 const CODE = '482913';
 const EXPIRED = '111111';
 const HOUR = 3600_000;
+/** The live session's expiresAt (a participant doc must carry exactly the same value). */
+const LIVE_EXP = Timestamp.fromMillis(Date.now() + 4 * HOUR);
 
 const real = (uid: string) => env.authenticatedContext(uid, { firebase: { sign_in_provider: 'google.com' } }).firestore() as unknown as Firestore;
 const guest = (uid: string) => env.authenticatedContext(uid, { firebase: { sign_in_provider: 'anonymous' } }).firestore() as unknown as Firestore;
 const tv = () => env.unauthenticatedContext().firestore() as unknown as Firestore;
+/** A participant doc exactly as the repo writes it (override a field to test a rule). */
+const part = (uid: string, name: string, extra: Record<string, unknown> = {}) => ({
+  uid, name, avatar: 3, joinedAt: serverTimestamp(), expiresAt: LIVE_EXP, state: 'joined', seq: 0, ...extra,
+});
 
 async function reset() {
   await env.clearFirestore();
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     const base = { hostUid: null, hostName: null, hostGender: null, status: 'waiting', createdAt: Timestamp.now(), volume: 1 };
-    await setDoc(doc(db, 'tvSessions', CODE), { code: CODE, ...base, expiresAt: Timestamp.fromMillis(Date.now() + 4 * HOUR) });
+    await setDoc(doc(db, 'tvSessions', CODE), { code: CODE, ...base, expiresAt: LIVE_EXP });
     await setDoc(doc(db, 'tvSessions', EXPIRED), { code: EXPIRED, ...base, expiresAt: Timestamp.fromMillis(Date.now() - 1000) });
   });
 }
@@ -110,11 +125,22 @@ async function testJoin() {
     const r = await repoOf(real('noa')).join(CODE, { uid: 'noa', name: 'נועה' });
     if (!r.ok || r.role !== 'host') throw new Error(`expected host, got ${JSON.stringify(r)}`);
   });
-  await it('[DENY] a guest (anonymous) cannot claim or join', async () => {
+  await it('[DENY] a guest cannot claim the host role (nobody hosts yet)', async () => {
     await reset();
-    const r = await repoOf(guest('g1')).join(CODE, { uid: 'g1', name: 'אורח' });
-    if (r.ok) throw new Error('a guest joined');
-    await assertFails(setDoc(doc(guest('g1'), 'tvSessions', CODE, 'participants', 'g1'), { uid: 'g1', name: 'x', joinedAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 4 * HOUR), state: 'joined', seq: 0 }));
+    const r = await repoOf(guest('g1')).join(CODE, { uid: 'g1', name: 'אורח', guest: true });
+    if (r.ok || r.error !== 'host-required') throw new Error(`expected host-required, got ${JSON.stringify(r)}`);
+    await assertFails(updateDoc(doc(guest('g1'), 'tvSessions', CODE), { hostUid: 'g1', hostName: 'x', status: 'lobby' }));
+    await assertFails(setDoc(doc(guest('g1'), 'tvSessions', CODE, 'participants', 'g1'), part('g1', 'אורח')));
+  });
+  await it('[ALLOW] a guest joins as a participant once a real user hosts (nickname + default avatar)', async () => {
+    await reset();
+    await repoOf(real('noa')).join(CODE, { uid: 'noa', name: 'נועה' });
+    const r = await repoOf(guest('g1')).join(CODE, { uid: 'g1', name: '  גיא   the Great  ', guest: true });
+    if (!r.ok || r.role !== 'participant') throw new Error(`expected participant, got ${JSON.stringify(r)}`);
+    const snap = await getDoc(doc(tv(), 'tvSessions', CODE, 'participants', 'g1'));
+    if (snap.data()?.name !== 'גיא the Great') throw new Error(`nickname not normalised: ${snap.data()?.name}`);
+    const again = await repoOf(guest('g1')).join(CODE, { uid: 'g1', name: 'גיא the Great', guest: true });
+    if (!again.ok) throw new Error('a guest could not re-join');
   });
   await it('[DENY] claiming an expired session', async () => {
     const r = await repoOf(real('noa')).join(EXPIRED, { uid: 'noa', name: 'נועה' });
@@ -192,7 +218,7 @@ async function testParticipants() {
   });
   await it('[DENY] creating a participant doc for someone else, with extra keys, or with a foreign expiresAt', async () => {
     const d = (uid: string, as = 'eve') => doc(real(as), 'tvSessions', CODE, 'participants', uid);
-    const body = { uid: 'eve', name: 'x', joinedAt: serverTimestamp(), expiresAt: exp(), state: 'joined', seq: 0 };
+    const body = { uid: 'eve', name: 'x', avatar: 1, joinedAt: serverTimestamp(), expiresAt: exp(), state: 'joined', seq: 0 };
     await assertFails(setDoc(d('someone'), { ...body, uid: 'someone' }));
     await assertFails(setDoc(d('eve'), { ...body, isHost: true }));
     await assertFails(setDoc(d('eve'), { ...body, expiresAt: Timestamp.fromMillis(Date.now() + 99 * HOUR) }));
@@ -200,6 +226,71 @@ async function testParticipants() {
   });
   await it('[ALLOW] leaving = state left', async () => {
     await assertSucceeds(dani.leave(CODE, 'dani'));
+  });
+}
+
+async function testGuests() {
+  console.log('\nguests (anonymous) — participants only');
+  await reset();
+  await createFirestoreTvRepo(real('noa')).join(CODE, { uid: 'noa', name: 'נועה' });
+  const d = (uid: string, as = 'g1', db: Firestore = guest(as)) => doc(db, 'tvSessions', CODE, 'participants', uid);
+
+  await it('[ALLOW] a guest creates exactly their own participant doc with valid fields', async () => {
+    await assertSucceeds(setDoc(d('g1'), part('g1', 'גיא')));
+    await assertSucceeds(setDoc(d('g2', 'g2'), part('g2', "Dana-Lee O'Neil_7")));
+  });
+  await it('[DENY] nickname: empty, 21 chars, markup, emoji, leading / trailing space', async () => {
+    for (const bad of ['', 'a'.repeat(21), '<script>alert(1)</script>', 'hi 😀', ' lead', 'trail ', 'a/b', 'x\ny']) {
+      await assertFails(setDoc(d('g3', 'g3'), part('g3', bad)));
+    }
+  });
+  await it('[ALLOW] nickname at the limits (1 and 20 characters, Hebrew with niqqud)', async () => {
+    await assertSucceeds(setDoc(d('g4', 'g4'), part('g4', 'א')));
+    await assertSucceeds(setDoc(d('g5', 'g5'), part('g5', 'ב'.repeat(20))));
+    await assertSucceeds(setDoc(d('g6', 'g6'), part('g6', 'שָׁלוֹם')));
+  });
+  await it('[DENY] a guest writing host fields or any extra key on their doc', async () => {
+    for (const extra of [{ isHost: true }, { hostUid: 'g7' }, { cmd: { seq: 1, type: 'end' } }, { volume: 0 }, { guest: true }]) {
+      await assertFails(setDoc(d('g7', 'g7'), part('g7', 'x', extra)));
+    }
+  });
+  await it('[DENY] a guest creating a doc for someone else, or with a bad avatar / state / seq / expiry / joinedAt', async () => {
+    await assertFails(setDoc(d('victim', 'g8'), part('victim', 'x')));
+    await assertFails(setDoc(d('g8', 'g8'), part('g8', 'x', { uid: 'victim' })));
+    for (const extra of [{ avatar: 8 }, { avatar: -1 }, { avatar: 1.5 }, { avatar: 'a' }, { state: 'active' }, { seq: 5 }, { joinedAt: Timestamp.fromMillis(1) }, { expiresAt: Timestamp.fromMillis(Date.now() + 99 * HOUR) }]) {
+      await assertFails(setDoc(d('g8', 'g8'), part('g8', 'x', extra)));
+    }
+  });
+  await it('[ALLOW] a guest updates own presence; [DENY] name / avatar / joinedAt changes, other people, delete', async () => {
+    await assertSucceeds(updateDoc(d('g1'), { state: 'active', set: 1, totalSets: 4, seq: 1 }));
+    await assertFails(updateDoc(d('g1'), { name: 'new name' }));
+    await assertFails(updateDoc(d('g1'), { avatar: 5 }));
+    await assertFails(updateDoc(d('g1'), { joinedAt: Timestamp.fromMillis(1) }));
+    await assertFails(updateDoc(d('g1'), { state: 'host' }));
+    await assertFails(updateDoc(d('noa', 'g1'), { state: 'done', seq: 9 }));
+    await assertFails(deleteDoc(d('g1')));
+    await assertFails(updateDoc(d('g2', 'g1'), { state: 'left' }));
+  });
+  await it('[DENY] a guest cannot create a session, claim, or send any command / write any session field', async () => {
+    const s = (code: string) => doc(guest('g1'), 'tvSessions', code);
+    await assertFails(setDoc(s('333333'), { code: '333333', hostUid: null, status: 'waiting', expiresAt: Timestamp.fromMillis(Date.now() + HOUR) }));
+    for (const patch of [{ volume: 0.2 }, { cmd: { seq: 9, type: 'end' } }, { status: 'ended' }, { status: 'live' }, { mirror: { v: 1 } }, { hostBeatAt: serverTimestamp() }, { workout: { title: 'x' } }]) {
+      await assertFails(updateDoc(s(CODE), patch));
+    }
+    await assertFails(deleteDoc(s(CODE)));
+  });
+  await it('[DENY] a guest cannot join an ended or expired session', async () => {
+    await assertFails(setDoc(doc(guest('g9'), 'tvSessions', EXPIRED, 'participants', 'g9'), part('g9', 'x')));
+    await createFirestoreTvRepo(real('noa')).end(CODE);
+    const r = await createFirestoreTvRepo(guest('g9')).join(CODE, { uid: 'g9', name: 'x', guest: true });
+    if (r.ok) throw new Error('joined an ended session');
+  });
+  await it('[ALLOW] the TV (no account) sees guests in the list', async () => {
+    await reset();
+    await createFirestoreTvRepo(real('noa')).join(CODE, { uid: 'noa', name: 'נועה' });
+    await createFirestoreTvRepo(guest('g1')).join(CODE, { uid: 'g1', name: 'גיא', guest: true });
+    const snap = await getDocs(collection(tv(), 'tvSessions', CODE, 'participants'));
+    if (snap.size !== 2) throw new Error(`expected 2 participants, got ${snap.size}`);
   });
 }
 
@@ -226,3 +317,4 @@ wrapSuite('tvSessions read (TV)', testTvRead);
 wrapSuite('tvSessions join', testJoin);
 wrapSuite('tvSessions host writes', testHost);
 wrapSuite('tvSessions participants', testParticipants);
+wrapSuite('tvSessions guests', testGuests);

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import he from '@/messages/he/wide.json';
 import { wide } from '@/messages/ns/wide';
 import { makeT } from '@/lib/i18n/t';
+import { TV_NICKNAME_MAX } from '../core/constants';
 
 const t = makeT('he', wide);
 
@@ -48,6 +49,23 @@ describe('participant counts (ICU plural)', () => {
     expect(t('pair.tv.valid', { hours: 4 })).toBe('הקוד תקף ל־4 שעות');
     expect(t('pair.tv.valid', { hours: 2 })).toBe('הקוד תקף לשעתיים');
     expect(t('pair.tv.valid', { hours: 1 })).toBe('הקוד תקף לשעה אחת');
+  });
+});
+
+describe('guest join (nickname)', () => {
+  it('the nickname length message is a plural and takes the shared max', () => {
+    expect(t('pair.join.error.tooLong', { max: 20 })).toBe('הכינוי ארוך מדי · עד 20 תווים');
+    expect(t('pair.join.error.tooLong', { max: 1 })).toBe('הכינוי ארוך מדי · עד תו אחד');
+    expect(t('pair.join.error.tooLong', { max: TV_NICKNAME_MAX })).toContain(String(TV_NICKNAME_MAX));
+  });
+  it('hosting-needs-an-account and no-host-yet messages exist; the old sign-in wall string is gone', () => {
+    expect(t('pair.phone.error.hostNeedsAccount').length).toBeGreaterThan(10);
+    expect(t('pair.phone.error.hostRequired').length).toBeGreaterThan(10);
+    expect(Object.keys(he)).not.toContain('pair.phone.error.needLogin');
+  });
+  it('the join button is a noun phrase, not a gendered imperative', () => {
+    expect(t('pair.join.cta')).toBe('הצטרפות לחדר');
+    expect(t('pair.join.title')).toBe('בוחרים כינוי');
   });
 });
 

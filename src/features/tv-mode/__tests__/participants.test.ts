@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { firstName, initialOf, orderParticipants, participantColor } from '../core/participants';
+import { TV_AVATAR_COUNT } from '../core/constants';
+import { defaultAvatar, firstName, initialOf, orderParticipants, participantColor } from '../core/participants';
 import type { TvParticipant } from '../core/types';
 
-const p = (uid: string, joinedAtMs: number, state: TvParticipant['state'] = 'joined'): TvParticipant => ({ uid, name: uid, joinedAtMs, state, seq: 0 });
+const p = (uid: string, joinedAtMs: number, state: TvParticipant['state'] = 'joined'): TvParticipant => ({ uid, name: uid, joinedAtMs, avatar: 0, state, seq: 0 });
 
 describe('orderParticipants', () => {
   it('host first, then join order — equal list, no ranking by progress', () => {
@@ -24,6 +25,16 @@ describe('avatars and names', () => {
   it('colour is stable per uid', () => {
     expect(participantColor('abc')).toBe(participantColor('abc'));
     expect(participantColor('abc')).toMatch(/^#[0-9a-f]{6}$/);
+  });
+  it('the default avatar is stable, in range, and drives the colour when the doc has one', () => {
+    for (const uid of ['a', 'abc', 'uid-12345', '']) {
+      const a = defaultAvatar(uid);
+      expect(a).toBe(defaultAvatar(uid));
+      expect(Number.isInteger(a) && a >= 0 && a < TV_AVATAR_COUNT).toBe(true);
+    }
+    expect(participantColor('abc', 2)).toBe(participantColor('someone-else', 2));
+    expect(participantColor('abc', 99)).toBe(participantColor('abc'));
+    expect(participantColor('abc', -1)).toBe(participantColor('abc'));
   });
   it('first name only (shared screen), initial is one character', () => {
     expect(firstName('  נועה כהן  ')).toBe('נועה');

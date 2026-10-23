@@ -16,6 +16,11 @@ export const TV_CLOCK_SAMPLES = 12;
 /** The TV draws at most this many people (the rest are counted, not drawn). */
 export const TV_MAX_PARTICIPANTS = 12;
 
+/** Guest nickname: 1..20 characters (code points). */
+export const TV_NICKNAME_MAX = 20;
+/** Default avatars (a colour each) — a person gets one from their uid, no picker. */
+export const TV_AVATAR_COUNT = 8;
+
 /** The short public path of the TV page and its join link. */
 export const TV_PATH = '/tv';
 export const TV_CODE_PARAM = 'code';

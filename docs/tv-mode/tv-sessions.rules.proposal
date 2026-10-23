@@ -14,9 +14,12 @@
     //   server (Admin)   : creates and deletes the session doc (POST /api/tv/session).
     //   first real user  : claims the host role ONCE (hostUid null → own uid).
     //   host             : writes status / workout / mirror / timerAnchorAt / hostBeatAt / volume / cmd.
-    //   any real user    : creates + updates ONLY their own participants/{uid}.
-    //   guests (anonymous Firebase users) cannot claim or join: a name appears on a shared
-    //   screen, and the app's guest policy (SPEC-03) is "visible to others = real account".
+    //   anyone signed in : creates + updates ONLY their own participants/{uid}. Guests (anonymous
+    //                      Firebase users) join like Kahoot: a validated nickname + a default avatar,
+    //                      no registration (owner decision 23.10). There is no "remove participant"
+    //                      action and no participant cap (owner decision).
+    //   guests           : can NOT claim the host role, create sessions, or write any session field
+    //                      (so no commands, no volume, no status). Hosting needs a real account.
     // ============================================================
 
     function tvSessionPath(code) {
@@ -29,6 +32,18 @@
 
     function tvShortString(v, max) {
       return v is string && v.size() > 0 && v.size() <= max;
+    }
+
+    // Guest nickname: 1..20 characters, letters / marks / digits / space . _ ' - (no leading or
+    // trailing space). Same pattern as src/features/tv-mode/core/nickname.ts.
+    function tvNickname(v) {
+      return v is string && v.size() >= 1 && v.size() <= 20
+        && v.matches("^[\\p{L}\\p{M}\\p{N}._'-]([\\p{L}\\p{M}\\p{N} ._'-]*[\\p{L}\\p{M}\\p{N}._'-])?$");
+    }
+
+    // Accounts show their first name (up to 40 chars); guests only a validated nickname.
+    function tvParticipantName(v) {
+      return isAnonymous() ? tvNickname(v) : tvShortString(v, 40);
     }
 
     match /tvSessions/{code} {
@@ -69,24 +84,26 @@
         );
 
       match /participants/{uid} {
-        // The TV lists them (names are first names only).
+        // The TV lists them (nicknames / first names only).
         allow get, list: if tvLive(get(tvSessionPath(code)));
 
         // getAfter: the host's claim and its own participant doc go in ONE transaction.
-        allow create: if isAuthenticated() && !isAnonymous()
+        allow create: if isAuthenticated()
           && request.auth.uid == uid
           && request.resource.data.uid == uid
           && tvLive(get(tvSessionPath(code)))
           && getAfter(tvSessionPath(code)).data.hostUid != null
-          && request.resource.data.keys().hasOnly(['uid', 'name', 'joinedAt', 'expiresAt', 'state', 'seq'])
-          && tvShortString(request.resource.data.name, 40)
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'avatar', 'joinedAt', 'expiresAt', 'state', 'seq'])
+          && tvParticipantName(request.resource.data.name)
+          && request.resource.data.avatar is int
+          && request.resource.data.avatar >= 0 && request.resource.data.avatar < 8
           && request.resource.data.joinedAt == request.time
           && request.resource.data.expiresAt == get(tvSessionPath(code)).data.expiresAt
           && request.resource.data.state == 'joined'
           && request.resource.data.seq == 0;
 
-        // Own presence only; identity and join time are frozen.
-        allow update: if isAuthenticated() && !isAnonymous()
+        // Own presence only; identity (name, avatar) and join time are frozen.
+        allow update: if isAuthenticated()
           && request.auth.uid == uid
           && tvLive(get(tvSessionPath(code)))
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'set', 'totalSets', 'seq'])

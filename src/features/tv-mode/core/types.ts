@@ -86,9 +86,11 @@ export type TvParticipantState = 'joined' | 'active' | 'resting' | 'done' | 'lef
 
 export interface TvParticipant {
   uid: string;
-  /** First name only — it is shown on a shared screen. */
+  /** Nickname (guest) or first name (account) — it is shown on a shared screen. */
   name: string;
   joinedAtMs: number;
+  /** Default avatar index 0..TV_AVATAR_COUNT-1 (colour). Frozen after the first write. */
+  avatar: number;
   state: TvParticipantState;
   set?: number;
   totalSets?: number;
@@ -97,7 +99,15 @@ export interface TvParticipant {
 
 export type TvJoinRole = 'host' | 'participant';
 
-export type TvJoinError = 'not-found' | 'expired' | 'ended' | 'offline' | 'unknown';
+export type TvJoinError =
+  | 'not-found'
+  | 'expired'
+  | 'ended'
+  | 'offline'
+  | 'unknown'
+  /** A guest reached a code nobody hosts yet: only a signed-in account can host. */
+  | 'host-required'
+  | 'invalid-nickname';
 
 export type TvJoinResult =
   | { ok: true; role: TvJoinRole; session: TvSession }

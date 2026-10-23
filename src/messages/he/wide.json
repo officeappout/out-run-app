@@ -30,7 +30,18 @@
   "pair.phone.error.ended": "החיבור הזה הסתיים. פותחים קוד חדש על המסך",
   "pair.phone.error.offline": "אין חיבור לרשת",
   "pair.phone.error.unknown": "משהו השתבש. אפשר לנסות שוב",
-  "pair.phone.error.needLogin": "צריך להיות מחוברים לאפליקציה כדי להתחבר למסך",
+  "pair.phone.error.hostNeedsAccount": "הצגת אימון על מסך גדול דורשת חשבון באפליקציה. אפשר להצטרף כאורח לחדר שמישהו אחר פתח",
+  "pair.phone.error.hostRequired": "המארח עוד לא התחבר לחדר. מנסים שוב בעוד רגע",
+
+  "pair.join.eyebrow": "מצטרפים לחדר",
+  "pair.join.title": "בוחרים כינוי",
+  "pair.join.body": "הכינוי יופיע על המסך הגדול. אין צורך בהרשמה",
+  "pair.join.label": "כינוי",
+  "pair.join.placeholder": "למשל: דני",
+  "pair.join.cta": "הצטרפות לחדר",
+  "pair.join.error.empty": "צריך להקליד כינוי",
+  "pair.join.error.tooLong": "הכינוי ארוך מדי · עד {max, plural, =1 {תו אחד} other {# תווים}}",
+  "pair.join.error.charset": "אותיות, ספרות ורווחים בלבד",
 
   "pair.gate.title": "אימון על מסך גדול",
   "pair.gate.cta": "לחצו OK להתחלה",
@@ -103,7 +114,7 @@
   "lost.tv.newCode": "קוד חדש",
 
   "lobby.title": "מי בסלון?",
-  "lobby.hint": "סורקים את הקוד כדי להצטרף. הראשון שסורק מנהל את האימון מהטלפון שלו.",
+  "lobby.hint": "סורקים את הקוד ומצטרפים עם כינוי, בלי הרשמה. המארח מנהל את האימון מהטלפון שלו.",
   "lobby.or": "או מקלידים את הקוד",
   "lobby.workout": "אימון כוח · {title}",
   "lobby.host": "מארח",

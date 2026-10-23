@@ -1,5 +1,7 @@
 import type { PresencePatch, TvSessionRepo, TvUser } from './tv-session-repo';
 import { expiresAtFor, isExpired } from '../core/expiry';
+import { checkNickname } from '../core/nickname';
+import { defaultAvatar } from '../core/participants';
 import type { TvCommand, TvJoinResult, TvMirror, TvParticipant, TvSession, TvWorkoutInfo } from '../core/types';
 
 /** In-memory TvSessionRepo for unit tests and local demos — same rules the Firestore rules enforce. */
@@ -62,17 +64,24 @@ export class MemoryTvRepo implements TvSessionRepo {
     if (!s) return { ok: false, error: 'not-found' };
     if (s.status === 'ended') return { ok: false, error: 'ended' };
     if (isExpired(s.expiresAtMs, this.clock())) return { ok: false, error: 'expired' };
+    let name = user.name;
+    if (user.guest) {
+      const nick = checkNickname(user.name);
+      if (!nick.ok) return { ok: false, error: 'invalid-nickname' };
+      name = nick.value;
+      if (s.hostUid === null) return { ok: false, error: 'host-required' };
+    }
     const role = s.hostUid === null || s.hostUid === user.uid ? 'host' : 'participant';
     if (s.hostUid === null) {
       s.hostUid = user.uid;
-      s.hostName = user.name;
+      s.hostName = name;
       s.hostGender = user.gender ?? null;
       s.status = 'lobby';
     }
     const parts = this.participants.get(code)!;
     const mine = parts.get(user.uid);
     if (mine) mine.state = 'joined';
-    else parts.set(user.uid, { uid: user.uid, name: user.name, joinedAtMs: this.clock(), state: 'joined', seq: 0 });
+    else parts.set(user.uid, { uid: user.uid, name, avatar: user.avatar ?? defaultAvatar(user.uid), joinedAtMs: this.clock(), state: 'joined', seq: 0 });
     this.emit(code);
     return { ok: true, role, session: { ...s } };
   }

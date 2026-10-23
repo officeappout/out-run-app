@@ -1,3 +1,4 @@
+import { TV_AVATAR_COUNT } from './constants';
 import type { TvParticipant } from './types';
 
 /** Equal list, no ranking: host first (tagged in the UI), then in the order people joined. */
@@ -13,11 +14,17 @@ export function orderParticipants(list: readonly TvParticipant[], hostUid: strin
 
 const PALETTE = ['#f97316', '#a855f7', '#10b981', '#ec4899', '#0ea5e9', '#eab308', '#14b8a6', '#ef4444'];
 
-/** Stable avatar colour per person (same on every screen). */
-export function participantColor(uid: string): string {
+/** Default avatar index for a uid (stable; no picker). */
+export function defaultAvatar(uid: string): number {
   let h = 0;
   for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
+  return h % TV_AVATAR_COUNT;
+}
+
+/** Stable avatar colour per person (same on every screen); `avatar` wins when the doc has one. */
+export function participantColor(uid: string, avatar?: number): string {
+  const i = avatar != null && Number.isInteger(avatar) && avatar >= 0 && avatar < PALETTE.length ? avatar : defaultAvatar(uid);
+  return PALETTE[i % PALETTE.length];
 }
 
 /** A shared screen shows a first name only. */

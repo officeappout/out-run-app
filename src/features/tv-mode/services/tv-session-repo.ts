@@ -13,6 +13,10 @@ export interface TvUser {
   /** Shown on the shared screen: callers pass the FIRST name only. */
   name: string;
   gender?: 'male' | 'female' | 'other' | null;
+  /** Anonymous (guest) account: may join as a participant with a nickname, never host. */
+  guest?: boolean;
+  /** Default avatar index; derived from the uid when missing. */
+  avatar?: number;
 }
 
 export type PresencePatch = Pick<TvParticipant, 'state' | 'set' | 'totalSets' | 'seq'>;
@@ -25,7 +29,7 @@ export interface TvSessionRepo {
   subscribeSession(code: string, onSession: (s: TvSession | null) => void, onError?: (e: unknown) => void): Unsubscribe;
   subscribeParticipants(code: string, onList: (list: TvParticipant[]) => void, onError?: (e: unknown) => void): Unsubscribe;
 
-  /** First caller on a free session = host (one transaction); everyone else = participant. */
+  /** First SIGNED-IN caller on a free session = host (one transaction); everyone else = participant. A guest is always a participant. */
   join(code: string, user: TvUser): Promise<TvJoinResult>;
   /** Host only: attach the workout that is about to be shown (lobby). */
   setWorkout(code: string, workout: TvWorkoutInfo): Promise<void>;

@@ -1,4 +1,6 @@
+import { TV_AVATAR_COUNT } from '../core/constants';
 import { NO_TIMER } from '../core/mirror';
+import { defaultAvatar } from '../core/participants';
 import type {
   TvCommand,
   TvMirror,
@@ -107,6 +109,7 @@ export function parseParticipant(uid: string, data: Raw): TvParticipant | null {
     uid,
     name: str(data.name) ?? '',
     joinedAtMs: tsMs(data.joinedAt) ?? 0,
+    avatar: Number.isInteger(data.avatar) && (data.avatar as number) >= 0 ? (data.avatar as number) % TV_AVATAR_COUNT : defaultAvatar(uid),
     state: P_STATES.includes(data.state as TvParticipantState) ? (data.state as TvParticipantState) : 'joined',
     ...(num(data.set) != null ? { set: num(data.set) } : {}),
     ...(num(data.totalSets) != null ? { totalSets: num(data.totalSets) } : {}),

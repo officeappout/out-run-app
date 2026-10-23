@@ -7,8 +7,8 @@ Default OFF. With the flag off nothing changes anywhere: no ⋯ button, `/tv` sa
 
 1. The TV opens `outrun.co.il/tv`. One big "OK" button (needed for `requestFullscreen`), then `POST /api/tv/session` creates `tvSessions/{code}` with the Admin SDK: 6 random digits (crypto), collision-safe, valid 4 hours, rate-limited per IP (`RL_TV_SESSION_IP_*`).
 2. The TV shows one QR (`/tv?code=…`) + the same code. The code is both the join code and the control code.
-3. The first real (non-guest) user that enters the code claims `hostUid` in one transaction and is the **host**: the phone is the remote and the source of truth. The TV only mirrors.
-4. Every later phone is a **participant**: it writes only its own `participants/{uid}` and shows in the TV room / friends row. Equal list, host tagged.
+3. The first **signed-in account** (not a guest) that enters the code claims `hostUid` in one transaction and is the **host**: the phone is the remote and the source of truth. The TV only mirrors. A guest cannot host: if one arrives before any host, they see "the host has not connected yet".
+4. Every later phone is a **participant**, Kahoot style: guests (anonymous auth) join with a **nickname** (1-20 characters, letters / digits / space . _ ' -) and a default avatar, no registration; accounts join with their first name. It writes only its own `participants/{uid}` and shows in the TV room / friends row. Equal list, host tagged. There is no "remove participant" action and no participant cap (owner decision 23.10); the TV has no heartbeat for now.
 5. Entry is ONLY before the workout starts: workout overview → ⋯ → "הצגה על מסך גדול" → sheet (W-18) → connect (W-14) → host panel (W-20) → "התחלת אימון".
 6. The host phone stamps `hostBeatAt` (server time) every 5 s. No beat for 20 s while live → the TV shows the reconnect state (W-16) and keeps counting on its local clock; the phone offers retry / continue on phone only.
 7. Timers: the mirror holds `{dir, baseMs, running}` and the server stamps `timerAnchorAt` only when the clock changes (pause / resume / new interval). The TV reads `baseMs ∓ (serverNow − anchor)`; `serverNow` comes from the heartbeat stamps (lowest-latency sample).
@@ -34,7 +34,7 @@ i18n: namespace `wide` (`pair.* remote.* lost.* lobby.* stage.* joined.* downloa
 
 ## Owner actions (nothing here is deployed by the PRs)
 
-1. **Rules**: review `docs/tv-mode/tv-sessions.rules.proposal`, paste into `firestore.rules`, run `tests/firestore-tv-sessions.rules.test.ts` against the emulator, deploy from main. Until then the feature cannot work (reads are denied) — keep the flag off.
+1. **Rules**: the separate PR "rules: tvSessions (for owner review)" is this proposal pasted into `firestore.rules` (nothing else). Review it, run `tests/firestore-tv-sessions.rules.test.ts` against the emulator, deploy from main. Until then the feature cannot work (reads are denied) — keep the flag off.
 2. **TTL policy** on field `expiresAt` for collection group `tvSessions` and for `participants` (Firestore console → TTL). Without it expired docs stay (they are unreadable, just not deleted).
 3. **Universal links** for `outrun.co.il/tv`: iOS associated-domains/AASA path and `AndroidManifest.xml` `pathPrefix="/tv"` (needs a store release). Without it the QR opens the browser landing (store links) instead of the app; typing the code works either way.
 4. **Flag** `enable_tv_mode_v1` in system settings (super admins preview it).

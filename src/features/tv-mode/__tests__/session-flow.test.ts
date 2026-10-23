@@ -51,6 +51,49 @@ describe('joining a session', () => {
   });
 });
 
+describe('guests (Kahoot model): nickname + default avatar, never host', () => {
+  it('a guest cannot claim a free session, and nothing is written', async () => {
+    const { repo } = setup();
+    expect(await repo.join(CODE, { uid: 'g1', name: 'גיא', guest: true })).toEqual({ ok: false, error: 'host-required' });
+    const s = repo.sessions.get(CODE)!;
+    expect(s).toMatchObject({ hostUid: null, status: 'waiting' });
+    expect(repo.participants.get(CODE)!.size).toBe(0);
+  });
+  it('a guest joins as a participant once a real user hosts; the nickname is normalised and an avatar is assigned', async () => {
+    const { repo } = setup();
+    await repo.join(CODE, { uid: 'noa', name: 'נועה' });
+    const r = await repo.join(CODE, { uid: 'g1', name: '  גיא   הגדול ', guest: true, avatar: 3 });
+    expect(r).toMatchObject({ ok: true, role: 'participant' });
+    expect(repo.participants.get(CODE)!.get('g1')).toMatchObject({ name: 'גיא הגדול', avatar: 3, state: 'joined' });
+    expect(repo.participants.get(CODE)!.get('noa')!.avatar).toBeGreaterThanOrEqual(0);
+    expect(repo.sessions.get(CODE)!.hostUid).toBe('noa');
+  });
+  it('a guest never becomes host, even when the host left (state left) or re-joins', async () => {
+    const { repo } = setup();
+    await repo.join(CODE, { uid: 'noa', name: 'נועה' });
+    await repo.leave(CODE, 'noa');
+    await repo.join(CODE, { uid: 'g1', name: 'גיא', guest: true });
+    await repo.join(CODE, { uid: 'g1', name: 'גיא', guest: true });
+    expect(repo.sessions.get(CODE)!.hostUid).toBe('noa');
+  });
+  it('an invalid nickname is refused before anything is written', async () => {
+    const { repo } = setup();
+    await repo.join(CODE, { uid: 'noa', name: 'נועה' });
+    for (const bad of ['', '   ', 'a'.repeat(21), '<b>x</b>', 'smile 😀']) {
+      expect(await repo.join(CODE, { uid: 'g1', name: bad, guest: true })).toEqual({ ok: false, error: 'invalid-nickname' });
+    }
+    expect(repo.participants.get(CODE)!.has('g1')).toBe(false);
+  });
+  it('the guest cannot write host fields or someone else\'s presence', async () => {
+    const { repo } = setup();
+    await repo.join(CODE, { uid: 'noa', name: 'נועה' });
+    await repo.join(CODE, { uid: 'g1', name: 'גיא', guest: true });
+    await expect(repo.publishPresence(CODE, 'nobody', { state: 'active', seq: 1 })).rejects.toThrow('permission-denied');
+    await repo.publishPresence(CODE, 'g1', { state: 'active', set: 1, totalSets: 3, seq: 1 });
+    expect(repo.participants.get(CODE)!.get('g1')!.state).toBe('active');
+  });
+});
+
 describe('host writes and subscriptions', () => {
   it('lobby → live, mirror + commands reach the TV subscriber', async () => {
     const { repo } = setup();
@@ -105,6 +148,10 @@ describe('doc parsing is defensive', () => {
   });
   it('parses participants and drops undefined before a write', () => {
     expect(parseParticipant('u', { name: 'דני', state: 'weird', joinedAt: { toMillis: () => 7 } })).toMatchObject({ uid: 'u', name: 'דני', state: 'joined', joinedAtMs: 7 });
+    // a doc without (or with a wild) avatar still gets a valid one
+    expect(parseParticipant('u', { name: 'x' })!.avatar).toBeGreaterThanOrEqual(0);
+    expect(parseParticipant('u', { name: 'x', avatar: 11 })!.avatar).toBe(3);
+    expect(parseParticipant('u', { name: 'x', avatar: 5 })!.avatar).toBe(5);
     expect(stripUndefinedDeep({ a: 1, b: undefined, c: { d: undefined, e: NaN, f: 2 }, g: [{ h: undefined }] })).toEqual({ a: 1, c: { f: 2 }, g: [{}] });
     expect(tsMs('x')).toBeNull();
   });
