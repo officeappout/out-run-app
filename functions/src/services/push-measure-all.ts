@@ -42,6 +42,9 @@ export const PUSH_TYPE_IDS = {
   onboardingDropoff: 'OnboardingDropoff',
   broadcast: 'AdminBroadcast',
   retention: 'Inactivity',
+  sessionReminder: 'SessionReminder',
+  sessionCancelled: 'SessionCancelled',
+  sessionWaitlistPromoted: 'SessionWaitlistPromoted',
 } as const;
 
 /** The measurement a type-only sender gets when the flag is on. */

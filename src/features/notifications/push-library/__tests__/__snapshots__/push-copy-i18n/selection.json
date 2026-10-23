@@ -2657,6 +2657,94 @@
       }
     ]
   },
+  "session_reminder": {
+    "outcomes": 72,
+    "hash": "eb85d3bbe205607916513bc7d188fc12196164e99e43deafc70703c8de8f5c8b",
+    "unique": [
+      {
+        "pushType": "session_reminder",
+        "title": "עוד 15 דקות לרצים בפארק",
+        "body": "הנעליים עלייך? המפגש ב-18:30 והחבר׳ה כבר מתחממים.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:session_reminder:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "session_reminder",
+        "title": "עוד 15 דקות לרצים בפארק",
+        "body": "הנעליים עליך? המפגש ב-18:30 והחבר׳ה כבר מתחממים.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:session_reminder:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "session_reminder",
+        "title": "עוד 15 דקות: רצים בפארק",
+        "body": "המפגש מתחיל ב-18:30. מחכים לכם.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:session_reminder:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "session_cancelled": {
+    "outcomes": 72,
+    "hash": "10593c44ff9b20d159f9254cf5b232b81f51e292db1c23737ef6a8afccbb4de9",
+    "unique": [
+      {
+        "pushType": "session_cancelled",
+        "title": "המפגש של רצים בפארק בוטל",
+        "body": "סליחה על הבלבול, אין צורך להגיע ב-18:30. נעדכן אותך כשיהיה מועד חדש.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:session_cancelled:1",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
+  "session_waitlist_promoted": {
+    "outcomes": 72,
+    "hash": "ae9a753d3eb807f20b05259bb62a1926dfbaffef18a390316e6872ac25d6620e",
+    "unique": [
+      {
+        "pushType": "session_waitlist_promoted",
+        "title": "התפנה מקום ברצים בפארק",
+        "body": "המקום שלך במפגש ב-18:30 שמור. מחכים לכם.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:session_waitlist_promoted:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "session_waitlist_promoted",
+        "title": "יש מקום! נכנסת לרצים בפארק",
+        "body": "התפנה מקום ואת בפנים. מפגש ב-18:30, נתראה שם.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:session_waitlist_promoted:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "session_waitlist_promoted",
+        "title": "יש מקום! נכנסת לרצים בפארק",
+        "body": "התפנה מקום ואתה בפנים. מפגש ב-18:30, נתראה שם.",
+        "deepLink": "/community/group123",
+        "deepLinkId": "community_group",
+        "rowId": "default:session_waitlist_promoted:1",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
   "friend_joined": {
     "outcomes": 72,
     "hash": "0f88b3a30cfefe39e0c5504bd310514b43368e864f6f5e843c5976f129884a80",
