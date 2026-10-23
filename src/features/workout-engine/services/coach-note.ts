@@ -21,243 +21,121 @@
 
 import type { DecisionReason, DecisionRecord, NumRange } from './decision-record';
 import { stableHash } from './decision-record';
+import { getCatalog } from '@/lib/i18n/catalogs';
+import { lookupMessage } from '@/lib/i18n/core/i18n-core';
+import { formatIcu } from '@/lib/i18n/core/icu';
+import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
 
 // ============================================================================
 // PHRASEBOOK
 // ============================================================================
+// The phrases live in the `coach` catalog (src/messages/he/coach.json): `note.phrase.<KEY>.<n>` (n = 1..variants),
+// `note.domain.*` / `note.program.*` / `note.locIn.*` (names), `note.fmt.*` (numbers). No Hebrew in this file.
+// The engine stays pure: no React, no Firebase. The catalog is read synchronously through the i18n core
+// (Hebrew is bundled statically; another locale falls back to Hebrew until its catalog is loaded).
 
-export type CoachPhraseKey =
-  | 'RECOVERY_DAY'
-  | 'RETURNING'
-  | 'DELOAD_WEEK'
-  | 'PEAK_WEEK'
-  | 'BUILD_WEEK'
-  | 'WEEKLY_GAP'
-  | 'SKILL_FOCUS'
-  | 'PROGRAM_FOCUS'
-  | 'WEATHER_RAIN'
-  | 'WEATHER_HEAT'
-  | 'WEATHER_COLD'
-  | 'WEATHER_UV'
-  | 'LOCATION_bodyweight'
-  | 'LOCATION_equipment'
-  | 'TIME_morning'
-  | 'TIME_evening'
-  | 'TIME_night'
-  | 'DIFFICULTY_easy'
-  | 'DIFFICULTY_balanced'
-  | 'DIFFICULTY_intense'
-  | 'LEVEL_CEILING'
-  | 'MUSCLES_RESTED'
-  | 'EXPECT_volume'
-  | 'EXPECT_rest'
-  | 'EXPECT_short'
-  | 'PROTOCOL_pyramid'
-  | 'PROTOCOL_antagonist'
-  | 'PROTOCOL_superset'
-  | 'PROTOCOL_emom'
-  | 'PROTOCOL_tabata'
-  | 'CALM_evening'
-  | 'CALM_night'
-  | 'CALM_recovery';
+export const COACH_PHRASE_KEYS = [
+  'RECOVERY_DAY',
+  'RETURNING',
+  'DELOAD_WEEK',
+  'PEAK_WEEK',
+  'BUILD_WEEK',
+  'WEEKLY_GAP',
+  'SKILL_FOCUS',
+  'PROGRAM_FOCUS',
+  'WEATHER_RAIN',
+  'WEATHER_HEAT',
+  'WEATHER_COLD',
+  'WEATHER_UV',
+  'LOCATION_bodyweight',
+  'LOCATION_equipment',
+  'TIME_morning',
+  'TIME_evening',
+  'TIME_night',
+  'DIFFICULTY_easy',
+  'DIFFICULTY_balanced',
+  'DIFFICULTY_intense',
+  'LEVEL_CEILING',
+  'MUSCLES_RESTED',
+  'EXPECT_volume',
+  'EXPECT_rest',
+  'EXPECT_short',
+  'PROTOCOL_pyramid',
+  'PROTOCOL_antagonist',
+  'PROTOCOL_superset',
+  'PROTOCOL_emom',
+  'PROTOCOL_tabata',
+  'CALM_evening',
+  'CALM_night',
+  'CALM_recovery',
+] as const;
+
+export type CoachPhraseKey = (typeof COACH_PHRASE_KEYS)[number];
 
 /** Admin-editable later: same keys, same {placeholders}, any number of variants. */
 export type CoachPhrasebook = Partial<Record<CoachPhraseKey, string[]>>;
 
-export const DEFAULT_COACH_PHRASEBOOK: Record<CoachPhraseKey, string[]> = {
-  RECOVERY_DAY: [
-    'היום יום התאוששות, אז בנינו לך אימון רגוע שמניע את הגוף בלי להעמיס.',
-    'הגוף צריך היום מנוחה פעילה, ולכן האימון קל ונעים.',
-    'זה יום של התאוששות, מזיזים את הגוף בעדינות ושומרים כוח להמשך.',
-  ],
-  RETURNING: [
-    'עברו {days} ימים מהאימון האחרון, אז חוזרים בהדרגה ועם פחות עומס.',
-    'אחרי הפסקה של {days} ימים חוזרים בעדינות, כדי שהגוף יתרגל מחדש.',
-    'חוזרים לשגרה אחרי {days} ימים, בקצב נוח ובלי למהר.',
-  ],
-  DELOAD_WEEK: [
-    'השבוע מורידים עומס כדי לתת לשרירים ולגידים להתאושש.',
-    'זה שבוע קל במחזור האימונים, עם פחות סטים ויותר התאוששות.',
-    'השבוע הוא שבוע הורדת עומס, והגוף מתחזק דווקא במנוחה.',
-  ],
-  PEAK_WEEK: [
-    'זה שבוע השיא במחזור, אז האימון קצת יותר עמוס מהרגיל.',
-    'השבוע הוא שבוע שיא, ולכן מוסיפים קצת נפח ואתגר.',
-  ],
-  BUILD_WEEK: [
-    'זה שבוע {week} במחזור, וממשיכים לבנות כוח בהדרגה.',
-    'אנחנו בשבוע {week} של המחזור, שלב של בנייה יציבה.',
-  ],
-  WEEKLY_GAP: [
-    'השבוע נשאר הכי הרבה להשלים ב{domain}, אז האימון משלים את החסר.',
-    'כדי לאזן את השבוע, היום יש יותר {domain}.',
-    'ב{domain} חסרים עוד {pct}% מהיעד השבועי, אז היום משלימים.',
-  ],
-  SKILL_FOCUS: [
-    'שילבנו באימון עבודה על {skill}, המיומנות שבחרת.',
-    'חלק מהאימון מוקדש ל{skill}, צעד אחרי צעד.',
-    'יש באימון תרגילים שמקדמים אותך ל{skill}.',
-  ],
-  PROGRAM_FOCUS: [
-    'האימון מותאם לרמה {level} בתוכנית {program}.',
-    'התרגילים נבחרו לפי הרמה שלך, רמה {level} בתוכנית {program}.',
-    'הכול בנוי סביב רמה {level} בתוכנית {program}.',
-  ],
-  WEATHER_RAIN: [
-    'גשום היום, אז בנינו לך אימון לבית.',
-    'בחוץ יורד גשם, ולכן האימון היום בבית.',
-    'היום גשום, אז מתאמנים בבית ונשארים יבשים.',
-  ],
-  WEATHER_HEAT: [
-    'חם מאוד היום, אז האימון קצר יותר ועם יותר מנוחה.',
-    'בחום כזה מקצרים את האימון ונותנים יותר זמן למנוחה.',
-    'היום חם במיוחד, ולכן האימון קצר יותר והמנוחות ארוכות יותר.',
-  ],
-  WEATHER_COLD: [
-    'קר בחוץ, אז מתחילים בחימום ארוך יותר.',
-    'ביום קר הגוף צריך יותר זמן להתחמם, ולכן החימום ארוך יותר.',
-    'היום קר, אז מקדישים עוד כמה דקות לחימום.',
-  ],
-  WEATHER_UV: [
-    'השמש חזקה היום, אז האימון קצר יותר ועם יותר מנוחה.',
-    'קרינת השמש גבוהה היום, ולכן מקצרים את האימון ומוסיפים מנוחה.',
-    'בשמש חזקה כזו עדיף אימון קצר יותר, עם מנוחות ארוכות יותר.',
-  ],
-  LOCATION_bodyweight: [
-    'בנינו לך אימון {locIn} עם משקל הגוף בלבד, בלי ציוד.',
-    'את כל התרגילים אפשר לעשות {locIn}, בלי שום ציוד.',
-  ],
-  LOCATION_equipment: [
-    'בנינו לך אימון {locIn} עם הציוד שיש במקום.',
-    'התרגילים נבחרו לפי מה שיש {locIn}.',
-  ],
-  TIME_morning: [
-    'אימון בוקר שמעיר את הגוף ונותן אנרגיה ליום.',
-    'מתחילים את הבוקר בתנועה, וזה מורגש כל היום.',
-  ],
-  TIME_evening: [
-    'אימון ערב בקצב שמאפשר להירגע אחריו.',
-    'אימון ערב שסוגר את היום בתנועה טובה.',
-  ],
-  TIME_night: [
-    'שעה מאוחרת, אז עובדים בקצב נוח ובלי לחץ.',
-    'בשעה כזו עובדים רגוע, בלי לרדוף אחרי שיאים.',
-  ],
-  DIFFICULTY_easy: [
-    'זו הגרסה הקלה, עם תרגילים נוחים ויותר זרימה.',
-    'בחרנו גרסה קלה יותר, כדי שיהיה נעים להתמיד.',
-  ],
-  DIFFICULTY_balanced: [
-    'זו גרסה מאוזנת, עם מספיק אתגר ובלי להגזים.',
-    'האימון מאוזן, לא קל מדי ולא קשה מדי.',
-  ],
-  DIFFICULTY_intense: [
-    'זו הגרסה העצימה, עם תרגילים קשים יותר ומנוחות ארוכות.',
-    'בחרנו גרסה מאתגרת, שדוחפת קצת מעבר לרגיל.',
-  ],
-  LEVEL_CEILING: [
-    'בחלק מהתרגילים הרמה מעט נמוכה, כי זו הגבוהה ביותר שיש לנו כרגע.',
-    'בכמה תרגילים בחרנו את הרמה הגבוהה ביותר שקיימת כרגע בספרייה.',
-  ],
-  MUSCLES_RESTED: [
-    'השרירים שעבדו לאחרונה נחים היום, והעבודה עוברת לאחרים.',
-    'נותנים מנוחה לשרירים שעבדו לאחרונה ומחזקים את האחרים.',
-  ],
-  EXPECT_volume: [
-    '{n}, כ־{dur} דקות, {sets} של {reps}.',
-    'מחכים לך {n} בכ־{dur} דקות, {sets} של {reps} בכל אחד.',
-  ],
-  EXPECT_rest: [
-    '{n}, כ־{dur} דקות, עם {rest} מנוחה בין סטים.',
-    'מחכים לך {n} בכ־{dur} דקות, ומנוחה של {rest} בין סטים.',
-  ],
-  EXPECT_short: [
-    '{n}, כ־{dur} דקות.',
-    'מחכים לך {n} בכ־{dur} דקות.',
-  ],
-  PROTOCOL_pyramid: [
-    'אחד התרגילים בנוי כפירמידה, וכל סט בו מאתגר קצת יותר.',
-    'יש באימון תרגיל פירמידה שמתקדם מסט לסט.',
-  ],
-  PROTOCOL_antagonist: [
-    'חלק מהתרגילים באים בזוגות, כך ששריר אחד נח בזמן שהשני עובד.',
-    'כמה תרגילים מחוברים בזוגות, אחד אחרי השני, וכך חוסכים זמן.',
-  ],
-  PROTOCOL_superset: [
-    'כמה תרגילים מגיעים בזוגות, ברצף ובלי הפסקה ביניהם.',
-    'חלק מהתרגילים עושים ברצף, שניים בלי עצירה.',
-  ],
-  PROTOCOL_emom: [
-    'חלק מהאימון בנוי כך שבתחילת כל דקה מתחילים סט חדש.',
-    'בחלק מהאימון כל דקה פותחת סט חדש, והזמן שנשאר הוא המנוחה.',
-  ],
-  PROTOCOL_tabata: [
-    'בסוף מחכה סבב טבטה: {workSec} שניות עבודה ו־{restSec} שניות מנוחה, {rounds} פעמים.',
-    'האימון נגמר בטבטה קצרה של {rounds} סבבים, {workSec} שניות עבודה ו־{restSec} מנוחה.',
-  ],
-  CALM_evening: [
-    'כדאי לסיים בכמה נשימות רגועות ולרדת להילוך נמוך לקראת הלילה.',
-    'בסוף האימון כדאי לנשום עמוק ולסיים רגועים.',
-  ],
-  CALM_night: [
-    'אין צורך למהר, העיקר לסיים בתחושה טובה.',
-    'מסיימים רגוע, כדי שיהיה קל להירדם אחר כך.',
-  ],
-  CALM_recovery: [
-    'אין פה מה להוכיח, רק לזוז ולהרגיש טוב יותר.',
-    'העיקר היום הוא תנועה נעימה, לא מאמץ.',
-  ],
-};
+const catalogFor = (locale: string) => getCatalog(locale, coach.name);
+
+/** The raw catalog message for `key` along the locale fallback chain, or undefined when it exists nowhere. */
+function rawMessage(locale: string, key: string): string | undefined {
+  const hit = lookupMessage(catalogFor, locale, key);
+  return hit.found ? hit.message : undefined;
+}
+
+/** The phrasebook of one locale: the catalog's `note.phrase.<KEY>.<n>` variants, in order. */
+export function coachPhrasebookFor(locale: string = SOURCE_LOCALE): Record<CoachPhraseKey, string[]> {
+  const book = {} as Record<CoachPhraseKey, string[]>;
+  for (const key of COACH_PHRASE_KEYS) {
+    const variants: string[] = [];
+    for (let n = 1; ; n++) {
+      const msg = rawMessage(locale, `note.phrase.${key}.${n}`);
+      if (msg === undefined) break;
+      variants.push(msg);
+    }
+    book[key] = variants;
+  }
+  return book;
+}
+
+export const DEFAULT_COACH_PHRASEBOOK: Record<CoachPhraseKey, string[]> = coachPhrasebookFor(SOURCE_LOCALE);
 
 // ============================================================================
-// HEBREW NAMES (slug → display). Unknown slug ⇒ the sentence is dropped,
+// NAMES (slug → display). Unknown slug ⇒ the sentence is dropped,
 // never shown in English.
 // ============================================================================
 
-export const DOMAIN_NAME_HE: Record<string, string> = {
-  push: 'דחיפה',
-  pull: 'משיכה',
-  legs: 'רגליים',
-  core: 'ליבה',
-  planche: 'פלאנץ׳',
-  front_lever: 'פרונט לבר',
-  back_lever: 'בק לבר',
-  handstand: 'עמידת ידיים',
-  handstand_pushup: 'שכיבות סמיכה בעמידת ידיים',
-  hspu: 'שכיבות סמיכה בעמידת ידיים',
-  one_arm_pullup: 'מתח ביד אחת',
-  oap: 'מתח ביד אחת',
-  one_arm_pushup: 'שכיבת סמיכה ביד אחת',
-  muscle_up: 'עליית כוח',
-  human_flag: 'דגל אנושי',
-};
+/** The Hebrew name rows of the catalog under `prefix` (`note.domain.` → { push: 'דחיפה', … }). */
+function nameTable(prefix: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, text] of Object.entries(coach.he)) if (key.startsWith(prefix)) out[key.slice(prefix.length)] = text;
+  return out;
+}
 
+/** Hebrew skill / domain names. Data for other consumers (Kelly context, content matching) — source: coach catalog. */
+export const DOMAIN_NAME_HE: Record<string, string> = nameTable('note.domain.');
+
+/** Hebrew program names (the domains plus the full-body / upper / lower templates). */
 export const PROGRAM_NAME_HE: Record<string, string> = {
   ...DOMAIN_NAME_HE,
-  full_body: 'כל הגוף',
-  upper_body: 'פלג גוף עליון',
-  lower_body: 'פלג גוף תחתון',
-  calisthenics_upper: 'קליסטניקס עליון',
+  ...nameTable('note.program.'),
 };
 
-const LOCATION_IN_HE: Record<string, string> = {
-  home: 'בבית',
-  park: 'בפארק',
-  gym: 'בחדר הכושר',
-  office: 'במשרד',
-  street: 'בחוץ',
-  school: 'בבית הספר',
-  airport: 'בשדה התעופה',
-  library: 'בספרייה',
-  desk: 'ליד השולחן',
-};
+const domainName = (locale: string, slug: string) => rawMessage(locale, `note.domain.${slug}`);
+const programName = (locale: string, slug: string) => rawMessage(locale, `note.program.${slug}`) ?? domainName(locale, slug);
+const locationIn = (locale: string, loc: string) => rawMessage(locale, `note.locIn.${loc}`);
 
 // ============================================================================
 // FORMATTING
 // ============================================================================
 
-function fmtRange(r: NumRange): string {
-  return r.min === r.max ? `${r.min}` : `${r.min} עד ${r.max}`;
+type CoachT = ReturnType<typeof makeT<typeof coach>>;
+const defaultT = (): CoachT => makeT(SOURCE_LOCALE, coach);
+
+function fmtRange(t: CoachT, r: NumRange): string {
+  return r.min === r.max ? `${r.min}` : t('note.fmt.range', { min: String(r.min), max: String(r.max) });
 }
 
 /** One value when the range is narrow (spread ≤ `narrow`), else the range as is. */
@@ -267,49 +145,45 @@ function collapse(r: NumRange, narrow: number, step = 1): NumRange {
   return { min: v, max: v };
 }
 
-function fmtCount(n: number, one: string, many: string): string {
-  return n === 1 ? one : `${n} ${many}`;
-}
-
-function fmtSets(range: NumRange): string {
+function fmtSets(t: CoachT, range: NumRange): string {
   const r = collapse(range, 1);
-  return r.max === 1 ? 'סט אחד' : `${fmtRange(r)} סטים`;
+  return r.max === 1 ? t('note.fmt.sets.one') : t('note.fmt.sets.many', { range: fmtRange(t, r) });
 }
 
-function fmtReps(range: NumRange & { unit: 'reps' | 'seconds' }): string {
-  if (range.unit === 'seconds') return `${fmtRange(collapse(range, 5, 5))} שניות`;
+function fmtReps(t: CoachT, range: NumRange & { unit: 'reps' | 'seconds' }): string {
+  if (range.unit === 'seconds') return t('note.fmt.seconds', { value: fmtRange(t, collapse(range, 5, 5)) });
   const r = collapse(range, 1);
-  return r.max === 1 ? 'חזרה אחת' : `${fmtRange(r)} חזרות`;
+  return r.max === 1 ? t('note.fmt.reps.one') : t('note.fmt.reps.many', { range: fmtRange(t, r) });
 }
 
-function fmtMinutes(sec: number): string {
+function fmtMinutes(t: CoachT, sec: number): string {
   const halves = Math.round(sec / 30);
   const whole = Math.floor(halves / 2);
   const half = halves % 2 === 1;
-  if (whole === 0) return 'חצי דקה';
-  if (whole === 1) return half ? 'דקה וחצי' : 'דקה';
-  return half ? `${whole} דקות וחצי` : `${whole} דקות`;
+  if (whole === 0) return t('note.fmt.minutes.halfMinute');
+  if (whole === 1) return half ? t('note.fmt.minutes.oneAndHalf') : t('note.fmt.minutes.one');
+  return half ? t('note.fmt.minutes.nAndHalf', { n: String(whole) }) : t('note.fmt.minutes.n', { n: String(whole) });
 }
 
-function fmtRestValue(sec: number): string {
-  return sec >= 90 ? fmtMinutes(sec) : `${Math.round(sec / 15) * 15} שניות`;
+function fmtRestValue(t: CoachT, sec: number): string {
+  return sec >= 90 ? fmtMinutes(t, sec) : t('note.fmt.seconds', { value: String(Math.round(sec / 15) * 15) });
 }
 
 /**
  * Rest. A narrow range (spread ≤ 60s) becomes ONE rounded value ("2 דקות
  * וחצי", never "2 דקות עד 2 דקות וחצי"); a wide one stays a range.
  */
-export function fmtRest(r: NumRange): string {
-  if (r.max - r.min <= 60) return fmtRestValue((r.min + r.max) / 2);
-  if (r.max < 120) return `${fmtRange(r)} שניות`;
-  const lo = r.min >= 60 ? fmtMinutes(r.min) : `${Math.round(r.min / 15) * 15} שניות`;
-  const hi = fmtMinutes(r.max);
+export function fmtRest(r: NumRange, t: CoachT = defaultT()): string {
+  if (r.max - r.min <= 60) return fmtRestValue(t, (r.min + r.max) / 2);
+  if (r.max < 120) return t('note.fmt.seconds', { value: fmtRange(t, r) });
+  const lo = r.min >= 60 ? fmtMinutes(t, r.min) : t('note.fmt.seconds', { value: String(Math.round(r.min / 15) * 15) });
+  const hi = fmtMinutes(t, r.max);
   if (lo === hi) return lo;
   const a = Math.round(r.min / 30) / 2;
   const b = Math.round(r.max / 30) / 2;
   // "2 עד 3 דקות" when both are whole minutes ≥ 2, otherwise spell both out.
-  if (Number.isInteger(a) && Number.isInteger(b) && a >= 2) return `${a} עד ${b} דקות`;
-  return `${lo} עד ${hi}`;
+  if (Number.isInteger(a) && Number.isInteger(b) && a >= 2) return t('note.fmt.minutesRange', { a: String(a), b: String(b) });
+  return t('note.fmt.range', { min: lo, max: hi });
 }
 
 // ============================================================================
@@ -318,7 +192,16 @@ export function fmtRest(r: NumRange): string {
 
 type Vars = Record<string, string | number | undefined>;
 
-function fill(template: string, vars: Vars): string | null {
+/** What a render needs: the locale, its translator, the phrasebook and which rows are admin overrides. */
+interface RenderCtx {
+  locale: string;
+  t: CoachT;
+  book: Record<CoachPhraseKey, string[]>;
+  /** Keys whose variants came from `opts.phrasebook` (plain `{name}` templates), not from the catalog (ICU). */
+  overridden: ReadonlySet<string>;
+}
+
+function fill(template: string, vars: Vars, icu?: { locale: string }): string | null {
   let missing = false;
   const out = template.replace(/\{(\w+)\}/g, (_, k: string) => {
     const v = vars[k];
@@ -328,7 +211,16 @@ function fill(template: string, vars: Vars): string | null {
     }
     return String(v);
   });
-  return missing ? null : out;
+  if (missing) return null;
+  if (!icu) return out;
+  // Catalog rows are ICU messages (a translator may add plural / select); values go in as strings.
+  const values: Record<string, string> = {};
+  for (const [k, v] of Object.entries(vars)) if (v !== undefined) values[k] = String(v);
+  try {
+    return formatIcu(template, icu.locale, values);
+  } catch {
+    return out;
+  }
 }
 
 /** Voice guard — anything that slips through is dropped, never shown. */
@@ -340,28 +232,20 @@ export function violatesVoice(sentence: string): boolean {
   );
 }
 
-function pick(
-  book: Record<CoachPhraseKey, string[]>,
-  key: CoachPhraseKey,
-  seed: number,
-  vars: Vars,
-): string | null {
-  const variants = book[key] ?? [];
+function pick(ctx: RenderCtx, key: CoachPhraseKey, seed: number, vars: Vars): string | null {
+  const variants = ctx.book[key] ?? [];
   if (variants.length === 0) return null;
+  const icu = ctx.overridden.has(key) ? undefined : { locale: ctx.locale };
   const start = (seed + stableHash(key)) % variants.length;
   // Try the picked variant first, then the others, until one fills cleanly.
   for (let i = 0; i < variants.length; i++) {
-    const s = fill(variants[(start + i) % variants.length], vars);
+    const s = fill(variants[(start + i) % variants.length], vars, icu);
     if (s && !violatesVoice(s)) return s;
   }
   return null;
 }
 
-function reasonSentence(
-  book: Record<CoachPhraseKey, string[]>,
-  r: DecisionReason,
-  seed: number,
-): string | null {
+function reasonSentence(ctx: RenderCtx, r: DecisionReason, seed: number): string | null {
   switch (r.code) {
     case 'RECOVERY_DAY':
     case 'DELOAD_WEEK':
@@ -372,23 +256,23 @@ function reasonSentence(
     case 'WEATHER_HEAT':
     case 'WEATHER_COLD':
     case 'WEATHER_UV':
-      return pick(book, r.code, seed, {});
+      return pick(ctx, r.code, seed, {});
     case 'RETURNING':
-      return pick(book, 'RETURNING', seed, { days: r.days });
+      return pick(ctx, 'RETURNING', seed, { days: r.days });
     case 'BUILD_WEEK':
-      return pick(book, 'BUILD_WEEK', seed, { week: r.week });
+      return pick(ctx, 'BUILD_WEEK', seed, { week: r.week });
     case 'WEEKLY_GAP':
-      return pick(book, 'WEEKLY_GAP', seed, { domain: DOMAIN_NAME_HE[r.domain], pct: r.pct });
+      return pick(ctx, 'WEEKLY_GAP', seed, { domain: domainName(ctx.locale, r.domain), pct: r.pct });
     case 'SKILL_FOCUS':
-      return pick(book, 'SKILL_FOCUS', seed, { skill: DOMAIN_NAME_HE[r.skill] });
+      return pick(ctx, 'SKILL_FOCUS', seed, { skill: domainName(ctx.locale, r.skill) });
     case 'PROGRAM_FOCUS':
-      return pick(book, 'PROGRAM_FOCUS', seed, { program: PROGRAM_NAME_HE[r.program], level: r.level });
+      return pick(ctx, 'PROGRAM_FOCUS', seed, { program: programName(ctx.locale, r.program), level: r.level });
     case 'LOCATION':
-      return pick(book, `LOCATION_${r.gearSummary}`, seed, { locIn: LOCATION_IN_HE[r.loc] });
+      return pick(ctx, `LOCATION_${r.gearSummary}`, seed, { locIn: locationIn(ctx.locale, r.loc) });
     case 'TIME':
-      return pick(book, `TIME_${r.slot}`, seed, {});
+      return pick(ctx, `TIME_${r.slot}`, seed, {});
     case 'DIFFICULTY':
-      return pick(book, `DIFFICULTY_${r.level}`, seed, {});
+      return pick(ctx, `DIFFICULTY_${r.level}`, seed, {});
     default:
       return null;
   }
@@ -397,6 +281,8 @@ function reasonSentence(
 export interface RenderCoachNoteOptions {
   /** Partial override of DEFAULT_COACH_PHRASEBOOK (future admin rows). */
   phrasebook?: CoachPhrasebook;
+  /** Output locale (default Hebrew). A catalog that is not loaded yet falls back to Hebrew, never to a key. */
+  locale?: Locale;
 }
 
 /** 2–4 Hebrew sentences, or [] when nothing trustworthy can be said. */
@@ -405,7 +291,14 @@ export function renderCoachNoteSentences(
   opts: RenderCoachNoteOptions = {},
 ): string[] {
   if (!record || record.v !== 1) return [];
-  const book = { ...DEFAULT_COACH_PHRASEBOOK, ...(opts.phrasebook ?? {}) } as Record<CoachPhraseKey, string[]>;
+  const locale = opts.locale ?? SOURCE_LOCALE;
+  const ctx: RenderCtx = {
+    locale,
+    t: makeT(locale, coach),
+    book: { ...coachPhrasebookFor(locale), ...(opts.phrasebook ?? {}) } as Record<CoachPhraseKey, string[]>,
+    overridden: new Set(Object.keys(opts.phrasebook ?? {})),
+  };
+  const { t } = ctx;
   const seed = record.seed >>> 0;
   const { expect } = record;
   const isRecovery = record.reasons.some((r) => r.code === 'RECOVERY_DAY');
@@ -425,7 +318,7 @@ export function renderCoachNoteSentences(
     if (r.code === 'PROGRAM_FOCUS' && !hasLevelNews) continue;
     // Rain already said "a home workout" — LOCATION would repeat it.
     if (r.code === 'LOCATION' && hasRainHome) continue;
-    const s = reasonSentence(book, r, seed);
+    const s = reasonSentence(ctx, r, seed);
     if (s) why.push(s);
   }
 
@@ -433,19 +326,19 @@ export function renderCoachNoteSentences(
   //    extra fact (sets × reps; rest only when there are no reps to quote).
   const n = expect.exercisesCount;
   const vars: Vars = {
-    n: n > 0 ? fmtCount(n, 'תרגיל אחד', 'תרגילים') : undefined,
-    sets: expect.setsRange ? fmtSets(expect.setsRange) : undefined,
-    reps: expect.repRange ? fmtReps(expect.repRange) : undefined,
-    rest: expect.restRange ? fmtRest(expect.restRange) : undefined,
+    n: n > 0 ? t('note.fmt.exercises', { n }) : undefined,
+    sets: expect.setsRange ? fmtSets(t, expect.setsRange) : undefined,
+    reps: expect.repRange ? fmtReps(t, expect.repRange) : undefined,
+    rest: expect.restRange ? fmtRest(expect.restRange, t) : undefined,
     dur: expect.durationMin > 0 ? expect.durationMin : undefined,
   };
   const expectSentence =
-    (!isRecovery ? pick(book, 'EXPECT_volume', seed, vars) ?? pick(book, 'EXPECT_rest', seed, vars) : null) ??
-    pick(book, 'EXPECT_short', seed, vars);
+    (!isRecovery ? pick(ctx, 'EXPECT_volume', seed, vars) ?? pick(ctx, 'EXPECT_rest', seed, vars) : null) ??
+    pick(ctx, 'EXPECT_short', seed, vars);
 
   let protocolSentence: string | null = null;
   if (expect.protocol !== 'straight') {
-    protocolSentence = pick(book, `PROTOCOL_${expect.protocol}`, seed, {
+    protocolSentence = pick(ctx, `PROTOCOL_${expect.protocol}`, seed, {
       workSec: expect.tabata?.workSec,
       restSec: expect.tabata?.restSec,
       rounds: expect.tabata?.rounds,
@@ -454,9 +347,9 @@ export function renderCoachNoteSentences(
 
   // ── Optional calm line.
   let calm: string | null = null;
-  if (isRecovery) calm = pick(book, 'CALM_recovery', seed, {});
-  else if (timeSlot === 'evening') calm = pick(book, 'CALM_evening', seed, {});
-  else if (timeSlot === 'night') calm = pick(book, 'CALM_night', seed, {});
+  if (isRecovery) calm = pick(ctx, 'CALM_recovery', seed, {});
+  else if (timeSlot === 'evening') calm = pick(ctx, 'CALM_evening', seed, {});
+  else if (timeSlot === 'night') calm = pick(ctx, 'CALM_night', seed, {});
 
   // ── Assemble: 2–4 sentences. Drop order when over 4: calm, protocol, why #2.
   const why2 = why[1] ?? null;

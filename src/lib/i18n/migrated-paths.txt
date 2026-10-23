@@ -497,3 +497,7 @@ src/features/notifications/first-week/push-copy-t.ts
 functions/src/shared/push-copy-t.ts
 functions/src/chatMessageNotification.ts
 functions/src/onKellyThreadMessage.ts
+# wave 2B part 1 (namespace coach, keys note.* / title.weather.*) — the coach note builder (phrasebook, names, number
+# formatting now live in the catalog; DOMAIN_NAME_HE / PROGRAM_NAME_HE are built from it). workout-metadata.service.ts is
+# NOT migrated: apart from the 3 weather titles (extracted) its Hebrew is keyword-match data and unused TIME_OF_DAY_OPTIONS labels.
+src/features/workout-engine/services/coach-note.ts
