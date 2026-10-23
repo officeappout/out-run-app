@@ -16,6 +16,10 @@ import { Chip } from '@/components/ui/v2';
 import type { FirstWeekCard as FirstWeekCardData } from '@/features/notifications/first-week/first-week.core';
 import { ProgramArt, ProgramTrackIcon } from '../start-cards/program-track-visual';
 import { firstWeekArtTrack, firstWeekCardForProfile, firstWeekDismissKey, type FirstWeekArtTrack } from './first-week-home';
+import { useT } from '@/hooks/useT';
+import { makeT } from '@/lib/i18n/t';
+import { home } from '@/messages/ns/home';
+import type { HomeT } from '../../utils/home-run-slot';
 
 export interface FirstWeekCardProps {
   card: FirstWeekCardData;
@@ -25,12 +29,13 @@ export interface FirstWeekCardProps {
 
 const SIMPLER = { fontFamily: 'var(--font-simpler)' } as const;
 
-export function firstWeekChipLabel(day: number): string {
-  return day === 0 ? 'היום הראשון' : `השבוע הראשון · יום ${day}`;
+export function firstWeekChipLabel(day: number, t: HomeT = makeT('he', home)): string {
+  return day === 0 ? t('firstWeekCard.chip.first') : t('firstWeekCard.chip.day', { day: String(day) });
 }
 
 export default function FirstWeekCard({ card, track, onDismiss }: FirstWeekCardProps) {
   const router = useRouter();
+  const t = useT(home);
   return (
     <div
       className="relative w-full overflow-hidden rounded-v2-card bg-white shadow-v2-card"
@@ -44,14 +49,14 @@ export default function FirstWeekCard({ card, track, onDismiss }: FirstWeekCardP
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="סגירה"
+          aria-label={t('firstWeekCard.close')}
           className="absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
         >
           <X size={16} className="text-v2-ink-2" />
         </button>
       </div>
       <div className="px-4 pb-4 -mt-5 relative">
-        <Chip tone="accent" className="!h-6 !px-2 !text-[11.5px] !font-extrabold">{firstWeekChipLabel(card.day)}</Chip>
+        <Chip tone="accent" className="!h-6 !px-2 !text-[11.5px] !font-extrabold">{firstWeekChipLabel(card.day, t)}</Chip>
         <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
           <ProgramTrackIcon track={track} />
           <h3 className="truncate whitespace-nowrap text-[17px] font-black text-v2-ink" style={SIMPLER}>{card.title}</h3>

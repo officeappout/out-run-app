@@ -119,7 +119,7 @@ describe('first-week card', () => {
     );
   });
   it('chip labels', async () => {
-    await expect([0, 1, 7].map(firstWeekChipLabel).join('\n')).toMatchFileSnapshot(snap('first-week-chips.txt'));
+    await expect([0, 1, 7].map((d) => firstWeekChipLabel(d)).join('\n')).toMatchFileSnapshot(snap('first-week-chips.txt'));
   });
 });
 
@@ -140,7 +140,7 @@ describe('ghost upsell + processing overlay', () => {
 
 describe('strength top-up title', () => {
   it('counts', async () => {
-    await expect([0, 1, 2, 6, 1234].map(topUpTitleHe).join('\n')).toMatchFileSnapshot(snap('top-up-titles.txt'));
+    await expect([0, 1, 2, 6, 1234].map((n) => topUpTitleHe(n)).join('\n')).toMatchFileSnapshot(snap('top-up-titles.txt'));
   });
 });
 
