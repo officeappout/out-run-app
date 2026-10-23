@@ -1,0 +1,26 @@
+{
+ "authorityId": "eisEeoZnew1f74nfZfyd",
+ "city": "עכו",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "טיילת ההגנה",
+   "aliases": [
+    "טיילת הגנה",
+    "טיילת עכו",
+    "טיילת החוף הצפוני"
+   ],
+   "kind": "walk",
+   "lengthKm": null,
+   "inPark": null,
+   "description": "טיילת לאורך החוף מהעיר העתיקה בדרום עד רחוב חטיבת גולני בצפון.",
+   "sources": [
+    {
+     "url": "https://he.wikipedia.org/wiki/עכו",
+     "title": "עכו - ויקיפדיה - fetched"
+    }
+   ]
+  }
+ ],
+ "notes": "OSM has 'טיילת החוף הצפוני' (0.41 km footway|path) - alias added on the assumption that it is a section; unconfirmed."
+}

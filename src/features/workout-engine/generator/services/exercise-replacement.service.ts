@@ -81,6 +81,13 @@ function isOfferableSwap(ex: Exercise, current: Exercise): boolean {
 export interface SwapQueryOptions {
   excludeIds?: ReadonlySet<string> | null;
   allowedEquipmentIds?: readonly string[] | null;
+  /**
+   * enable_location_gate_v1 — a candidate must pass this (exercise, resolved method, level) check
+   * BEFORE the cap of 3, so a valid fourth candidate is never cut ahead of the check.
+   */
+  candidateFilter?: ((c: { exercise: Exercise; method: ExecutionMethod; level: number }) => boolean) | null;
+  /** enable_location_gate_v1 — return every passing candidate instead of the smartSelect3 cap. */
+  uncapped?: boolean;
 }
 
 async function resolveCandidateMethod(
@@ -218,6 +225,11 @@ export async function getExerciseVariations(
       continue;
     }
 
+    if (opts?.candidateFilter && !opts.candidateFilter({ exercise: ex, method: selectedMethod, level: exLevel })) {
+      console.log(`  [FILTERED] "${nameOf(ex)}" — candidateFilter`);
+      continue;
+    }
+
     const levelComparison: 'lower' | 'same' | 'higher' =
       exLevel < currentLevel ? 'lower' : exLevel > currentLevel ? 'higher' : 'same';
 
@@ -226,7 +238,7 @@ export async function getExerciseVariations(
     all.push({ exercise: ex, selectedExecutionMethod: selectedMethod, levelComparison, resolvedLevel: exLevel });
   }
 
-  const selected = smartSelect3(all, originalGearType);
+  const selected = opts?.uncapped ? all : smartSelect3(all, originalGearType);
   console.log(`[SwapDebug][Variations] ${familyCount} family → ${all.length} valid → ${selected.length} shown`);
   console.groupEnd();
   return selected;
@@ -303,6 +315,11 @@ export async function getAlternativeExercises(
       continue;
     }
 
+    if (opts?.candidateFilter && !opts.candidateFilter({ exercise: ex, method: selectedMethod, level: exLevel })) {
+      console.log(`  [FILTERED] "${nameOf(ex)}" — candidateFilter`);
+      continue;
+    }
+
     const levelComparison: 'lower' | 'same' | 'higher' =
       exLevel < currentLevel ? 'lower' : exLevel > currentLevel ? 'higher' : 'same';
 
@@ -311,7 +328,7 @@ export async function getAlternativeExercises(
     all.push({ exercise: ex, selectedExecutionMethod: selectedMethod, levelComparison, resolvedLevel: exLevel });
   }
 
-  const selected = smartSelect3(all, originalGearType);
+  const selected = opts?.uncapped ? all : smartSelect3(all, originalGearType);
   console.log(`[SwapDebug][Alternatives] ${groupCount} group → ${all.length} valid → ${selected.length} shown`);
   console.groupEnd();
   return selected;

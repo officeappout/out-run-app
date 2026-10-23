@@ -1,0 +1,4 @@
+{"authorityId":"k89XhZKXPFirYY9VN5ur","city":"רחובות","researchedAt":"2026-10-23","routes":[
+{"name": "פארק ההדרים", "aliases": ["פארק ההדרים רחובות"], "kind": "walk", "lengthKm": null, "inPark": "פארק ההדרים", "description": "פארק של כ-65 דונם עם תצפית, אגם מלאכותי ובריכת דגים אקולוגית", "sources": [{"url": "https://he.wikipedia.org/wiki/רחובות", "title": "רחובות - ויקיפדיה"}]},
+{"name": "דרך מנחם בגין רחובות", "aliases": ["דרך מנחם בגין"], "kind": "run", "lengthKm": null, "inPark": null, "description": "ציר פופולרי להליכה ולריצה", "sources": [{"url": "https://he.wikipedia.org/wiki/רחובות", "title": "רחובות - ויקיפדיה (ספורט)"}]}
+],"notes":"Source names no promenade. OSM: only \"שדרות חן\" 1.09 km (residential+pedestrian) and one hiking relation (id 1282487, unnamed)."}

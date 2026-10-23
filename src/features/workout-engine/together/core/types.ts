@@ -25,6 +25,10 @@ export interface PresenceStatus {
   distanceKm?: number;
   /** run: current average pace, seconds per km (0/undefined = unknown) */
   paceSecPerKm?: number;
+  /** run: average pace so far (sec/km), elapsed seconds and positive elevation (m) — the me-vs-them panel. */
+  avgPaceSecPerKm?: number;
+  elapsedSec?: number;
+  elevGainM?: number;
   /** strength: 1-based set / exercise counters */
   set?: number;
   totalSets?: number;
@@ -37,6 +41,10 @@ export interface PresenceStatus {
   clientMs: number;
   /** Monotonic per-publisher counter, so a late snapshot never wins. */
   seq: number;
+  /** Total reps so far (strength / AMRAP) — the together summary's collective line. */
+  totalReps?: number;
+  /** The rail face I picked for a head-to-head; the summary shows a duel result only when set. */
+  duelUid?: string;
   /** Lobby: "I'm here and ready". */
   ready?: boolean;
   /** Lobby: strength level (strengthLevelOf) for the same / each decision. */

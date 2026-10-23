@@ -6,9 +6,9 @@
  * the collection literal, and on MIGRATED_CHOKEPOINT_WRITERS so that any write
  * added here later is forced through buildValidatedDoc.
  */
-import type { Firestore } from 'firebase-admin/firestore';
+import type { Firestore, Timestamp } from 'firebase-admin/firestore';
 
-export interface RawDoc { id: string; data: Record<string, any> }
+export interface RawDoc { id: string; data: Record<string, any>; /** Read-time update time — for an updateTime precondition on a later write. */ updateTime?: Timestamp }
 
 /** Every official_routes doc (optionally one authority), full fields, paged by document id. */
 export async function readAllOfficialRoutes(db: Firestore, opts: { authorityId?: string | null; pageSize?: number } = {}): Promise<RawDoc[]> {
@@ -21,7 +21,7 @@ export async function readAllOfficialRoutes(db: Firestore, opts: { authorityId?:
     if (opts.authorityId) q = q.where('authorityId', '==', opts.authorityId);
     if (after) q = q.startAfter(after);
     const snap = await q.get();
-    for (const d of snap.docs) out.push({ id: d.id, data: d.data() });
+    for (const d of snap.docs) out.push({ id: d.id, data: d.data(), updateTime: d.updateTime });
     if (snap.size < pageSize) break;
     after = snap.docs[snap.docs.length - 1].id;
   }

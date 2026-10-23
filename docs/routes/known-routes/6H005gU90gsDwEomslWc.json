@@ -1,0 +1,26 @@
+{
+ "authorityId": "6H005gU90gsDwEomslWc",
+ "city": "קריית ביאליק",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "טיילת שמעון פרס",
+   "aliases": [
+    "הטיילת על שם שמעון פרס",
+    "טיילת על שם שמעון פרס",
+    "טיילת נחל גדורה"
+   ],
+   "kind": "walk",
+   "lengthKm": null,
+   "inPark": null,
+   "description": "טיילת לאורך נחל גדורה מכיכר רבין בצפון עד רחוב העמקים בדרום, כמה קילומטרים לפי המקור.",
+   "sources": [
+    {
+     "url": "https://he.wikipedia.org/wiki/קריית_ביאליק",
+     "title": "קריית ביאליק - ויקיפדיה - fetched"
+    }
+   ]
+  }
+ ],
+ "notes": "OSM carries 'טיילת שמעון פרס' (path, 1.64 km + 0.71 km) and 'שביל הפרדס' (1.43 km closed loop footway). Nahal Naaman trail (1.3 km, tiuli snippet) not confirmed inside the boundary - not listed."
+}

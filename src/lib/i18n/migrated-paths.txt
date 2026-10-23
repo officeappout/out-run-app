@@ -546,3 +546,16 @@ src/features/home/hooks/useTryRunningNudge.ts
 src/features/home/utils/walk-streak.ts
 src/features/home/utils/try-running.ts
 src/features/workout-engine/together/
+src/features/workout-engine/players/shared/v2/run-chrome/
+src/features/workout-engine/players/shared/v2/run-chrome/
+
+# loose-ends E2 (namespace library) — the shared workout link variants (G6-01 / G6-02).
+src/features/workout-engine/components/shared-link/
+src/features/workout-engine/services/shared-workout-view.ts
+src/features/workout-engine/services/shared-workout-media.ts
+
+# TV mode (enable_tv_mode_v1, namespace wide, keys pair.* / remote.* / lost.* / lobby.* / stage.* / joined.* / download.*) —
+# born translation-ready: every user-facing string is in src/messages/he/wide.json from the first commit.
+src/features/tv-mode/
+src/app/tv/
+src/app/api/tv/

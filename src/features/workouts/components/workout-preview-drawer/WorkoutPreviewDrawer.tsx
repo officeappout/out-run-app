@@ -12,6 +12,8 @@ import { X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import { useSwapFixesV1 } from '@/features/workout-engine/players/strength/hooks/useSwapFixesV1';
+import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
+import type { LocationAvailability } from './hooks/useLocationSwapPlanner';
 import { collectWorkoutExerciseIds } from '@/features/workout-engine/players/strength/logic/swap-fixes';
 import StrengthOverviewCard from '@/features/workout-engine/components/StrengthOverviewCard';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -44,6 +46,8 @@ import { useDrawerMediaState } from './hooks/useDrawerMediaState';
 import { usePartnerPresence } from './hooks/usePartnerPresence';
 import { useExercisePool } from './hooks/useExercisePool';
 import { useFavoritesActions } from './hooks/useFavoritesActions';
+import TvEntryMenu from '@/features/tv-mode/phone/TvEntryMenu';
+import { persistSharedWorkout } from '@/features/workout-engine/services/share.service';
 import { useProgramMap } from './hooks/useProgramMap';
 import { useWorkoutSession } from './hooks/useWorkoutSession';
 import { useExerciseSwap } from './hooks/useExerciseSwap';
@@ -145,12 +149,14 @@ export default function WorkoutPreviewDrawer({
   // sessionStorage slot), so a swap / swap-all / option-switch updates it and it
   // always tracks the exercises actually shown. Location follows the workout's
   // stamped executionLocation (updated by swap-all), falling back to the prop.
+  const locationGateOn = useLocationGateV1(); // enable_location_gate_v1
   const { heroMedia, cachedHeroThumb, cachedHeroVideo } = useDrawerMediaState(
     generatedWorkout?.exercises,
     (generatedWorkout?.executionLocation as string | undefined) ??
       (workoutLocation as string | undefined) ??
       null,
     workout?.coverImage,
+    locationGateOn,
   );
 
   const { userLocation, similarCount, nearbyParks } = usePartnerPresence(isOpen);
@@ -297,13 +303,27 @@ export default function WorkoutPreviewDrawer({
     (generatedWorkout?.executionLocation as ExecutionLocation) ||
     (workoutLocation as ExecutionLocation) ||
     'park';
-  const { swapAll, isSwapping } = useSwapAll({
+  const { swapAll, isSwapping, lastResult: swapResult, checkAvailability } = useSwapAll({
     generatedWorkout,
     onGeneratedWorkoutUpdate,
     userProfile: profile,
     currentLocation: resolvedSwapLocation,
     exercisePool,
+    locationGateEnabled: locationGateOn,
   });
+  // enable_location_gate_v1: which other locations the switcher may offer, decided by a dry-run when it
+  // opens; reset whenever the workout changes (a swap, a method pick) so a stale verdict never lingers.
+  const [locationAvailability, setLocationAvailability] = useState<Record<string, LocationAvailability>>({});
+  useEffect(() => {
+    setLocationAvailability({});
+  }, [generatedWorkout]);
+  const handleLocationSwitcherOpen = useCallback(
+    (others: ExecutionLocation[]) => {
+      if (locationGateOn) void checkAvailability(others).then(setLocationAvailability);
+    },
+    [locationGateOn, checkAvailability],
+  );
+
 
   // ── B: loading-skeleton gate during a select's media re-resolution (instead of a white gap) ──
   // isSwapping already covers the async location swapAll window. methodRecomputing covers the
@@ -673,6 +693,9 @@ export default function WorkoutPreviewDrawer({
                     currentLocation={resolvedSwapLocation}
                     isSwapping={isSwapping}
                     onSwap={(v) => { void swapAll('location', v); }}
+                    availability={locationGateOn ? locationAvailability : undefined}
+                    onOpen={locationGateOn ? handleLocationSwitcherOpen : undefined}
+                    blockedLocation={locationGateOn ? swapResult?.blockedLocation ?? null : null}
                   />
                 )}
                 {isRecomputing ? (
@@ -684,6 +707,7 @@ export default function WorkoutPreviewDrawer({
                     // drop the repeated difficulty / duration pills.
                     hideStatPills={homeV2 && !!intensityOptions && intensityOptions.length > 1}
                     exercisePool={exercisePool}
+                    posterFromVideo={locationGateOn}
                     onSwap={handleOpenSwapModal}
                     onSwapPyramidStep={handleOpenPyramidStepSwap}
                     onExerciseTap={handleExerciseTap}
@@ -701,6 +725,14 @@ export default function WorkoutPreviewDrawer({
                       onToggleFavorite: handleToggleFavorite,
                       onShare: handleShare,
                       onDownload: handleDownload,
+                      // enable_tv_mode_v1: ⋯ → "show on a big screen" (renders nothing with the flag off).
+                      trailing: (
+                        <TvEntryMenu
+                          workout={generatedWorkout}
+                          onStart={() => handleStartWorkout()}
+                          prepareShare={async () => (await persistSharedWorkout(generatedWorkout, workoutLocation)).docId}
+                        />
+                      ),
                     }}
                   />
                 )}

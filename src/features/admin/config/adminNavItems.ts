@@ -31,7 +31,8 @@ export type AdminNavAudience =
   | 'rootAdmin'            // david@ / office@
   | 'superOrRoot'
   | 'authorityManagerLink' // layout's showAuthorityManagerLink
-  | 'cityMappingLink';     // layout's showCityMappingLink
+  | 'cityMappingLink'      // layout's showCityMappingLink
+  | 'cityMappingHubLink';  // showCityMappingLink AND the enable_city_mapping_hub flag (live value)
 
 export type AdminNavActive =
   /** pathname === href */
@@ -109,7 +110,8 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/authority/team?type=municipal', label: 'ניהול צוות רשותי', icon: 'Users', active: { kind: 'vertical', vertical: 'municipal', defaultWhenNoOrg: true } },
       { href: '/admin/authority-manager', label: 'דשבורד אנליטיקה', icon: 'BarChart3', audience: 'authorityManagerLink' },
       { href: '/admin/approval-center', label: 'מרכז אישורים', icon: 'ShieldCheck' },
-      { href: '/admin/city-mapping', label: 'מיפוי עיר', icon: 'MapPinned', audience: 'cityMappingLink' },
+      { href: '/admin/city-mapping', label: 'מיפוי עיר', icon: 'MapPinned', audience: 'cityMappingLink', active: { kind: 'prefixExcept', except: ['/admin/city-mapping/hub'] } },
+      { href: '/admin/city-mapping/hub', label: 'מרכז מיפוי ערים', icon: 'Map', audience: 'cityMappingHubLink' },
       { href: '/admin/pressure-messages', label: 'מסרי לחץ', icon: 'Megaphone' },
       { href: '/admin/authority/reports', label: 'דיווחי תחזוקה', icon: 'Flag' },
       { href: '/admin/heatmap', label: 'מפת חום חיה', icon: 'Activity' },

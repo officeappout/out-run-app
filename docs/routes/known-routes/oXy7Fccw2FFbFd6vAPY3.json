@@ -1,0 +1,4 @@
+{"authorityId":"oXy7Fccw2FFbFd6vAPY3","city":"רמת גן","researchedAt":"2026-10-23","routes":[
+{"name": "שביל יונתן", "aliases": ["שביל יונתן רמת גן"], "kind": "mixed", "lengthKm": null, "inPark": null, "description": "שביל מרוצף להולכי רגל ורוכבי אופניים לאורך הירקון מאנדרטת הצליחה עד שבע טחנות, נפתח ב-2020, כולל קטע דק עץ", "sources": [{"url": "https://he.wikipedia.org/wiki/רמת_גן", "title": "רמת גן - ויקיפדיה"}]},
+{"name": "הפארק הלאומי רמת גן", "aliases": ["הפארק הלאומי", "פארק לאומי רמת גן", "הפארק הלאומי"], "kind": "walk", "lengthKm": null, "inPark": "הפארק הלאומי", "description": "פארק גדול המושך מבקרים מכל הארץ", "sources": [{"url": "https://he.wikipedia.org/wiki/רמת_גן", "title": "רמת גן - ויקיפדיה"}]}
+],"notes":"OSM \"שביל יונתן\" 1.46 km (cycleway+footway) confirmed; \"שדרות יום הכיפורים\" pedestrian 0.71 km not sourced."}

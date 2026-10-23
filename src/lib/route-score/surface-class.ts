@@ -77,6 +77,20 @@ export function surfaceSharesFromDoc(d: Record<string, any>, segmentMix?: Partia
   return { pavedShare: 0, unpavedShare: 0, knownShare: 0, source: 'none' };
 }
 
+/** Runtime guard for a stored/untrusted value (also covers 'unknown'). */
+export function isSurfaceClass(v: unknown): v is SurfaceClass {
+  return v === 'unknown' || (SURFACE_CLASSES as string[]).includes(v as string);
+}
+
+/**
+ * The `surfaceClass` field to spread onto a route doc being written: only a
+ * known class is stored ('unknown'/absent = leave the key out, so readers fall
+ * back to deriving from the doc — never a present-but-meaningless value).
+ */
+export function surfaceClassField(c: SurfaceClass | null | undefined): { surfaceClass?: SurfaceClass } {
+  return c && c !== 'unknown' && isSurfaceClass(c) ? { surfaceClass: c } : {};
+}
+
 /** Majority of the KNOWN length decides; ties go to paved. */
 export function classifySurface(activityType: string | null, s: SurfaceShares): SurfaceClass {
   if (s.knownShare <= 0) return 'unknown';

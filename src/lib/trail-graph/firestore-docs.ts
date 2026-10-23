@@ -10,6 +10,7 @@
 import { stripUndefined } from '@/lib/route-collections';
 import type { SurfaceType } from '@/lib/route-collections/surface-type';
 import { COPERNICUS_DEM_ATTRIBUTION_SHORT } from '@/lib/dem-tile-cache/copernicus-glo30';
+import { classifySurface, sharesFromMix, surfaceClassField } from '@/lib/route-score/surface-class';
 import { stripOsmCode } from './naming';
 import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type TrailRoute, type TrailSegment } from './types';
 import { LEGACY_CYCLING_M_PER_MIN } from '@/lib/cycling-pace';
@@ -123,6 +124,7 @@ export function routeDocPayload(r: TrailRoute, ctx: RouteDocContext): { id: stri
     },
     routeShape: shape,
     surfaceType: dominantSurface(r.stats.surfaceMix),
+    ...surfaceClassField(classifySurface(r.activity, sharesFromMix(r.stats.surfaceMix, 'trail_stats'))),
     ...(r.stats.gainM != null ? { elevationGain: r.stats.gainM } : {}),
     ...(r.elevationProfile ? { elevationProfile: r.elevationProfile } : {}),
     ...((r.stats.maxGrade50mOpenPct ?? r.stats.maxGrade50mPct) != null ? { maxGrade: (r.stats.maxGrade50mOpenPct ?? r.stats.maxGrade50mPct) as number } : {}),
