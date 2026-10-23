@@ -121,18 +121,18 @@ export async function computeLeaderboard(
     // authority filters the grouped result below.
     const snap = await db.collection('sessions').select('parkId').limit(SESSIONS_CAP).get();
     truncated = snap.docs.length >= SESSIONS_CAP;
-    const perPark = new Map<string, number>();
+    const perPark: Record<string, number> = {};
     for (const d of snap.docs) {
       const pid = str((d.data() as Record<string, unknown>).parkId);
-      if (pid) perPark.set(pid, (perPark.get(pid) ?? 0) + 1);
+      if (pid) perPark[pid] = (perPark[pid] ?? 0) + 1;
     }
-    const top = Array.from(perPark.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, authorityId ? 300 : limit);
+    const top = Object.entries(perPark).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, authorityId ? 300 : limit);
     const docs = await Promise.all(top.map(([id]) => db.collection('parks').doc(id).get()));
     cands = top.map(([id, n], i) => {
       const x = (docs[i].exists ? docs[i].data() : {}) as Record<string, any>;
       return { id, name: str(x.name) ?? id, city: str(x.city), authorityId: str(x.authorityId), status: docs[i].exists ? parkStatusOf(x) : 'park_doc_missing', sort: n, value: n };
     });
-    return finish(db, { kind, by, authorityId }, cands, limit, truncated, authorityId ? null : perPark.size);
+    return finish(db, { kind, by, authorityId }, cands, limit, truncated, authorityId ? null : Object.keys(perPark).length);
   } else if (by === 'rating') {
     const snap = await db.collection('parks').where('reviewCount', '>', 0).limit(READ_CAP).get();
     truncated = snap.docs.length >= READ_CAP;
