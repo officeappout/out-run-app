@@ -4,6 +4,8 @@ import { X, Zap, Bike, Footprints, Activity, Coins, Dumbbell } from 'lucide-reac
 import { ActivityType } from '../types/route.types';
 import { calculateCalories } from '@/lib/calories.utils';
 import { useUserStore } from '@/features/user';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 type Intensity = 'easy' | 'medium' | 'hard';
 
@@ -14,6 +16,7 @@ interface WorkoutPreferencesProps {
 }
 
 export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: WorkoutPreferencesProps) {
+  const t = useT(mapNs);
   // 1. כל ה-Hooks חייבים להיות למעלה (ללא תנאים!)
   const [duration, setDuration] = useState(30);
   const [activity, setActivity] = useState<ActivityType>('running');
@@ -57,7 +60,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
           <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">
             <X size={20} />
           </button>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">בניית אימון</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('workoutPrefs.title')}</h2>
           <div className="w-10" />
         </div>
 
@@ -66,8 +69,8 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
           {/* 1. סליידר זמן */}
           <div className="space-y-4">
             <div className="flex justify-between items-end">
-              <span className="text-sm text-gray-500 font-medium">כמה זמן יש לך?</span>
-              <span className="text-3xl font-black text-blue-600 tracking-tight">{duration} <span className="text-base font-bold text-gray-400">דק׳</span></span>
+              <span className="text-sm text-gray-500 font-medium">{t('workoutPrefs.duration.question')}</span>
+              <span className="text-3xl font-black text-blue-600 tracking-tight">{duration} <span className="text-base font-bold text-gray-400">{t('workoutPrefs.duration.unit')}</span></span>
             </div>
             <input
               type="range"
@@ -82,13 +85,13 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
 
           {/* 2. סוג פעילות */}
           <div className="space-y-3">
-            <label className="text-sm text-gray-500 font-medium block text-right">מה בא לך לעשות?</label>
+            <label className="text-sm text-gray-500 font-medium block text-right">{t('workoutPrefs.activity.question')}</label>
             <div className="flex gap-3">
-              {[
-                { id: 'walking', label: 'הליכה', icon: Footprints },
-                { id: 'running', label: 'ריצה', icon: Activity },
-                { id: 'cycling', label: 'רכיבה', icon: Bike },
-              ].map((item) => (
+              {([
+                { id: 'walking', labelKey: 'workoutPrefs.activity.walking', icon: Footprints },
+                { id: 'running', labelKey: 'workoutPrefs.activity.running', icon: Activity },
+                { id: 'cycling', labelKey: 'workoutPrefs.activity.cycling', icon: Bike },
+              ] as const).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActivity(item.id as ActivityType)}
@@ -98,7 +101,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
                     }`}
                 >
                   <item.icon size={24} strokeWidth={activity === item.id ? 2.5 : 2} />
-                  <span className="text-xs font-bold">{item.label}</span>
+                  <span className="text-xs font-bold">{t(item.labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -106,13 +109,13 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
 
           {/* 3. קצב / עצימות */}
           <div className="space-y-3">
-            <label className="text-sm text-gray-500 font-medium block text-right">רמת מאמץ</label>
+            <label className="text-sm text-gray-500 font-medium block text-right">{t('workoutPrefs.intensity.label')}</label>
             <div className="flex bg-gray-100 p-1 rounded-2xl">
-              {[
-                { id: 'easy', label: 'איזי', emoji: '😌' },
-                { id: 'medium', label: 'רגיל', emoji: '👌' },
-                { id: 'hard', label: 'טורבו', emoji: '🔥' },
-              ].map((item) => (
+              {([
+                { id: 'easy', labelKey: 'workoutPrefs.intensity.easy', emoji: '😌' },
+                { id: 'medium', labelKey: 'workoutPrefs.intensity.medium', emoji: '👌' },
+                { id: 'hard', labelKey: 'workoutPrefs.intensity.hard', emoji: '🔥' },
+              ] as const).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setIntensity(item.id as Intensity)}
@@ -121,7 +124,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
                     : 'text-gray-400 hover:text-gray-600'
                     }`}
                 >
-                  <span className="text-lg">{item.emoji}</span> {item.label}
+                  <span className="text-lg">{item.emoji}</span> {t(item.labelKey)}
                 </button>
               ))}
             </div>
@@ -138,8 +141,8 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
                 <Dumbbell size={20} />
               </div>
               <div className="text-right">
-                <p className={`font-bold text-sm ${includeStrength ? 'text-green-800' : 'text-gray-800'}`}>שילוב מתקני כושר</p>
-                <p className="text-xs text-gray-500">נחפש מסלול עם תחנות כוח</p>
+                <p className={`font-bold text-sm ${includeStrength ? 'text-green-800' : 'text-gray-800'}`}>{t('workoutPrefs.strength.title')}</p>
+                <p className="text-xs text-gray-500">{t('workoutPrefs.strength.subtitle')}</p>
               </div>
             </div>
 
@@ -155,7 +158,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
         <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-b-[32px] sm:rounded-b-[32px] border-t border-gray-100">
           <div className="flex justify-between items-center mb-6 px-2">
             <div className="text-center">
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">צפי מטבעות</p>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{t('workoutPrefs.footer.coins')}</p>
               <div className="flex items-center gap-1 text-2xl font-black text-yellow-500">
                 <Coins size={24} fill="currentColor" />
                 {calculatedImpact.coins}
@@ -163,7 +166,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
             </div>
             <div className="h-8 w-[1px] bg-gray-200"></div>
             <div className="text-center">
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">שריפת קלוריות</p>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{t('workoutPrefs.footer.calories')}</p>
               <div className="flex items-center gap-1 text-2xl font-black text-orange-500">
                 <Zap size={24} fill="currentColor" />
                 {calculatedImpact.calories}
@@ -175,7 +178,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
             onClick={() => onUpdate({ duration, activity, intensity, includeStrength })}
             className="w-full py-4 bg-black text-white font-bold rounded-2xl shadow-xl active:scale-[0.98] transition-all flex justify-center items-center gap-2 text-lg"
           >
-            מצא מסלול מתאים 🚀
+            {t('workoutPrefs.cta')}
           </button>
           <div className="w-1/3 h-1.5 bg-gray-200 rounded-full mx-auto mt-6" />
         </div>

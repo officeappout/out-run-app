@@ -7,6 +7,8 @@
  */
 import { initialFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { readLiveFlag } from '@/lib/feature-flag-live';
+import { rideModeOn } from './ride-mode';
 
 export function homeV2EnabledNow(): boolean {
   try {
@@ -16,6 +18,16 @@ export function homeV2EnabledNow(): boolean {
   } catch {
     return false;
   }
+}
+
+/** enable_cycling_fixes_v1 outside React (live value; no super-admin override — see feature-flag-live). */
+export function cyclingFixesEnabledNow(): boolean {
+  return readLiveFlag('enableCyclingFixesV1');
+}
+
+/** A ride may be recorded as a ride: home v2 OR enable_cycling_fixes_v1. */
+export function rideModeEnabledNow(): boolean {
+  return rideModeOn(homeV2EnabledNow(), cyclingFixesEnabledNow());
 }
 
 /**

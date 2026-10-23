@@ -1766,6 +1766,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           const { useProgressionStore } = await import('@/features/user/progression/store/useProgressionStore');
           const { calculateRunningWorkoutXP, calculateCommuteXP } = await import('@/features/user/progression/services/xp.service');
           const progressionState = useProgressionStore.getState();
+          // cycling-fixes-v1: XP_Progression_Truth.md defines no cycling — a ride that only exists
+          // because of enable_cycling_fixes_v1 keeps today's XP (formula + Guardian source) as a run.
+          const { homeV2EnabledNow: xpV2Now, cyclingFixesEnabledNow: xpCyclingFixes } = await import('../lib/home-v2-gate');
+          const { xpActivityFor } = await import('../lib/ride-mode');
+          const xpActivityType = xpActivityFor(activityType, { homeV2: xpV2Now(), cyclingFixes: xpCyclingFixes() });
           const sessionXP = isCommute
             ? calculateCommuteXP({
                 durationMinutes,
@@ -1777,7 +1782,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 distanceKm: safeDistance,
                 streak: progressionState.currentStreak,
                 // Cycling keeps the running XP formula (owner decision pending).
-                activityType: activityType ?? 'running',
+                activityType: xpActivityType,
               });
 
           // ── Coins (respect feature flag) ──────────────────────────────
@@ -2081,7 +2086,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 durationMinutes,
                 distanceKm: safeDistance,
                 streak: progressionState.currentStreak,
-                activityType: activityType ?? 'running',
+                activityType: xpActivityType,
               })
               .catch((e) => console.warn('[useRunningPlayer] awardRunningXP failed:', e));
           }
@@ -2108,8 +2113,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         // to be hardcoded 'running'/'run-fast'. A RIDE (enable_home_v2) is
         // recorded as cycling + bike icon and stays out of the running
         // weekly volume; everything else keeps today's values.
-        const { homeV2EnabledNow: v2Now } = await import('../lib/home-v2-gate');
-        const completionLabels = aerobicCompletionLabels(activityType, v2Now());
+        // cycling-fixes-v1: a ride is a ride for everyone while the flag is on (v2Now() alone before).
+        const { rideModeEnabledNow } = await import('../lib/home-v2-gate');
+        const completionLabels = aerobicCompletionLabels(activityType, rideModeEnabledNow());
         await syncWorkoutCompletion({
           workoutType: completionLabels.workoutType,
           durationMinutes,
