@@ -57,3 +57,39 @@ describe('route-activity-match — on-foot family', () => {
     expect(isOnFootActivity(undefined)).toBe(false);
   });
 });
+
+describe('cycling-fixes-v1 (enable_cycling_fixes_v1)', () => {
+  const mixed = r({ activityType: 'walking', activityTypes: ['walking', 'running', 'cycling'] });
+  const bikeOnly = r({ activityType: 'cycling', activityTypes: ['cycling'] });
+  const walkOnly = r({ activityType: 'walking', activityTypes: ['walking', 'running'] });
+
+  it('flag off (default): a mixed route is still hidden from cyclists — strict primary rule', () => {
+    expect(routeMatchesActivity(mixed, 'cycling')).toBe(false);
+    expect(routeMatchesActivity(mixed, 'cycling', false)).toBe(false);
+  });
+
+  it('flag on: a route whose activityTypes include cycling matches a cyclist even when its primary is walking', () => {
+    expect(routeMatchesActivity(mixed, 'cycling', true)).toBe(true);
+    expect(routeMatchesActivity(bikeOnly, 'cycling', true)).toBe(true);
+  });
+
+  it('flag on: a walking/running-only route still never matches a cyclist', () => {
+    expect(routeMatchesActivity(walkOnly, 'cycling', true)).toBe(false);
+    expect(routeMatchesActivity(r({ type: 'running' }), 'cycling', true)).toBe(false);
+  });
+
+  it('cycling-only routes never match walkers / runners, with the flag either way', () => {
+    for (const flag of [false, true]) {
+      expect(routeMatchesActivity(bikeOnly, 'walking', flag)).toBe(false);
+      expect(routeMatchesActivity(bikeOnly, 'running', flag)).toBe(false);
+    }
+  });
+
+  it('the flag does not change walking / running / workout matching', () => {
+    for (const flag of [false, true]) {
+      expect(routeMatchesActivity(mixed, 'walking', flag)).toBe(true);
+      expect(routeMatchesActivity(walkOnly, 'running', flag)).toBe(true);
+      expect(routeMatchesActivity(r({ activityType: 'workout' }), 'workout', flag)).toBe(true);
+    }
+  });
+});

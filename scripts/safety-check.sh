@@ -182,6 +182,9 @@ AUTHORIZED_ROUTE_WRITERS=(
   # official_routes/curated_routes docs with no authorityId — buildValidatedDoc
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
+  # 22.10.2026 regional-run cleanup: rename / archive-as-duplicate of still-pending docs; buildValidatedDoc update mode, updateTime precondition, never deletes.
+  "scripts/routes-nationwide/lib/cleanup-apply.node.ts"
+  "scripts/routes-nationwide/cleanup-regional-pending.ts"
   # Admin AI assistant wave 3 (22.10.2026): READ-ONLY counts of official_routes /
   # climb_segments waiting for approval (same filters as the approval center page).
   # No write verb in the file; also on the migrated list below so any future write
@@ -213,6 +216,10 @@ AUTHORIZED_ROUTE_WRITERS=(
   # Admin AI get_authority_overview (22.10.2026): READ-ONLY count() of one
   # authority's official_routes by status. No write verb; also on the migrated list.
   "src/lib/admin-analytics/authority-overview.server.ts"
+  # City-mapping hub nationwide bulk approve (22.10.2026): server-side guarded
+  # flip of PENDING official_routes to published. Static fields go through
+  # buildValidatedDoc (update mode); server timestamps are added after.
+  "src/lib/city-mapping-hub/bulk-routes.server.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -237,6 +244,8 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # official_routes/curated_routes docs with no authorityId — buildValidatedDoc
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
+  # 22.10.2026 regional-run cleanup: rename / archive-as-duplicate of still-pending docs; buildValidatedDoc update mode, updateTime precondition, never deletes.
+  "scripts/routes-nationwide/lib/cleanup-apply.node.ts"
   "src/lib/admin-analytics/pending-approvals.server.ts"
   # RC10 (22.10.2026): field-level {displayRole:'connector'} tag on one
   # authority's official_routes — buildValidatedDoc update mode at the write
@@ -248,6 +257,7 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "src/lib/city-mapping-hub/read-hub-rows.server.ts"
   "src/lib/city-mapping-hub/layers.server.ts"
   "src/lib/admin-analytics/authority-overview.server.ts"
+  "src/lib/city-mapping-hub/bulk-routes.server.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

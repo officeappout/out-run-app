@@ -25,6 +25,8 @@ import { useSharedSession } from '@/features/workout-engine/core/store/useShared
 import { auth } from '@/lib/firebase';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { useGroupFixesV1 } from '@/lib/group-fixes/useGroupFixesV1';
 
 interface InviteRunButtonProps {
   activityType?: 'running' | 'walking';
@@ -35,6 +37,7 @@ interface InviteRunButtonProps {
 export default function InviteRunButton({ activityType = 'running', inline = false }: InviteRunButtonProps) {
   const t = useT(player);
   const [busy, setBusy] = useState(false);
+  const groupFixes = useGroupFixesV1();
 
   const handleInvite = async () => {
     if (busy) return;
@@ -55,6 +58,10 @@ export default function InviteRunButton({ activityType = 'running', inline = fal
         useSharedSession
           .getState()
           .startGroupSession(groupId, attendanceId, uid ? [uid] : [], profiles, '');
+        // enable_group_fixes_v1: the host's run is a group run from here on —
+        // without it the run saved as solo (no groupId / attendanceId), same
+        // as RunShareBar's two invite paths already do.
+        if (groupFixes) useRunningPlayer.getState().setIsGroupRun(true);
       }
 
       // Share — native sheet first, WhatsApp fallback

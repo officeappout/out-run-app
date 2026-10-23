@@ -31,6 +31,8 @@ import {
 import { joinGroup } from '@/features/arena/services/group.service';
 import { consumeSessionInvitation } from '@/features/arena/services/group-invitation.service';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
+import { consumePendingInvites } from './consume-pending-invites';
 
 /**
  * Minimal router shape — matches both next/navigation's useRouter() and
@@ -221,6 +223,22 @@ export async function runExploreMapFlow(router: ExploreMapRouter): Promise<boole
   if (groupInviterUid && groupInviterUid !== user.uid) {
     establishSocialConnection(groupInviterUid, user.uid).catch(() => {});
     localStorage.removeItem('group_inviter_uid');
+  }
+
+  // enable_group_fixes_v1: one shared consumer (in-flight guard, keys kept
+  // until answered, group-page landing). An invite CODE still goes through
+  // the express identity screen first (identity before membership), which
+  // then confirms it through the same consumer.
+  if (await readFeatureFlagOnce('enable_group_fixes_v1')) {
+    if (localStorage.getItem('pending_invite_code')) {
+      setTimeout(() => { router.push('/onboarding-new/profile?context=express'); }, 1200);
+      return true;
+    }
+    const pendingRedirect = await consumePendingInvites({ uid: user.uid, displayName: user.displayName, photoURL: user.photoURL });
+    if (pendingRedirect) {
+      setTimeout(() => { router.push(pendingRedirect); }, 1200);
+      return true;
+    }
   }
 
   // If user came from a group invite deep link, auto-join then redirect

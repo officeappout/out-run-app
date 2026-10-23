@@ -68,6 +68,7 @@ import {
   type SavedStreakSnapshot,
   type StrengthSummarySnapshot,
 } from './history/summary-snapshot';
+import { useSummaryKellySlots } from './insights/SummaryKellyInsight';
 
 // ============================================================================
 // PROPS
@@ -391,6 +392,8 @@ export default function StrengthSummaryPage({
     minutes: analytics.weeklyAerobicMinutes + analytics.durationMinutes,
   };
   const savedStreakView = savedStreak && savedSummary ? streakSnapshotToView(savedStreak, savedSummary.workoutDate) : null;
+  // enable_workout_insights_v1 — Kelly in the green card (live flow only; gates itself).
+  const kellySlots = useSummaryKellySlots({ phases: v2Phases, durationSec: duration, isRecovery, enabled: !isReadOnly });
   let v2: StrengthSummaryV2Data | undefined;
   if (v2Phases) {
     // Timed blocks: this session's (in memory) live, the saved doc's `timedBlocks` in history.
@@ -400,6 +403,7 @@ export default function StrengthSummaryPage({
     v2 = {
       phases: v2Phases,
       ...(timedResults.length > 0 ? { timedResults } : {}),
+      ...(kellySlots ? { kelly: kellySlots } : {}),
       totals: sessionTotals(v2Phases),
       streakWeek: isReadOnly ? savedStreakView?.streakWeek ?? null : streakWeek,
       week: isReadOnly ? savedStreakView?.week ?? null : buildWeekCard(liveWeek),

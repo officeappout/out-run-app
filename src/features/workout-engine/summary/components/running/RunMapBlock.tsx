@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -31,6 +33,7 @@ interface RunMapBlockProps {
 }
 
 export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMapBlockProps) {
+  const t = useT(summary);
   const [mounted, setMounted] = useState(false);
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -60,7 +63,7 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
         className="w-full h-full bg-gray-200 flex items-center justify-center"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
-        <p className="text-gray-400">טוען מפה...</p>
+        <p className="text-gray-400">{t('fallback.map.loading')}</p>
       </div>
     );
   }
@@ -115,7 +118,7 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
     >
       {!isMapLoaded && (
         <div className="absolute inset-0 bg-gray-200 flex items-center justify-center z-10">
-          <p className="text-gray-400">טוען מפה...</p>
+          <p className="text-gray-400">{t('fallback.map.loading')}</p>
         </div>
       )}
       <Map

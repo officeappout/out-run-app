@@ -38,6 +38,8 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -63,9 +65,10 @@ const INPUT_TEXT_FIX: React.CSSProperties = { color: '#111827', WebkitTextFillCo
 const INPUT_TEXT_CLASS = 'text-base text-gray-900 placeholder:text-gray-400';
 
 export default function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
+  const t = useT(profileNs);
   const { profile } = useUserStore();
   const userAvatar = profile?.core?.photoURL;
-  const userName = profile?.core?.name ?? 'משתמש';
+  const userName = profile?.core?.name ?? t('editProfile.defaultName');
   // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
   const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
@@ -102,12 +105,12 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
 
     {/* Name — flat: bottom-border only, no boxed field (פרופיל חלק Part 2) */}
     <div className="border-b border-gray-200 pb-2.5">
-      <label className="block text-xs font-bold text-gray-500 mb-1">שם</label>
+      <label className="block text-xs font-bold text-gray-500 mb-1">{t('editProfile.name.label')}</label>
       <input
         type="text"
         value={editName}
         onChange={(e) => setEditName(e.target.value)}
-        placeholder="שמך"
+        placeholder={t('editProfile.name.placeholder')}
         className={`w-full bg-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
         style={INPUT_TEXT_FIX}
       />
@@ -115,11 +118,11 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
 
     {/* Bio — flat: bottom-border only, no boxed field */}
     <div className="border-b border-gray-200 pb-2.5">
-      <label className="block text-xs font-bold text-gray-500 mb-1">תיאור אישי</label>
+      <label className="block text-xs font-bold text-gray-500 mb-1">{t('editProfile.bio.label')}</label>
       <textarea
         value={editBio}
         onChange={(e) => setEditBio(e.target.value.slice(0, 150))}
-        placeholder="ספר/י קצת על עצמך..."
+        placeholder={t('editProfile.bio.placeholder')}
         rows={2}
         className={`w-full bg-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
         style={INPUT_TEXT_FIX}
@@ -131,8 +134,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         itself, not a boxed section wrapper); only the surrounding
         field styling above was flattened. */}
     <div>
-      <h3 className="text-xs font-bold text-gray-500 mb-2">תגיות אימון</h3>
-      <p className="text-[11px] text-gray-400 mb-2.5">אלה התגיות שיופיעו עליך בכרטיס השותף</p>
+      <h3 className="text-xs font-bold text-gray-500 mb-2">{t('editProfile.tags.title')}</h3>
+      <p className="text-[11px] text-gray-400 mb-2.5">{t('editProfile.tags.hint')}</p>
       <div className="flex flex-wrap gap-2">
         {TRAINING_TAG_OPTIONS.map((tag) => {
           const selected = editTrainingTags.includes(tag.id);
@@ -157,7 +160,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     {/* Personal details (city/neighborhood/weight/DOB) live in
         Settings now — this screen is public-presentation only. */}
     <p className="text-[11px] text-gray-400 text-center pt-1">
-      פרטים אישיים (עיר, משקל, תאריך לידה) נערכים בהגדרות
+      {t('editProfile.settingsNote')}
     </p>
     </>
   );
@@ -181,11 +184,11 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         scroll="body"
         bodyClassName="px-5 py-5 space-y-5"
         transition={{ type: 'spring', damping: 32, stiffness: 300 }}
-        ariaLabel="עריכת פרופיל"
+        ariaLabel={t('editProfile.title')}
         header={
           <div className="flex items-center justify-between gap-3 px-5 pb-2">
-            <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">עריכת פרופיל</h2>
-            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" disabled={editSaving} onClick={onClose}>
+            <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('editProfile.title')}</h2>
+            <IconButton aria-label={t('editProfile.close')} tone="surface" size={36} className="shrink-0" disabled={editSaving} onClick={onClose}>
               <X className="h-4 w-4" />
             </IconButton>
           </div>
@@ -199,7 +202,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
               className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
             >
               {editSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={3} />}
-              שמור שינויים
+              {t('editProfile.save')}
             </button>
           </div>
         }
@@ -238,9 +241,9 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                 className="text-sm font-bold text-[#00ADEF] disabled:opacity-50 flex items-center gap-1.5"
               >
                 {editSaving ? <Loader2 size={14} className="animate-spin" /> : null}
-                שמירה
+                {t('editProfile.saveShort')}
               </button>
-              <h2 className="text-base font-black text-gray-900">עריכת פרופיל</h2>
+              <h2 className="text-base font-black text-gray-900">{t('editProfile.title')}</h2>
               <button
                 type="button"
                 onClick={onClose}
@@ -264,7 +267,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] text-on-brand font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {editSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={3} />}
-                שמור שינויים
+                {t('editProfile.save')}
               </button>
             </div>
           </motion.div>

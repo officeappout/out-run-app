@@ -10,7 +10,9 @@
 import { stripUndefined } from '@/lib/route-collections';
 import type { SurfaceType } from '@/lib/route-collections/surface-type';
 import { COPERNICUS_DEM_ATTRIBUTION_SHORT } from '@/lib/dem-tile-cache/copernicus-glo30';
+import { stripOsmCode } from './naming';
 import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type TrailRoute, type TrailSegment } from './types';
+import { LEGACY_CYCLING_M_PER_MIN } from '@/lib/cycling-pace';
 
 /** The app's persisted Route.routeShape vocabulary (route.types.ts RouteShape). */
 export type AppRouteShape = 'loop' | 'out_and_back' | 'point_to_point';
@@ -76,7 +78,7 @@ export function dominantSurface(mix: Partial<Record<SurfaceType, number>>): Surf
 }
 
 /** metres per minute — the same constants scripts/geo-discovery-routes.ts uses. */
-const PACE_M_PER_MIN = { walking: 90, cycling: 250 } as const;
+const PACE_M_PER_MIN = { walking: 90, cycling: LEGACY_CYCLING_M_PER_MIN } as const;
 
 export interface RouteDocContext {
   authorityId: string;
@@ -97,7 +99,7 @@ export function routeDocPayload(r: TrailRoute, ctx: RouteDocContext): { id: stri
   const shape = toRouteShape(r.shape);
   const offroad = r.stats.trailPct >= 50;
   const raw = {
-    name: r.name,
+    name: stripOsmCode(r.name),
     description: r.kind === 'osm_relation' ? `מסלול מסומן${r.osm?.operator ? ` (${r.osm.operator})` : ''} — מתוך OpenStreetMap` : `מסלול מוצע מ${r.settlement ?? ctx.city} — נבנה מרשת השבילים של OpenStreetMap`,
     distance: km,
     duration: Math.max(1, Math.round(r.stats.lengthM / PACE_M_PER_MIN[r.activity])),

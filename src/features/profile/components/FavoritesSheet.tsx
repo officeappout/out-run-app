@@ -14,6 +14,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import Sheet, { SheetHeader } from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 import FavoritesTab from '@/features/favorites/components/FavoritesTab';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -28,6 +30,7 @@ interface FavoritesSheetProps {
 
 export default function FavoritesSheet({ isOpen, onClose, v2 = false }: FavoritesSheetProps) {
   const router = useRouter();
+  const t = useT(profileNs);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewWorkout, setPreviewWorkout] = useState<GeneratedWorkout | null>(null);
@@ -67,8 +70,8 @@ export default function FavoritesSheet({ isOpen, onClose, v2 = false }: Favorite
           transition={{ type: 'spring', stiffness: 300, damping: 35 }}
           className="max-h-[92dvh]"
           grabberClassName="flex shrink-0 justify-center pb-1 pt-2.5"
-          ariaLabel="שמורים"
-          header={<SheetHeader title="שמורים" onClose={onClose} closeLabel="סגור" className="flex items-center justify-between px-5 pb-3 pt-2" />}
+          ariaLabel={t('favorites.title')}
+          header={<SheetHeader title={t('favorites.title')} onClose={onClose} closeLabel={t('favorites.close')} className="flex items-center justify-between px-5 pb-3 pt-2" />}
           bodyClassName="bg-v2-surface px-4 py-4"
         >
           <FavoritesTab onSelectWorkout={handleSelectWorkout} v2 />
@@ -99,12 +102,12 @@ export default function FavoritesSheet({ isOpen, onClose, v2 = false }: Favorite
               </div>
 
               <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900">שמורים</h2>
+                <h2 className="text-lg font-bold text-gray-900">{t('favorites.title')}</h2>
                 <button
                   type="button"
                   onClick={onClose}
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:scale-95 transition-transform"
-                  aria-label="סגור"
+                  aria-label={t('favorites.close')}
                 >
                   <X className="w-4 h-4" />
                 </button>

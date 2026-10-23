@@ -9,11 +9,12 @@
  * one source per route, never mixed with OSM geometry (§2.1 licence note).
  */
 import type { Corridor, DatasetSpec } from './types';
+import { LEGACY_CYCLING_M_PER_MIN } from '@/lib/cycling-pace';
 
 export const DATASET_PIPELINE = 'dataset-import';
 
 /** Cruising pace per activity (m/min) for the duration estimate — same family as the trails pipeline. */
-const PACE_M_PER_MIN = { cycling: 250, running: 160, walking: 80 } as const;
+const PACE_M_PER_MIN = { cycling: LEGACY_CYCLING_M_PER_MIN, running: 160, walking: 80 } as const;
 const KCAL_PER_KM = { cycling: 35, running: 65, walking: 55 } as const;
 
 /** Small deterministic hash (two FNV-1a 32-bit lanes) — no crypto import, so it runs in any runtime. */

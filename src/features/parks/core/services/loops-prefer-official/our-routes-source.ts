@@ -15,6 +15,8 @@
  * The whole load is bounded by a wait (prepareOurRoutes) so it never holds a
  * generation up for long.
  */
+import type { ActivityType, Route } from '../../types/route.types';
+import { routeHasActivity, routeMatchesActivity } from '../../utils/route-activity-match';
 import { buildOurRoutesIndex, ourRoutesNear, type LngLat, type OurRouteLine, type OurRoutesIndex } from '@/lib/route-quality';
 
 export type OurRoutesFetcher = () => Promise<OurRouteLine[]>;
@@ -38,11 +40,33 @@ function cached(key: string, fetcher: OurRoutesFetcher): Promise<OurRouteLine[]>
   return lines;
 }
 
-/** Route-like docs ({ id, path: [lng, lat][] }) → lines. */
-export function toOurRouteLines(routes: Array<{ id: string; path?: unknown; name?: string }>, kind: OurRouteLine['kind']): OurRouteLine[] {
+type ActivityFields = Pick<Route, 'activityTypes' | 'activityType' | 'type'>;
+
+/**
+ * cycling-fixes-v1 (enable_cycling_fixes_v1): does one of OUR routes suit the loop's activity?
+ * Cycling loops only follow routes that declare cycling (an untyped legacy route is treated as
+ * on-foot); walking / running loops skip cycling-only routes. Other activities: no filter.
+ */
+export function routeFitsLoopActivity(route: Partial<ActivityFields>, activity: ActivityType): boolean {
+  if (activity !== 'cycling' && activity !== 'walking' && activity !== 'running') return true;
+  const r = route as ActivityFields;
+  if (!routeHasActivity(r)) return activity !== 'cycling';
+  return routeMatchesActivity(r, activity, true);
+}
+
+/**
+ * Route-like docs ({ id, path: [lng, lat][] }) → lines. `activity` (flag on only) drops routes
+ * that don't suit it; omitted = no filtering, exactly as before.
+ */
+export function toOurRouteLines(
+  routes: Array<{ id: string; path?: unknown; name?: string } & Partial<ActivityFields>>,
+  kind: OurRouteLine['kind'],
+  activity?: ActivityType,
+): OurRouteLine[] {
   const out: OurRouteLine[] = [];
   for (const r of routes) {
     if (!r?.id || !Array.isArray(r.path)) continue;
+    if (activity && !routeFitsLoopActivity(r, activity)) continue;
     const path = (r.path as unknown[]).filter((p): p is LngLat => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]));
     if (path.length >= 2) out.push({ id: r.id, path, kind, ...(r.name ? { name: r.name } : {}) });
   }
@@ -58,6 +82,14 @@ export const mapOfficialRoutesFetcher: OurRoutesFetcher = async () => {
   const { getCachedOfficialRoutesIncludingConnectors } = await import('../inventory.service');
   return toOurRouteLines(await getCachedOfficialRoutesIncludingConnectors(), 'official');
 };
+
+/** mapOfficialRoutesFetcher, filtered to one activity (cycling-fixes-v1). */
+export function mapOfficialRoutesFetcherFor(activity: ActivityType): OurRoutesFetcher {
+  return async () => {
+    const { getCachedOfficialRoutesIncludingConnectors } = await import('../inventory.service');
+    return toOurRouteLines(await getCachedOfficialRoutesIncludingConnectors(), 'official', activity);
+  };
+}
 
 export async function loadOurRoutesNear(
   center: { lat: number; lng: number },
