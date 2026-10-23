@@ -21,6 +21,7 @@ import OnboardingSessionReset from "@/features/user/onboarding/components/Onboar
 import EdgeSwipeBack from "@/components/system/EdgeSwipeBack";
 import { isTopPaddingExemptRoute } from "@/lib/top-padding-exempt-routes";
 import TvPhoneLayer from "@/features/tv-mode/phone/TvPhoneLayer";
+import { preloadLemurMarkerImages } from "@/features/parks/core/lib/lemurMarkerImages";
 
 /**
  * Mounts the global midnight clock once. Bumps the dateKey atom at 00:00
@@ -75,6 +76,19 @@ export default function ClientLayout({
   const shouldShowBottomNav = mounted && status !== 'finished' && !isHiddenRoute && !isLandingPage;
   const isMapRoute = mounted && pathname.startsWith('/map');
   const isTopPaddingExempt = mounted && isTopPaddingExemptRoute(pathname);
+
+  // Prefetch the map's lemur marker art (~55 KB total) once the in-app shell is
+  // up, on idle, so the first map-tab entry paints the lemur immediately.
+  useEffect(() => {
+    if (!shouldShowBottomNav) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(preloadLemurMarkerImages);
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const t = setTimeout(preloadLemurMarkerImages, 1500);
+    return () => clearTimeout(t);
+  }, [shouldShowBottomNav]);
 
   return (
     <>

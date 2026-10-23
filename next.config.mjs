@@ -48,6 +48,14 @@ const nextConfig = {
         source: '/.well-known/assetlinks.json',
         headers: [{ key: 'Content-Type', value: 'application/json' }],
       },
+      {
+        // Map lemur marker art (src/features/parks/core/lib/lemurMarkerImages.ts).
+        // Filenames are versioned (-v1) — changing the art means a new filename —
+        // so the WebView may keep them forever instead of revalidating on every
+        // map entry (Vercel's public/ default is max-age=0, must-revalidate).
+        source: '/assets/lemur/marker/:file*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
     ];
   },
   async redirects() {
