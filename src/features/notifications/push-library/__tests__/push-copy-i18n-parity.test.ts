@@ -127,7 +127,7 @@ it('selection from the code defaults', async () => {
     out[e.pushType] = {
       outcomes: n,
       hash: hash.digest('hex'),
-      unique: [...unique.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([, v]) => v),
+      unique: Array.from(unique.entries()).sort(([a], [b]) => (a < b ? -1 : 1)).map(([, v]) => v),
     };
   }
   await expect(json(out)).toMatchFileSnapshot(snap('selection'));
