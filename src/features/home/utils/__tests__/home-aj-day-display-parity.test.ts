@@ -15,6 +15,10 @@ vi.mock('@lottiefiles/dotlottie-react', async () => {
 
 import { DayCellV2Context, DayIconCell, getShortLabel, resolveDayDisplayProps, type DayDisplayInput } from '../day-display.utils';
 import { useLocaleStore } from '@/store/useLocaleStore';
+import { makeT } from '@/lib/i18n/t';
+import { home } from '@/messages/ns/home';
+
+const t = makeT('he', home);
 
 const KEYS = ['muscle', 'upper_body', 'push', 'pushing', 'pullup', 'pull', 'pulling', 'calisthenics', 'pull_up_pro', 'full_body', 'fullbody', 'fullbady', 'leg', 'lower_body', 'legs', 'core', 'handstand', 'pilates', 'yoga', 'shoe', 'running', 'cardio', 'walking', 'heart', 'healthy_lifestyle', 'wellness', 'easy_run', 'long_run', 'short_intervals', 'long_intervals', 'fartlek_easy', 'fartlek_structured', 'tempo', 'hill_long', 'hill_short', 'hill_sprints', 'strides', 'recovery'];
 
@@ -24,10 +28,10 @@ const base: DayDisplayInput = { state: 'future', isSelected: false, isRest: fals
 
 describe('day display labels', () => {
   it('the short-label dictionary, by key and in upper case', async () => {
-    const out = KEYS.map((k) => `${k} => ${getShortLabel(k)} | ${getShortLabel(k.toUpperCase())}`).concat([
-      `(none) => [${getShortLabel(undefined)}]`,
-      `(null) => [${getShortLabel(null)}]`,
-      `(unknown) => [${getShortLabel('zzz')}]`,
+    const out = KEYS.map((k) => `${k} => ${getShortLabel(k, t)} | ${getShortLabel(k.toUpperCase(), t)}`).concat([
+      `(none) => [${getShortLabel(undefined, t)}]`,
+      `(null) => [${getShortLabel(null, t)}]`,
+      `(unknown) => [${getShortLabel('zzz', t)}]`,
     ]);
     await expect(out.join('\n')).toMatchFileSnapshot(snap('short-labels'));
   });
@@ -51,7 +55,7 @@ describe('day display labels', () => {
     cases.push(['today/running tempo', { state: 'today', runningCategory: 'tempo' }]);
     cases.push(['future/running unknown', { state: 'future', runningCategory: 'zzz', programIconKey: 'muscle' }]);
     const lines = cases.map(([name, over]) => {
-      const p = resolveDayDisplayProps({ ...base, ...over });
+      const p = resolveDayDisplayProps({ ...base, ...over }, t);
       return `${name} => ${JSON.stringify(p.label)}`;
     });
     for (const state of ['future', 'today', 'past'] as const) {
@@ -60,7 +64,7 @@ describe('day display labels', () => {
         [{ category: 'maintenance' as const, minutes: 30 }, { category: 'cardio' as const, minutes: 20, programIconKey: 'shoe' }],
         [{ category: 'strength' as const, minutes: 30, programIconKey: 'push' }, { category: 'maintenance' as const, minutes: 20, runningCategory: 'hill_long' }, { category: 'cardio' as const, minutes: 10, programIconKey: 'unknown_key' }],
       ]) {
-        const p = resolveDayDisplayProps({ ...base, state, isCompleted: state !== 'future', sessionsCompleted: state !== 'future', programIconKey: 'muscle', sessions: s });
+        const p = resolveDayDisplayProps({ ...base, state, isCompleted: state !== 'future', sessionsCompleted: state !== 'future', programIconKey: 'muscle', sessions: s }, t);
         lines.push(`${state}/multi => ${JSON.stringify(p.label)} ${JSON.stringify((p.sessions ?? []).map((x) => x.label))}`);
       }
     }
@@ -80,7 +84,7 @@ describe('day display labels', () => {
         { state: 'past' as const, isRest: true, stepGoalMet: true },
         { state: 'past' as const, isRest: true, isCompleted: true },
       ]) {
-        const props = resolveDayDisplayProps({ ...base, ...over });
+        const props = resolveDayDisplayProps({ ...base, ...over }, t);
         parts.push(strip(renderToStaticMarkup(h(DayCellV2Context.Provider, { value: v2 }, h(DayIconCell, { props })))));
       }
     }

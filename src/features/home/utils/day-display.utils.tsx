@@ -17,6 +17,12 @@ import type { ActivityCategory } from '@/features/activity/types/activity.types'
 import { type ActivityRingData, ACTIVITY_RING_EMPTY_COLOR } from './activity-ring.utils';
 import StreakFlame from '@/components/ui/v2/StreakFlame';
 import { FLAME_TONES, sortTones, toneFromFlameKey, type FlameTone } from '@/components/ui/v2/streak';
+import { useT } from '@/hooks/useT';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import { home, type HomeKey } from '@/messages/ns/home';
+
+/** The `home` translator a caller passes to the pure label helpers below (useT(home) / makeT('he', home)). */
+export type DayDisplayT = (key: HomeKey, values?: MessageValues) => string;
 
 // ============================================================================
 // ASSET REGISTRY
@@ -119,57 +125,58 @@ export const FLAME_BY_PROGRAM_ICON_KEY: Record<string, FlameKey> = {
 
 /**
  * Maps every program iconKey, alias, and running category to a short
- * Hebrew label (≤ 6 chars) suitable for the tiny text under each day cell.
+ * short label (≤ 6 chars in Hebrew; the `dayDisplay.label.*` catalog keys) suitable for the tiny text under each day cell.
  */
-export const SHORT_LABEL_MAP: Record<string, string> = {
+export const SHORT_LABEL_KEYS: Record<string, HomeKey> = {
   // ── Strength program iconKeys + aliases ─────────────────────────────
-  muscle: 'עליון',
-  upper_body: 'עליון',
-  push: 'עליון',
-  pushing: 'עליון',
-  pullup: 'מתח',
-  pull: 'מתח',
-  pulling: 'מתח',
-  calisthenics: 'מתח',
-  pull_up_pro: 'מתח',
-  full_body: 'שלם',
-  fullbody: 'שלם',
-  fullbady: 'שלם',
-  leg: 'תחתון',
-  lower_body: 'תחתון',
-  legs: 'תחתון',
-  core: 'ליבה',
-  handstand: 'ליבה',
-  pilates: 'ליבה',
-  yoga: 'ליבה',
+  muscle: 'dayDisplay.label.upper',
+  upper_body: 'dayDisplay.label.upper',
+  push: 'dayDisplay.label.upper',
+  pushing: 'dayDisplay.label.upper',
+  pullup: 'dayDisplay.label.pull',
+  pull: 'dayDisplay.label.pull',
+  pulling: 'dayDisplay.label.pull',
+  calisthenics: 'dayDisplay.label.pull',
+  pull_up_pro: 'dayDisplay.label.pull',
+  full_body: 'dayDisplay.label.full',
+  fullbody: 'dayDisplay.label.full',
+  fullbady: 'dayDisplay.label.full',
+  leg: 'dayDisplay.label.lower',
+  lower_body: 'dayDisplay.label.lower',
+  legs: 'dayDisplay.label.lower',
+  core: 'dayDisplay.label.core',
+  handstand: 'dayDisplay.label.core',
+  pilates: 'dayDisplay.label.core',
+  yoga: 'dayDisplay.label.core',
   // ── Cardio / running aliases ─────────────────────────────────────────
-  shoe: 'ריצה',
-  running: 'ריצה',
-  cardio: 'ריצה',
-  walking: 'הליכה',
+  shoe: 'dayDisplay.label.run',
+  running: 'dayDisplay.label.run',
+  cardio: 'dayDisplay.label.run',
+  walking: 'dayDisplay.label.walk',
   // ── Health aliases ───────────────────────────────────────────────────
-  heart: 'בריאות',
-  healthy_lifestyle: 'בריאות',
-  wellness: 'בריאות',
+  heart: 'dayDisplay.label.health',
+  healthy_lifestyle: 'dayDisplay.label.health',
+  wellness: 'dayDisplay.label.health',
   // ── Running category keys (from SmartWeeklySchedule.CATEGORY_COLORS) ──
-  easy_run: 'קלה',
-  long_run: 'נפח',
-  short_intervals: 'ספרינט',
-  long_intervals: 'אינטרוול',
-  fartlek_easy: 'פארטלק',
-  fartlek_structured: 'פארטלק',
-  tempo: 'טמפו',
-  hill_long: 'גבעות',
-  hill_short: 'גבעות',
-  hill_sprints: 'גבעות',
-  strides: 'סטריידס',
-  recovery: 'שחזור',
+  easy_run: 'dayDisplay.label.easy',
+  long_run: 'dayDisplay.label.volume',
+  short_intervals: 'dayDisplay.label.sprint',
+  long_intervals: 'dayDisplay.label.interval',
+  fartlek_easy: 'dayDisplay.label.fartlek',
+  fartlek_structured: 'dayDisplay.label.fartlek',
+  tempo: 'dayDisplay.label.tempo',
+  hill_long: 'dayDisplay.label.hills',
+  hill_short: 'dayDisplay.label.hills',
+  hill_sprints: 'dayDisplay.label.hills',
+  strides: 'dayDisplay.label.strides',
+  recovery: 'dayDisplay.label.recovery',
 };
 
-/** Resolve a short Hebrew label for any iconKey / alias / running category. */
-export function getShortLabel(key?: string | null): string {
+/** Resolve a short label for any iconKey / alias / running category ('' when there is none). */
+export function getShortLabel(key: string | null | undefined, t: DayDisplayT): string {
   if (!key) return '';
-  return SHORT_LABEL_MAP[key.toLowerCase()] ?? '';
+  const labelKey = SHORT_LABEL_KEYS[key.toLowerCase()];
+  return labelKey ? t(labelKey) : '';
 }
 
 // ============================================================================
@@ -475,11 +482,11 @@ const CATEGORY_DEFAULT_ICON_KEY: Record<ActivityCategory, string> = {
   maintenance: 'core',
 };
 
-/** Hebrew fallback label when no iconKey/runningCategory mapping exists. */
-const CATEGORY_FALLBACK_LABEL: Record<ActivityCategory, string> = {
-  strength:    'כוח',
-  cardio:      'ריצה',
-  maintenance: 'גמישות',
+/** Fallback label key when no iconKey/runningCategory mapping exists. */
+const CATEGORY_FALLBACK_LABEL_KEY: Record<ActivityCategory, HomeKey> = {
+  strength:    'dayDisplay.category.strength',
+  cardio:      'dayDisplay.category.cardio',
+  maintenance: 'dayDisplay.category.maintenance',
 };
 
 /**
@@ -492,13 +499,14 @@ function buildSession(
   isCompletedDay: boolean,
   isSelected: boolean,
   sessionInput: DaySessionInput,
+  t: DayDisplayT,
 ): DaySession {
   // Color: explicit running color > category bucket
   const color = sessionInput.runningColor ?? CATEGORY_COLORS[sessionInput.category];
 
   // Label: runningCategory > programIconKey > category fallback
   const labelKey = sessionInput.runningCategory ?? sessionInput.programIconKey;
-  const labelText = getShortLabel(labelKey) || CATEGORY_FALLBACK_LABEL[sessionInput.category];
+  const labelText = getShortLabel(labelKey, t) || t(CATEGORY_FALLBACK_LABEL_KEY[sessionInput.category]);
 
   // Resolved program icon for this session
   const programIconKey =
@@ -558,7 +566,7 @@ function buildSession(
  * Single decision function: maps day state + selection → exact visual props.
  * Both calendar components use this; do NOT duplicate this logic anywhere else.
  */
-export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps {
+export function resolveDayDisplayProps(input: DayDisplayInput, t: DayDisplayT): DayDisplayProps {
   /** Selection ring on icon — disabled when the host UI handles selection elsewhere. */
   const selForChrome = input.suppressIconSelectableChrome ? false : input.isSelected;
 
@@ -567,7 +575,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     input.runningColor ??
     (input.runningCategory ? RUNNING_CATEGORY_COLORS[input.runningCategory.toLowerCase()] : undefined) ??
     CATEGORY_COLORS[category];
-  const labelText = getShortLabel(input.runningCategory ?? input.programIconKey);
+  const labelText = getShortLabel(input.runningCategory ?? input.programIconKey, t);
 
   // Common echo so DayIconCell can apply state-specific polish (today shadow, etc.)
   const echo = { state: input.state, isSelected: input.isSelected };
@@ -590,7 +598,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     // Cap at 3 sessions for the pager UI; assume already sorted by minutes desc.
     const sessions = sessionInputs
       .slice(0, 3)
-      .map((s) => buildSession(input.state, isCompletedDay, selForChrome, s));
+      .map((s) => buildSession(input.state, isCompletedDay, selForChrome, s, t));
 
     return {
       ...echo,
@@ -626,7 +634,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
           borderWidth: 0,
         },
         icon: { type: 'zz' },
-        label: { text: 'מנוחה', color: '#FFFFFF' },
+        label: { text: t('dayDisplay.restLabel'), color: '#FFFFFF' },
         dots: [],
       };
     }
@@ -654,7 +662,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
           glow: true,
           color: BONUS_WORKOUT_COLOR,
         },
-        label: { text: labelText || 'בונוס', color: BONUS_WORKOUT_COLOR },
+        label: { text: labelText || t('dayDisplay.bonus'), color: BONUS_WORKOUT_COLOR },
         dots: [{ color: BONUS_WORKOUT_COLOR }],
       };
     }
@@ -734,7 +742,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
           glow: true,
           color: BONUS_WORKOUT_COLOR,
         },
-        label: { text: labelText || 'בונוס', color: BONUS_WORKOUT_COLOR },
+        label: { text: labelText || t('dayDisplay.bonus'), color: BONUS_WORKOUT_COLOR },
         dots: [{ color: BONUS_WORKOUT_COLOR }],
       };
     }
@@ -745,7 +753,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
         ...echo,
         container: selectableContainer(CATEGORY_COLORS.steps, selForChrome),
         icon: { type: 'img', src: ASSET_REGISTRY.flames.steps },
-        label: { text: 'צעדים', color: CATEGORY_COLORS.steps },
+        label: { text: t('dayDisplay.steps'), color: CATEGORY_COLORS.steps },
         dots: [{ color: CATEGORY_COLORS.steps }],
       };
     }
@@ -756,7 +764,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
         ...echo,
         container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
         icon: { type: 'zz' },
-        label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
+        label: { text: t('dayDisplay.restLabel'), color: CATEGORY_COLORS.rest },
         dots: [],
       };
     }
@@ -778,7 +786,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
       ...echo,
       container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
       icon: { type: 'zz' },
-      label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
+      label: { text: t('dayDisplay.restLabel'), color: CATEGORY_COLORS.rest },
       dots: [],
     };
   }
@@ -790,7 +798,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
       ...echo,
       container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
       icon: { type: 'zz' },
-      label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
+      label: { text: t('dayDisplay.restLabel'), color: CATEGORY_COLORS.rest },
       dots: [],
     };
   }
@@ -880,6 +888,7 @@ function IconRenderer({
   /** When set (e.g. month «today» 34 px badge), scales the inner icon frame. */
   innerFramePx?: number;
 }) {
+  const t = useT(home);
   switch (icon.type) {
     case 'img': {
       const sz = icon.overrideSizePx ?? ICON_SIZE_PX;
@@ -938,7 +947,7 @@ function IconRenderer({
         <div
           className="flex items-center justify-center shrink-0"
           style={{ width: frame, height: frame }}
-          aria-label="מנוחה"
+          aria-label={t('dayDisplay.restAria')}
         >
           <span
             className="font-bold leading-none select-none"
@@ -1080,6 +1089,7 @@ export function earnedTones(props: DayDisplayProps): FlameTone[] {
 }
 
 function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: number }) {
+  const t = useT(home);
   const isToday = props.state === 'today';
   const tones = earnedTones(props);
   const [i, setI] = useState(0);
@@ -1088,8 +1098,8 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
   useEffect(() => {
     setI(0);
     if (!cycling) return;
-    const t = setInterval(() => setI((v) => (v + 1) % tones.length), SESSION_ROTATION_MS);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setI((v) => (v + 1) % tones.length), SESSION_ROTATION_MS);
+    return () => clearInterval(timer);
   }, [cycling, tones.length]);
 
   if (tones.length) {
@@ -1113,16 +1123,16 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
           <StreakFlame tones={[current]} size={Math.round(sizePx * 1.05)} live={isToday} />
         )}
         {tones.length > 1 && (
-          <span className="absolute -bottom-1.5 flex items-center gap-[3px]" aria-label={tones.map((t) => FLAME_TONES[t].label).join(' + ')}>
-            {tones.map((t) => (
+          <span className="absolute -bottom-1.5 flex items-center gap-[3px]" aria-label={tones.map((tone) => FLAME_TONES[tone].label).join(' + ')}>
+            {tones.map((tone) => (
               <span
-                key={t}
+                key={tone}
                 className="rounded-full transition-[width,height] duration-300"
                 style={{
-                  background: FLAME_TONES[t].hex,
+                  background: FLAME_TONES[tone].hex,
                   boxShadow: '0 0 0 1px #fff',
-                  width: cycling && t === current ? 7 : 5,
-                  height: cycling && t === current ? 7 : 5,
+                  width: cycling && tone === current ? 7 : 5,
+                  height: cycling && tone === current ? 7 : 5,
                 }}
               />
             ))}
@@ -1157,7 +1167,7 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
     <div
       className="flex items-center justify-center"
       dir="rtl"
-      aria-label="מנוחה"
+      aria-label={t('dayDisplay.restAria')}
       style={{ width: sizePx, height: sizePx, borderRadius: 14, boxShadow: isToday ? '0 0 0 2px #e6edf2' : undefined }}
     >
       <span className="font-black italic leading-none select-none" style={{ fontSize: 15, color: '#c3ccd4' }}>

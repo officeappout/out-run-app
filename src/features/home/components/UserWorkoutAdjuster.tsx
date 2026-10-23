@@ -17,19 +17,19 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import Button from '@/components/ui/v2/Button';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
-import { currentUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { home, type HomeKey } from '@/messages/ns/home';
 
-// Known calisthenics skill program IDs → Hebrew labels
-const SKILL_LABELS: Record<string, { label: string; emoji: string }> = {
-  handstand:    { label: 'עמידת ידיים', emoji: '🤸' },
-  front_lever:  { label: 'פרונט לבר',   emoji: '💫' },
-  back_lever:   { label: 'בק לבר',      emoji: '🌀' },
-  oap:          { label: 'משיכה חד ידנית', emoji: '💪' },
-  muscle_up:    { label: 'מוסל אפ',     emoji: '🔥' },
-  planche:      { label: 'פלאנש',       emoji: '⚡' },
-  pull_up_pro:  { label: 'מתח מתקדם',   emoji: '🏋️' },
-  l_sit:        { label: 'L-Sit',       emoji: '🧘' },
+// Known calisthenics skill program IDs → label key (`adjuster.skill.*`) + emoji
+const SKILL_LABELS: Record<string, { labelKey: HomeKey; emoji: string }> = {
+  handstand:    { labelKey: 'adjuster.skill.handstand', emoji: '🤸' },
+  front_lever:  { labelKey: 'adjuster.skill.frontLever', emoji: '💫' },
+  back_lever:   { labelKey: 'adjuster.skill.backLever', emoji: '🌀' },
+  oap:          { labelKey: 'adjuster.skill.oap', emoji: '💪' },
+  muscle_up:    { labelKey: 'adjuster.skill.muscleUp', emoji: '🔥' },
+  planche:      { labelKey: 'adjuster.skill.planche', emoji: '⚡' },
+  pull_up_pro:  { labelKey: 'adjuster.skill.pullUpPro', emoji: '🏋️' },
+  l_sit:        { labelKey: 'adjuster.skill.lSit', emoji: '🧘' },
 };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -49,10 +49,10 @@ interface UserWorkoutAdjusterProps {
 
 // ─── Intensity Config ────────────────────────────────────────────────────────
 
-const INTENSITY_OPTIONS: { value: DifficultyLevel; label: string; sub: string }[] = [
-  { value: 1, label: '⚡ קל',    sub: 'שחזור' },
-  { value: 2, label: '⚡⚡ בינוני', sub: 'מאוזן' },
-  { value: 3, label: '⚡⚡⚡ עצים',  sub: 'פרו' },
+const INTENSITY_OPTIONS: { value: DifficultyLevel; labelKey: HomeKey; subKey: HomeKey }[] = [
+  { value: 1, labelKey: 'adjuster.intensity.easy.label', subKey: 'adjuster.intensity.easy.sub' },
+  { value: 2, labelKey: 'adjuster.intensity.medium.label', subKey: 'adjuster.intensity.medium.sub' },
+  { value: 3, labelKey: 'adjuster.intensity.hard.label', subKey: 'adjuster.intensity.hard.sub' },
 ];
 
 // ─── Duration Snap Points ────────────────────────────────────────────────────
@@ -70,6 +70,7 @@ export default function UserWorkoutAdjuster({
   onApplyAndStart,
   initialLocation,
 }: UserWorkoutAdjusterProps) {
+  const t = useT(home);
   const [location, setLocation] = useState<'park' | 'home'>(
     initialLocation === 'home' ? 'home' : 'park',
   );
@@ -79,7 +80,8 @@ export default function UserWorkoutAdjuster({
   const [isEquipped, setIsEquipped] = useState(true);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The error is kept as a catalog key and translated at render (so a gender / locale change re-renders it).
+  const [error, setError] = useState<HomeKey | null>(null);
   // enable_home_v2: the shared <Sheet> (v2 header + CTA); flag off keeps the markup below untouched.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
@@ -152,7 +154,7 @@ export default function UserWorkoutAdjuster({
       onClose();
     } catch (err: any) {
       console.error('[UserWorkoutAdjuster] Generation failed:', err);
-      setError(pickGendered(currentUiGender(), { male: 'לא הצלחנו ליצור אימון. נסה שוב.', female: 'לא הצלחנו ליצור אימון. נסי שוב.', other: 'לא הצלחנו ליצור אימון. נסו שוב.' }));
+      setError('adjuster.error');
     } finally {
       setIsLoading(false);
     }
@@ -167,29 +169,29 @@ export default function UserWorkoutAdjuster({
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
 
         {/* ── 1. Location ── */}
-        <Section title="מיקום">
+        <Section title={t('adjuster.location.title')}>
           <div className="grid grid-cols-2 gap-3">
             <LocationPill
               active={location === 'park'}
               icon={<Trees size={18} />}
-              label="בחוץ"
-              sub="פארק / מגרש"
+              label={t('adjuster.location.outdoor.label')}
+              sub={t('adjuster.location.outdoor.sub')}
               onClick={() => setLocation('park')}
             />
             <LocationPill
               active={location === 'home'}
               icon={<Home size={18} />}
-              label="בבית"
-              sub="אימון ביתי"
+              label={t('adjuster.location.indoor.label')}
+              sub={t('adjuster.location.indoor.sub')}
               onClick={() => setLocation('home')}
             />
           </div>
         </Section>
 
         {/* ── 2. Duration ── */}
-        <Section title={`משך זמן`} rightEl={
+        <Section title={t('adjuster.duration.title')} rightEl={
           <span className="text-base font-extrabold text-[#2b6cb0]">
-            {availableTime} דק׳
+            {t('adjuster.duration.value', { n: String(availableTime) })}
           </span>
         }>
           <input
@@ -217,13 +219,13 @@ export default function UserWorkoutAdjuster({
                     [&::-moz-range-thumb]:border-white"
           />
           <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-            <span>{DURATION_MIN} דק׳</span>
-            <span>{DURATION_MAX} דק׳</span>
+            <span>{t('adjuster.duration.value', { n: String(DURATION_MIN) })}</span>
+            <span>{t('adjuster.duration.value', { n: String(DURATION_MAX) })}</span>
           </div>
         </Section>
 
         {/* ── 3. Muscle Focus ── */}
-        <Section title="אזור אימון" sub="(ריק = כל הגוף)">
+        <Section title={t('adjuster.muscles.title')} sub={t('adjuster.muscles.sub')}>
           <div className="grid grid-cols-3 gap-2">
             {MUSCLE_CHIPS.filter(c => c.group === 'primary').map(chip => {
               const active = selectedChips.includes(chip.id);
@@ -250,7 +252,7 @@ export default function UserWorkoutAdjuster({
 
         {/* ── 4. Skill Focus (contextual — only for calisthenics users) ── */}
         {hasSkills && (
-          <Section title="מיקוד סקיל" sub="(כלי לאימון ממוקד)" rightEl={
+          <Section title={t('adjuster.skills.title')} sub={t('adjuster.skills.sub')} rightEl={
             <Star size={14} className="text-[#2b6cb0]" />
           }>
             <div className="flex flex-wrap gap-2">
@@ -272,21 +274,21 @@ export default function UserWorkoutAdjuster({
                           `}
                   >
                     <span>{meta.emoji}</span>
-                    {meta.label}
+                    {t(meta.labelKey)}
                   </button>
                 );
               })}
             </div>
             {selectedSkillId && (
               <p className="text-xs text-[#2b6cb0] font-medium mt-1">
-                האימון יתמקד ב-{SKILL_LABELS[selectedSkillId]?.label}
+                {SKILL_LABELS[selectedSkillId] && t('adjuster.skills.focus', { skill: t(SKILL_LABELS[selectedSkillId].labelKey) })}
               </p>
             )}
           </Section>
         )}
 
         {/* ── 5. Intensity ── */}
-        <Section title="עוצמה">
+        <Section title={t('adjuster.intensity.title')}>
           <div className="grid grid-cols-3 gap-2">
             {INTENSITY_OPTIONS.map(opt => {
               const active = difficulty === opt.value;
@@ -303,9 +305,9 @@ export default function UserWorkoutAdjuster({
                           }
                         `}
                 >
-                  <span className="text-sm leading-none">{opt.label}</span>
+                  <span className="text-sm leading-none">{t(opt.labelKey)}</span>
                   <span className={`text-[10px] font-medium ${active ? 'text-blue-100' : 'text-gray-400 dark:text-gray-500'}`}>
-                    {opt.sub}
+                    {t(opt.subKey)}
                   </span>
                 </button>
               );
@@ -314,7 +316,7 @@ export default function UserWorkoutAdjuster({
         </Section>
 
         {/* ── 6. Equipment ── */}
-        <Section title="ציוד">
+        <Section title={t('adjuster.equipment.title')}>
           <div
             className="flex items-center justify-between p-4 rounded-2xl border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-pointer"
             onClick={() => setIsEquipped(v => !v)}
@@ -326,10 +328,10 @@ export default function UserWorkoutAdjuster({
               }
               <div>
                 <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                  {isEquipped ? 'יש לי ציוד' : 'רק משקל גוף'}
+                  {isEquipped ? t('adjuster.equipment.yes.title') : t('adjuster.equipment.no.title')}
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                  {isEquipped ? 'מוטות, רצועות, משקולות' : 'ללא ציוד כלל'}
+                  {isEquipped ? t('adjuster.equipment.yes.sub') : t('adjuster.equipment.no.sub')}
                 </p>
               </div>
             </div>
@@ -348,7 +350,7 @@ export default function UserWorkoutAdjuster({
         {/* Error */}
         {error && (
           <p className="text-center text-sm font-medium text-red-500 dark:text-red-400">
-            {error}
+            {t(error)}
           </p>
         )}
 
@@ -361,8 +363,8 @@ export default function UserWorkoutAdjuster({
       <Sheet
         open={isOpen}
         onClose={onClose}
-        title="התאמת אימון"
-        closeLabel="סגור"
+        title={t('adjuster.title')}
+        closeLabel={t('adjuster.close')}
         // Backdrop z-[199] / panel z-[200] (.cursorrules), in place — unchanged.
         zIndex={SHEET_Z.nestedModal}
         backdropZIndex={SHEET_Z.adjusterBackdrop}
@@ -382,12 +384,12 @@ export default function UserWorkoutAdjuster({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  מייצר אימון…
+                  {t('adjuster.cta.loading')}
                 </>
               ) : (
                 <>
                   <Zap className="h-[18px] w-[18px]" />
-                  עדכן אימון
+                  {t('adjuster.cta.update')}
                 </>
               )}
             </Button>
@@ -434,12 +436,12 @@ export default function UserWorkoutAdjuster({
               <button
                 onClick={onClose}
                 className="p-2 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                aria-label="סגור"
+                aria-label={t('adjuster.close')}
               >
                 <X size={20} />
               </button>
               <h2 className="text-lg font-extrabold text-gray-900 dark:text-white">
-                התאמת אימון
+                {t('adjuster.title')}
               </h2>
               <div className="w-9" />
             </div>
@@ -465,12 +467,12 @@ export default function UserWorkoutAdjuster({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
-                    מייצר אימון…
+                    {t('adjuster.cta.loading')}
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
                     <Zap size={18} />
-                    עדכן אימון
+                    {t('adjuster.cta.update')}
                   </span>
                 )}
               </button>
