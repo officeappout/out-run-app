@@ -445,3 +445,17 @@ src/features/profile/components/FavoritesSheet.tsx
 src/features/profile/components/records/PersonalRecordsCard.tsx
 src/features/profile/components/widgets/ParentProgramSheet.tsx
 src/features/profile/hooks/usePersonalInfoEditor.ts
+# wave 2 batch ah (namespace map, keys caloriesChip.* / mapLoading.* / routeLoader.* / workoutPrefs.*) — the remaining
+# quiet leftovers of src/features/parks/core/components. Left Hebrew on purpose (manual list in the PR): NavigationHub
+# (v1-only search overlay, enable_home_v2 on), HybridJourneyAxis (uncommitted work in another worktree), hybrid-format.ts /
+# route-questionnaire-line.ts / free-run/free-run-gender-copy.ts (outside or busy callers), FreeRunDrawer / TurnCarousel /
+# HybridOverviewScreen / HybridSlotCarousel / PlannedRunSlotCard / AIChatOverlay (busy), dead files (ActiveWorkoutOverlay,
+# ActivityCarousel, FreeActivityCard, FreeRunRouteSelector, MapTabs, MapTopBar, SavedPlacesQuickRow).
+# GlobalDetailOverlay / RouteQualityBadges / coach/ParkCoachAnchor.tsx only have Hebrew in comments.
+src/features/parks/core/components/CaloriesChip.tsx
+src/features/parks/core/components/MapLoadingSkeleton.tsx
+src/features/parks/core/components/RouteGenerationLoader.tsx
+src/features/parks/core/components/WorkoutPreferencesModal.tsx
+src/features/parks/core/components/GlobalDetailOverlay.tsx
+src/features/parks/core/components/RouteQualityBadges.tsx
+src/features/parks/core/components/coach/ParkCoachAnchor.tsx
