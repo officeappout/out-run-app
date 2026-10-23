@@ -1,0 +1,995 @@
+{
+ "leaderboard general 0": "0 ימים",
+ "leaderboard steps 0": "0 צעדים",
+ "leaderboard distance 0": "0 ק״מ",
+ "leaderboard running 0": "0 נק' ריצה",
+ "leaderboard strength 0": "0 נק' כוח",
+ "leaderboard other 0": "0",
+ "leaderboard pace 0": "—",
+ "leagueKm 0": "0",
+ "hubKm 0": "0",
+ "hubCount 0": "0",
+ "hubMinutes 0": {
+  "value": "0",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 0": "קצב מהיר · 30 דק׳ · ~0 צעדים",
+ "walkHint 0": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 0": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 0": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 0 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 20 דק׳"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 0 דק׳"
+   }
+  ],
+  "minutes": 20,
+  "missed": "20 דק׳ פעילות · 0 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 0": "0",
+ "brandingStepsLeft 0": [
+  "0",
+  "0"
+ ],
+ "leaderboard general 1": "1 ימים",
+ "leaderboard steps 1": "1 צעדים",
+ "leaderboard distance 1": "1 ק״מ",
+ "leaderboard running 1": "1 נק' ריצה",
+ "leaderboard strength 1": "1 נק' כוח",
+ "leaderboard other 1": "1",
+ "leaderboard pace 1": "0:01 /ק״מ",
+ "leagueKm 1": "1",
+ "hubKm 1": "1",
+ "hubCount 1": "1",
+ "hubMinutes 1": {
+  "value": "1",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 1": "קצב מהיר · 30 דק׳ · ~1 צעדים",
+ "walkHint 1": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 1": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 1": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 1 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 1 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 1 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 1 דק׳"
+   }
+  ],
+  "minutes": 22,
+  "missed": "22 דק׳ פעילות · 100 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 1": "1",
+ "brandingStepsLeft 1": [
+  "1",
+  "1"
+ ],
+ "leaderboard general -1": "-1 ימים",
+ "leaderboard steps -1": "‎-1 צעדים",
+ "leaderboard distance -1": "‎-1 ק״מ",
+ "leaderboard running -1": "‎-1 נק' ריצה",
+ "leaderboard strength -1": "‎-1 נק' כוח",
+ "leaderboard other -1": "‎-1",
+ "leaderboard pace -1": "—",
+ "leagueKm -1": "0",
+ "hubKm -1": "‎-1",
+ "hubCount -1": "‎-1",
+ "hubMinutes -1": {
+  "value": "0",
+  "unit": "דק׳"
+ },
+ "walkSubtitle -1": "קצב מהיר · 30 דק׳ · ~‎-1 צעדים",
+ "walkHint -1": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 -1": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay -1": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · ‎-1 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 20 דק׳"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · ‎-1 דק׳"
+   }
+  ],
+  "minutes": 18,
+  "missed": "18 דק׳ פעילות · ‎-100 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake -1": "‎-1",
+ "brandingStepsLeft -1": [
+  "‎-1",
+  "‎-1"
+ ],
+ "leaderboard general 7": "7 ימים",
+ "leaderboard steps 7": "7 צעדים",
+ "leaderboard distance 7": "7 ק״מ",
+ "leaderboard running 7": "7 נק' ריצה",
+ "leaderboard strength 7": "7 נק' כוח",
+ "leaderboard other 7": "7",
+ "leaderboard pace 7": "0:07 /ק״מ",
+ "leagueKm 7": "7",
+ "hubKm 7": "7",
+ "hubCount 7": "7",
+ "hubMinutes 7": {
+  "value": "7",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 7": "קצב מהיר · 30 דק׳ · ~7 צעדים",
+ "walkHint 7": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 7": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 7": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 7 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 7 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 7 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 7 דק׳"
+   }
+  ],
+  "minutes": 34,
+  "missed": "34 דק׳ פעילות · 700 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 7": "7",
+ "brandingStepsLeft 7": [
+  "7",
+  "7"
+ ],
+ "leaderboard general 99": "99 ימים",
+ "leaderboard steps 99": "99 צעדים",
+ "leaderboard distance 99": "99 ק״מ",
+ "leaderboard running 99": "99 נק' ריצה",
+ "leaderboard strength 99": "99 נק' כוח",
+ "leaderboard other 99": "99",
+ "leaderboard pace 99": "1:39 /ק״מ",
+ "leagueKm 99": "99",
+ "hubKm 99": "99",
+ "hubCount 99": "99",
+ "hubMinutes 99": {
+  "value": "99",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 99": "קצב מהיר · 30 דק׳ · ~99 צעדים",
+ "walkHint 99": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 99": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 99": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 99 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 99 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 99 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 99 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 9,900"
+   }
+  ],
+  "minutes": 218,
+  "missed": "218 דק׳ פעילות · 9,900 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 99": "99",
+ "brandingStepsLeft 99": [
+  "99",
+  "99"
+ ],
+ "leaderboard general 99.95": "99.95 ימים",
+ "leaderboard steps 99.95": "99.95 צעדים",
+ "leaderboard distance 99.95": "100 ק״מ",
+ "leaderboard running 99.95": "99.95 נק' ריצה",
+ "leaderboard strength 99.95": "99.95 נק' כוח",
+ "leaderboard other 99.95": "99.95",
+ "leaderboard pace 99.95": "1:40 /ק״מ",
+ "leagueKm 99.95": "100",
+ "hubKm 99.95": "100",
+ "hubCount 99.95": "100",
+ "hubMinutes 99.95": {
+  "value": "100",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 99.95": "קצב מהיר · 30 דק׳ · ~99.95 צעדים",
+ "walkHint 99.95": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 99.95": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 99.95": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 100 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 100 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 100 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 100 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 9,995"
+   }
+  ],
+  "minutes": 220,
+  "missed": "220 דק׳ פעילות · 9,995 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 99.95": "99.95",
+ "brandingStepsLeft 99.95": [
+  "99.95",
+  "99.95"
+ ],
+ "leaderboard general 100": "100 ימים",
+ "leaderboard steps 100": "100 צעדים",
+ "leaderboard distance 100": "100 ק״מ",
+ "leaderboard running 100": "100 נק' ריצה",
+ "leaderboard strength 100": "100 נק' כוח",
+ "leaderboard other 100": "100",
+ "leaderboard pace 100": "1:40 /ק״מ",
+ "leagueKm 100": "100",
+ "hubKm 100": "100",
+ "hubCount 100": "100",
+ "hubMinutes 100": {
+  "value": "100",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 100": "קצב מהיר · 30 דק׳ · ~100 צעדים",
+ "walkHint 100": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 100": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 100": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 100 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 100 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 100 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 100 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 10,000"
+   }
+  ],
+  "minutes": 220,
+  "missed": "220 דק׳ פעילות · 10,000 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 100": "100",
+ "brandingStepsLeft 100": [
+  "100",
+  "100"
+ ],
+ "leaderboard general 999": "999 ימים",
+ "leaderboard steps 999": "999 צעדים",
+ "leaderboard distance 999": "999 ק״מ",
+ "leaderboard running 999": "999 נק' ריצה",
+ "leaderboard strength 999": "999 נק' כוח",
+ "leaderboard other 999": "999",
+ "leaderboard pace 999": "16:39 /ק״מ",
+ "leagueKm 999": "999",
+ "hubKm 999": "999",
+ "hubCount 999": "999",
+ "hubMinutes 999": {
+  "value": "16:39",
+  "unit": "שע׳"
+ },
+ "walkSubtitle 999": "קצב מהיר · 30 דק׳ · ~999 צעדים",
+ "walkHint 999": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 999": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 999": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 999 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 999 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 999 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 999 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 99,900"
+   }
+  ],
+  "minutes": 2018,
+  "missed": "2,018 דק׳ פעילות · 99,900 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 999": "999",
+ "brandingStepsLeft 999": [
+  "999",
+  "999"
+ ],
+ "leaderboard general 1000": "1000 ימים",
+ "leaderboard steps 1000": "1,000 צעדים",
+ "leaderboard distance 1000": "1,000 ק״מ",
+ "leaderboard running 1000": "1,000 נק' ריצה",
+ "leaderboard strength 1000": "1,000 נק' כוח",
+ "leaderboard other 1000": "1,000",
+ "leaderboard pace 1000": "16:40 /ק״מ",
+ "leagueKm 1000": "1,000",
+ "hubKm 1000": "1,000",
+ "hubCount 1000": "1,000",
+ "hubMinutes 1000": {
+  "value": "16:40",
+  "unit": "שע׳"
+ },
+ "walkSubtitle 1000": "קצב מהיר · 30 דק׳ · ~1,000 צעדים",
+ "walkHint 1000": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 1000": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 1000": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 1,000 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 1,000 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 1,000 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 1,000 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 100,000"
+   }
+  ],
+  "minutes": 2020,
+  "missed": "2,020 דק׳ פעילות · 100,000 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 1000": "1,000",
+ "brandingStepsLeft 1000": [
+  "1,000",
+  "1,000"
+ ],
+ "leaderboard general 1234": "1234 ימים",
+ "leaderboard steps 1234": "1,234 צעדים",
+ "leaderboard distance 1234": "1,234 ק״מ",
+ "leaderboard running 1234": "1,234 נק' ריצה",
+ "leaderboard strength 1234": "1,234 נק' כוח",
+ "leaderboard other 1234": "1,234",
+ "leaderboard pace 1234": "20:34 /ק״מ",
+ "leagueKm 1234": "1,234",
+ "hubKm 1234": "1,234",
+ "hubCount 1234": "1,234",
+ "hubMinutes 1234": {
+  "value": "20:34",
+  "unit": "שע׳"
+ },
+ "walkSubtitle 1234": "קצב מהיר · 30 דק׳ · ~1,234 צעדים",
+ "walkHint 1234": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 1234": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 1234": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 1,234 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 1,234 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 1,234 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 1,234 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 123,400"
+   }
+  ],
+  "minutes": 2488,
+  "missed": "2,488 דק׳ פעילות · 123,400 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 1234": "1,234",
+ "brandingStepsLeft 1234": [
+  "1,234",
+  "1,234"
+ ],
+ "leaderboard general 12345.6": "12345.6 ימים",
+ "leaderboard steps 12345.6": "12,345.6 צעדים",
+ "leaderboard distance 12345.6": "12,345.6 ק״מ",
+ "leaderboard running 12345.6": "12,345.6 נק' ריצה",
+ "leaderboard strength 12345.6": "12,345.6 נק' כוח",
+ "leaderboard other 12345.6": "12,345.6",
+ "leaderboard pace 12345.6": "205:46 /ק״מ",
+ "leagueKm 12345.6": "12,346",
+ "hubKm 12345.6": "12,345.6",
+ "hubCount 12345.6": "12,346",
+ "hubMinutes 12345.6": {
+  "value": "205:46",
+  "unit": "שע׳"
+ },
+ "walkSubtitle 12345.6": "קצב מהיר · 30 דק׳ · ~12,345.6 צעדים",
+ "walkHint 12345.6": null,
+ "walkHint2 12345.6": null,
+ "consistencyDay 12345.6": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 12,346 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 12,345.6 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 12,346 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 12,346 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 1,234,560"
+   }
+  ],
+  "minutes": 24711,
+  "missed": "24,711 דק׳ פעילות · 1,234,560 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 12345.6": "12,345.6",
+ "brandingStepsLeft 12345.6": [
+  "12,345.6",
+  "12,345.6"
+ ],
+ "leaderboard general -1234.5": "-1234.5 ימים",
+ "leaderboard steps -1234.5": "‎-1,234.5 צעדים",
+ "leaderboard distance -1234.5": "‎-1,234.5 ק״מ",
+ "leaderboard running -1234.5": "‎-1,234.5 נק' ריצה",
+ "leaderboard strength -1234.5": "‎-1,234.5 נק' כוח",
+ "leaderboard other -1234.5": "‎-1,234.5",
+ "leaderboard pace -1234.5": "—",
+ "leagueKm -1234.5": "0",
+ "hubKm -1234.5": "‎-1,234.5",
+ "hubCount -1234.5": "‎-1,234",
+ "hubMinutes -1234.5": {
+  "value": "0",
+  "unit": "דק׳"
+ },
+ "walkSubtitle -1234.5": "קצב מהיר · 30 דק׳ · ~‎-1,234.5 צעדים",
+ "walkHint -1234.5": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 -1234.5": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay -1234.5": {
+  "reasons": [],
+  "minutes": -1234,
+  "missed": "‎-1,234 דק׳ פעילות · ‎-123,450 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake -1234.5": "‎-1,234.5",
+ "brandingStepsLeft -1234.5": [
+  "‎-1,234.5",
+  "‎-1,234.5"
+ ],
+ "leaderboard general 0.04": "0.04 ימים",
+ "leaderboard steps 0.04": "0.04 צעדים",
+ "leaderboard distance 0.04": "0 ק״מ",
+ "leaderboard running 0.04": "0.04 נק' ריצה",
+ "leaderboard strength 0.04": "0.04 נק' כוח",
+ "leaderboard other 0.04": "0.04",
+ "leaderboard pace 0.04": "0:00 /ק״מ",
+ "leagueKm 0.04": "0",
+ "hubKm 0.04": "0",
+ "hubCount 0.04": "0",
+ "hubMinutes 0.04": {
+  "value": "0",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 0.04": "קצב מהיר · 30 דק׳ · ~0.04 צעדים",
+ "walkHint 0.04": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 0.04": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 0.04": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 0 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 0 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 0 דק׳"
+   }
+  ],
+  "minutes": 20,
+  "missed": "20 דק׳ פעילות · 4 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 0.04": "0.04",
+ "brandingStepsLeft 0.04": [
+  "0.04",
+  "0.04"
+ ],
+ "leaderboard general 0.4": "0.4 ימים",
+ "leaderboard steps 0.4": "0.4 צעדים",
+ "leaderboard distance 0.4": "0.4 ק״מ",
+ "leaderboard running 0.4": "0.4 נק' ריצה",
+ "leaderboard strength 0.4": "0.4 נק' כוח",
+ "leaderboard other 0.4": "0.4",
+ "leaderboard pace 0.4": "0:00 /ק״מ",
+ "leagueKm 0.4": "0.4",
+ "hubKm 0.4": "0.4",
+ "hubCount 0.4": "0",
+ "hubMinutes 0.4": {
+  "value": "0",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 0.4": "קצב מהיר · 30 דק׳ · ~0.4 צעדים",
+ "walkHint 0.4": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 0.4": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 0.4": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 0 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 0.4 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 0 דק׳"
+   }
+  ],
+  "minutes": 21,
+  "missed": "21 דק׳ פעילות · 40 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 0.4": "0.4",
+ "brandingStepsLeft 0.4": [
+  "0.4",
+  "0.4"
+ ],
+ "leaderboard general 12.34": "12.34 ימים",
+ "leaderboard steps 12.34": "12.34 צעדים",
+ "leaderboard distance 12.34": "12.3 ק״מ",
+ "leaderboard running 12.34": "12.34 נק' ריצה",
+ "leaderboard strength 12.34": "12.34 נק' כוח",
+ "leaderboard other 12.34": "12.34",
+ "leaderboard pace 12.34": "0:12 /ק״מ",
+ "leagueKm 12.34": "12.3",
+ "hubKm 12.34": "12.3",
+ "hubCount 12.34": "12",
+ "hubMinutes 12.34": {
+  "value": "12",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 12.34": "קצב מהיר · 30 דק׳ · ~12.34 צעדים",
+ "walkHint 12.34": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 12.34": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 12.34": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 12 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 12.3 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 12 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 12 דק׳"
+   }
+  ],
+  "minutes": 45,
+  "missed": "45 דק׳ פעילות · 1,234 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 12.34": "12.34",
+ "brandingStepsLeft 12.34": [
+  "12.34",
+  "12.34"
+ ],
+ "leaderboard general 59.99": "59.99 ימים",
+ "leaderboard steps 59.99": "59.99 צעדים",
+ "leaderboard distance 59.99": "60 ק״מ",
+ "leaderboard running 59.99": "59.99 נק' ריצה",
+ "leaderboard strength 59.99": "59.99 נק' כוח",
+ "leaderboard other 59.99": "59.99",
+ "leaderboard pace 59.99": "0:60 /ק״מ",
+ "leagueKm 59.99": "60",
+ "hubKm 59.99": "60",
+ "hubCount 59.99": "60",
+ "hubMinutes 59.99": {
+  "value": "60",
+  "unit": "דק׳"
+ },
+ "walkSubtitle 59.99": "קצב מהיר · 30 דק׳ · ~59.99 צעדים",
+ "walkHint 59.99": "ההליכה של היום תוסיף ~3,300 צעדים",
+ "walkHint2 59.99": "ההליכה של היום תוסיף ~1,000 צעדים",
+ "consistencyDay 59.99": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 60 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 60 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 60 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 60 דק׳"
+   }
+  ],
+  "minutes": 140,
+  "missed": "140 דק׳ פעילות · 5,999 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 59.99": "59.99",
+ "brandingStepsLeft 59.99": [
+  "59.99",
+  "59.99"
+ ],
+ "leaderboard general 1000000": "1000000 ימים",
+ "leaderboard steps 1000000": "1,000,000 צעדים",
+ "leaderboard distance 1000000": "1,000,000 ק״מ",
+ "leaderboard running 1000000": "1,000,000 נק' ריצה",
+ "leaderboard strength 1000000": "1,000,000 נק' כוח",
+ "leaderboard other 1000000": "1,000,000",
+ "leaderboard pace 1000000": "16666:40 /ק״מ",
+ "leagueKm 1000000": "1,000,000",
+ "hubKm 1000000": "1,000,000",
+ "hubCount 1000000": "1,000,000",
+ "hubMinutes 1000000": {
+  "value": "16666:40",
+  "unit": "שע׳"
+ },
+ "walkSubtitle 1000000": "קצב מהיר · 30 דק׳ · ~1,000,000 צעדים",
+ "walkHint 1000000": null,
+ "walkHint2 1000000": null,
+ "consistencyDay 1000000": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 1,000,000 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 1,000,000 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 1,000,000 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 1,000,000 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 100,000,000"
+   }
+  ],
+  "minutes": 2000020,
+  "missed": "2,000,020 דק׳ פעילות · 100,000,000 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 1000000": "1,000,000",
+ "brandingStepsLeft 1000000": [
+  "1,000,000",
+  "1,000,000"
+ ],
+ "leaderboard general 1234567.89": "1234567.89 ימים",
+ "leaderboard steps 1234567.89": "1,234,567.89 צעדים",
+ "leaderboard distance 1234567.89": "1,234,567.9 ק״מ",
+ "leaderboard running 1234567.89": "1,234,567.89 נק' ריצה",
+ "leaderboard strength 1234567.89": "1,234,567.89 נק' כוח",
+ "leaderboard other 1234567.89": "1,234,567.89",
+ "leaderboard pace 1234567.89": "20576:08 /ק״מ",
+ "leagueKm 1234567.89": "1,234,568",
+ "hubKm 1234567.89": "1,234,567.9",
+ "hubCount 1234567.89": "1,234,568",
+ "hubMinutes 1234567.89": {
+  "value": "20576:08",
+  "unit": "שע׳"
+ },
+ "walkSubtitle 1234567.89": "קצב מהיר · 30 דק׳ · ~1,234,567.89 צעדים",
+ "walkHint 1234567.89": null,
+ "walkHint2 1234567.89": null,
+ "consistencyDay 1234567.89": {
+  "reasons": [
+   {
+    "reason": "strength",
+    "text": "כוח · 1,234,568 דק׳"
+   },
+   {
+    "reason": "run",
+    "text": "ריצה · 1,234,567.9 ק״מ"
+   },
+   {
+    "reason": "walk",
+    "text": "הליכה · 1,234,568 דק׳"
+   },
+   {
+    "reason": "recovery",
+    "text": "התאוששות · 1,234,568 דק׳"
+   },
+   {
+    "reason": "steps",
+    "text": "יעד צעדים · 123,456,789"
+   }
+  ],
+  "minutes": 2469156,
+  "missed": "2,469,156 דק׳ פעילות · 123,456,789 מתוך 8,000 צעדים"
+ },
+ "brandingOvertake 1234567.89": "1,234,567.89",
+ "brandingStepsLeft 1234567.89": [
+  "1,234,567.89",
+  "1,234,567.89"
+ ],
+ "leagueKm null": "0",
+ "leagueKm NaN": "0",
+ "leaderboard NaN": "NaN צעדים",
+ "brandingOvertake none": "כמה",
+ "parkFormatDate 2026-01-01T00:00:00": "1 בינו׳",
+ "parkFormatDate str 2026-01-01T00:00:00": "1 בינו׳",
+ "parkFormatDate ts 2026-01-01T00:00:00": "1 בינו׳",
+ "dateHe 2026-01-01T00:00:00": "01.01.2026",
+ "dateTimeHe 2026-01-01T00:00:00": "01.01.2026, 00:00",
+ "sessionRow 2026-01-01T00:00:00": "יום ה׳ 00:00",
+ "sessionDateGroup 2026-01-01T00:00:00": "יום חמישי ב-19:00",
+ "hubMonth 2026-01-01T00:00:00": [
+  "ינואר",
+  "ינו׳",
+  "1–7 בינו׳",
+  "1 בינו׳",
+  "1 בינו׳"
+ ],
+ "parkFormatDate 2026-01-31T23:59:59": "31 בינו׳",
+ "parkFormatDate str 2026-01-31T23:59:59": "31 בינו׳",
+ "parkFormatDate ts 2026-01-31T23:59:59": "31 בינו׳",
+ "dateHe 2026-01-31T23:59:59": "31.01.2026",
+ "dateTimeHe 2026-01-31T23:59:59": "31.01.2026, 23:59",
+ "sessionRow 2026-01-31T23:59:59": "שבת 23:59",
+ "sessionDateGroup 2026-01-31T23:59:59": "יום שבת ב-19:00",
+ "hubMonth 2026-01-31T23:59:59": [
+  "ינואר",
+  "ינו׳",
+  "31 בינו׳–6 בפבר׳",
+  "31 בינו׳",
+  "31 בינו׳"
+ ],
+ "parkFormatDate 2026-02-28T12:00:00": "28 בפבר׳",
+ "parkFormatDate str 2026-02-28T12:00:00": "28 בפבר׳",
+ "parkFormatDate ts 2026-02-28T12:00:00": "28 בפבר׳",
+ "dateHe 2026-02-28T12:00:00": "28.02.2026",
+ "dateTimeHe 2026-02-28T12:00:00": "28.02.2026, 12:00",
+ "sessionRow 2026-02-28T12:00:00": "שבת 12:00",
+ "sessionDateGroup 2026-02-28T12:00:00": "יום שבת ב-19:00",
+ "hubMonth 2026-02-28T12:00:00": [
+  "פברואר",
+  "פבר׳",
+  "28 בפבר׳–6 במרץ",
+  "28 בפבר׳",
+  "28 בפבר׳"
+ ],
+ "parkFormatDate 2025-12-31T23:59:59": "31 בדצמ׳",
+ "parkFormatDate str 2025-12-31T23:59:59": "31 בדצמ׳",
+ "parkFormatDate ts 2025-12-31T23:59:59": "31 בדצמ׳",
+ "dateHe 2025-12-31T23:59:59": "31.12.2025",
+ "dateTimeHe 2025-12-31T23:59:59": "31.12.2025, 23:59",
+ "sessionRow 2025-12-31T23:59:59": "יום ד׳ 23:59",
+ "sessionDateGroup 2025-12-31T23:59:59": "יום רביעי ב-19:00",
+ "hubMonth 2025-12-31T23:59:59": [
+  "דצמבר",
+  "דצמ׳",
+  "31 בדצמ׳–6 בינו׳",
+  "31 בדצמ׳",
+  "31 בדצמ׳"
+ ],
+ "parkFormatDate 2026-03-27T09:05:00": "27 במרץ",
+ "parkFormatDate str 2026-03-27T09:05:00": "27 במרץ",
+ "parkFormatDate ts 2026-03-27T09:05:00": "27 במרץ",
+ "dateHe 2026-03-27T09:05:00": "27.03.2026",
+ "dateTimeHe 2026-03-27T09:05:00": "27.03.2026, 09:05",
+ "sessionRow 2026-03-27T09:05:00": "יום ו׳ 09:05",
+ "sessionDateGroup 2026-03-27T09:05:00": "יום שישי ב-19:00",
+ "hubMonth 2026-03-27T09:05:00": [
+  "מרץ",
+  "מרץ",
+  "27 במרץ–2 באפר׳",
+  "27 במרץ",
+  "27 במרץ"
+ ],
+ "parkFormatDate 2026-10-23T21:30:00": "23 באוק׳",
+ "parkFormatDate str 2026-10-23T21:30:00": "23 באוק׳",
+ "parkFormatDate ts 2026-10-23T21:30:00": "23 באוק׳",
+ "dateHe 2026-10-23T21:30:00": "23.10.2026",
+ "dateTimeHe 2026-10-23T21:30:00": "23.10.2026, 21:30",
+ "sessionRow 2026-10-23T21:30:00": "יום ו׳ 21:30",
+ "sessionDateGroup 2026-10-23T21:30:00": "יום שישי ב-19:00",
+ "hubMonth 2026-10-23T21:30:00": [
+  "אוקטובר",
+  "אוק׳",
+  "23–29 באוק׳",
+  "אתמול",
+  "23 באוק׳"
+ ],
+ "parkFormatDate 2026-10-24T08:00:00": "24 באוק׳",
+ "parkFormatDate str 2026-10-24T08:00:00": "24 באוק׳",
+ "parkFormatDate ts 2026-10-24T08:00:00": "24 באוק׳",
+ "dateHe 2026-10-24T08:00:00": "24.10.2026",
+ "dateTimeHe 2026-10-24T08:00:00": "24.10.2026, 08:00",
+ "sessionRow 2026-10-24T08:00:00": "08:00",
+ "sessionDateGroup 2026-10-24T08:00:00": "היום ב-19:00",
+ "hubMonth 2026-10-24T08:00:00": [
+  "אוקטובר",
+  "אוק׳",
+  "24–30 באוק׳",
+  "היום",
+  "24 באוק׳"
+ ],
+ "parkFormatDate 2026-10-25T00:00:00": "25 באוק׳",
+ "parkFormatDate str 2026-10-25T00:00:00": "25 באוק׳",
+ "parkFormatDate ts 2026-10-25T00:00:00": "25 באוק׳",
+ "dateHe 2026-10-25T00:00:00": "25.10.2026",
+ "dateTimeHe 2026-10-25T00:00:00": "25.10.2026, 00:00",
+ "sessionRow 2026-10-25T00:00:00": "מחר 00:00",
+ "sessionDateGroup 2026-10-25T00:00:00": "מחר ב-19:00",
+ "hubMonth 2026-10-25T00:00:00": [
+  "אוקטובר",
+  "אוק׳",
+  "25–30 באוק׳",
+  "היום",
+  "25 באוק׳"
+ ],
+ "parkFormatDate 2026-10-25T01:30:00": "25 באוק׳",
+ "parkFormatDate str 2026-10-25T01:30:00": "25 באוק׳",
+ "parkFormatDate ts 2026-10-25T01:30:00": "25 באוק׳",
+ "dateHe 2026-10-25T01:30:00": "25.10.2026",
+ "dateTimeHe 2026-10-25T01:30:00": "25.10.2026, 01:30",
+ "sessionRow 2026-10-25T01:30:00": "מחר 01:30",
+ "sessionDateGroup 2026-10-25T01:30:00": "מחר ב-19:00",
+ "hubMonth 2026-10-25T01:30:00": [
+  "אוקטובר",
+  "אוק׳",
+  "25–31 באוק׳",
+  "היום",
+  "25 באוק׳"
+ ],
+ "parkFormatDate 2026-10-25T23:59:00": "25 באוק׳",
+ "parkFormatDate str 2026-10-25T23:59:00": "25 באוק׳",
+ "parkFormatDate ts 2026-10-25T23:59:00": "25 באוק׳",
+ "dateHe 2026-10-25T23:59:00": "25.10.2026",
+ "dateTimeHe 2026-10-25T23:59:00": "25.10.2026, 23:59",
+ "sessionRow 2026-10-25T23:59:00": "מחר 23:59",
+ "sessionDateGroup 2026-10-25T23:59:00": "מחר ב-19:00",
+ "hubMonth 2026-10-25T23:59:00": [
+  "אוקטובר",
+  "אוק׳",
+  "25–31 באוק׳",
+  "היום",
+  "25 באוק׳"
+ ],
+ "parkFormatDate 2026-10-26T00:00:00": "26 באוק׳",
+ "parkFormatDate str 2026-10-26T00:00:00": "26 באוק׳",
+ "parkFormatDate ts 2026-10-26T00:00:00": "26 באוק׳",
+ "dateHe 2026-10-26T00:00:00": "26.10.2026",
+ "dateTimeHe 2026-10-26T00:00:00": "26.10.2026, 00:00",
+ "sessionRow 2026-10-26T00:00:00": "יום ב׳ 00:00",
+ "sessionDateGroup 2026-10-26T00:00:00": "יום שני ב-19:00",
+ "hubMonth 2026-10-26T00:00:00": [
+  "אוקטובר",
+  "אוק׳",
+  "26 באוק׳–1 בנוב׳",
+  "היום",
+  "26 באוק׳"
+ ],
+ "parkFormatDate 2026-12-31T23:59:59": "31 בדצמ׳",
+ "parkFormatDate str 2026-12-31T23:59:59": "31 בדצמ׳",
+ "parkFormatDate ts 2026-12-31T23:59:59": "31 בדצמ׳",
+ "dateHe 2026-12-31T23:59:59": "31.12.2026",
+ "dateTimeHe 2026-12-31T23:59:59": "31.12.2026, 23:59",
+ "sessionRow 2026-12-31T23:59:59": "יום ה׳ 23:59",
+ "sessionDateGroup 2026-12-31T23:59:59": "יום חמישי ב-19:00",
+ "hubMonth 2026-12-31T23:59:59": [
+  "דצמבר",
+  "דצמ׳",
+  "31 בדצמ׳–6 בינו׳",
+  "היום",
+  "31 בדצמ׳"
+ ],
+ "parkFormatDate 2027-01-01T00:00:00": "1 בינו׳",
+ "parkFormatDate str 2027-01-01T00:00:00": "1 בינו׳",
+ "parkFormatDate ts 2027-01-01T00:00:00": "1 בינו׳",
+ "dateHe 2027-01-01T00:00:00": "01.01.2027",
+ "dateTimeHe 2027-01-01T00:00:00": "01.01.2027, 00:00",
+ "sessionRow 2027-01-01T00:00:00": "יום ו׳ 00:00",
+ "sessionDateGroup 2027-01-01T00:00:00": "יום שישי ב-19:00",
+ "hubMonth 2027-01-01T00:00:00": [
+  "ינואר",
+  "ינו׳",
+  "1–7 בינו׳",
+  "היום",
+  "1 בינו׳"
+ ],
+ "parkFormatDate bad ": "",
+ "sessionRow bad ": "",
+ "parkFormatDate bad null": "",
+ "sessionRow bad null": "יום ה׳ 02:00",
+ "parkFormatDate bad undefined": "",
+ "sessionRow bad undefined": "",
+ "parkFormatDate bad garbage": "Invalid Date",
+ "sessionRow bad garbage": "",
+ "parkFormatDate bad NaN": "",
+ "sessionRow bad NaN": "",
+ "dateHe invalid": "N/A",
+ "dateHe null": "N/A"
+}
