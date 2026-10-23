@@ -11,6 +11,7 @@ import {
   isNearParkOrRoute,
   routeSuggestionFromSlots,
   shouldOpenWhatNow,
+  shouldSuppressWelcomeDrawer,
   starterChipsFor,
   WHATNOW_KELLY_CHIPS,
   WHATNOW_KELLY_URL,
@@ -200,5 +201,25 @@ describe('first-route tutorial + player tip (extends first-run-tour, no fork)', 
     expect(src('../../../../parks/core/components/hybrid/HybridSlotCarousel.tsx')).toContain("'route-start'");
     expect(src('../../../../parks/core/components/AppMap.tsx')).toContain("'route-strength-stop'");
     expect(src('../../../../workout-engine/players/running/components/Continuous/v2/ContinuousRunCardV2.tsx')).toContain('data-coach="route-player-controls"');
+  });
+});
+
+describe('single choice (enable_entry_single_choice_v1)', () => {
+  it('flag off never suppresses', () => {
+    expect(shouldSuppressWelcomeDrawer({ enabled: false, seenValue: 'route' })).toBe(false);
+    expect(shouldSuppressWelcomeDrawer({ enabled: false, seenValue: undefined })).toBe(false);
+  });
+  it('answered or dismissed on the map -> no home drawer', () => {
+    expect(shouldSuppressWelcomeDrawer({ enabled: true, seenValue: 'plan' })).toBe(true);
+    expect(shouldSuppressWelcomeDrawer({ enabled: true, seenValue: 'dismiss' })).toBe(true);
+  });
+  it('still reading holds it back; never answered shows it', () => {
+    expect(shouldSuppressWelcomeDrawer({ enabled: true, seenValue: undefined })).toBe(true);
+    expect(shouldSuppressWelcomeDrawer({ enabled: true, seenValue: null })).toBe(false);
+  });
+  it('home page wires the suppression into the WelcomeDrawer mount', () => {
+    const page = src('../../../../../app/home/page.tsx');
+    expect(page).toContain('!welcomeSuppressedByMap');
+    expect(page).toContain('featureFlags.enableEntrySingleChoiceV1');
   });
 });
