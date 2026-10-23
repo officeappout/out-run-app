@@ -1,0 +1,294 @@
+{
+ "post_workout": [
+  {
+   "id": "default-pw-1",
+   "type": "post_workout",
+   "text": "כל הכבוד!",
+   "subText": "סיימת את האימון בהצלחה",
+   "priority": 5,
+   "isActive": true
+  },
+  {
+   "id": "default-pw-2",
+   "type": "post_workout",
+   "text": "מדהים!",
+   "subText": "עוד אימון בכיס",
+   "priority": 5,
+   "isActive": true
+  },
+  {
+   "id": "default-pw-3",
+   "type": "post_workout",
+   "text": "איזה אימון!",
+   "subText": "המשך כך",
+   "priority": 5,
+   "isActive": true,
+   "targetGender": "male"
+  },
+  {
+   "id": "default-pw-3f",
+   "type": "post_workout",
+   "text": "איזה אימון!",
+   "subText": "המשיכי כך",
+   "priority": 5,
+   "isActive": true,
+   "targetGender": "female"
+  },
+  {
+   "id": "default-pw-4",
+   "type": "post_workout",
+   "text": "סיימת!",
+   "subText": "הגוף שלך מודה לך",
+   "priority": 5,
+   "isActive": true
+  },
+  {
+   "id": "default-pw-5",
+   "type": "post_workout",
+   "text": "אלוף!",
+   "subText": "עוד צעד קדימה",
+   "priority": 5,
+   "isActive": true,
+   "targetGender": "male"
+  },
+  {
+   "id": "default-pw-5f",
+   "type": "post_workout",
+   "text": "אלופה!",
+   "subText": "עוד צעד קדימה",
+   "priority": 5,
+   "isActive": true,
+   "targetGender": "female"
+  }
+ ],
+ "partial_workout": [
+  {
+   "id": "default-part-1",
+   "type": "partial_workout",
+   "text": "גם זה משהו!",
+   "subText": "כל תנועה חשובה",
+   "priority": 5,
+   "isActive": true
+  },
+  {
+   "id": "default-part-2",
+   "type": "partial_workout",
+   "text": "התחלה טובה!",
+   "subText": "בפעם הבאה נשלים",
+   "priority": 5,
+   "isActive": true
+  },
+  {
+   "id": "default-part-3",
+   "type": "partial_workout",
+   "text": "לא נורא!",
+   "subText": "העיקר שזז",
+   "priority": 4,
+   "isActive": true
+  }
+ ],
+ "re_engagement": [
+  {
+   "id": "default-re-1",
+   "type": "re_engagement",
+   "text": "כיף לראות אותך!",
+   "subText": "בוא נתחיל בקטנה",
+   "priority": 5,
+   "isActive": true,
+   "targetGender": "male"
+  },
+  {
+   "id": "default-re-1f",
+   "type": "re_engagement",
+   "text": "כיף לראות אותך!",
+   "subText": "בואי נתחיל בקטנה",
+   "priority": 5,
+   "isActive": true,
+   "targetGender": "female"
+  },
+  {
+   "id": "default-re-2",
+   "type": "re_engagement",
+   "text": "טוב שחזרת",
+   "subText": "מוכן לאימון קליל?",
+   "priority": 5,
+   "isActive": true,
+   "targetGender": "male"
+  },
+  {
+   "id": "default-re-2f",
+   "type": "re_engagement",
+   "text": "טוב שחזרת",
+   "subText": "מוכנה לאימון קליל?",
+   "priority": 5,
+   "isActive": true,
+   "targetGender": "female"
+  },
+  {
+   "id": "default-re-3",
+   "type": "re_engagement",
+   "text": "שבוע חדש מתחיל היום",
+   "subText": "אימון קליל להיום",
+   "priority": 6,
+   "isActive": true
+  },
+  {
+   "id": "default-re-4",
+   "type": "re_engagement",
+   "text": "חוזרים בקטנה",
+   "subText": "גם קצת זה מספיק להיום",
+   "priority": 4,
+   "isActive": true
+  }
+ ],
+ "pr_record": [
+  {
+   "id": "default-pr-1",
+   "type": "pr_record",
+   "text": "שיא חדש! 🏆",
+   "subText": "שברת את עצמך",
+   "priority": 10,
+   "isActive": true
+  },
+  {
+   "id": "default-pr-2",
+   "type": "pr_record",
+   "text": "וואו!",
+   "subText": "שיא אישי חדש!",
+   "priority": 10,
+   "isActive": true
+  },
+  {
+   "id": "default-pr-3",
+   "type": "pr_record",
+   "text": "מטורף!",
+   "subText": "הרמת את הרף",
+   "priority": 10,
+   "isActive": true
+  }
+ ],
+ "streak_milestone": [
+  {
+   "id": "default-sm-1",
+   "type": "streak_milestone",
+   "text": "רצף מדהים!",
+   "subText": "ההתמדה משתלמת",
+   "priority": 8,
+   "isActive": true
+  },
+  {
+   "id": "default-sm-2",
+   "type": "streak_milestone",
+   "text": "על גל!",
+   "subText": "תמשיך ככה",
+   "priority": 8,
+   "isActive": true
+  }
+ ],
+ "level_up": [
+  {
+   "id": "default-lu-1",
+   "type": "level_up",
+   "text": "עלית רמה! 🎉",
+   "subText": "ההתקדמות ניכרת",
+   "priority": 10,
+   "isActive": true
+  },
+  {
+   "id": "default-lu-2",
+   "type": "level_up",
+   "text": "כבוד!",
+   "subText": "רמה חדשה נפתחה",
+   "priority": 10,
+   "isActive": true
+  }
+ ],
+ "first_workout": [
+  {
+   "id": "default-fw-1",
+   "type": "first_workout",
+   "text": "צעד ראשון!",
+   "subText": "ברוכים הבאים למסע",
+   "priority": 10,
+   "isActive": true
+  },
+  {
+   "id": "default-fw-2",
+   "type": "first_workout",
+   "text": "מתחילים!",
+   "subText": "האימון הראשון הוא הכי חשוב",
+   "priority": 10,
+   "isActive": true
+  }
+ ],
+ "community_session": [
+  {
+   "id": "default-cs-1",
+   "type": "community_session",
+   "text": "מפגש קהילתי היום!",
+   "subText": "אשר הגעה ובוא להתאמן עם הקהילה",
+   "priority": 8,
+   "isActive": true
+  },
+  {
+   "id": "default-cs-2",
+   "type": "community_session",
+   "text": "מחכים לך!",
+   "subText": "יש לך מפגש קהילתי בקרוב",
+   "priority": 7,
+   "isActive": true
+  },
+  {
+   "id": "default-cs-3",
+   "type": "community_session",
+   "text": "מפגש מחר!",
+   "subText": "אל תשכח לאשר הגעה",
+   "priority": 6,
+   "isActive": true
+  }
+ ],
+ "missed_workout": [
+  {
+   "id": "default-mw-1",
+   "type": "missed_workout",
+   "text": "האימון של אתמול עוד כאן",
+   "subText": "רוצה לעשות אותו היום?",
+   "priority": 7,
+   "isActive": true
+  },
+  {
+   "id": "default-mw-2",
+   "type": "missed_workout",
+   "text": "הכל בסדר",
+   "subText": "אם בא לך, אפשר להשלים היום",
+   "priority": 6,
+   "isActive": true
+  }
+ ],
+ "default": [
+  {
+   "id": "default-def-1",
+   "type": "default",
+   "text": "היי!",
+   "subText": "מוכן להתאמן?",
+   "priority": 5,
+   "isActive": true
+  },
+  {
+   "id": "default-def-2",
+   "type": "default",
+   "text": "מה קורה?",
+   "subText": "בוא נזוז",
+   "priority": 5,
+   "isActive": true
+  },
+  {
+   "id": "default-def-3",
+   "type": "default",
+   "text": "שלום!",
+   "subText": "הגוף מחכה לך",
+   "priority": 4,
+   "isActive": true
+  }
+ ]
+}
