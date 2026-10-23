@@ -509,3 +509,7 @@ src/features/schedule/engine-v2/diff.ts
 src/features/schedule/engine/scheduleRules.ts
 src/features/schedule/components/ScheduleBuilderDrawer.tsx
 src/features/schedule/components/ScheduleBuilderSheetV2.tsx
+# wave 2B part 3 (namespace social, keys defaults.*) — MessageService's fallback smart messages (DEFAULT_MESSAGES /
+# buildDefaultMessages). The file's other Hebrew is marked: admin type labels and the INITIAL_SEED_DATA written to
+# Firestore / localStorage (stored data). Those defaults are what seedDefaultMessages writes, so they stay Hebrew.
+src/features/messages/services/MessageService.ts
