@@ -96,4 +96,29 @@ describe('TV stage (wide adapter)', () => {
     expect(html).toContain('482 913');
     expect(html).toContain('0:42');
   });
+  it('wide layout: the clip plays muted + looping, host tagged in the friends row, overflow counted, tabata chip', () => {
+    const m = mirrorReducer(
+      mirrorReducer(initialMirror(), { type: 'exercise', index: 0, count: 3, name: 'ברפי', setCount: 8, mode: 'tabata', media: { videoUrl: 'https://c.example.com/a.mp4', imageUrl: 'https://c.example.com/a.jpg' }, nextMedia: { imageUrl: 'https://c.example.com/n.jpg' }, next: 'קפיצות' }),
+      { type: 'phase', phase: 'work', timer: { dir: 'down', baseMs: 20_000, running: true, totalMs: 20_000 } },
+    );
+    const many: TvParticipant[] = Array.from({ length: 14 }, (_, i) => ({ uid: i === 0 ? 'noa' : `u${i}`, name: `p${i}`, joinedAtMs: i, avatar: i % 8, state: 'active' as const, seq: 0 }));
+    const html = renderToStaticMarkup(<TvStageAdapter model={buildStageModel({ mirror: m, timerAnchorAtMs: 0, serverNowMs: 0, friends: many, hostUid: 'noa' })} audio={{ volume: 1, muted: false }} />);
+    expect(html).toContain('src="https://c.example.com/a.mp4"');
+    expect(html).toContain('muted');
+    expect(html).toContain('loop');
+    expect(html).toContain('data-wide-split');
+    expect(html).toContain('טבטה');
+    expect(html).toContain('https://c.example.com/n.jpg');
+    expect(html.match(/מארח</g)).toHaveLength(1);
+    expect(html).toContain('ועוד 2');
+  });
+  it('rest shows the next exercise clip; amrap shows the round, not a set count', () => {
+    const base = mirrorReducer(initialMirror(), { type: 'exercise', index: 0, count: 2, name: 'סקווט', setCount: 3, mode: 'amrap', media: { imageUrl: 'https://c.example.com/now.jpg' }, nextMedia: { imageUrl: 'https://c.example.com/next.jpg' } });
+    const rest = mirrorReducer(base, { type: 'phase', phase: 'rest', timer: { dir: 'down', baseMs: 10_000, running: true, totalMs: 10_000 } });
+    expect(renderToStaticMarkup(<TvStageAdapter model={buildStageModel({ mirror: rest, timerAnchorAtMs: 0, serverNowMs: 0, friends: [] })} />)).toContain('next.jpg');
+    const work = mirrorReducer(base, { type: 'phase', phase: 'work', timer: { dir: 'down', baseMs: 10_000, running: true, totalMs: 10_000 } });
+    const html = renderToStaticMarkup(<TvStageAdapter model={buildStageModel({ mirror: work, timerAnchorAtMs: 0, serverNowMs: 0, friends: [] })} />);
+    expect(html).toContain('סבב 1');
+    expect(html).not.toContain('סט 1 מתוך');
+  });
 });

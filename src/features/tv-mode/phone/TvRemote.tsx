@@ -97,9 +97,13 @@ export default function TvRemote({
       </div>
 
       <div className="mt-[22px] flex items-end justify-between px-7">
-        <button type="button" aria-label={t('remote.prev')} className={`${ROUND} h-[60px] w-[60px]`} onClick={controls.prev}>
-          <ChevronLeft size={24} aria-hidden="true" />
-        </button>
+        {controls.prev ? (
+          <button type="button" aria-label={t('remote.prev')} className={`${ROUND} h-[60px] w-[60px]`} onClick={controls.prev}>
+            <ChevronLeft size={24} aria-hidden="true" />
+          </button>
+        ) : (
+          <span className="h-[60px] w-[60px]" aria-hidden="true" />
+        )}
         <button
           type="button"
           aria-label={mirror.paused ? t('remote.resume') : t('remote.pause')}
@@ -113,16 +117,18 @@ export default function TvRemote({
         </button>
       </div>
       <div className="mt-1.5 flex justify-between px-7 text-[12px] font-extrabold text-[#475569]" aria-hidden="true">
-        <span className="w-[60px] text-center">{t('remote.prev')}</span>
+        <span className="w-[60px] text-center">{controls.prev ? t('remote.prev') : ''}</span>
         <span>{mirror.paused ? t('remote.resume') : t('remote.pause')}</span>
         <span className="w-[60px] text-center">{t('remote.next')}</span>
       </div>
 
-      <div className="mt-3 flex justify-center">
-        <button type="button" className={`${SECONDARY_BTN} !w-auto min-h-[44px] !text-[14px] text-[#0284c7]`} onClick={controls.skipExercise}>
-          {t('remote.skip')}
-        </button>
-      </div>
+      {controls.skipExercise && (
+        <div className="mt-3 flex justify-center">
+          <button type="button" className={`${SECONDARY_BTN} !w-auto min-h-[44px] !text-[14px] text-[#0284c7]`} onClick={controls.skipExercise}>
+            {t('remote.skip')}
+          </button>
+        </div>
+      )}
 
       <div className="mx-4 mt-[18px] flex items-center gap-3 rounded-[20px] bg-white px-4 py-3.5 shadow-[0_0_0_1px_rgba(14,27,42,0.08)]">
         <button

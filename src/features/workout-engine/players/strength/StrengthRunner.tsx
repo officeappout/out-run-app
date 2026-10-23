@@ -31,6 +31,7 @@
  */
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { WorkoutPlan } from '@/features/parks';
 
@@ -89,8 +90,12 @@ import GoalReachedChip from './components/GoalReachedChip';
 import type { GoalTargetLite } from './logic/goal-reached';
 import { useSwapFixesV1 } from './hooks/useSwapFixesV1';
 import { isSwapBlockedNow } from './logic/swap-fixes';
+import { reportCardClock } from './tv/card-clock';
 
 export type { ExerciseResultLog };
+
+// enable_tv_mode_v1: loaded only when the flag is on (renders nothing until a TV session is connected).
+const StrengthTvBridge = dynamic(() => import('./tv/StrengthTvBridge'), { ssr: false });
 
 const noop = () => {};
 
@@ -163,7 +168,10 @@ export default function StrengthRunner({
   // enable_home_v2 — read ONCE here (the player root) and provided to every player component
   // via StrengthPlayerV2Context. Styling only, EXCEPT the timed engine right below.
   const isSuperAdminV2 = useUserStore((s) => !!(s.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const playerV2 = useFeatureFlags(isSuperAdminV2).flags.enableHomeV2;
+  const playerFlags = useFeatureFlags(isSuperAdminV2).flags;
+  const playerV2 = playerFlags.enableHomeV2;
+  // enable_tv_mode_v1: same flags read, no extra subscription. Not inside a hybrid station.
+  const tvMode = playerFlags.enableTvModeV1 && !embedded;
   // enable_wide_player_v1: the container-based wide decision (landscape / tablet / desktop / TV).
   const rootRef = useRef<HTMLDivElement>(null);
   // Immersive (landscape-filmed clip on a landscape screen): header / story bars are hidden, set by ActiveExerciseView.
@@ -808,6 +816,7 @@ export default function StrengthRunner({
         onSetVideoProgress={sm.setVideoProgress}
         posterUrl={safeImageUrl ?? null}
         onImmersiveChange={setImmersive}
+        onClockState={tvMode ? reportCardClock : undefined}
         onMinimize={() => setIsMinimized(true)}
         nextUp={sm.nextExercise.name ? { name: sm.nextExercise.name, imageUrl: sm.nextExercise.imageUrl, caption: (sm.nextExercise.exerciseType === 'time' ? sm.nextExercise.duration : sm.nextExercise.reps) || null } : undefined}
         // PR-B2: the demo keeps looping behind the gate while the player is held paused, and the
@@ -852,6 +861,9 @@ export default function StrengthRunner({
           onHandBack={sm.completeExternalSegment}
         />
       )}
+
+      {/* enable_tv_mode_v1: publishes this player to a connected TV (renders nothing; not mounted with the flag off). */}
+      {tvMode && <StrengthTvBridge sm={sm} workout={workout} timed={timed} onSaveInput={handleBigScreenInputSave} />}
 
       {/* 3e: "goal reached" chip (inert unless goalTargets were passed). */}
       <GoalReachedChip reached={goalReached} />

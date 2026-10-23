@@ -1,4 +1,4 @@
-import type { TvMirror, TvPhase, TvTimer } from './types';
+import type { TvMedia, TvMirror, TvMode, TvPhase, TvTimer } from './types';
 
 /** A clock that is not counting anything. */
 export const NO_TIMER: TvTimer = { dir: 'none', baseMs: 0, running: false, totalMs: 0 };
@@ -43,7 +43,21 @@ export function timerChanged(prev: TvMirror | null, next: TvMirror): boolean {
 }
 
 export type MirrorEvent =
-  | { type: 'exercise'; index: number; count: number; name: string; id?: string; next?: string; setCount: number; repsMin?: number; repsMax?: number; holdSec?: number }
+  | {
+      type: 'exercise';
+      index: number;
+      count: number;
+      name: string;
+      id?: string;
+      next?: string;
+      setCount: number;
+      repsMin?: number;
+      repsMax?: number;
+      holdSec?: number;
+      media?: TvMedia;
+      nextMedia?: TvMedia;
+      mode?: TvMode;
+    }
   | { type: 'set'; setIndex: number }
   | { type: 'phase'; phase: TvPhase; timer: TvTimer }
   | { type: 'pause'; readingMs: number }
@@ -72,6 +86,9 @@ export function mirrorReducer(state: TvMirror, ev: MirrorEvent): TvMirror {
         repsMin: ev.repsMin,
         repsMax: ev.repsMax,
         holdSec: ev.holdSec,
+        media: ev.media,
+        nextMedia: ev.nextMedia,
+        mode: ev.mode,
         timer: NO_TIMER,
       });
     case 'set':

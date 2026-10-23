@@ -11,6 +11,21 @@ export type TvStatus = 'waiting' | 'lobby' | 'live' | 'ended';
 
 export type TvPhase = 'idle' | 'work' | 'rest' | 'done';
 
+/** What kind of block the host is running (the TV adapts the wording / layout). */
+export type TvMode = 'strength' | 'tabata' | 'emom' | 'amrap';
+
+/**
+ * Exercise media as PUBLIC https URLs. The TV has no account and (see firestore.rules tvSessions) can read
+ * only the session doc + participants, so media cannot be looked up from another collection: the host
+ * embeds the URLs it already uses.
+ */
+export interface TvMedia {
+  /** A muted, looping demo clip (mp4). */
+  videoUrl?: string;
+  /** Poster / still image. */
+  imageUrl?: string;
+}
+
 /** Pause-able clock. `anchorMs` (server clock) is the moment `baseMs` was true. */
 export interface TvTimer {
   dir: 'down' | 'up' | 'none';
@@ -33,6 +48,10 @@ export interface TvMirror {
   exerciseId?: string;
   exerciseName: string;
   nextExerciseName?: string;
+  /** Media of the exercise on screen / of the next one (public URLs, see TvMedia). */
+  media?: TvMedia;
+  nextMedia?: TvMedia;
+  mode?: TvMode;
   /** 1-based. */
   setIndex: number;
   setCount: number;

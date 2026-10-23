@@ -1,9 +1,12 @@
 import { TV_AVATAR_COUNT } from '../core/constants';
+import { tvSafeUrl } from '../core/media';
 import { NO_TIMER } from '../core/mirror';
 import { defaultAvatar } from '../core/participants';
 import type {
   TvCommand,
+  TvMedia,
   TvMirror,
+  TvMode,
   TvParticipant,
   TvParticipantState,
   TvPhase,
@@ -40,6 +43,17 @@ function parseTimer(raw: unknown): TvTimer {
   return { dir, baseMs: Math.max(0, num(t.baseMs) ?? 0), running: t.running === true, totalMs: Math.max(0, num(t.totalMs) ?? 0) };
 }
 
+const MODES: TvMode[] = ['strength', 'tabata', 'emom', 'amrap'];
+
+/** The TV only ever loads https URLs, whatever the doc says. */
+function parseMedia(raw: unknown): TvMedia | undefined {
+  const m = obj(raw);
+  if (!m) return undefined;
+  const videoUrl = tvSafeUrl(m.videoUrl);
+  const imageUrl = tvSafeUrl(m.imageUrl);
+  return videoUrl || imageUrl ? { ...(videoUrl ? { videoUrl } : {}), ...(imageUrl ? { imageUrl } : {}) } : undefined;
+}
+
 export function parseMirror(raw: unknown): TvMirror | null {
   const m = obj(raw);
   if (!m || m.v !== 1) return null;
@@ -53,6 +67,9 @@ export function parseMirror(raw: unknown): TvMirror | null {
     ...(str(m.exerciseId) ? { exerciseId: str(m.exerciseId) } : {}),
     exerciseName: str(m.exerciseName) ?? '',
     ...(str(m.nextExerciseName) ? { nextExerciseName: str(m.nextExerciseName) } : {}),
+    ...(parseMedia(m.media) ? { media: parseMedia(m.media) } : {}),
+    ...(parseMedia(m.nextMedia) ? { nextMedia: parseMedia(m.nextMedia) } : {}),
+    ...(MODES.includes(m.mode as TvMode) ? { mode: m.mode as TvMode } : {}),
     setIndex: Math.max(1, num(m.setIndex) ?? 1),
     setCount: Math.max(1, num(m.setCount) ?? 1),
     ...(num(m.repsMin) != null ? { repsMin: num(m.repsMin) } : {}),

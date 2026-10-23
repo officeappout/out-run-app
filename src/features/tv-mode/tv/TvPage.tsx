@@ -119,10 +119,10 @@ export default function TvPage() {
       case 'live':
       case 'lost':
         if (session?.mirror) {
-          const model = buildStageModel({ mirror: session.mirror, timerAnchorAtMs: session.timerAnchorAtMs, serverNowMs: view.serverNow, friends: view.participants });
+          const model = buildStageModel({ mirror: session.mirror, timerAnchorAtMs: session.timerAnchorAtMs, serverNowMs: view.serverNow, friends: view.participants, hostUid: session.hostUid });
           body = (
             <>
-              <TvStageAdapter model={model} banner={view.screen === 'lost' ? <TvLostBanner /> : undefined} />
+              <TvStageAdapter model={model} audio={view.local} banner={view.screen === 'lost' ? <TvLostBanner /> : undefined} />
               {view.screen === 'lost' && <TvReconnectCorner code={code} origin={origin} />}
             </>
           );
