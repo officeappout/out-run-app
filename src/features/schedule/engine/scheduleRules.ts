@@ -43,6 +43,7 @@ import {
   SCHEDULE_POLICY,
   SESSION_ORDER_IN_DAY,
 } from '../types/smartSchedule.types';
+import { defaultScheduleT, type ScheduleT } from './schedule-t';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -135,6 +136,7 @@ export const MIN_DAYS_FOR_HARD_SKILLS: Record<number, number> = {
 export function validateInitial(
   skills: SkillId[],
   daysPerWeek: number,
+  t: ScheduleT = defaultScheduleT(),
 ): Warning[] {
   const warnings: Warning[] = [];
   const hardCount = countActiveSkills(skills);
@@ -154,7 +156,7 @@ export function validateInitial(
       warnings,
       'ERR_03',
       'WARN',
-      `${hardCount} סקילים קשים — האימון מתפזר וההתקדמות בכולם תואט.`,
+      t('engine.rules.ERR_03', { count: String(hardCount) }),
       [],
     );
   }
@@ -165,7 +167,7 @@ export function validateInitial(
       warnings,
       'ERR_DAYS_MIN',
       'WARN',
-      `${daysPerWeek} ימים ל-${hardCount} סקילים קשים — מומלץ ${required} לפחות.`,
+      t('engine.rules.ERR_DAYS_MIN', { days: String(daysPerWeek), count: String(hardCount), required: String(required) }),
       [],
     );
   }
@@ -341,7 +343,7 @@ export function buildDefaultTemplate(
  * HANDSTAND combined with anything is silent (Free Slot).
  * Cardio (Phase 2) combined with anything is silent.
  */
-export function validateMultiSession(sessions: SessionItem[]): Warning[] {
+export function validateMultiSession(sessions: SessionItem[], t: ScheduleT = defaultScheduleT()): Warning[] {
   const warnings: Warning[] = [];
   if (sessions.length < 2) return warnings;
 
@@ -356,7 +358,7 @@ export function validateMultiSession(sessions: SessionItem[]): Warning[] {
       warnings,
       'WARN_MS_01',
       'WARN',
-      'שני אימוני דחיפה ביום אחד — הכתפיים יצטרכו לפחות 3-4 שעות מנוחה בין הסשנים.',
+      t('engine.rules.WARN_MS_01'),
       [],
     );
   }
@@ -369,7 +371,7 @@ export function validateMultiSession(sessions: SessionItem[]): Warning[] {
       warnings,
       'WARN_MS_02',
       'WARN',
-      'פרונט ו-OAPU ביום אחד — עומס קריטי על הגידים. מינימום 4 שעות הפרדה.',
+      t('engine.rules.WARN_MS_02'),
       [],
     );
   }
@@ -382,7 +384,7 @@ export function validateMultiSession(sessions: SessionItem[]): Warning[] {
       warnings,
       'WARN_MS_03',
       'WARN',
-      'משיכה + Full Body ביום אחד — הגב יעבוד פעמיים. שים את הסקיל בבוקר, Full Body בערב.',
+      t('engine.rules.WARN_MS_03'),
       [],
     );
   }
@@ -394,7 +396,7 @@ export function validateMultiSession(sessions: SessionItem[]): Warning[] {
       warnings,
       'WARN_MS_04',
       'WARN',
-      'Muscle-Up + אימון נוסף ביום אחד — MU שורף CNS. שים אותו ראשון, שאר האימונים אחרי 4+ שעות.',
+      t('engine.rules.WARN_MS_04'),
       [],
     );
   }
@@ -414,7 +416,7 @@ export function validateMultiSession(sessions: SessionItem[]): Warning[] {
  * Returns a flat list ordered by day index then code. The caller can group
  * for display.
  */
-export function validateSchedule(days: ScheduleDay[]): Warning[] {
+export function validateSchedule(days: ScheduleDay[], t: ScheduleT = defaultScheduleT()): Warning[] {
   if (days.length !== 7) return [];
   const warnings: Warning[] = [];
 
@@ -432,7 +434,7 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
         warnings,
         'WARN_01',
         'WARN',
-        'יומיים ברצף של דחיפה — הכתפיים לא מתאוששות.',
+        t('engine.rules.WARN_01'),
         [i, i + 1],
       );
     }
@@ -445,7 +447,7 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
         warnings,
         'WARN_02',
         'WARN',
-        'יומיים ברצף של משיכה — הגידים צריכים 48 שעות.',
+        t('engine.rules.WARN_02'),
         [i, i + 1],
       );
     }
@@ -466,7 +468,7 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
           warnings,
           'WARN_03',
           'WARN',
-          'MU שורף CNS — הסקיל הבא לפחות יומיים אחר כך.',
+          t('engine.rules.WARN_03'),
           [i, j],
         );
         break;
@@ -486,7 +488,7 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
           warnings,
           'WARN_06',
           'WARN',
-          '5 ימים ברצף — הוסף יום מנוחה.',
+          t('engine.rules.WARN_06'),
           Array.from({ length: streak }, (_, k) => streakStart + k),
         );
         break;
@@ -503,7 +505,7 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
     0,
   );
   if (oapuCount > 3) {
-    pushWarning(warnings, 'WARN_07', 'WARN', 'OAPU מעל 3X — סיכון דלקת גידים כרונית.', []);
+    pushWarning(warnings, 'WARN_07', 'WARN', t('engine.rules.WARN_07'), []);
   }
 
   // ── WARN_09 — pull within 48h after OAPU ─────────────────────────────
@@ -515,7 +517,7 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
           warnings,
           'WARN_09',
           'WARN',
-          'הגידים עדיין בשחזור מה-OAPU.',
+          t('engine.rules.WARN_09'),
           [i, j],
         );
       }
@@ -530,7 +532,7 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
         warnings,
         'WARN_14',
         'WARN',
-        '3 ימי עליון ברצף — הוסף מנוחה או רגליים.',
+        t('engine.rules.WARN_14'),
         [i, i + 1, i + 2, i + 3],
       );
       break;
@@ -543,7 +545,7 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
       warnings,
       'WARN_15',
       'WARN',
-      'שבת אינו ביום ברירת המחדל — ודא שזה מתאים ללוח החיים שלך.',
+      t('engine.rules.WARN_15'),
       [SAT],
     );
   }
@@ -558,14 +560,14 @@ export function validateSchedule(days: ScheduleDay[]): Warning[] {
       warnings,
       'WARN_05',
       'WARN',
-      'Handstand צריך 3X/שבוע מינימום לשיפור.',
+      t('engine.rules.WARN_05'),
       [],
     );
   }
 
   // ── Per-day: Multi-Session warnings (WARN_MS_01–WARN_MS_04) ──────────
   for (let i = 0; i < 7; i++) {
-    const ms = validateMultiSession(days[i].sessions);
+    const ms = validateMultiSession(days[i].sessions, t);
     for (const w of ms) {
       warnings.push({ ...w, affectedDays: [i] });
     }

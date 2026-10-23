@@ -174,9 +174,9 @@ describe('buildWeek end to end', () => {
     ];
     const avs = [SUN_THU, SUN_FRI, THREE];
     for (const priority of priorities) {
-      for (const [si, strength] of strengthSets.entries()) {
-        for (const [ri, running] of runs.entries()) {
-          for (const [ai, availability] of avs.entries()) {
+      for (const [si, strength] of Array.from(strengthSets.entries())) {
+        for (const [ri, running] of Array.from(runs.entries())) {
+          for (const [ai, availability] of Array.from(avs.entries())) {
             for (const cycle of [undefined, 4, 5]) {
               const input = {
                 availability,
@@ -197,8 +197,8 @@ describe('buildWeek end to end', () => {
       { mode: 'add_track', days: { 0: [{ kind: 'strength', slug: 'push' }], 2: [{ kind: 'strength', slug: 'pull' }], 4: [{ kind: 'strength', slug: 'legs' }] } },
       { mode: 'add_track', days: { 1: [{ kind: 'strength', slug: 'full_body' }], 3: [{ kind: 'strength', slug: 'full_body' }] } },
     ];
-    for (const [ei, existing] of existings.entries()) {
-      for (const [ai, availability] of avs.entries()) {
+    for (const [ei, existing] of Array.from(existings.entries())) {
+      for (const [ai, availability] of Array.from(avs.entries())) {
         const input = {
           availability,
           strength: strengthSets[0],
