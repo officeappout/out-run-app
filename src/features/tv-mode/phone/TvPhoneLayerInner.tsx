@@ -7,6 +7,7 @@ import { useTvJoin } from '../hooks/useTvJoin';
 import { useTvHostHeartbeat, useTvMirrorPublisher } from '../hooks/useTvHostLink';
 import { useTvPresence } from '../hooks/useTvPresence';
 import { useTvSessionView } from '../hooks/useTvSessionView';
+import { getTvRepo } from '../services/tv-repo';
 import TvConnectScreen from './TvConnectScreen';
 import TvHostPanel from './TvHostPanel';
 import TvJoinedPanel from './TvJoinedPanel';
@@ -14,7 +15,7 @@ import TvPhoneLost from './TvPhoneLost';
 import TvRemote from './TvRemote';
 import { clearConnection, readConnection, useTvPhoneStore } from './phone-store';
 
-function useOnline(): boolean {
+function useOnline(recheck: number): boolean {
   const [online, setOnline] = useState(true);
   useEffect(() => {
     const sync = () => setOnline(navigator.onLine);
@@ -25,16 +26,16 @@ function useOnline(): boolean {
       window.removeEventListener('online', sync);
       window.removeEventListener('offline', sync);
     };
-  }, []);
+  }, [recheck]);
   return online;
 }
 
 /** The phone's whole TV-mode UI: connect screen, host panel, remote, participant panel, lost state. */
 export default function TvPhoneLayerInner() {
-  const { view, code, role, mirror, controls, progress, phoneOnly, setPhoneOnly, reset } = useTvPhoneStore();
-  const online = useOnline();
+  const { view, code, role, mirror, controls, progress, phoneOnly, setPhoneOnly, reset, hide } = useTvPhoneStore();
   const { join } = useTvJoin();
   const [retryTick, setRetryTick] = useState(0);
+  const online = useOnline(retryTick);
   const sv = useTvSessionView(code);
   const session = sv.session;
   const uid = auth.currentUser?.uid ?? null;
@@ -63,6 +64,11 @@ export default function TvPhoneLayerInner() {
   }, [code, sv.screen, reset]);
 
   const live = session?.status === 'live';
+
+  // A host who comes back (app reload) into a workout that is already running must not meet the lobby panel.
+  useEffect(() => {
+    if (role === 'host' && live && view === 'host') hide();
+  }, [role, live, view, hide]);
   useTvHostHeartbeat(code, role === 'host' && !!session && !phoneOnly && sv.screen !== 'ended');
   useTvMirrorPublisher(code, mirror, role === 'host' && live && !phoneOnly);
   useTvPresence(code, uid, role === 'participant' ? progress : null);
@@ -74,7 +80,15 @@ export default function TvPhoneLayerInner() {
 
   if (role === 'host') {
     if (live && link === 'lost' && !phoneOnly) {
-      return <TvPhoneLost onRetry={() => setRetryTick((n) => n + 1)} onPhoneOnly={() => setPhoneOnly(true)} key={retryTick} />;
+      return (
+        <TvPhoneLost
+          onRetry={() => {
+            setRetryTick((n) => n + 1); // re-read the network state…
+            if (code) void getTvRepo().beat(code).catch(() => undefined); // …and nudge the link with a heartbeat
+          }}
+          onPhoneOnly={() => setPhoneOnly(true)}
+        />
+      );
     }
     if (live && mirror && controls && !phoneOnly) {
       return <TvRemote session={session} mirror={mirror} controls={controls} participants={sv.participants} serverNow={sv.serverNow} />;
