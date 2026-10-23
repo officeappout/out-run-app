@@ -65,6 +65,8 @@ export interface StoredMessage extends HistoryMessage {
   source?: KellyMessageSource;
   /** Kelly model routing: this answer ran on the smart tier (log.tier). Absent = fast / routing off. */
   tier?: 'smart';
+  /** The stored "I couldn't answer" reply of a turn that threw (TURN_FAILED_TEXT): never model history. */
+  failed?: true;
 }
 
 export interface PendingTurn {
@@ -133,6 +135,7 @@ function toStored(id: string, d: Record<string, any>): StoredMessage {
     ...(Array.isArray(d.actions) ? { actions: (d.actions as unknown[]).filter(isCoachActionId) } : {}),
     ...(isKellyMessageSource(d.source) ? { source: d.source } : {}),
     ...(d.role === 'assistant' && d.log?.tier === 'smart' ? { tier: 'smart' as const } : {}),
+    ...(d.role === 'assistant' && d.turnFailed === true ? { failed: true as const } : {}),
   };
 }
 
@@ -170,6 +173,8 @@ export async function appendMessage(
     proposal?: StoredProposal | null;
     /** Kelly round 4: the aerobic card / nearby parks of this reply. Absent = not written. */
     round4?: Round4Extras | null;
+    /** The turn threw: this is the stored failure reply (turnFailed: true, kept out of model history). */
+    turnFailed?: boolean;
   },
   now = Date.now(),
 ): Promise<string> {
@@ -186,6 +191,7 @@ export async function appendMessage(
     ...(msg.suggestions?.length ? { suggestions: msg.suggestions.map((c) => ({ ...c })) } : {}),
     ...(msg.proposal ? { proposal: JSON.parse(JSON.stringify(msg.proposal)) } : {}),
     ...(msg.round4 ? { round4: JSON.parse(JSON.stringify(msg.round4)) } : {}),
+    ...(msg.turnFailed ? { turnFailed: true } : {}),
     createdAt: Timestamp.fromMillis(now),
     ...(ttl ? { expireAt: Timestamp.fromMillis(now + AI_COACH_RETENTION_DAYS * 86_400_000) } : {}),
   });

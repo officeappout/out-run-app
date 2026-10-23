@@ -38,6 +38,12 @@ import { ROUND4_GAP_NOTE } from './round4/prompt';
 export const REFUSAL_TEXT = 'על זה אני לא יכול לעזור. אפשר לשאול אותי על אימונים, התקדמות ותוכנית השבוע.';
 export const EMPTY_TEXT = 'לא הצלחתי לנסח תשובה הפעם. אפשר לנסות שוב במילים אחרות.';
 export const TRUNCATED_TOOL_TEXT = 'משהו נקטע באמצע. אפשר לבקש שוב?';
+/**
+ * Stored when a turn throws after the user's message was saved (model / tool / Firestore
+ * error): without it the thread keeps the user's message with no reply at all, and on reopen
+ * nothing shows that it failed. Kept out of the model history (StoredMessage.failed).
+ */
+export const TURN_FAILED_TEXT = 'משהו השתבש אצלי ולא הצלחתי לענות על ההודעה הזו. אפשר לשלוח אותה שוב?';
 
 /** Short chat replies: thinking off (allowed on Haiku at effort ≤ high), effort low. */
 export const COACH_THINKING: Anthropic.ThinkingConfigParam = { type: 'disabled' };

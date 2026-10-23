@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type Anthropic from '@anthropic-ai/sdk';
 import { createSseParser, type CoachStreamEvent } from '../protocol';
+import { TURN_FAILED_TEXT } from '../turn-engine';
 
 const st = vi.hoisted(() => ({
   auth: null as any,
@@ -243,6 +244,24 @@ describe('POST /api/ai-coach/chat', () => {
     st.script = []; // exhausted → throws
     const ev = await events(await POST(req({ message: 'מה בתוכנית השבוע?' })));
     expect(ev.at(-1)).toEqual({ type: 'error', code: 'internal' });
+    // The user's message never stays unanswered in the thread: a visible failure reply is stored.
+    expect(st.appended).toHaveLength(2);
+    expect(st.appended[1]).toMatchObject({ role: 'assistant', text: TURN_FAILED_TEXT, turnFailed: true });
+    expect(st.appended[1].log.guards[0]).toMatchObject({ type: 'turn_failed' });
+  });
+
+  it('a stored failure reply is kept out of the next turn\'s model history', async () => {
+    st.thread.recent = [
+      { id: 'a', role: 'user', text: 'ואני בן כמה', cards: [], createdAtMs: 1 },
+      { id: 'b', role: 'assistant', text: TURN_FAILED_TEXT, cards: [], createdAtMs: 2, failed: true },
+      { id: 'c', role: 'user', text: '?', cards: [], createdAtMs: 3 },
+    ];
+    st.script = [msg('end_turn', { type: 'text', text: 'היי, אני כאן.' })];
+    await events(await POST(req({ message: 'היי' })));
+    expect(JSON.stringify(st.streamCalls[0].messages)).not.toContain('משהו השתבש');
+    // Nothing was answered before this turn: the new message is the whole conversation.
+    expect(st.streamCalls[0].messages).toEqual([{ role: 'user', content: 'היי' }]);
+    expect(st.appended.filter((m) => m.turnFailed)).toHaveLength(0);
   });
 
   describe('Kelly paused (AI gate refused, unified ON)', () => {

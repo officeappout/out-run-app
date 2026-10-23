@@ -53,6 +53,7 @@ import {
   stateHasThinking,
   stripThinkingBlocks,
   turnUserText,
+  TURN_FAILED_TEXT,
   type TurnState,
 } from '@/lib/ai/coach/turn-engine';
 import {
@@ -257,7 +258,9 @@ export async function POST(request: Request) {
 
   // `recent` was loaded before this request's user message was saved, so it holds only
   // earlier turns; this turn's messages travel in `state`.
-  const history = historyToModelMessages(unified ? labelTeamMessagesForModel(thread.recent) : thread.recent);
+  // A stored "couldn't answer" reply (a turn that threw) is not a real answer: left out.
+  const answered = thread.recent.filter((m) => !m.failed);
+  const history = historyToModelMessages(unified ? labelTeamMessagesForModel(answered) : answered);
 
   // Kelly model routing (ai_coach_smart_routing / ai_coach_fast_thinking, audience gate
   // ai_coach_model_routing_all_users — model-routing.ts). Off for this user = tier 'fast',
@@ -412,6 +415,8 @@ export async function POST(request: Request) {
         }
       };
 
+      /** The turn's reply (or its pending client tool) is stored: a later failure must not add a second reply. */
+      let settled = false;
       try {
         // Deterministic safety reply: no model call at all.
         if (safetyText) {
@@ -475,6 +480,7 @@ export async function POST(request: Request) {
             ...(phase2 && toolCtx.turn.proposal ? { proposal: toolCtx.turn.proposal } : {}),
             ...(toolCtx.round4 ? { round4: toolCtx.round4.state } : {}),
           });
+          settled = true; // the device continues this turn; its own request answers or fails visibly
           emit({ type: 'client_tool', id: outcome.call.id, name: outcome.call.name, input: outcome.call.input });
           return;
         }
@@ -540,13 +546,26 @@ export async function POST(request: Request) {
           ...(proposal ? { proposal } : {}),
           ...(round4Extras ? { round4: round4Extras } : {}),
         });
+        settled = true;
         if ('toolResult' in body) await clearPending(db, uid);
         emit({ type: 'done', messageId: id });
 
         await maybeRollSummary(db, uid, thread, (prev, msgs) => summarizeOlder(uid, prev, msgs));
       } catch (err) {
         console.error('[ai-coach] turn failed', err);
-        emit({ type: 'error', code: streamErrorCode(err) });
+        const code = streamErrorCode(err);
+        // The user's message is already stored: store a visible "couldn't answer" reply too, so
+        // the thread never holds a message with no answer (owner thread 18-19.10.2026).
+        if (!settled) {
+          try {
+            const log = newTurnLog(model);
+            log.guards.push({ type: 'turn_failed', action: `${code}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300) });
+            await appendMessage(db, uid, { role: 'assistant', text: TURN_FAILED_TEXT, log, turnFailed: true, ...(unified ? { source: 'ai' as const } : {}) });
+          } catch (e) {
+            console.error('[ai-coach] storing the failed-turn reply failed', e);
+          }
+        }
+        emit({ type: 'error', code });
       } finally {
         try {
           controller.close();
