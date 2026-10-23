@@ -1,0 +1,86 @@
+future/rest=false/done=false/steps=false/undefined => {"text":"","color":"#00C9F2"}
+future/rest=false/done=false/steps=false/muscle => {"text":"עליון","color":"#00C9F2"}
+future/rest=false/done=false/steps=false/walking => {"text":"הליכה","color":"#84CC16"}
+future/rest=false/done=false/steps=true/undefined => {"text":"","color":"#00C9F2"}
+future/rest=false/done=false/steps=true/muscle => {"text":"עליון","color":"#00C9F2"}
+future/rest=false/done=false/steps=true/walking => {"text":"הליכה","color":"#84CC16"}
+future/rest=false/done=true/steps=false/undefined => {"text":"","color":"#00C9F2"}
+future/rest=false/done=true/steps=false/muscle => {"text":"עליון","color":"#00C9F2"}
+future/rest=false/done=true/steps=false/walking => {"text":"הליכה","color":"#84CC16"}
+future/rest=false/done=true/steps=true/undefined => {"text":"","color":"#00C9F2"}
+future/rest=false/done=true/steps=true/muscle => {"text":"עליון","color":"#00C9F2"}
+future/rest=false/done=true/steps=true/walking => {"text":"הליכה","color":"#84CC16"}
+future/rest=true/done=false/steps=false/undefined => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=false/steps=false/muscle => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=false/steps=false/walking => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=false/steps=true/undefined => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=false/steps=true/muscle => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=false/steps=true/walking => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=true/steps=false/undefined => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=true/steps=false/muscle => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=true/steps=false/walking => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=true/steps=true/undefined => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=true/steps=true/muscle => {"text":"מנוחה","color":"#9CA3AF"}
+future/rest=true/done=true/steps=true/walking => {"text":"מנוחה","color":"#9CA3AF"}
+today/rest=false/done=false/steps=false/undefined => {"text":"","color":"#FFFFFF"}
+today/rest=false/done=false/steps=false/muscle => {"text":"עליון","color":"#FFFFFF"}
+today/rest=false/done=false/steps=false/walking => {"text":"הליכה","color":"#FFFFFF"}
+today/rest=false/done=false/steps=true/undefined => {"text":"","color":"#FFFFFF"}
+today/rest=false/done=false/steps=true/muscle => {"text":"עליון","color":"#FFFFFF"}
+today/rest=false/done=false/steps=true/walking => {"text":"הליכה","color":"#FFFFFF"}
+today/rest=false/done=true/steps=false/undefined => {"text":"","color":"#00C9F2"}
+today/rest=false/done=true/steps=false/muscle => {"text":"עליון","color":"#00C9F2"}
+today/rest=false/done=true/steps=false/walking => {"text":"הליכה","color":"#84CC16"}
+today/rest=false/done=true/steps=true/undefined => {"text":"","color":"#00C9F2"}
+today/rest=false/done=true/steps=true/muscle => {"text":"עליון","color":"#00C9F2"}
+today/rest=false/done=true/steps=true/walking => {"text":"הליכה","color":"#84CC16"}
+today/rest=true/done=false/steps=false/undefined => {"text":"מנוחה","color":"#FFFFFF"}
+today/rest=true/done=false/steps=false/muscle => {"text":"מנוחה","color":"#FFFFFF"}
+today/rest=true/done=false/steps=false/walking => {"text":"מנוחה","color":"#FFFFFF"}
+today/rest=true/done=false/steps=true/undefined => {"text":"מנוחה","color":"#FFFFFF"}
+today/rest=true/done=false/steps=true/muscle => {"text":"מנוחה","color":"#FFFFFF"}
+today/rest=true/done=false/steps=true/walking => {"text":"מנוחה","color":"#FFFFFF"}
+today/rest=true/done=true/steps=false/undefined => {"text":"בונוס","color":"#A855F7"}
+today/rest=true/done=true/steps=false/muscle => {"text":"עליון","color":"#A855F7"}
+today/rest=true/done=true/steps=false/walking => {"text":"הליכה","color":"#A855F7"}
+today/rest=true/done=true/steps=true/undefined => {"text":"בונוס","color":"#A855F7"}
+today/rest=true/done=true/steps=true/muscle => {"text":"עליון","color":"#A855F7"}
+today/rest=true/done=true/steps=true/walking => {"text":"הליכה","color":"#A855F7"}
+past/rest=false/done=false/steps=false/undefined => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=false/done=false/steps=false/muscle => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=false/done=false/steps=false/walking => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=false/done=false/steps=true/undefined => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=false/done=false/steps=true/muscle => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=false/done=false/steps=true/walking => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=false/done=true/steps=false/undefined => {"text":"","color":"#00C9F2"}
+past/rest=false/done=true/steps=false/muscle => {"text":"עליון","color":"#00C9F2"}
+past/rest=false/done=true/steps=false/walking => {"text":"הליכה","color":"#84CC16"}
+past/rest=false/done=true/steps=true/undefined => {"text":"","color":"#00C9F2"}
+past/rest=false/done=true/steps=true/muscle => {"text":"עליון","color":"#00C9F2"}
+past/rest=false/done=true/steps=true/walking => {"text":"הליכה","color":"#84CC16"}
+past/rest=true/done=false/steps=false/undefined => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=true/done=false/steps=false/muscle => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=true/done=false/steps=false/walking => {"text":"מנוחה","color":"#9CA3AF"}
+past/rest=true/done=false/steps=true/undefined => {"text":"צעדים","color":"#F97316"}
+past/rest=true/done=false/steps=true/muscle => {"text":"צעדים","color":"#F97316"}
+past/rest=true/done=false/steps=true/walking => {"text":"צעדים","color":"#F97316"}
+past/rest=true/done=true/steps=false/undefined => {"text":"בונוס","color":"#A855F7"}
+past/rest=true/done=true/steps=false/muscle => {"text":"עליון","color":"#A855F7"}
+past/rest=true/done=true/steps=false/walking => {"text":"הליכה","color":"#A855F7"}
+past/rest=true/done=true/steps=true/undefined => {"text":"בונוס","color":"#A855F7"}
+past/rest=true/done=true/steps=true/muscle => {"text":"עליון","color":"#A855F7"}
+past/rest=true/done=true/steps=true/walking => {"text":"הליכה","color":"#A855F7"}
+past/missed+debt => {"text":"עליון","color":"#00C9F2"}
+past/recovery rest => {"text":"מנוחה","color":"#9CA3AF"}
+today/recovery rest => {"text":"","color":"#00C9F2"}
+today/running tempo => {"text":"טמפו","color":"#FFFFFF"}
+future/running unknown => {"text":"","color":"#00C9F2"}
+future/multi => {"text":"כוח","color":"#00C9F2"} [{"text":"כוח","color":"#00C9F2"},{"text":"ריצה","color":"#84CC16"}]
+future/multi => {"text":"גמישות","color":"#A855F7"} [{"text":"גמישות","color":"#A855F7"},{"text":"ריצה","color":"#84CC16"}]
+future/multi => {"text":"עליון","color":"#00C9F2"} [{"text":"עליון","color":"#00C9F2"},{"text":"גבעות","color":"#A855F7"},{"text":"ריצה","color":"#84CC16"}]
+today/multi => {"text":"כוח","color":"#00C9F2"} [{"text":"כוח","color":"#00C9F2"},{"text":"ריצה","color":"#84CC16"}]
+today/multi => {"text":"גמישות","color":"#A855F7"} [{"text":"גמישות","color":"#A855F7"},{"text":"ריצה","color":"#84CC16"}]
+today/multi => {"text":"עליון","color":"#00C9F2"} [{"text":"עליון","color":"#00C9F2"},{"text":"גבעות","color":"#A855F7"},{"text":"ריצה","color":"#84CC16"}]
+past/multi => {"text":"כוח","color":"#00C9F2"} [{"text":"כוח","color":"#00C9F2"},{"text":"ריצה","color":"#84CC16"}]
+past/multi => {"text":"גמישות","color":"#A855F7"} [{"text":"גמישות","color":"#A855F7"},{"text":"ריצה","color":"#84CC16"}]
+past/multi => {"text":"עליון","color":"#00C9F2"} [{"text":"עליון","color":"#00C9F2"},{"text":"גבעות","color":"#A855F7"},{"text":"ריצה","color":"#84CC16"}]
