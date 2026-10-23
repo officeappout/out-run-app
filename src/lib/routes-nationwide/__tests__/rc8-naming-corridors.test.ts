@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPathIndex, type ParkPolygon, type PathLine } from '../../park-loops';
+import { PROMENADE_NAME_PATTERN } from '../../route-score/weights';
 import { buildValidatedDoc } from '../../route-collections/validate';
 import { routeScoreInputFromDoc } from '../../route-score/from-route-doc';
 import { corridorDoc, corridorEligible, namedCorridors, normalizeName, stitchSameName, type NamedWay } from '../named-corridors';
@@ -78,6 +79,17 @@ describe('promenades / boulevards (city pipeline)', () => {
       expect(corridorEligible({ id: 1, name: n, highway: 'residential', coords: seg(0, 900) }), n).toBe(true);
     }
     expect(corridorEligible({ id: 1, name: 'רחוב רוטשילד', highway: 'residential', coords: seg(0, 900) })).toBe(false);
+  });
+
+  it('the city Sderot in a road name is not a boulevard hint; real boulevard names still are', () => {
+    for (const n of ['כניסה לשדרות', 'כביש לשדרות', 'יציאה משדרות']) {
+      expect(corridorEligible({ id: 1, name: n, highway: 'residential', coords: seg(0, 900) }), n).toBe(false);
+      expect(PROMENADE_NAME_PATTERN.test(n), n).toBe(false);
+    }
+    for (const n of ['שדרות רוטשילד', 'שדרת בן גוריון', 'מדרחוב נחלת בנימין']) {
+      expect(PROMENADE_NAME_PATTERN.test(n), n).toBe(true);
+      expect(corridorEligible({ id: 1, name: n, highway: 'residential', coords: seg(0, 900) }), n).toBe(true);
+    }
   });
 
   it('the pedestrian strip is stitched apart from the parallel road, never merged into it', () => {

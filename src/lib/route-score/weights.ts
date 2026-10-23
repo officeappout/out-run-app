@@ -91,7 +91,8 @@ export const CORRIDOR_NAME_PATTERN = /טיילת|רצועה ירוקה|רצוע�
  * corridors (origin osm_named_way): they read as a named place for the source tier. Deliberately not
  * merged into NAMED_PLACE_PATTERN, which also drives the per-anchor cap and the tier of every other route.
  */
-export const PROMENADE_NAME_PATTERN = /שדר(?:ות|ת)|מדרחוב|טיילת/;
+/* שדרות / שדרת / מדרחוב only as a word start (not glued to a preposition: 'כניסה לשדרות' = the city Sderot). */
+export const PROMENADE_NAME_PATTERN = /(?:^|\s)(?:שדר(?:ות|ת)|מדרחוב)|טיילת/;
 
 /**
  * Shade comfort scale (owner recalibration 21.10.2026, RC6). The value is the

@@ -17,11 +17,11 @@ import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN, PROMENADE_NAME_PATTERN } fr
 export const CORRIDOR_FOOT_HIGHWAYS = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'track', 'bridleway', 'living_street']);
 /** Street-class ways only count when the name is a promenade/path/park name. */
 export const CORRIDOR_STREET_HIGHWAYS = new Set(['residential', 'service', 'unclassified', 'tertiary']);
-export const CORRIDOR_NAME_HINT = /טיילת|שביל|רצועת|רצועה|פארק|גן |^גן|גינת|נחל|ואדי|חוף|יער|אגם|מסילה|שדר(?:ות|ת)|מדרחוב|promenade|trail|park/i;
+export const CORRIDOR_NAME_HINT = /טיילת|שביל|רצועת|רצועה|פארק|גן |^גן|גינת|נחל|ואדי|חוף|יער|אגם|מסילה|(?:^|\s)(?:שדר(?:ות|ת)|מדרחוב)|promenade|trail|park/i;
 /** Boulevard / pedestrian-mall / promenade names (שדרות רוטשילד, מדרחוב נחלת בנימין, טיילת …). */
 export const PROMENADE_NAME_HINT = PROMENADE_NAME_PATTERN;
 /** The subset of the above that is NOT already a trusted "promenade" word: its candidates carry the low-confidence flag. */
-export const BOULEVARD_NAME_HINT = /שדר(?:ות|ת)|מדרחוב/;
+export const BOULEVARD_NAME_HINT = /(?:^|\s)(?:שדר(?:ות|ת)|מדרחוב)/;
 export const LOW_CONFIDENCE_PROMENADE_HINT = 'promenade_hint';
 /** A hinted chain counts as a promenade/boulevard only when at least this share of its length is on footway/pedestrian-class ways. */
 export const PROMENADE_FOOT_SHARE_MIN = 0.5;

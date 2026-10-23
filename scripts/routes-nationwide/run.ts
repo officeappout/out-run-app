@@ -214,7 +214,8 @@ async function main() {
       let relationNote = 'OSM stage skipped';
       if (!SKIP_OSM) {
         const reg = registeredRelation.get(normalizeAuthorityName(a.name));
-        const pinned = reg ? null : knownAdminRelationFor(a.name);
+        // Municipal only: the two regional pins were never proven identical to the by-name result, so regional output stays as before.
+        const pinned = reg || a.type === 'regional_council' ? null : knownAdminRelationFor(a.name);
         if (reg) { relationId = reg; relationNote = 'city_registrations.adminRelationId'; }
         else if (pinned) { relationId = pinned.adminRelationId; relationNote = `KNOWN_ADMIN_RELATION_FIXES (${pinned.key})`; }
         else {

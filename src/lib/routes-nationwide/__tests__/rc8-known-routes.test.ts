@@ -102,7 +102,7 @@ describe('known routes — promenades / boulevards', () => {
       { id: 2, name: 'שביל הנחל', highway: 'footway', coords: segY(100, 467, 32.1004) },
     ];
     const { matches } = matchKnownRoutes({ authorityId: 'a1', city: 'c', researchedAt: 'x', routes: [K({ name: 'שביל הנחל' })] }, { existing: [], relations: [], parkLoops: [], ways, inside: () => true });
-    expect(matches[0].corridor!.wayIds).toEqual([1, 2].filter((i) => matches[0].corridor!.wayIds.includes(i)));
+    expect(matches[0].corridor!.wayIds).toEqual([1]); // the separate (unconnected) footway is not preferred: longest chain wins
     expect(matches[0].corridor!.lengthM).toBeGreaterThan(1500);
   });
   it('falls back to the road chain when there is no pedestrian chain; the doc carries the low-confidence flag only for the strip', () => {
