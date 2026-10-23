@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode, Tv,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -111,6 +111,7 @@ interface FlagState {
   enable_hide_route_connectors: boolean;
   enable_scoped_official_routes: boolean;
   enable_swap_fixes_v1: boolean;
+  enable_location_gate_v1: boolean;
   enable_strength_drawer_v1: boolean;
   enable_wide_player_v1: boolean;
   enable_site_qr_links: boolean;
@@ -118,6 +119,7 @@ interface FlagState {
   enable_workout_insights_v1: boolean;
   enable_group_fixes_v1: boolean;
   enable_together_layer_v1: boolean;
+  enable_tv_mode_v1: boolean;
 }
 
 // ============================================================================
@@ -887,6 +889,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'החלפת תרגיל — תיקונים',
     description: 'תרגיל שכבר באימון לא מוצע להחלפה; בתצוגה מקדימה ההחלפה לפי המקום ולא לפי התרגיל; באימון פעיל טווח הרמות סביב רמת התרגיל עצמו והחזרות/ההחזקה מותאמות; בתחנה סינון לפי ציוד הפארק לפני הבחירה של 3; החלפה נשמרת בהמשך אימון ומופיעה בסיכום; אין החלפה בזמן עבודה בטבטה; החלפת שלב בפירמידה משולבת מחליפה רק את השלב ולפי ציוד הפארק; תמונה לפי שיטת הביצוע שנבחרה. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
+  // Location-switch gate (23.10.2026) — agent-briefs/variant-empty-media-audit.md.
+  {
+    key: 'enable_location_gate_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'מעבר מיקום באימון: שער כיסוי תוכן',
+    description: 'במעבר מיקום בתצוגה המקדימה (בית / פארק / שירות) נבדק מראש שלכל תרגיל יש וידאו או תמונה במיקום החדש, או תרגיל חלופי מתאים (אותה קבוצת תנועה, אותו שריר ראשי, חזרות/החזקה כמו המקור, לא כבר באימון, תרגילי יעד/מיומנות רק בתוך המשפחה שלהם, קל יותר ברמה אחת רק כשאין באותה רמה). אם הכיסוי נמוך מהסף (80% והחסרים לכל היותר אחד) האפשרות מוצגת באפור עם הסבר קצר והמעבר נחסם; הנגן מנגן רק מה שהוחלט בתצוגה. בנוסף: שיטה עם וידאו בלי תמונה מציגה תמונה שנגזרת מהוידאו. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
   // Strength / timed players — collapsible drawer, details in the list (22.10.2026).
   {
     key: 'enable_strength_drawer_v1',
@@ -950,6 +961,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-emerald-600',
     title: 'שכבת "יחד" באימון',
     description: 'באימון משותף: פס חברים בצד עם סטטוס חי (ק״מ/קצב או סט/סבב/דקה), לובי שמסביר במשפט אחד אם כולם באותו אימון או כל אחד ברמה שלו וסופר 3-2-1 מסונכרן מהשרת, פס מרוץ מול חבר נבחר, כיף (עידוד) עם רטט והתראה כשמישהו מסיים סבב, וסיכום "יחד" עשיר (סך הכול, השוואה, הכי הרבה כיפים, MVP). ההזמנה מציגה את השעה, ומי שנרשם לאימון מאוחר מקבל "נזכיר לך 15 דק׳ לפני" והוספה ליומן; הלובי נפתח כ-10 דק׳ לפני. דורש גם enable_home_v2. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  // TV mode (23.10.2026) — owner-approved canvas W-13..W-20.
+  {
+    key: 'enable_tv_mode_v1',
+    icon: Tv,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-600',
+    title: 'הצגת אימון על מסך גדול (טלוויזיה)',
+    description: 'בתצוגת האימון, בתפריט ⋯, נוספת האפשרות "הצגה על מסך גדול". הטלוויזיה פותחת outrun.co.il/tv ומציגה QR וקוד של 6 ספרות; הטלפון הראשון שמזין את הקוד הוא המארח והשלט (הפעלה/השהיה/הבא/דילוג/עוצמת קול), טלפונים נוספים מצטרפים כמשתתפים ומופיעים בשורת החברים. הקוד תקף 4 שעות. דורש שכללי tvSessions יפורסמו (דוד) וכן מדיניות TTL. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום, וכתובת /tv מציגה "לא זמין".',
   },
 ];
 

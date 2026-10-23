@@ -24,3 +24,15 @@ describe('adminNavItems (main sidebar as data)', () => {
     for (const s of ADMIN_NAV_SECTIONS) for (const e of s.entries) if (isNavGroup(e)) expect(e.links.length).toBeGreaterThan(0);
   });
 });
+
+describe('city-mapping hub link', () => {
+  const links = ADMIN_NAV_SECTIONS.flatMap((s) => sectionLinks(s));
+  it('sits directly under "מיפוי עיר", gated by the hub-flag audience', () => {
+    const i = links.findIndex((l) => l.href === '/admin/city-mapping');
+    expect(links[i + 1]).toMatchObject({ href: '/admin/city-mapping/hub', label: 'מרכז מיפוי ערים', audience: 'cityMappingHubLink' });
+  });
+  it('the parent link is not highlighted on the hub page', () => {
+    const parent = links.find((l) => l.href === '/admin/city-mapping')!;
+    expect(parent.active).toEqual({ kind: 'prefixExcept', except: ['/admin/city-mapping/hub'] });
+  });
+});

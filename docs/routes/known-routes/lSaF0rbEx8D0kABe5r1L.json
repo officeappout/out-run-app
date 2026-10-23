@@ -1,0 +1,5 @@
+{"authorityId":"lSaF0rbEx8D0kABe5r1L","city":"חולון","researchedAt":"2026-10-23","routes":[
+{"name": "פארק פרס", "aliases": ["פארק שמעון פרס", "פארק פרס חולון"], "kind": "walk", "lengthKm": null, "inPark": "פארק פרס", "description": "הפארק הגדול בחולון עם אגם מלאכותי ואמפיתאטרון", "sources": [{"url": "https://he.wikipedia.org/wiki/חולון", "title": "חולון - ויקיפדיה (גנים ופארקים)"}]},
+{"name": "פארק הנוער חולון", "aliases": ["פארק הנוער"], "kind": "walk", "lengthKm": null, "inPark": "פארק הנוער", "description": "פארק ירוק על גבעה בצפון-מערב העיר", "sources": [{"url": "https://he.wikipedia.org/wiki/חולון", "title": "חולון - ויקיפדיה"}]},
+{"name": "פארק הפילבוקס", "aliases": ["פארק הפילבוקס חולון"], "kind": "walk", "lengthKm": null, "inPark": "פארק הפילבוקס", "description": "פארק רחב על גבעת תל גיבורים, הפארק השני בגודלו בעיר", "sources": [{"url": "https://he.wikipedia.org/wiki/חולון", "title": "חולון - ויקיפדיה"}]}
+],"notes":"No promenade page found. OSM has \"טיילת איילון\" (3 ways, 1.32+1.27+0.64 km) in Holon, but no fetched page confirms it as a route (not added); wiki also mentions an unnamed urban running track near the mall."}

@@ -57,6 +57,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { boundaryFromStored, type AuthorityBoundary } from '../../src/lib/dataset-import';
 import { writeRouteScoreDocs } from '../../src/lib/route-score';
+import { surfaceClassField } from '../../src/lib/route-score/surface-class';
 import {
   buildAdminNameIndex, checkpointMismatch, normalizeAuthorityName, filterAuthorities, markDone, matchAdminRelation, newCheckpoint, orderAuthorities, parseCheckpoint, remaining,
   combineEnrichers, runAuthorityStages, SETTLEMENT_LOOPS_ENABLED, summarizeAuthority, summarizeNation, type AdminRelation, type AuthorityRow, type AuthoritySummary, type Checkpoint,
@@ -283,9 +284,11 @@ async function applyAuthority(
   const selected = new Set(result.score.selection.selectedIds);
   const rowById = new Map(result.score.selection.rows.map((r) => [r.id, r]));
   const fresh = result.pool.filter((p) => p.isNew && (selected.has(p.id) || WRITE_CANDIDATES));
+  const classById = new Map(result.score.docs.map((d) => [d.routeId, d.surfaceClass]));
   const docs = fresh.map((p) => ({
     id: p.id,
-    data: { ...p.data, selection: selected.has(p.id) ? 'selected' : 'candidate', selectionReason: rowById.get(p.id)?.reason ?? null },
+    // surfaceClass (owner-approved 23.10.2026): the class the route score already computed, so new routes carry it from birth.
+    data: { ...p.data, ...surfaceClassField(classById.get(p.id)), selection: selected.has(p.id) ? 'selected' : 'candidate', selectionReason: rowById.get(p.id)?.reason ?? null },
   }));
   const plan = await planCollection(target.db, 'official_routes', docs, 'create_only', a.id);
   plan.knownAuthorityIds = knownAuthorityIds;

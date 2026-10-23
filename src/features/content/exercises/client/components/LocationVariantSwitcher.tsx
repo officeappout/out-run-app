@@ -67,6 +67,10 @@ export interface LocationSwitcherOption {
   /** Equipment chips shown under the label; empty → "משקל גוף" placeholder. */
   gear: LocationSwitcherGearChip[];
   isActive: boolean;
+  /** enable_location_gate_v1 — greyed, not selectable; shown with `disabledReason` (never hidden). */
+  disabled?: boolean;
+  /** Short already-translated reason (2-3 words) shown under the label of a disabled option. */
+  disabledReason?: string;
 }
 
 interface LocationVariantSwitcherProps {
@@ -171,22 +175,27 @@ export default function LocationVariantSwitcher({
               const optMeta = locationMeta(opt.location);
               const OptIcon = optMeta.Icon;
               const isActive = opt.isActive;
+              const isDisabled = opt.disabled === true && !isActive;
               return (
                 <button
                   key={opt.key}
                   type="button"
                   role="option"
                   aria-selected={isActive}
+                  aria-disabled={isDisabled || undefined}
                   // onPointerDown fires before the browser can decide this is a scroll
                   // gesture — critical for mobile inside an overflow-y-auto sheet.
                   onPointerDown={(e) => {
                     e.stopPropagation();
+                    if (isDisabled) return;
                     onSelect(opt);
                   }}
                   className={`w-full flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors ${
                     isActive
                       ? 'bg-cyan-50 text-cyan-700 font-bold'
-                      : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
+                      : isDisabled
+                        ? 'text-slate-400 opacity-60 cursor-not-allowed'
+                        : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
                   }`}
                   style={SECTION_FONT}
                 >
@@ -202,8 +211,10 @@ export default function LocationVariantSwitcher({
                       {t('exercises.locationSwitcher.location', { location: opt.location })}
                     </span>
 
-                    {/* Gear sub-row: per-item icon + label chips */}
-                    {opt.gear.length > 0 ? (
+                    {/* Gear sub-row: per-item icon + label chips (a disabled option shows its reason instead) */}
+                    {isDisabled && opt.disabledReason ? (
+                      <span className="block mt-0.5 text-[11px] font-normal text-slate-500">{opt.disabledReason}</span>
+                    ) : opt.gear.length > 0 ? (
                       <span className="flex flex-row flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
                         {opt.gear.map((g, gi) => (
                           <span key={g.id} className="inline-flex items-center gap-0.5">

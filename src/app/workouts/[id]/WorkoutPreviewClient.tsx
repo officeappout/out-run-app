@@ -18,6 +18,12 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import GeneratedWorkoutExerciseList from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/GeneratedWorkoutExerciseList';
 import { sharedDocToGeneratedWorkout } from '@/features/workout-engine/services/shared-workout-plan';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
+import SharedLinkContext from '@/features/workout-engine/components/shared-link/SharedLinkContext';
+import SharedLinkFooter from '@/features/workout-engine/components/shared-link/SharedLinkFooter';
+import { applyCatalogMedia, heroMediaOf, idsMissingImage, inviteView, senderOf, sharedVariant } from '@/features/workout-engine/services/shared-workout-view';
+import { loadCatalogMedia } from '@/features/workout-engine/services/shared-workout-media';
+import { addFavorite } from '@/features/favorites/services/favorites.service';
+import { auth } from '@/lib/firebase';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { library, type LibraryKey, type LibraryT } from '@/messages/ns/library';
@@ -503,9 +509,31 @@ export default function WorkoutPreviewClient({
   // enable_shared_workout_preview_v1: the shared doc rebuilt as a GeneratedWorkout (null = keep the old list).
   const { flags: previewFlags, loading: previewFlagsLoading } = useFeatureFlags(false);
   const [sharedPlan, setSharedPlan] = useState<GeneratedWorkout | null>(null);
+  const [sharedDoc, setSharedDoc] = useState<(SharedWorkoutDoc & { id: string }) | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [warmupExpanded, setWarmupExpanded] = useState(false);
   const [warmupActive, setWarmupActive] = useState(true);
   const richPreview = !previewFlagsLoading && previewFlags.enableSharedWorkoutPreviewV1 && !!sharedPlan;
+
+  // Real thumbnails: exercises the shared doc has no image for are looked up in the catalog by id.
+  useEffect(() => {
+    if (!richPreview || !sharedPlan) return;
+    const ids = idsMissingImage(sharedPlan);
+    if (ids.length === 0) return;
+    let alive = true;
+    void loadCatalogMedia(ids).then((media) => {
+      if (alive && Object.keys(media).length > 0) setSharedPlan((prev) => (prev ? applyCatalogMedia(prev, media) : prev));
+    });
+    return () => { alive = false; };
+    // Once per loaded plan (the enrichment itself changes the plan but leaves nothing missing to re-fetch).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [richPreview, sharedDoc?.id]);
+
+  const variant = sharedVariant(sharedDoc);
+  const sender = senderOf(sharedDoc);
+  const invite = inviteView(sharedDoc);
+  const hero = sharedPlan ? heroMediaOf(sharedPlan) : {};
   const [logicCue, setLogicCue] = useState<string | null>(null);
   const [decisionRecord, setDecisionRecord] = useState<DecisionRecord | null>(null);
   const coachNote = useCoachNote(decisionRecord);
@@ -559,6 +587,7 @@ export default function WorkoutPreviewClient({
         setWorkout((prev) => prev ?? sharedWorkout);
         setStoredSegments(segments);
         setSharedPlan(sharedDocToGeneratedWorkout(shared));
+        setSharedDoc(shared);
         setIsLoading(false);
         return;
       }
@@ -586,6 +615,25 @@ export default function WorkoutPreviewClient({
 
   const handleStartWorkout = () => {
     router.push(`/workouts/${workoutId}/active`);
+  };
+
+  const handleSaveShared = async () => {
+    if (!sharedPlan || saving || saved) return;
+    if (!auth.currentUser) { window.open(APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK, '_blank', 'noopener'); return; }
+    setSaving(true);
+    try {
+      await addFavorite(sharedPlan, sharedDoc?.workoutLocation);
+      setSaved(true);
+    } catch (err) {
+      console.error('[WorkoutPreviewPage] save failed', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleJoinInvite = () => {
+    if (invite?.joinPath) router.push(invite.joinPath);
+    else window.open(APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK, '_blank', 'noopener');
   };
 
   const handleSwapExercise = (exerciseId: string) => {
@@ -640,8 +688,8 @@ export default function WorkoutPreviewClient({
         description={coachNote ? workout?.description : logicCue || workout?.description}
         difficulty={workout?.difficulty === 'easy' ? 1 : workout?.difficulty === 'hard' ? 3 : 2}
         estimatedDuration={workout?.duration}
-        heroMediaUrl={heroMedia?.thumbnailUrl}
-        heroVideoUrl={heroMedia?.videoUrl}
+        heroMediaUrl={richPreview ? hero.imageUrl ?? heroMedia?.thumbnailUrl : heroMedia?.thumbnailUrl}
+        heroVideoUrl={richPreview ? hero.videoUrl ?? heroMedia?.videoUrl : heroMedia?.videoUrl}
         routePath={workout?.routePath || undefined}
         categoryIcon="/icons/programs/full_body.svg"
       />
@@ -652,6 +700,7 @@ export default function WorkoutPreviewClient({
           {/* דגשי האימון — WORKOUT_COACH_NOTE_V1 (renders nothing while off) */}
           <CoachNoteBlock note={coachNote} className="pb-2" />
 
+          {richPreview && sharedPlan && <SharedLinkContext variant={variant} sender={sender} invite={invite} />}
           {richPreview && sharedPlan ? (
             <GeneratedWorkoutExerciseList
               generatedWorkout={sharedPlan}
@@ -742,6 +791,16 @@ export default function WorkoutPreviewClient({
       </div>
 
       {/* ── Sticky Footer ────────────────────────────────────────────── */}
+      {richPreview ? (
+        <SharedLinkFooter
+          variant={variant}
+          saved={saved}
+          saving={saving}
+          onSave={handleSaveShared}
+          onStart={handleStartWorkout}
+          onJoin={handleJoinInvite}
+        />
+      ) : (
       <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/80 dark:border-gray-800 z-50">
         <div className="px-4 py-4 flex items-center gap-3" dir="rtl">
           <button
@@ -763,6 +822,7 @@ export default function WorkoutPreviewClient({
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

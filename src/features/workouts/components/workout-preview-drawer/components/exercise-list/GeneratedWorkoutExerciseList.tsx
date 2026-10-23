@@ -53,6 +53,8 @@ export interface GeneratedWorkoutExerciseListProps {
    * parent wrapper (legacy behaviour).
    */
   exercisePool: FirestoreExercise[];
+  /** enable_location_gate_v1: an exercise image missing next to a video shows a still from that video. */
+  posterFromVideo?: boolean;
   onSwap?: (exercise: FirestoreExercise, level: number, entry?: EngineWorkoutExercise) => void;
   /** Per-step swap with twin-sync for pyramid exercises. */
   onSwapPyramidStep?: (
@@ -101,6 +103,7 @@ export default function GeneratedWorkoutExerciseList({
   onToggleWarmupActive,
   actions,
   hideStatPills = false,
+  posterFromVideo = false,
 }: GeneratedWorkoutExerciseListProps) {
   const v2 = useHomeV2();
   const t = useT(library);
@@ -177,10 +180,10 @@ export default function GeneratedWorkoutExerciseList({
   const allMediaUrls = useMemo(() => {
     const urls: (string | null)[] = [];
     for (const ex of generatedWorkout.exercises) {
-      urls.push(resolveExerciseImage(ex));
+      urls.push(resolveExerciseImage(ex, posterFromVideo ? { posterFromVideo } : undefined));
     }
     return urls;
-  }, [generatedWorkout.exercises]);
+  }, [generatedWorkout.exercises, posterFromVideo]);
   const cachedMediaMap = useCachedMediaMap(allMediaUrls);
 
   // WORKOUT_COACH_NOTE_V1: when the coach note renders it takes over the
@@ -414,7 +417,7 @@ export default function GeneratedWorkoutExerciseList({
                   const isGoal = ex.isGoalExercise === true;
                   const uniLabel =
                     ex.exercise.symmetry === 'unilateral' ? t('preview.list.unilateral') : '';
-                  const parentImageUrl = resolveExerciseImage(ex);
+                  const parentImageUrl = resolveExerciseImage(ex, posterFromVideo ? { posterFromVideo } : undefined);
                   const parentName =
                     typeof ex.exercise.name === 'string'
                       ? ex.exercise.name

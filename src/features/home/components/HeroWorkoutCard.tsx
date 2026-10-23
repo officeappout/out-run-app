@@ -20,6 +20,7 @@ import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { hapticMedium } from '@/lib/haptics';
 import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
 import { useT } from '@/hooks/useT';
+import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
 import { home } from '@/messages/ns/home';
 
 // Hero-media selection + resolution moved to a shared util so the map/workout
@@ -481,9 +482,10 @@ export default function HeroWorkoutCard({
   const difficultyNum = getDifficultyNumber(workout.difficulty);
 
   const heroExercise = useMemo(() => pickHeroExercise(exercises), [exercises]);
+  const posterFromVideo = useLocationGateV1(); // enable_location_gate_v1
   const heroMedia = useMemo(
-    () => resolveHeroMedia(heroExercise, workoutLocation),
-    [heroExercise, workoutLocation],
+    () => resolveHeroMedia(heroExercise, workoutLocation, posterFromVideo ? { posterFromVideo } : undefined),
+    [heroExercise, workoutLocation, posterFromVideo],
   );
 
   const equipmentIcons = useMemo(() => {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { useUserStore } from '@/features/user';
 import { shareWorkout } from '@/features/workout-engine/services/share.service';
 import type { WorkoutData } from '../types';
 import { APP_ORIGIN } from '@/lib/config/domain';
@@ -120,6 +121,7 @@ export function useFavoritesActions({
     workoutLocation,
   ]);
 
+  const senderCore = useUserStore((st) => st.profile?.core);
   const handleShare = useCallback(async () => {
     if (isSharing) return;
 
@@ -140,7 +142,7 @@ export function useFavoritesActions({
 
     setIsSharing(true);
     try {
-      await shareWorkout(generatedWorkout, workoutLocation);
+      await shareWorkout(generatedWorkout, workoutLocation, { name: senderCore?.name, gender: senderCore?.gender });
     } catch (err) {
       console.error('[useFavoritesActions] Share failed:', err);
       const text = t('preview.share.text', { title: generatedWorkout.title, origin: APP_ORIGIN });
@@ -148,7 +150,7 @@ export function useFavoritesActions({
     } finally {
       setIsSharing(false);
     }
-  }, [generatedWorkout, workout, workoutLocation, isSharing, t]);
+  }, [generatedWorkout, workout, workoutLocation, isSharing, t, senderCore?.name, senderCore?.gender]);
 
   return {
     isFav,
