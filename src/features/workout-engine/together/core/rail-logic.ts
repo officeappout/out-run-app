@@ -42,14 +42,15 @@ export function railStatus(p: OrderedParticipant): { key: RailStatusKey; params:
 // ── placement (draggable up / down / other side, remembered) ───────────────
 
 export interface RailPlacement {
-  side: 'left' | 'right';
+  /** Logical edge: 'start' / 'end' of the reading direction (in Hebrew: start = right, end = left). */
+  side: 'start' | 'end';
   /** 0..1 of the free vertical range: where the rail's top sits. */
   topFrac: number;
   collapsed: boolean;
 }
 
-export const DEFAULT_RAIL_PLACEMENT: RailPlacement = { side: 'left', topFrac: 0, collapsed: false };
-export const RAIL_STORAGE_KEY = 'together_rail_placement_v1';
+export const DEFAULT_RAIL_PLACEMENT: RailPlacement = { side: 'end', topFrac: 0, collapsed: false };
+export const RAIL_STORAGE_KEY = 'together_rail_placement_v2';
 
 const clamp01 = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
 
@@ -58,7 +59,7 @@ export function parsePlacement(raw: string | null | undefined): RailPlacement {
   try {
     const v = JSON.parse(raw) as Partial<RailPlacement>;
     return {
-      side: v.side === 'right' ? 'right' : 'left',
+      side: v.side === 'start' ? 'start' : 'end',
       topFrac: clamp01(Number(v.topFrac ?? 0)),
       collapsed: v.collapsed === true,
     };
@@ -68,10 +69,11 @@ export function parsePlacement(raw: string | null | undefined): RailPlacement {
 }
 
 /** Where a drag ended → the side (by screen half) and the vertical fraction. */
-export function resolveDrop(input: { x: number; y: number; viewW: number; freeTop: number; freeHeight: number; grabOffsetY?: number }): RailPlacement {
+export function resolveDrop(input: { isRtl?: boolean; x: number; y: number; viewW: number; freeTop: number; freeHeight: number; grabOffsetY?: number }): RailPlacement {
   const top = input.y - (input.grabOffsetY ?? 0) - input.freeTop;
   return {
-    side: input.x < input.viewW / 2 ? 'left' : 'right',
+    // Physical half → logical edge. LTR: left half = start; RTL: left half = end.
+    side: (input.x < input.viewW / 2) === !(input.isRtl ?? false) ? 'start' : 'end',
     topFrac: input.freeHeight > 0 ? clamp01(top / input.freeHeight) : 0,
     collapsed: false,
   };
@@ -86,4 +88,9 @@ export function placementTopPx(topFrac: number, freeTop: number, freeHeight: num
 /** Tap a face to pick the duel opponent, tap again to clear. */
 export function toggleSelected(current: string | null, tapped: string): string | null {
   return current === tapped ? null : tapped;
+}
+
+/** The physical edge a logical side sits on (for icons that point at the edge). */
+export function physicalEdge(side: RailPlacement['side'], isRtl: boolean): 'left' | 'right' {
+  return (side === 'start') === !isRtl ? 'left' : 'right';
 }

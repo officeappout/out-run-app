@@ -56,3 +56,19 @@ export function diffTogetherEvents(prev: PresenceEntry[] | null, next: PresenceE
   }
   return events;
 }
+
+/** Counters only grow: keep the larger of what I counted locally and what the server already has for me. */
+export function mergeCheers(local: Record<string, number>, remote: Record<string, number> | undefined): Record<string, number> {
+  const out: Record<string, number> = { ...(remote ?? {}) };
+  for (const [k, v] of Object.entries(local)) out[k] = Math.max(out[k] ?? 0, v);
+  return out;
+}
+
+/** Catalog key + params for a toast. */
+export function eventCopy(e: TogetherEvent): { key: 'cheer.toast' | 'cheer.toastMany' | 'event.round' | 'event.done'; params: Record<string, string | number> } {
+  switch (e.type) {
+    case 'cheer': return e.count > 1 ? { key: 'cheer.toastMany', params: { name: e.fromName, count: e.count } } : { key: 'cheer.toast', params: { name: e.fromName } };
+    case 'round': return { key: 'event.round', params: { name: e.name } };
+    case 'done': return { key: 'event.done', params: { name: e.name } };
+  }
+}

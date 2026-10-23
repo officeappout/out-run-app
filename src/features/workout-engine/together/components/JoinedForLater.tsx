@@ -3,14 +3,19 @@
 import { CalendarPlus, CheckCircle2 } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { together } from '@/messages/ns/together';
+import { useTogetherLocale } from '../hooks/useTogetherLocale';
+import { formatDate, formatTime } from '@/lib/i18n/core/fmt';
+import { localizeParams } from '../core/localize';
 import { TOGETHER_CONFIG } from '../core/config';
 import { buildSessionIcs, googleCalendarUrl } from '../core/schedule';
 
 /** Invite page, after joining a session that is not about to start: registered + reminder + calendar. */
 export default function JoinedForLater(props: { uid: string; groupName: string; startMs: number; onContinue: () => void }) {
   const t = useT(together);
+  const { dir, locale } = useTogetherLocale();
   const title = t('later.eventTitle', { group: props.groupName });
   const min = TOGETHER_CONFIG.reminderMinBefore;
+  const when = t('invite.when', { date: formatDate(props.startMs, locale, { weekday: 'long', day: 'numeric', month: 'long' }), time: formatTime(props.startMs, locale) });
 
   const download = () => {
     const ics = buildSessionIcs({
@@ -29,12 +34,13 @@ export default function JoinedForLater(props: { uid: string; groupName: string; 
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-gray-950 px-6 text-center" dir="rtl">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-gray-950 px-6 text-center" dir={dir}>
       <CheckCircle2 className="h-14 w-14 text-emerald-400" />
       <div>
         <h1 className="text-2xl font-black text-white">{t('later.title')}</h1>
-        <p className="mt-2 text-sm text-white/80">{t('later.remind', { min })}</p>
-        <p className="mt-1 text-xs text-white/50">{t('later.opens', { min: TOGETHER_CONFIG.lobbyOpensMinBefore })}</p>
+        <p className="mt-1 text-sm font-semibold text-white">{when}</p>
+        <p className="mt-2 text-sm text-white/80">{t('later.remind', localizeParams({ min }, locale))}</p>
+        <p className="mt-1 text-xs text-white/50">{t('later.opens', localizeParams({ min: TOGETHER_CONFIG.lobbyOpensMinBefore }, locale))}</p>
       </div>
       <div className="flex w-full max-w-xs flex-col gap-3">
         <button onClick={download} className="flex items-center justify-center gap-2 rounded-2xl bg-white/15 py-3 text-sm font-semibold text-white">
