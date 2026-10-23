@@ -1,0 +1,4 @@
+{"authorityId":"3DvasTJYUbIGGVvtg3ex","city":"גבעתיים","researchedAt":"2026-10-23","routes":[
+{"name": "מסלול הליכה מעגלי בגבעתיים", "aliases": [], "kind": "walk", "lengthKm": 5.5, "inPark": null, "description": "טיול הליכה מעגלי של כ-5.5 ק\"מ דרך גבעת קוזלובסקי, גן העלייה השנייה, גן רבקה ופארק גבעתיים", "sources": [{"url": "https://www.ynet.co.il/articles/0,7340,L-3952684,00.html", "title": "הכלב ואני: שתיים וארבע רגליים, טיול בגבעתיים - ynet"}], "nameIsDescriptive": true},
+{"name": "פארק גבעתיים", "aliases": [], "kind": "walk", "lengthKm": null, "inPark": "פארק גבעתיים", "description": "פארק של כ-35 דונם בין רחוב בן צבי לדרך רבין עם שביל היקפי", "sources": [{"url": "https://he.wikipedia.org/wiki/%D7%92%D7%91%D7%A2%D7%AA%D7%99%D7%99%D7%9D", "title": "גבעתיים - ויקיפדיה"}]}
+],"notes":"Tiny dense city; no named promenade or boulevard path found. Municipal parks page (givatayim.muni.il/פארקים-וגינות) could not be fetched."}
