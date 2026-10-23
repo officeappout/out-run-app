@@ -1,0 +1,70 @@
+[
+  {
+    "categories": null,
+    "label": "אימון"
+  },
+  {
+    "categories": [],
+    "label": "אימון"
+  },
+  {
+    "categories": [
+      "x"
+    ],
+    "label": "אימון"
+  },
+  {
+    "categories": [
+      "strength"
+    ],
+    "label": "אימון כוח"
+  },
+  {
+    "categories": [
+      "cardio"
+    ],
+    "label": "ריצה"
+  },
+  {
+    "categories": [
+      "maintenance"
+    ],
+    "label": "אימון קל"
+  },
+  {
+    "categories": [
+      "walking"
+    ],
+    "label": "הליכה"
+  },
+  {
+    "categories": [
+      "strength",
+      "cardio"
+    ],
+    "label": "אימון כוח + ריצה"
+  },
+  {
+    "categories": [
+      "walking",
+      "strength",
+      "maintenance",
+      "cardio"
+    ],
+    "label": "הליכה + אימון כוח + אימון קל + ריצה"
+  },
+  {
+    "categories": [
+      "strength",
+      "strength"
+    ],
+    "label": "אימון כוח + אימון כוח"
+  },
+  {
+    "categories": [
+      "nope",
+      "walking"
+    ],
+    "label": "הליכה"
+  }
+]
