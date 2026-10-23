@@ -80,7 +80,6 @@ import ScheduleBuilderSheetV2 from './ScheduleBuilderSheetV2';
 import { useT } from '@/hooks/useT';
 import { schedule } from '@/messages/ns/schedule';
 
-const DAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const; // i18n-allow-hebrew: weekday letters (wave 3, fmt); unused here
 const CLOSE_THRESHOLD = 220;
 const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
 

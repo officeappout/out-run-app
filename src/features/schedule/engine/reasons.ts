@@ -12,6 +12,7 @@
  * shown to men and women alike, and Kelly re-voices it by the user's gender anyway).
  */
 import type { RunningDayRole } from './runningRules';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 export type ScheduleDomain = 'strength' | 'running';
 export type KeyRun = 'quality' | 'long';
@@ -93,8 +94,7 @@ export function sortScheduleReasons<T extends ScheduleReason>(reasons: readonly 
   return [...reasons].sort((a, b) => rank(a) - rank(b));
 }
 
-const DAY_NAME_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const;
-const dayHe = (day: number) => `יום ${DAY_NAME_HE[day] ?? ''}`.trim();
+const dayHe = (day: number) => `יום ${weekdayLabel(day, 'long')}`.trim();
 
 const SLOT_HE: Record<RunningDayRole, string> = {
   quality_primary: 'אימון איכות',

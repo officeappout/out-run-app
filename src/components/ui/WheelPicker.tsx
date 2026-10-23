@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import { unitLabel } from '@/lib/i18n/units';
 
 interface WheelPickerProps {
   value: number;
@@ -22,7 +23,7 @@ export default function WheelPicker({
   min = 40,
   max = 150,
   step = 1,
-  unit = 'ק״ג',
+  unit = unitLabel('kg'),
   label,
 }: WheelPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);

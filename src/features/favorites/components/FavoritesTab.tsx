@@ -7,6 +7,9 @@ import { useFavoritesStore } from '../store/useFavoritesStore';
 import { useCachedMediaUrl } from '../hooks/useCachedMedia';
 import type { FavoriteWorkout } from '../types';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { withUnit } from '@/lib/i18n/units';
 
 interface FavoritesTabProps {
   onSelectWorkout: (generated: GeneratedWorkout, fav: FavoriteWorkout) => void;
@@ -91,6 +94,7 @@ const FavoriteWorkoutCard = React.forwardRef<
   HTMLButtonElement,
   { fav: FavoriteWorkout; isDownloaded: boolean; onSelect: () => void }
 >(function FavoriteWorkoutCard({ fav, isDownloaded, onSelect }, ref) {
+  const tc = useT(common);
   const rawThumbUrl = fav.exercises[0]?.imageUrl ?? null;
   const cachedThumbUrl = useCachedMediaUrl(rawThumbUrl);
   const [thumbError, setThumbError] = useState(false);
@@ -135,7 +139,7 @@ const FavoriteWorkoutCard = React.forwardRef<
           <span className="text-gray-300">·</span>
           <div className="flex items-center gap-0.5 text-gray-500">
             <Clock size={11} />
-            <span className="text-[11px] font-medium">{fav.estimatedDuration} דק׳</span>
+            <span className="text-[11px] font-medium">{withUnit('min', fav.estimatedDuration, tc)}</span>
           </div>
         </div>
         <p className="text-[10px] text-gray-400 mt-0.5">
@@ -158,6 +162,7 @@ const FavoriteWorkoutRowV2 = React.forwardRef<
   HTMLButtonElement,
   { fav: FavoriteWorkout; isDownloaded: boolean; onSelect: () => void }
 >(function FavoriteWorkoutRowV2({ fav, isDownloaded, onSelect }, ref) {
+  const tc = useT(common);
   return (
     <motion.button
       ref={ref}
@@ -178,7 +183,7 @@ const FavoriteWorkoutRowV2 = React.forwardRef<
           <span>{DIFFICULTY_MAP[fav.difficulty] ?? ''}</span>
           <span aria-hidden>·</span>
           <Clock size={12} aria-hidden />
-          <span>{fav.estimatedDuration} דק׳</span>
+          <span>{withUnit('min', fav.estimatedDuration, tc)}</span>
           <span aria-hidden>·</span>
           <span className="truncate">{fav.exerciseCount} תרגילים</span>
         </div>

@@ -14,6 +14,8 @@ import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 type CommunityT = (key: NamespaceKey<typeof community>, values?: MessageValues) => string;
 
@@ -27,7 +29,6 @@ const CATEGORY_CONFIG: Record<CommunityGroupCategory, { icon: string; gradient: 
   other:       { icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
 
-const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']; // i18n-allow-hebrew: wave 3 — weekday names (fmt)
 
 interface GroupCardProps {
   group: CommunityGroup;
@@ -84,6 +85,7 @@ export default function GroupCard({
   onOpenChat,
 }: GroupCardProps) {
   const t = useT(community);
+  const tc = useT(common);
   const catConfig = CATEGORY_CONFIG[group.category];
   const categoryLabel = t('groupCard.category', { category: group.category ?? '' });
   const coverImage = group.images?.[0];
@@ -125,10 +127,10 @@ export default function GroupCard({
 
   const scheduleLabel = (() => {
     if (group.scheduleSlots?.length) {
-      return group.scheduleSlots.map(s => `יום ${DAY_LABELS[s.dayOfWeek]} ${s.time}`).join(' · '); // i18n-allow-hebrew: wave 3 — weekday label (fmt)
+      return group.scheduleSlots.map(s => `יום ${weekdayLabel(s.dayOfWeek, 'short', tc)} ${s.time}`).join(' · '); // i18n-allow-hebrew: 'יום' prefix joins the weekday label
     }
     if (group.schedule) {
-      return `יום ${DAY_LABELS[group.schedule.dayOfWeek]} ${group.schedule.time}`; // i18n-allow-hebrew: wave 3 — weekday label (fmt)
+      return `יום ${weekdayLabel(group.schedule.dayOfWeek, 'short', tc)} ${group.schedule.time}`; // i18n-allow-hebrew: 'יום' prefix joins the weekday label
     }
     return null;
   })();

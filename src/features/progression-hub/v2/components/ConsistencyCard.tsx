@@ -16,8 +16,9 @@ import { missedLine, reasonCounts, REASON_LABEL, type ConsistencyDay, type Consi
 import { KindGlyph } from './KindIcon';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 
-const HEB_DAY = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: weekday letters — wave 3 (fmt), Intl differs
 const COLLAPSED = 7;
 
 const TONE: Record<ConsistencyReason, { bg: string; fg: string }> = {
@@ -57,6 +58,7 @@ export interface ConsistencyCardProps {
 
 export default function ConsistencyCard({ days, currentStreak, longestStreak }: ConsistencyCardProps) {
   const t = useT(profileNs);
+  const tc = useT(common);
   const [all, setAll] = useState(false);
   const counted = days.filter((d) => d.counted);
   const headTones = sortTones(counted.slice(0, 7).flatMap((d) => d.tones));
@@ -107,7 +109,7 @@ export default function ConsistencyCard({ days, currentStreak, longestStreak }: 
       <div className="mt-1.5">
         {shown.map((d, i) => (
           <div key={d.iso} className={d.isToday ? 'rounded-[14px] bg-v2-tint' : ''}>
-            <WeekDayRow letter={HEB_DAY[d.weekday]} date={d.dayOfMonth} muted={!d.counted} divider={i > 0 && !d.isToday}>
+            <WeekDayRow letter={weekdayLabel(d.weekday, 'letter', tc)} date={d.dayOfMonth} muted={!d.counted} divider={i > 0 && !d.isToday}>
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap gap-1.5">

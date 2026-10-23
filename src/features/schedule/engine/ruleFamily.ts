@@ -49,6 +49,7 @@ import {
   type RunningWeekContext,
   type RunningCriticalityContext,
 } from './runningRules';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Shared interface
@@ -91,7 +92,6 @@ export interface RuleFamily<TWeek, TValidateContext, TReduceContext> {
   placeOn(week: TWeek, dayIndices: number[], context: TReduceContext): TWeek | null;
 }
 
-const DAY_NAMES_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
 function invalidWeekViolation(code: string, length: number): RuleFamilyValidation {
   return {
@@ -234,7 +234,7 @@ function strengthReduceTo(
     const before = describeDaySessions(week[i]);
     const after = describeDaySessions(rebuilt[i]);
     if (before !== after) {
-      removed.push(`יום ${DAY_NAMES_HE[i]}: ${before} ← ${after}`);
+      removed.push(`יום ${weekdayLabel(i, 'letter')}: ${before} ← ${after}`);
     }
   }
 
@@ -359,7 +359,7 @@ function runningReduceTo(
       const match = matchesSlotTypeForDrop(day, slotType);
       if (match.matches) {
         if (match.slotTypeWasUnknown) anySlotTypeUnknown = true;
-        removed.push(`יום ${DAY_NAMES_HE[day.dayOfWeek]}: ${RUNNING_SLOT_NAME_HE[slotType]} הוסרה`);
+        removed.push(`יום ${weekdayLabel(day.dayOfWeek, 'letter')}: ${RUNNING_SLOT_NAME_HE[slotType]} הוסרה`);
         day.category = null;
         day.slotType = undefined;
         day.isQualityWorkout = undefined;

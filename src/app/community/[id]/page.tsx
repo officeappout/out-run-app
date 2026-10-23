@@ -35,8 +35,10 @@ import EventCard from '@/features/arena/components/EventCard';
 import SessionDrawer from '@/features/arena/components/SessionDrawer';
 import MapCard from '@/features/arena/components/MapCard';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 
-const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const FREQ_LABELS: Record<string, string> = {
   weekly: 'שבועי',
   biweekly: 'דו-שבועי',
@@ -60,6 +62,7 @@ interface MemberInfo {
 }
 
 export default function CommunityHubPage() {
+  const tc = useT(common);
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
@@ -346,7 +349,7 @@ export default function CommunityHubPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-bold text-gray-900">
-                      יום {DAY_LABELS[slot.dayOfWeek]} · {slot.time}
+                      יום {weekdayLabel(slot.dayOfWeek, 'long', tc)} · {slot.time}
                     </p>
                     <p className="text-[10px] text-gray-400 font-medium">
                       {FREQ_LABELS[slot.frequency] ?? slot.frequency}

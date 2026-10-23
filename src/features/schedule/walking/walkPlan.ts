@@ -29,6 +29,7 @@ import type {
   WalkTarget,
   WalkWeek,
 } from './walkPlan.types';
+import { withUnit } from '@/lib/i18n/units';
 
 /** Sunday–Friday: Saturday is off unless the user marks it (policy saturdayDefaultOff). */
 export const DEFAULT_WALK_DAYS: readonly number[] = [0, 1, 2, 3, 4, 5];
@@ -195,12 +196,12 @@ export function recommendWalkPlan(input: WalkPlanInput, cfg: WalkPlanConfig = WA
 
   const reasonsHe = [
     `${LEVEL_REASON_HE[level]} · עד 10% יותר כל שבוע`,
-    `היעד: ${target} דק׳ הליכה מהירה בשבוע — לפי המלצת ארגון הבריאות העולמי`,
+    `היעד: ${withUnit('min', target)} הליכה מהירה בשבוע — לפי המלצת ארגון הבריאות העולמי`,
   ];
   if (days.length && planned < target) {
     reasonsHe.push(days.length < cfg.frequency.max
-      ? `עד ${planned} דק׳ עם ${days.length === 1 ? 'יום אחד' : `${days.length} ימים`} — הוסיפו יום כדי להגיע ל-${target}`
-      : `עד ${planned} דק׳ בשבוע בהליכות של עד ${cfg.session.max} דק׳`);
+      ? `עד ${withUnit('min', planned)} עם ${days.length === 1 ? 'יום אחד' : `${days.length} ימים`} — הוסיפו יום כדי להגיע ל-${target}`
+      : `עד ${withUnit('min', planned)} בשבוע בהליכות של עד ${withUnit('min', cfg.session.max)}`);
   }
   if (input.audience === 'senior') reasonsHe.push('כדאי להוסיף תרגילי שיווי משקל קצרים');
   return { level, targetWeeklyMinutes: target, plannedWeeklyMinutes: planned, frequency, days, weeks, reasonsHe };
@@ -224,5 +225,5 @@ export function stepGapWalk(
 
 /** "30 דק׳" / "3 ק״מ" */
 export function walkTargetLabelHe(t: WalkTarget): string {
-  return t.type === 'time' ? `${t.minutes} דק׳` : `${t.km} ק״מ`;
+  return t.type === 'time' ? withUnit('min', t.minutes) : withUnit('km', t.km);
 }

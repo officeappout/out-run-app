@@ -9,6 +9,7 @@
  */
 
 import { PLACE_TYPE_LABEL, splitGeoLabel, type GeoPlaceType } from './geocode-place-type';
+import { withUnit } from '@/lib/i18n/units';
 
 export type SearchGroupId = 'addresses' | 'places' | 'parks' | 'routes';
 
@@ -82,9 +83,9 @@ export function distanceKmTo(
 /** "650 מ׳" under 1 km, "1.8 ק״מ" up to 100 km, "120 ק״מ" beyond. */
 export function formatDistanceKm(km: number | null | undefined): string {
   if (km == null || !Number.isFinite(km) || km < 0) return '';
-  if (km < 1) return `${Math.max(10, Math.round((km * 1000) / 10) * 10)} מ׳`;
-  if (km < 100) return `${(Math.round(km * 10) / 10).toFixed(1)} ק״מ`;
-  return `${Math.round(km)} ק״מ`;
+  if (km < 1) return withUnit('m', Math.max(10, Math.round((km * 1000) / 10) * 10));
+  if (km < 100) return withUnit('km', (Math.round(km * 10) / 10).toFixed(1));
+  return withUnit('km', Math.round(km));
 }
 
 export interface SearchGroup<T extends GroupableItem> {
@@ -174,7 +175,7 @@ export function groupedRowLines(item: GroupableItem & { routeKm?: number }): { p
     const primary = i < 0 ? item.text : item.text.slice(0, i);
     const city = i < 0 ? '' : item.text.slice(i + 3);
     const km = item._source === 'route' && item.routeKm && item.routeKm > 0
-      ? `${(Math.round(item.routeKm * 10) / 10).toFixed(1)} ק״מ`
+      ? withUnit('km', (Math.round(item.routeKm * 10) / 10).toFixed(1))
       : '';
     const fallback = item._source === 'park' ? 'פארק' : 'מסלול';
     const secondary = [km, city].filter(Boolean).join(' · ');
@@ -202,8 +203,8 @@ export function estimateMinutes(straightKm: number | null | undefined, mode: Eta
 /** "~11 דק׳" / "~1:20 שע׳" */
 export function formatEta(min: number | null): string {
   if (min == null) return '';
-  if (min < 60) return `~${min} דק׳`;
+  if (min < 60) return `~${withUnit('min', min)}`;
   const h = Math.floor(min / 60);
   const m = min % 60;
-  return `~${h}:${String(m).padStart(2, '0')} שע׳`;
+  return `~${withUnit('hour', `${h}:${String(m).padStart(2, '0')}`)}`;
 }

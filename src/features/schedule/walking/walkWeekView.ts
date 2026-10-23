@@ -8,6 +8,7 @@ import { walkTargetLabelHe } from './walkPlan';
 import { LONG_WALK_TITLE_HE, WALK_TITLE_HE } from './walkSchedule';
 import type { PlannedWalk, WalkGoal, WalkPlan, WalkWeek } from './walkPlan.types';
 import { formatNumber } from '@/lib/i18n/core/fmt';
+import { withUnit } from '@/lib/i18n/units';
 
 export const WALK_GOAL_COPY: Record<WalkGoal, { title: string; sub: string }> = {
   weight_loss: { title: 'ירידה במשקל', sub: 'הליכה מהירה רוב הימים, נבנה בהדרגה' },
@@ -24,7 +25,7 @@ export function walkPieceTitle(w: Pick<PlannedWalk, 'isLong'>): string {
 
 /** "קצב מהיר · 30 דק׳ · ~3,300 צעדים" */
 export function walkPieceSubtitle(w: PlannedWalk): string {
-  return `קצב מהיר · ${walkTargetLabelHe(w.target)} · ~${fmt(w.estSteps)} צעדים`;
+  return `קצב מהיר · ${walkTargetLabelHe(w.target)} · ~${withUnit('steps', fmt(w.estSteps))}`;
 }
 
 /** The days that also get the add-on: spread over the walk days, never the long walk's. */
@@ -52,7 +53,7 @@ export function walkWeekDays(week: WalkWeek, addOn: PolicyAddOn | null): WalkDay
     return {
       dow,
       walk: w ? { title: walkPieceTitle(w), subtitle: walkPieceSubtitle(w), isLong: w.isLong } : null,
-      addOn: addOn && extra.includes(dow) ? { title: 'ליבה וגב', subtitle: `חיזוק קל · בבית · ${addOn.minutes} דק׳` } : null,
+      addOn: addOn && extra.includes(dow) ? { title: 'ליבה וגב', subtitle: `חיזוק קל · בבית · ${withUnit('min', addOn.minutes)}` } : null,
     };
   });
 }
@@ -61,7 +62,7 @@ export function walkWeekDays(week: WalkWeek, addOn: PolicyAddOn | null): WalkDay
 export function walkRecommendationTitle(plan: WalkPlan): string {
   const w0 = plan.weeks[0];
   const usual = w0?.walks.find((w) => !w.isLong) ?? w0?.walks[0];
-  return `${plan.frequency} הליכות בשבוע${usual ? ` · ~${usual.minutes} דק׳` : ''}`;
+  return `${plan.frequency} הליכות בשבוע${usual ? ` · ~${withUnit('min', usual.minutes)}` : ''}`;
 }
 
 /** "שבוע 1: 90 דק׳ ← שבוע 4: 120 דק׳" — the gentle ramp. */
@@ -69,14 +70,14 @@ export function walkRampLine(plan: WalkPlan): string | null {
   const first = plan.weeks[0];
   const last = plan.weeks[plan.weeks.length - 1];
   if (!first || !last || last.totalMinutes <= first.totalMinutes) return null;
-  return `שבוע 1: ${first.totalMinutes} דק׳ ← שבוע ${plan.weeks.length}: ${last.totalMinutes} דק׳`;
+  return `שבוע 1: ${withUnit('min', first.totalMinutes)} ← שבוע ${plan.weeks.length}: ${withUnit('min', last.totalMinutes)}`;
 }
 
 /** "הליכה · 4 × 30 דק׳ + ליבה פעמיים" */
 export function walkWeekSubtitle(plan: WalkPlan, addOn: PolicyAddOn | null): string {
   const w0 = plan.weeks[0];
   const usual = w0?.walks.find((w) => !w.isLong) ?? w0?.walks[0];
-  const head = `הליכה · ${plan.frequency} × ${usual ? usual.minutes : 30} דק׳`;
+  const head = `הליכה · ${plan.frequency} × ${withUnit('min', usual ? usual.minutes : 30)}`;
   return addOn ? `${head} + ליבה ${addOn.perWeek === 2 ? 'פעמיים' : `×${addOn.perWeek}`}` : head;
 }
 
@@ -93,7 +94,7 @@ export function plannedWalkSteps(plannedRun: unknown, stepsPerMinute = 110, kmPe
 export function plannedWalkTargetHe(plannedRun: unknown): string | null {
   const goal = (plannedRun as { goal?: { type?: unknown; value?: unknown } } | null)?.goal;
   if (typeof goal?.value !== 'number') return null;
-  return goal.type === 'time' ? `${goal.value} דק׳` : goal.type === 'distance' ? `${goal.value} ק״מ` : null;
+  return goal.type === 'time' ? withUnit('min', goal.value) : goal.type === 'distance' ? withUnit('km', goal.value) : null;
 }
 
 /** The step ring line under today's walk (WR-4). */
@@ -102,5 +103,5 @@ export function walkStepsHint(stepsToday: number, stepGoal: number | null, walkS
   if (!walkSteps) return null;
   return stepsToday + walkSteps >= stepGoal
     ? `ההליכה של היום תסגור את הטבעת: ${fmt(stepsToday)} + ~${fmt(walkSteps)}`
-    : `ההליכה של היום תוסיף ~${fmt(walkSteps)} צעדים`;
+    : `ההליכה של היום תוסיף ~${withUnit('steps', fmt(walkSteps))}`;
 }

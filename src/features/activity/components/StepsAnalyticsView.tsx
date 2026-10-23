@@ -61,7 +61,9 @@ import { STEPS_COLOR } from '@/features/activity/config/health-goals.config';
 import { useT } from '@/hooks/useT';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import type { Locale } from '@/lib/i18n/locales';
+import { common } from '@/messages/ns/common';
 import { profile } from '@/messages/ns/profile';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -72,7 +74,6 @@ const TIME_RANGES = [
   { key: 'year', labelKey: 'steps.range.year' },
 ] as const satisfies readonly { key: StepsTimeRange; labelKey: string }[];
 
-const HEBREW_DAYS_SHORT = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const; // i18n-allow-hebrew: weekday letters, date formatting moves to fmt.weekdayName in wave 3
 
 /** Soft tinted backdrop the glass cards float over (steps green + v2 cyan). */
 const PAGE_BACKDROP =
@@ -280,6 +281,7 @@ export default function StepsAnalyticsView({
   lineChart = false,
 }: StepsAnalyticsViewProps) {
   const t = useT(profile);
+  const tc = useT(common);
   // Day-tab: how many days back from today (0 = today, 6 = 6 days ago)
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
 
@@ -360,12 +362,12 @@ export default function StepsAnalyticsView({
       return {
         key: s.date,
         label: `${d.getDate()}/${d.getMonth() + 1}`,
-        dayName: HEBREW_DAYS_SHORT[d.getDay()],
+        dayName: weekdayLabel(d.getDay(), 'letter', tc),
         value: s.steps,
         isSelected: i === arr.length - 1 - selectedDayOffset,
       };
     });
-  }, [snapshots, selectedDayOffset]);
+  }, [snapshots, selectedDayOffset, tc]);
 
   // ── Hero values ───────────────────────────────────────────────────────────
   // Day tab → the selected day (carousel); other tabs → today (latest snapshot).
@@ -436,17 +438,16 @@ export default function StepsAnalyticsView({
   // Stable per-mount mock series (3,000–9,000 steps × 7 days) for the blurred
   // teaser shown behind the connect CTA. useMemo([]) so it doesn't reshuffle.
   const mockBarData = useMemo<BarDatum[]>(() => {
-    const labels = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: weekday letters, date formatting moves to fmt.weekdayName in wave 3
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
       return {
         key: `mock-${i}`,
-        label: `${labels[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`,
+        label: `${weekdayLabel(d.getDay(), 'letter', tc)} ${d.getDate()}/${d.getMonth() + 1}`,
         value: 3000 + Math.floor(Math.random() * 6000),
       };
     });
-  }, []);
+  }, [tc]);
 
   const firstStatLabel = isDay ? dayRingLabel : isYear ? t('steps.stat.total') : t('steps.stat.dailyAverage');
   const firstStatValue = isDay ? selectedDaySteps : isYear ? stats.totalSteps : stats.averageDaily;

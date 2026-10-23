@@ -44,6 +44,9 @@ import { isRouteLitVerified } from '../services/route-quality-badges.service';
 import type { ActivityType, Route } from '../types/route.types';
 import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
 import { logGeneratedRoutes } from '@/features/generation-review/capture/hooks';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { withUnit } from '@/lib/i18n/units';
 
 const ACCENT = '#00ADEF';
 
@@ -360,11 +363,12 @@ function RouteCard({
   activity: ActivityType;
   onSelect: () => void;
 }) {
+  const tc = useT(common);
   const stars = scoreToStars(route.score);
   const highlight = useMemo(() => routeHighlight(route), [route]);
   const displayName = route.name?.trim() || 'סיבוב מעגלי';
-  const distanceText = `${route.distance.toFixed(1)} ק״מ`;
-  const durationText = `~${route.duration} דק׳`;
+  const distanceText = withUnit('km', route.distance.toFixed(1), tc);
+  const durationText = `~${withUnit('min', route.duration, tc)}`;
   const activityEmoji = activity === 'cycling' ? '🚴' : activity === 'running' ? '🏃' : '🚶';
 
   return (

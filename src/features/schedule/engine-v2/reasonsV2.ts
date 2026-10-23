@@ -12,6 +12,7 @@ import {
 import { RUNNING_SLOT_NAME_HE } from '../engine/runningRules';
 import type { RunSlot } from './types';
 import { defaultScheduleT, type ScheduleT } from '../engine/schedule-t';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 export type V2OnlyReason =
   // ── per day ──
@@ -52,9 +53,8 @@ export type V2OnlyReason =
 export type V2Reason = ScheduleReason | V2OnlyReason;
 export type V2ReasonCode = V2Reason['code'];
 
-// Weekday names stay here for wave 3 (fmt): Intl would not produce the same Hebrew.
-const DAY_NAME_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const; // i18n-allow-hebrew: weekday names (wave 3)
-export const dayNameHe = (day: number): string => DAY_NAME_HE[((day % 7) + 7) % 7];
+// Weekday names come from the `common` catalog (weekdays.long.*), not Intl: Intl would not produce the same Hebrew.
+export const dayNameHe = (day: number): string => weekdayLabel(((day % 7) + 7) % 7, 'long');
 const dayHe = (t: ScheduleT, day: number) => t('engine.dayLabel', { name: dayNameHe(day) });
 const keyRunHe = (t: ScheduleT, run: KeyRun) => t('engine.keyRun', { run });
 

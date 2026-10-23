@@ -21,12 +21,13 @@ import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 type CommunityT = (key: NamespaceKey<typeof community>, values?: MessageValues) => string;
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
-const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: wave 3 — weekday names (fmt)
 const ALL_PHASES: LiveSessionPhase[] = ['far', 'approaching', 'lobby', 'active', 'ended'];
 // i18n-allow-hebrew: dev-only phase override panel (IS_DEV), never shown in production
 const PHASE_LABELS: Record<LiveSessionPhase, string> = {
@@ -126,6 +127,7 @@ export default function CommunitySessionBanner({
   isJoined = true,
 }: CommunitySessionBannerProps) {
   const t       = useT(community);
+  const tc      = useT(common);
   const router  = useRouter();
   const profile = useUserStore((s) => s.profile);
   const uid      = profile?.id ?? '';
@@ -178,8 +180,8 @@ export default function CommunitySessionBanner({
 
   // ── time ───────────────────────────────────────────────────────────────────
   const mins      = session.minutesUntil;
-  const dayLabel  = DAY_LABELS[new Date(`${session.date}T12:00:00`).getDay()];
-  const dateLabel = session.isToday ? t('banner.date.today') : session.isTomorrow ? t('banner.date.tomorrow') : `יום ${dayLabel}`; // i18n-allow-hebrew: wave 3 — weekday label (fmt)
+  const dayLabel  = weekdayLabel(new Date(`${session.date}T12:00:00`).getDay(), 'long', tc);
+  const dateLabel = session.isToday ? t('banner.date.today') : session.isTomorrow ? t('banner.date.tomorrow') : `יום ${dayLabel}`; // i18n-allow-hebrew: 'יום' prefix joins the weekday label
   const timeLabel = `${dateLabel} · ${session.time}`;
   const countdown = formatCountdown(mins, t);
   const price     = session.slot.price;

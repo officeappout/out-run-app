@@ -8,12 +8,13 @@
  * training day at (workout time − lead), on the 5-minute grid.
  */
 import type { ReminderSlot, ReminderWeekday } from '@/features/user/core/types/user.types';
+import { withUnit } from '@/lib/i18n/units';
 
 export type ReminderLeadMinutes = 15 | 30 | 60;
 
 export const REMINDER_LEAD_OPTIONS: ReadonlyArray<{ minutes: ReminderLeadMinutes; label: string }> = [
-  { minutes: 15, label: '15 דק׳' },
-  { minutes: 30, label: '30 דק׳' },
+  { minutes: 15, label: withUnit('min', 15) },
+  { minutes: 30, label: withUnit('min', 30) },
   { minutes: 60, label: 'שעה' },
 ];
 export const DEFAULT_REMINDER_LEAD: ReminderLeadMinutes = 30;
@@ -70,6 +71,6 @@ export function isReminderAlreadyActive(input: {
 
 /** "עוד 30 דק׳: ריצה קלה · 19:00" — the sample notification on the step. */
 export function reminderPreviewTitle(lead: ReminderLeadMinutes, workoutName: string, time: string): string {
-  const when = lead === 60 ? 'עוד שעה' : `עוד ${lead} דק׳`;
+  const when = lead === 60 ? 'עוד שעה' : `עוד ${withUnit('min', lead)}`;
   return `${when}: ${workoutName} · ${time}`;
 }

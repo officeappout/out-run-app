@@ -6,6 +6,7 @@ import type { CommunityEvent, CommunityGroup } from '@/types/community.types';
 import { scoreFields } from '../core/text';
 import type { EventHit, GroupHit, LatLng } from '../core/types';
 import { haversineKm } from './places';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 /**
  * Hebrew category words searched against ("ריצה" finds running groups) and joined into the hit's
@@ -29,14 +30,12 @@ export const EVENT_CATEGORY_LABEL: Record<string, string> = {
   other: 'אירוע', // i18n-allow-hebrew: match data for scoreFields, not rendered (cards use search.*.category)
 };
 
-const DAY = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']; // i18n-allow-hebrew: weekday names, moves to fmt.weekdayName in wave 3
-
 /** "ג׳ ו־ה׳ · 19:30" from the group's slots (deduped days, first slot's time). */
 export function groupScheduleLabel(g: Pick<CommunityGroup, 'scheduleSlots' | 'schedule'>): string | null {
   const slots = g.scheduleSlots?.length ? g.scheduleSlots : g.schedule ? [g.schedule] : [];
   if (!slots.length) return null;
   const days = Array.from(new Set(slots.map((s) => s.dayOfWeek).filter((d) => d >= 0 && d <= 6))).sort();
-  const dayText = days.map((d) => DAY[d]).join(' ו־'); // i18n-allow-hebrew: weekday names, moves to fmt.weekdayName in wave 3
+  const dayText = days.map((d) => weekdayLabel(d, 'short')).join(' ו־'); // i18n-allow-hebrew: joiner between weekday names
   return [dayText || null, slots[0]?.time || null].filter(Boolean).join(' · ');
 }
 

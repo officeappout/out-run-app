@@ -6,6 +6,7 @@ import { RUNNING_SLOT_NAME_HE } from '../../engine/runningRules';
 import type { RunSlot, TimeWindow, TrainingLevel } from '../../engine-v2/types';
 import { RUN_TIME_PRESETS } from '../../utils/runWeekRecommendation';
 import type { WbDay, WbWeek } from '../types';
+import { withUnit } from '@/lib/i18n/units';
 
 /** Seven days, `open` ones droppable, all with `window`. */
 export function emptyWeek<P>(openDays: readonly number[], windows: Partial<Record<number, TimeWindow>>, fallback: TimeWindow): WbWeek<P> {
@@ -22,7 +23,7 @@ export function emptyWeek<P>(openDays: readonly number[], windows: Partial<Recor
 /** "45 דק׳ · ערב" (minutes first when known). */
 export function detailLineHe(minutes: number | undefined, window: TimeWindow): string {
   const label = RUN_TIME_PRESETS[window].label;
-  return minutes ? `${minutes} דק׳ · ${label}` : label;
+  return minutes ? `${withUnit('min', minutes)} · ${label}` : label;
 }
 
 /**

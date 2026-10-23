@@ -9,6 +9,7 @@
  */
 import type { FeedPost } from './feed.service';
 import { exerciseLine, formatSecPerKm, type FeedPostDetails, type FeedTopExercise } from './feed-post-details';
+import { unitLabel, withUnit } from '@/lib/i18n/units';
 
 export type ShareKind = 'strength' | 'cardio';
 export type ShareSize = 'story' | 'square';
@@ -185,9 +186,9 @@ export function formatDurationMin(min: number): ShareStat {
   if (min >= 60) {
     const h = Math.floor(min / 60);
     const m = min % 60;
-    return { value: `${h}:${String(m).padStart(2, '0')}`, unit: 'שעות' };
+    return { value: `${h}:${String(m).padStart(2, '0')}`, unit: unitLabel('hours') };
   }
-  return { value: String(min), unit: 'דקות' };
+  return { value: String(min), unit: unitLabel('minutes') };
 }
 
 function levelLine(i: ShareImageInput): string | undefined {
@@ -246,28 +247,28 @@ export function buildShareTemplateData(input: ShareImageInput, templateId: strin
   }
 
   // cardio
-  const km = input.distanceKm ? { value: input.distanceKm.toFixed(1), unit: 'ק״מ' } : null;
-  const pace = input.paceSecPerKm ? { value: formatSecPerKm(input.paceSecPerKm), unit: 'דק׳ לק״מ' } : null;
+  const km = input.distanceKm ? { value: input.distanceKm.toFixed(1), unit: unitLabel('km') } : null;
+  const pace = input.paceSecPerKm ? { value: formatSecPerKm(input.paceSecPerKm), unit: unitLabel('minPerKm') } : null;
   const stats = [km, pace, duration].filter((s): s is ShareStat => !!s);
   const route = input.routeShape;
   if (id === 'run-stats') {
     return {
       ...base,
       eyebrow: input.title || 'ריצה',
-      headline: km ? `${km.value} ק״מ` : `${duration.value} ${duration.unit}`,
+      headline: km ? withUnit('km', km.value) : `${duration.value} ${duration.unit}`,
       stats: stats.filter((s) => s !== km),
       route,
       routeStyle: route ? 'inset' : undefined,
     };
   }
   if (id === 'run-clean') {
-    return { ...base, eyebrow: 'ריצה', headline: km ? `${km.value} ק״מ` : `${duration.value} ${duration.unit}`, stats: km ? [duration] : [] };
+    return { ...base, eyebrow: 'ריצה', headline: km ? withUnit('km', km.value) : `${duration.value} ${duration.unit}`, stats: km ? [duration] : [] };
   }
   // run-route
   return {
     ...base,
     eyebrow: input.title || 'ריצה',
-    headline: km ? `${km.value} ק״מ` : `${duration.value} ${duration.unit}`,
+    headline: km ? withUnit('km', km.value) : `${duration.value} ${duration.unit}`,
     stats: stats.filter((s) => s !== km),
     route,
     routeStyle: route ? 'hero' : undefined,

@@ -8,6 +8,7 @@
 
 import type { DailyStepsSnapshot } from '../services/activity-history.service';
 import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 export type StepsTimeRange = 'day' | 'week' | 'month' | 'year';
 
@@ -60,8 +61,6 @@ const HEBREW_MONTHS = [
   'יול׳', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳',
 ];
 
-const HEBREW_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-
 /** Local-time 'YYYY-MM-DD' for a Date. */
 export function toDateKey(d: Date): string {
   const yyyy = d.getFullYear();
@@ -73,7 +72,7 @@ export function toDateKey(d: Date): string {
 function fmtShortDayLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   if (Number.isNaN(d.getTime())) return dateStr.slice(5);
-  return `${HEBREW_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
+  return `${weekdayLabel(d.getDay(), 'letter')} ${d.getDate()}/${d.getMonth() + 1}`;
 }
 
 function fmtMonthLabel(_year: number, monthZeroBased: number): string {
@@ -186,8 +185,6 @@ export function deriveStepsStats(
 
 // ── Design-v2 presentation helpers (pure, no new data) ─────────────────────
 
-const HEBREW_DAY_NAMES_FULL = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-
 /** 'YYYY-MM-DD' shifted by `days` (local calendar arithmetic, DST-safe). */
 export function shiftDateKey(dateKey: string, days: number): string | null {
   const d = new Date(dateKey + 'T00:00:00');
@@ -224,7 +221,7 @@ export function bucketTooltipLabel(key: string): string {
   }
   const d = new Date(key + 'T00:00:00');
   if (Number.isNaN(d.getTime())) return key;
-  return `יום ${HEBREW_DAY_NAMES_FULL[d.getDay()]} · ${d.getDate()}/${d.getMonth() + 1}`;
+  return `יום ${weekdayLabel(d.getDay(), 'long')} · ${d.getDate()}/${d.getMonth() + 1}`;
 }
 
 /** Highlight key for "today/current" in the active range's chart. */
