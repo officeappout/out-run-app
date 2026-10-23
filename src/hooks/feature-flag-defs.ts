@@ -256,6 +256,14 @@ export const FLAG_DEFS = [
   // aiCoachModelRoutingAllUsers — audience for BOTH flags above: OFF = super admins only (the
   // owner tries it alone first), ON = every AI user.
   { key: 'aiCoachModelRoutingAllUsers', firestoreKey: 'ai_coach_model_routing_all_users', defaultValue: false, superAdminValue: false },
+  // aiCoachRequestFidelity (owner chat review 18-23.10.2026) — Kelly follows the request more
+  // faithfully: asks where when no place was given (never assumes home), judges the user's own
+  // week on its merits instead of only comparing it to recommend_week, is honest about set
+  // schemes the engine picks itself (Tabata / EMOM asked, pyramid built), about per-area weekly
+  // sets (device-only), and praises only what the numbers support. Server-read only (the chat
+  // route); fail-closed, superAdminValue false — the panel toggle is the switch. Off = the exact
+  // prompt and tool results as before.
+  { key: 'aiCoachRequestFidelity', firestoreKey: 'ai_coach_request_fidelity', defaultValue: false, superAdminValue: false },
   // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
   // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
   // the focused field is scrolled into view, and the Capacitor Keyboard plugin is

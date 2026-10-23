@@ -250,6 +250,16 @@ describe('POST /api/ai-coach/chat', () => {
     expect(st.appended[1].log.guards[0]).toMatchObject({ type: 'turn_failed' });
   });
 
+  it('ai_coach_request_fidelity: on adds its session note, off leaves the prompt as before', async () => {
+    st.script = [msg('end_turn', { type: 'text', text: 'בבית, בפארק או בחוץ?' })];
+    await events(await POST(req({ message: 'תבנה לי אימון' })));
+    expect(JSON.stringify(st.streamCalls[0].system)).not.toContain('Where to train');
+    st.auth = { ...st.auth, flags: { aiCoachRequestFidelity: true } };
+    st.script = [msg('end_turn', { type: 'text', text: 'בבית, בפארק או בחוץ?' })];
+    await events(await POST(req({ message: 'תבנה לי אימון' })));
+    expect(JSON.stringify(st.streamCalls[1].system)).toContain('Where to train');
+  });
+
   it('a stored failure reply is kept out of the next turn\'s model history', async () => {
     st.thread.recent = [
       { id: 'a', role: 'user', text: 'ואני בן כמה', cards: [], createdAtMs: 1 },

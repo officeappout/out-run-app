@@ -40,7 +40,7 @@ import {
 import { detectSafetyTrigger, safetyReply } from '@/lib/ai/coach/safety';
 import { ChatRequestSchema, encodeSse, type CoachStreamEvent, type CoachStreamErrorCode } from '@/lib/ai/coach/protocol';
 import { GenerateWorkoutInput, coachToolDefinitions, sanitizeWorkoutEquipment } from '@/lib/ai/coach/tools';
-import { applyUserIntent, typoHints } from '@/lib/ai/coach/intent';
+import { applyUserIntent, inferRequestedFormat, typoHints } from '@/lib/ai/coach/intent';
 import { chipsForTurn, nudgeStateFrom } from '@/lib/ai/coach/action-chips';
 import type { UserContextSheet } from '@/lib/ai/coach/context-sheet';
 import {
@@ -194,6 +194,9 @@ export async function POST(request: Request) {
   /** Kelly round 4: the workout this request's client round built (content-gap chip). */
   let builtGap: { location?: string; levelCeiling?: boolean; shortOfMinimum?: boolean } | null = null;
   const round4 = auth.flags?.aiCoachRound4 === true;
+  // Owner chat review fixes (ai_coach_request_fidelity): ask where, judge the user's own week,
+  // honest set schemes / weekly sets / praise. Off = the exact prompt and tool results as before.
+  const fidelity = auth.flags?.aiCoachRequestFidelity === true;
   // get_app_help reads the help loader: refresh its site_content copy (≤ once / 5 min, never throws).
   if (round4) await primeHelpEntries(db);
   let safetyText: string | null = null;
@@ -236,7 +239,10 @@ export async function POST(request: Request) {
     state = resumeWithClientResult(
       pending.state,
       pending.pendingResults,
-      clientOutcomeToToolResult(pending.toolUseId, outcome, round4 ? { round4: true } : {}),
+      clientOutcomeToToolResult(pending.toolUseId, outcome, {
+        ...(round4 ? { round4: true } : {}),
+        ...(fidelity ? { requestedFormat: inferRequestedFormat(turnUserText(pending.state)) } : {}),
+      }),
       pending.toolName || 'generate_workout',
     );
   } else {
@@ -377,6 +383,7 @@ export async function POST(request: Request) {
         ...(phase2 ? { phase2: true } : {}),
         ...(memoryBlock ? { memory: memoryBlock } : {}),
         ...(round4 ? { round4Note: ROUND4_NOTE } : {}),
+        ...(fidelity ? { requestFidelity: true } : {}),
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.

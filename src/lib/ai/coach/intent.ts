@@ -106,6 +106,24 @@ export function inferSkillDomains(text: string): string[] {
   return out;
 }
 
+/** A set scheme the user asked for by name. */
+export type RequestedFormat = 'tabata' | 'emom' | 'amrap' | 'pyramid' | 'superset' | 'intervals';
+
+const FORMAT_RE: Array<[RequestedFormat, RegExp]> = [
+  ['tabata', /טבטה|טאבטה|tabata/i],
+  ['emom', /אמום|\bemom\b/i],
+  ['amrap', /אמרפ|\bamrap\b/i],
+  ['pyramid', /פירמיד/],
+  ['superset', /סופר\s*סט|superset/i],
+  ['intervals', /אינטרוול|\bhiit\b|interval/i],
+];
+
+/** "תבנה לי טבטה" → 'tabata'. null = no named scheme. */
+export function inferRequestedFormat(text: string): RequestedFormat | null {
+  const t = (text ?? '').normalize('NFC');
+  return FORMAT_RE.find(([, re]) => re.test(t))?.[0] ?? null;
+}
+
 export function inferLocation(text: string): CoachLocation | null {
   const toks = tokens(text);
   if (toks.some((t) => ['בבית', 'לבית', 'הביתה', 'בסלון'].includes(t))) return 'home';

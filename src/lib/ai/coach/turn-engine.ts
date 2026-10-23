@@ -410,7 +410,30 @@ function emitChecked(
 }
 
 /** What the model reads back from a generate_workout outcome. */
-export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome, opts: { round4?: boolean } = {}): Anthropic.ToolResultBlockParam {
+/** The set scheme the engine really built (decision record), else the workout structure. */
+export function builtFormatOf(result: { structure?: string; decisionRecord?: unknown }): string {
+  const p = (result.decisionRecord as { expect?: { protocol?: unknown } } | undefined)?.expect?.protocol;
+  return typeof p === 'string' && p ? p : (result.structure ?? 'standard');
+}
+
+const FORMAT_MATCHES: Record<string, readonly string[]> = {
+  tabata: ['tabata'],
+  emom: ['emom'],
+  amrap: ['amrap'],
+  pyramid: ['pyramid'],
+  superset: ['superset', 'antagonist'],
+  intervals: [],
+};
+
+export function clientOutcomeToToolResult(
+  id: string,
+  outcome: ClientToolOutcome,
+  opts: {
+    round4?: boolean;
+    /** ai_coach_request_fidelity: the set scheme the user named this turn (intent.ts inferRequestedFormat). */
+    requestedFormat?: string | null;
+  } = {},
+): Anthropic.ToolResultBlockParam {
   if (outcome.ok) {
     // The decision record stays server-side (explain_workout reads it from the card).
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -438,6 +461,16 @@ export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome
     }
     // Kelly round 4 (ai_coach_round4): honest about the gap + the nearby parks.
     if (opts.round4 && (result.levelCeiling || result.shortOfMinimum)) notes.push(ROUND4_GAP_NOTE);
+    // ai_coach_request_fidelity: the user named a set scheme the engine doesn't take as input
+    // (owner thread: "טבטה" → pyramid sets). Say what was really built, never call it the scheme.
+    if (opts.requestedFormat) {
+      const built = builtFormatOf(outcome.result);
+      if (!(FORMAT_MATCHES[opts.requestedFormat] ?? []).includes(built)) {
+        notes.push(
+          `The user asked for ${opts.requestedFormat}. The engine picks the set scheme itself and built ${built === 'straight' || built === 'standard' ? 'regular sets' : built} instead. Say plainly in one short sentence that this is not a ${opts.requestedFormat} and what it is; never call it one.`,
+        );
+      }
+    }
     return {
       type: 'tool_result',
       tool_use_id: id,
