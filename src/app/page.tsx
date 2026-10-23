@@ -38,6 +38,8 @@ import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 import { runNewAccountFlow } from '@/features/user/onboarding/services/run-new-account-flow';
 import { consumePendingInvites, hasPendingInvite } from '@/features/user/onboarding/services/consume-pending-invites';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
+import { useT } from '@/hooks/useT';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
 
 // localStorage key written by `auth.service.ts` on every positive auth
 // emission and cleared in `signOutUser`. Read here on first paint to
@@ -91,11 +93,7 @@ const CAROUSEL_IMAGES = [
 
 // Each tagline is paired 1-to-1 with the image at the same index so the
 // text transitions in perfect sync with the background crossfade.
-const TAGLINES = [
-  'עכשיו אפשר להתאמן בכל מקום, מתי שנוח לכם',
-  'מסלולי הליכה בפארק ותוכניות אימונים',
-  'מתאים אימונים לכל אחת ואחד',
-];
+const TAGLINE_KEYS = ['landing.tagline.1', 'landing.tagline.2', 'landing.tagline.3'] as const;
 
 const CYCLE_MS = 4000; // 4 seconds per image
 
@@ -167,6 +165,7 @@ function LoginDrawer({
   /** Which provider is currently authenticating, or null if idle. */
   loadingProvider: 'google' | 'apple' | null;
 }) {
+  const t = useT(onboardingNs);
   const loading = loadingProvider !== null;
   // Hide Apple button on Android — ASAuthorizationController is iOS-only.
   const [isAndroid, setIsAndroid] = useState(false);
@@ -229,13 +228,13 @@ function LoginDrawer({
                   className="text-xl font-bold text-slate-900 mb-1"
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  התחברות
+                  {t('landing.login.title')}
                 </h3>
                 <p
                   className="text-sm text-slate-500"
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  היכנס עם החשבון שלך כדי להמשיך
+                  {t('landing.login.subtitle')}
                 </p>
               </div>
 
@@ -259,7 +258,7 @@ function LoginDrawer({
                     <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.2 5.2C36.8 39.2 44 34 44 24c0-1.3-.2-2.7-.4-3.9z"/>
                   </svg>
                 )}
-                {loadingProvider === 'google' ? 'מתחבר...' : 'המשך עם Google'}
+                {loadingProvider === 'google' ? t('landing.login.loading') : t('landing.login.google')}
               </button>
 
               {/* Apple Login — native ASAuthorizationController sheet (iOS only) */}
@@ -280,7 +279,7 @@ function LoginDrawer({
                       <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
                     </svg>
                   )}
-                  {loadingProvider === 'apple' ? 'מתחבר...' : 'המשך עם Apple'}
+                  {loadingProvider === 'apple' ? t('landing.login.loading') : t('landing.login.apple')}
                 </button>
               )}
             </div>
@@ -298,6 +297,7 @@ function LoginDrawer({
 export default function LandingPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const t = useT(onboardingNs);
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // P0-4 (25.09.2026): set when a guest's link attempt hits an existing
@@ -563,15 +563,15 @@ export default function LandingPage() {
         // nothing and the user had no idea why.
         quickSignupInFlightRef.current = false;
         setAuthState('guest');
-        showToast('error', 'החיבור לא הצליח. נסו שוב.');
+        showToast('error', t('landing.toast.connectFailed'));
       }
     } catch (error) {
       console.error('[Landing] Quick signup error:', error);
       quickSignupInFlightRef.current = false;
       setAuthState('guest');
-      showToast('error', 'החיבור לא הצליח. נסו שוב.');
+      showToast('error', t('landing.toast.connectFailed'));
     }
-  }, [router, showToast, introOn, introPreview]);
+  }, [router, showToast, t, introOn, introPreview]);
 
   // ── Secondary: "התחברות" → Open login drawer ──
   const handleLoginOpen = useCallback(() => {
@@ -642,12 +642,12 @@ export default function LandingPage() {
       if (!proceeded) {
         quickSignupInFlightRef.current = false;
         setAuthState('guest');
-        showToast('error', 'החיבור לא הצליח. נסו שוב.');
+        showToast('error', t('landing.toast.connectFailed'));
       }
     } else {
       router.push('/gateway');
     }
-  }, [router, showToast, isRealFallbackOn]);
+  }, [router, showToast, t, isRealFallbackOn]);
 
   // ── Google Login inside drawer ──
   //
@@ -701,11 +701,11 @@ export default function LandingPage() {
       // catches a failure in redirectAfterAuth itself.
       console.error('[Landing] Google login error:', err);
       reportSignupFailure('AUTH_GOOGLE', extractErrorCode(err));
-      showToast('error', 'החיבור ל-Google לא הצליח. נסו שוב.');
+      showToast('error', t('landing.toast.google'));
     }
     setLoadingProvider(null);
     setDrawerOpen(false);
-  }, [router, redirectAfterAuth, showToast]);
+  }, [router, redirectAfterAuth, showToast, t]);
 
   // ── Apple Login inside drawer ── (same shape as Google above)
   const handleAppleLogin = useCallback(async () => {
@@ -736,11 +736,11 @@ export default function LandingPage() {
     } catch (err) {
       console.error('[Landing] Apple login error:', err);
       reportSignupFailure('AUTH_APPLE', extractErrorCode(err));
-      showToast('error', 'החיבור ל-Apple לא הצליח. נסו שוב.');
+      showToast('error', t('landing.toast.apple'));
     }
     setLoadingProvider(null);
     setDrawerOpen(false);
-  }, [router, redirectAfterAuth, showToast]);
+  }, [router, redirectAfterAuth, showToast, t]);
 
   // ── Existing-account modal: explicit confirm/cancel only ──
   //
@@ -773,7 +773,7 @@ export default function LandingPage() {
         case 'account_exists':
         case 'error':
           reportSignupFailure(stage, outcome.reportReason);
-          showToast('error', 'החיבור לא הצליח. נסו שוב.');
+          showToast('error', t('landing.toast.connectFailed'));
           setLoadingProvider(null);
           return;
         case 'proceed':
@@ -785,10 +785,10 @@ export default function LandingPage() {
     } catch (err) {
       console.error('[Landing] Existing-account sign-in error:', err);
       reportSignupFailure(stage, extractErrorCode(err));
-      showToast('error', 'החיבור לא הצליח. נסו שוב.');
+      showToast('error', t('landing.toast.connectFailed'));
       setLoadingProvider(null);
     }
-  }, [existingAccountProvider, redirectAfterAuth, showToast]);
+  }, [existingAccountProvider, redirectAfterAuth, showToast, t]);
 
   // True no-op — the guest session, drawer state, and everything else
   // are exactly as they were before "המשך עם Google/Apple" was pressed.
@@ -864,7 +864,7 @@ export default function LandingPage() {
                 style={{ fontFamily: 'var(--font-simpler)' }}
                 dir="rtl"
               >
-                {TAGLINES[carouselIndex]}
+                {t(TAGLINE_KEYS[carouselIndex])}
               </motion.p>
             </AnimatePresence>
 
@@ -879,7 +879,7 @@ export default function LandingPage() {
               style={{ fontFamily: 'var(--font-simpler)' }}
               dir="rtl"
             >
-              הרשמה מהירה
+              {t('landing.cta.quickSignup')}
             </BrandCtaButton>
 
             {/* Secondary Button: התחברות */}
@@ -892,7 +892,7 @@ export default function LandingPage() {
               style={{ fontFamily: 'var(--font-simpler)' }}
               dir="rtl"
             >
-              התחברות
+              {t('landing.cta.login')}
             </motion.button>
           </div>
         </div>

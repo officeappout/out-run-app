@@ -20,6 +20,13 @@
  *    with UI baked in) → tint panel.
  */
 
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import type { onboarding } from '@/messages/ns/onboarding';
+
+/** A translator bound to the `onboarding` namespace (useT / makeT / getT). Copy lives in `runningGoals.*`. */
+export type RunningT = (key: NamespaceKey<typeof onboarding>, values?: MessageValues) => string;
+
 export type RunningGoalPath = 'start_running' | 'improve_time' | 'maintain_fitness';
 
 export interface RunningGoalVisual {
@@ -44,17 +51,16 @@ export const RUNNING_GOAL_PHOTOS = {
   park: '/images/onboarding/running/goal-park.jpg',
 } as const;
 
-const VISUALS: Record<RunningGoalPath, Omit<RunningGoalVisual, 'goalPath'>> = {
+/** `alt` is filled from the catalog in resolveRunningGoalVisual. */
+const VISUALS: Record<RunningGoalPath, Omit<RunningGoalVisual, 'goalPath' | 'alt'>> = {
   start_running: {
     src: null,
-    alt: '',
     heroPosition: '50% 50%',
     thumbPosition: '50% 50%',
     tint: { from: '#f3f9e9', to: '#e2f2c8', ink: '#65a30d' },
   },
   improve_time: {
     src: RUNNING_GOAL_PHOTOS.race,
-    alt: 'רצים בקו הזינוק של מרוץ',
     // Zoomed onto the runners, below the start arch and its sponsor panels.
     heroPosition: '50% 100%',
     heroZoom: 2,
@@ -64,7 +70,6 @@ const VISUALS: Record<RunningGoalPath, Omit<RunningGoalVisual, 'goalPath'>> = {
   },
   maintain_fitness: {
     src: RUNNING_GOAL_PHOTOS.park,
-    alt: 'רצה בשביל בפארק',
     heroPosition: '60% 60%',
     heroZoom: 1.25,
     thumbPosition: '63% 63%',
@@ -91,6 +96,18 @@ function isGoalPath(v: unknown): v is RunningGoalPath {
   return v === 'start_running' || v === 'improve_time' || v === 'maintain_fitness';
 }
 
+/** Photo description: only the two goals that have a photo. */
+function goalAlt(goalPath: RunningGoalPath, t: RunningT): string {
+  switch (goalPath) {
+    case 'improve_time':
+      return t('runningGoals.alt.race');
+    case 'maintain_fitness':
+      return t('runningGoals.alt.park');
+    default:
+      return '';
+  }
+}
+
 /** The goal path an answer saves (metadata first, then the known draft id). */
 export function runningGoalPathOf(answer: { id: string; metadata?: Record<string, unknown> | null }): RunningGoalPath | null {
   const fromMeta = answer.metadata?.goalPath;
@@ -102,28 +119,32 @@ export function runningGoalPathOf(answer: { id: string; metadata?: Record<string
  * Visual for one answer. An unknown answer with its own Firestore imageUrl
  * shows that image; otherwise a neutral tint panel.
  */
-export function resolveRunningGoalVisual(answer: {
-  id: string;
-  metadata?: Record<string, unknown> | null;
-  imageUrl?: string | null;
-}): RunningGoalVisual {
+export function resolveRunningGoalVisual(
+  answer: {
+    id: string;
+    metadata?: Record<string, unknown> | null;
+    imageUrl?: string | null;
+  },
+  t: RunningT,
+): RunningGoalVisual {
   const goalPath = runningGoalPathOf(answer);
-  if (goalPath) return { goalPath, ...VISUALS[goalPath] };
+  if (goalPath) return { goalPath, ...VISUALS[goalPath], alt: goalAlt(goalPath, t) };
   if (answer.imageUrl) {
     return { goalPath: null, ...NEUTRAL, src: answer.imageUrl };
   }
   return { goalPath: null, ...NEUTRAL };
 }
 
-/** "Who it's for" line under each goal card. */
-export function runningGoalSubtitle(goalPath: RunningGoalPath | null, isFemale: boolean): string | null {
+/** "Who it's for" line under each goal card. Gendered by the caller's `isFemale` (explicit, not the profile's). */
+export function runningGoalSubtitle(goalPath: RunningGoalPath | null, isFemale: boolean, t: RunningT): string | null {
+  const gender = isFemale ? 'female' : 'male';
   switch (goalPath) {
     case 'start_running':
-      return 'מאפס או אחרי הפסקה ארוכה — שילוב הליכה וריצה';
+      return t('runningGoals.subtitle.start');
     case 'improve_time':
-      return '3, 5 או 10 ק״מ מהר יותר — עם אינטרוולים וטמפו';
+      return t('runningGoals.subtitle.improve');
     case 'maintain_fitness':
-      return isFemale ? 'כבר רצה ורוצה להישאר עקבית ובריאה' : 'כבר רץ ורוצה להישאר עקבי ובריא';
+      return t('runningGoals.subtitle.maintain', { gender });
     default:
       return null;
   }
@@ -147,19 +168,19 @@ export function abilityTierOf(answer: { metadata?: Record<string, unknown> | nul
   return t === 'none' || t === '5_15' || t === '15_30' || t === '30_45' || t === '45_plus' ? t : null;
 }
 
-export function abilityCopy(tier: AbilityTier, isFemale: boolean): { title: string | null; sub: string } {
-  const g = (m: string, f: string) => (isFemale ? f : m);
+export function abilityCopy(tier: AbilityTier, isFemale: boolean, t: RunningT): { title: string | null; sub: string } {
+  const gender = isFemale ? 'female' : 'male';
   switch (tier) {
     case 'none':
-      return { title: 'הצעד הראשון', sub: g('עוד לא רץ בכלל — נתחיל בהליכה', 'עוד לא רצה בכלל — נתחיל בהליכה') };
+      return { title: t('runningGoals.ability.none.title'), sub: t('runningGoals.ability.none.sub', { gender }) };
     case '5_15':
-      return { title: null, sub: 'ריצה קצרה, עם הפסקות' };
+      return { title: null, sub: t('runningGoals.ability.5_15.sub') };
     case '15_30':
-      return { title: null, sub: 'ריצה רציפה נוחה' };
+      return { title: null, sub: t('runningGoals.ability.15_30.sub') };
     case '30_45':
-      return { title: null, sub: g('מוכן לבנות מרחק', 'מוכנה לבנות מרחק') };
+      return { title: null, sub: t('runningGoals.ability.30_45.sub', { gender }) };
     case '45_plus':
-      return { title: null, sub: 'בסיס סיבולת יציב' };
+      return { title: null, sub: t('runningGoals.ability.45_plus.sub') };
   }
 }
 
@@ -168,18 +189,18 @@ export function abilityCopy(tier: AbilityTier, isFemale: boolean): { title: stri
  * helps the user place themselves without an extra "experience" question.
  * null = no hint (the "not running yet" card already says it).
  */
-export function abilityExperienceHe(tier: AbilityTier, isFemale: boolean): string | null {
-  const g = (m: string, f: string) => (isFemale ? f : m);
+export function abilityExperienceHe(tier: AbilityTier, isFemale: boolean, t: RunningT): string | null {
+  const gender = isFemale ? 'female' : 'male';
   switch (tier) {
     case 'none':
       return null;
     case '5_15':
-      return g('מתחיל לרוץ או חוזר אחרי הפסקה ארוכה?', 'מתחילה לרוץ או חוזרת אחרי הפסקה ארוכה?');
+      return t('runningGoals.experience.5_15', { gender });
     case '15_30':
-      return g('רץ כבר כמה חודשים? כנראה כאן', 'רצה כבר כמה חודשים? כנראה כאן');
+      return t('runningGoals.experience.15_30', { gender });
     case '30_45':
-      return g('רץ בקביעות כבר שנה+? כנראה כאן', 'רצה בקביעות כבר שנה+? כנראה כאן');
+      return t('runningGoals.experience.30_45', { gender });
     case '45_plus':
-      return g('רץ כמה שנים, 10 ק״מ זה לא חדש לך', 'רצה כמה שנים, 10 ק״מ זה לא חדש לך');
+      return t('runningGoals.experience.45_plus', { gender });
   }
 }

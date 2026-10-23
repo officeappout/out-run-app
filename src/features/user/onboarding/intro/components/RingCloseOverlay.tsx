@@ -3,7 +3,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { V2_COLORS } from '@/components/ui/v2/tokens';
-import { BARRIER_LABELS, INTRO_IMG, RING_TONES } from '../intro-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
+import { barrierLabels, INTRO_IMG, RING_TONES } from '../intro-copy';
 import { LOGO_SLOT_ATTR } from '../intro-route';
 import { EASE_BACK, EASE_CSS, EASE_IN_OUT, EASE_OUT, tween } from '../story-timeline';
 import {
@@ -42,6 +44,7 @@ function noSlot(cy: number): Rest {
  * z-[100]: the full-screen overlay tier (.cursorrules Z-Index Budget).
  */
 export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
+  const labels = barrierLabels(useT(onboardingNs));
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [rest, setRest] = useState<Rest | null>(null);
   const [plan, setPlan] = useState<RingClosePlan | null>(null);
@@ -118,7 +121,7 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
           colorOf={(i) => RING_TONES[i]}
           segMotion={pop}
           labels={{
-            texts: BARRIER_LABELS,
+            texts: labels,
             radius: 178,
             width: 68,
             className: 'text-[14px] font-bold text-[#007399]',

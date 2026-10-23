@@ -12,6 +12,10 @@ import {
   runningGoalSubtitle,
 } from '../../constants/running-goal-visuals';
 import { RUNNING_ANSWERS } from '../../data/running-improvement-branch.draft';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 describe('running goal → photo mapping', () => {
   const goalAnswers = RUNNING_ANSWERS.filter((a) => a.questionId === 'q_run_goal');
@@ -20,14 +24,14 @@ describe('running goal → photo mapping', () => {
     expect(goalAnswers.length).toBe(3);
     for (const a of goalAnswers) {
       expect(runningGoalPathOf(a)).not.toBeNull();
-      expect(runningGoalSubtitle(runningGoalPathOf(a), false)).toBeTruthy();
+      expect(runningGoalSubtitle(runningGoalPathOf(a), false, t)).toBeTruthy();
     }
   });
 
   it('improve → race start photo, maintain → park run photo, start → tint (no fake photo)', () => {
-    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'improve_time' } }).src).toBe('/images/onboarding/running/goal-race.jpg');
-    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'maintain_fitness' } }).src).toBe('/images/onboarding/running/goal-park.jpg');
-    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'start_running' } }).src).toBeNull();
+    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'improve_time' } }, t).src).toBe('/images/onboarding/running/goal-race.jpg');
+    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'maintain_fitness' } }, t).src).toBe('/images/onboarding/running/goal-park.jpg');
+    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'start_running' } }, t).src).toBeNull();
   });
 
   it('metadata wins over id; known ids work without metadata', () => {
@@ -36,15 +40,15 @@ describe('running goal → photo mapping', () => {
   });
 
   it('unknown answer: its own imageUrl, else a neutral tint', () => {
-    expect(resolveRunningGoalVisual({ id: 'zzz', imageUrl: 'https://x/y.jpg' }).src).toBe('https://x/y.jpg');
-    const n = resolveRunningGoalVisual({ id: 'zzz' });
+    expect(resolveRunningGoalVisual({ id: 'zzz', imageUrl: 'https://x/y.jpg' }, t).src).toBe('https://x/y.jpg');
+    const n = resolveRunningGoalVisual({ id: 'zzz' }, t);
     expect(n.src).toBeNull();
     expect(n.goalPath).toBeNull();
   });
 
   it('gendered maintain subtitle', () => {
-    expect(runningGoalSubtitle('maintain_fitness', true)).toContain('רצה');
-    expect(runningGoalSubtitle('maintain_fitness', false)).toContain('רץ ');
+    expect(runningGoalSubtitle('maintain_fitness', true, t)).toContain('רצה');
+    expect(runningGoalSubtitle('maintain_fitness', false, t)).toContain('רץ ');
   });
 });
 
@@ -56,7 +60,7 @@ describe('ability answers', () => {
       const tier = abilityTierOf(a);
       expect(tier).not.toBeNull();
       expect(ABILITY_LEVEL[tier!]).toBeGreaterThanOrEqual(0);
-      expect(abilityCopy(tier!, false).sub).toBeTruthy();
+      expect(abilityCopy(tier!, false, t).sub).toBeTruthy();
     }
   });
   it('levels rise with the time', () => {
@@ -77,10 +81,10 @@ describe('running goal photos — size guard (anti-flicker)', () => {
 
 describe('abilityExperienceHe (owner 20.10.2026)', () => {
   it('a gendered experience hint for every running tier but "none"', () => {
-    expect(abilityExperienceHe('none', false)).toBeNull();
-    for (const t of ['5_15', '15_30', '30_45', '45_plus'] as const) {
-      expect(abilityExperienceHe(t, false)).toBeTruthy();
-      expect(abilityExperienceHe(t, true)).not.toBe(abilityExperienceHe(t, false));
+    expect(abilityExperienceHe('none', false, t)).toBeNull();
+    for (const tier of ['5_15', '15_30', '30_45', '45_plus'] as const) {
+      expect(abilityExperienceHe(tier, false, t)).toBeTruthy();
+      expect(abilityExperienceHe(tier, true, t)).not.toBe(abilityExperienceHe(tier, false, t));
     }
   });
 });
