@@ -318,7 +318,9 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
           return { type: 'tool_result', tool_use_id: c.id, content: r.content, ...(r.isError ? { is_error: true } : {}) };
         } catch (err) {
           console.error(`[ai-coach] tool ${c.name} failed`, err);
-          log.toolCalls.push({ name: c.name, input: c.input, resultSummary: 'error: tool threw' });
+          // The error itself goes into the review log: "tool threw" alone left the owner's
+          // "לא הצלחתי לטעון את הלו״ז" turns (22-23.10.2026) without a root cause.
+          log.toolCalls.push({ name: c.name, input: c.input, resultSummary: `error: tool threw: ${toolErrorDetail(err)}`.slice(0, MAX_SUMMARY) });
           return { type: 'tool_result', tool_use_id: c.id, content: 'The tool failed. Tell the user simply and offer another way.', is_error: true };
         }
       }),
@@ -330,6 +332,13 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
     }
     state.turnMessages.push({ role: 'user', content: results });
   }
+}
+
+/** A thrown tool error as one short line for the review log (name, message, first stack frame). */
+export function toolErrorDetail(err: unknown): string {
+  if (!(err instanceof Error)) return String(err).slice(0, 200);
+  const frame = (err.stack ?? '').split('\n').find((l) => /^\s+at /.test(l))?.trim() ?? '';
+  return `${err.name}: ${err.message}${frame ? ` (${frame})` : ''}`.replace(/\s+/g, ' ').slice(0, 300);
 }
 
 function guardType(i: ReplyIssue): string {

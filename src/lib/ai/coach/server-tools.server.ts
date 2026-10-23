@@ -110,13 +110,28 @@ async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<Ra
     const entries = s.data()?.entries;
     if (Array.isArray(entries)) docs.set(dates[i], entries as Array<Record<string, unknown>>);
   });
-  return plannedWeekEntries({
-    dates,
-    docs,
-    profile: ctx.profile,
-    advisorProfile: normalizeAdvisorProfile(ctx.profile),
-    ...(ctx.runsByType ? { runsByType: true } : {}),
-  });
+  try {
+    return plannedWeekEntries({
+      dates,
+      docs,
+      profile: ctx.profile,
+      advisorProfile: normalizeAdvisorProfile(ctx.profile),
+      ...(ctx.runsByType ? { runsByType: true } : {}),
+    });
+  } catch (err) {
+    // The virtual layering (template / training days / running plan) failed on this user's
+    // data: the day docs that were read are still the truth for those days — never lose the
+    // whole week (and Kelly's "לא הצלחתי לטעון את הלו״ז") to one bad profile field.
+    console.error('[ai-coach] planned-week layering failed, using the day docs only', err);
+    const out: RawScheduleEntry[] = [];
+    for (const date of dates) {
+      for (const e of docs.get(date) ?? []) {
+        if (!e || typeof e !== 'object' || (e.override === true && e.type === 'rest')) continue;
+        out.push({ date, type: e.type, programIds: e.programIds, startTime: e.startTime, completed: e.completed, title: e.title, scheduledCategories: e.scheduledCategories, plannedRun: e.plannedRun });
+      }
+    }
+    return out;
+  }
 }
 
 async function readAreaName(ctx: ServerToolContext): Promise<string | null> {
