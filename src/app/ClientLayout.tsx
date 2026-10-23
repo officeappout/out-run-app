@@ -20,6 +20,7 @@ import HealthDeclarationSelfHeal from "@/features/user/onboarding/components/Hea
 import OnboardingSessionReset from "@/features/user/onboarding/components/OnboardingSessionReset";
 import EdgeSwipeBack from "@/components/system/EdgeSwipeBack";
 import { isTopPaddingExemptRoute } from "@/lib/top-padding-exempt-routes";
+import TvPhoneLayer from "@/features/tv-mode/phone/TvPhoneLayer";
 
 /**
  * Mounts the global midnight clock once. Bumps the dateKey atom at 00:00
@@ -168,6 +169,8 @@ export default function ClientLayout({
           {/* Sign-out / account switch → wipe the previous account's onboarding state (renders nothing). */}
           <OnboardingSessionReset />
           <OnboardingSyncErrorToast />
+          {/* TV mode (enable_tv_mode_v1): the phone's pairing / remote / participant UI. Off = renders nothing. */}
+          <TvPhoneLayer />
         </LazyMotion>
       </ToastProvider>
     </>

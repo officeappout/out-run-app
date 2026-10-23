@@ -46,6 +46,8 @@ import { useDrawerMediaState } from './hooks/useDrawerMediaState';
 import { usePartnerPresence } from './hooks/usePartnerPresence';
 import { useExercisePool } from './hooks/useExercisePool';
 import { useFavoritesActions } from './hooks/useFavoritesActions';
+import TvEntryMenu from '@/features/tv-mode/phone/TvEntryMenu';
+import { persistSharedWorkout } from '@/features/workout-engine/services/share.service';
 import { useProgramMap } from './hooks/useProgramMap';
 import { useWorkoutSession } from './hooks/useWorkoutSession';
 import { useExerciseSwap } from './hooks/useExerciseSwap';
@@ -723,6 +725,14 @@ export default function WorkoutPreviewDrawer({
                       onToggleFavorite: handleToggleFavorite,
                       onShare: handleShare,
                       onDownload: handleDownload,
+                      // enable_tv_mode_v1: ⋯ → "show on a big screen" (renders nothing with the flag off).
+                      trailing: (
+                        <TvEntryMenu
+                          workout={generatedWorkout}
+                          onStart={() => handleStartWorkout()}
+                          prepareShare={async () => (await persistSharedWorkout(generatedWorkout, workoutLocation)).docId}
+                        />
+                      ),
                     }}
                   />
                 )}
