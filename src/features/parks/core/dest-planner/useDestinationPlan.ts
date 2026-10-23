@@ -5,9 +5,9 @@
  * generated candidates (re-fetched per mode, like the commute carousel's
  * activity picker), the options to show and the selected one.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchRealParks } from '../services/parks.service';
-import { fetchPlannerCandidates } from './plan-routes';
+import { candidatesForMode, fetchPlannerCandidates, routingModeFor } from './plan-routes';
 import { availablePreferences, selectPlannerOptions, shortestOf } from './alternatives';
 import { modeMinutes } from './mode-minutes';
 import { fountainPoints } from './route-tags';
@@ -27,21 +27,35 @@ export function useDestinationPlan(args: { from: LatLng; to: LatLng; initialMode
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Last known shortest distance — keeps the other tabs' minutes while a mode switch refetches. */
   const [knownKm, setKnownKm] = useState<number | null>(null);
+  /** Each routed mode's candidates for this destination (running shares walking's) — switching tabs back is instant. */
+  const cacheRef = useRef(new Map<string, PlannerCandidates>());
 
   useEffect(() => {
     let cancelled = false;
-    setStatus('loading');
-    setCandidates(EMPTY);
     setSelectedId(null);
-    (async () => {
-      const parks = await fetchRealParks().catch(() => []);
-      const c = await fetchPlannerCandidates({ from, to, mode, parks }).catch(() => EMPTY);
-      if (cancelled) return;
-      setFountains(fountainPoints(parks));
+    const routed = routingModeFor(mode);
+    const cacheKey = `${routed}|${to.lat},${to.lng}`;
+    const apply = (fetched: PlannerCandidates) => {
+      const c = candidatesForMode(fetched, mode);
       setCandidates(c);
       const km = shortestOf(c.commute)?.distance;
       if (km) setKnownKm(km);
       setStatus(c.commute.length + c.viaParks.length > 0 ? 'ready' : 'empty');
+    };
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      apply(cached);
+      return () => { cancelled = true; };
+    }
+    setStatus('loading');
+    setCandidates(EMPTY);
+    (async () => {
+      const parks = await fetchRealParks().catch(() => []);
+      const c = await fetchPlannerCandidates({ from, to, mode: routed, parks }).catch(() => EMPTY);
+      if (cancelled) return;
+      setFountains(fountainPoints(parks));
+      if (c.commute.length + c.viaParks.length > 0) cacheRef.current.set(cacheKey, c);
+      apply(c);
     })();
     return () => { cancelled = true; };
     // `from` is captured when the fetch fires (a GPS tick must not refetch).

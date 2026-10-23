@@ -60,6 +60,35 @@ export async function buildViaParkRoute(result: MapboxPathResult, pick: ViaParkP
   };
 }
 
+/**
+ * Per-mode routing (owner, 23.10.2026): running takes the SAME route as
+ * walking — only the time differs. So running never asks the router on its
+ * own: it reuses the walking candidates (and their cache), re-timed at
+ * running pace. Cycling has its own route (Mapbox cycling profile).
+ */
+export function routingModeFor(mode: PlannerMode): Exclude<PlannerMode, 'running'> {
+  return mode === 'running' ? 'walking' : mode;
+}
+
+function retimeRoute(route: Route, mode: PlannerMode): Route {
+  return {
+    ...route,
+    duration: Math.max(1, Math.round((route.distance / SPEED_KMH[mode]) * 60)),
+    calories: Math.round(route.distance * KCAL_PER_KM[mode]),
+    type: mode,
+    activityType: mode,
+  };
+}
+
+/** The candidates to SHOW for a mode: running = the walking routes at running time; others as fetched. */
+export function candidatesForMode(fetched: PlannerCandidates, mode: PlannerMode): PlannerCandidates {
+  if (mode !== 'running') return fetched;
+  return {
+    commute: fetched.commute.map((r) => retimeRoute(r, mode)),
+    viaParks: fetched.viaParks.map((v) => ({ ...v, route: retimeRoute(v.route, mode) })),
+  };
+}
+
 async function viaParkRoutes(from: LatLng, to: LatLng, mode: PlannerMode, parks: Park[]): Promise<ViaParkCandidate[]> {
   if (mode === 'cycling') return [];
   const picks = pickViaParks(from, to, parks);

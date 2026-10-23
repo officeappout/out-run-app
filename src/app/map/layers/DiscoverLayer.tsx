@@ -56,6 +56,7 @@ import { stepsToTargetKm } from '@/features/parks/core/services/route-request.ut
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import RouteOverviewOverlay from '@/features/parks/core/components/overview/route/RouteOverviewOverlay';
+import CardHiddenUnderDrawer from '@/features/parks/core/components/overview/CardHiddenUnderDrawer';
 import RouteOverviewWithTodayRun from '@/features/workout-engine/players/running/components/overview-v2/RouteOverviewWithTodayRun';
 import { startPlannedRunOnRoute } from '@/features/workout-engine/players/running/components/overview-v2/startPlannedRunOnRoute';
 import { playerActivityFor, type RouteActivity } from '@/features/parks/core/components/overview/route/route-overview';
@@ -603,6 +604,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   const [commuteRouteConfig, setCommuteRouteConfig] = useState<{
     destination: { lat: number; lng: number };
     label?: string;
+    /** Set when the destination is a park — the map pins the park's photo marker. */
+    park?: { id: string; photoUrl: string | null };
   } | null>(null);
 
   // ── Commute transport mode (per-session, NOT persisted) ────────────────
@@ -654,9 +657,22 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       useMapStore.getState().setCommuteDestination({
         coords: [commuteRouteConfig.destination.lng, commuteRouteConfig.destination.lat],
         label: commuteRouteConfig.label,
+        ...(commuteRouteConfig.park ? { park: commuteRouteConfig.park } : {}),
       });
     }
   }, [mapMode, commuteRouteConfig]);
+
+  // A destination pin left over from an earlier flow (a commute session that
+  // was discarded rather than finished never reaches finishWorkout's clear)
+  // must not greet the user on the idle map. Discover is down during a live
+  // workout, so on (re)mount nothing can legitimately own the pin yet — the
+  // commute / search-pick flows re-set it themselves after this runs.
+  useEffect(() => {
+    if (!logic.isWorkoutActive && useMapStore.getState().commuteDestination) {
+      useMapStore.getState().setCommuteDestination(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Tap-empty-map → exit commute ──────────────────────────────────────
   // Field-test feedback: once a destination was picked, the only way
@@ -702,6 +718,12 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     if (mapMode === 'freeRun' && freeRunStep === 'slots') {
       resetHybridFlow();
       setMapMode('idle');
+      return;
+    }
+    // Idle map + a stray destination pin (nothing owns it any more) — a tap
+    // elsewhere on the map clears it, like every other selection.
+    if (mapMode === 'idle' && !logic.isWorkoutActive && useMapStore.getState().commuteDestination) {
+      useMapStore.getState().setCommuteDestination(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapEmptyTapTick, mapMode, freeRunStep]);
@@ -726,6 +748,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     setCommuteRouteConfig({
       destination: { lat: target.coords[1], lng: target.coords[0] },
       label: target.label,
+      ...(target.park ? { park: target.park } : {}),
     });
     setMapMode('commute');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2600,6 +2623,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
               freeRunStep === 'route' &&
               userLocation &&
               routeCarouselConfig && (
+                <CardHiddenUnderDrawer active={mapFeatureFlags.enableHomeV2} hidden={!!routeOverview}>
                 <RouteCarousel
                   userPosition={userLocation}
                   activity={logic.preferences.activity}
@@ -2645,6 +2669,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   entryTutorial={entryWhatNowOn}
                   firstWorkoutNote={entryFirstWorkoutNote}
                 />
+                </CardHiddenUnderDrawer>
               )}
 
             {/* v2 (enable_home_v2): the ONE overview drawer for a generator route (board M-5e → 5a). */}
