@@ -539,3 +539,9 @@ src/features/workout-engine/players/strength/components/ImmersiveOverlay.tsx
 # wave 3B part 2 — only display Hebrew was a weekday name / unit string, now read through src/lib/i18n/units.ts.
 src/features/home/components/day-preview/PlannedDayPreview.tsx
 src/features/workout-engine/hybrid/hybrid-intro-format.ts
+# loose-ends batch A (namespace home) — enable_home_two_cards_v1: the "מוכן לנסות לרוץ?" card + its hooks.
+src/features/home/components/start-cards/TryRunningCard.tsx
+src/features/home/components/start-cards/ProgramStartSlide.tsx
+src/features/home/hooks/useTryRunningNudge.ts
+src/features/home/utils/walk-streak.ts
+src/features/home/utils/try-running.ts

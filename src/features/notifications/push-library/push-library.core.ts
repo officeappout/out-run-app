@@ -1067,6 +1067,60 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: T('second_workout.2.title'), body: T('second_workout.2.body'), fallbackOnly: true },
     ],
   },
+  // ── Group sessions (22.10.2026, loose-ends batch F). Senders: functions/src/sessionPushes/*, behind
+  //    app_config/feature_flags.enableSessionPushes. Friendly tone, gendered for known under-60 recipients;
+  //    the neutral row serves unknown gender / 60+. ──
+  {
+    pushType: 'session_reminder',
+    label: 'תזכורת 15 דקות לפני מפגש קבוצתי',
+    lever: 'social',
+    channel: 'training_reminder',
+    sender: 'sessionReminderScheduler',
+    description: 'המשתמש נרשם למפגש קבוצתי. התזכורת יוצאת רבע שעה לפני שהוא מתחיל.',
+    whenSent:
+      'סריקה כל 5 דקות. נשלח 15 דקות לפני שעת המפגש, פעם אחת לכל נרשם. כפוף לשעות שקט ולמדיניות הפושים. רק כשהדגל enableSessionPushes דולק.',
+    pending: 'השולח נכתב ועוד לא נפרס',
+    vars: ['@שם', '@קבוצה', '@שעה'],
+    deepLinks: ['community_group', 'community'],
+    defaults: [
+      { title: T('session_reminder.0.title'), body: T('session_reminder.0.body') },
+      { title: T('session_reminder.1.title'), body: T('session_reminder.1.body'), gender: 'male', pair: 'friendly', audience: CASUAL_AGES },
+      { title: T('session_reminder.2.title'), body: T('session_reminder.2.body'), gender: 'female', pair: 'friendly', audience: CASUAL_AGES },
+    ],
+  },
+  {
+    pushType: 'session_cancelled',
+    label: 'מפגש קבוצתי בוטל',
+    lever: 'social',
+    channel: 'social',
+    sender: 'onSessionCancelled',
+    description: 'מי שהמארגן ביטל את המפגש שלו, הרשומים וגם הממתינים מקבלים הודעה.',
+    whenSent: 'מיד כשהמפגש מסומן כמבוטל (cancelled על מסמך הנוכחות). פעם אחת לכל נרשם. רק כשהדגל enableSessionPushes דולק.',
+    pending: 'השולח נכתב ועוד לא נפרס',
+    vars: ['@שם', '@קבוצה', '@שעה'],
+    deepLinks: ['community_group', 'community'],
+    defaults: [
+      { title: T('session_cancelled.0.title'), body: T('session_cancelled.0.body') },
+      { title: T('session_cancelled.1.title'), body: T('session_cancelled.1.body'), audience: CASUAL_AGES },
+    ],
+  },
+  {
+    pushType: 'session_waitlist_promoted',
+    label: 'התפנה מקום במפגש (מרשימת המתנה)',
+    lever: 'social',
+    channel: 'social',
+    sender: 'onSessionWaitlistPromoted',
+    description: 'מי שחיכה ברשימת ההמתנה למפגש מלא ועכשיו התפנה לו מקום.',
+    whenSent: 'מיד כשהוא עובר מרשימת ההמתנה לרשומים. פעם אחת לכל מעבר. רק כשהדגל enableSessionPushes דולק.',
+    pending: 'השולח נכתב ועוד לא נפרס',
+    vars: ['@שם', '@קבוצה', '@שעה'],
+    deepLinks: ['community_group', 'community'],
+    defaults: [
+      { title: T('session_waitlist_promoted.0.title'), body: T('session_waitlist_promoted.0.body') },
+      { title: T('session_waitlist_promoted.1.title'), body: T('session_waitlist_promoted.1.body'), gender: 'male', pair: 'friendly', audience: CASUAL_AGES },
+      { title: T('session_waitlist_promoted.2.title'), body: T('session_waitlist_promoted.2.body'), gender: 'female', pair: 'friendly', audience: CASUAL_AGES },
+    ],
+  },
   {
     pushType: 'friend_joined',
     label: 'חבר הצטרף',

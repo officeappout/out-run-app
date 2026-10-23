@@ -51,7 +51,7 @@ describe('home/page.tsx — v2 run card wiring', () => {
   });
 
   it('the run slide never reaches handlePreWorkoutSettle', () => {
-    expect(pageSrc).toMatch(/if \(isRunPlanCarouselItem\(item\) \|\| isProgramSlideCarouselItem\(item\) \|\| isWalkCarouselItem\(item\) \|\| isProgramStartCarouselItem\(item\)\) return;\s*if \(!isStrengthInviteCarouselItem\(item\)\) handlePreWorkoutSettle\(item\);/);
+    expect(pageSrc).toMatch(/if \(isRunPlanCarouselItem\(item\) \|\| isProgramSlideCarouselItem\(item\) \|\| isWalkCarouselItem\(item\) \|\| isProgramStartCarouselItem\(item\) \|\| isTryRunningCarouselItem\(item\)\) return;\s*if \(!isStrengthInviteCarouselItem\(item\)\) handlePreWorkoutSettle\(item\);/);
   });
 
   it('the running-only week strip is gated on the flag', () => {

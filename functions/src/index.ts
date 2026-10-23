@@ -78,6 +78,10 @@ export { reminderSweepScheduler } from './reminderSweepScheduler';
 export { firstWorkoutScheduler } from './firstWorkoutScheduler';
 // ── Push Notification Triggers (Social Engagement Engine — phase 3: social) ───
 export { onGroupMemberJoin } from './onGroupMemberJoin';
+// Group-session pushes (loose-ends batch F, 22.10.2026): reminder 15 min before, cancellation,
+// waitlist promoted. Written, NOT deployed; a no-op until app_config/feature_flags.enableSessionPushes.
+export { sessionReminderScheduler } from './sessionReminderScheduler';
+export { onSessionAttendanceUpdate } from './onSessionAttendanceUpdate';
 export { onKudosCreated } from './onKudosCreated';
 // ── Notification-Manager-driven Triggers (reads workoutMetadata/notifications) ─
 export { stepGoalNudgeScheduler } from './stepGoalNudgeScheduler';

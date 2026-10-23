@@ -3485,6 +3485,159 @@
       "active": true
     }
   ],
+  "session_reminder": [
+    {
+      "id": "default:session_reminder:0",
+      "pushType": "session_reminder",
+      "title": "עוד 15 דקות: @קבוצה",
+      "body": "המפגש מתחיל ב-@שעה. מחכים לכם.",
+      "deepLink": "community_group",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:session_reminder:1",
+      "pushType": "session_reminder",
+      "title": "עוד 15 דקות ל@קבוצה",
+      "body": "הנעליים עליך? המפגש ב-@שעה והחבר׳ה כבר מתחממים.",
+      "deepLink": "community_group",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:session_reminder:friendly",
+      "active": true
+    },
+    {
+      "id": "default:session_reminder:2",
+      "pushType": "session_reminder",
+      "title": "עוד 15 דקות ל@קבוצה",
+      "body": "הנעליים עלייך? המפגש ב-@שעה והחבר׳ה כבר מתחממים.",
+      "deepLink": "community_group",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:session_reminder:friendly",
+      "active": true
+    }
+  ],
+  "session_cancelled": [
+    {
+      "id": "default:session_cancelled:0",
+      "pushType": "session_cancelled",
+      "title": "המפגש של @קבוצה בוטל",
+      "body": "המפגש ב-@שעה לא יתקיים. נעדכן אותך כשיהיה מועד חדש.",
+      "deepLink": "community_group",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:session_cancelled:1",
+      "pushType": "session_cancelled",
+      "title": "המפגש של @קבוצה בוטל",
+      "body": "סליחה על הבלבול, אין צורך להגיע ב-@שעה. נעדכן אותך כשיהיה מועד חדש.",
+      "deepLink": "community_group",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "session_waitlist_promoted": [
+    {
+      "id": "default:session_waitlist_promoted:0",
+      "pushType": "session_waitlist_promoted",
+      "title": "התפנה מקום ב@קבוצה",
+      "body": "המקום שלך במפגש ב-@שעה שמור. מחכים לכם.",
+      "deepLink": "community_group",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:session_waitlist_promoted:1",
+      "pushType": "session_waitlist_promoted",
+      "title": "יש מקום! נכנסת ל@קבוצה",
+      "body": "התפנה מקום ואתה בפנים. מפגש ב-@שעה, נתראה שם.",
+      "deepLink": "community_group",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:session_waitlist_promoted:friendly",
+      "active": true
+    },
+    {
+      "id": "default:session_waitlist_promoted:2",
+      "pushType": "session_waitlist_promoted",
+      "title": "יש מקום! נכנסת ל@קבוצה",
+      "body": "התפנה מקום ואת בפנים. מפגש ב-@שעה, נתראה שם.",
+      "deepLink": "community_group",
+      "audience": {
+        "ageBand": [
+          "under_18",
+          "18_29",
+          "30_44",
+          "45_59"
+        ]
+      },
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:session_waitlist_promoted:friendly",
+      "active": true
+    }
+  ],
   "friend_joined": [
     {
       "id": "default:friend_joined:0",

@@ -17,6 +17,8 @@ export interface ProgramStartSlideProps {
   profile: UserFullProfile | null | undefined;
   /** Home's health-declaration gate, per track. */
   onNavigate?: ProgramTrackNavigate;
+  /** enable_home_two_cards_v1: the running card reads "הליכה וריצה" (canvas WR-1b). Same entry, same tap. */
+  aerobicCopy?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface ProgramStartSlideProps {
  * card width, all its text visible. The running card is also the walk entry (walking is a
  * goal inside the aerobic questionnaire, #534).
  */
-export default function ProgramStartSlide({ track, profile, onNavigate }: ProgramStartSlideProps) {
+export default function ProgramStartSlide({ track, profile, onNavigate, aerobicCopy = false }: ProgramStartSlideProps) {
   const { loading, tap } = useOnboardingEntryTap(
     profile,
     TRACK_ENTRY[track],
@@ -33,5 +35,16 @@ export default function ProgramStartSlide({ track, profile, onNavigate }: Progra
   );
   const t = useT(home);
   const keys = PROGRAM_START_KEYS[track];
-  return <ProgramStartCard slide track={track} title={t(keys.title)} valueLine={t(keys.valueLine)} chipLabel={t(keys.chip)} loading={loading} onTap={tap} />;
+  const aerobic = aerobicCopy && track === 'running';
+  return (
+    <ProgramStartCard
+      slide
+      track={track}
+      title={aerobic ? t('programStart.aerobic.title') : t(keys.title)}
+      valueLine={aerobic ? t('programStart.aerobic.valueLine') : t(keys.valueLine)}
+      chipLabel={t(keys.chip)}
+      loading={loading}
+      onTap={tap}
+    />
+  );
 }

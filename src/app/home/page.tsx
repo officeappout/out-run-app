@@ -60,6 +60,9 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 import ErrorBoundary from '@/components/ErrorBoundary';
 import HomeWalkCarouselCard from '@/features/home/components/walk/HomeWalkCarouselCard';
 import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
+import { useTryRunningNudge } from '@/features/home/hooks/useTryRunningNudge';
+import TryRunningCard from '@/features/home/components/start-cards/TryRunningCard';
+import { TRY_RUNNING_CARD_ID } from '@/features/home/utils/try-running';
 import { usePlannedDay } from '@/features/home/hooks/usePlannedDay';
 import { useNextRecommendation } from '@/features/home/hooks/useNextRecommendation';
 import PlannedDayPreview from '@/features/home/components/day-preview/PlannedDayPreview';
@@ -1746,10 +1749,17 @@ export default function HomePage() {
     reminders: profile?.lifestyle?.reminders,
   });
   const walkOnlyUser = featureFlags.enableHomeV2 && walkWeek.isWalker && !hasStrengthProgram && !homeRun.hasRunningPlan;
+  // enable_home_two_cards_v1: the start cards read "כוח" + "הליכה וריצה", and a walker with 4+ walk
+  // weeks in a row gets the dismissible "מוכן לנסות לרוץ?" card (canvas WR-1b / WR-6).
+  const twoCardsOn = featureFlags.enableHomeV2 && !flagsLoading && featureFlags.enableHomeTwoCardsV1;
+  const tryRunning = useTryRunningNudge(profile?.id, twoCardsOn, walkOnlyUser);
   const WALK_CARD_ID = 'walk-card';
   const isWalkCarouselItem = (
     item: Suggestion | { id: string },
   ): item is { id: typeof WALK_CARD_ID } => item.id === WALK_CARD_ID;
+  const isTryRunningCarouselItem = (
+    item: Suggestion | { id: string },
+  ): item is { id: typeof TRY_RUNNING_CARD_ID } => item.id === TRY_RUNNING_CARD_ID;
   // The health declaration once, before the first walk: the same JIT gate every home
   // start uses (inline HealthDeclarationStep, marks the profile locally — never twice;
   // no onboarding COMPLETED sync, so no running plan is built). 'running' = no equipment prompt.
@@ -1858,6 +1868,7 @@ export default function HomePage() {
       profile={profile}
       onNavigate={programSlideNavigate}
       onDismissAdd={programSlide.dismissAdd}
+      aerobicCopy={twoCardsOn}
     />
   );
   // enable_home_v2 new user (no strength / run / walk plan, owner 20.10.2026): the start
@@ -1883,7 +1894,7 @@ export default function HomePage() {
     programStartTrackOf(item.id) !== null;
   const programSlideItems = { start: (track: ProgramTrack): ProgramStartItem => ({ id: programStartSlideId(track) }), add: { id: PROGRAM_SLIDE_ID } as const };
   const programStartSlide = (track: ProgramTrack) => (
-    <ProgramStartSlide track={track} profile={profile} onNavigate={programSlideNavigate} />
+    <ProgramStartSlide track={track} profile={profile} onNavigate={programSlideNavigate} aerobicCopy={twoCardsOn} />
   );
   // The cards after a workout (v2): the engine's ranked list (next-up order, top-up rule)
   // + "הריצה הבאה" when due; the program slides join at render. Flag off → untouched.
@@ -3612,14 +3623,14 @@ export default function HomePage() {
                         actually binds on any real device width, mirroring the old card's own
                         unconditional sizing. Same per-instance override mechanism
                         TodayActivityStrip already uses for its own wider-card case. */}
-                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID }>
+                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID } | { id: typeof TRY_RUNNING_CARD_ID }>
                       items={(() => {
                         // enable_home_v2: the program slide replaces the strength invite (placed below).
                         // enable_home_v2 walker: the short-walk card replaces the generic steps card.
                         const preItems = featureFlags.enableHomeV2 && walkSlotSurface === 'carousel'
                           ? dropStepsDuplicate(readyPreWorkoutSuggestions, shortWalkShown)
                           : readyPreWorkoutSuggestions;
-                        const base: Array<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID }> = !hasStrengthProgram && !featureFlags.enableHomeV2
+                        const base: Array<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID } | { id: typeof TRY_RUNNING_CARD_ID }> = !hasStrengthProgram && !featureFlags.enableHomeV2
                           ? [{ id: STRENGTH_INVITE_CARD_ID }, ...readyPreWorkoutSuggestions]
                           : preItems;
                         // Both flag states (the card differs, see renderCard).
@@ -3629,7 +3640,7 @@ export default function HomePage() {
                         // enable_home_v2 walker: today's walk leads (the pinned card), the short walk goes last.
                         // A walking-only user (no strength / running plan) sees just today's walk card
                         // (owner: simply what they have today, no extra cards).
-                        if (walkOnlyUser && walkSlotSurface === 'carousel' && walkSlot) return [{ id: WALK_CARD_ID }];
+                        if (walkOnlyUser && walkSlotSurface === 'carousel' && walkSlot) return tryRunning.show ? [{ id: WALK_CARD_ID }, { id: TRY_RUNNING_CARD_ID }] : [{ id: WALK_CARD_ID }];
                         const withWalk = walkSlotSurface === 'carousel' && walkSlot
                           ? placeWalkCard(withRun, { id: WALK_CARD_ID }, walkSlot)
                           : withRun;
@@ -3646,11 +3657,20 @@ export default function HomePage() {
                         // The invite / run slides have no generator-resolved content to settle
                         // on — skip them rather than feeding a non-Suggestion object into
                         // handlePreWorkoutSettle's resolveHomeTier2 call.
-                        if (isRunPlanCarouselItem(item) || isProgramSlideCarouselItem(item) || isWalkCarouselItem(item) || isProgramStartCarouselItem(item)) return;
+                        if (isRunPlanCarouselItem(item) || isProgramSlideCarouselItem(item) || isWalkCarouselItem(item) || isProgramStartCarouselItem(item) || isTryRunningCarouselItem(item)) return;
                         if (!isStrengthInviteCarouselItem(item)) handlePreWorkoutSettle(item);
                       }}
                       renderCard={(s) =>
-                        isWalkCarouselItem(s) ? (
+                        isTryRunningCarouselItem(s) ? (
+                          <ErrorBoundary fallback={null}>
+                            <TryRunningCard
+                              profile={profile}
+                              streak={tryRunning.streak}
+                              onNavigate={(navigate, cancel) => interceptWorkoutStart(navigate, 'running', cancel)}
+                              onDismiss={tryRunning.dismiss}
+                            />
+                          </ErrorBoundary>
+                        ) : isWalkCarouselItem(s) ? (
                           <ErrorBoundary fallback={null}>{walkCard(false)}</ErrorBoundary>
                         ) : isRunPlanCarouselItem(s) && homeRun.slot && !featureFlags.enableHomeV2 ? (
                           // Flag off: the legacy card, visuals unchanged (it resolves today /

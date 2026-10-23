@@ -13,6 +13,8 @@ export interface HomeProgramSlideProps {
   profile: UserFullProfile | null | undefined;
   onNavigate?: ProgramTrackNavigate;
   onDismissAdd: (track: ProgramTrack) => void;
+  /** enable_home_two_cards_v1 — the running start card reads "הליכה וריצה". */
+  aerobicCopy?: boolean;
 }
 
 /**
@@ -21,9 +23,9 @@ export interface HomeProgramSlideProps {
  * carousel to host it): the two start cards as their own carousel, one card per slide —
  * inside a daily carousel each start card is a slide of its own (placeProgramSlides).
  */
-export default function HomeProgramSlide({ plan, profile, onNavigate, onDismissAdd }: HomeProgramSlideProps) {
+export default function HomeProgramSlide({ plan, profile, onNavigate, onDismissAdd, aerobicCopy }: HomeProgramSlideProps) {
   if (plan.mode === 'start') {
-    return <ProgramStartCarousel order={plan.order} profile={profile} onNavigate={onNavigate} />;
+    return <ProgramStartCarousel order={plan.order} profile={profile} onNavigate={onNavigate} aerobicCopy={aerobicCopy} />;
   }
   if (plan.mode === 'add') {
     const { track } = plan;
