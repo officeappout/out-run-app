@@ -35,3 +35,18 @@ describe('RaceBar', () => {
     expect(h({ distanceKm: 1 }, { distanceKm: 1 })).toContain('ראש בראש');
   });
 });
+
+import TogetherToasts from '../components/TogetherToasts';
+import CheerButton from '../components/CheerButton';
+describe('cheers UI', () => {
+  it('toasts render the copy; nothing when empty', () => {
+    const ev = [{ type: 'round' as const, id: 'r1', uid: 'a', name: 'דני', round: 2 }, { type: 'cheer' as const, id: 'c1', fromUid: 'a', fromName: 'דני', toUid: 'm', count: 1 }];
+    const h = renderToStaticMarkup(<TogetherToasts events={ev} onAck={() => {}} />).replaceAll('<!-- -->', '');
+    expect(h).toContain('דני: סבב הושלם!');
+    expect(h).toContain('כיף מדני');
+    expect(renderToStaticMarkup(<TogetherToasts events={[]} onAck={() => {}} />)).toBe('');
+  });
+  it('cheer button has an accessible label', () => {
+    expect(renderToStaticMarkup(<CheerButton name="דני" onCheer={() => {}} />)).toContain('שליחת כיף לדני');
+  });
+});

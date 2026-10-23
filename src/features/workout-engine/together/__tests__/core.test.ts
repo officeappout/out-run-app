@@ -164,3 +164,17 @@ describe('cheers', () => {
     expect(diffTogetherEvents(next, next, 'me')).toEqual([]);
   });
 });
+
+import { eventCopy, mergeCheers } from '../core/cheers';
+describe('cheers extras', () => {
+  it('merge keeps the larger counter per recipient', () => {
+    expect(mergeCheers({ a: 3, b: 1 }, { a: 2, c: 4 })).toEqual({ a: 3, b: 1, c: 4 });
+    expect(mergeCheers({}, undefined)).toEqual({});
+  });
+  it('event copy keys', () => {
+    expect(eventCopy({ type: 'cheer', id: 'i', fromUid: 'a', fromName: 'דני', toUid: 'm', count: 1 }).key).toBe('cheer.toast');
+    expect(eventCopy({ type: 'cheer', id: 'i', fromUid: 'a', fromName: 'דני', toUid: 'm', count: 3 })).toEqual({ key: 'cheer.toastMany', params: { name: 'דני', count: 3 } });
+    expect(eventCopy({ type: 'round', id: 'r', uid: 'a', name: 'דני', round: 2 }).key).toBe('event.round');
+    expect(eventCopy({ type: 'done', id: 'd', uid: 'a', name: 'דני' }).key).toBe('event.done');
+  });
+});

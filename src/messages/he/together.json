@@ -47,5 +47,11 @@
   "race.behind": "מאחור ב-{km} ק״מ",
   "race.even": "ראש בראש",
   "race.paceFaster": "מהיר ב-{sec} שנ׳/ק״מ",
-  "race.paceSlower": "איטי ב-{sec} שנ׳/ק״מ"
+  "race.paceSlower": "איטי ב-{sec} שנ׳/ק״מ",
+  "cheer.button": "כיף",
+  "cheer.aria": "שליחת כיף ל{name}",
+  "cheer.toast": "כיף מ{name}",
+  "cheer.toastMany": "{count} כיפים מ{name}",
+  "event.round": "{name}: סבב הושלם!",
+  "event.done": "{name}: האימון הושלם"
 }
