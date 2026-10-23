@@ -70,6 +70,7 @@ interface FlagState {
   enable_route_pref_shade: boolean;
   enable_route_time_aware: boolean;
   enable_route_shade_tag: boolean;
+  enable_loops_prefer_marked_trails: boolean;
   enable_levelup_v2: boolean;
   enable_skill_cap_true_skills: boolean;
   enable_adaptive_reps_v1: boolean;
@@ -512,6 +513,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-green-700',
     title: 'תגית "מוצל %" על מסלולים',
     description: 'על כרטיס מסלול: "🌳 מוצל X%" — רק כשמפת הצל של הטכניון מכסה לפחות חצי מהמסלול (אחרת אין תגית, אף פעם לא "0%"). בפרטי המסלול: שורת צל עם האחוז הכללי, "עכשיו · בצהריים · אחה״צ" כשיש לעיר שכבת צל לפי שעה (פרופיל קיץ), ו"מואר בלילה X%" כשיש נתוני תאורה. שורה בלי נתונים לא מוצגת. מסלולים שמורים נקראים מ-route_scores דרך השרת; מסלולים מעגליים משרת הניווט מקבלים את האחוז מהשרת. לא משנה דירוג. כבוי = כמו היום.',
+  },
+  // Loops prefer marked trails (22.10.2026).
+  {
+    key: 'enable_loops_prefer_marked_trails',
+    icon: RouteIcon,
+    iconBg: 'bg-lime-50',
+    iconColor: 'text-lime-700',
+    title: 'מסלולים מעגליים מעדיפים שבילים מסומנים',
+    description: 'ריצה והליכה מחוץ לערים הגדולות: מסלול מעגלי מנסה להישאר על שבילים, דרכי עפר ושבילי טיול מסומנים (גם כאלה בלי שם, שאנחנו לא מציגים כמסלולים) ופחות על רחובות סלולים. השרת מוריד מעט את הדירוג של רחובות שאינם חלק משביל מסומן — אף פעם לא מעלה גישה אסורה ולא משנה את המרחק המבוקש, והמסלולים שעוברים יותר על שבילים מקבלים יתרון קל בדירוג. עובד רק עם GraphHopper. פרטים והמלצת בנייה מחדש של הגרף: docs/routes/MARKED-TRAILS-GENERATOR.md. כבוי = כמו היום.',
   },
   // Level-up v2 (22.10.2026).
   {

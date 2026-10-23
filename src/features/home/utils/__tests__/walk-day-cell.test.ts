@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { resolveDayDisplayProps } from '../day-display.utils';
 import { WALK_DAY_COLOR, walkDayCell, walkSessionOverride } from '../walk-day-cell';
+import { makeT } from '@/lib/i18n/t';
+import { home } from '@/messages/ns/home';
+
+const t = makeT('he', home);
 
 const walk = {
   entryId: 'walkplan_2026-10-20', userId: 'u', date: '2026-10-20', programIds: [], type: 'training', source: 'auto',
@@ -28,12 +32,12 @@ describe('walkDayCell', () => {
 
 describe('a walk day through the strip resolver (the inputs SmartWeeklySchedule passes under v2)', () => {
   it('today pending: walk colour fill + walking icon', () => {
-    const p = resolveDayDisplayProps({ state: 'today', isSelected: false, isRest: false, isMissed: false, isCompleted: false, programIconKey: 'walking', runningColor: WALK_DAY_COLOR });
+    const p = resolveDayDisplayProps({ state: 'today', isSelected: false, isRest: false, isMissed: false, isCompleted: false, programIconKey: 'walking', runningColor: WALK_DAY_COLOR }, t);
     expect(p.container.bgColor).toBe(WALK_DAY_COLOR);
     expect(p.icon).toMatchObject({ type: 'program', iconKey: 'walking' });
   });
   it('done: the flame (medal) in the walk colour', () => {
-    const p = resolveDayDisplayProps({ state: 'today', isSelected: false, isRest: false, isMissed: false, isCompleted: true, programIconKey: 'walking', runningColor: WALK_DAY_COLOR });
+    const p = resolveDayDisplayProps({ state: 'today', isSelected: false, isRest: false, isMissed: false, isCompleted: true, programIconKey: 'walking', runningColor: WALK_DAY_COLOR }, t);
     expect(p.icon.type).toBe('img');
     expect(p.container.borderColor).toBe(WALK_DAY_COLOR);
   });

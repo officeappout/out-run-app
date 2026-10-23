@@ -7,11 +7,12 @@
 import { fetchGraphhopperLoops, type ApiClientDeps } from './api-client';
 import { GH_MIN_TARGET_KM, isGraphhopperLoopRequest, type GhLoopOptions } from './eligible';
 import { loopDtoToRoute } from './to-route';
-import { resolveRouteShadeTag, resolveRouteTimeAware } from './flag';
+import { resolveLoopsPreferMarkedTrails, resolveRouteShadeTag, resolveRouteTimeAware } from './flag';
+import { shouldPreferTrails } from '@/lib/routing/prefer-trails';
 import type { Route } from '../../types/route.types';
 import type { WireOurRoute } from '@/lib/routing/our-routes/wire';
 
-export { resolveGraphhopperRoutes, resolveRouteShadeTag, resolveRouteTimeAware } from './flag';
+export { resolveGraphhopperRoutes, resolveLoopsPreferMarkedTrails, resolveRouteShadeTag, resolveRouteTimeAware } from './flag';
 export { isGraphhopperLoopRequest, type GhLoopOptions } from './eligible';
 export { fetchGraphhopperLoops, GH_CLIENT_TIMEOUT_MS } from './api-client';
 export { loopDtoToRoute } from './to-route';
@@ -29,6 +30,8 @@ export async function tryGraphhopperLoops(o: GhLoopOptions, deps?: ApiClientDeps
       seed: o.routeGenerationIndex,
       maxResults: Math.max(1, Math.min(3, o.preferences.maxRoutes ?? 3)),
       ...(ourRoutes && ourRoutes.length > 0 ? { ourRoutes } : {}),
+      // enable_loops_prefer_marked_trails: running/walking outside the big cities. Off = absent.
+      ...(resolveLoopsPreferMarkedTrails(o.preferMarkedTrails) && shouldPreferTrails(o.activity, o.cityName) ? { preferTrails: true } : {}),
       // "Shadiest route" (enable_route_pref_shade): the server ranks by shade where it has data.
       ...(o.preferences.preferShade ? { preferShade: true, ...(o.cityName ? { city: o.cityName } : {}) } : {}),
       // Time-aware (enable_route_time_aware): shade at this hour by day, lit streets after dark. Off = absent.

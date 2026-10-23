@@ -332,6 +332,61 @@ export const ADMIN_TOOLS: AdminToolSpec[] = [
     minRole: 'super',
     dataTool: true,
   },
+  // ── one route / one park / top lists ──
+  {
+    name: 'get_route_overview',
+    description:
+      'Everything about ONE named route (official or curated): authority, status (published / pending / archived / rejected), distance, activity type, surface, route quality score + band (from route_scores, if scored), and usage — how many saved workouts came from it (only some routes carry that counter; starts and views are not recorded). query = the route name as written, or its id. If several match it returns up to 5 candidates — ask which one, or call again with the id. Shows buttons (approval center / locations, city-mapping). definitionId route_overview.',
+    input_schema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'route name (Hebrew) or id' } },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    zod: z.object({ query: z.string().trim().min(1).max(120) }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_park_overview',
+    description:
+      'Everything about ONE named park (fitness garden / court / spot): authority, status (published / pending / draft / rejected), facility type, equipment and amenities summary, ratings (organic average + review count), visits (saved workouts detected at the park, last 30 days, distinct users), creator/origin credit. query = the park name as written, or its id. If several match it returns up to 5 candidates — ask which one, or call again with the id. Shows buttons (park edit page, city-mapping). definitionId park_overview.',
+    input_schema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'park name (Hebrew) or id' } },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    zod: z.object({ query: z.string().trim().min(1).max(120) }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_content_leaderboard',
+    description:
+      'Top N routes or parks. by=usage: routes by saved workouts from them (only routes that carry the counter), parks by saved workouts detected at them; by=rating: parks by organic review average (routes have NO user ratings — it says so); by=recent: most recently ADDED. Optional authorityId (an id, never a name) narrows to one authority; limit 1-10 (null = 5). Says supported=false with a reason when the data does not exist. definitionId content_leaderboard.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['routes', 'parks'] },
+        by: { type: 'string', enum: ['usage', 'rating', 'recent'] },
+        authorityId: { type: ['string', 'null'], description: 'authority id or null for all' },
+        limit: { type: ['integer', 'null'], description: '1-10, null = 5' },
+      },
+      required: ['kind', 'by', 'authorityId', 'limit'],
+      additionalProperties: false,
+    },
+    zod: z
+      .object({
+        kind: z.enum(['routes', 'parks']),
+        by: z.enum(['usage', 'rating', 'recent']),
+        authorityId: z.string().trim().min(1).max(128).nullable(),
+        limit: z.number().int().min(1).max(10).nullable(),
+      })
+      .strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
 ];
 
 const BY_NAME = new Map(ADMIN_TOOLS.map((t) => [t.name, t]));

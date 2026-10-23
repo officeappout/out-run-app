@@ -16,6 +16,10 @@ vi.mock('@lottiefiles/dotlottie-react', async () => {
 });
 
 import { DayCellV2Context, DayIconCell, earnedTones, resolveDayDisplayProps, toneFromFlameSrc } from '../day-display.utils';
+import { makeT } from '@/lib/i18n/t';
+import { home } from '@/messages/ns/home';
+
+const t = makeT('he', home);
 
 const v2 = (el: React.ReactElement) => renderToStaticMarkup(h(DayCellV2Context.Provider, { value: true }, el));
 const cell = (props: ReturnType<typeof resolveDayDisplayProps>) => h(DayIconCell, { props });
@@ -31,7 +35,7 @@ describe('toneFromFlameSrc', () => {
 
 describe('DayIconCell under v2', () => {
   it('a completed strength day is the strength flame, still, no frame', () => {
-    const props = resolveDayDisplayProps({ state: 'past', isSelected: false, isRest: false, isMissed: false, isCompleted: true, programIconKey: 'muscle' });
+    const props = resolveDayDisplayProps({ state: 'past', isSelected: false, isRest: false, isMissed: false, isCompleted: true, programIconKey: 'muscle' }, t);
     expect(earnedTones(props)).toEqual(['strength']);
     const out = v2(cell(props));
     expect(out).toContain('/assets/animations/flames/strength.lottie');
@@ -40,7 +44,7 @@ describe('DayIconCell under v2', () => {
   });
 
   it("today's completed flame is live", () => {
-    const props = resolveDayDisplayProps({ state: 'today', isSelected: false, isRest: false, isMissed: false, isCompleted: true, programIconKey: 'muscle' });
+    const props = resolveDayDisplayProps({ state: 'today', isSelected: false, isRest: false, isMissed: false, isCompleted: true, programIconKey: 'muscle' }, t);
     expect(v2(cell(props))).toContain('data-live="true"');
   });
 
@@ -57,7 +61,7 @@ describe('DayIconCell under v2', () => {
         { category: 'strength', minutes: 35, programIconKey: 'muscle' },
         { category: 'cardio', minutes: 20 },
       ],
-    });
+    }, t);
     const tones = earnedTones(props);
     expect(tones.length).toBe(2);
     const out = v2(cell(props));
@@ -66,7 +70,7 @@ describe('DayIconCell under v2', () => {
   });
 
   it("today's pending workout is a white tile with an accent ring", () => {
-    const props = resolveDayDisplayProps({ state: 'today', isSelected: false, isRest: false, isMissed: false, isCompleted: false, programIconKey: 'muscle' });
+    const props = resolveDayDisplayProps({ state: 'today', isSelected: false, isRest: false, isMissed: false, isCompleted: false, programIconKey: 'muscle' }, t);
     expect(earnedTones(props)).toEqual([]);
     const out = v2(cell(props));
     expect(out).toContain('box-shadow:0 0 0 2px #00baf7');
@@ -74,12 +78,12 @@ describe('DayIconCell under v2', () => {
   });
 
   it('a rest day is a quiet Zz', () => {
-    const props = resolveDayDisplayProps({ state: 'past', isSelected: false, isRest: true, isMissed: false, isCompleted: false });
+    const props = resolveDayDisplayProps({ state: 'past', isSelected: false, isRest: true, isMissed: false, isCompleted: false }, t);
     expect(v2(cell(props))).toContain('aria-label="מנוחה"');
   });
 
   it('without the context the v1 cell renders (no Lottie)', () => {
-    const props = resolveDayDisplayProps({ state: 'past', isSelected: false, isRest: false, isMissed: false, isCompleted: true, programIconKey: 'muscle' });
+    const props = resolveDayDisplayProps({ state: 'past', isSelected: false, isRest: false, isMissed: false, isCompleted: true, programIconKey: 'muscle' }, t);
     expect(renderToStaticMarkup(cell(props))).not.toContain('lottie');
   });
 });

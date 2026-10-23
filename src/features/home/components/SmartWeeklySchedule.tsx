@@ -54,6 +54,9 @@ import {
   type RingData,
 } from '@/features/activity/types/activity.types';
 import { APP_DOMAIN } from '@/lib/config/domain';
+import { useT } from '@/hooks/useT';
+import { home, type HomeKey } from '@/messages/ns/home';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 
 // ============================================================================
 // TYPES
@@ -234,13 +237,13 @@ interface DayActivityData {
 // CONSTANTS
 // ============================================================================
 
-const HEBREW_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
+const HEBREW_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const; // i18n-allow-hebrew: day letters are data (matched against scheduleDays)
 
 // Full day names for the day-cell button's aria-label — HEBREW_DAYS is a
 // single letter, not enough for a screen reader to identify which day a
 // button represents. Same index/order (Sunday-first, matches Date#getDay()).
 const FULL_HEBREW_DAY_NAMES = [
-  'יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'יום שבת',
+  'יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'יום שבת', // i18n-allow-hebrew: weekday names — wave 3 (fmt)
 ] as const;
 
 // Dot colors from activity.types.ts
@@ -261,8 +264,11 @@ const MINI_RING_GOALS = {
 const CATEGORY_COLORS = RUN_CATEGORY_COLORS;
 const getCategoryColor = getRunCategoryColor;
 
-function getCategoryLabel(category: string | undefined): string {
-  if (!category) return 'אימון ריצה';
+/** The `home` translator the card helpers below take from their component (useT(home)). */
+type HomeT = (key: HomeKey, values?: MessageValues) => string;
+
+function getCategoryLabel(category: string | undefined, t: HomeT): string {
+  if (!category) return t('weekStrip.run.fallback');
   return RUNNING_WORKOUT_CATEGORY_LABELS_HE[category as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] ?? category;
 }
 
@@ -364,7 +370,7 @@ function buildMiniRingData(
 // ============================================================================
 
 /** Training days used by the preview (Sun / Tue / Thu). */
-const DUMMY_PREVIEW_SCHEDULE_DAYS: readonly string[] = ['א', 'ג', 'ה'];
+const DUMMY_PREVIEW_SCHEDULE_DAYS: readonly string[] = ['א', 'ג', 'ה']; // i18n-allow-hebrew: day letters are data
 
 function buildDummyActivityMap(): Map<number, DayActivityData> {
   const restDay: DayActivityData = {
@@ -553,6 +559,7 @@ function RunningWorkoutCards({
   onCardClick: (entry: RunningScheduleEntry) => void;
   todayScheduleDay?: number;
 }) {
+  const t = useT(home);
   if (entries.length === 0) return null;
 
   // Split entries: today's workout vs the rest. Decision logic lives in
@@ -586,10 +593,10 @@ function RunningWorkoutCards({
             single child and the counter jumps from the end edge to the
             start edge between rest/training days. */}
         <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">
-          {!isRestDay && 'האימון שלך היום'}
+          {!isRestDay && t('weekStrip.run.today')}
         </h3>
         <span className="text-[11px] font-medium text-gray-400">
-          שבוע {currentWeek} · {completedCount}/{entries.length}
+          {t('weekStrip.run.progress', { week: String(currentWeek), done: String(completedCount), total: String(entries.length) })}
         </span>
       </div>
 
@@ -624,8 +631,9 @@ function TodayWorkoutCard({
   entry: RunningScheduleEntry;
   onCardClick: (entry: RunningScheduleEntry) => void;
 }) {
+  const t = useT(home);
   const color = getCategoryColor(entry.category);
-  const label = entry.workoutName || getCategoryLabel(entry.category);
+  const label = entry.workoutName || getCategoryLabel(entry.category, t);
 
   return (
     <motion.button
@@ -661,11 +669,11 @@ function TodayWorkoutCard({
               className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0"
               style={{ background: color }}
             >
-              היום
+              {t('weekStrip.run.todayBadge')}
             </span>
           </div>
           <span className="text-xs text-gray-400 mt-0.5">
-            אימון {entry.day}
+            {t('weekStrip.run.workoutN', { n: String(entry.day) })}
           </span>
         </div>
         <svg width="7" height="12" viewBox="0 0 7 12" fill="none" className="text-gray-300 rotate-180 flex-shrink-0">
@@ -681,27 +689,13 @@ function TodayWorkoutCard({
 // Shows: Icon · Workout Name · Duration estimate · Checkmark
 // ============================================================================
 
-const CATEGORY_DURATION_ESTIMATE: Record<string, string> = {
-  easy_run: '25–35 דק׳',
-  recovery: '20–25 דק׳',
-  short_intervals: '30–40 דק׳',
-  long_intervals: '35–45 דק׳',
-  fartlek_easy: '30–35 דק׳',
-  fartlek_structured: '35–40 דק׳',
-  tempo: '30–40 דק׳',
-  long_run: '45–60 דק׳',
-  hill_long: '35–45 דק׳',
-  hill_short: '25–35 דק׳',
-  hill_sprints: '25–30 דק׳',
-  strides: '25–30 דק׳',
-};
-
 function CompactWorkoutCard({ entry }: { entry: RunningScheduleEntry }) {
+  const t = useT(home);
   const color = getCategoryColor(entry.category);
   const isCompleted = entry.status === 'completed';
   const isSkipped = entry.status === 'skipped';
-  const label = entry.workoutName || getCategoryLabel(entry.category);
-  const durationHint = CATEGORY_DURATION_ESTIMATE[entry.category ?? ''] ?? '30 דק׳';
+  const label = entry.workoutName || getCategoryLabel(entry.category, t);
+  const durationHint = t('weekStrip.run.duration', { category: entry.category ?? '' });
 
   return (
     <div
@@ -824,6 +818,7 @@ export default function SmartWeeklySchedule({
   activityView = false,
   hideHeader = false,
 }: SmartWeeklyScheduleProps) {
+  const t = useT(home);
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -861,9 +856,9 @@ export default function SmartWeeklySchedule({
     return entries.map((entry) => ({
       ...entry,
       category: entry.category || 'easy_run',
-      workoutName: entry.workoutName || (RUNNING_WORKOUT_CATEGORY_LABELS_HE[(entry.category ?? '') as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] ?? 'אימון ריצה'),
+      workoutName: entry.workoutName || (RUNNING_WORKOUT_CATEGORY_LABELS_HE[(entry.category ?? '') as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] ?? t('weekStrip.run.fallback')),
     }));
-  }, [isRunningMode, runOverlay, runningSchedule, effectiveCurrentWeek]);
+  }, [isRunningMode, runOverlay, runningSchedule, effectiveCurrentWeek, t]);
 
   // Map running schedule entries to week day indices (0=Sunday)
   const placeLevel = runPlacement?.level;
@@ -1380,7 +1375,7 @@ export default function SmartWeeklySchedule({
         // (e.g. strength, logged separately) are actually done.
         sessions: dayData.sessions,
         sessionsCompleted: dayData.sessionsCompleted,
-      });
+      }, t);
 
       return displayProps;
     }
@@ -1435,7 +1430,7 @@ export default function SmartWeeklySchedule({
         sessions: dayData.sessions,
         sessionsCompleted: dayData.sessionsCompleted,
         isRecoveryCompletion: dayData.isRecoveryCompletion,
-      });
+      }, t);
 
       return displayProps;
     }
@@ -1481,7 +1476,7 @@ export default function SmartWeeklySchedule({
         isRest: false,
         isMissed: false,
         isCompleted: false,
-      });
+      }, t);
       return <DayIconCell props={displayProps} activityRing={ring} ringSizePx={40} />;
     }
 
@@ -1649,7 +1644,7 @@ export default function SmartWeeklySchedule({
           style={{ borderRadius: 12, padding: 16, border: '0.5px solid #E0E9FF', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04), inset 0 1px 3px 0 rgba(0,0,0,0.02)' }}
         >
           <div className="flex justify-center items-center py-6">
-            <p className="text-sm text-gray-400 dark:text-gray-500 animate-pulse">טוען לו״ז שבועי...</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 animate-pulse">{t('weekStrip.loading')}</p>
           </div>
         </div>
       </div>
@@ -1660,7 +1655,7 @@ export default function SmartWeeklySchedule({
     <div className="mb-0 relative z-10 w-full max-w-[358px] mx-auto" dir="rtl">
       {/* ── Header — OUTSIDE the card ─────────────────────────── */}
       {!hideHeader && <div className="flex items-center justify-between mb-1 px-1">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">לו״ז אימונים</h2>
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('weekStrip.title')}</h2>
         {!hideMonthToggle && (
           <div className="flex items-center gap-2 relative z-20">
             <button
@@ -1670,8 +1665,8 @@ export default function SmartWeeklySchedule({
                   ? 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400'
                   : 'bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-[#00ADEF]'
               }`}
-              title={calendarMode === 'week' ? 'הצג תצוגה חודשית' : 'הצג תצוגה שבועית'}
-              aria-label={calendarMode === 'week' ? 'תצוגה חודשית' : 'תצוגה שבועית'}
+              title={calendarMode === 'week' ? t('weekStrip.toMonth.title') : t('weekStrip.toWeek.title')}
+              aria-label={calendarMode === 'week' ? t('weekStrip.toMonth.aria') : t('weekStrip.toWeek.aria')}
             >
               <CalendarDays className="w-4.5 h-4.5" />
             </button>
@@ -1717,7 +1712,7 @@ export default function SmartWeeklySchedule({
         >
           <img src="/icons/schedule/sync-calendar.svg" alt="" className="w-4 h-4" />
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-            סנכרון ליומן
+            {t('weekStrip.sync')}
           </span>
         </button>
         )}
@@ -1728,7 +1723,7 @@ export default function SmartWeeklySchedule({
           style={{ fontSize: 13, color: '#00C9F2' }}
         >
           <img src="/icons/schedule/edit-pen.svg" alt="" className="w-3.5 h-3.5" />
-          <span>שינוי לוז</span>
+          <span>{t('weekStrip.edit')}</span>
         </button>
       </div>}
 
@@ -1768,7 +1763,7 @@ export default function SmartWeeklySchedule({
               className="px-7 py-2 text-black text-sm font-semibold rounded-full shadow-md shadow-cyan-400/25 transition-all duration-200 hover:brightness-105 active:scale-95"
               style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
             >
-              {journeyState === 'map' ? 'התחל אבחון' : 'קבע לו״ז אימונים'}
+              {journeyState === 'map' ? t('weekStrip.overlay.assess') : t('weekStrip.overlay.schedule')}
             </button>
             )}
           </div>
@@ -1869,7 +1864,7 @@ export default function SmartWeeklySchedule({
                             handleDayClick(day, index);
                             if (v2) setPeek((p) => (p === index || !v2Cells[index]?.tones.length ? null : index));
                           }}
-                          aria-label={`${FULL_HEBREW_DAY_NAMES[index]}${isToday ? ', היום' : ''}${planned ? ', אימון מתוכנן' : ', יום מנוחה'}`}
+                          aria-label={t('weekStrip.dayAria', { day: FULL_HEBREW_DAY_NAMES[index], today: isToday ? 'yes' : 'no', planned: planned ? 'yes' : 'no' })}
                           whileTap={{ scale: 0.92 }}
                           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                           className="flex items-center justify-center relative"
@@ -2033,20 +2028,21 @@ function DayPeekBubble({
   rowWidth: number;
   onClose: () => void;
 }) {
+  const t = useT(home);
   const step = (rowWidth - V2_CELL) / 6;
   const center = index * step + V2_CELL / 2;
   const W = 210;
   const start = Math.max(0, Math.min(rowWidth - W, center - W / 2));
   const lines: { tone: FlameTone; text: string }[] = [];
-  if (data.categories.strength > 0) lines.push({ tone: 'strength', text: `כוח · ${Math.round(data.categories.strength)} דק׳` });
-  if (data.categories.cardio > 0) lines.push({ tone: 'cardio', text: `אירובי · ${Math.round(data.categories.cardio)} דק׳` });
-  if (data.categories.maintenance > 0) lines.push({ tone: 'maintenance', text: `גמישות · ${Math.round(data.categories.maintenance)} דק׳` });
-  if (data.steps > 0) lines.push({ tone: 'steps', text: `${data.steps.toLocaleString('he-IL')} צעדים` });
-  if (!lines.length) tones.forEach((t) => lines.push({ tone: t, text: FLAME_TONES[t].label }));
+  if (data.categories.strength > 0) lines.push({ tone: 'strength', text: t('weekStrip.peek.strength', { min: String(Math.round(data.categories.strength)) }) });
+  if (data.categories.cardio > 0) lines.push({ tone: 'cardio', text: t('weekStrip.peek.cardio', { min: String(Math.round(data.categories.cardio)) }) });
+  if (data.categories.maintenance > 0) lines.push({ tone: 'maintenance', text: t('weekStrip.peek.maintenance', { min: String(Math.round(data.categories.maintenance)) }) });
+  if (data.steps > 0) lines.push({ tone: 'steps', text: t('weekStrip.peek.steps', { steps: data.steps.toLocaleString('he-IL') }) });
+  if (!lines.length) tones.forEach((tone) => lines.push({ tone, text: FLAME_TONES[tone].label }));
   return (
     <motion.div
       role="dialog"
-      aria-label={`מה עשית ב${dayName}`}
+      aria-label={t('weekStrip.peek.aria', { day: dayName })}
       className="v2-glass-card absolute rounded-[18px] p-2.5"
       style={{ insetInlineStart: start, top: V2_LABEL_H + V2_ICON + 12, width: W, zIndex: 30 }}
       initial={{ opacity: 0, y: -6, scale: 0.97 }}

@@ -26,6 +26,24 @@ const SAFE_CROSSINGS: CustomModelStatement[] = [
   { else_if: 'crossing == UNCONTROLLED', multiply_by: '0.8' },
 ];
 
+/**
+ * enable_loops_prefer_marked_trails: a mild cut on ordinary paved streets that are NOT part of a marked
+ * foot route (foot_network == MISSING), so trail-like edges (PATH / TRACK / BRIDLEWAY / FOOTWAY / STEPS)
+ * and anything inside a hiking-route relation stay un-penalised and come out relatively better.
+ * Deliberately <= 1 (GraphHopper rejects priority > 1) and mild: villages' streets must stay usable to
+ * get from the start onto a trail. Never touches access (a forbidden edge keeps priority 0).
+ */
+export const PREFER_TRAILS_PAVED_MULTIPLIER = '0.85';
+// MUST stay a separate, multiplicative statement applied AFTER QUIET_FOOT. Do not fold it into
+// QUIET_FOOT's if/else_if chain: those road classes are already matched there, so an else_if branch
+// would never fire for them.
+const PREFER_TRAILS_FOOT: CustomModelStatement[] = [
+  {
+    if: 'foot_network == MISSING && (road_class == TERTIARY || road_class == UNCLASSIFIED || road_class == RESIDENTIAL || road_class == SERVICE)',
+    multiply_by: PREFER_TRAILS_PAVED_MULTIPLIER,
+  },
+];
+
 export const PARKS_AREA_ID = 'parks';
 const OUTSIDE_PARKS: CustomModelStatement = { if: `!in_${PARKS_AREA_ID}`, multiply_by: '0.85' };
 /** Our mapped routes (enable_loops_prefer_official): everything off them is de-prioritised. */
@@ -47,6 +65,7 @@ export function buildCustomModel(profile: GhProfile, tags: RouteTags): CustomMod
   if (parks.length > 0 && (foot || profile === 'bike')) priority.push(OUTSIDE_PARKS);
   const ourRoutes = tags.preferOurRoutes?.geometry ? tags.preferOurRoutes : null;
   if (ourRoutes) priority.push(OUTSIDE_OUR_ROUTES);
+  if (tags.preferMarkedTrails && foot) priority.push(...PREFER_TRAILS_FOOT);
   if (priority.length === 0) return null;
   const features: GeoJsonPolygonFeature[] = [];
   if (parks.length > 0 && priority.includes(OUTSIDE_PARKS)) {

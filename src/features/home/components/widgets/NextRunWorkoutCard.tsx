@@ -21,19 +21,17 @@ import { mapRunWeekFromLetters, runPlacementOf } from '@/features/schedule/utils
 import { applyRunMovesToDowMap, localKeyOf, sundayKeyOf } from '@/features/schedule/utils/runWeekMoves';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 import RunWeekListV2 from './run-week-v2/RunWeekListV2';
 import RunOverviewHomeSheet from '@/features/workout-engine/players/running/components/overview-v2/RunOverviewHomeSheet';
 import { plannedRunMapUrl } from '@/features/workout-engine/players/running/utils/run-overview/run-overview-url';
 import type { RunEdits } from '@/features/workout-engine/players/running/utils/run-overview/run-edits';
 
-const DAY_TO_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+const DAY_TO_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: day letters are data (matched against scheduleDays)
 
 const DIST_KM: Record<string, number> = {
   '2k': 2, '3k': 3, '5k': 5, '10k': 10, maintenance: 5,
-};
-const DIST_LABEL: Record<string, string> = {
-  '2k': '2 ק״מ', '3k': '3 ק״מ', '5k': '5 ק״מ',
-  '10k': '10 ק״מ', maintenance: '5 ק״מ',
 };
 
 type WorkoutType = 'easy' | 'interval' | 'tempo' | 'long';
@@ -85,7 +83,7 @@ const WORKOUT_ICONS: Record<WorkoutType, React.FC<{ size?: number; className?: s
 function formatDate(): string {
   const d = new Date();
   const day = DAY_TO_HE[d.getDay()] ?? '';
-  return `יום ${day}׳, ${d.getDate()}/${d.getMonth() + 1}`;
+  return `יום ${day}׳, ${d.getDate()}/${d.getMonth() + 1}`; // i18n-allow-hebrew: date format — wave 3 (fmt)
 }
 
 const CARD_STYLE = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' };
@@ -100,6 +98,7 @@ export interface NextRunWorkoutCardProps {
 }
 
 export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = null, calmWelcomeBack = false }: NextRunWorkoutCardProps = {}) {
+  const t = useT(home);
   // Calm return: quality runs show (and run) as an easy run, with the tier's lighter volume.
   const calmLoad = calmReturn?.isLightened ? calmReturn.load : null;
   const router = useRouter();
@@ -311,12 +310,12 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-base font-extrabold text-slate-900 dark:text-white">
-                {rebuildFailedOnce ? 'עדיין לא מצליח.' : 'לא הצלחנו להכין את תוכנית הריצה שלך.'}
+                {rebuildFailedOnce ? t('nextRun.stuck.failedTitle') : t('nextRun.stuck.title')}
               </p>
               <p className="text-sm text-slate-600 mt-0.5">
                 {rebuildFailedOnce
-                  ? 'בדוק את החיבור לאינטרנט ונסה שוב.'
-                  : 'כל מה שמילאת שמור. לחיצה אחת ונבנה אותה.'}
+                  ? t('nextRun.stuck.failedBody')
+                  : t('nextRun.stuck.body')}
               </p>
             </div>
           </div>
@@ -327,7 +326,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
             className="w-full mt-3 py-3 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-60"
             style={{ background: '#00BAF7' }}
           >
-            {isRebuilding ? 'בונה...' : rebuildFailedOnce ? 'נסה שוב' : 'בנה את התוכנית'}
+            {isRebuilding ? t('nextRun.stuck.cta.building') : rebuildFailedOnce ? t('nextRun.stuck.cta.retry') : t('nextRun.stuck.cta.build')}
           </motion.button>
         </div>
       );
@@ -379,10 +378,10 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-base font-extrabold text-slate-900 dark:text-white">
-                משהו חסר בהגדרת הריצה שלך.
+                {t('nextRun.missing.title')}
               </p>
               <p className="text-sm text-slate-600 mt-0.5">
-                נעבור שוב על ההגדרה — זה ייקח דקה.
+                {t('nextRun.missing.body')}
               </p>
             </div>
           </div>
@@ -403,12 +402,12 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-base font-extrabold text-slate-900 dark:text-white">
-              {hasTemplate ? 'התוכנית שלך בהכנה' : 'אין תוכנית ריצה'}
+              {hasTemplate ? t('nextRun.none.preparing.title') : t('nextRun.none.empty.title')}
             </p>
             <p className="text-sm text-slate-600 mt-0.5">
               {hasTemplate
-                ? 'לוח האימונים ייווצר בכניסה הבאה'
-                : 'השלם/י את ההרשמה כדי ליצור תוכנית'}
+                ? t('nextRun.none.preparing.body')
+                : t('nextRun.none.empty.body')}
             </p>
           </div>
         </div>
@@ -417,13 +416,13 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   }
 
   const distKm = DIST_KM[targetDist] ?? 5;
-  const distLabel = DIST_LABEL[targetDist] ?? '5 ק״מ';
+  const distKmText = String(distKm);
 
   const labels: Record<WorkoutType, string> = {
-    easy: `ריצה קלה — ${distLabel}`,
-    interval: 'אינטרוולים קצרים',
-    tempo: 'ריצת טמפו',
-    long: 'ריצה ארוכה',
+    easy: t('nextRun.label.easy', { km: distKmText }),
+    interval: t('nextRun.label.interval'),
+    tempo: t('nextRun.label.tempo'),
+    long: t('nextRun.label.long'),
   };
 
   const estimatedMinutes = basePace > 0 ? Math.round((basePace * distKm) / 60) : null;
@@ -442,7 +441,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
           schedule={running?.activeProgram?.schedule as any[] | undefined}
           week={pendingWeek ?? effectiveCurrentWeek ?? 1}
           totalWeeks={running?.generatedProgramTemplate?.canonicalWeeks}
-          programLabel={calmWelcomeBack ? `${welcome.welcomeBackTitle} · ${welcome.welcomeBackSubtitle}` : `תוכנית ${distLabel}`}
+          programLabel={calmWelcomeBack ? `${welcome.welcomeBackTitle} · ${welcome.welcomeBackSubtitle}` : t('nextRun.programLabel', { km: distKmText })}
           scheduleDays={scheduleDays}
           targetDay={pendingDay}
           isRunDay={!effectiveRestDay}
@@ -485,15 +484,15 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-base font-extrabold text-slate-900 dark:text-white">
-              היום זה להתאושש 🧘
+              {t('nextRun.rest.title')}
             </p>
             {nextRun && (
               <p className="text-sm text-slate-600 mt-0.5">
                 {dayState.nextEntryDaysAway === 1
-                  ? `מחר מחכה לך: ${nextWorkoutDisplayName || 'אימון ריצה'}`
+                  ? t('nextRun.rest.tomorrow', { name: nextWorkoutDisplayName || t('nextRun.fallbackName') })
                   : dayState.nextEntryDaysAway != null
-                  ? `בעוד ${dayState.nextEntryDaysAway} ימים: ${nextWorkoutDisplayName || 'אימון ריצה'}`
-                  : `הבא בתור: ${nextWorkoutDisplayName || 'אימון ריצה'}`}
+                  ? t('nextRun.rest.inDays', { days: String(dayState.nextEntryDaysAway), name: nextWorkoutDisplayName || t('nextRun.fallbackName') })
+                  : t('nextRun.rest.next', { name: nextWorkoutDisplayName || t('nextRun.fallbackName') })}
               </p>
             )}
           </div>
@@ -503,7 +502,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
             onClick={() => setSkippedToday(false)}
             className="mt-3 text-xs font-bold text-cyan-500 hover:underline"
           >
-            ביטול — אני בכל זאת רוצה להתאמן
+            {t('nextRun.rest.undo')}
           </button>
         )}
       </div>
@@ -516,7 +515,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
         <p className="text-xs font-bold text-slate-600">
           {calmWelcomeBack
             ? `${calmCopy(null).welcomeBackTitle} · ${calmCopy(null).welcomeBackSubtitle}`
-            : 'האימון שלך היום'}
+            : t('nextRun.today.title')}
         </p>
         <span className="text-[11px] font-medium text-slate-600 tabular-nums">
           {formatDate()}
@@ -535,7 +534,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
             {calmEasy ? labels.easy : workoutLabel || labels[workout]}
           </p>
           {estimatedMinutes && (
-            <p className="text-sm text-slate-600 mt-0.5">~{estimatedMinutes} דקות</p>
+            <p className="text-sm text-slate-600 mt-0.5">{t('nextRun.today.minutes', { minutes: String(estimatedMinutes) })}</p>
           )}
         </div>
       </div>
@@ -546,14 +545,14 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
         className="w-full py-3.5 rounded-xl text-base font-bold text-white transition-colors"
         style={{ background: '#00BAF7', boxShadow: '0 4px 14px rgba(0,186,247,0.3)' }}
       >
-        התחל ריצה
+        {t('nextRun.today.start')}
       </motion.button>
 
       <button
         onClick={() => setSkippedToday(true)}
         className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
       >
-        אין לי כוח היום — דלג לעוד
+        {t('nextRun.today.skip')}
       </button>
 
       <RunBriefingDrawer

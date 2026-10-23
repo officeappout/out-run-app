@@ -318,6 +318,14 @@ export const FLAG_DEFS = [
   // readLiveFlag too, so superAdminValue false — the panel toggle is the one switch.
   // Default OFF. Off = cards, details and the generate request/response byte-identical.
   { key: 'enableRouteShadeTag', firestoreKey: 'enable_route_shade_tag', defaultValue: false, superAdminValue: false },
+  // Loops prefer marked trails (22.10.2026, owner idea) — GraphHopper loops only, running/walking,
+  // outside the big cities: the server mildly de-prioritises paved streets that are not part of a
+  // marked hiking route, so loops drift onto paths / tracks / marked trails (incl. unnamed ones we
+  // never present as routes). Priority multipliers <= 1 only: never opens forbidden access and never
+  // changes the requested distance. Needs no graph rebuild for the road_class / foot_network part
+  // (see docs/routes/MARKED-TRAILS-GENERATOR.md). Read on the device via readLiveFlag, so
+  // superAdminValue false — the panel toggle is the one switch. Default OFF. Off = byte-identical.
+  { key: 'enableLoopsPreferMarkedTrails', firestoreKey: 'enable_loops_prefer_marked_trails', defaultValue: false, superAdminValue: false },
   // Unified search (19.10.2026, owner-approved design canvas) — /search becomes one search over
   // exercises, parks, routes, people & groups, events, articles and help (site_content), with
   // chips + counts, grouped "הכל" results, recents, situation suggestions, "אולי חיפשת" and Ask

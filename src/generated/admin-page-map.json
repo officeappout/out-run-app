@@ -1878,7 +1878,13 @@
       ],
       "navigable": true,
       "id": "admin/parks",
-      "synonyms": []
+      "synonyms": [
+        "ניהול פארקים",
+        "עריכת פארק",
+        "גינת כושר",
+        "פרטי פארק",
+        "ציוד בפארק"
+      ]
     },
     {
       "href": "/admin/parks/[id]/edit",
@@ -2106,7 +2112,12 @@
       ],
       "navigable": true,
       "id": "admin/routes",
-      "synonyms": []
+      "synonyms": [
+        "ניהול מסלולים",
+        "מסלולים חכמים",
+        "עריכת מסלול",
+        "פרטי מסלול"
+      ]
     },
     {
       "href": "/admin/routes/new",

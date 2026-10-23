@@ -16,6 +16,7 @@ const GENERATION_FLAGS = [
   'enableRouteQualityV1',
   'enableGraphhopperRoutes',
   'enableLoopsPreferOfficial',
+  'enableLoopsPreferMarkedTrails',
   'enableFullParkWorkout',
   'enableRouteStops',
   'enableNoAutoStrengthLevel',

@@ -9,6 +9,11 @@ export function resolveGraphhopperRoutes(override: boolean | undefined): boolean
   return typeof override === 'boolean' ? override : readLiveFlag('enableGraphhopperRoutes');
 }
 
+/** Loops prefer marked trails (panel flag enable_loops_prefer_marked_trails, default OFF) — the device's last-known live flag. */
+export function resolveLoopsPreferMarkedTrails(override?: boolean): boolean {
+  return typeof override === 'boolean' ? override : readLiveFlag('enableLoopsPreferMarkedTrails');
+}
+
 /** Time-aware preference (panel flag enable_route_time_aware, default OFF) — the device's last-known live flag. */
 export function resolveRouteTimeAware(override?: boolean): boolean {
   return typeof override === 'boolean' ? override : readLiveFlag('enableRouteTimeAware');

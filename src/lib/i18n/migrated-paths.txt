@@ -468,5 +468,15 @@ src/features/legal/components/LegalDocModal.tsx
 src/features/user/onboarding/intro/
 src/app/page.tsx
 src/features/user/onboarding/constants/running-goal-visuals.ts
+# wave 2 batch aj (namespace home, keys adjuster.* / nextRun.* / dayDisplay.* / weekStrip.* / statsOverview.*) — the weekly
+# strip, the day-cell label helper (resolveDayDisplayProps / getShortLabel now take the caller's t), the user workout
+# adjuster sheet, the legacy next-run card and the StatsOverview hero. Left on purpose (manual list in the PR): weekday
+# letters / names and the date line of NextRunWorkoutCard (wave 3, fmt), StatsOverview's dead ExercisePreviewList /
+# nudge modal / levelGoals unit label (marked), src/app/home/page.tsx (open PRs #764 and #757 edit it).
+src/features/home/components/UserWorkoutAdjuster.tsx
+src/features/home/components/SmartWeeklySchedule.tsx
+src/features/home/components/StatsOverview.tsx
+src/features/home/components/widgets/NextRunWorkoutCard.tsx
+src/features/home/utils/day-display.utils.tsx
 src/app/legal/credits/page.tsx
 src/features/parks/client/components/route-preview/RouteOsmSourceLine.tsx

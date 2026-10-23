@@ -47,6 +47,8 @@ import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { useCalmReturn } from '../hooks/useCalmReturn';
 import { useHomeV2 } from '../context/HomeV2Context';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Dumbbell, Footprints, SlidersHorizontal, Lock, Clock } from 'lucide-react';
 import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -86,8 +88,8 @@ function ExerciseRow({ ex, index }: { ex: WorkoutExercise; index: number }) {
   const name = getLocalizedText(ex.exercise.name);
   const isGoal = ex.isGoalExercise;
   const range = ex.repsRange;
-  const perSide = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
-  const unit = (ex.isTimeBased ? 'שניות' : 'חזרות') + perSide;
+  const perSide = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : ''; // i18n-allow-hebrew: dead — ExercisePreviewList is never rendered
+  const unit = (ex.isTimeBased ? 'שניות' : 'חזרות') + perSide; // i18n-allow-hebrew: dead — ExercisePreviewList is never rendered
   const rangeStr = range && range.min !== range.max
     ? `${range.min}-${range.max}`
     : `${ex.reps}`;
@@ -113,7 +115,7 @@ function ExerciseRow({ ex, index }: { ex: WorkoutExercise; index: number }) {
         </p>
         {isGoal && ex.rampedTarget && (
           <p className="text-[11px] text-cyan-500 dark:text-cyan-400 font-medium mt-0.5">
-            יעד: {ex.rampedTarget} {unit}
+            {/* i18n-allow-hebrew: dead — ExercisePreviewList is never rendered */}יעד: {ex.rampedTarget} {unit}
           </p>
         )}
       </div>
@@ -144,7 +146,7 @@ function ExercisePreviewList({ exercises }: { exercises: WorkoutExercise[] }) {
         <div className="flex items-center gap-2">
           <Dumbbell className="w-4 h-4 text-gray-400" />
           <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
-            תרגילים באימון ({exercises.length})
+            {/* i18n-allow-hebrew: dead — ExercisePreviewList is never rendered */}תרגילים באימון ({exercises.length})
           </span>
         </div>
         {hasMore && (
@@ -152,7 +154,7 @@ function ExercisePreviewList({ exercises }: { exercises: WorkoutExercise[] }) {
             onClick={() => setExpanded(!expanded)}
             className="text-xs font-medium text-[#00C9F2] flex items-center gap-0.5"
           >
-            {expanded ? 'פחות' : 'הצג הכל'}
+            {expanded ? 'פחות' : 'הצג הכל'}{/* i18n-allow-hebrew: dead — ExercisePreviewList is never rendered */}
             <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
               <ChevronDown className="w-3.5 h-3.5" />
             </motion.div>
@@ -166,7 +168,7 @@ function ExercisePreviewList({ exercises }: { exercises: WorkoutExercise[] }) {
           <div className="px-4 py-1.5 flex items-center gap-1.5">
             <span className="text-sm">🔥</span>
             <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-              חימום · {warmupExercises.length} תרגילים
+              {/* i18n-allow-hebrew: dead — ExercisePreviewList is never rendered */}חימום · {warmupExercises.length} תרגילים
             </span>
           </div>
           <div className="divide-y divide-amber-100/60 dark:divide-amber-800/20">
@@ -190,7 +192,7 @@ function ExercisePreviewList({ exercises }: { exercises: WorkoutExercise[] }) {
           <div className="px-4 py-1.5 flex items-center gap-1.5">
             <span className="text-sm">🧘</span>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-              שחרור · {cooldownExercises.length} תרגילים
+              {/* i18n-allow-hebrew: dead — ExercisePreviewList is never rendered */}שחרור · {cooldownExercises.length} תרגילים
             </span>
           </div>
           <div className="divide-y divide-emerald-100/60 dark:divide-emerald-800/20">
@@ -365,6 +367,7 @@ export default function StatsOverview({
   onConnectSteps,
   weather = null,
 }: StatsOverviewProps) {
+  const t = useT(home);
   const { profile } = useUserStore();
   // Calm return (CALM_RETURN_V1) — the LIVE panel toggle (no super-admin override). The
   // episode write + the fresh-week card live in the home page (useCalmReturn there, with
@@ -406,7 +409,7 @@ export default function StatsOverview({
         const domains = profile.progression?.domains ?? {};
         const baseLevel =
           Math.max(
-            ...Object.values(tracks).map((t) => t?.currentLevel ?? 1),
+            ...Object.values(tracks).map((tr) => tr?.currentLevel ?? 1),
             ...Object.values(domains).map((d) => (d as { currentLevel?: number })?.currentLevel ?? 1),
             1
           ) || 1;
@@ -555,7 +558,7 @@ export default function StatsOverview({
         );
         if (match?.isCompleted) isCompleted = true;
       }
-      const unitLabel = tg.unit === 'reps' ? 'חזרות' : 'שניות';
+      const unitLabel = tg.unit === 'reps' ? 'חזרות' : 'שניות'; // i18n-allow-hebrew: dead — levelGoals is never read
       return {
         id: `${primaryDomainId ?? 'goal'}-${idx}-${tg.exerciseId}`,
         label: `${tg.exerciseName} — ${tg.targetValue} ${unitLabel}`,
@@ -893,7 +896,7 @@ export default function StatsOverview({
         const todayDayIndex = new Date(targetDate + 'T00:00:00').getDay();
         const remainingScheduleDays = userScheduleDays.length > 0
           ? userScheduleDays.filter((_day, i) => {
-              const dayNames = ['א','ב','ג','ד','ה','ו','ש'];
+              const dayNames = ['א','ב','ג','ד','ה','ו','ש']; // i18n-allow-hebrew: day letters are data (matched against scheduleDays)
               const dayIdx = dayNames.indexOf(userScheduleDays[i]);
               return dayIdx >= todayDayIndex;
             }).length || 1
@@ -1084,7 +1087,7 @@ export default function StatsOverview({
   const [pendingTrainAheadIndex, setPendingTrainAheadIndex] = useState<number | null>(null);
 
   // Hebrew name for the target date's day of week (e.g. "חמישי")
-  const HEBREW_DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const HEBREW_DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: weekday names — wave 3 (fmt)
   const targetDayName = useMemo(() => {
     const d = new Date(targetDate + 'T00:00:00');
     return HEBREW_DAY_NAMES[d.getDay()];
@@ -1144,7 +1147,7 @@ export default function StatsOverview({
           }
         >
           <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">
-            {calmWelcomeBack ? calmCopy(calmGender).welcomeBackTitle : 'האימון היומי שלך'}
+            {calmWelcomeBack ? calmCopy(calmGender).welcomeBackTitle : t('statsOverview.hero.title')}
           </h3>
           {/* Location square beside the title. Shows the user's pin when there is one,
               otherwise the engine's echo (clamped to the pickable set). */}
@@ -1170,10 +1173,10 @@ export default function StatsOverview({
 
         <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
           {!hasCompletedAssessment
-            ? 'התאימו את האימונים לרמה שלכם .'
+            ? t('statsOverview.hero.locked')
             : calmWelcomeBack
               ? calmCopy(calmGender).welcomeBackSubtitle
-              : dynamicWorkout?.description || 'מוכן להתחיל?'}
+              : dynamicWorkout?.description || t('statsOverview.hero.ready')}
         </p>
       </div>
 
@@ -1220,11 +1223,11 @@ export default function StatsOverview({
                         transfer mechanism. */}
                     <RouteCardUnified
                       name={stepDeficitRoute.name}
-                      distanceText={`${stepDeficitRoute.distance.toFixed(1)} ק״מ`}
-                      durationText={`~${stepDeficitRoute.duration} דק׳`}
+                      distanceText={t('statsOverview.stepRoute.km', { km: stepDeficitRoute.distance.toFixed(1) })}
+                      durationText={t('statsOverview.stepRoute.minutes', { min: String(stepDeficitRoute.duration) })}
                       difficulty={stepDeficitRoute.difficulty}
                       extraContent={<RouteQualityBadges qualitySignals={stepDeficitRoute.qualitySignals} />}
-                      ctaContent={<><Footprints size={14} /><span>הליכה עד היעד</span></>}
+                      ctaContent={<><Footprints size={14} /><span>{t('statsOverview.stepRoute.cta')}</span></>}
                       onCta={() => router.push(`/map?openRun=walking&targetSteps=${stepDeficitStepsRemaining}`)}
                     />
                   </div>
@@ -1262,7 +1265,7 @@ export default function StatsOverview({
         {!hasCompletedAssessment && (
           <button
             onClick={() => onStartWorkout?.()}
-            aria-label="בואו נגלה כמה אתם חזקים"
+            aria-label={t('statsOverview.teaser.aria')}
             className="absolute inset-0 z-10 flex items-center justify-center"
           >
             {/* Hero CTA — V2 "breathing glow": the app's primary gradient-pill
@@ -1293,10 +1296,10 @@ export default function StatsOverview({
                 transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
               >
                 <span className="text-[15px] font-black leading-snug">
-                  בואו נגלה כמה אתם חזקים
+                  {t('statsOverview.teaser.title')}
                 </span>
                 <span className="text-xs font-medium" style={{ color: 'rgba(4,33,42,0.72)' }}>
-                  שאלון של דקה — והכול נפתח
+                  {t('statsOverview.teaser.sub')}
                 </span>
               </motion.div>
             </div>
@@ -1350,14 +1353,14 @@ export default function StatsOverview({
                 className="text-xl font-black text-gray-900 dark:text-white mb-3 leading-snug"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                רוצה להקדים את האימון שלך?
+                {t('statsOverview.trainAhead.title')}
               </h2>
 
               <p
                 className="text-sm text-slate-500 dark:text-slate-400 mb-7 leading-relaxed"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                האימון הזה מתוכן ליום {targetDayName}. רוצה לבצע אותו עכשיו ולשמור להיום?
+                {t('statsOverview.trainAhead.body', { day: targetDayName })}
               </p>
 
               {/* Primary CTA */}
@@ -1369,7 +1372,7 @@ export default function StatsOverview({
                   background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)',
                 }}
               >
-                אני רוצה לעשות את האימון היום!
+                {t('statsOverview.trainAhead.confirm')}
               </button>
 
               {/* Secondary — dismiss */}
@@ -1378,7 +1381,7 @@ export default function StatsOverview({
                 className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                תשאירו ביום המקורי
+                {t('statsOverview.trainAhead.dismiss')}
               </button>
             </motion.div>
           </motion.div>
@@ -1543,13 +1546,13 @@ export default function StatsOverview({
                 className="text-xl font-black text-slate-900 dark:text-white mb-2"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                קודם כל, בואו נכיר!
+                {/* i18n-allow-hebrew: unreachable — handleLockedWidgetTap has no caller */}קודם כל, בואו נכיר!
               </h2>
               <p
                 className="text-sm text-slate-500 dark:text-slate-400 mb-7"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                השלם/י את האבחון הקצר כדי לפתוח את כל תכונות האפליקציה
+                {/* i18n-allow-hebrew: unreachable — handleLockedWidgetTap has no caller */}השלם/י את האבחון הקצר כדי לפתוח את כל תכונות האפליקציה
               </p>
               <button
                 onClick={() => {
@@ -1559,14 +1562,14 @@ export default function StatsOverview({
                 className="w-full h-14 rounded-2xl font-bold text-on-brand text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                התחל אבחון רמה
+                {/* i18n-allow-hebrew: unreachable — handleLockedWidgetTap has no caller */}התחל אבחון רמה
               </button>
               <button
                 onClick={() => setShowNudge(false)}
                 className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                אולי מאוחר יותר
+                {/* i18n-allow-hebrew: unreachable — handleLockedWidgetTap has no caller */}אולי מאוחר יותר
               </button>
             </motion.div>
           </motion.div>
