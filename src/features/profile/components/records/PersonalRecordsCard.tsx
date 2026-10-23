@@ -76,7 +76,7 @@ export default function PersonalRecordsCard({ active }: { active: boolean }) {
                 {tile.unit && <span className="text-[12.5px] font-bold text-v2-muted">{tile.unit}</span>}
               </p>
               <p className="mt-1 truncate whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">{tile.label}</p>
-              {tile.at != null && <p className="whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{dateLabel(tile.at)}</p>}
+              {tile.at != null && <p className="whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{dateLabel(tile.at, t.locale)}</p>}
             </Card>
           ))}
         </div>

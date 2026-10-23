@@ -28,6 +28,7 @@ import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config'
 import { hapticMedium } from '@/lib/haptics';
 import { playSuccessChime } from '@/lib/sound';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { home } from '@/messages/ns/home';
 
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
@@ -63,7 +64,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
   // show a placeholder instead of a number that isn't actually today's.
   const isStale = !isLoading && todayActivity != null && todayActivity.date !== todayDateString();
   const showPlaceholder = isLoading || isStale;
-  const displaySteps = showPlaceholder ? '—' : stepsToday.toLocaleString('he-IL');
+  const displaySteps = showPlaceholder ? '—' : formatNumber(stepsToday, t.locale);
 
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const percentage =
@@ -107,7 +108,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
 
   const handleOpen = triggerHealthPermission;
 
-  const ariaLabel = t('steps.openAria', { steps: displaySteps, goal: goal.toLocaleString('he-IL') });
+  const ariaLabel = t('steps.openAria', { steps: displaySteps, goal: formatNumber(goal, t.locale) });
 
   return (
     <>

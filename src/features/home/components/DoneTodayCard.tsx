@@ -40,7 +40,7 @@ export default function DoneTodayCard({ cards, workouts, onCardTap }: DoneTodayC
   const v2 = useHomeV2();
   const t = useT(home);
   if (!v2 || cards.length === 0) return null;
-  const rows = buildDoneWorkoutRows(cards, workouts);
+  const rows = buildDoneWorkoutRows(cards, workouts, t.locale);
 
   return (
     <section dir="rtl" aria-label={t('doneToday.aria')}>

@@ -378,8 +378,12 @@ describe('profile (he) — exerciseAnalytics.* byte-identical to the pre-extract
     }
   });
 
+  it('longDate framing (the weekday and the date come from fmt — wave 3A snapshot pins the whole string)', () => {
+    expect(t('exerciseAnalytics.longDate', { weekday: 'ד׳', date: '1 באוק׳' })).toBe('יום ד׳ 1 באוק׳');
+  });
+
   it('no exerciseAnalytics.* key is left untested', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('exerciseAnalytics.')).length).toBe(44);
+    expect(Object.keys(he).filter((k) => k.startsWith('exerciseAnalytics.')).length).toBe(45);
   });
 });
 

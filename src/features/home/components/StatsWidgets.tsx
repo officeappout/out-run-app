@@ -4,6 +4,8 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, Zap, Flame, Lock } from 'lucide-react';
 import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 // הגדרת ה-Props בצורה שתתאים ל-MOCK_STATS שלך
 interface StatsWidgetsProps {
@@ -18,6 +20,7 @@ interface StatsWidgetsProps {
 
 export default function StatsWidgets({ stats, emphasizeSteps = true, isGuest = false }: StatsWidgetsProps) {
   const router = useRouter();
+  const locale = useLocaleStore((s) => s.locale);
 
   // הגנה למקרה ש-stats מגיע undefined מה-Mock
   if (!stats) return null;
@@ -90,7 +93,7 @@ export default function StatsWidgets({ stats, emphasizeSteps = true, isGuest = f
             <Flame size={12} className="text-orange-500" fill="currentColor" />
             <span className="text-sm font-black text-gray-900">{stats.steps}</span>
           </div>
-          <p className="text-[9px] font-bold text-gray-400 mt-0.5">מתוך {DAILY_STEP_GOAL.toLocaleString('en-US')}</p>
+          <p className="text-[9px] font-bold text-gray-400 mt-0.5">מתוך {formatNumber(DAILY_STEP_GOAL, locale)}</p>
         </div>
       </div>
     </div>

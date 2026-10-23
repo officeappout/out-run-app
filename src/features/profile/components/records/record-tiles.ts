@@ -3,6 +3,8 @@
  * Only real values: a record with no value yet is left out (never "—", never
  * invented). Pure.
  */
+import { formatDate, formatNumber, monthName } from '@/lib/i18n/core/fmt';
+import type { Locale } from '@/lib/i18n/locales';
 import { bestMonth, type PeriodTotals, type ProgressionRecords } from '@/features/user/progression/records/records.utils';
 
 export type RecordIcon = 'strength' | 'run' | 'walk' | 'streak' | 'month';
@@ -26,7 +28,6 @@ export interface ExerciseBest {
   bestAt: number | null;
 }
 
-const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
 const WEEK = 7 * 86_400_000;
 
 export function clock(sec: number): string {
@@ -37,7 +38,7 @@ export function clock(sec: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
-const km = (n: number) => (Math.round(n * 10) / 10).toLocaleString('he-IL', { maximumFractionDigits: 1 });
+const km = (n: number, locale: Locale) => formatNumber(Math.round(n * 10) / 10, locale, { maximumFractionDigits: 1 });
 
 export function buildRecordTiles(input: {
   records?: ProgressionRecords | null;
@@ -45,8 +46,11 @@ export function buildRecordTiles(input: {
   longestStreak?: number | null;
   exercises?: ExerciseBest[];
   nowMs: number;
+  /** Display language for numbers and month names; absent = Hebrew (today's output). */
+  locale?: Locale;
 }): RecordTile[] {
   const { records, nowMs } = input;
+  const locale = input.locale ?? 'he';
   const fresh = (at: number | null) => at != null && nowMs - at < WEEK;
   const tiles: RecordTile[] = [];
   for (const ex of input.exercises ?? []) {
@@ -57,10 +61,10 @@ export function buildRecordTiles(input: {
     tiles.push({ key: '5k', icon: 'run', value: clock(records.fastest5kSec.value), label: '5 ק״מ הכי מהיר', at: records.fastest5kSec.at, isNew: fresh(records.fastest5kSec.at) });
   }
   if (records?.longestRunKm?.value) {
-    tiles.push({ key: 'run', icon: 'run', value: km(records.longestRunKm.value), unit: 'ק״מ', label: 'ריצה הכי ארוכה', at: records.longestRunKm.at, isNew: fresh(records.longestRunKm.at) });
+    tiles.push({ key: 'run', icon: 'run', value: km(records.longestRunKm.value, locale), unit: 'ק״מ', label: 'ריצה הכי ארוכה', at: records.longestRunKm.at, isNew: fresh(records.longestRunKm.at) });
   }
   if (records?.longestWalkKm?.value) {
-    tiles.push({ key: 'walk', icon: 'walk', value: km(records.longestWalkKm.value), unit: 'ק״מ', label: 'הליכה הכי ארוכה', at: records.longestWalkKm.at, isNew: fresh(records.longestWalkKm.at) });
+    tiles.push({ key: 'walk', icon: 'walk', value: km(records.longestWalkKm.value, locale), unit: 'ק״מ', label: 'הליכה הכי ארוכה', at: records.longestWalkKm.at, isNew: fresh(records.longestWalkKm.at) });
   }
   if ((input.longestStreak ?? 0) > 1) {
     tiles.push({ key: 'streak', icon: 'streak', value: String(input.longestStreak), unit: 'ימים', label: 'רצף הכי ארוך', at: null, isNew: false });
@@ -68,12 +72,13 @@ export function buildRecordTiles(input: {
   const month = bestMonth(input.periodTotals);
   if (month) {
     const m = Number(month.month.slice(5, 7)) - 1;
-    tiles.push({ key: 'month', icon: 'month', value: String(month.workouts), unit: 'אימונים', label: `הכי הרבה בחודש · ${MONTHS[m] ?? month.month}`, at: null, isNew: false });
+    tiles.push({ key: 'month', icon: 'month', value: String(month.workouts), unit: 'אימונים', label: `הכי הרבה בחודש · ${Number.isInteger(m) && m >= 0 && m <= 11 ? monthName(m, locale) : month.month}`, at: null, isNew: false });
   }
   return tiles;
 }
 
-export function dateLabel(at: number): string {
-  const d = new Date(at);
-  return `${d.getDate()} ב${MONTHS[d.getMonth()]}`;
+/** "15 במרץ" (he) — the Intl day + long month form, in the device's time zone. */
+export function dateLabel(at: number, locale: Locale = 'he'): string {
+  if (!Number.isFinite(at)) return '';
+  return formatDate(new Date(at), locale, { day: 'numeric', month: 'long' });
 }

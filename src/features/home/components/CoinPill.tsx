@@ -5,6 +5,8 @@ import { useUserStore, useProgressionStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChange } from '@/lib/auth.service';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 export default function CoinPill() {
   // COIN_SYSTEM_PAUSED: Re-enable in April
@@ -14,6 +16,7 @@ export default function CoinPill() {
   const { profile } = useUserStore();
   const { coins, isHydrated, hydrateFromFirestore } = useProgressionStore();
   const [isLoading, setIsLoading] = useState(true);
+  const locale = useLocaleStore((s) => s.locale);
 
   // Hydrate from Firestore on mount and auth changes
   useEffect(() => {
@@ -64,7 +67,7 @@ export default function CoinPill() {
   return (
     <div className="flex items-center bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-full px-2.5 py-1 shadow-sm">
       <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400 whitespace-nowrap">
-        {isLoading ? '...' : `+${coins.toLocaleString()} מטבעות`}
+        {isLoading ? '...' : `+${formatNumber(coins, locale)} מטבעות`}
       </span>
       <div className="w-4 h-4 rounded-full bg-yellow-400 border border-yellow-500 flex items-center justify-center text-[10px] text-yellow-900 font-bold mr-1.5 shadow-sm">
         $

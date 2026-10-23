@@ -2,6 +2,9 @@
  * Exercise page v2 (boards P-5 / P-6) — pure helpers over the loaded sessions.
  * Sessions come in oldest → newest unless stated.
  */
+import { formatDate, monthName, weekdayName } from '@/lib/i18n/core/fmt';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import type { Locale } from '@/lib/i18n/locales';
 import type { BarDatum } from '@/components/ui/v2/logic';
 import { toneFor, type SetTile } from '@/components/ui/v2/summary';
 import type { RichExerciseSession } from '@/features/workout-engine/services/exercise-history.service';
@@ -12,8 +15,6 @@ export type ExerciseMetric = 'maxReps' | 'totalVolume';
 const DAY = 86_400_000;
 const RANGE_DAYS: Record<Exclude<ExerciseRange, 'all'>, number> = { '1m': 30, '3m': 90 };
 
-const MONTHS = ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני', 'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳']; // i18n-allow-hebrew: wave 3 (fmt) — month names
-const WEEKDAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']; // i18n-allow-hebrew: wave 3 (fmt) — weekday names
 
 export function filterRange(sessions: RichExerciseSession[], range: ExerciseRange, nowMs: number): RichExerciseSession[] {
   if (range === 'all') return sessions;
@@ -64,14 +65,21 @@ export function lastImprovement(sessions: RichExerciseSession[]): { previous: nu
   return { previous, latest, delta: latest - previous };
 }
 
-export function longDate(ms: number): string {
+/** t() bound to the profile namespace (any wider key union is assignable), plus its locale. */
+export type LongDateT = ((key: 'exerciseAnalytics.longDate', values: MessageValues) => string) & { readonly locale: Locale };
+
+/** "יום ד׳ 1 באוק׳" — the weekday and the day + short month come from Intl, the framing from the catalog. */
+export function longDate(ms: number, t: LongDateT): string {
   const d = new Date(ms);
-  return `יום ${WEEKDAYS[d.getDay()]} ${d.getDate()} ב${MONTHS[d.getMonth()]}`; // i18n-allow-hebrew: wave 3 (fmt) — long date
+  return t('exerciseAnalytics.longDate', {
+    weekday: weekdayName(d.getDay(), t.locale, 'narrow'),
+    date: formatDate(d, t.locale, { day: 'numeric', month: 'short' }),
+  });
 }
 
-export function dayMonth(ms: number): { day: string; month: string } {
+export function dayMonth(ms: number, locale: Locale = 'he'): { day: string; month: string } {
   const d = new Date(ms);
-  return { day: String(d.getDate()), month: MONTHS[d.getMonth()] };
+  return { day: String(d.getDate()), month: monthName(d.getMonth(), locale, 'short') };
 }
 
 export function setTiles(reps: number[], target: number | null | undefined): SetTile[] {

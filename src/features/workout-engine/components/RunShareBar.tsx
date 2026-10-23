@@ -21,6 +21,8 @@ import { createRunInvite } from '@/lib/workoutInvite';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { auth } from '@/lib/firebase';
+import { formatDate } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 interface RunShareBarProps {
   activityType: 'running' | 'walking';
@@ -243,6 +245,7 @@ export default function RunShareBar({
   v2 = false,
   nowInvite,
 }: RunShareBarProps) {
+  const locale = useLocaleStore((s) => s.locale);
   const [busy,           setBusy]          = useState(false);
   const [internalTiming, setInternalTiming] = useState<'now' | 'later'>('now');
   const [internalDate,   setInternalDate]   = useState(defaultDate);
@@ -269,8 +272,7 @@ export default function RunShareBar({
   const scheduledFor = timing === 'later' ? `${schedDate}T${schedTime}` : undefined;
 
   const formattedDate = timing === 'later'
-    ? new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit' })
-        .format(new Date(`${schedDate}T${schedTime}`))
+    ? formatDate(new Date(`${schedDate}T${schedTime}`), locale, { day: '2-digit', month: '2-digit' })
     : '';
 
   // Deferred "now" invite — the tap only toggles the intent (see prop doc).

@@ -28,6 +28,8 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { DayCellV2Context } from '@/features/home/utils/day-display.utils';
 import { useT } from '@/hooks/useT';
+import { formatDateRange } from '@/lib/i18n/core/fmt';
+import type { Locale } from '@/lib/i18n/locales';
 import { home } from '@/messages/ns/home';
 import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
 import PlannerWeekBuilderHost from '@/features/schedule/week-builder/planner/components/PlannerWeekBuilderHost';
@@ -52,11 +54,6 @@ const SLIDE_SPRING = {
   mass: 0.9,
 };
 
-const HEBREW_MONTHS = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',  // i18n-allow-hebrew: month names (wave 3, fmt)
-  'יולי',  'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',  // i18n-allow-hebrew: month names (wave 3, fmt)
-];
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 /** ISO string of the Sunday of the week containing today. */
@@ -66,17 +63,11 @@ function getTodayWeekSunday(): string {
   return d.toISOString().split('T')[0];
 }
 
-function getWeekDateRange(sundayISO: string): string {
+function getWeekDateRange(sundayISO: string, locale: Locale): string {
   const sunday   = new Date(sundayISO + 'T00:00:00');
   const saturday = new Date(sunday);
   saturday.setDate(sunday.getDate() + 6);
-  const startDay   = sunday.getDate();
-  const endDay     = saturday.getDate();
-  const startMonth = HEBREW_MONTHS[sunday.getMonth()];
-  const endMonth   = HEBREW_MONTHS[saturday.getMonth()];
-  return startMonth === endMonth
-    ? `${startDay}–${endDay} ${startMonth}`
-    : `${startDay} ${startMonth} — ${endDay} ${endMonth}`;
+  return formatDateRange(sunday, saturday, locale);
 }
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -185,7 +176,7 @@ export default function TrainingPlannerOverlay({
     d.setDate(d.getDate() - d.getDay());
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, [selectedDate]);
-  const weekDateRange = useMemo(() => getWeekDateRange(v2 ? selectedSunday : weekStart), [v2, selectedSunday, weekStart]);
+  const weekDateRange = useMemo(() => getWeekDateRange(v2 ? selectedSunday : weekStart, t.locale), [v2, selectedSunday, weekStart, t.locale]);
 
   // Gated by RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED (via resolveRunningCurrentWeek):
   // while false, stays `null` exactly as today (this hand-rolled version was

@@ -16,6 +16,8 @@ import path from 'node:path';
 import { doneRowMeta } from '@/features/home/utils/done-workout-rows';
 import { buildRecordTiles, dateLabel } from '@/features/profile/components/records/record-tiles';
 import { dayMonth, longDate } from '@/features/profile/components/exercise-analytics-v2/exercise-analytics.utils';
+import { profile } from '@/messages/ns/profile';
+import { makeT } from '../t';
 import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'wave3a-home-profile-snapshots.json');
@@ -55,7 +57,7 @@ function compute(): Record<string, unknown> {
     streak: PLACES.map((p) => buildRecordTiles({ nowMs: now, longestStreak: p })),
   };
   out.dateLabel = stamps().map((at) => dateLabel(at));
-  out.longDate = stamps().map((at) => longDate(at));
+  out.longDate = stamps().map((at) => longDate(at, makeT('he', profile)));
   out.dayMonth = stamps().map((at) => dayMonth(at));
   return out;
 }

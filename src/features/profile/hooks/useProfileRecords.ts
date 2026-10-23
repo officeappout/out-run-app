@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useLocaleStore } from '@/store/useLocaleStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { buildRecordTiles, type ExerciseBest, type RecordTile } from '../components/records/record-tiles';
@@ -16,6 +17,7 @@ import { buildRecordTiles, type ExerciseBest, type RecordTile } from '../compone
 export function useProfileRecords(enabled: boolean): { tiles: RecordTile[]; loading: boolean } {
   const profile = useUserStore((s) => s.profile);
   const storeLongest = useActivityStore((s) => s.longestStreak);
+  const locale = useLocaleStore((s) => s.locale);
   const uid = profile?.id ?? null;
   const [exercises, setExercises] = useState<ExerciseBest[] | null>(null);
 
@@ -50,8 +52,9 @@ export function useProfileRecords(enabled: boolean): { tiles: RecordTile[]; load
         longestStreak: Math.max(Number(progression?.longestStreak) || 0, Number(storeLongest) || 0),
         exercises: exercises ?? [],
         nowMs: Date.now(),
+        locale,
       }),
-    [progression?.records, progression?.periodTotals, progression?.longestStreak, storeLongest, exercises],
+    [progression?.records, progression?.periodTotals, progression?.longestStreak, storeLongest, exercises, locale],
   );
   return { tiles, loading: enabled && exercises === null };
 }

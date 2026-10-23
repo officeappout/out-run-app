@@ -57,6 +57,7 @@ import { APP_DOMAIN } from '@/lib/config/domain';
 import { useT } from '@/hooks/useT';
 import { home, type HomeKey } from '@/messages/ns/home';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 
 // ============================================================================
 // TYPES
@@ -2037,7 +2038,7 @@ function DayPeekBubble({
   if (data.categories.strength > 0) lines.push({ tone: 'strength', text: t('weekStrip.peek.strength', { min: String(Math.round(data.categories.strength)) }) });
   if (data.categories.cardio > 0) lines.push({ tone: 'cardio', text: t('weekStrip.peek.cardio', { min: String(Math.round(data.categories.cardio)) }) });
   if (data.categories.maintenance > 0) lines.push({ tone: 'maintenance', text: t('weekStrip.peek.maintenance', { min: String(Math.round(data.categories.maintenance)) }) });
-  if (data.steps > 0) lines.push({ tone: 'steps', text: t('weekStrip.peek.steps', { steps: data.steps.toLocaleString('he-IL') }) });
+  if (data.steps > 0) lines.push({ tone: 'steps', text: t('weekStrip.peek.steps', { steps: formatNumber(data.steps, t.locale) }) });
   if (!lines.length) tones.forEach((tone) => lines.push({ tone, text: FLAME_TONES[tone].label }));
   return (
     <motion.div
