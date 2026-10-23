@@ -19,6 +19,8 @@ import { X } from 'lucide-react';
 import Sheet, { SheetGrabber } from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { schedule } from '@/messages/ns/schedule';
 
 export interface ScheduleBuilderSheetV2Props {
   isOpen: boolean;
@@ -46,6 +48,7 @@ export default function ScheduleBuilderSheetV2({
   spring,
   children,
 }: ScheduleBuilderSheetV2Props) {
+  const t = useT(schedule);
   return (
     <Sheet
       open={isOpen}
@@ -75,7 +78,7 @@ export default function ScheduleBuilderSheetV2({
           else animate(y, 0, spring);
         },
       }}
-      ariaLabel="בואו נבנה לוז"
+      ariaLabel={t('drawer.title')}
     >
       {/* Handle row — the drag zone; the close button doesn't start a drag. */}
       <div
@@ -85,9 +88,9 @@ export default function ScheduleBuilderSheetV2({
       >
         <SheetGrabber />
         <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-1">
-          <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">בואו נבנה לוז</h2>
+          <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('drawer.title')}</h2>
           <IconButton
-            aria-label="סגור"
+            aria-label={t('drawer.closeAria')}
             tone="white-ring"
             size={36}
             className="shrink-0"

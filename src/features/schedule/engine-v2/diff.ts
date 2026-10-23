@@ -9,6 +9,7 @@ import { dayNameHe } from './reasonsV2';
 import { breaksH6, nextDay } from './rules';
 import { makeStrengthUnit } from './units';
 import type { DayAvailability } from './availability';
+import { defaultScheduleT, type ScheduleT } from '../engine/schedule-t';
 import type { DiffEntry, ExistingWeek, PlacedSession, SessionRef } from './types';
 
 export const refOf = (s: PlacedSession): SessionRef | null =>
@@ -20,40 +21,52 @@ export function refNameHe(r: SessionRef): string {
   return r.kind === 'run' ? RUNNING_SLOT_NAME_HE[r.slot] : slugNameHe(r.slug);
 }
 
-const from = (d: number) => `מ${dayNameHe(d)}`;
-const to = (d: number) => `ל${dayNameHe(d)}`;
+const from = (t: ScheduleT, d: number) => t('engine.diff.fromDay', { day: dayNameHe(d) });
+const to = (t: ScheduleT, d: number) => t('engine.diff.toDay', { day: dayNameHe(d) });
 
 /** Why `ref` can't stay on `day` in the new week (Hebrew, after "כי"). */
-export function becauseHe(ref: SessionRef, day: number, days: PlacedSession[][], av: DayAvailability): string {
-  if (!av.open[day]) return 'היום הזה לא פנוי השבוע';
+export function becauseHe(
+  ref: SessionRef,
+  day: number,
+  days: PlacedSession[][],
+  av: DayAvailability,
+  t: ScheduleT = defaultScheduleT(),
+): string {
+  if (!av.open[day]) return t('engine.because.dayClosed');
   const here = days[day];
   if (ref.kind === 'strength') {
-    if (here.some((s) => s.kind === 'run' && s.slot === 'long_run')) return 'זה יום הריצה הארוכה';
+    if (here.some((s) => s.kind === 'run' && s.slot === 'long_run')) return t('engine.because.longRunDay');
     const prof = profileOf(ref.slug);
     const n = nextDay(day);
     const tomorrowKey = n !== null && days[n].some((s) => s.kind === 'run' && isKeySlot(s.slot) && !s.optional);
     if (tomorrowKey && prof.load.legs >= MODERATE_LEGS) {
       const isLong = days[n!].some((s) => s.slot === 'long_run');
-      return `לא לפני ${isLong ? 'הארוכה' : 'ריצת האיכות'}`;
+      return t('engine.because.beforeKeyRun', { run: isLong ? 'long' : 'quality' });
     }
     const u = makeStrengthUnit(ref.slug);
     for (let e = 0; e < 7; e++) {
       if (e === day) continue;
       for (const s of days[e]) {
         if (s.kind !== 'strength' || !s.slug || s.optional) continue;
-        if (breaksH6(u, day, makeStrengthUnit(s.slug), e)) return `צריך מנוחה מ${slugNameHe(s.slug)}`;
+        if (breaksH6(u, day, makeStrengthUnit(s.slug), e)) return t('engine.because.needsRest', { name: slugNameHe(s.slug) });
       }
     }
-    if (here.some((s) => s.kind === 'strength' && !s.optional)) return 'היום הזה כבר תפוס';
+    if (here.some((s) => s.kind === 'strength' && !s.optional)) return t('engine.because.dayTaken');
   } else {
-    if (here.some((s) => s.kind === 'run' && !s.optional)) return 'היום הזה כבר תפוס';
-    if (ref.slot === 'long_run') return 'הארוכה עברה ליום שלה';
-    if (here.some((s) => s.kind === 'strength' && s.slug && profileOf(s.slug).load.legs >= HEAVY_LEGS)) return 'יש באותו יום רגליים';
+    if (here.some((s) => s.kind === 'run' && !s.optional)) return t('engine.because.dayTaken');
+    if (ref.slot === 'long_run') return t('engine.because.longRunMoved');
+    if (here.some((s) => s.kind === 'strength' && s.slug && profileOf(s.slug).load.legs >= HEAVY_LEGS)) return t('engine.because.legsSameDay');
   }
-  return 'כדי לאזן את השבוע';
+  return t('engine.because.balance');
 }
 
-export function diffWeek(days: PlacedSession[][], existing: ExistingWeek | null | undefined, av: DayAvailability, frozen: readonly boolean[]): DiffEntry[] {
+export function diffWeek(
+  days: PlacedSession[][],
+  existing: ExistingWeek | null | undefined,
+  av: DayAvailability,
+  frozen: readonly boolean[],
+  t: ScheduleT = defaultScheduleT(),
+): DiffEntry[] {
   if (!existing) return [];
   const out: DiffEntry[] = [];
   const left = new Map<string, Array<{ day: number; ref: SessionRef }>>();
@@ -77,7 +90,7 @@ export function diffWeek(days: PlacedSession[][], existing: ExistingWeek | null 
       const i = arr ? arr.findIndex((x) => x.day === d) : -1;
       if (arr && i >= 0) {
         arr.splice(i, 1);
-        out.push({ status: 'kept', session: ref, toDow: d, labelHe: 'נשאר' });
+        out.push({ status: 'kept', session: ref, toDow: d, labelHe: t('engine.diff.kept') });
       } else pending.push({ day: d, ref });
     }
   }
@@ -91,14 +104,19 @@ export function diffWeek(days: PlacedSession[][], existing: ExistingWeek | null 
         session: p.ref,
         fromDow: old.day,
         toDow: p.day,
-        labelHe: `הוזז: ${refNameHe(p.ref)} ${from(old.day)} ${to(p.day)} · כי ${becauseHe(p.ref, old.day, days, av)}`,
+        labelHe: t('engine.diff.moved', {
+          name: refNameHe(p.ref),
+          from: from(t, old.day),
+          to: to(t, p.day),
+          because: becauseHe(p.ref, old.day, days, av, t),
+        }),
       });
     } else {
-      out.push({ status: 'new', session: p.ref, toDow: p.day, labelHe: 'חדש' });
+      out.push({ status: 'new', session: p.ref, toDow: p.day, labelHe: t('engine.diff.new') });
     }
   }
   for (const arr of Array.from(left.values())) {
-    for (const x of arr) out.push({ status: 'removed', session: x.ref, fromDow: x.day, labelHe: `הוסר: ${refNameHe(x.ref)} ${from(x.day)}` });
+    for (const x of arr) out.push({ status: 'removed', session: x.ref, fromDow: x.day, labelHe: t('engine.diff.removed', { name: refNameHe(x.ref), from: from(t, x.day) }) });
   }
   return out.sort((a, b) => (a.toDow ?? a.fromDow ?? 0) - (b.toDow ?? b.fromDow ?? 0));
 }
