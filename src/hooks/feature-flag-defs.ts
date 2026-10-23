@@ -351,6 +351,12 @@ export const FLAG_DEFS = [
   // WelcomeDrawer — one question, asked once. Fail-closed; super admins preview it. Off = today's
   // home (the drawer shows for every never-trained user).
   { key: 'enableEntrySingleChoiceV1', firestoreKey: 'enable_entry_single_choice_v1', defaultValue: false, superAdminValue: true },
+  // Home two start cards (22.10.2026, owner loose-ends batch, canvas WR-1b / WR-6): a user with no
+  // program sees exactly two start cards, "כוח" and "הליכה וריצה" (the aerobic questionnaire: walking
+  // goal or running plan), and a walker who walked 4+ weeks in a row gets one dismissible
+  // "מוכן לנסות לרוץ?" card (opens the running questionnaire; "לא עכשיו" hides it for 30 days).
+  // Fail-closed; super admins preview it. Off = today's cards, byte-identical.
+  { key: 'enableHomeTwoCardsV1', firestoreKey: 'enable_home_two_cards_v1', defaultValue: false, superAdminValue: true },
   // Generation review (19.10.2026, owner) — learn from every generated session: each session a
   // generator SHOWS (home trio, Kelly workouts, hybrid compositions, generated loops / A→B routes,
   // planned runs) is summarized on the device (no names, area = geohash-5, route ends trimmed) and
