@@ -66,6 +66,7 @@ interface FlagState {
   enable_route_quality_v1: boolean;
   enable_graphhopper_routes: boolean;
   enable_loops_prefer_official: boolean;
+  enable_cycling_fixes_v1: boolean;
   enable_route_pref_shade: boolean;
   enable_route_time_aware: boolean;
   enable_route_shade_tag: boolean;
@@ -483,6 +484,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-green-700',
     title: 'אפשרות "המסלול המוצל ביותר"',
     description: 'שורה חדשה בהגדרות הנוספות של ריצה חופשית: "המסלול המוצל ביותר". השרת מבקש מ-GraphHopper 6 מסלולים ומדרג אותם לפי מפות הצל של הטכניון, ב-13 הערים שיש להן שכבה. בשאר הערים חוזרים 3 המסלולים הרגילים. מוצג רק כש"מסלולים מעגליים משרת הניווט שלנו" דלוק. כבוי = כמו היום.',
+  },
+  // Cycling fixes v1 (22.10.2026).
+  {
+    key: 'enable_cycling_fixes_v1',
+    icon: RouteIcon,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-700',
+    title: 'תיקוני רכיבה באופניים (v1)',
+    description: 'מתקן כמה פערים ברכיבה: מסלולים מעורבים (הליכה, ריצה ואופניים) מוצעים גם לרוכבים; לולאות "מעדיפות מסלולים שלנו" נצמדות רק למסלולים מאותה פעילות; מהירות אופניים אחת בכל חישובי הזמן והקלוריות של מסלולים חדשים; רכיבה ביעד (Commute) ובתכנון מקטעים נשארת רכיבה; ורכיבה שהתחילה מהמפה מוצגת ונשמרת בהיסטוריה כרכיבה ולא כריצה. ה-XP לא משתנה (אותה נוסחה כמו ריצה). כבוי = כמו היום.',
   },
   // Time-aware route preference (RC7, 21.10.2026).
   {

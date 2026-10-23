@@ -108,3 +108,39 @@ describe('resolveLoopsPreferOfficial', () => {
     expect(resolveLoopsPreferOfficial(undefined)).toBe(false);
   });
 });
+
+describe('cycling-fixes-v1: our routes filtered by the loop activity', () => {
+  const doc = (id: string, o: { activityType?: 'walking' | 'running' | 'cycling'; activityTypes?: Array<'walking' | 'running' | 'cycling'> }) => ({
+    id, path: [[34.77, 32.07], [34.78, 32.08]] as [number, number][], ...o,
+  });
+  const docs = [
+    doc('bike', { activityType: 'cycling', activityTypes: ['cycling'] }),
+    doc('walk', { activityType: 'walking', activityTypes: ['walking', 'running'] }),
+    doc('mixed', { activityType: 'walking', activityTypes: ['walking', 'running', 'cycling'] }),
+    doc('untyped', {}),
+  ];
+
+  it('no activity (flag off) keeps every route — exactly as before', () => {
+    expect(toOurRouteLines(docs, 'official').map(l => l.id)).toEqual(['bike', 'walk', 'mixed', 'untyped']);
+  });
+
+  it('cycling keeps only routes that declare cycling (untyped legacy routes are on-foot)', () => {
+    expect(toOurRouteLines(docs, 'official', 'cycling').map(l => l.id)).toEqual(['bike', 'mixed']);
+  });
+
+  it('walking / running drop cycling-only routes but keep untyped and mixed ones', () => {
+    expect(toOurRouteLines(docs, 'official', 'walking').map(l => l.id)).toEqual(['walk', 'mixed', 'untyped']);
+    expect(toOurRouteLines(docs, 'official', 'running').map(l => l.id)).toEqual(['walk', 'mixed', 'untyped']);
+  });
+
+  it('city source is filtered and cached under its own key; no activity = the original keys', () => {
+    expect(Object.keys(ourRoutesSources('חיפה', async () => []))).toEqual(['official:map', 'official:city:חיפה']);
+    expect(Object.keys(ourRoutesSources('חיפה', async () => [], 'cycling'))).toEqual(['official:map:cycling', 'official:city:חיפה:cycling']);
+  });
+
+  it('the filtered city source returns only matching corridors', async () => {
+    const src = ourRoutesSources('חיפה', async () => docs.map(d => ({ ...d, name: d.id })), 'cycling');
+    const lines = await src['official:city:חיפה:cycling']();
+    expect(lines.map(l => l.id)).toEqual(['bike', 'mixed']);
+  });
+});

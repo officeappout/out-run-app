@@ -54,9 +54,19 @@ export function routeHasActivity(route: RouteActivityFields): boolean {
  * Untyped routes return false here; callers that used to accept untyped
  * routes check `routeHasActivity` themselves (behaviour preserved per caller).
  */
-export function routeMatchesActivity(route: RouteActivityFields, requested: ActivityType): boolean {
+export function routeMatchesActivity(
+  route: RouteActivityFields,
+  requested: ActivityType,
+  /** enable_cycling_fixes_v1 — default false = the strict rule below, byte-identical. */
+  cyclingFixes = false,
+): boolean {
   if (isOnFootActivity(requested)) {
     return routeActivities(route).some(isOnFootActivity);
+  }
+  // cycling-fixes-v1: a route that DECLARES cycling in activityTypes (e.g. a known-route
+  // `mixed` doc whose primary activity is walking) is offered to cyclists too.
+  if (cyclingFixes && requested === 'cycling') {
+    return routeActivities(route).includes('cycling');
   }
   return primaryRouteActivity(route) === requested;
 }

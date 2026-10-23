@@ -11,7 +11,7 @@
  */
 export { resolveLoopsPreferOfficial } from './flag';
 export {
-  prepareOurRoutes, loadOurRoutesNear, mapOfficialRoutesFetcher, toOurRouteLines, clearOurRoutesCache,
+  prepareOurRoutes, loadOurRoutesNear, mapOfficialRoutesFetcher, mapOfficialRoutesFetcherFor, routeFitsLoopActivity, toOurRouteLines, clearOurRoutesCache,
   OUR_ROUTES_WAIT_MS, type OurRoutesContext, type OurRoutesFetcher,
 } from './our-routes-source';
 export { seedsFromOurRoutes, withOurRouteSeeds, SEED_STEP_M, MAX_SEEDS, SEED_RING } from './route-seeds';
