@@ -26,15 +26,24 @@ export function pickInstitutionCode(
   return normalizeInstitutionCode(queryCode) ?? normalizeInstitutionCode(storedCode);
 }
 
-/** Maps a validateAccessCode CF error to the Hebrew line the other entry points use. */
-export function accessCodeErrorMessage(err: unknown): string {
+export type AccessCodeErrorKey =
+  | 'accessCodeLink.error.notFound'
+  | 'accessCodeLink.error.expired'
+  | 'accessCodeLink.error.exhausted'
+  | 'accessCodeLink.error.inactive'
+  | 'accessCodeLink.error.profile'
+  | 'accessCodeLink.error.age'
+  | 'accessCodeLink.error.generic';
+
+/** Maps a validateAccessCode CF error to the catalog key of its message (same cases as AccessCodeGate). */
+export function accessCodeErrorKey(err: unknown): AccessCodeErrorKey {
   const e = err as { message?: string; code?: string } | null;
   const msg = `${e?.message ?? ''} ${e?.code ?? ''}`;
-  if (msg.includes('not-found') || msg.includes('not found')) return 'קוד גישה לא נמצא. בדקו ונסו שוב.';
-  if (msg.includes('expired')) return 'קוד הגישה פג תוקף.';
-  if (msg.includes('resource-exhausted') || msg.includes('maximum')) return 'קוד הגישה הגיע למכסה המקסימלית.';
-  if (msg.includes('precondition') || msg.includes('no longer active')) return 'קוד הגישה אינו פעיל יותר.';
-  if (msg.includes('complete your profile')) return 'יש להשלים את הפרופיל (כולל תאריך לידה) לפני הזנת קוד גישה.';
-  if (msg.includes('under-minimum-age')) return 'לא ניתן להשתמש בקוד גישה בשלב זה.';
-  return 'שגיאה בבדיקת הקוד. נסו שוב.';
+  if (msg.includes('not-found') || msg.includes('not found')) return 'accessCodeLink.error.notFound';
+  if (msg.includes('expired')) return 'accessCodeLink.error.expired';
+  if (msg.includes('resource-exhausted') || msg.includes('maximum')) return 'accessCodeLink.error.exhausted';
+  if (msg.includes('precondition') || msg.includes('no longer active')) return 'accessCodeLink.error.inactive';
+  if (msg.includes('complete your profile')) return 'accessCodeLink.error.profile';
+  if (msg.includes('under-minimum-age')) return 'accessCodeLink.error.age';
+  return 'accessCodeLink.error.generic';
 }

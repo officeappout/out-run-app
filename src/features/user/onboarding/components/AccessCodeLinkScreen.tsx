@@ -7,11 +7,13 @@ import { CheckCircle2, KeyRound } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import UnitJoinSuccessBanner from '@/components/ui/UnitJoinSuccessBanner';
 import { validateAccessCode, type AccessCodeResult } from '../services/access-code.service';
 import {
   PENDING_INSTITUTION_CODE_KEY,
-  accessCodeErrorMessage,
+  accessCodeErrorKey,
   normalizeInstitutionCode,
   pickInstitutionCode,
 } from '../utils/institution-code';
@@ -25,16 +27,17 @@ import {
  */
 export default function AccessCodeLinkScreen() {
   const router = useRouter();
+  const t = useT(onboarding);
   const searchParams = useSearchParams();
   const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<OnboardingKey | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AccessCodeResult | null>(null);
 
   const submit = useCallback(async (raw: string) => {
     const normalized = normalizeInstitutionCode(raw);
     if (!normalized) {
-      setError('יש להזין קוד גישה תקין');
+      setError('accessCodeLink.error.invalid');
       return;
     }
     setLoading(true);
@@ -43,7 +46,7 @@ export default function AccessCodeLinkScreen() {
       await auth.authStateReady();
       const uid = auth.currentUser?.uid;
       if (!uid) {
-        setError('יש להתחבר כדי להצטרף לארגון.');
+        setError('accessCodeLink.error.signIn');
         return;
       }
       const res = await validateAccessCode(normalized);
@@ -60,7 +63,7 @@ export default function AccessCodeLinkScreen() {
       try { localStorage.removeItem(PENDING_INSTITUTION_CODE_KEY); } catch { /* storage unavailable */ }
       setResult(res);
     } catch (err) {
-      setError(accessCodeErrorMessage(err));
+      setError(accessCodeErrorKey(err));
     } finally {
       setLoading(false);
     }
@@ -89,16 +92,16 @@ export default function AccessCodeLinkScreen() {
 
   if (result) {
     return (
-      <div dir="rtl" className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink">
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink">
         <div className="flex w-full max-w-xs flex-col items-center gap-4 rounded-v2-card bg-white px-5 py-6 text-center shadow-v2-card">
           <span className="grid h-12 w-12 place-items-center rounded-full bg-v2-tint" aria-hidden>
             <CheckCircle2 size={24} className="text-v2-up" />
           </span>
-          <h1 className="text-[22px] font-black !tracking-[-0.02em]">הקוד אומת!</h1>
+          <h1 className="text-[22px] font-black !tracking-[-0.02em]">{t('accessCodeLink.verified')}</h1>
           <UnitJoinSuccessBanner result={result} />
         </div>
         <div className="w-full max-w-xs">
-          <button onClick={goOn} className={`${cta} ${ctaOn}`}>המשך</button>
+          <button onClick={goOn} className={`${cta} ${ctaOn}`}>{t('accessCodeLink.continue')}</button>
         </div>
       </div>
     );
@@ -106,13 +109,13 @@ export default function AccessCodeLinkScreen() {
 
   const disabled = loading || !code.trim();
   return (
-    <div dir="rtl" className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink">
       <div className="flex flex-col items-center text-center">
         <span className="mb-3 grid h-12 w-12 place-items-center rounded-full bg-v2-tint" aria-hidden>
           <KeyRound size={22} className="text-v2-deep" />
         </span>
-        <h1 className="text-[26px] font-black !tracking-[-0.02em]">קוד גישה</h1>
-        <p className="mt-1 text-[14px] font-medium text-v2-ink-2">הזינו את הקוד שקיבלתם מהארגון שלכם</p>
+        <h1 className="text-[26px] font-black !tracking-[-0.02em]">{t('accessCodeLink.title')}</h1>
+        <p className="mt-1 text-[14px] font-medium text-v2-ink-2">{t('accessCodeLink.subtitle')}</p>
       </div>
       <div className="w-full max-w-xs">
         <input
@@ -122,22 +125,22 @@ export default function AccessCodeLinkScreen() {
           onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(null); }}
           onKeyDown={(e) => e.key === 'Enter' && !disabled && void submit(code)}
           placeholder="UNIT-X79"
-          aria-label="קוד גישה"
+          aria-label={t('accessCodeLink.inputLabel')}
           className="h-[60px] w-full rounded-2xl border-0 bg-white px-4 text-center font-mono text-[22px] font-bold tracking-widest text-v2-ink shadow-v2-ring outline-none transition-shadow placeholder:text-v2-pill-border focus:ring-2 focus:ring-inset focus:ring-v2-accent/60"
           disabled={loading}
         />
-        {error && <p role="alert" className="mt-3 text-center text-[12.5px] font-bold text-[#b4232a]">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-center text-[12.5px] font-bold text-[#b4232a]">{t(error)}</p>}
       </div>
       <div className="flex w-full max-w-xs flex-col gap-2">
         <button onClick={() => void submit(code)} disabled={disabled} className={`${cta} ${disabled ? ctaOff : ctaOn}`}>
-          {loading ? 'בודק...' : 'אישור'}
+          {loading ? t('accessCodeLink.checking') : t('accessCodeLink.confirm')}
         </button>
         <button onClick={goOn} disabled={loading} className="h-11 w-full text-[14px] font-bold text-v2-muted">
-          דלגו להמשך
+          {t('accessCodeLink.skip')}
         </button>
       </div>
       <p className="max-w-xs text-center text-[12px] font-bold text-v2-muted">
-        הקוד מאפשר גישה לתוכנית הכושר של הארגון שלכם. אין לכם קוד? פנו למפקד/מורה שלכם.
+        {t('accessCodeLink.footer')}
       </p>
     </div>
   );

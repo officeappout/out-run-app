@@ -480,3 +480,8 @@ src/features/home/components/widgets/NextRunWorkoutCard.tsx
 src/features/home/utils/day-display.utils.tsx
 src/app/legal/credits/page.tsx
 src/features/parks/client/components/route-preview/RouteOsmSourceLine.tsx
+
+# loose-ends batch C (namespace onboarding) — the /onboarding-new/access-code page.
+src/features/user/onboarding/components/AccessCodeLinkScreen.tsx
+src/features/user/onboarding/utils/institution-code.ts
+src/app/onboarding-new/access-code/

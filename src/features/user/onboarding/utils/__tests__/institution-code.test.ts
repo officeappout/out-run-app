@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeInstitutionCode, pickInstitutionCode, accessCodeErrorMessage } from '../institution-code';
+import { normalizeInstitutionCode, pickInstitutionCode, accessCodeErrorKey } from '../institution-code';
 
 describe('institution-code', () => {
   it('normalises and rejects junk', () => {
@@ -15,9 +15,13 @@ describe('institution-code', () => {
     expect(pickInstitutionCode('bad code', 'zzz')).toBe('ZZZ');
     expect(pickInstitutionCode(null, null)).toBeNull();
   });
-  it('maps CF errors', () => {
-    expect(accessCodeErrorMessage({ code: 'functions/not-found' })).toContain('לא נמצא');
-    expect(accessCodeErrorMessage({ message: 'code expired' })).toContain('פג תוקף');
-    expect(accessCodeErrorMessage(new Error('boom'))).toContain('שגיאה');
+  it('maps CF errors to catalog keys', () => {
+    expect(accessCodeErrorKey({ code: 'functions/not-found' })).toBe('accessCodeLink.error.notFound');
+    expect(accessCodeErrorKey({ message: 'code expired' })).toBe('accessCodeLink.error.expired');
+    expect(accessCodeErrorKey({ code: 'resource-exhausted' })).toBe('accessCodeLink.error.exhausted');
+    expect(accessCodeErrorKey({ message: 'no longer active' })).toBe('accessCodeLink.error.inactive');
+    expect(accessCodeErrorKey({ message: 'complete your profile' })).toBe('accessCodeLink.error.profile');
+    expect(accessCodeErrorKey({ message: 'under-minimum-age' })).toBe('accessCodeLink.error.age');
+    expect(accessCodeErrorKey(new Error('boom'))).toBe('accessCodeLink.error.generic');
   });
 });
