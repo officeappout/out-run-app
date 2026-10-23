@@ -6,6 +6,7 @@ import { Card, DeltaBadge, LineChart, SegmentedPicker } from '@/components/ui/v2
 import type { RichExerciseSession } from '@/features/workout-engine/services/exercise-history.service';
 import { chartData, trendStats, type ExerciseMetric, type ExerciseRange } from './exercise-analytics.utils';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { profile } from '@/messages/ns/profile';
 
 // Keys, translated at render (docs/i18n/HOW-TO.md §3).
@@ -71,7 +72,7 @@ export default function ExerciseTrendCardV2({ sessions, range, metric, goal, onR
         {[
           { id: 'sessions', v: String(stats.sessions), l: t('exerciseAnalytics.trend.stat.sessions') },
           // wave 3 (fmt): the total is still pre-formatted here.
-          { id: 'totalReps', v: stats.totalReps.toLocaleString('he-IL'), l: t('exerciseAnalytics.trend.stat.totalReps') },
+          { id: 'totalReps', v: formatNumber(stats.totalReps, t.locale), l: t('exerciseAnalytics.trend.stat.totalReps') },
           { id: 'perWeek', v: String(stats.perWeek), l: t('exerciseAnalytics.trend.stat.perWeek') },
         ].map((s) => (
           <div key={s.id}>

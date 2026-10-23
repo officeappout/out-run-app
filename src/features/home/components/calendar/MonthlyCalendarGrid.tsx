@@ -27,6 +27,7 @@ import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils
 import { useTrackRingColors } from '@/features/home/hooks/useTrackRingColors';
 import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import { useT } from '@/hooks/useT';
+import { monthName } from '@/lib/i18n/core/fmt';
 import { home } from '@/messages/ns/home';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -83,11 +84,6 @@ interface MonthCell {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
-
-const HEBREW_MONTH_NAMES = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',  // i18n-allow-hebrew: month names (wave 3, fmt)
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',  // i18n-allow-hebrew: month names (wave 3, fmt)
-];
 
 const DEFAULT_CELL_HEIGHT = 72;
 
@@ -376,7 +372,7 @@ export default function MonthlyCalendarGrid({
             <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
           </button>
           <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tabular-nums">
-            {HEBREW_MONTH_NAMES[displayMonth]} {displayYear}
+            {monthName(displayMonth, t.locale)} {displayYear}
           </span>
           <button onClick={goToPrevMonth} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-90 transition-all">
             <ChevronLeft className="w-3.5 h-3.5 text-gray-400" />

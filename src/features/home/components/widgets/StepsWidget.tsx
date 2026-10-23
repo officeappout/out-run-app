@@ -4,6 +4,8 @@ import { Footprints, Flame, Target, Check } from 'lucide-react';
 import { SUCCESS_BASELINE } from '@/features/user/progression/services/smart-goals.service';
 import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 import { IconTile, StatNumber } from '@/components/ui/v2';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 interface StepsWidgetProps {
   steps: number;
@@ -24,6 +26,7 @@ export const StepsWidget: React.FC<StepsWidgetProps> = ({
   goal = DAILY_STEP_GOAL,
 }) => {
   const reduce = useReducedMotion();
+  const locale = useLocaleStore((s) => s.locale);
   // Calculate ratio (0 to 1) for pathLength
   const ratio = Math.min(Math.max(steps / goal, 0), 1);
   const isGoalReached = steps >= goal;
@@ -97,7 +100,7 @@ export const StepsWidget: React.FC<StepsWidgetProps> = ({
         <div className="flex flex-col items-end min-w-0">
           <StatNumber value={steps} size="md" countUp className="items-end" />
           <span className="text-[12px] font-semibold text-v2-muted mt-1">
-            מתוך {goal.toLocaleString()}
+            מתוך {formatNumber(goal, locale)}
           </span>
           {!isGoalReached && isBaselineReached && (
             <span className="inline-flex items-center gap-1 text-[11px] text-[#b45309] font-extrabold mt-0.5">

@@ -19,6 +19,8 @@ import { useDailyActivity } from '@/features/activity';
 import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
 import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 import CircularProgress from '@/components/CircularProgress';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -347,6 +349,7 @@ function formatPace(minPerKm: number): string {
 export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
   const running = useWeeklyVolumeStore((s) => s.running);
   const { stepsToday, todayActivity } = useDailyActivity();
+  const locale = useLocaleStore((s) => s.locale);
 
   // Average pace this week = totalDuration (min) / totalDistance (km)
   // — both come from useWeeklyVolumeStore so no new fetches are required.
@@ -399,8 +402,8 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
             Icon={Footprints}
             iconColor="#f59e0b"
             label="צעדים היום"
-            value={stepsToday.toLocaleString()}
-            sub={`מתוך ${stepsGoal.toLocaleString()}`}
+            value={formatNumber(stepsToday, locale)}
+            sub={`מתוך ${formatNumber(stepsGoal, locale)}`}
             progressPct={stepsPct}
           />
           <WidgetCardV2
@@ -448,8 +451,8 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
           Icon={Footprints}
           iconColor="text-amber-500"
           label="צעדים היום"
-          value={stepsToday.toLocaleString()}
-          sub={`מתוך ${stepsGoal.toLocaleString()}`}
+          value={formatNumber(stepsToday, locale)}
+          sub={`מתוך ${formatNumber(stepsGoal, locale)}`}
           progressPct={stepsPct}
         />
 

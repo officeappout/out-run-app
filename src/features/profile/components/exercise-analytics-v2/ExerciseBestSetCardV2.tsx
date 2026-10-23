@@ -20,7 +20,7 @@ export default function ExerciseBestSetCardV2({ best, improvement }: ExerciseBes
       {best && (
         <Card padding="none" className="p-4">
           <p className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('exerciseAnalytics.best.title')}</p>
-          <p className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{longDate(best.dateMs)}</p>
+          <p className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{longDate(best.dateMs, t)}</p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-[34px] font-black leading-none tabular-nums text-v2-ink">{best.maxReps}</span>
             <span className="text-[14px] font-bold text-v2-muted">{t('exerciseAnalytics.best.unitReps')}</span>

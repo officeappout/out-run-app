@@ -42,3 +42,39 @@ export function weekdayName(dayIndex: number, locale: Locale, width: 'long' | 's
 export function formatDistanceKm(km: number, locale: Locale, digits = 1): string {
   return formatNumber(km, locale, { maximumFractionDigits: digits });
 }
+
+/**
+ * Month name for 0 = January … 11 = December (the index `Date#getMonth()` returns).
+ * 'he' long = ינואר … דצמבר, short = ינו׳ … דצמ׳ (what the hand-written arrays held).
+ */
+export function monthName(monthIndex: number, locale: Locale, width: 'long' | 'short' | 'narrow' = 'long'): string {
+  // Mid-month at UTC noon: no time-zone shift can move it to another month.
+  const d = new Date(Date.UTC(2023, ((monthIndex % 12) + 12) % 12, 15, 12));
+  return new Intl.DateTimeFormat(tag(locale), { month: width, timeZone: 'UTC' }).format(d);
+}
+
+/**
+ * "15 מרץ" — day number + month name, no preposition. This is the Hebrew shape the
+ * home agenda has always shown (the Intl 'he' day+month form would say "15 במרץ").
+ * Other languages use their own Intl day+month form ("15 March", "15. März", "15 марта").
+ * Reads the date in the device's time zone, like `getDate()`/`getMonth()` did.
+ */
+export function formatDayMonth(date: Date, locale: Locale): string {
+  if (locale === 'he') return `${date.getDate()} ${monthName(date.getMonth(), locale)}`;
+  return new Intl.DateTimeFormat(tag(locale), { day: 'numeric', month: 'long' }).format(date);
+}
+
+/**
+ * A week/date range label. 'he' keeps the planner's text: "7–13 מרץ" inside one month,
+ * "28 פברואר — 6 מרץ" across two. Other languages use `Intl.DateTimeFormat#formatRange`.
+ */
+export function formatDateRange(start: Date, end: Date, locale: Locale): string {
+  if (locale === 'he') {
+    const startMonth = monthName(start.getMonth(), locale);
+    const endMonth = monthName(end.getMonth(), locale);
+    return startMonth === endMonth
+      ? `${start.getDate()}–${end.getDate()} ${startMonth}`
+      : `${start.getDate()} ${startMonth} — ${end.getDate()} ${endMonth}`;
+  }
+  return new Intl.DateTimeFormat(tag(locale), { day: 'numeric', month: 'long' }).formatRange(start, end);
+}

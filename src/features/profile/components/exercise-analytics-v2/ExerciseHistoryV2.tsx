@@ -9,6 +9,7 @@ import { ExerciseSetsTable, type ExerciseSetsRow } from '@/components/ui/v2';
 import type { RichExerciseSession } from '@/features/workout-engine/services/exercise-history.service';
 import { dayMonth, sessionTarget, setTiles } from './exercise-analytics.utils';
 import { useT } from '@/hooks/useT';
+import { useLocaleStore } from '@/store/useLocaleStore';
 import { profile } from '@/messages/ns/profile';
 
 export interface ExerciseHistoryV2Props {
@@ -21,7 +22,8 @@ export interface ExerciseHistoryV2Props {
 }
 
 function DateThumb({ ms }: { ms: number }) {
-  const { day, month } = dayMonth(ms);
+  const locale = useLocaleStore((s) => s.locale);
+  const { day, month } = dayMonth(ms, locale);
   return (
     <span className="grid w-[58px] shrink-0 place-items-center bg-v2-surface">
       <span className="text-center leading-none">

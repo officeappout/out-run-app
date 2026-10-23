@@ -29,6 +29,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import StreakFlame from '@/components/ui/v2/StreakFlame';
 import { EASE_V2 } from '@/components/ui/v2';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { profile as profileNs, type ProfileKey } from '@/messages/ns/profile';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
@@ -294,7 +295,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
                 </div>
                 <div className="flex items-center justify-between mt-1.5 px-0.5" dir="ltr">
                   <span className="text-[11px] font-bold text-gray-500 tabular-nums">
-                    {globalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
+                    {formatNumber(globalXP, t.locale)} / {formatNumber(nextLevelXP, t.locale)} XP
                   </span>
                   <span className="text-[11px] font-bold text-[#007EA8]">
                     {t('dashboard.xp.nextLevel', { level: String(globalLevel + 1) })}

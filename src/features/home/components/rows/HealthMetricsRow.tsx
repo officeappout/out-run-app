@@ -28,6 +28,8 @@ import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 const WHO_TARGET = 150;
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
@@ -62,6 +64,7 @@ function WhoTile() {
 
 function StepsTile() {
   const router = useRouter();
+  const locale = useLocaleStore((s) => s.locale);
   const { stepsToday, todayActivity } = useLiveDailyActivity();
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const percentage = goal > 0 ? Math.min(100, Math.round((stepsToday / goal) * 100)) : 0;
@@ -99,11 +102,11 @@ function StepsTile() {
         percentage={percentage}
         icon={<Footprints size={16} className="-scale-x-100" />}
         label={connectPromptLabel ?? 'צעדים היום'}
-        value={stepsToday.toLocaleString('he-IL')}
-        unit={connectPromptLabel ? '' : `/ ${goal.toLocaleString('he-IL')} צעדים`}
+        value={formatNumber(stepsToday, locale)}
+        unit={connectPromptLabel ? '' : `/ ${formatNumber(goal, locale)} צעדים`}
         onClick={handlePress}
         colorClass="text-[#00C07A]"
-        ariaLabel={`צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`}
+        ariaLabel={`צעדים: ${formatNumber(stepsToday, locale)} מתוך ${formatNumber(goal, locale)}`}
       />
       {unavailableReason === 'install-required' && (
         <button

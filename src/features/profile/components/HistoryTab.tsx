@@ -7,6 +7,8 @@ import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
 import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 import { useT } from '@/hooks/useT';
+import { formatDate as formatLocaleDate } from '@/lib/i18n/core/fmt';
+import type { Locale } from '@/lib/i18n/locales';
 import { profile as profileNs } from '@/messages/ns/profile';
 
 type FilterType = 'all' | 'running' | 'strength';
@@ -60,8 +62,8 @@ function activityLabelFor(workoutType: WorkoutHistoryEntry['workoutType']): stri
 
 // Long-form Hebrew date for the modal body — same Hebrew long-date
 // convention used across the workout-history surfaces.
-function formatDateLabel(date: Date): string {
-  return date.toLocaleDateString('he-IL', {
+function formatDateLabel(date: Date, locale: Locale): string {
+  return formatLocaleDate(date, locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -184,7 +186,7 @@ export default function HistoryTab({ onWorkoutClick, workouts, isLoading, remove
         <DeleteWorkoutConfirmModal
           isOpen={pendingDelete !== null}
           activityLabel={pendingDelete ? activityLabelFor(pendingDelete.workoutType) : ''}
-          dateLabel={pendingDelete ? formatDateLabel(pendingDelete.date) : ''}
+          dateLabel={pendingDelete ? formatDateLabel(pendingDelete.date, t.locale) : ''}
           xpToReverse={pendingDelete?.xpEarned ?? 0}
           onConfirm={handleConfirmDelete}
           onCancel={() => setPendingDelete(null)}

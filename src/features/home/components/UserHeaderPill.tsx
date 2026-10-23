@@ -21,6 +21,8 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChange } from '@/lib/auth.service';
 import type { ActivityType } from '@/features/activity/types/activity.types';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 // Loaded on demand (SPEC-05 A.4) — AnimatedFlame pulls in a 1.2MB Lottie
 // animation + the dotlottie-web WASM engine, previously bundled into this
@@ -60,6 +62,7 @@ export default function UserHeaderPill({
   const { profile } = useUserStore();
   const { coins, hydrateFromFirestore } = useProgressionStore();
   const { todayActivity, streak, isLoading: activityLoading } = useDailyActivity();
+  const locale = useLocaleStore((s) => s.locale);
   
   const [isCoinsLoading, setIsCoinsLoading] = useState(true);
   const [previousActivityType, setPreviousActivityType] = useState<ActivityType | null>(null);
@@ -176,7 +179,7 @@ export default function UserHeaderPill({
               $
             </div>
             <span className={`${textSize} font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap`}>
-              {isCoinsLoading || !isHydrated ? '...' : coins.toLocaleString()}
+              {isCoinsLoading || !isHydrated ? '...' : formatNumber(coins, locale)}
             </span>
           </div>
         )}

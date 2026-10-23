@@ -23,12 +23,15 @@ import { Activity, TrendingUp } from 'lucide-react';
 import ConcentricRingsProgress from '@/features/home/components/rings/ConcentricRingsProgress';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
+import { formatNumber } from '@/lib/i18n/core/fmt';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 interface ActivityRingsWidgetProps {
   className?: string;
 }
 
 export default function ActivityRingsWidget({ className = '' }: ActivityRingsWidgetProps) {
+  const locale = useLocaleStore((s) => s.locale);
   const {
     ringData,
     totalMinutesToday,
@@ -75,7 +78,7 @@ export default function ActivityRingsWidget({ className = '' }: ActivityRingsWid
           <TrendingUp size={12} />
           <span>רמה {globalLevel}</span>
           <span className="text-out-blue/70 font-semibold" dir="ltr">
-            {globalXP.toLocaleString()} XP
+            {formatNumber(globalXP, locale)} XP
           </span>
         </Link>
       </div>
@@ -95,10 +98,10 @@ export default function ActivityRingsWidget({ className = '' }: ActivityRingsWid
 
       {/* Footer stats — steps, calories, passive XP, live indicator */}
       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
-        <FooterStat label="צעדים" value={stepsToday.toLocaleString()} />
+        <FooterStat label="צעדים" value={formatNumber(stepsToday, locale)} />
         <FooterStat
           label="קלוריות"
-          value={caloriesToday > 0 ? Math.round(caloriesToday).toLocaleString() : '—'}
+          value={caloriesToday > 0 ? formatNumber(Math.round(caloriesToday), locale) : '—'}
         />
         <FooterStat
           label="דקות פעילות"
