@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { barrierStories } from '../intro-copy';
 import { makeT } from '@/lib/i18n/t';
 import { onboarding } from '@/messages/ns/onboarding';
-import { BEAT, READ_MIN_MS, readMs, storySchedule, storyTracks } from '../story-schedule';
+import { BEAT, PUSH_HOLD_MIN_MS, READ_MIN_MS, pushHoldMs, readMs, storySchedule, storyTracks } from '../story-schedule';
 
 const t = makeT('he', onboarding);
 const BARRIER_STORIES = barrierStories(t);
@@ -29,7 +29,7 @@ describe('reading time', () => {
 describe('story beats run in sequence (owner notes 21.10 #2, #3)', () => {
   it.each(BARRIER_STORIES.map((s) => [s.id, s] as const))('%s: each beat finishes before the next', (_id, story) => {
     const s = storySchedule(story);
-    const order = [s.bubbleIn, s.bubbleHoldEnd, s.bubbleGone, s.phoneIn, s.pushIn, s.growStart, s.growEnd, s.tapStart, s.lockOut, s.happyIn, s.total];
+    const order = [s.bubbleIn, s.bubbleHoldEnd, s.bubbleGone, s.phoneIn, s.growStart, s.growEnd, s.pushIn, s.tapStart, s.lockOut, s.happyIn, s.total];
     for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThanOrEqual(order[i - 1]);
     // The thought is fully gone before the phone shows up.
     expect(s.phoneIn).toBeGreaterThanOrEqual(s.bubbleGone);
@@ -42,17 +42,22 @@ describe('story beats run in sequence (owner notes 21.10 #2, #3)', () => {
     expect(held * 1000).toBeGreaterThanOrEqual(1200);
   });
 
-  it.each(BARRIER_STORIES.map((s) => [s.id, s] as const))('%s: the push is read at FULL size before the tap', (_id, story) => {
+  it.each(BARRIER_STORIES.map((s) => [s.id, s] as const))('%s: the push arrives on the FULL-size phone and holds before the tap (owner notes 23.10)', (_id, story) => {
     const s = storySchedule(story);
     const t = storyTracks(story);
-    // The push has landed before the phone starts growing…
-    expect(s.pushIn + BEAT.pushIn).toBeLessThanOrEqual(s.growStart);
-    // …the phone is full size and the lock screen (with the push) still fully up…
-    expect(valueAt(t.phone, t.total, 'scale', s.growEnd)).toBe(1);
-    expect(valueAt(t.lock, t.total, 'opacity', s.growEnd)).toBe(1);
-    expect(valueAt(t.push, t.total, 'opacity', s.growEnd)).toBe(1);
-    // …for at least the push's reading time before the finger arrives.
-    expect((s.tapStart - s.growEnd) * 1000 + 1e-6).toBeGreaterThanOrEqual(readMs(story.push));
+    // Nothing on the small phone: the push is still hidden when the phone reaches full size…
+    expect(s.pushIn).toBeGreaterThanOrEqual(s.growEnd);
+    expect(valueAt(t.push, t.total, 'opacity', s.growEnd)).toBe(0);
+    // …then slides in while the phone is full size and the lock screen fully up…
+    const landed = s.pushIn + BEAT.pushIn;
+    expect(valueAt(t.phone, t.total, 'scale', landed)).toBe(1);
+    expect(valueAt(t.lock, t.total, 'opacity', landed)).toBe(1);
+    expect(valueAt(t.push, t.total, 'opacity', landed)).toBe(1);
+    // …and stays for reading time + a settle beat (never under 2.5 s) before the finger arrives.
+    const held = (s.tapStart - landed) * 1000 + 1e-6;
+    expect(held).toBeGreaterThanOrEqual(pushHoldMs(story.push));
+    expect(held).toBeGreaterThanOrEqual(readMs(story.push));
+    expect(held).toBeGreaterThanOrEqual(PUSH_HOLD_MIN_MS);
     // The lock screen only fades after the tap.
     expect(s.lockOut).toBeGreaterThan(s.tapStart);
   });

@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WifiOff, CloudUpload } from 'lucide-react';
+import { WifiOff, CloudUpload, X } from 'lucide-react';
 import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { useSyncChip } from './useSyncChip';
 
 export default function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
@@ -34,16 +37,13 @@ export default function OfflineBanner() {
     return OutboxFlusher.onDepthChange(setDepth);
   }, []);
 
-  // Only surface the "syncing" toast for a genuinely large backfill (e.g.
-  // the first-ever 90-day HealthKit/Health Connect sync, which enqueues
-  // thousands of shredded per-metric records — see buildOutboxSample in
-  // healthBridge/init.ts). Routine incremental syncs queue a handful of
-  // items and finish in well under a second; surfacing a toast for those
-  // was just noise. 100 is comfortably above any normal incremental sync
-  // and comfortably below a real backfill (which runs in the thousands).
-  const LARGE_BACKFILL_THRESHOLD = 100;
+  // The "syncing" chip — a genuinely large backfill only (≥ 100 queued, e.g.
+  // the first 90-day HealthKit / Health Connect sync), only while a flush is
+  // really running, once per sync, auto-hidden after 3 min, dismissible.
+  // Rules + why it used to stay stuck: src/lib/outbox/sync-chip-policy.ts.
+  const t = useT(common);
   const queued = depth.samples + depth.workouts;
-  const showQueueChip = !isOffline && queued >= LARGE_BACKFILL_THRESHOLD;
+  const chip = useSyncChip(queued, isOffline);
 
   return (
     <AnimatePresence>
@@ -76,27 +76,32 @@ export default function OfflineBanner() {
           )}
         </motion.div>
       )}
-      {showQueueChip && (
-        <motion.button
+      {chip.visible && (
+        // Top of the screen, not the bottom: at the bottom it sat over the
+        // primary CTAs of sheets and wizards (owner report 23.10.2026). The
+        // body lets taps through (pointer-events-none) — only the X is live.
+        <motion.div
           key="queue-chip"
-          type="button"
-          onClick={() => OutboxFlusher.flushNow('manual')}
-          initial={{ y: 24, opacity: 0 }}
+          role="status"
+          initial={{ y: -24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 24, opacity: 0 }}
+          exit={{ y: -24, opacity: 0 }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-          // Bottom nav is ≈83px tall (fixed bottom-0, see BottomNavbar.tsx)
-          // at z-50 — this toast previously sat at bottom-3 (~12px from the
-          // very edge), visually overlapping the nav bar's own content even
-          // though its higher z-[100] kept it on top. Clear the nav height
-          // plus its own safe-area inset, plus a small gap.
-          style={{ bottom: 'calc(83px + env(safe-area-inset-bottom, 0px) + 10px)' }}
-          className="fixed inset-x-0 z-[100] mx-auto w-fit flex items-center gap-2 bg-out-blue text-white text-[12px] font-semibold px-4 py-2 rounded-full shadow-floating"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 6px)' }}
+          className="pointer-events-none fixed inset-x-0 z-[100] mx-auto flex w-fit max-w-[calc(100%-24px)] items-center gap-2 rounded-full bg-out-blue py-1.5 ps-3.5 pe-1.5 text-[12px] font-semibold text-white shadow-floating"
           dir="rtl"
         >
           <CloudUpload size={14} className="flex-shrink-0" />
-          <span>מסנכרן — ייקח 1-2 דקות לטעון 3 חודשים של נתונים</span>
-        </motion.button>
+          <span className="min-w-0">{t('sync.backfillChip')}</span>
+          <button
+            type="button"
+            onClick={chip.dismiss}
+            aria-label={t('actions.close')}
+            className="pointer-events-auto grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-white/20 active:scale-95"
+          >
+            <X size={13} strokeWidth={2.6} />
+          </button>
+        </motion.div>
       )}
     </AnimatePresence>
   );

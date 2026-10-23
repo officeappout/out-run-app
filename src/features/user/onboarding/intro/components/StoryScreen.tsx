@@ -25,9 +25,9 @@ export interface StoryScreenProps {
 
 /**
  * One barrier story (enable_entry_intro_v1), data-driven by BARRIER_STORIES:
- * ring hand-off into the badge → the sad person + thought → the phone with the
- * push → it grows so the push can be read → a tap opens the app → the happy
- * person settles in the corner. Plays once and holds the last frame; "הבא" and
+ * ring hand-off into the badge → the sad person + thought → the small phone →
+ * it grows → the push slides in and holds so it can be read → a tap opens the
+ * app → the happy person settles in the corner. Plays once and holds the last frame; "הבא" and
  * "דלג" are live throughout.
  */
 export function StoryScreen({ story, index, reduce, onNext, onSkip }: StoryScreenProps) {
@@ -49,8 +49,11 @@ export function StoryScreen({ story, index, reduce, onNext, onSkip }: StoryScree
     <IntroShell cta={ui.next} onCta={onNext} onSkip={onSkip}>
       <StoryHeader story={story} index={index} reduce={reduce} ringRef={badgeRing} />
 
+      {/* z-[15]: above the sad person (z-10) — the small phone sits right next
+          to them and used to slip partly behind the figure; still under the
+          thought bubble (z-30) and the happy person (z-20). */}
       <motion.div
-        className="absolute z-0"
+        className="absolute z-[15]"
         style={{ left: '50%', marginLeft: -PHONE_W / 2, top: cy(232), transformOrigin: '50% 0' }}
         {...trackProps(tracks.phone, tracks.total, { reduce, delay })}
       >

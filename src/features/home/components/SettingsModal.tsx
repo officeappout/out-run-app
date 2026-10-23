@@ -1374,7 +1374,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             // test 03.09.2026). z-[101] matches the table's own precedent
             // for full-screen sheets that also need to clear OfflineBanner
             // (z-[100], fixed bottom-0, same ClientLayout).
-            className={`kb-fit fixed inset-0 z-[101] flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : 'bg-white'}`}
+            className={`kb-fit fixed inset-0 z-[101] flex flex-col ${v2 ? 'overflow-hidden bg-v2-surface text-v2-ink' : 'bg-white'}`}
             dir="rtl"
           >
             <SettingsV2.Provider value={v2}>
@@ -1387,7 +1387,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div
                 className={
                   v2
-                    ? 'v2-glass-bar sticky top-0 z-10 flex flex-shrink-0 items-center gap-2 px-4 pb-2 pt-[calc(env(safe-area-inset-top,0px)+4px)]'
+                    // NOT sticky (owner screenshot 23.10, iPhone): this bar sits
+                    // outside the scroll area, so `sticky` had no scroller of its
+                    // own and WebKit resolved it against the page's <main>
+                    // scroller behind the modal — opened from a scrolled
+                    // profile, the bar slid down by that offset, grew a blank
+                    // band above the title and covered the user card. A plain
+                    // flex-shrink-0 row is always on top of the scroll area
+                    // and the content always starts below it. Compact: just
+                    // the safe area (min 8px) + one 40px row.
+                    ? 'v2-glass-bar relative z-10 flex flex-shrink-0 items-center gap-2 px-4 pb-1.5 pt-[max(env(safe-area-inset-top,0px),8px)]'
                     : 'sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 py-3 flex items-center gap-2 z-10 flex-shrink-0'
                 }
               >
@@ -1411,14 +1420,19 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <button
                   onClick={onClose}
                   disabled={isDeleting}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40 flex-shrink-0"
+                  aria-label={v2 ? 'סגירה' : undefined}
+                  className={
+                    v2
+                      ? 'grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-40'
+                      : 'p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40 flex-shrink-0'
+                  }
                 >
-                  <X size={22} />
+                  <X size={v2 ? 18 : 22} strokeWidth={v2 ? 2.4 : 2} />
                 </button>
               </div>
 
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto pb-10">
+              {/* Scrollable content — min-h-0 so it is the ONLY scroller in the sheet. */}
+              <div className={v2 ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain pb-10' : 'flex-1 overflow-y-auto pb-10'}>
               {screen === 'main' && (
                 <>
                 {/* ══════════════════════════════════════════════════════════
@@ -2143,24 +2157,49 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       open, same disclosure pattern as a drill-down row
                       without actually navigating away. */}
                   <div>
-                    <button
-                      type="button"
-                      onClick={() => setUnitsExpanded((v) => !v)}
-                      className="w-full flex items-center gap-3 py-3.5 text-start active:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex-shrink-0">
-                        <Ruler size={20} className="text-gray-700" />
-                      </div>
-                      <div className="flex-1 min-w-0 text-right">
-                        <p className="text-base font-semibold text-gray-900 font-simpler">יחידות מידה</p>
-                        <p className="text-sm text-gray-400 font-simpler mt-0.5">
-                          {store.units === 'km' ? 'קילומטרים' : 'מיילים'}
-                        </p>
-                      </div>
-                      <motion.div animate={{ rotate: unitsExpanded ? -90 : 0 }} className="flex-shrink-0">
-                        <ChevronLeft size={16} className="text-gray-300" />
-                      </motion.div>
-                    </button>
+                    {/* v2: the same anatomy as SettingsRow's v2 branch (icon tile,
+                        type scale, chevron) — this row hand-rolled the v1 look
+                        and read faded / misaligned next to its neighbours. */}
+                    {v2 ? (
+                      <button
+                        type="button"
+                        onClick={() => setUnitsExpanded((v) => !v)}
+                        aria-expanded={unitsExpanded}
+                        className="flex w-full items-center gap-3 px-3.5 py-3 text-start transition-colors active:bg-v2-surface"
+                      >
+                        <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[12px] bg-v2-surface text-v2-ink">
+                          <Ruler size={20} className="text-v2-ink" />
+                        </span>
+                        <span className="min-w-0 flex-1 text-right">
+                          <span className="block text-[14.5px] font-extrabold text-v2-ink">יחידות מידה</span>
+                          <span className="mt-0.5 block text-[12px] font-bold leading-snug text-v2-muted">
+                            {store.units === 'km' ? 'קילומטרים' : 'מיילים'}
+                          </span>
+                        </span>
+                        <motion.span animate={{ rotate: unitsExpanded ? -90 : 0 }} className="flex flex-shrink-0">
+                          <ChevronLeft size={16} strokeWidth={2.6} className="text-v2-muted" />
+                        </motion.span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setUnitsExpanded((v) => !v)}
+                        className="w-full flex items-center gap-3 py-3.5 text-start active:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex-shrink-0">
+                          <Ruler size={20} className="text-gray-700" />
+                        </div>
+                        <div className="flex-1 min-w-0 text-right">
+                          <p className="text-base font-semibold text-gray-900 font-simpler">יחידות מידה</p>
+                          <p className="text-sm text-gray-400 font-simpler mt-0.5">
+                            {store.units === 'km' ? 'קילומטרים' : 'מיילים'}
+                          </p>
+                        </div>
+                        <motion.div animate={{ rotate: unitsExpanded ? -90 : 0 }} className="flex-shrink-0">
+                          <ChevronLeft size={16} className="text-gray-300" />
+                        </motion.div>
+                      </button>
+                    )}
                     <AnimatePresence initial={false}>
                       {unitsExpanded && (
                         <motion.div
@@ -2170,7 +2209,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden"
                         >
-                          <div className="flex gap-2 pb-3.5">
+                          <div className={v2 ? 'flex gap-2 px-3.5 pb-3.5' : 'flex gap-2 pb-3.5'}>
                             {(['km', 'miles'] as const).map((u) => (
                               <button
                                 key={u}

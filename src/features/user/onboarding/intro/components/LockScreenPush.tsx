@@ -35,12 +35,19 @@ export function LockScreenPush({ clock, push, tracks, reduce, delay }: LockScree
   const ui = introUi(useT(onboardingNs));
   const date = useMemo(lockDate, []);
   const t = (track: Track) => trackProps(track, tracks.total, { reduce, delay });
+  // Reduced motion shows ONE still frame. The story's last frame has the lock
+  // screen faded away, so the push — the point of the story — was never shown
+  // at all; the still frame is the readable one instead: lock screen + push
+  // up, no finger.
+  const still = (opacity: number) => ({ initial: false as const, animate: { opacity } });
+  const lockProps = reduce ? still(1) : t(tracks.lock);
+  const tapProps = reduce ? still(0) : t(tracks.tap);
 
   return (
     <motion.div
       className="absolute inset-0 z-20 flex flex-col items-center pt-11"
       style={{ background: 'linear-gradient(170deg, #1c4a5e 0%, #0f2c3a 55%, #0b1f2a 100%)' }}
-      {...t(tracks.lock)}
+      {...lockProps}
     >
       <span className="text-[12px] text-white/80">{date}</span>
       <span className="text-[58px] font-semibold leading-[64px] text-white" dir="ltr">{clock}</span>
@@ -68,7 +75,7 @@ export function LockScreenPush({ clock, push, tracks, reduce, delay }: LockScree
         aria-hidden
         className="absolute h-[34px] w-[34px] rounded-full bg-white/50"
         style={{ left: 110, top: 186, boxShadow: '0 0 0 7px rgba(255,255,255,0.18)' }}
-        {...t(tracks.tap)}
+        {...tapProps}
       />
     </motion.div>
   );
