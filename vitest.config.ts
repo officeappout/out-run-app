@@ -31,6 +31,8 @@ export default defineConfig({
   test: {
     include: [
       'src/**/__tests__/**/*.test.ts',
+      // Together layer (enable_together_layer_v1) — lobby panel / rail / race bar static-markup tests.
+      'src/features/workout-engine/together/__tests__/**/*.test.tsx',
       // Design language v2 primitives — static-markup render tests (node env).
       'src/components/ui/v2/__tests__/**/*.test.tsx',
       // Error boundaries + lazy overlay wrappers — same static-markup approach.

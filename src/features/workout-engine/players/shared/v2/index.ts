@@ -33,3 +33,6 @@ export { default as PlayerDrawerBody } from './PlayerDrawerBody';
 export type { PlayerDrawerBodyProps } from './PlayerDrawerBody';
 export { default as PlayerDrawerCompact } from './PlayerDrawerCompact';
 export type { PlayerDrawerCompactProps } from './PlayerDrawerCompact';
+// enable_together_layer_v1 — the shared presence rail (who is here + a tiny live status).
+export { default as PresenceRail } from './PresenceRail';
+export type { PresenceRailProps } from './PresenceRail';
