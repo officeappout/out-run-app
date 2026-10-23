@@ -1,3 +1,6 @@
+import { withUnit } from '@/lib/i18n/units';
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
 import React from 'react';
 
 interface RunningStatsWidgetProps {
@@ -11,6 +14,7 @@ export const RunningStatsWidget: React.FC<RunningStatsWidgetProps> = ({
   weeklyGoal,
   calories,
 }) => {
+  const tc = useT(common);
   const ratio = Math.min(Math.max(weeklyDistance / weeklyGoal, 0), 1);
   const percentage = Math.round(ratio * 100);
 
@@ -21,10 +25,10 @@ export const RunningStatsWidget: React.FC<RunningStatsWidgetProps> = ({
         <span className="text-xs text-gray-400 dark:text-gray-500">{percentage}%</span>
       </div>
       <div className="text-2xl font-extrabold text-gray-900 dark:text-white">
-        {weeklyDistance.toFixed(1)} ק״מ
+        {withUnit('km', weeklyDistance.toFixed(1), tc)}
       </div>
       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-        מתוך {weeklyGoal} ק״מ • {calories} קל׳
+        מתוך {withUnit('km', weeklyGoal, tc)} • {calories} קל׳
       </div>
       <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 mt-3 overflow-hidden">
         <div

@@ -11,6 +11,7 @@
  * leadPlanKinds): the walk, then a quality run / a running-only user's run; an easy run on a
  * strength day goes after the first card (home: after the first strength card).
  */
+import { withUnit } from '@/lib/i18n/units';
 import type { HomeWalkSlot } from '@/features/home/utils/home-walk-slot';
 import { leadPlanKinds } from '@/features/home/utils/day-plan';
 import { plannedWalkSteps, plannedWalkTargetHe } from '@/features/schedule/walking/walkWeekView';
@@ -32,7 +33,7 @@ export function buildPlannedWalkSlot(walkSlot: HomeWalkSlot | null | undefined):
     kind: 'planned_walk',
     id: PLANNED_WALK_SLOT_ID,
     title: 'ההליכה של היום',
-    subtitle: [target, steps ? `~${fmt(steps)} צעדים` : null].filter(Boolean).join(' · ') || 'הליכה',
+    subtitle: [target, steps ? `~${withUnit('steps', fmt(steps))}` : null].filter(Boolean).join(' · ') || 'הליכה',
     bolts: 1,
     recommended: false,
     accent: WALK_ACCENT,

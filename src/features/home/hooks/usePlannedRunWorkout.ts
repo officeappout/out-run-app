@@ -9,6 +9,7 @@
  * a loaded workout is kept until the workout id changes.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import { useEffect, useRef, useState } from 'react';
 import {
   getRunWorkoutTemplate,
@@ -31,8 +32,8 @@ import { logPlannedRun } from '@/features/generation-review/capture/hooks';
 type MetadataPersona = Parameters<typeof resolveWorkoutMetadata>[0]['persona'];
 
 const DIST_LABEL: Record<string, string> = {
-  '2k': '2 ק״מ', '3k': '3 ק״מ', '5k': '5 ק״מ',
-  '10k': '10 ק״מ', maintenance: '5 ק״מ',
+  '2k': withUnit('km', 2), '3k': withUnit('km', 3), '5k': withUnit('km', 5),
+  '10k': withUnit('km', 10), maintenance: withUnit('km', 5),
 };
 
 const RUNNING_CATEGORY_LABELS: Record<string, string> = {
@@ -125,7 +126,7 @@ export function usePlannedRunWorkout({
               : undefined,
             dayPeriod: detectDayPeriod(),
             runningBasePace: paceProfile.basePace,
-            targetDistanceLabel: DIST_LABEL[targetDist] ?? '5 ק״מ',
+            targetDistanceLabel: DIST_LABEL[targetDist] ?? withUnit('km', 5),
             programPhase: (fullProgram as any)?.phases?.find((p: any) => {
               const wk = week ?? 1;
               return wk >= p.startWeek && wk <= p.endWeek;

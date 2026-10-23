@@ -9,6 +9,7 @@
  * dashed marker where each new lap starts. RTL: the start is on the RIGHT.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { RunBlock } from '../../types/run-block.type';
 import { isRestBlock } from '../../lib/planned-rep-results';
 import { elevationAt, kmTicks, profileLengthM, type ElevationSamples, type KmTick } from '../../lib/route-elevation-ahead';
@@ -108,11 +109,11 @@ export function buildWorkoutElevation(
   if (blocks.some((b) => blockPhase(b) === 'main' && isRestBlock(b))) legend.push({ key: 'rest', color: STRIP_REST_COLOR, label: 'התאוששות' });
 
   const gain = gainOf(samples.elevationsM);
-  const caption = `שיא ${Math.round(max)} מ׳ · עלייה ${gain} מ׳${opts.loop ? ' לסיבוב' : ''}`;
+  const caption = `שיא ${withUnit('m', Math.round(max))} · עלייה ${withUnit('m', gain)}${opts.loop ? ' לסיבוב' : ''}`;
 
   return {
     line, area,
-    peak: { x: x(top.m), y: y(top.e), label: `${Math.round(top.e)} מ׳` },
+    peak: { x: x(top.m), y: y(top.e), label: withUnit('m', Math.round(top.e)) },
     bands, laps, ticks: kmTicks(totalM, ELEV_W, 5), legend, caption,
   };
 }

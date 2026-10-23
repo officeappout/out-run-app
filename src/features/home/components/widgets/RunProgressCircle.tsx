@@ -1,5 +1,8 @@
 'use client';
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit, unitLabel } from '@/lib/i18n/units';
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Loader2 } from 'lucide-react';
@@ -7,13 +10,13 @@ import { useUserStore } from '@/features/user';
 import { predictRaceSeconds, targetDistanceKm } from '@/features/workout-engine/core/services/race-prediction.service';
 
 const DIST_LABEL: Record<string, string> = {
-  '2k': '2 ק״מ', '3k': '3 ק״מ', '5k': '5 ק״מ',
-  '10k': '10 ק״מ', maintenance: 'תחזוקה',
+  '2k': withUnit('km', 2), '3k': withUnit('km', 3), '5k': withUnit('km', 5),
+  '10k': withUnit('km', 10), maintenance: 'תחזוקה',
 };
 const PREDICTIONS = [
-  { label: '5 ק״מ', km: 5 },
-  { label: '10 ק״מ', km: 10 },
-  { label: '21 ק״מ', km: 21.0975 },
+  { label: withUnit('km', 5), km: 5 },
+  { label: withUnit('km', 10), km: 10 },
+  { label: withUnit('km', 21), km: 21.0975 },
 ];
 
 function formatTime(totalSeconds: number): string {
@@ -91,6 +94,7 @@ const TargetIcon = () => (
 );
 
 export default function RunProgressCircle() {
+  const tc = useT(common);
   const { profile } = useUserStore();
   const running = profile?.running;
 
@@ -107,7 +111,7 @@ export default function RunProgressCircle() {
     return Math.round(((currentWeek - 1) / totalWeeks) * 100);
   }, [hasActiveProgram, schedule, currentWeek, totalWeeks]);
   const rawName = running?.generatedProgramTemplate?.name
-    ?? `תוכנית ${DIST_LABEL[running?.generatedProgramTemplate?.targetDistance ?? '5k'] ?? '5 ק״מ'}`;
+    ?? `תוכנית ${DIST_LABEL[running?.generatedProgramTemplate?.targetDistance ?? '5k'] ?? withUnit('km', 5)}`;
   const planName = stripWeeksSuffix(rawName);
   const basePace = running?.paceProfile?.basePace ?? 0;
   const refKm = targetDistanceKm(running?.generatedProgramTemplate?.targetDistance);
@@ -196,7 +200,7 @@ export default function RunProgressCircle() {
                 <span className="font-bold tabular-nums" style={{ color: '#00BAF7' }}>
                   {formatPace(basePace)}
                 </span>
-                <span className="text-slate-600"> דק׳/ק״מ</span>
+                <span className="text-slate-600">{` ${unitLabel('min', tc)}/${unitLabel('km', tc)}`}</span>
               </p>
             )}
           </div>
@@ -257,7 +261,7 @@ export default function RunProgressCircle() {
                     <span className="font-bold tabular-nums" style={{ color: '#00BAF7' }}>
                       {formatPace(basePace)}
                     </span>
-                    <span className="text-slate-600"> דק׳/ק״מ</span>
+                    <span className="text-slate-600">{` ${unitLabel('min', tc)}/${unitLabel('km', tc)}`}</span>
                   </p>
                 )}
               </div>
@@ -276,7 +280,7 @@ export default function RunProgressCircle() {
                   <span className="tabular-nums" style={{ color: '#00BAF7' }}>
                     {formatPace(basePace)}
                   </span>
-                  <span className="text-gray-400 font-bold text-[13px] mr-1">(דק׳/ק״מ)</span>
+                  <span className="text-gray-400 font-bold text-[13px] mr-1">({unitLabel('min', tc)}/{unitLabel('km', tc)})</span>
                 </p>
               )}
 
@@ -290,7 +294,7 @@ export default function RunProgressCircle() {
                         <span className="tabular-nums font-extrabold text-gray-900 dark:text-white">
                           {p.time}
                         </span>
-                        {' '}דק׳
+                        {` ${unitLabel('min', tc)}`}
                       </p>
                     </div>
                   ))}

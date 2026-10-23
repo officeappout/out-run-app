@@ -10,6 +10,7 @@
  * not in the summary. They show distance left + time instead.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { RunBlock } from '../types/run-block.type';
 import type { ComputedPaceZone, RunZoneType } from '../../../core/types/running.types';
 import type { PlannedBlockRecord } from '../../../core/services/storage.service';
@@ -350,8 +351,8 @@ export function fmtClock(sec: number | null | undefined): string {
 /** metres → "400 מ׳" / "1.2 ק״מ". */
 export function fmtDistance(m: number | null | undefined): string {
   const v = Number.isFinite(m) && (m as number) > 0 ? (m as number) : 0;
-  if (v >= 1000) return `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)} ק״מ`;
-  return `${Math.round(v)} מ׳`;
+  if (v >= 1000) return withUnit('km', (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1));
+  return withUnit('m', Math.round(v));
 }
 
 /** "4:45–4:55". */

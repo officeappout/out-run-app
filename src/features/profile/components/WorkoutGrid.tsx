@@ -11,6 +11,7 @@
  * is unchanged other than the import.
  */
 
+import { weekdayLabel } from '@/lib/i18n/units';
 import { Activity, Bike, Dumbbell, PersonStanding, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import ActivityTileGrid, { type ActivityTile } from './ActivityTileGrid';
@@ -77,7 +78,7 @@ function dayCaption(workout: WorkoutHistoryEntry, t: ProfileT): string {
   const days = Math.floor((new Date(today.toDateString()).getTime() - new Date(d.toDateString()).getTime()) / 86400000);
   if (days === 0) return t('profile.grid.today');
   if (days === 1) return t('profile.grid.yesterday');
-  if (days < 7) return ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'][d.getDay()]; // i18n-allow-hebrew: wave 3 (fmt) — weekday names
+  if (days < 7) return weekdayLabel(d.getDay(), 'short');
   return `${d.getDate()}.${d.getMonth() + 1}`;
 }
 

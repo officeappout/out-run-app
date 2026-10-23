@@ -14,6 +14,7 @@
  * no pace anywhere.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { RunBlock } from '../types/run-block.type';
 import type { ComputedPaceZone, RunZoneType } from '../../../core/types/running.types';
 import {
@@ -310,15 +311,15 @@ export function goalView(goal: ContinuousGoal): GoalView {
   const left = Math.max(0, goal.target - goal.current);
   const targetText =
     goal.type === 'time'
-      ? `יעד ${Math.round(goal.target / 60)} דק׳`
-      : `יעד ${Number.isInteger(goal.target) ? goal.target : goal.target.toFixed(1)} ק״מ`;
+      ? `יעד ${withUnit('min', Math.round(goal.target / 60))}`
+      : `יעד ${withUnit('km', Number.isInteger(goal.target) ? goal.target : goal.target.toFixed(1))}`;
   const remainingText = done
     ? 'הגעת ליעד'
     : goal.type === 'time'
-      ? `נותרו ${fmtClock(left)} דק׳`
+      ? `נותרו ${withUnit('min', fmtClock(left))}`
       : left < 1
         ? `נותרו ${fmtDistance(left * 1000)}`
-        : `נותרו ${left.toFixed(2)} ק״מ`;
+        : `נותרו ${withUnit('km', left.toFixed(2))}`;
   return { targetText, remainingText, progress, percent: Math.round(progress * 100), done };
 }
 

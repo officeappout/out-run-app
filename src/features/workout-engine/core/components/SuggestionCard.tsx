@@ -21,6 +21,9 @@
  * this is the smaller, single-file, zero-shell-risk fix.
  */
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit } from '@/lib/i18n/units';
 import DifficultyBolts from '../../components/DifficultyBolts';
 import type { Suggestion } from '../types/suggestion.types';
 
@@ -40,6 +43,7 @@ interface SuggestionCardProps {
 }
 
 export function SuggestionCard({ suggestion, onStart, isStarting, ctaLabel = 'התחל' }: SuggestionCardProps) {
+  const tc = useT(common);
   return (
     <div className="h-full w-full flex items-center justify-center">
       <div
@@ -57,7 +61,7 @@ export function SuggestionCard({ suggestion, onStart, isStarting, ctaLabel = 'ה
             <DifficultyBolts difficulty={suggestion.difficulty} size="sm" />
           </div>
           <p className="text-[13px] font-normal text-gray-600 mt-1.5">
-            {suggestion.structure.durationMin} דקות
+            {withUnit('minutes', suggestion.structure.durationMin, tc)}
           </p>
         </div>
 

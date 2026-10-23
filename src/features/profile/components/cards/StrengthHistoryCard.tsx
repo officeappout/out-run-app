@@ -1,5 +1,7 @@
 'use client';
 
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Dumbbell, Coins, Activity, Clock } from 'lucide-react';
@@ -15,10 +17,10 @@ interface StrengthHistoryCardProps {
 
 export default function StrengthHistoryCard({ workout, onClick }: StrengthHistoryCardProps) {
   const t = useT(profileNs);
+  const tc = useT(common);
   // Format date in Hebrew - short format: "יום ה', 22 ינו' • 20:45"
   const formatDate = (date: Date): string => {
-    const dayLetters = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: wave 3 (fmt) — weekday / month names
-    const dayLetter = dayLetters[date.getDay()];
+    const dayLetter = weekdayLabel(date.getDay(), 'letter', tc);
     const day = date.getDate();
     const monthAbbrs = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ']; // i18n-allow-hebrew: wave 3 (fmt) — weekday / month names
     const monthAbbr = monthAbbrs[date.getMonth()];

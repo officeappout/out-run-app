@@ -5,6 +5,7 @@
  * walk there / back, and the short lines for the header and the axis.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { accessKm, lighting } from '../../lib/route-fit/route-traits';
 import { lapsLabel, routeKm, routeRunShape } from '../../lib/route-fit/distance-fit';
@@ -32,8 +33,8 @@ export interface RouteChoiceView {
 export function accessText(km: number | null): string | null {
   if (km == null || !Number.isFinite(km)) return null;
   if (km <= 0.15) return 'מתחיל כאן';
-  if (km < 1) return `${Math.round((km * 1000) / 50) * 50} מ׳ ממך`;
-  return `${km.toFixed(1)} ק״מ ממך`;
+  if (km < 1) return `${withUnit('m', Math.round((km * 1000) / 50) * 50)} ממך`;
+  return `${withUnit('km', km.toFixed(1))} ממך`;
 }
 
 export function routeChoiceView(
@@ -51,7 +52,7 @@ export function routeChoiceView(
     : null;
   const lit = lighting(route) === 'lit';
   const access = origin ? accessKm(route, origin) : null;
-  const meta = [`${km.toFixed(1)} ק״מ`];
+  const meta = [withUnit('km', km.toFixed(1))];
   if (lapsText) meta.push(lapsText);
   if (lit) meta.push('מואר');
   const aText = accessText(access);

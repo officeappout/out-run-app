@@ -14,6 +14,9 @@
  * `SideBySideRow`'s `items-stretch`.
  */
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit } from '@/lib/i18n/units';
 import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, Footprints } from 'lucide-react';
@@ -35,6 +38,7 @@ const WHO_TARGET = 150;
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
 
 function WhoTile() {
+  const tc = useT(common);
   const { summary } = useWeeklyProgress();
 
   // 1:2 weighted ratio (vigorous/strength = 2 points/min, cardio + maintenance = 1).
@@ -56,13 +60,14 @@ function WhoTile() {
       icon={<Heart size={16} className="fill-current" />}
       label="פעילות שבועית"
       value={String(weightedPoints)}
-      unit={`/ ${WHO_TARGET} דק׳ WHO`}
-      ariaLabel={`פעילות שבועית: ${weightedPoints} מתוך ${WHO_TARGET} דקות`}
+      unit={`/ ${withUnit('min', WHO_TARGET, tc)} WHO`}
+      ariaLabel={`פעילות שבועית: ${weightedPoints} מתוך ${withUnit('minutes', WHO_TARGET, tc)}`}
     />
   );
 }
 
 function StepsTile() {
+  const tc = useT(common);
   const router = useRouter();
   const locale = useLocaleStore((s) => s.locale);
   const { stepsToday, todayActivity } = useLiveDailyActivity();
@@ -103,7 +108,7 @@ function StepsTile() {
         icon={<Footprints size={16} className="-scale-x-100" />}
         label={connectPromptLabel ?? 'צעדים היום'}
         value={formatNumber(stepsToday, locale)}
-        unit={connectPromptLabel ? '' : `/ ${formatNumber(goal, locale)} צעדים`}
+        unit={connectPromptLabel ? '' : `/ ${withUnit('steps', formatNumber(goal, locale), tc)}`}
         onClick={handlePress}
         colorClass="text-[#00C07A]"
         ariaLabel={`צעדים: ${formatNumber(stepsToday, locale)} מתוך ${formatNumber(goal, locale)}`}

@@ -13,6 +13,9 @@
  * explain the start CTA, the זמן/חזרות chips and pause/skip (station-tutorial.ts). Seen-once flag in
  * onboardingPrefs, keyed by uid; "דלג" counts as seen.
  */
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit } from '@/lib/i18n/units';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Pause, Repeat, SkipForward, Timer, type LucideIcon } from 'lucide-react';
@@ -60,6 +63,7 @@ interface Props {
 }
 
 export default function StationWelcomeScreen({ plan, context, gender, onStart, guided, uid, oneBubbleStyle = false }: Props) {
+  const tc = useT(common);
   // PR-B4: first-time tutorial — resolved async (native cold start may have evicted localStorage).
   const [showTutorial, setShowTutorial] = useState(false);
   useEffect(() => {
@@ -99,7 +103,7 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart, g
         </h1>
         <p className="text-[15px] font-bold text-gray-600 mb-4">
           {context.parkName ?? 'גינת כושר'}
-          {context.estimatedMin != null && <span className="text-gray-400"> · כ-{context.estimatedMin} דק׳</span>}
+          {context.estimatedMin != null && <span className="text-gray-400"> · כ-{withUnit('min', context.estimatedMin, tc)}</span>}
         </p>
 
         <div className="space-y-3 pb-4">

@@ -10,6 +10,9 @@
  * Shows predictions for 5K, 10K, and Half Marathon.
  */
 
+import { unitLabel } from '@/lib/i18n/units';
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Timer, Trophy, TrendingUp, Footprints } from 'lucide-react';
@@ -73,6 +76,7 @@ export function RunForecastWidget({
   referenceDistanceKm = 5,
   className = '',
 }: RunForecastWidgetProps) {
+  const tc = useT(common);
   const { profile } = useUserStore();
 
   const predictions = useMemo((): RacePrediction[] => {
@@ -159,7 +163,7 @@ export function RunForecastWidget({
         <div className="flex items-center gap-1.5 bg-lime-50 dark:bg-lime-900/20 px-2.5 py-1 rounded-full">
           <Timer className="w-3.5 h-3.5 text-lime-600 dark:text-lime-400" />
           <span className="text-xs font-bold text-lime-700 dark:text-lime-300">
-            {paceDisplay} דק'/ק"מ
+            {paceDisplay} {unitLabel('minAscii', tc)}/{unitLabel('kmAscii', tc)}
           </span>
         </div>
       </div>

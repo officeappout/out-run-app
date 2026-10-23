@@ -23,6 +23,7 @@
  * impact in the window → no trend (we never invent one).
  */
 
+import { withUnit, unitLabel, type CommonT } from '@/lib/i18n/units';
 import {
   predictRaceSeconds,
   targetDistanceKm,
@@ -41,10 +42,10 @@ export const HALF_MARATHON_KM = 21.0975;
 export const RACE_DISTANCES_KM = [5, 10, HALF_MARATHON_KM] as const;
 
 /** "5 ק״מ" / "21.1 ק״מ" */
-export function formatDistanceLabel(km: number): string {
+export function formatDistanceLabel(km: number, t?: CommonT): string {
   const rounded = Math.round(km * 10) / 10;
   const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-  return `${text} ק״מ`;
+  return withUnit('km', text, t);
 }
 
 /** Clock text: under an hour "24:35", otherwise "1:52:10". Seconds rounded. */
@@ -60,9 +61,9 @@ export function formatRaceClock(totalSeconds: number): string {
 }
 
 /** Big-number display: clock value + Hebrew unit (דק׳ under an hour, שע׳ above). */
-export function formatRaceTime(totalSeconds: number): { value: string; unit: string } {
+export function formatRaceTime(totalSeconds: number, t?: CommonT): { value: string; unit: string } {
   const value = formatRaceClock(totalSeconds);
-  return { value, unit: Math.round(totalSeconds) >= 3600 ? 'שע׳' : 'דק׳' };
+  return { value, unit: unitLabel(Math.round(totalSeconds) >= 3600 ? 'hour' : 'min', t) };
 }
 
 /** "5:35" per km. */

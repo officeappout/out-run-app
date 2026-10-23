@@ -24,6 +24,7 @@
  *   mapping. Consolidating that call site onto this util is a follow-up cleanup
  *   (kept out of this fix to avoid touching the flagship home generation path).
  */
+import { withUnit } from '@/lib/i18n/units';
 import type {
   GeneratedWorkout,
   WorkoutExercise,
@@ -109,7 +110,7 @@ export function buildRunnerWorkoutPlanFromGenerated(
     // trio builder hardcodes reps:1 — so deriving the duration text from reps
     // renders "שנייה אחת" for a 14-minute clip. Video items read the clip length;
     // rep-based exercises keep the existing reps-derived text untouched.
-    const fmtClip = (s: number) => (s >= 60 ? `${Math.round(s / 60)} דקות` : fmtSecs(s));
+    const fmtClip = (s: number) => (s >= 60 ? withUnit('minutes', Math.round(s / 60)) : fmtSecs(s));
     const clipSeconds = Number((ex.method as any)?.media?.videoDurationSeconds) || 0;
     const useClipDuration = Boolean((ex.exercise as any).isFollowAlong) && clipSeconds > 0;
 

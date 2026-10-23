@@ -15,6 +15,8 @@
  * this module existed (pinned by tests) — flag off = today.
  */
 
+import { unitLabel, type CommonT } from '@/lib/i18n/units';
+
 export type AerobicActivity = 'running' | 'walking' | 'cycling';
 
 export function isCycling(activity: string | null | undefined): boolean {
@@ -171,8 +173,8 @@ export interface RateLabels {
   unitLine: string;
 }
 
-export function rateLabels(metric: RateMetric): RateLabels {
+export function rateLabels(metric: RateMetric, t?: CommonT): RateLabels {
   return metric === 'speed'
-    ? { page: 'מהירות', current: 'מהירות', average: 'מהירות ממוצעת', now: 'מהירות עכשיו', unitLine: 'קמ״ש' }
-    : { page: 'קצב', current: 'קצב נוכחי', average: 'קצב ממוצע', now: 'קצב עכשיו', unitLine: 'דק׳ לק״מ · ממוצע 15 שנ׳' };
+    ? { page: 'מהירות', current: 'מהירות', average: 'מהירות ממוצעת', now: 'מהירות עכשיו', unitLine: unitLabel('kmh', t) }
+    : { page: 'קצב', current: 'קצב נוכחי', average: 'קצב ממוצע', now: 'קצב עכשיו', unitLine: `${unitLabel('minPerKm', t)} · ממוצע 15 שנ׳` };
 }

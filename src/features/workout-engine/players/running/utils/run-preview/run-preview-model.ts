@@ -4,6 +4,7 @@
  * strip. Pure: callers pass the zones (computeZones) and the context.
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { RunBlock } from '../../types/run-block.type';
 import type { WorkoutCategory } from '../../../../core/types/running.types';
 import { fmtClock, fmtPace } from '../../lib/planned-rep-results';
@@ -73,8 +74,8 @@ export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions
   const km = totals.meters ? Math.round(totals.meters / 100) / 10 : null;
 
   const meta: string[] = [];
-  if (minutes) meta.push(`${minutes} דק׳`);
-  if (km) meta.push(`~${km} ק״מ`);
+  if (minutes) meta.push(withUnit('min', minutes));
+  if (km) meta.push(`~${withUnit('km', km)}`);
   if (showPaceNumbers && rep?.paceSec) meta.push(reps ? `${reps} חזרות @ ${fmtPace(rep.paceSec)}` : `${fmtPace(rep.band?.min)}–${fmtPace(rep.band?.max)}`);
   else if (showPaceNumbers && reps && rep?.repSeconds) meta.push(`${reps} חזרות · ~${fmtClock(rep.repSeconds)}`);
   else if (reps) meta.push(`${reps} חזרות`);

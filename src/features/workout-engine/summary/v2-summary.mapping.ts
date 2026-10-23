@@ -5,6 +5,7 @@
  * against a real plan when one exists; otherwise it is closed (100 = done)
  * — never an invented ratio.
  */
+import { unitLabel, withUnit } from '@/lib/i18n/units';
 import type { MetricRing } from '@/components/ui/v2/MetricRings';
 import type { ExerciseSetsRow } from '@/components/ui/v2/ExerciseSetsTable';
 import type { SessionSegmentRecord } from '@/features/workout-engine/core/services/storage.service';
@@ -61,11 +62,11 @@ function pctOf(actual: number, planned: number | null | undefined): number {
 export function aerobicRings(w: { distance?: number; pace?: number; duration?: number }): MetricRing[] {
   const km = w.distance ?? 0;
   return [
-    { key: 'distance', value: km > 0 ? km.toFixed(2) : '--', unit: 'ק״מ', label: 'מרחק', pct: km > 0 ? 100 : 0, color: RING_COLORS.distance },
+    { key: 'distance', value: km > 0 ? km.toFixed(2) : '--', unit: unitLabel('km'), label: 'מרחק', pct: km > 0 ? 100 : 0, color: RING_COLORS.distance },
     {
       key: 'pace',
       value: paceLabel(w.pace),
-      unit: 'דק׳/ק״מ',
+      unit: `${unitLabel('min')}/${unitLabel('km')}`,
       label: 'קצב ממוצע',
       pct: (w.pace ?? 0) > 0 ? 100 : 0,
       color: RING_COLORS.pace,
@@ -82,9 +83,9 @@ export function rideRings(w: { distance?: number; duration?: number; elevationGa
   const kmh = speedKmh(w.distance ?? 0, w.duration ?? 0);
   const climb = Number.isFinite(w.elevationGain) && (w.elevationGain ?? 0) > 0 ? Math.round(w.elevationGain as number) : 0;
   return [
-    { key: 'speed', value: fmtSpeed(kmh), unit: 'קמ״ש', label: 'מהירות ממוצעת', pct: kmh > 0 ? 100 : 0, color: RING_COLORS.pace },
+    { key: 'speed', value: fmtSpeed(kmh), unit: unitLabel('kmh'), label: 'מהירות ממוצעת', pct: kmh > 0 ? 100 : 0, color: RING_COLORS.pace },
     { key: 'time', value: timeLabel(w.duration), label: 'זמן', pct: (w.duration ?? 0) > 0 ? 100 : 0, color: RING_COLORS.time },
-    { key: 'elevation', value: climb > 0 ? String(climb) : '--', unit: 'מ׳', label: 'טיפוס מצטבר', pct: climb > 0 ? 100 : 0, color: RING_COLORS.distance },
+    { key: 'elevation', value: climb > 0 ? String(climb) : '--', unit: unitLabel('m'), label: 'טיפוס מצטבר', pct: climb > 0 ? 100 : 0, color: RING_COLORS.distance },
   ];
 }
 
@@ -113,9 +114,9 @@ export function hybridRings({ segments, summary }: HybridRingsInput): MetricRing
     {
       key: 'distance',
       value: km > 0 ? km.toFixed(2) : '--',
-      unit: 'ק״מ',
+      unit: unitLabel('km'),
       label: 'ריצה',
-      sub: plannedKm > 0 ? `מתוך ${plannedKm.toFixed(1)} ק״מ` : null,
+      sub: plannedKm > 0 ? `מתוך ${withUnit('km', plannedKm.toFixed(1))}` : null,
       pct: pctOf(km, plannedKm),
       color: RING_COLORS.distance,
     },

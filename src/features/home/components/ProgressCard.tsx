@@ -7,6 +7,9 @@
  * Shows both level progress and daily activity breakdown.
  */
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit } from '@/lib/i18n/units';
 import React from 'react';
 import { ChevronDown, Dumbbell, Lock, TrendingUp } from 'lucide-react';
 import { ConcentricRingsProgress, CompactRingsProgress } from './rings/ConcentricRingsProgress';
@@ -36,6 +39,7 @@ export default function ProgressCard({
   showActivityRings = true,
   compact = false,
 }: ProgressCardProps) {
+  const tc = useT(common);
   const { ringData, totalMinutesToday, streak, isLoading: activityLoading } = useDailyActivity();
   
   // Locked state (hasn't completed onboarding)
@@ -88,7 +92,7 @@ export default function ProgressCard({
             <span className="text-sm font-bold truncate">רמה {currentLevel}</span>
           </div>
           <p className="text-[10px] text-gray-400 truncate">
-            {totalMinutesToday > 0 ? `${totalMinutesToday} דק' היום` : 'התחל לאמן!'}
+            {totalMinutesToday > 0 ? `${withUnit('minAscii', totalMinutesToday, tc)} היום` : 'התחל לאמן!'}
           </p>
         </div>
       </div>
@@ -160,7 +164,7 @@ export default function ProgressCard({
       {totalMinutesToday > 0 && (
         <div className="mt-4 pt-4 border-t border-gray-50 dark:border-slate-700 text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            <span className="font-bold text-gray-700 dark:text-gray-200">{totalMinutesToday} דקות</span> פעילות היום
+            <span className="font-bold text-gray-700 dark:text-gray-200">{withUnit('minutes', totalMinutesToday, tc)}</span> פעילות היום
           </p>
         </div>
       )}

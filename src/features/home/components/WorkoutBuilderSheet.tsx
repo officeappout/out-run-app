@@ -1,5 +1,7 @@
 'use client';
 
+import { common } from '@/messages/ns/common';
+import { weekdayLabel, type CommonT } from '@/lib/i18n/units';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Trees, Home, Dumbbell, Shield, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench, Sparkles, Settings2, type LucideIcon } from 'lucide-react';
@@ -135,13 +137,9 @@ function getNextFullHour(): string {
   return `${String(h).padStart(2, '0')}:00`;
 }
 
-// Weekday names: wave 3 (fmt).
-const HEBREW_DAY_NAMES: Record<number, string> = {
-  0: 'ראשון', 1: 'שני', 2: 'שלישי', 3: 'רביעי', 4: 'חמישי', 5: 'שישי', 6: 'שבת',
-};
-function formatScheduleDate(iso: string, t: ReactTFunction<HomeKey>): string {
+function formatScheduleDate(iso: string, t: ReactTFunction<HomeKey>, tc?: CommonT): string {
   const d = new Date(iso + 'T00:00:00');
-  const day = HEBREW_DAY_NAMES[d.getDay()] ?? '';
+  const day = weekdayLabel(d.getDay(), 'long', tc);
   return t('builder.schedule.date', { day, date: `${d.getDate()}/${d.getMonth() + 1}` });
 }
 
@@ -272,6 +270,7 @@ export default function WorkoutBuilderSheet({
   const { flags: builderFlags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = builderFlags.enableHomeV2;
   const t = useT(home);
+  const tc = useT(common);
   const gender = useUserStore((s) => (s.profile?.core as any)?.gender === 'female' ? 'female' : 'male') as 'male' | 'female';
   const router = useRouter();
 
@@ -917,7 +916,7 @@ export default function WorkoutBuilderSheet({
             <div className="flex items-center gap-2 px-4 py-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-2xl border border-cyan-100 dark:border-cyan-800">
               <CalendarDays className="w-4 h-4 text-cyan-500 flex-shrink-0" />
               <span className="text-sm font-bold text-cyan-700 dark:text-cyan-300">
-                {formatScheduleDate(scheduleDateParam, t)}
+                {formatScheduleDate(scheduleDateParam, t, tc)}
               </span>
             </div>
 

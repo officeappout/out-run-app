@@ -85,7 +85,7 @@ describe('weekdays.*', () => {
 describe('catalog shape', () => {
   it('every units.* / weekdays.* key is Hebrew-only text with no unexpected ICU', () => {
     const keys = Object.keys(he).filter((k) => k.startsWith('units.') || k.startsWith('weekdays.'));
-    expect(keys.length).toBe(18 + 21); // 8 value units + 10 labels, 3 x 7 weekdays
+    expect(keys.length).toBe(21 + 21); // 9 value units + 12 labels, 3 x 7 weekdays (part 2 added minAscii + two ASCII labels)
     for (const k of keys) expect((he as Record<string, string>)[k]).not.toMatch(/[<>]/);
   });
 

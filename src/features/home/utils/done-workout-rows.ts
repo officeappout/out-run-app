@@ -4,6 +4,9 @@
  * big summary card). Pure: today's activity cards + today's real workout docs.
  */
 
+import { common } from '@/messages/ns/common';
+import { makeT } from '@/lib/i18n/t';
+import { withUnit } from '@/lib/i18n/units';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import type { Locale } from '@/lib/i18n/locales';
 import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
@@ -26,18 +29,18 @@ export interface DoneWorkoutRowData {
 const DISTANCE_TYPES = new Set(['running', 'walking', 'cycling']);
 
 function formatKm(km: number, locale: Locale): string {
-  return `${formatNumber(Math.round(km * 10) / 10, locale, { maximumFractionDigits: 1 })} ק״מ`;
+  return withUnit('km', formatNumber(Math.round(km * 10) / 10, locale, { maximumFractionDigits: 1 }), makeT(locale, common));
 }
 
 /** "35 דק׳ · 5.2 ק״מ" / "42 דק׳ · 18 סטים" / "8,400 צעדים" — real values only. */
 export function doneRowMeta(card: TodayActivityCardData, workout?: DoneRowWorkout, locale: Locale = 'he'): string | null {
   if (card.category === 'steps') {
     return typeof card.stepsAchieved === 'number' && card.stepsAchieved > 0
-      ? `${formatNumber(card.stepsAchieved, locale)} צעדים`
+      ? withUnit('steps', formatNumber(card.stepsAchieved, locale), makeT(locale, common))
       : null;
   }
   const parts: string[] = [];
-  if (card.minutes > 0) parts.push(`${card.minutes} דק׳`);
+  if (card.minutes > 0) parts.push(withUnit('min', card.minutes, makeT(locale, common)));
   const km = workout?.distance;
   const isDistance = card.category === 'cardio' || DISTANCE_TYPES.has(card.workoutType ?? '') || card.workoutType === 'hybrid';
   if (isDistance && typeof km === 'number' && Number.isFinite(km) && km >= 0.1) parts.push(formatKm(km, locale));

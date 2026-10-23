@@ -4,6 +4,7 @@
  * with one box per set (ExerciseSetsTable), a run leg sits in the same
  * boxes (one row, one box with the distance). No pace under 400 m.
  */
+import { withUnit } from '@/lib/i18n/units';
 import type { ExerciseSetsRow } from '@/components/ui/v2/ExerciseSetsTable';
 import { toneFor, type SetTile } from '@/components/ui/v2/summary';
 import type { SegmentExerciseDetail } from '../../core/services/storage.service';
@@ -130,5 +131,5 @@ export function listTotals(sections: readonly HybridListSection[], totalSec: num
     },
     { done: 0, planned: 0 },
   );
-  return [fmtClock(totalSec), `${totalKm.toFixed(2)} ק״מ`, sets.planned > 0 ? `${sets.done}/${sets.planned} סטים` : ''].filter(Boolean).join(' · ');
+  return [fmtClock(totalSec), withUnit('km', totalKm.toFixed(2)), sets.planned > 0 ? `${sets.done}/${sets.planned} סטים` : ''].filter(Boolean).join(' · ');
 }

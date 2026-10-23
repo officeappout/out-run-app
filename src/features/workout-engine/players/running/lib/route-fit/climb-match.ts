@@ -14,6 +14,7 @@
  *      exists; never "meets spec" (15 m says nothing about a 200 m rep).
  */
 
+import { withUnit } from '@/lib/i18n/units';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { readElevationSamples, type ElevationSamples } from '../route-elevation-ahead';
 import type { ClimbMatch, HillRepSpec } from './types';
@@ -134,6 +135,6 @@ const fmtKm = (m: number) => {
 export function climbReason(c: ClimbMatch): string {
   if (c.source === 'maxGrade') return `שיפוע מרבי ${fmtGrade(Math.round(c.avgGradePct))}`;
   if (c.lengthM == null || c.startM == null) return `עלייה של ${fmtGrade(Math.round(c.avgGradePct))} ליד המסלול`;
-  const len = `${Math.round(c.lengthM / 10) * 10} מ׳`;
+  const len = withUnit('m', Math.round(c.lengthM / 10) * 10);
   return `עלייה של ${fmtGrade(Math.round(c.avgGradePct))} באורך ${len} בק״מ ${fmtKm(c.startM)}`;
 }

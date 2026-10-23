@@ -1,5 +1,8 @@
 "use client";
 
+import { common } from '@/messages/ns/common';
+import { useT } from '@/hooks/useT';
+import { withUnit } from '@/lib/i18n/units';
 import React from 'react';
 import { MockWorkout } from '../data/mock-schedule-data';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
@@ -23,6 +26,7 @@ export default function HeroCard({
   postWorkoutData,
   onStart,
 }: HeroCardProps) {
+  const tc = useT(common);
   const getDifficultyLabel = (difficulty: string) => {
     const labels: Record<string, string> = {
       easy: 'קל',
@@ -167,7 +171,7 @@ export default function HeroCard({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>{workout.duration} דקות</span>
+              <span>{withUnit('minutes', workout.duration, tc)}</span>
             </div>
           </div>
         </div>
