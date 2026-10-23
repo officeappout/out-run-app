@@ -38,7 +38,7 @@ describe('home/page.tsx — walker pinned card', () => {
   });
 
   it('a walking-only user sees just today\'s walk card; the weekly top-up is v2 + walker only', () => {
-    expect(pageSrc).toContain("if (walkOnlyUser && walkSlotSurface === 'carousel' && walkSlot) return [{ id: WALK_CARD_ID }];");
+    expect(pageSrc).toContain("if (walkOnlyUser && walkSlotSurface === 'carousel' && walkSlot) return tryRunning.show ? [{ id: WALK_CARD_ID }, { id: TRY_RUNNING_CARD_ID }] : [{ id: WALK_CARD_ID }];");
     expect(pageSrc).toContain('enabled: featureFlags.enableHomeV2 && walkWeek.isWalker,');
   });
 });
