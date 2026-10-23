@@ -13,6 +13,20 @@ import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 // Types
 // ---------------------------------------------------------------------------
 
+/** Optional invitation block on a shared workout (the "invite" variant of the link). All additive. */
+export interface SharedInvite {
+  /** Session start, epoch ms. */
+  startsAtMs: number;
+  placeName?: string | null;
+  /** A few of the people who are coming (first three are shown). */
+  going?: Array<{ name: string; photoURL?: string | null }>;
+  goingCount?: number;
+  /** Where "מצטרפים לאימון" goes (e.g. /session/<token>); absent = the app download link. */
+  joinPath?: string | null;
+}
+
+export type SharedSenderGender = 'male' | 'female' | 'other';
+
 export interface SharedWorkoutDoc {
   title: string;
   description: string;
@@ -31,6 +45,10 @@ export interface SharedWorkoutDoc {
   /** Location context the workout was generated for */
   workoutLocation?: string;
   creatorId: string;
+  /** Sender's first name + gender, for the link's "X שיתפה איתך" line (absent on older shares). */
+  creatorName?: string | null;
+  creatorGender?: SharedSenderGender | null;
+  invite?: SharedInvite | null;
   createdAt: ReturnType<typeof serverTimestamp>;
 }
 
@@ -186,6 +204,11 @@ function buildSharedExercises(workout: GeneratedWorkout): SharedExercise[] {
   });
 }
 
+function firstNameOf(name: string | null | undefined): string | null {
+  const first = (name ?? '').trim().split(/\s+/)[0];
+  return first || null;
+}
+
 const DIFFICULTY_LABELS: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
 
 // ---------------------------------------------------------------------------
@@ -198,6 +221,7 @@ const DIFFICULTY_LABELS: Record<number, string> = { 1: 'קל', 2: 'בינוני'
 export async function persistSharedWorkout(
   workout: GeneratedWorkout,
   workoutLocation?: string,
+  sender?: { name?: string | null; gender?: string | null },
 ): Promise<{ docId: string; url: string }> {
   const user = auth.currentUser;
   if (!user) throw new Error('User must be logged in to share a workout');
@@ -216,6 +240,8 @@ export async function persistSharedWorkout(
     muscles: extractMuscles(workout),
     workoutLocation: workoutLocation ?? null,
     creatorId: user.uid,
+    creatorName: firstNameOf(sender?.name ?? user.displayName),
+    creatorGender: sender?.gender === 'male' || sender?.gender === 'female' ? sender.gender : sender?.gender ? 'other' : null,
   };
 
   const docRef = await addDoc(collection(db, 'sharedWorkouts'), {
@@ -246,9 +272,10 @@ export async function getSharedWorkout(docId: string): Promise<(SharedWorkoutDoc
 export async function shareWorkout(
   workout: GeneratedWorkout,
   workoutLocation?: string,
+  sender?: { name?: string | null; gender?: string | null },
 ): Promise<ShareWorkoutResult> {
   try {
-    const { docId, url } = await persistSharedWorkout(workout, workoutLocation);
+    const { docId, url } = await persistSharedWorkout(workout, workoutLocation, sender);
 
     const diffLabel = DIFFICULTY_LABELS[workout.difficulty] || '';
     const shareText = `💪 ${workout.title} — ${diffLabel} | ${workout.estimatedDuration} דק׳ | ${workout.exercises.length} תרגילים\nבואו לנסות את האימון שלי ב-Out!`;
