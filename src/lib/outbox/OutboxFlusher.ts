@@ -73,6 +73,14 @@ function isAppCheckError(err: unknown): boolean {
 
 type FlushReason = 'online' | 'app-active' | 'auth' | 'manual' | 'enqueue';
 
+/**
+ * Flush lifecycle, for UI that must only claim "syncing" while a drain is
+ * really running (OfflineBanner's sync chip). `running` fires when a flush
+ * starts; `settled` when it finishes — `ok: false` means it failed and is now
+ * waiting on backoff / the next trigger, NOT still syncing.
+ */
+export type FlushStatus = { phase: 'running' } | { phase: 'settled'; ok: boolean };
+
 class FlusherImpl {
   private installed = false;
   private inFlight = false;
@@ -82,6 +90,8 @@ class FlusherImpl {
   private backoffMs = 0;
   private backoffTimer: ReturnType<typeof setTimeout> | null = null;
   private depthListeners = new Set<(depth: { samples: number; workouts: number }) => void>();
+  private statusListeners = new Set<(status: FlushStatus) => void>();
+  private lastStatus: FlushStatus = { phase: 'settled', ok: true };
 
   /**
    * Install global listeners. Idempotent — safe to call multiple times.
@@ -106,6 +116,18 @@ class FlusherImpl {
     this.depthListeners.add(listener);
     void this.emitDepth();
     return () => this.depthListeners.delete(listener);
+  }
+
+  /** Subscribe to flush start / finish. Replays the current status on subscribe. */
+  onStatusChange(listener: (status: FlushStatus) => void): () => void {
+    this.statusListeners.add(listener);
+    listener(this.lastStatus);
+    return () => this.statusListeners.delete(listener);
+  }
+
+  private emitStatus(status: FlushStatus): void {
+    this.lastStatus = status;
+    this.statusListeners.forEach((l) => l(status));
   }
 
   async getDepth(): Promise<{ samples: number; workouts: number }> {
@@ -138,8 +160,13 @@ class FlusherImpl {
     }
 
     this.inFlight = true;
+    this.emitStatus({ phase: 'running' });
+    // Depth at the START of a drain too (not only at the end) — the sync chip
+    // needs the real backlog size while the drain is running.
+    void this.emitDepth();
+    let ok = false;
     try {
-      const ok = await this.runOnce();
+      ok = await this.runOnce();
       if (ok) {
         this.backoffMs = 0;
       } else {
@@ -147,6 +174,7 @@ class FlusherImpl {
       }
     } finally {
       this.inFlight = false;
+      this.emitStatus({ phase: 'settled', ok });
       void this.emitDepth();
       if (this.pending) {
         const r = this.pending;
