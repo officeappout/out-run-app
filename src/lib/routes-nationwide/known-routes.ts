@@ -18,7 +18,7 @@
  */
 import { haversineM } from '../park-loops/geometry';
 import type { LngLat } from '../park-loops';
-import { stitchSameName, type Corridor, type NamedWay } from './named-corridors';
+import { BOULEVARD_NAME_HINT, CORRIDOR_MIN_M, LOW_CONFIDENCE_PROMENADE_HINT, normalizeName, PROMENADE_FOOT_SHARE_MIN, PROMENADE_NAME_HINT, stitchSameName, type Corridor, type NamedWay } from './named-corridors';
 import { cyclingKcalForKm, cyclingMinutesForMeters } from '@/lib/cycling-pace';
 
 export interface KnownRouteSource { url: string; title: string }
@@ -75,7 +75,7 @@ export function parseKnownRoutesFile(raw: unknown): { file: KnownRoutesFile | nu
 
 /** Hebrew-tolerant name key: no quotes/geresh, hyphens/dashes/colons → space, no leading ה, collapsed spaces. */
 export function nameKey(s: string): string {
-  return s
+  return normalizeName(s)
     .replace(/["'״׳`]/g, '')
     .replace(/[-–—־:,.()]/g, ' ')
     .replace(/\s+/g, ' ')
@@ -129,16 +129,23 @@ export function matchKnownWays(k: KnownRoute, ways: NamedWay[], inside: (p: LngL
   if (!names.length) return null;
   const hits = ways.filter((w) => namesMatch(w.name, names));
   if (!hits.length) return null;
-  const merged = stitchSameName(hits.map((w) => ({ ...w, name: k.name })), KNOWN_WAYS_JOIN_GAP_M)
+  // A promenade / boulevard name (שדרות רוטשילד, מדרחוב …): stitch the pedestrian strip and the parallel
+  // road separately and prefer the pedestrian chain even when the road chain is far longer.
+  const hinted = [k.name, ...k.aliases, ...hits.map((w) => w.name)].some((n) => PROMENADE_NAME_HINT.test(normalizeName(n)));
+  const merged = stitchSameName(hits.map((w) => ({ ...w, name: k.name })), KNOWN_WAYS_JOIN_GAP_M, { splitByClass: hinted })
     .filter((c) => c.lengthM >= KNOWN_WAYS_MIN_M && inside(c.coords[Math.floor(c.coords.length / 2)]))
     .sort((a, b) => b.lengthM - a.lengthM);
-  const best = merged[0];
+  const pedestrian = hinted ? merged.filter((c) => (c.footShare ?? 0) >= PROMENADE_FOOT_SHARE_MIN) : [];
+  const best = (pedestrian.length ? pedestrian : merged)[0];
   if (!best) return null;
   // Keep the real OSM name of the chain (its most frequent piece name) for the report / descriptive names.
   const counts = new Map<string, number>();
   for (const w of hits) if (best.wayIds.includes(w.id)) counts.set(w.name, (counts.get(w.name) ?? 0) + 1);
   const osmName = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? k.name;
-  return { ...best, name: osmName };
+  // Low confidence: a hinted, mostly-pedestrian chain that is a boulevard / mall name or shorter than the usual corridor minimum.
+  const lowConfidence = hinted && (best.footShare ?? 0) >= PROMENADE_FOOT_SHARE_MIN && (BOULEVARD_NAME_HINT.test(normalizeName(osmName)) || BOULEVARD_NAME_HINT.test(normalizeName(k.name)) || best.lengthM < CORRIDOR_MIN_M);
+  const { lowConfidence: _drop, ...rest } = best;
+  return { ...rest, name: osmName, ...(lowConfidence ? { lowConfidence: LOW_CONFIDENCE_PROMENADE_HINT } : {}) };
 }
 
 export interface MatchInputs {
@@ -207,6 +214,7 @@ export function knownRouteWaysDoc(k: KnownRoute, c: Corridor, ctx: { authorityId
       published: false,
       origin: 'web_research',
       knownRoute: knownRouteCitation(k, ctx.researchedAt, 'osm_ways'),
+      ...(c.lowConfidence ? { lowConfidence: { reason: c.lowConfidence } } : {}),
       source: { type: 'official_api', name: 'OSM named ways (matched to a known route)', externalId: c.wayIds.length === 1 ? `osm:way/${c.wayIds[0]}` : `osm:stitched/${c.wayIds.join('-')}`.slice(0, 400), externalLink: `https://www.openstreetmap.org/way/${c.wayIds[0]}`, sourceWayIds: c.wayIds },
       provenance: { pipeline: KNOWN_ROUTES_PIPELINE, osm: { license: 'ODbL-1.0', snapshot: ctx.osmSnapshot, extract: 'geofabrik:israel-and-palestine' }, research: k.sources.map((s) => s.url) },
       importBatchId: ctx.importBatchId,

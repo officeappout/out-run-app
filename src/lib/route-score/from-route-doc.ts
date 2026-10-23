@@ -10,7 +10,7 @@ import { isOfficialOperator } from '../trail-graph/difficulty';
 import { haversineM } from '../route-quality/geo';
 import { maxVertexGapM } from '../route-geometry/gaps';
 import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier, UrbanRouteKind } from './types';
-import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN, SETTLEMENT_LOOP_PIPELINE } from './weights';
+import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN, PROMENADE_NAME_PATTERN, SETTLEMENT_LOOP_PIPELINE } from './weights';
 import { classifySurface, surfaceSharesFromDoc } from './surface-class';
 import type { RouteShade } from '../shade/route-shade';
 import type { HourlyProfileSummary } from '../shade-hourly/route-hourly';
@@ -71,6 +71,7 @@ export function deriveSourceTier(d: Doc): SourceTier {
   if (origin === 'park_loop') return d?.parkLoopKind === 'inner' ? 'generated' : 'named_place';
   if (origin === 'generated') return 'generated';
   if (origin === 'web_research') return 'named_place';
+  if (origin === 'osm_named_way' && PROMENADE_NAME_PATTERN.test(name)) return 'named_place';
   if (origin === 'bike_adjacent_walk') return 'stitched'; // MoT-based ones are 'official' above (source.type mot_open_data)
   const gen = classifyRouteGenerator({ sourceExternalId: externalId, activityType: d?.activityType ?? null, name });
   if (gen === 'roundtrip') return 'generated';
@@ -98,6 +99,17 @@ export function deriveUrbanKind(d: Doc, tier: SourceTier, shape: ScoreShape | nu
   if (hasParkRef || (tier === 'named_place' && shape === 'loop')) return 'park_loop';
   if (tier === 'named_place' && shape === 'linear_corridor') return 'named_corridor';
   return null;
+}
+
+/** A route that came from the web-research known-routes stage (RC8): carries a `knownRoute` citation or origin web_research. */
+export function isKnownRouteDoc(d: Doc): boolean {
+  return d?.origin === 'web_research' || (!!d?.knownRoute && typeof d.knownRoute === 'object');
+}
+
+/** Why the candidate is low-confidence (stored on the doc as `lowConfidence.reason`), or null. */
+export function lowConfidenceReason(d: Doc): string | null {
+  const r = d?.lowConfidence?.reason;
+  return typeof r === 'string' && r.trim() ? r.trim() : null;
 }
 
 function parseParkRef(v: unknown): ParkRef | null {
@@ -222,6 +234,8 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     ...(d?.generator?.pipeline === SETTLEMENT_LOOP_PIPELINE ? { settlementLoop: true } : {}),
     greenShare: opts.greenShare ?? null,
     parkRef,
+    ...(isKnownRouteDoc(d) ? { knownRoute: true } : {}),
+    ...(lowConfidenceReason(d) ? { lowConfidenceReason: lowConfidenceReason(d)! } : {}),
     hasFitnessStop,
     certificate,
     surface,

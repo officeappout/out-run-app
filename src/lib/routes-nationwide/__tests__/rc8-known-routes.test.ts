@@ -81,3 +81,44 @@ describe('known routes (web research)', () => {
     expect(wd.duration).toBeGreaterThan(bd.duration);
   });
 });
+
+describe('known routes — promenades / boulevards', () => {
+  const ctx = { authorityId: 'a1', city: 'תל אביב', researchedAt: '2026-10-23', osmSnapshot: null, importBatchId: 'b' };
+  const segY = (x0: number, x1: number, y: number): LngLat[] => Array.from({ length: 6 }, (_, k) => [34.8 + (x0 + ((x1 - x0) * k) / 5) * M, y]);
+  const roThways: NamedWay[] = [
+    { id: 10, name: 'שדרות רוטשילד', highway: 'tertiary', coords: segY(0, 1940, 32.1) }, // 1.94 km road chain
+    { id: 20, name: 'שדרות רוטשילד', highway: 'pedestrian', coords: segY(100, 467, 32.1004) }, // 367 m pedestrian strip
+  ];
+  it('prefers the pedestrian chain over the longer parallel road chain', () => {
+    const k = K({ name: 'שדרות רוטשילד' });
+    const { matches } = matchKnownRoutes({ authorityId: 'a1', city: 'c', researchedAt: 'x', routes: [k] }, { existing: [], relations: [], parkLoops: [], ways: roThways, inside: () => true });
+    expect(matches[0].kind).toBe('osm_ways');
+    expect(matches[0].corridor!.wayIds).toEqual([20]);
+    expect(matches[0].corridor!.lengthM).toBeLessThan(400);
+  });
+  it('a non-promenade name still takes the longest chain (no behaviour change)', () => {
+    const ways: NamedWay[] = [
+      { id: 1, name: 'שביל הנחל', highway: 'tertiary', coords: segY(0, 1940, 32.1) },
+      { id: 2, name: 'שביל הנחל', highway: 'footway', coords: segY(100, 467, 32.1004) },
+    ];
+    const { matches } = matchKnownRoutes({ authorityId: 'a1', city: 'c', researchedAt: 'x', routes: [K({ name: 'שביל הנחל' })] }, { existing: [], relations: [], parkLoops: [], ways, inside: () => true });
+    expect(matches[0].corridor!.wayIds).toEqual([1, 2].filter((i) => matches[0].corridor!.wayIds.includes(i)));
+    expect(matches[0].corridor!.lengthM).toBeGreaterThan(1500);
+  });
+  it('falls back to the road chain when there is no pedestrian chain; the doc carries the low-confidence flag only for the strip', () => {
+    const k = K({ name: 'שדרות רוטשילד' });
+    const only = [roThways[0]];
+    const m1 = matchKnownRoutes({ authorityId: 'a1', city: 'c', researchedAt: 'x', routes: [k] }, { existing: [], relations: [], parkLoops: [], ways: only, inside: () => true });
+    expect(m1.matches[0].corridor!.wayIds).toEqual([10]);
+    expect(m1.matches[0].corridor!.lowConfidence).toBeUndefined();
+    const m2 = matchKnownRoutes({ authorityId: 'a1', city: 'c', researchedAt: 'x', routes: [k] }, { existing: [], relations: [], parkLoops: [], ways: roThways, inside: () => true });
+    const d = knownRouteWaysDoc(k, m2.matches[0].corridor!, ctx);
+    expect(d.data.lowConfidence).toEqual({ reason: 'promenade_hint' });
+    buildValidatedDoc('official_routes', d.data, { mode: 'create', knownAuthorityIds: new Set(['a1']) });
+    expect(routeScoreInputFromDoc(d.id, d.data)).toMatchObject({ lowConfidenceReason: 'promenade_hint', knownRoute: true });
+  });
+  it('names match across NBSP / bidi marks', () => {
+    expect(nameKey('שדרות רוטשילד‏')).toBe('שדרות רוטשילד');
+    expect(namesMatch('שדרות רוטשילד', knownNames(K({ name: 'שדרות רוטשילד' })))).toBe(true);
+  });
+});

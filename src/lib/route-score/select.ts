@@ -85,7 +85,8 @@ export function gridCell(i: RouteScoreInput): string | null {
   return `${Math.floor(lat / CELL_DEG_LAT)}:${Math.floor(lng / CELL_DEG_LNG)}`;
 }
 
-export const isParkLoop = (i: RouteScoreInput) => !!i.parkRef || (i.sourceTier === 'named_place' && i.shape === 'loop');
+/** Known routes (web research) are never park loops for the quota, even when matched to a park perimeter or a closed named way. */
+export const isParkLoop = (i: RouteScoreInput) => i.knownRoute !== true && (!!i.parkRef || (i.sourceTier === 'named_place' && i.shape === 'loop'));
 export const isCycling = (i: RouteScoreInput) => i.activityType === 'cycling';
 export const isSettlementLoop = (i: RouteScoreInput) => i.settlementLoop === true;
 

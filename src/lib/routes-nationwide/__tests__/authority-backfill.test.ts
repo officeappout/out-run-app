@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bboxOfBoundary, cityMatchesAuthority, planAuthorityBackfill, resolveSkippedByDocCity, summarizeBackfill } from '../authority-backfill';
+import { bboxOfBoundary, cityMatchesAuthority, knownAdminRelationFor, planAuthorityBackfill, resolveSkippedByDocCity, summarizeBackfill } from '../authority-backfill';
 import type { AuthorityBoundary } from '../../dataset-import/authority-assign';
 import { authorityPayload } from '../../../../scripts/routes-nationwide/lib/authority-apply.node';
 
@@ -125,5 +125,20 @@ describe('resolveSkippedByDocCity (--skipped-by-doc-city)', () => {
     const plan = planAuthorityBackfill([{ id: 'r', city: 'תל אביב-יפו', coords: line(34.011, 34.019) }], [A, B]);
     const r = resolveSkippedByDocCity([{ id: 'r', city: 'תל אביב-יפו' }], plan.skipped, [{ id: 'tlv', name: 'תל אביב-יפו' }, { id: 'rg', name: 'רמת גן' }]);
     expect(r.resolved).toEqual([expect.objectContaining({ id: 'r', authorityId: 'tlv', boundaryReason: 'city_conflict' })]);
+  });
+});
+
+describe('knownAdminRelationFor (KNOWN_ADMIN_RELATION_FIXES lookup)', () => {
+  it('pins the קרית/קריית cities, spelling-tolerant', () => {
+    expect(knownAdminRelationFor('קריית מוצקין')?.adminRelationId).toBe(1387964);
+    expect(knownAdminRelationFor('קרית מוצקין')?.adminRelationId).toBe(1387964);
+    expect(knownAdminRelationFor('עיריית קריית ביאליק')?.adminRelationId).toBe(1387456);
+    expect(knownAdminRelationFor('קריית אונו')?.adminRelationId).toBe(1382894);
+    expect(knownAdminRelationFor('קרית אונו')?.adminRelationId).toBe(1382894);
+  });
+  it('keeps the regional fixes and returns null for everything else', () => {
+    expect(knownAdminRelationFor('הגליל העליון')?.adminRelationId).toBe(1378948);
+    expect(knownAdminRelationFor('קריית שמונה')).toBeNull();
+    expect(knownAdminRelationFor('')).toBeNull();
   });
 });

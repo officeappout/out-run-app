@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildPathIndex, type ParkPolygon, type PathLine } from '../../park-loops';
 import { buildValidatedDoc } from '../../route-collections/validate';
 import { routeScoreInputFromDoc } from '../../route-score/from-route-doc';
-import { corridorDoc, corridorEligible, namedCorridors, stitchSameName, type NamedWay } from '../named-corridors';
+import { corridorDoc, corridorEligible, namedCorridors, normalizeName, stitchSameName, type NamedWay } from '../named-corridors';
 import { generatedLoopName, loopNameParts, nameGeneratedLoop, type NamingContext } from '../route-naming';
 
 type LngLat = [number, number];
@@ -60,5 +60,71 @@ describe('generated loop names', () => {
   it('fallbacks: neighbourhood, then the city', () => {
     expect(generatedLoopName({ park: null, streets: [], place: 'נווה עמל' }, 4200, 'עיר')).toBe('לולאת נווה עמל · 4.2 ק״מ');
     expect(generatedLoopName({ park: null, streets: [], place: null }, 4200, 'הרצליה')).toBe('לולאה שכונתית בהרצליה · 4.2 ק״מ');
+  });
+});
+
+describe('promenades / boulevards (city pipeline)', () => {
+  // Rothschild-like: a 1.9 km road chain beside a short pedestrian strip, same name.
+  const road: NamedWay[] = [
+    { id: 10, name: 'שדרות רוטשילד', highway: 'tertiary', coords: seg(0, 1000, 32.1) },
+    { id: 11, name: 'שדרות רוטשילד', highway: 'tertiary', coords: seg(1000, 1940, 32.1) },
+  ];
+  const strip: NamedWay[] = [
+    { id: 20, name: 'שדרות רוטשילד', highway: 'pedestrian', coords: seg(100, 480, 32.1004) },
+  ];
+
+  it('שדרות / שדרת / מדרחוב make a street-class way eligible', () => {
+    for (const n of ['שדרות רוטשילד', 'שדרת בן גוריון', 'מדרחוב נחלת בנימין']) {
+      expect(corridorEligible({ id: 1, name: n, highway: 'residential', coords: seg(0, 900) }), n).toBe(true);
+    }
+    expect(corridorEligible({ id: 1, name: 'רחוב רוטשילד', highway: 'residential', coords: seg(0, 900) })).toBe(false);
+  });
+
+  it('the pedestrian strip is stitched apart from the parallel road, never merged into it', () => {
+    const cs = stitchSameName([...road, ...strip]);
+    expect(cs).toHaveLength(2);
+    const foot = cs.find((c) => c.wayIds.includes(20))!;
+    expect(foot.footShare).toBe(1);
+    expect(cs.find((c) => c.wayIds.includes(10))!.footShare).toBe(0);
+  });
+
+  it('min length: 0.5 km for a mostly-pedestrian promenade chain, 0.8 km otherwise', () => {
+    const mall: NamedWay[] = [{ id: 30, name: 'מדרחוב נחלת בנימין', highway: 'pedestrian', coords: seg(0, 600) }];
+    expect(namedCorridors(mall)).toHaveLength(1);
+    const street: NamedWay[] = [{ id: 31, name: 'שביל הנחל', highway: 'footway', coords: seg(0, 600) }]; // not a promenade/boulevard name
+    expect(namedCorridors(street)).toHaveLength(0);
+    const shortRoad: NamedWay[] = [{ id: 32, name: 'שדרות הים', highway: 'tertiary', coords: seg(0, 600) }]; // hinted but a road: no relaxation
+    expect(namedCorridors(shortRoad)).toHaveLength(0);
+    expect(namedCorridors([{ id: 33, name: 'מדרחוב', highway: 'pedestrian', coords: seg(0, 450) }])).toHaveLength(0); // < 0.5 km
+  });
+
+  it('flags promenade-hint candidates as low confidence on the doc; plain corridors are untouched', () => {
+    const [c] = namedCorridors([{ id: 30, name: 'מדרחוב נחלת בנימין', highway: 'pedestrian', coords: seg(0, 600) }]);
+    expect(c.lowConfidence).toBe('promenade_hint');
+    const d = corridorDoc(c, { authorityId: 'a1', city: 'עיר', osmSnapshot: null, importBatchId: 'b' });
+    expect(d.data.lowConfidence).toEqual({ reason: 'promenade_hint' });
+    expect(d.data.shapeType).toBe('linear_corridor');
+    buildValidatedDoc('official_routes', d.data, { mode: 'create', knownAuthorityIds: new Set(['a1']) });
+    const input = routeScoreInputFromDoc(d.id, d.data);
+    expect(input.lowConfidenceReason).toBe('promenade_hint');
+    expect(input.sourceTier).toBe('named_place');
+
+    const [plain] = namedCorridors([{ id: 1, name: 'טיילת הים', highway: 'footway', coords: seg(0, 1500) }]);
+    expect(plain.lowConfidence).toBeUndefined();
+    const pd = corridorDoc(plain, { authorityId: 'a1', city: 'עיר', osmSnapshot: null, importBatchId: 'b' });
+    expect(Object.prototype.hasOwnProperty.call(pd.data, 'lowConfidence')).toBe(false);
+    expect(routeScoreInputFromDoc(pd.id, pd.data).lowConfidenceReason).toBeUndefined();
+  });
+
+  it('NBSP / bidi marks in OSM names do not split a chain or defeat the hint', () => {
+    const ways: NamedWay[] = [
+      { id: 1, name: 'מדרחוב נחלת  בנימין', highway: 'pedestrian', coords: seg(0, 300) },
+      { id: 2, name: '‏מדרחוב נחלת בנימין‏', highway: 'pedestrian', coords: seg(300, 620) },
+    ];
+    expect(normalizeName('מדרחוב נחלת  בנימין ')).toBe('מדרחוב נחלת בנימין');
+    const cs = namedCorridors(ways);
+    expect(cs).toHaveLength(1);
+    expect(cs[0].name).toBe('מדרחוב נחלת בנימין');
+    expect(cs[0].wayIds).toEqual([1, 2]);
   });
 });

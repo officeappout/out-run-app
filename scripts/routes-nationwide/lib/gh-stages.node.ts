@@ -61,7 +61,7 @@ export function namedWaysProvider(a: AuthorityCtx, slice: AuthorityOsmSlice, imp
       // Only corridors whose middle lies inside the authority.
       const inside = namedCorridors(osm.namedWays).filter((c) => osm.rings.some((r) => pointInRing(c.coords[Math.floor(c.coords.length / 2)], r)));
       const v = validated(a, inside.map((c) => corridorDoc(c, { authorityId: a.id, city: a.name, osmSnapshot: osm.osmSnapshot, importBatchId })), 'named_ways');
-      return { routes: v.routes, note: `${osm.namedWays.length} named ways → ${inside.length} corridor(s) ≥ 0.8 km${v.invalid.length ? `, ${v.invalid.length} invalid (${v.invalid[0]})` : ''}` };
+      return { routes: v.routes, note: `${osm.namedWays.length} named ways → ${inside.length} corridor(s) ≥ 0.8 km (0.5 km for mostly-pedestrian promenade/boulevard chains)${v.invalid.length ? `, ${v.invalid.length} invalid (${v.invalid[0]})` : ''}` };
     },
   };
 }
