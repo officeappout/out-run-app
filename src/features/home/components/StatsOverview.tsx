@@ -21,6 +21,7 @@ import type { LocationId } from './WorkoutBuilderSheet';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { useSwapAll } from '@/features/workouts/components/workout-preview-drawer/hooks/useSwapAll';
+import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
 import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
 // PR 4 (Apr 2026) — these widgets were removed from this file as part of the
 // dashboard restructure. They are now mounted by the new dashboard rows in
@@ -664,12 +665,14 @@ export default function StatsOverview({
     (((anchorSelectedWorkout as any)?.executionLocation as ExecutionLocation) ||
       (currentWorkoutLocation as ExecutionLocation) ||
       'park');
+  const anchorLocationGateOn = useLocationGateV1(); // enable_location_gate_v1
   const { swapAll: anchorSwapAll } = useSwapAll({
     generatedWorkout: anchorSelectedWorkout,
     onGeneratedWorkoutUpdate: writeSwappedOption,
     userProfile: profile,
     currentLocation: anchorShownLocation,
     exercisePool: anchorExercisePool,
+    locationGateEnabled: anchorLocationGateOn,
   });
 
   /**

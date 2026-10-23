@@ -22,6 +22,7 @@ import { useUserStore } from '@/features/user';
 import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
+import type { LocationAvailability } from '../hooks/useLocationSwapPlanner';
 
 // Street intentionally omitted: data coverage is too thin, so it produces a flood of
 // "requires a station" keep-marks. Product decision — offer only park + home.
@@ -49,12 +50,21 @@ interface WorkoutLocationSwitcherProps {
   currentLocation: ExecutionLocation;
   isSwapping: boolean;
   onSwap: (value: ExecutionLocation) => void;
+  /** enable_location_gate_v1 — per-location verdict; a blocked location is shown greyed with a reason. */
+  availability?: Record<string, LocationAvailability>;
+  /** enable_location_gate_v1 — fired when the dropdown opens (the caller runs the availability dry-run). */
+  onOpen?: (otherLocations: ExecutionLocation[]) => void;
+  /** enable_location_gate_v1 — location whose swap was just refused: shows the inline notice. */
+  blockedLocation?: ExecutionLocation | null;
 }
 
 export default function WorkoutLocationSwitcher({
   currentLocation,
   isSwapping,
   onSwap,
+  availability,
+  onOpen,
+  blockedLocation,
 }: WorkoutLocationSwitcherProps) {
   const [open, setOpen] = useState(false);
   const t = useT(library);
@@ -69,6 +79,12 @@ export default function WorkoutLocationSwitcher({
     location: loc,
     gear: gearChips(loc),
     isActive: loc === currentLocation,
+    ...(availability?.[loc] && !availability[loc].allowed
+      ? {
+          disabled: true,
+          disabledReason: t('preview.location.unavailable.reason', { reason: availability[loc].reason ?? 'notEnoughContent' }),
+        }
+      : {}),
   }));
 
   return (
@@ -79,7 +95,10 @@ export default function WorkoutLocationSwitcher({
         options={options}
         open={open}
         canSwitch={!isSwapping}
-        onToggleOpen={() => setOpen((o) => !o)}
+        onToggleOpen={() => {
+          if (!open) onOpen?.(LOCATIONS.filter((l) => l !== currentLocation));
+          setOpen((o) => !o);
+        }}
         onClose={() => setOpen(false)}
         onSelect={(opt) => {
           setOpen(false);
@@ -87,6 +106,11 @@ export default function WorkoutLocationSwitcher({
         }}
       />
       {isSwapping && <span className="text-xs text-cyan-600 animate-pulse">{t('preview.location.swapping')}</span>}
+      {!isSwapping && blockedLocation && (
+        <span className="text-xs text-amber-600" role="status">
+          {t('preview.location.unavailable.notice', { location: blockedLocation })}
+        </span>
+      )}
     </div>
   );
 }
