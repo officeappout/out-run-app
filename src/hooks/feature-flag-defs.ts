@@ -576,6 +576,14 @@ export const FLAG_DEFS = [
   // list rows get an expandable "פרטי התרגיל" (the exercise page's muscles / cues / equipment).
   // Fail-closed; super admins preview it. Off = byte-identical players.
   { key: 'enableStrengthDrawerV1', firestoreKey: 'enable_strength_drawer_v1', defaultValue: false, superAdminValue: true },
+  // Wide player (23.10.2026, owner: "just make the strength workout screens responsive").
+  // Inside the enable_home_v2 players: on a wide container (width >= 900, or landscape under 700px
+  // high — desktop / tablet / TV browser / landscape phone) the strength player and the timed
+  // blocks (tabata / AMRAP / EMOM) switch to a side-by-side layout: the video big on the inline-start
+  // side, a panel with the name, big timer / target, "done" and next-up on the other, no bottom
+  // sheet, ~5% safe margins, keyboard (Space / arrows / Esc). Fail-closed; super admins preview it.
+  // Off = byte-identical players.
+  { key: 'enableWidePlayerV1', firestoreKey: 'enable_wide_player_v1', defaultValue: false, superAdminValue: true },
   // Site QR links (22.10.2026) — /admin/links shows a card for the three fixed-id links the
   // marketing site's QR codes point at (marketing_links/app-ios, app-android, app-smart): which
   // exist, their clicks, and one button that creates the missing ones with today's store URLs.

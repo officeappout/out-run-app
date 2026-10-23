@@ -13,6 +13,9 @@ import { useStrengthDrawerV1 } from '../hooks/useStrengthDrawerV1';
 import { useSnapDrawer } from '../../shared/v2/useSnapDrawer';
 import SnapDrawerGrabber from '../../shared/v2/SnapDrawerGrabber';
 import PlayerDrawerCompact from '../../shared/v2/PlayerDrawerCompact';
+import WideSplit from '../../shared/v2/WideSplit';
+import { useWidePlayer } from '../../shared/v2/WidePlayerContext';
+import ActiveRepsWidePanel from './ActiveRepsWidePanel';
 
 /**
  * ActiveExerciseView — the live ACTIVE-phase player surface.
@@ -136,6 +139,8 @@ export interface ActiveExerciseViewProps {
   autoStartTimer?: boolean;
   /** Video-progress callback piped to ExerciseVideoPlayer. */
   onSetVideoProgress?: (progress: number) => void;
+  /** enable_wide_player_v1: the next exercise, for the wide panel's next-up card. */
+  nextUp?: { name: string; caption?: string | null; imageUrl?: string | null };
 }
 
 export default function ActiveExerciseView({
@@ -178,6 +183,7 @@ export default function ActiveExerciseView({
   onVideoElement,
   autoStartTimer = false,
   onSetVideoProgress,
+  nextUp,
 }: ActiveExerciseViewProps) {
   // Gate the hidden prefetch <video> until the main video has started loading.
   // On iOS WKWebView, two concurrent video decoders can exhaust the system
@@ -190,7 +196,9 @@ export default function ActiveExerciseView({
   // (remembered for the app session) + the corner "הסבר" chip.
   const drawerV1 = useStrengthDrawerV1();
   const drawerState = useSnapDrawer('strength', drawerV1);
-  const drawer = drawerV1 ? drawerState : null;
+  // enable_wide_player_v1: wide = side panel instead of the bottom sheet (no drawer).
+  const { wide } = useWidePlayer();
+  const drawer = drawerV1 && !wide ? drawerState : null;
   const collapsed = !!drawer?.collapsed;
 
   // Reset the gate on every set remount so the prefetch is re-deferred.
@@ -198,45 +206,7 @@ export default function ActiveExerciseView({
     setMainVideoReady(false);
   }, [activeKey]);
 
-  return (
-    <div
-      key={activeKey}
-      className={`absolute inset-0 bg-black transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
-    >
-      {/* Video background layer.
-          #2: warmup/follow-along exercises run in follow-along MODE (non-looping
-          video), so onVideoEnded auto-advanced every few seconds. It is gated below
-          behind TIMER_AUTO_ADVANCE_ENABLED (the C1 flag) — while off, the clip ends
-          without advancing; the user taps "סיימתי". Covers regular + follow-along
-          warmup, standalone + hybrid. (reps loop, so onVideoEnded never fired for them.) */}
-      <ExerciseVideoPlayer
-        key={`player-${activeKey}`}
-        exerciseId={exerciseId}
-        videoUrl={safeVideoUrl}
-        exerciseName={exerciseName}
-        exerciseType={exerciseType}
-        isFollowAlong={isFollowAlong}
-        isPaused={videoPaused ?? isPaused}
-        hasAudio={false}
-        onVideoElement={onVideoElement}
-        fullTutorial={exerciseFullTutorial ?? null}
-        tutorialPlacement={drawerV1 ? 'corner' : 'legacy'}
-        onVideoProgress={onSetVideoProgress}
-        onVideoEnded={(isTimeExercise || !TIMER_AUTO_ADVANCE_ENABLED) ? undefined : () => onComplete()}
-        onLoadingChange={(loading) => {
-          if (!loading) setMainVideoReady(true);
-        }}
-      />
-
-      {/* Pre-fetch next exercise video — deferred until the main video has fired
-          loadeddata. On iOS WKWebView, mounting two <video> elements simultaneously
-          exhausts the concurrent decoder budget and can block the primary video. */}
-      {mainVideoReady && cachedNextVideoUrl && (
-        <video src={cachedNextVideoUrl} preload="auto" className="hidden" muted playsInline {...{"webkit-playsinline": "true"}} />
-      )}
-
-      {/* Isometric timer drawer — bottom sheet for time-based exercises */}
-      {isTimeExercise && (
+  const timerEl = isTimeExercise ? (
         <IsometricTimerCard
           key={`timer-${currentSide || 'bilateral'}`}
           duration={blockWorkSec ?? (exerciseDuration > 0 ? exerciseDuration : 30)}
@@ -252,8 +222,87 @@ export default function ActiveExerciseView({
           externalPaused={isPaused}
           guidanceLine={guidanceLine}
           drawer={drawer}
+          nextUp={wide ? nextUp : undefined}
         />
-      )}
+  ) : null;
+  const videoEl = (
+    <ExerciseVideoPlayer
+        key={`player-${activeKey}`}
+        exerciseId={exerciseId}
+        videoUrl={safeVideoUrl}
+        exerciseName={exerciseName}
+        exerciseType={exerciseType}
+        isFollowAlong={isFollowAlong}
+        isPaused={videoPaused ?? isPaused}
+        hasAudio={false}
+        onVideoElement={onVideoElement}
+        fullTutorial={exerciseFullTutorial ?? null}
+        tutorialPlacement={drawerV1 || wide ? 'corner' : 'legacy'}
+        onVideoProgress={onSetVideoProgress}
+        onVideoEnded={(isTimeExercise || !TIMER_AUTO_ADVANCE_ENABLED) ? undefined : () => onComplete()}
+        onLoadingChange={(loading) => {
+          if (!loading) setMainVideoReady(true);
+        }}
+      />
+  );
+  const prefetchEl = mainVideoReady && cachedNextVideoUrl ? (
+    <video src={cachedNextVideoUrl} preload="auto" className="hidden" muted playsInline {...{"webkit-playsinline": "true"}} />
+  ) : null;
+
+  if (wide) {
+    return (
+      <div
+        key={activeKey}
+        className={`absolute inset-0 bg-black transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
+      >
+        <WideSplit
+          media={videoEl}
+          panel={isTimeExercise ? timerEl : (
+            <ActiveRepsWidePanel
+              activeKey={activeKey}
+              exerciseName={exerciseName}
+              repsOrDurationText={repsOrDurationText}
+              isUnilateral={isUnilateral}
+              targetValue={targetValue}
+              currentRound={currentRound}
+              totalRounds={totalRounds}
+              isSupersetActive={isSupersetActive}
+              supersetPartnerName={supersetPartnerName}
+              guidanceLine={guidanceLine}
+              autoCompleteTime={autoCompleteTime}
+              isPaused={isPaused}
+              v2={v2}
+              nextUp={nextUp}
+              onComplete={() => onComplete()}
+              onSwap={onSwap}
+            />
+          )}
+        />
+        {prefetchEl}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      key={activeKey}
+      className={`absolute inset-0 bg-black transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
+    >
+      {/* Video background layer.
+          #2: warmup/follow-along exercises run in follow-along MODE (non-looping
+          video), so onVideoEnded auto-advanced every few seconds. It is gated below
+          behind TIMER_AUTO_ADVANCE_ENABLED (the C1 flag) — while off, the clip ends
+          without advancing; the user taps "סיימתי". Covers regular + follow-along
+          warmup, standalone + hybrid. (reps loop, so onVideoEnded never fired for them.) */}
+      {videoEl}
+
+      {/* Pre-fetch next exercise video — deferred until the main video has fired
+          loadeddata. On iOS WKWebView, mounting two <video> elements simultaneously
+          exhausts the concurrent decoder budget and can block the primary video. */}
+      {prefetchEl}
+
+      {/* Isometric timer drawer — bottom sheet for time-based exercises */}
+      {isTimeExercise && timerEl}
 
       {/* Scrollable overlay — spacer lets video show, then the white card peeks up */}
       {!isTimeExercise && (

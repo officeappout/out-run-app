@@ -513,3 +513,16 @@ src/features/schedule/components/ScheduleBuilderSheetV2.tsx
 # buildDefaultMessages). The file's other Hebrew is marked: admin type labels and the INITIAL_SEED_DATA written to
 # Firestore / localStorage (stored data). Those defaults are what seedDefaultMessages writes, so they stay Hebrew.
 src/features/messages/services/MessageService.ts
+# wide player (enable_wide_player_v1, namespace player, wide.* keys) — born translated.
+src/features/workout-engine/players/shared/v2/WideSplit.tsx
+src/features/workout-engine/players/shared/v2/WideHeroClock.tsx
+src/features/workout-engine/players/shared/v2/WideNextUp.tsx
+src/features/workout-engine/players/shared/v2/WideKeyHints.tsx
+src/features/workout-engine/players/shared/v2/WidePlayerContext.tsx
+src/features/workout-engine/players/shared/v2/useWideLayout.ts
+src/features/workout-engine/players/shared/v2/useWideKeys.ts
+src/features/workout-engine/players/shared/v2/wide-layout-logic.ts
+src/features/workout-engine/players/shared/v2/wide-keys.ts
+src/features/workout-engine/players/strength/components/ActiveRepsWidePanel.tsx
+src/features/workout-engine/players/strength/logic/wide-key-actions.ts
+src/features/workout-engine/players/strength/hooks/useWidePlayerV1.ts

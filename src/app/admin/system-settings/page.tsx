@@ -111,6 +111,7 @@ interface FlagState {
   enable_scoped_official_routes: boolean;
   enable_swap_fixes_v1: boolean;
   enable_strength_drawer_v1: boolean;
+  enable_wide_player_v1: boolean;
   enable_site_qr_links: boolean;
   enable_history_summary_parity: boolean;
   enable_workout_insights_v1: boolean;
@@ -883,6 +884,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'נגן כוח/טבטה/AMRAP/EMOM: מגירה מתקפלת',
     description: 'הכרטיס התחתון בנגן הכוח ובטבטה/AMRAP/EMOM נהיה מגירה: קומפקטית (שם התרגיל, טיימר/סבב, יעד וכפתור ראשי) או מלאה, בגרירה או בהקשה, והבחירה נשמרת. הווידאו נשאר גלוי. "צפה בהסבר המלא" עובר לכפתור "הסבר" קטן בפינת הווידאו ולפרטי התרגיל ברשימה, ושורות הרשימה נפתחות לשרירים, דגשים וציוד כמו בעמוד התרגיל.',
+  },
+  // Wide player (23.10.2026) — the strength / timed players on landscape, tablet, desktop and TV screens.
+  {
+    key: 'enable_wide_player_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'נגן כוח/טבטה/AMRAP/EMOM: מסך רחב (נוף, טאבלט, מחשב, טלוויזיה)',
+    description: 'כשהמסך רחב (לפחות 900 פיקסלים, או טלפון במצב נוף), הנגן עובר לפריסה לצד הווידאו: הווידאו גדול בצד אחד, ובצד השני שם התרגיל, טיימר או יעד גדול, כפתור "סיימתי סט" והתרגיל הבא. אין מגירה תחתונה, יש שוליים בטוחים, ואפשר לשלוט במקלדת: רווח, חצים ו-Esc. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = הנגן כמו היום.',
+    parentKey: 'enable_home_v2',
   },
   // Site QR links (22.10.2026) — the marketing site's app-store QR codes.
   {

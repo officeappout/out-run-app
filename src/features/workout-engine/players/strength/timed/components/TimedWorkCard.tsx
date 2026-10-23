@@ -16,6 +16,7 @@ import TimedCardShell from './TimedCardShell';
 import TimedNextRow from './TimedNextRow';
 import PlayerDrawerCompact from '../../../shared/v2/PlayerDrawerCompact';
 import type { SnapDrawerState } from '../../../shared/v2/useSnapDrawer';
+import { useWidePlayer } from '../../../shared/v2/WidePlayerContext';
 
 export interface TimedWorkCardProps {
   eyebrow: string;
@@ -65,6 +66,8 @@ function MinuteRing({ clock, fraction, warn }: { clock: string; fraction: number
 
 export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, hint, minute, runDistanceM = 0, onDone, drawer = null }: TimedWorkCardProps) {
   const isRun = item.kind === 'aerobic_leg';
+  const { wide } = useWidePlayer();
+  const heroStyle = wide ? { fontSize: 80, lineHeight: 1 } : undefined;
   const target = itemTarget(item);
   const left = isRun && item.distanceM ? Math.max(0, Math.round(item.distanceM - runDistanceM)) : null;
   const compact = drawer ? (
@@ -88,18 +91,18 @@ export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, 
       {minute && <MinuteRing clock={minute.clock} fraction={minute.fraction} warn={warn} />}
       {left != null ? (
         <div className="mb-0.5 flex items-baseline justify-center gap-2">
-          <span className="text-[36px] font-black leading-10 tabular-nums !tracking-[-0.02em] text-v2-ink">{left}</span>
+          <span className="text-[36px] font-black leading-10 tabular-nums !tracking-[-0.02em] text-v2-ink" style={heroStyle}>{left}</span>
           <span className="whitespace-nowrap text-[13px] font-extrabold text-[#65a30d]">מ׳ נותרו</span>
         </div>
       ) : (
         target && (
           <div className="mb-0.5 flex items-baseline justify-center gap-2">
-            <span className="text-[36px] font-black leading-10 tabular-nums !tracking-[-0.02em] text-v2-ink">{target.value}</span>
+            <span className="text-[36px] font-black leading-10 tabular-nums !tracking-[-0.02em] text-v2-ink" style={heroStyle}>{target.value}</span>
             <span className={`whitespace-nowrap text-[13px] font-extrabold ${isRun ? 'text-[#65a30d]' : 'text-v2-deep'}`}>{target.unit}</span>
           </div>
         )
       )}
-      <p className="mb-1 truncate whitespace-nowrap text-center text-[17px] font-black !tracking-[-0.01em] text-v2-ink">{item.name}</p>
+      <p className={`mb-1 text-center font-black !tracking-[-0.01em] text-v2-ink ${wide ? 'text-[26px] leading-tight' : 'truncate whitespace-nowrap text-[17px]'}`}>{item.name}</p>
       {hint && (
         <p className={`mb-2 truncate whitespace-nowrap text-center text-[12.5px] font-bold ${warn ? 'text-[#ea580c]' : 'text-v2-muted'}`}>{hint}</p>
       )}

@@ -26,6 +26,12 @@ import { isPlayerAudioMuted } from '../logic/player-audio-mute';
 import PlayerDrawerBody from '../../shared/v2/PlayerDrawerBody';
 import PlayerDrawerCompact from '../../shared/v2/PlayerDrawerCompact';
 import type { SnapDrawerState } from '../../shared/v2/useSnapDrawer';
+import { useWidePlayer } from '../../shared/v2/WidePlayerContext';
+import WideHeroClock from '../../shared/v2/WideHeroClock';
+import WideNextUp from '../../shared/v2/WideNextUp';
+import WideKeyHints from '../../shared/v2/WideKeyHints';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface IsometricTimerCardProps {
   duration: number;
@@ -81,6 +87,8 @@ interface IsometricTimerCardProps {
   guidanceLine?: string;
   /** enable_strength_drawer_v1: the card as a two-snap drawer (compact = name + clock + action). Absent = today's card. */
   drawer?: SnapDrawerState | null;
+  /** enable_wide_player_v1: next exercise for the wide panel's next-up card. */
+  nextUp?: { name: string; caption?: string | null; imageUrl?: string | null };
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -153,7 +161,11 @@ export default function IsometricTimerCard({
   externalPaused = false,
   guidanceLine,
   drawer = null,
+  nextUp,
 }: IsometricTimerCardProps) {
+  // enable_wide_player_v1: the same card as the wide side panel (hero clock, no sheet chrome).
+  const { wide } = useWidePlayer();
+  const t = useT(player);
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
@@ -367,8 +379,9 @@ export default function IsometricTimerCard({
 
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-20 bg-white dark:bg-[#0F172A] rounded-t-3xl shadow-2xl select-none"
+      className={wide ? 'select-none' : 'absolute inset-x-0 bottom-0 z-20 bg-white dark:bg-[#0F172A] rounded-t-3xl shadow-2xl select-none'}
       dir="rtl"
+      data-wide-timer={wide ? '' : undefined}
     >
       <div
         className="px-6 pt-4"
@@ -417,6 +430,29 @@ export default function IsometricTimerCard({
           )}
         </div>
 
+        {wide ? (
+          <div className="mb-3">
+            <WideHeroClock
+              text={phase === 'idle' ? formatTime(duration) : phase === 'preparing' ? String(prepCountdown) : formatTime(elapsed)}
+              sub={phase === 'overtime' ? `+${overtimeSec}s` : `/ ${formatTime(duration)}`}
+              progress={progress}
+              tone={phase === 'overtime' ? 'ok' : phase === 'idle' || phase === 'preparing' ? 'idle' : remaining <= 5 ? 'warn' : 'accent'}
+              dim={(isPaused || externalPaused) && isActive}
+            />
+            {phase === 'idle' && (
+              <button
+                type="button"
+                onClick={start}
+                className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-[20px] font-black text-white shadow-sm"
+                style={{ background: 'linear-gradient(to left, #00C9F2, #00AEEF)' }}
+              >
+                <Timer size={22} />
+                {sideLabel ? t('wide.startSide', { side: sideLabel }) : t('wide.start')}
+              </button>
+            )}
+          </div>
+        ) : (
+        <>
         {/* Rectangle progress timer box */}
         <div
           className="relative flex justify-center mb-2 cursor-pointer"
@@ -552,17 +588,20 @@ export default function IsometricTimerCard({
           </div>
         </div>
 
+        </>
+        )}
+
         {/* Target duration */}
-        <p
+        {!wide && <p
           className="text-sm text-slate-400 dark:text-slate-500 text-center mb-1 tabular-nums"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           / {formatTime(duration)}
-        </p>
+        </p>}
 
         {/* Exercise name */}
         <p
-          className="text-base font-bold text-slate-900 dark:text-white text-center mb-4"
+          className={wide ? 'text-[26px] font-black leading-tight text-slate-900 text-center mb-4' : 'text-base font-bold text-slate-900 dark:text-white text-center mb-4'}
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           {exerciseName}
@@ -615,6 +654,8 @@ export default function IsometricTimerCard({
             <span>סיימתי</span>
           </button>
         )}
+        {wide && nextUp && <WideNextUp {...nextUp} />}
+        {wide && <WideKeyHints />}
         </PlayerDrawerBody>
       </div>
     </div>
