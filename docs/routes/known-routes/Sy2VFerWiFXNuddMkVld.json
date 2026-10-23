@@ -1,0 +1,7 @@
+{
+ "authorityId": "Sy2VFerWiFXNuddMkVld",
+ "city": "קרית אתא",
+ "researchedAt": "2026-10-23",
+ "routes": [],
+ "notes": "No named municipal route found in fetched/searched pages (only hobbyist GPX shares - excluded). OSM has a named park 'גבעת לוקי'; a ~2 km circular path in 'פארק לוקי' is mentioned in a search snippet only (not fetched) - needs manual check. Named boulevards (שדרות יוספטל 2.7 km etc.) are roads, see CITIES-RESEARCH-C.md."
+}

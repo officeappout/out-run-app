@@ -38,12 +38,14 @@ export function useDrawerMediaState(
   exercises: WorkoutExercise[] | undefined,
   location: string | null | undefined,
   workoutCoverImage: string | undefined,
+  /** enable_location_gate_v1: poster-from-video fallback for the hero still. */
+  posterFromVideo = false,
 ): UseDrawerMediaStateReturn {
   const heroMedia = useMemo<HeroMedia | null>(() => {
     if (!exercises?.length) return null;
     const heroEx = pickHeroExercise(exercises, location);
-    return resolveHeroMedia(heroEx, location);
-  }, [exercises, location]);
+    return resolveHeroMedia(heroEx, location, posterFromVideo ? { posterFromVideo } : undefined);
+  }, [exercises, location, posterFromVideo]);
 
   const cachedHeroThumb = useCachedMediaUrl(
     heroMedia?.thumbnailUrl || workoutCoverImage || null,

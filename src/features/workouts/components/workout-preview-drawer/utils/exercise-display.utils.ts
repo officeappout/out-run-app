@@ -9,10 +9,23 @@
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import type { LibraryT } from '@/messages/ns/library';
+import { resolveMethodPoster } from '@/features/workout-engine/shared/utils/method-media.utils';
+
+export interface ResolveExerciseImageOptions {
+  /**
+   * enable_location_gate_v1: when the assigned method has a video but no image, show a still derived
+   * from THAT method's own video (never another method's image, never the placeholder).
+   */
+  posterFromVideo?: boolean;
+}
 
 /** Resolve exercise thumbnail image URL via shared 5-level deep search */
-export function resolveExerciseImage(ex: EngineWorkoutExercise): string {
+export function resolveExerciseImage(ex: EngineWorkoutExercise, opts?: ResolveExerciseImageOptions): string {
   const method = ex.method as any;
+  if (opts?.posterFromVideo) {
+    const poster = resolveMethodPoster(method);
+    if (poster) return poster;
+  }
   // Bug fix: resolveExerciseMedia only stays method-scoped while the
   // assigned method (`ex.method` — already chosen for this exercise's real
   // location at generation time) has media of its own. Once that method has

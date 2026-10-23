@@ -1,0 +1,61 @@
+{
+ "authorityId": "mzQYo5tux0QIa5auWO0q",
+ "city": "כרמיאל",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "שביל סובב כרמיאל",
+   "aliases": [
+    "סובב כרמיאל",
+    "מסלול סובב כרמיאל"
+   ],
+   "kind": "mixed",
+   "lengthKm": 6,
+   "inPark": null,
+   "description": "שביל מרוצף מסביב לעיר, מתאים לעגלות ולאופניים; אורך 6 ק\"מ לפי תקציר חיפוש.",
+   "sources": [
+    {
+     "url": "https://familytrips.co.il/%D7%A9%D7%91%D7%99%D7%9C-%D7%A1%D7%95%D7%91%D7%91-%D7%9B%D7%A8%D7%9E%D7%99%D7%90%D7%9C-%D7%94%D7%9E%D7%93%D7%A8%D7%99%D7%9A-%D7%94%D7%9E%D7%9C%D7%90-%D7%9C%D7%9E%D7%A1%D7%9C%D7%95%D7%9C-%D7%95%D7%A0/",
+     "title": "שביל סובב כרמיאל (בשביל המשפחה) - search result only"
+    },
+    {
+     "url": "https://inature.info/wiki/%D7%A9%D7%91%D7%99%D7%9C_%D7%A1%D7%95%D7%91%D7%91_%D7%9B%D7%A8%D7%9E%D7%99%D7%90%D7%9C",
+     "title": "שביל סובב כרמיאל (iNature) - search result only"
+    }
+   ]
+  },
+  {
+   "name": "פארק הגליל",
+   "aliases": [
+    "פארק המחצבה"
+   ],
+   "kind": "walk",
+   "lengthKm": null,
+   "inPark": "פארק הגליל",
+   "description": "פארק גדול במחצבה לשעבר במרכז העיר עם שבילי הליכה מרוצפים.",
+   "sources": [
+    {
+     "url": "https://he.wikipedia.org/wiki/כרמיאל",
+     "title": "כרמיאל - ויקיפדיה - fetched"
+    }
+   ]
+  },
+  {
+   "name": "פארק רבין",
+   "aliases": [
+    "פארק רבין כרמיאל"
+   ],
+   "kind": "walk",
+   "lengthKm": null,
+   "inPark": "פארק רבין",
+   "description": "פארק עירוני בכרמיאל.",
+   "sources": [
+    {
+     "url": "https://he.wikipedia.org/wiki/כרמיאל",
+     "title": "כרמיאל - ויקיפדיה - fetched"
+    }
+   ]
+  }
+ ],
+ "notes": "OSM big parks: פארק הגליל, פארק רבין, פארק דנבר. OSM also has 'שביל שותפות 2000' (path|footway, 0.92 km inside; the whole route ~35 km is mostly outside) and 'פאמפטרק' (1.1 km)."
+}

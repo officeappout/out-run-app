@@ -5,6 +5,7 @@
  * Phase 1 refactor.  Every sibling file imports its types from here so
  * the module has a single source of truth and no circular dependencies.
  */
+import type React from 'react';
 import type {
   GeneratedWorkout,
   WorkoutExercise as EngineWorkoutExercise,
@@ -133,6 +134,8 @@ export interface WorkoutActions {
   onToggleFavorite: () => void;
   onShare: () => void;
   onDownload: () => void;
+  /** Extra control rendered after the download button (TV mode's ⋯ menu, enable_tv_mode_v1). */
+  trailing?: React.ReactNode;
 }
 
 // ── Pyramid Step Shape ───────────────────────────────────────────────────

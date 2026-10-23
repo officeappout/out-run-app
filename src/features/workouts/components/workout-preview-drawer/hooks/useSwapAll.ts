@@ -25,11 +25,15 @@
  * into ONE `onGeneratedWorkoutUpdate` so it reaches the runner via Merge 1's converter.
  *
  * Gated by SWAP_ALL_ENABLED at the call sites (this hook is inert unless invoked).
+ *
+ * enable_location_gate_v1 (`locationGateEnabled`): the swap becomes plan → verdict → apply. The pure dry-run
+ * lives in ../location-gate/plan-location-swap.ts (stricter replacement pool, coverage threshold); below the
+ * threshold the swap is refused and nothing changes, otherwise the plan is applied through finalizeSwap.
+ * With the flag off the loop below is the original, byte for byte.
  */
 
 import { useCallback, useState } from 'react';
 import type { Exercise, ExecutionLocation } from '@/features/content/exercises';
-import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { methodHasCompleteMedia } from '@/features/content/exercises/core/exercise.types';
 import type {
   GeneratedWorkout,
@@ -39,23 +43,12 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { selectMethodForContext } from '@/features/workout-engine/shared/utils/method-selection.utils';
 import type { SwapDimension } from '@/features/workout-engine/shared/utils/method-dimension.utils';
 import { deriveSwappedEntry } from '../utils/derive-swapped-entry.util';
-import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
-import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import { getAlternativeExercises, exerciseHasLocation } from '@/features/workout-engine/generator/services/exercise-replacement.service';
-import { normalizeEquipmentArray } from '@/features/workout-engine/core/middleware/InputSanitizerMiddleware';
-import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
-import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
-import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
-import {
-  calculateEstimatedDuration,
-  calculateWorkoutStats,
-} from '@/features/workout-engine/logic/workout-budgeting.utils';
-import {
-  resolveWorkoutMetadata,
-  type WorkoutMetadataContext,
-  type TimeOfDay,
-} from '@/features/workout-engine/services/workout-metadata.service';
-import type { LifestylePersona } from '@/features/workout-engine/logic/ContextualEngine';
+import { finalizeSwap } from '../utils/finalize-swap';
+import { resolveSwapGear } from '../utils/resolve-swap-gear';
+import { healPairedLinks, restoreCollapsedRoles } from '../utils/swap-entries.util';
+import { useLocationSwapPlanner, type LocationAvailability } from './useLocationSwapPlanner';
+import type { GateBlockReason } from '../location-gate/location-coverage.util';
 
 interface UseSwapAllParams {
   generatedWorkout: GeneratedWorkout | null | undefined;
@@ -65,18 +58,29 @@ interface UseSwapAllParams {
   currentLocation: ExecutionLocation;
   /** Drawer's prefetched pool — reused so a bulk swap does 0 extra full-collection reads. */
   exercisePool?: Exercise[];
+  /**
+   * enable_location_gate_v1. true → the swap is a dry-run plan first: refused (nothing changes) when the
+   * coverage is below the threshold, otherwise applied from the plan. false/omitted → today's loop, unchanged.
+   */
+  locationGateEnabled?: boolean;
 }
 
 export interface SwapAllResult {
   swappedMethod: number;
   swappedExercise: number;
   keptMarked: number;
+  /** enable_location_gate_v1 — set when the swap was refused; the workout was left untouched. */
+  blocked?: GateBlockReason;
+  /** enable_location_gate_v1 — the location whose switch was refused. */
+  blockedLocation?: ExecutionLocation;
 }
 
 interface UseSwapAllReturn {
   swapAll: (dimension: SwapDimension, value: string) => Promise<void>;
   isSwapping: boolean;
   lastResult: SwapAllResult | null;
+  /** enable_location_gate_v1 — per-location allowed / disabled verdict (dry-run), for the switcher. */
+  checkAvailability: (locations: ExecutionLocation[]) => Promise<Record<string, LocationAvailability>>;
 }
 
 export function useSwapAll({
@@ -85,9 +89,11 @@ export function useSwapAll({
   userProfile,
   currentLocation,
   exercisePool,
+  locationGateEnabled = false,
 }: UseSwapAllParams): UseSwapAllReturn {
   const [isSwapping, setIsSwapping] = useState(false);
   const [lastResult, setLastResult] = useState<SwapAllResult | null>(null);
+  const { planFor, checkAvailability } = useLocationSwapPlanner({ generatedWorkout, userProfile, exercisePool });
 
   const swapAll = useCallback(
     async (dimension: SwapDimension, value: string) => {
@@ -99,14 +105,30 @@ export function useSwapAll({
 
       setIsSwapping(true);
       try {
-        // ── Resolve gear for the new location — SAME source as generation ──
-        await ensureEquipmentCachesLoaded();
-        const gymList = await getAllGymEquipment();
-        let parkGear: string[] | undefined;
-        if (newLocation === 'park' || newLocation === 'street') {
-          parkGear = (await resolveWorkoutContext(userProfile, newLocation, {})).availableGear;
+        // enable_location_gate_v1: decide from a dry-run plan; refuse (no change) below the threshold.
+        if (locationGateEnabled) {
+          const plan = await planFor(newLocation);
+          if (!plan.coverage.allowed) {
+            setLastResult({ swappedMethod: 0, swappedExercise: 0, keptMarked: 0, blocked: plan.coverage.reason ?? 'notEnoughContent', blockedLocation: newLocation });
+            console.log(`[swapAll] ${dimension}→${value}: refused by the location gate (${plan.coverage.reason})`);
+            return;
+          }
+          await finalizeSwap({
+            generatedWorkout,
+            healed: plan.entries,
+            newLocation,
+            systemSwaps: plan.systemSwaps,
+            onGeneratedWorkoutUpdate,
+          });
+          setLastResult(plan.counts);
+          console.log(
+            `[swapAll] ${dimension}→${value}: ${plan.counts.swappedMethod} method-swap, ${plan.counts.swappedExercise} exercise-swap, ${plan.counts.keptMarked} kept+marked (gate: ${Math.round(plan.coverage.ratio * 100)}%)`,
+          );
+          return;
         }
-        const gear = normalizeEquipmentArray(userProfile, newLocation, parkGear, gymList);
+
+        // ── Resolve gear for the new location — SAME source as generation ──
+        const gear = await resolveSwapGear(userProfile, newLocation);
 
         // ── Per-exercise null-rule (sequential: exclude set grows per replacement) ──
         const exclude = new Set<string>(generatedWorkout.exercises.map((e) => e.exercise.id));
@@ -242,98 +264,18 @@ export function useSwapAll({
           keptMarked++;
         }
 
-        // ── Collapse-guard: never let omitting supplemental exercises empty a whole role block.
-        //    If every warm-up (or every cooldown) was omitted, restore the omitted ones for that
-        //    role (as-today, possibly park media) so the block still renders — warm-ups lead,
-        //    cooldowns trail, original relative order preserved.
-        for (const roleName of ['warmup', 'cooldown'] as const) {
-          const survives = newEntries.some((e) => e.exerciseRole === roleName);
-          const omittedForRole = omittedSupplemental.filter((e) => e.exerciseRole === roleName);
-          if (!survives && omittedForRole.length > 0) {
-            if (roleName === 'warmup') newEntries.unshift(...omittedForRole);
-            else newEntries.push(...omittedForRole);
-          }
-        }
+        restoreCollapsedRoles(newEntries, omittedSupplemental);
 
         // ── Two-pass superset heal: re-point pairedWith across all replacements ──
-        const healed = newEntries.map((e) => {
-          const link = e.pairedWith;
-          if (link && oldToNew.has(link)) return { ...e, pairedWith: oldToNew.get(link)! };
-          return e;
+        const healed = healPairedLinks(newEntries, oldToNew);
+
+        await finalizeSwap({
+          generatedWorkout,
+          healed,
+          newLocation,
+          systemSwaps,
+          onGeneratedWorkoutUpdate,
         });
-
-        // ── Cascade: duration + stats (pure; volume-preserving swaps leave these unchanged) ──
-        const estimatedDuration = calculateEstimatedDuration(healed);
-        // userWeight omitted: a location swap must not silently change the calorie basis;
-        // the engine's default is used, matching a volume-preserving swap.
-        const stats = calculateWorkoutStats(healed, generatedWorkout.difficulty, estimatedDuration);
-
-        // ── Cascade: title/description/aiCue for the new location (defensive) ──
-        let title = generatedWorkout.title;
-        let description = generatedWorkout.description;
-        let aiCue = generatedWorkout.aiCue;
-        const snap = generatedWorkout.metadataCtx;
-        if (snap) {
-          try {
-            const ctx: WorkoutMetadataContext = {
-              persona: (snap.persona ?? null) as LifestylePersona | null,
-              timeOfDay: (snap.timeOfDay as TimeOfDay) ?? 'evening',
-              gender: snap.gender,
-              category: snap.category,
-              categoryLabel: snap.categoryLabel,
-              difficulty: snap.difficulty,
-              dominantMuscle: snap.dominantMuscle,
-              experienceLevel: snap.experienceLevel,
-              sportType: snap.sportType,
-              motivationStyle: snap.motivationStyle,
-              currentProgram: snap.currentProgram,
-              situation: snap.situation,
-              location: newLocation,
-              durationMinutes: estimatedDuration,
-            };
-            const md = await resolveWorkoutMetadata(ctx);
-            if (md.title) title = md.title;
-            if (md.description) description = md.description;
-            if (md.aiCue) aiCue = md.aiCue;
-          } catch (err) {
-            console.warn('[swapAll] metadata recompute failed — keeping existing title', err);
-          }
-        }
-
-        const updated: GeneratedWorkout = {
-          ...generatedWorkout,
-          exercises: healed,
-          estimatedDuration,
-          stats,
-          title,
-          description,
-          aiCue,
-          // Stamp the live location on the content so the switcher badge + the
-          // no-op guard read it back from here (not the static prop).
-          executionLocation: newLocation,
-        };
-        onGeneratedWorkoutUpdate?.(updated);
-        // Phase 0 swap log — system-initiated (a location change, not a
-        // judgement about the exercise). Fire-and-forget; never blocks.
-        for (const sw of systemSwaps) {
-          const stamp = adaptationStampForPlan(sw.from);
-          logExerciseSwap({
-            fromExerciseId: sw.from.exercise.id,
-            fromName: getLocalizedText(sw.from.exercise.name, 'he'),
-            toExerciseId: sw.to.id,
-            toName: getLocalizedText(sw.to.name, 'he'),
-            domain: stamp.domain,
-            fromLevel: stamp.exerciseLevel,
-            toLevel: sw.toLevel,
-            userDomainLevel: stamp.userDomainLevel,
-            direction: sw.direction,
-            source: 'swap_all_location',
-            flow: 'preview',
-            userInitiated: false,
-            location: newLocation,
-            segmentRole: sw.from.exerciseRole,
-          });
-        }
         const result = { swappedMethod, swappedExercise, keptMarked };
         setLastResult(result);
         console.log(
@@ -345,8 +287,8 @@ export function useSwapAll({
         setIsSwapping(false);
       }
     },
-    [generatedWorkout, onGeneratedWorkoutUpdate, userProfile, currentLocation, exercisePool],
+    [generatedWorkout, onGeneratedWorkoutUpdate, userProfile, currentLocation, exercisePool, locationGateEnabled, planFor],
   );
 
-  return { swapAll, isSwapping, lastResult };
+  return { swapAll, isSwapping, lastResult, checkAvailability };
 }

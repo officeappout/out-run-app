@@ -11,6 +11,7 @@ import type {
   SegmentProtocolId,
 } from '@/features/workout-engine/core/types/protocol.types';
 import type { SurfaceType } from '@/lib/route-collections/surface-type';
+import type { SurfaceClass } from '@/lib/route-score/surface-class';
 import type { RouteShadeInfo } from '@/lib/route-shade-view';
 import type { ClimbType } from './climb-segment.types';
 import type { AmenityCategory, CourtSport } from './osm-amenity.types';
@@ -485,6 +486,15 @@ export interface Route {
    * conflate the two or repoint either field's readers at the other.
    */
   surfaceType?: SurfaceType;
+
+  /**
+   * App-facing surface class for the map's surface filter (owner-approved
+   * 23.10.2026): walk_run_paved | hike_offroad | bike_road | bike_offroad |
+   * unknown. Computed by the route-score pipeline and copied onto the doc
+   * (new routes at creation, existing ones by backfill-route-surface-class).
+   * Absent = not computed — readers use routeSurfaceClass() (utils/route-surface.ts).
+   */
+  surfaceClass?: SurfaceClass;
 
   /**
    * Cross-reference to nearby `climb_segments` docs whose geometry passes

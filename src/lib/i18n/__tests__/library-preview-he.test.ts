@@ -60,7 +60,7 @@ describe('library preview.* — plain strings', () => {
   });
 
   it('covers every preview.* key (count per prefix)', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('preview.')).length).toBe(74);
+    expect(Object.keys(he).filter((k) => k.startsWith('preview.')).length).toBe(77); // 74 + the 3 preview.location.unavailable.* keys (enable_location_gate_v1)
   });
 });
 
@@ -141,5 +141,23 @@ describe('library preview.* — values and branches (old templates verbatim)', (
         `💪 ${title}\nבואו לנסות את האימון שלי ב-Out!\n${APP_ORIGIN}`,
       );
     }
+  });
+});
+
+describe('library preview.location.unavailable.* (enable_location_gate_v1)', () => {
+  it('title', () => {
+    expect(t('preview.location.unavailable.title')).toBe('לא זמין לאימון הזה');
+  });
+  it('reason: ICU select on the block reason, short (2-3 words), unknown falls to the generic one', () => {
+    expect(t('preview.location.unavailable.reason', { reason: 'notEnoughContent' })).toBe('אין מספיק תוכן');
+    expect(t('preview.location.unavailable.reason', { reason: 'pinnedUncovered' })).toBe('חסר תוכן למיומנות');
+    expect(t('preview.location.unavailable.reason', { reason: 'tooFewMains' })).toBe('מעט תרגילים זמינים');
+    expect(t('preview.location.unavailable.reason', { reason: 'something-else' })).toBe('אין מספיק תוכן');
+  });
+  it('notice: ICU select on the location', () => {
+    expect(t('preview.location.unavailable.notice', { location: 'home' })).toBe('המעבר לבית לא זמין באימון הזה');
+    expect(t('preview.location.unavailable.notice', { location: 'park' })).toBe('המעבר לפארק לא זמין באימון הזה');
+    expect(t('preview.location.unavailable.notice', { location: 'service' })).toBe('המעבר לשירות לא זמין באימון הזה');
+    expect(t('preview.location.unavailable.notice', { location: 'gym' })).toBe('המעבר למיקום הזה לא זמין באימון הזה');
   });
 });

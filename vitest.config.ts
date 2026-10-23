@@ -47,6 +47,8 @@ export default defineConfig({
       'src/features/workout-engine/players/shared/v2/__tests__/**/*.test.tsx',
       // Workout insights (enable_workout_insights_v1) — request builder, API fallbacks, render fallbacks.
       'src/features/workout-engine/components/strength/insights/__tests__/**/*.test.tsx',
+      // TV mode (enable_tv_mode_v1) — wide stage / phone remote render tests, static markup.
+      'src/features/tv-mode/__tests__/**/*.test.tsx',
       // Unified search (enable_unified_search) — flag-off parity + card render tests, static markup.
       'src/features/search/__tests__/**/*.test.tsx',
       // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.
@@ -132,6 +134,8 @@ export default defineConfig({
       // site_content published-only read / content_suggestions server-only — emulator :8089.
       'tests/firestore-site-content.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',
+      // TV mode (enable_tv_mode_v1) — tvSessions PROPOSAL rules (docs/tv-mode), run through the real repo.
+      'tests/firestore-tv-sessions.rules.test.ts',
       // workouts.timedBlocks (enable_home_v2) write + read back — emulator :8089.
       'tests/workouts-timed-blocks.rules.test.ts',
       'tests/firestore-trail-segments.rules.test.ts',

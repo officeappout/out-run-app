@@ -553,3 +553,9 @@ src/features/workout-engine/players/shared/v2/run-chrome/
 src/features/workout-engine/components/shared-link/
 src/features/workout-engine/services/shared-workout-view.ts
 src/features/workout-engine/services/shared-workout-media.ts
+
+# TV mode (enable_tv_mode_v1, namespace wide, keys pair.* / remote.* / lost.* / lobby.* / stage.* / joined.* / download.*) —
+# born translation-ready: every user-facing string is in src/messages/he/wide.json from the first commit.
+src/features/tv-mode/
+src/app/tv/
+src/app/api/tv/

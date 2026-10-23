@@ -20,6 +20,7 @@ import HealthDeclarationSelfHeal from "@/features/user/onboarding/components/Hea
 import OnboardingSessionReset from "@/features/user/onboarding/components/OnboardingSessionReset";
 import EdgeSwipeBack from "@/components/system/EdgeSwipeBack";
 import { isTopPaddingExemptRoute } from "@/lib/top-padding-exempt-routes";
+import TvPhoneLayer from "@/features/tv-mode/phone/TvPhoneLayer";
 
 /**
  * Mounts the global midnight clock once. Bumps the dateKey atom at 00:00
@@ -37,7 +38,7 @@ function MidnightClock() {
 // of the screen, so the global BottomNavbar can coexist at the bottom.
 // '/privacy', '/terms' and '/accessibility' are standalone public compliance pages that must
 // render as clean web documents without any mobile app chrome.
-const HIDDEN_NAV_ROUTES = ['/qa', '/explorer', '/intro', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/accessibility', '/public', '/join', '/challenge', '/booth'];
+const HIDDEN_NAV_ROUTES = ['/qa', '/explorer', '/intro', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/accessibility', '/public', '/join', '/challenge', '/booth', '/tv'];
 
 export default function ClientLayout({
   children,
@@ -168,6 +169,8 @@ export default function ClientLayout({
           {/* Sign-out / account switch → wipe the previous account's onboarding state (renders nothing). */}
           <OnboardingSessionReset />
           <OnboardingSyncErrorToast />
+          {/* TV mode (enable_tv_mode_v1): the phone's pairing / remote / participant UI. Off = renders nothing. */}
+          <TvPhoneLayer />
         </LazyMotion>
       </ToastProvider>
     </>

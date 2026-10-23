@@ -196,6 +196,12 @@ export const RATE_LIMITS = {
   routeShade: {
     uid: () => envWindow('RL_ROUTE_SHADE_UID', 10 * MIN, 120),
   },
+  // POST /api/tv/session (23.10.2026, enable_tv_mode_v1) — a TV page opens a pairing code. Public
+  // (the TV has no account), so it is limited per IP: a household opens a handful, a script cannot
+  // mint codes by the thousand.
+  tvSession: {
+    ip: () => envWindow('RL_TV_SESSION_IP', HOUR, 30),
+  },
 } as const;
 
 /**

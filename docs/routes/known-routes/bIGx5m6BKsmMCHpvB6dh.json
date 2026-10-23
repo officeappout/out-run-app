@@ -1,0 +1,4 @@
+{"authorityId":"bIGx5m6BKsmMCHpvB6dh","city":"בית שמש","researchedAt":"2026-10-23","routes":[
+{"name": "פארק התפוח", "aliases": ["פארק התפוח בית שמש"], "kind": "walk", "lengthKm": null, "inPark": "פארק התפוח", "description": "פארק בצפון העיר שנחל שמש עובר בו", "sources": [{"url": "https://he.wikipedia.org/wiki/בית_שמש", "title": "בית שמש - ויקיפדיה"}]},
+{"name": "פארק ירמות", "aliases": ["פארק ירמות בית שמש"], "kind": "walk", "lengthKm": null, "inPark": "פארק ירמות", "description": "פארק שנחל ירמות עובר בו", "sources": [{"url": "https://he.wikipedia.org/wiki/בית_שמש", "title": "בית שמש - ויקיפדיה"}]}
+],"notes":"Thin: no named trail in the source. OSM footways named after wadis/streets (נחל דולב 1.97 km, נחל איילון 1.23 km, הרב קוק 2.67 km) are neighbourhood street-names, not routes; not added."}

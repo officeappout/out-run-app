@@ -1,0 +1,26 @@
+{
+ "authorityId": "Piik4x7BnjrKAnsrcTiA",
+ "city": "נוף הגליל",
+ "researchedAt": "2026-10-23",
+ "routes": [
+  {
+   "name": "טיילת יער צ'רצ'יל",
+   "aliases": [
+    "טיילת הנוף יער צ'רצ'יל",
+    "טיילת צ'רצ'יל",
+    "טיילת הנוף נוף הגליל"
+   ],
+   "kind": "mixed",
+   "lengthKm": 4.5,
+   "inPark": "יער צ'רצ'יל",
+   "description": "טיילת נוף במעלה יער צ'רצ'יל עם נתיב צעידה ונתיב אופניים נפרדים; יוזמה משותפת של קק\"ל והעירייה. שם וקיום בלבד.",
+   "sources": [
+    {
+     "url": "https://www.maariv.co.il/lifestyle/travel/article-1109269",
+     "title": "טיילת הנוף הארוכה ביותר בצפון נחנכה בנוף הגליל (מעריב) - נראה בתוצאת חיפוש בלבד"
+    }
+   ]
+  }
+ ],
+ "notes": "Name from a search-result snippet (page fetch failed); no matching named way in OSM today (only 'שביל הטירשונים' 0.92 km, 'דרך נוף בית קשת')."
+}
