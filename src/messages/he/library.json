@@ -380,5 +380,18 @@
   "sharedWorkout.reps.range": "{min}-{max} {unit, select, seconds {שניות} other {חזרות}}{side, select, yes { (לכל צד)} other {}}{goal, select, yes { (יעד: {target})} other {}}",
   "sharedWorkout.reps.single": "{min} {unit, select, seconds {שניות} other {חזרות}}{side, select, yes { (לכל צד)} other {}}{goal, select, yes { (יעד: {target})} other {}}",
   "sharedWorkout.reps.defaultReps": "8-12 חזרות{side, select, yes { (לכל צד)} other {}}",
-  "sharedWorkout.reps.defaultHold": "20-40 שניות"
+  "sharedWorkout.reps.defaultHold": "20-40 שניות",
+  "sharedWorkout.link.share.title": "{gender, select, female {{name} שיתפה איתך אימון שאהבה} male {{name} שיתף איתך אימון שאהב} other {אימון משותף מאת {name}}}",
+  "sharedWorkout.link.share.fallbackTitle": "שיתפו איתך אימון",
+  "sharedWorkout.link.share.sub": "אפשר לשמור או להתחיל מתי שנוח",
+  "sharedWorkout.link.invite.title": "{gender, select, female {{name} הזמינה אותך להתאמן} male {{name} הזמין אותך להתאמן} other {הזמנה להתאמן מאת {name}}}",
+  "sharedWorkout.link.invite.fallbackTitle": "הוזמנת להתאמן",
+  "sharedWorkout.link.invite.today": "היום",
+  "sharedWorkout.link.invite.tomorrow": "מחר",
+  "sharedWorkout.link.invite.when": "{day} · {time}",
+  "sharedWorkout.link.invite.going": "{count, plural, =1 {מגיע אחד} other {{count} מגיעים}}",
+  "sharedWorkout.link.cta.save": "שמירה לאימונים שלי",
+  "sharedWorkout.link.cta.saved": "נשמר באימונים שלי",
+  "sharedWorkout.link.cta.start": "התחלת אימון",
+  "sharedWorkout.link.cta.join": "מצטרפים לאימון"
 }
