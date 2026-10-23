@@ -8,6 +8,7 @@ import { decideRouteAccuracy } from '../route-decisions/decide-accuracy';
 import { classifyRouteGenerator } from '../route-collections/route-generator';
 import { isOfficialOperator } from '../trail-graph/difficulty';
 import { haversineM } from '../route-quality/geo';
+import { maxVertexGapM } from '../route-geometry/gaps';
 import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier, UrbanRouteKind } from './types';
 import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN, SETTLEMENT_LOOP_PIPELINE } from './weights';
 import { classifySurface, surfaceSharesFromDoc } from './surface-class';
@@ -215,6 +216,7 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     amenitiesHas,
     osmSafety: opts.osmSafety ?? null,
     geometry,
+    geometryGapM: path.length >= 2 ? maxVertexGapM(path) : null,
     sourceTier,
     urbanKind: deriveUrbanKind(d, sourceTier, shape, !!parkRef),
     ...(d?.generator?.pipeline === SETTLEMENT_LOOP_PIPELINE ? { settlementLoop: true } : {}),

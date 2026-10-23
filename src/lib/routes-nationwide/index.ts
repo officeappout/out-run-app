@@ -7,3 +7,4 @@ export * from './admin-match';
 export * from './authority-backfill';
 export * from './dedupe';
 export * from './cross-council';
+export * from './geometry-gaps';

@@ -184,6 +184,7 @@ AUTHORIZED_ROUTE_WRITERS=(
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
   # 22.10.2026 regional-run cleanup: rename / archive-as-duplicate of still-pending docs; buildValidatedDoc update mode, updateTime precondition, never deletes.
   "scripts/routes-nationwide/lib/cleanup-apply.node.ts"
+  "scripts/routes-nationwide/lib/geometry-gap-apply.node.ts"
   "scripts/routes-nationwide/cleanup-regional-pending.ts"
   # Admin AI assistant wave 3 (22.10.2026): READ-ONLY counts of official_routes /
   # climb_segments waiting for approval (same filters as the approval center page).
@@ -257,6 +258,7 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
   # 22.10.2026 regional-run cleanup: rename / archive-as-duplicate of still-pending docs; buildValidatedDoc update mode, updateTime precondition, never deletes.
   "scripts/routes-nationwide/lib/cleanup-apply.node.ts"
+  "scripts/routes-nationwide/lib/geometry-gap-apply.node.ts"
   "src/lib/admin-analytics/pending-approvals.server.ts"
   # RC10 (22.10.2026): field-level {displayRole:'connector'} tag on one
   # authority's official_routes — buildValidatedDoc update mode at the write

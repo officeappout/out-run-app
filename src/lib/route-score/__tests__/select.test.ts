@@ -29,6 +29,17 @@ describe('selectTopN', () => {
     const res = selectTopN(rs, small);
     expect(res.rows.map((r) => r.decision)).toEqual(['candidate', 'rejected', 'selected']);
   });
+  it('a route with a straight bridge (vertex step >= 1 km) is never auto-selected — manual review, even at a top score', () => {
+    const bridged = route({ score: 92 });
+    bridged.input.geometryGapM = 13_760;
+    const sparse = route({ score: 80 });
+    sparse.input.geometryGapM = 400; // a legit sparse straight way
+    const unmeasured = route({ score: 79 }); // geometryGapM absent (older callers)
+    const res = selectTopN([bridged, sparse, unmeasured], small);
+    expect(res.rows.map((r) => r.decision)).toEqual(['manual_review', 'selected', 'selected']);
+    expect(res.rows[0].reason).toContain('13760 m');
+    expect(res.selectedIds).not.toContain(bridged.input.id);
+  });
   it('official 55-70 goes to manual review, not selected', () => {
     const res = selectTopN([route({ score: 60, tier: 'official' }), route({ score: 50, tier: 'official' })], small);
     expect(res.rows.map((r) => r.decision)).toEqual(['manual_review', 'candidate']);

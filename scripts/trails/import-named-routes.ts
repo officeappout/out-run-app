@@ -21,7 +21,7 @@ import { COPERNICUS_DEM_ATTRIBUTION } from '../../src/lib/dem-tile-cache/coperni
 import { isOfficialOperator, rateDifficulty, starPrior, type StarInput } from '../../src/lib/trail-graph/difficulty';
 import { distM, midpointAlong } from '../../src/lib/trail-graph/geo';
 import { disambiguateDuplicateNames, endpointNames, generatedRouteName, nameRoute, nearestFeature, officialName } from '../../src/lib/trail-graph/naming';
-import { classifyShape, dedupBySegments, generateFromStart, orderSegments, SegmentGraph, stepsGeometry } from '../../src/lib/trail-graph/route-assembly';
+import { classifyShape, dedupBySegments, generateFromStart, orderSegmentChains, planChainParts, relationRouteId, SegmentGraph, stepsGeometry } from '../../src/lib/trail-graph/route-assembly';
 import { routeStats } from '../../src/lib/trail-graph/route-stats';
 import { attachElevationProfiles } from '../../src/lib/trail-graph/route-elevation';
 import { loadCopernicusProvider } from '../../src/lib/dem-tile-cache/copernicus-glo30-cache.node';
@@ -84,74 +84,89 @@ export async function runImportNamedRoutes(opts: { relationId: number; area: str
   }
   const named: TrailRoute[] = [];
   const skipped: Array<{ relationId: number; reason: string }> = [];
+  const skippedParts: Array<{ relationId: number; part: number; lengthM: number }> = [];
   for (const [rid, segs] of Array.from(relSegs.entries()).sort((a, b) => a[0] - b[0])) {
     const rel = ex.data.relations.get(rid);
     if (!rel || !isTrailRouteRelation(rel)) continue;
-    const ord = orderSegments(segs);
-    if (ord.lengthM < 300) { skipped.push({ relationId: rid, reason: `only ${Math.round(ord.lengthM)} m inside the pilot area` }); continue; }
-    const ordered = ord.segmentIds.map((id) => segById.get(id)!);
-    const stats = routeStats(ordered, ord.forward);
-    const shape = classifyShape(ord.geometry, ord.lengthM);
-    const memberWays = rel.members.filter((m) => m.type === 'w').map((m) => m.ref);
-    const covered = new Set(segs.flatMap((s) => s.osmWayIds));
-    const clipped = memberWays.some((w) => !covered.has(w));
-    const colour = trailColour(rel.tags) ?? ordered.find((s) => s.colour)?.colour ?? null;
-    const ref = rel.tags.ref ?? null;
-    const mid = midpointAlong(ord.geometry);
-    const settlement = ctx.nearestSettlement(mid)?.name ?? null;
-    const nm = nameRoute({
-      relationTags: rel.tags,
-      colour,
-      ref,
-      shape,
-      geometry: ord.geometry,
-      namedWayLengths: ordered.filter((s) => s.name).map((s) => ({ name: s.name!, lengthM: s.lengthM })),
-      builtUpShare: stats.builtUpPct / 100,
-      parkName: ctx.parkFor(ord.geometry),
-      toponyms: ctx.toponyms,
-      places: ctx.places,
-      settlement,
-      nextPlaceholderIndex,
-    });
-    const official = isOfficialOperator(rel.tags.operator);
-    const off = officialName(rel.tags);
-    const difficulty = rateDifficulty({ gainM: stats.gainM, distM: stats.lengthM, builtUpShare: stats.builtUpPct / 100, maxGrade50mPct: stats.maxGrade50mOpenPct, segments: ordered });
-    const stars = starPrior(scoreInputs(ctx, ordered, ord.geometry, official ? (off ? 'official_named' : 'official_unnamed') : 'osm_relation'));
-    named.push({
-      id: `osm_rel_${rid}`,
-      kind: 'osm_relation',
-      name: nm.name,
-      nameSource: nm.nameSource,
-      needsName: nm.needsName,
-      activity: ['mtb', 'bicycle'].includes(rel.tags.route) ? 'cycling' : 'walking',
-      shape,
-      segmentIds: ord.segmentIds,
-      segmentForward: ord.forward,
-      geometry: ord.geometry,
-      stats,
-      difficulty,
-      stars,
-      settlement,
-      osm: {
-        relationId: rid,
-        route: rel.tags.route,
-        operator: rel.tags.operator ?? null,
-        network: rel.tags.network ?? null,
-        ref,
+    // Continuous chains only — a relation clipped by the boundary (or with missing ways) is NEVER bridged
+    // with straight lines (24.10.2026). The longest chain is part 1; further chains become their own routes
+    // when long enough. A relation with >1 chain gets `_pN` ids so they can never collide with an old,
+    // bridged `osm_rel_<id>` doc (create-only would skip it).
+    const chains = orderSegmentChains(segs);
+    if (!chains.length) continue;
+    const plan = planChainParts(chains);
+    for (const d of plan.droppedShort) {
+      if (d.rank === 1) skipped.push({ relationId: rid, reason: `only ${d.lengthM} m of continuous trail inside the pilot area` });
+      else skippedParts.push({ relationId: rid, part: d.rank, lengthM: d.lengthM });
+    }
+    const partCount = plan.partCount;
+    for (const { chain: ord, rank } of plan.parts) {
+      const ordered = ord.segmentIds.map((id) => segById.get(id)!);
+      const stats = routeStats(ordered, ord.forward);
+      const shape = classifyShape(ord.geometry, ord.lengthM);
+      const memberWays = rel.members.filter((m) => m.type === 'w').map((m) => m.ref);
+      const covered = new Set(segs.flatMap((s) => s.osmWayIds));
+      const clipped = memberWays.some((w) => !covered.has(w));
+      const colour = trailColour(rel.tags) ?? ordered.find((s) => s.colour)?.colour ?? null;
+      const ref = rel.tags.ref ?? null;
+      const mid = midpointAlong(ord.geometry);
+      const settlement = ctx.nearestSettlement(mid)?.name ?? null;
+      const nm = nameRoute({
+        relationTags: rel.tags,
         colour,
-        officialName: off,
-        clippedToPilotArea: clipped,
-        continuity: ord.continuity,
-      },
-      ...(shape === 'linear' ? { endpoints: endpointNames(ord.geometry, ctx.places) } : {}),
-      license: OSM_LICENSE,
-      attribution: ATTRIBUTION,
-    });
+        ref,
+        shape,
+        geometry: ord.geometry,
+        namedWayLengths: ordered.filter((s) => s.name).map((s) => ({ name: s.name!, lengthM: s.lengthM })),
+        builtUpShare: stats.builtUpPct / 100,
+        parkName: ctx.parkFor(ord.geometry),
+        toponyms: ctx.toponyms,
+        places: ctx.places,
+        settlement,
+        nextPlaceholderIndex,
+      });
+      const official = isOfficialOperator(rel.tags.operator);
+      const off = officialName(rel.tags);
+      const difficulty = rateDifficulty({ gainM: stats.gainM, distM: stats.lengthM, builtUpShare: stats.builtUpPct / 100, maxGrade50mPct: stats.maxGrade50mOpenPct, segments: ordered });
+      const stars = starPrior(scoreInputs(ctx, ordered, ord.geometry, official ? (off ? 'official_named' : 'official_unnamed') : 'osm_relation'));
+      named.push({
+        id: relationRouteId(rid, rank, partCount),
+        kind: 'osm_relation',
+        name: nm.name,
+        nameSource: nm.nameSource,
+        needsName: nm.needsName,
+        activity: ['mtb', 'bicycle'].includes(rel.tags.route) ? 'cycling' : 'walking',
+        shape,
+        segmentIds: ord.segmentIds,
+        segmentForward: ord.forward,
+        geometry: ord.geometry,
+        stats,
+        difficulty,
+        stars,
+        settlement,
+        osm: {
+          relationId: rid,
+          route: rel.tags.route,
+          operator: rel.tags.operator ?? null,
+          network: rel.tags.network ?? null,
+          ref,
+          colour,
+          officialName: off,
+          clippedToPilotArea: clipped,
+          continuity: ord.continuity,
+          ...(partCount > 1 ? { partIndex: rank, partCount } : {}),
+        },
+        ...(shape === 'linear' ? { endpoints: endpointNames(ord.geometry, ctx.places) } : {}),
+        license: OSM_LICENSE,
+        attribution: ATTRIBUTION,
+      });
+
+    }
   }
   const namedDedup = dedupBySegments(named, (r) => NAME_RANK[r.nameSource] * 10 - r.stars.total - r.stats.lengthM / 1e6);
   for (const m of namedDedup.merged) {
     const k = namedDedup.kept.find((r) => r.id === m.into)!;
-    (k.dedupedRelationIds ??= []).push(Number(m.id.replace('osm_rel_', '')));
+    (k.dedupedRelationIds ??= []).push(Number(/^osm_rel_(\d+)/.exec(m.id)?.[1]));
   }
 
   // ── 2. Generated loops / out-and-backs from each יישוב ────────────────
@@ -218,7 +233,9 @@ export async function runImportNamedRoutes(opts: { relationId: number; area: str
     [...ctx.toponyms, ...ctx.places],
   );
   for (const r of finalRoutes) {
-    const n = renamed.get(r.id);
+    let n = renamed.get(r.id);
+    // Parts of one relation that nothing else tells apart: "<name> · קטע N" (N = rank by length), not "(n)".
+    if (n && r.osm?.partIndex && /\(\d+\)$/.test(n)) n = `${r.name} · קטע ${r.osm.partIndex}`;
     if (n) { r.nameDisambiguatedFrom = r.name; r.name = n; }
   }
 
@@ -230,7 +247,7 @@ export async function runImportNamedRoutes(opts: { relationId: number; area: str
   fs.writeFileSync(path.join(outDir, 'named-routes.json'), JSON.stringify({ meta: meta(), routes: namedDedup.kept, merged: namedDedup.merged, skipped }));
   fs.writeFileSync(path.join(outDir, 'generated-routes.json'), JSON.stringify({ meta: meta(), routes: genKept, droppedAsDuplicates: all.merged.filter((m) => m.id.startsWith('gen_')), settlementsWithoutStart: noStart }));
 
-  const summary = { ...summarize(segments, namedDedup.kept, genKept, namedDedup.merged.length, skipped.length, ctx), routesWithElevationProfile: withProfile };
+  const summary = { ...summarize(segments, namedDedup.kept, genKept, namedDedup.merged.length, skipped.length, skippedParts, ctx), routesWithElevationProfile: withProfile };
   fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 2));
   fs.writeFileSync(path.join(outDir, 'apply-plan.json'), JSON.stringify(applyPlan(segments.length, namedDedup.kept.length, genKept.length), null, 2));
   return summary;
@@ -240,7 +257,7 @@ export async function runImportNamedRoutes(opts: { relationId: number; area: str
   }
 }
 
-function summarize(segments: TrailSegment[], named: TrailRoute[], gen: TrailRoute[], dedupMerged: number, skipped: number, ctx: PilotContext) {
+function summarize(segments: TrailSegment[], named: TrailRoute[], gen: TrailRoute[], dedupMerged: number, skipped: number, skippedParts: Array<{ relationId: number; part: number; lengthM: number }>, ctx: PilotContext) {
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 1000) / 10 : 0);
   const by = <T extends string>(rs: TrailRoute[], k: (r: TrailRoute) => T) => rs.reduce<Record<string, number>>((a, r) => ((a[k(r)] = (a[k(r)] ?? 0) + 1), a), {});
   const sample = (r: TrailRoute) => ({
@@ -255,6 +272,8 @@ function summarize(segments: TrailSegment[], named: TrailRoute[], gen: TrailRout
     namedRoutes: named.length,
     namedRoutesDedupMerged: dedupMerged,
     relationsSkippedTooLittleInArea: skipped,
+    routePartsSkippedTooShort: skippedParts,
+    relationsSplitIntoParts: new Set(named.filter((r) => r.osm?.partIndex).map((r) => r.osm!.relationId)).size,
     namedByActivity: by(named, (r) => r.activity),
     namedByOperator: by(named, (r) => r.osm?.operator ?? '(none)'),
     namedByNameSource: by(named, (r) => r.nameSource),

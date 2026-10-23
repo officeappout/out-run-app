@@ -11,108 +11,149 @@ export interface OrderedRoute {
   forward: boolean[];
   geometry: LngLat[];
   lengthM: number;
-  /** Longest connected piece / total length (1 = fully continuous). */
+  /** This chain's length / total input length (1 = the input was one continuous walk). */
   continuity: number;
+  /** Straight bridges inside `geometry`: always 0 for orderSegmentChains (kept for the single-chain wrapper: other chains left out). */
   gaps: number;
 }
 
 type SegLite = Pick<TrailSegment, 'id' | 'startNode' | 'endNode' | 'lengthM' | 'geometry'>;
 
 /**
- * Orders an unordered set of segments into one walk: start at a dead end
- * (degree-1 node) of the largest component if there is one, greedily
- * follow unused segments, and when stuck jump to the nearest unused
- * segment end (counted as a gap). Spurs therefore get walked in-and-out
- * only if they're members — OSM route relations rarely include spurs.
+ * Orders an unordered set of segments into CONTINUOUS chains — never bridged.
+ *
+ * Every chain is a walk in which each segment starts at the node the previous
+ * one ended on, so its polyline has no jump longer than a segment's own vertex
+ * spacing. A walk starts at the westmost dead end (degree-1 node) of the
+ * largest remaining component (else the first segment by id), greedily
+ * follows the longest unused continuation, and ENDS when it is stuck. Whatever
+ * is left (the other pieces of a relation that was clipped by a boundary or has
+ * missing ways, or a spur the walk passed by) starts the next chain.
+ *
+ * History: this used to "jump to the nearest unused segment end" and keep
+ * going, which drew a straight line across the gap (24.10.2026: "שביל גולני ·
+ * קטע מטה בנימין", 11.4 km of trail with a 13.8 km chord). Callers decide what
+ * to do with the pieces (import-named-routes.ts: each long-enough chain is its
+ * own route part). Chains come back longest first; `gaps` is always 0 and
+ * `continuity` is the chain's share of ALL the input length.
  */
-export function orderSegments(segs: SegLite[]): OrderedRoute {
-  if (!segs.length) return { segmentIds: [], forward: [], geometry: [], lengthM: 0, continuity: 0, gaps: 0 };
-  const byNode = new Map<number, SegLite[]>();
-  for (const s of segs) {
-    for (const n of [s.startNode, s.endNode]) {
-      const a = byNode.get(n) ?? [];
-      a.push(s);
-      byNode.set(n, a);
-    }
-  }
-  // components (for continuity + choosing a start)
-  const comp = new Map<string, number>();
-  const compLen: number[] = [];
-  for (const s of segs) {
-    if (comp.has(s.id)) continue;
-    const c = compLen.length;
-    compLen.push(0);
-    const stack = [s];
-    comp.set(s.id, c);
-    while (stack.length) {
-      const x = stack.pop()!;
-      compLen[c] += x.lengthM;
-      for (const n of [x.startNode, x.endNode]) for (const y of byNode.get(n) ?? []) {
-        if (!comp.has(y.id)) { comp.set(y.id, c); stack.push(y); }
+export function orderSegmentChains(segs: SegLite[]): OrderedRoute[] {
+  if (!segs.length) return [];
+  const total = segs.reduce((a, s) => a + s.lengthM, 0);
+  const used = new Set<string>();
+  const chains: OrderedRoute[] = [];
+  while (used.size < segs.length) {
+    const rest = segs.filter((s) => !used.has(s.id));
+    const byNode = new Map<number, SegLite[]>();
+    for (const s of rest) {
+      for (const n of [s.startNode, s.endNode]) {
+        const a = byNode.get(n) ?? [];
+        a.push(s);
+        byNode.set(n, a);
       }
     }
-  }
-  const total = compLen.reduce((a, b) => a + b, 0);
-  const bigComp = compLen.indexOf(Math.max(...compLen));
-  const deadEnds = Array.from(byNode.entries()).filter(([, a]) => a.length === 1 && comp.get(a[0].id) === bigComp);
-  // Deterministic start: the dead end that is westmost (then southmost).
-  let startNode: number;
-  if (deadEnds.length) {
-    deadEnds.sort((a, b) => {
-      const pa = endCoord(a[0], a[1][0]);
-      const pb = endCoord(b[0], b[1][0]);
-      return pa[0] - pb[0] || pa[1] - pb[1];
-    });
-    startNode = deadEnds[0][0];
-  } else {
-    const first = segs.filter((s) => comp.get(s.id) === bigComp).sort((a, b) => a.id.localeCompare(b.id))[0];
-    startNode = first.startNode;
-  }
-
-  const used = new Set<string>();
-  const ids: string[] = [];
-  const fwd: boolean[] = [];
-  const geometry: LngLat[] = [];
-  let gaps = 0;
-  let cur = startNode;
-  let curPt: LngLat | null = null;
-  while (used.size < segs.length) {
-    const options = (byNode.get(cur) ?? []).filter((s) => !used.has(s.id));
-    let next: SegLite | undefined;
-    let forward = true;
-    if (options.length) {
-      // prefer the longest continuation (keeps the main line, leaves stubs for later)
-      next = options.sort((a, b) => b.lengthM - a.lengthM || a.id.localeCompare(b.id))[0];
-      forward = next.startNode === cur;
-    } else {
-      // jump to nearest unused end
-      let best = Infinity;
-      for (const s of segs) {
-        if (used.has(s.id)) continue;
-        for (const [n, f] of [[s.startNode, true], [s.endNode, false]] as const) {
-          const d = curPt ? distM(curPt, endCoord(n, s)) : 0;
-          if (d < best) { best = d; next = s; forward = f; }
+    // components of what is left (to choose the start)
+    const comp = new Map<string, number>();
+    const compLen: number[] = [];
+    for (const s of rest) {
+      if (comp.has(s.id)) continue;
+      const c = compLen.length;
+      compLen.push(0);
+      const stack = [s];
+      comp.set(s.id, c);
+      while (stack.length) {
+        const x = stack.pop()!;
+        compLen[c] += x.lengthM;
+        for (const n of [x.startNode, x.endNode]) for (const y of byNode.get(n) ?? []) {
+          if (!comp.has(y.id)) { comp.set(y.id, c); stack.push(y); }
         }
       }
-      gaps++;
     }
-    if (!next) break;
-    used.add(next.id);
-    ids.push(next.id);
-    fwd.push(forward);
-    const g = forward ? next.geometry : [...next.geometry].reverse();
-    geometry.push(...(geometry.length && options.length ? g.slice(1) : g));
-    cur = forward ? next.endNode : next.startNode;
-    curPt = g[g.length - 1];
+    let bigComp = 0;
+    compLen.forEach((l, i) => { if (l > compLen[bigComp]) bigComp = i; });
+    const deadEnds = Array.from(byNode.entries()).filter(([, a]) => a.length === 1 && comp.get(a[0].id) === bigComp);
+    // Deterministic start: the dead end that is westmost (then southmost).
+    let cur: number;
+    if (deadEnds.length) {
+      deadEnds.sort((a, b) => {
+        const pa = endCoord(a[0], a[1][0]);
+        const pb = endCoord(b[0], b[1][0]);
+        return pa[0] - pb[0] || pa[1] - pb[1];
+      });
+      cur = deadEnds[0][0];
+    } else {
+      cur = rest.filter((s) => comp.get(s.id) === bigComp).sort((a, b) => a.id.localeCompare(b.id))[0].startNode;
+    }
+
+    const ids: string[] = [];
+    const fwd: boolean[] = [];
+    const geometry: LngLat[] = [];
+    let len = 0;
+    for (;;) {
+      const options = (byNode.get(cur) ?? []).filter((s) => !used.has(s.id));
+      if (!options.length) break; // stuck: this chain ends — NO jump
+      // prefer the longest continuation (keeps the main line, leaves stubs for later)
+      const next = options.sort((a, b) => b.lengthM - a.lengthM || a.id.localeCompare(b.id))[0];
+      const forward = next.startNode === cur;
+      used.add(next.id);
+      ids.push(next.id);
+      fwd.push(forward);
+      len += next.lengthM;
+      const g = forward ? next.geometry : [...next.geometry].reverse();
+      geometry.push(...(geometry.length ? g.slice(1) : g));
+      cur = forward ? next.endNode : next.startNode;
+    }
+    chains.push({ segmentIds: ids, forward: fwd, geometry, lengthM: Math.round(len * 10) / 10, continuity: total > 0 ? Math.round((len / total) * 1000) / 1000 : 0, gaps: 0 });
   }
-  return {
-    segmentIds: ids,
-    forward: fwd,
-    geometry,
-    lengthM: Math.round(total * 10) / 10,
-    continuity: total > 0 ? Math.round((compLen[bigComp] / total) * 1000) / 1000 : 0,
-    gaps,
-  };
+  return chains.sort((a, b) => b.lengthM - a.lengthM || a.segmentIds[0].localeCompare(b.segmentIds[0]));
+}
+
+export const NAMED_MAIN_MIN_M = 300;
+export const NAMED_PART_MIN_M = 800;
+
+export interface ChainPlan {
+  /** Chains that become routes, longest first; `rank` is 1-based among ALL chains of the relation. */
+  parts: Array<{ chain: OrderedRoute; rank: number }>;
+  /** Chains too short to be a route (rank, length). */
+  droppedShort: Array<{ rank: number; lengthM: number }>;
+  /** ALL chains of the relation (kept or not) — decides whether ids carry a `_pN` suffix. */
+  partCount: number;
+}
+
+/**
+ * Which chains of one relation become routes: the longest needs NAMED_MAIN_MIN_M
+ * (the pipeline's usual floor), every further chain NAMED_PART_MIN_M.
+ */
+export function planChainParts(chains: OrderedRoute[], mainMinM = NAMED_MAIN_MIN_M, partMinM = NAMED_PART_MIN_M): ChainPlan {
+  const parts: ChainPlan['parts'] = [];
+  const droppedShort: ChainPlan['droppedShort'] = [];
+  chains.forEach((chain, i) => {
+    if (chain.lengthM >= (i === 0 ? mainMinM : partMinM)) parts.push({ chain, rank: i + 1 });
+    else droppedShort.push({ rank: i + 1, lengthM: Math.round(chain.lengthM) });
+  });
+  return { parts, droppedShort, partCount: chains.length };
+}
+
+/**
+ * Doc id of a relation route. A relation that is a single continuous chain keeps
+ * `osm_rel_<id>`; one that is several chains gets `osm_rel_<id>_p<rank>` for EVERY
+ * chain (even if only one is long enough) so none can collide with an older,
+ * bridged `osm_rel_<id>` doc — create-only would skip the id.
+ */
+export function relationRouteId(relationId: number, rank: number, partCount: number): string {
+  return partCount > 1 ? `osm_rel_${relationId}_p${rank}` : `osm_rel_${relationId}`;
+}
+
+/**
+ * The longest continuous chain only (never bridged). `gaps` = how many other
+ * chains were left out; `continuity` = the returned chain's share of the input.
+ * Kept for callers that want exactly one walk; the trails pipeline uses
+ * orderSegmentChains so no piece is silently dropped.
+ */
+export function orderSegments(segs: SegLite[]): OrderedRoute {
+  const chains = orderSegmentChains(segs);
+  if (!chains.length) return { segmentIds: [], forward: [], geometry: [], lengthM: 0, continuity: 0, gaps: 0 };
+  return { ...chains[0], gaps: chains.length - 1 };
 }
 
 function endCoord(node: number, s: SegLite): LngLat {

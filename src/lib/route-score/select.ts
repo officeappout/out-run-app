@@ -19,6 +19,8 @@
  *   ranked pass entirely and added AFTER it — up to SETTLEMENT_LOOPS_SELECT_MAX,
  *   best score first, any band but red — so they never take a ranked route's
  *   place and never count toward the quota (counts.settlementLoops).
+ * - a route whose path has a single step ≥ GEOMETRY_GAP_REVIEW_M between two vertices
+ *   (a straight bridge across missing trail) is never auto-selected: manual_review.
  * Everything not selected stays a hidden `candidate` (owner decision Q13).
  */
 import type { AuthorityQuota } from './quota';
@@ -26,6 +28,7 @@ import type { RouteScore, RouteScoreInput } from './types';
 import { LOOP_QUALITY_THRESHOLDS } from '../route-quality/acceptance';
 import { pathLengthM } from '../route-quality/geo';
 import { MANUAL_REVIEW_MIN_SCORE, NAMED_PLACE_PATTERN, SELECTION_MIN_SCORE, SETTLEMENT_LOOPS_SELECT_MAX, URBAN_FLOOR_MAX_DISTANCE_ERROR, URBAN_SELECTION_MIN_SCORE } from './weights';
+import { GEOMETRY_GAP_REVIEW_M } from '../route-geometry/gaps';
 import { SURFACE_CLASSES, type SurfaceClass } from './surface-class';
 
 export type SelectionDecision = 'selected' | 'candidate' | 'manual_review' | 'rejected';
@@ -118,7 +121,10 @@ export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota, opts: S
   const settlement: ScoredRoute[] = [];
   for (const r of routes) {
     const s = r.score.score;
-    if (isSettlementLoop(r.input)) settlement.push(r);
+    const gap = r.input.geometryGapM;
+    if (typeof gap === 'number' && gap >= GEOMETRY_GAP_REVIEW_M) {
+      rows.set(r.input.id, { id: r.input.id, decision: 'manual_review', reason: `geometry gap ${Math.round(gap)} m — check for a straight bridge`, score: s });
+    } else if (isSettlementLoop(r.input)) settlement.push(r);
     else if (r.score.band === 'red') rows.set(r.input.id, { id: r.input.id, decision: 'rejected', reason: 'red band', score: s });
     else if (s >= SELECTION_MIN_SCORE) eligible.push(r);
     else if (r.input.sourceTier === 'official' && s >= MANUAL_REVIEW_MIN_SCORE) {

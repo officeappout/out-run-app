@@ -310,6 +310,7 @@ export default function GeneratedWorkoutExerciseList({
                 />
               )}
             </button>
+            {actions.trailing}
           </div>
         )}
       </div>

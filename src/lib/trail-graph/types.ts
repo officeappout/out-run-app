@@ -142,6 +142,9 @@ export interface TrailRoute {
     officialName: string | null;
     clippedToPilotArea: boolean;
     continuity: number;
+    /** Set when the relation (inside the area) is several continuous chains: this route is chain `partIndex` of `partCount` (1 = longest). */
+    partIndex?: number;
+    partCount?: number;
   };
   dedupedRelationIds?: number[];
   /** Linear (one-way) routes: nearest named place at each end (≤ 1.5 km), for the "A → B" label. */
