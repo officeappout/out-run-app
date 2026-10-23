@@ -458,6 +458,12 @@ export const FLAG_DEFS = [
   // a compact park card; layers panel toggles for parks and routes. Fail-closed; super admins
   // preview it. Off = byte-identical map.
   { key: 'enableMapPolishV1', firestoreKey: 'enable_map_polish_v1', defaultValue: false, superAdminValue: true },
+  // Map surface filter (23.10.2026, owner-approved): the layers panel gets a "סוג משטח" segmented
+  // control (all / paved / off-road; cycling: road bike / off-road bike) filtering the routes the map
+  // draws and the carousel offers by their stored surfaceClass (unknown surface is hidden while a
+  // filter is active), a "מוצגים X מתוך Y" line, reset, and a badge on the layers button. Fail-closed;
+  // superAdminValue false (no preview). Off = byte-identical map.
+  { key: 'enableMapSurfaceFilterV1', firestoreKey: 'enable_map_surface_filter_v1', defaultValue: false, superAdminValue: false },
   // Measure every push type (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md
   // §5 data gaps). Read ONLY by Cloud Functions (functions/src/services/push-measure-all.ts, 60s
   // cache): on = every push sender — not just the ones that already pass `measurement` — writes

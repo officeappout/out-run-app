@@ -93,6 +93,7 @@ interface FlagState {
   enable_haptics_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
+  enable_map_surface_filter_v1: boolean;
   enable_destination_planner_v1: boolean;
   enable_push_measure_all: boolean;
   enable_demo_users: boolean;
@@ -717,6 +718,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'מפה: ניווט אחד וכרטיסים קומפקטיים',
     description: 'כל כפתור "ניווט לשם" (גינה, מסלול, משתמש חי) נכנס לניווט שבתוך האפליקציה, פרטי מסלול נשארים במסך המסלול החדש, כרטיס גינה קטן יותר, ובשכבות אפשר להסתיר גינות כושר ומסלולים.',
+  },
+  // Map surface filter — layers panel (23.10.2026).
+  {
+    key: 'enable_map_surface_filter_v1',
+    icon: MapIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'מפה: סינון לפי סוג משטח',
+    description: 'בפאנל השכבות נוסף בורר "סוג משטח" (הכל / סלול / שביל עפר; ברכיבה: אופני כביש / אופני שטח) שמסנן את המסלולים במפה ובקרוסלה לפי המשטח שנשמר בהם. מסלול בלי נתוני משטח מוסתר כל עוד סינון פעיל. מוצג "מוצגים X מתוך Y", איפוס, ותג על כפתור השכבות. הבחירה נשמרת במכשיר.',
   },
   // Destination planner — address pick → planner → commute player (22.10.2026).
   {

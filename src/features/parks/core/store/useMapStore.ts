@@ -4,6 +4,7 @@ import { Park } from '../types/park.types';
 import type { Route } from '../types/route.types';
 import type { WalkStep } from '../hooks/useWalkToRoute';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
+import type { SurfaceFilter } from '../utils/route-surface';
 
 /**
  * Map performance pressure signal — written by `useMapPerfMonitor`
@@ -444,6 +445,16 @@ interface MapStore {
   /** See `MapPressureLevel` doc comment above. Written by `useMapPerfMonitor`. */
   pressureLevel: MapPressureLevel;
   setPressureLevel: (level: MapPressureLevel) => void;
+
+  /**
+   * enable_map_surface_filter_v1 — surface filter chosen in the layers panel. 'any' = no filter.
+   * Persisted per device by the panel (map-surface-filter/surface-filter-prefs); inert unless the flag is on.
+   */
+  surfaceFilter: SurfaceFilter;
+  setSurfaceFilter: (f: SurfaceFilter) => void;
+  /** Written by useRouteGeneration (flag on): routes passing the filter / routes of the activity, + the activity. */
+  surfaceStats: { shown: number; total: number; activity: string | null };
+  setSurfaceStats: (s: { shown: number; total: number; activity: string | null }) => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -451,6 +462,14 @@ export const useMapStore = create<MapStore>((set, get) => ({
   facilities: [],
   selectedPark: null,
   visibleLayers: ['parks', 'routes', 'gym'],
+  surfaceFilter: 'any',
+  surfaceStats: { shown: 0, total: 0, activity: null },
+  setSurfaceFilter: (f) => set({ surfaceFilter: f }),
+  setSurfaceStats: (st) => set((cur) => (
+    cur.surfaceStats.shown === st.shown && cur.surfaceStats.total === st.total && cur.surfaceStats.activity === st.activity
+      ? cur
+      : { surfaceStats: st }
+  )),
   pendingDeepLink: null,
   globalSheet: null,
   bottomNavSuppressionCount: 0,

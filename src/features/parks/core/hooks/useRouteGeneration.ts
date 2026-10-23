@@ -15,6 +15,7 @@ import { isRouteNearby, isRouteInBounds, distanceToRouteStart } from '../service
 import { useMapStore } from '../store/useMapStore';
 import { routeHasActivity, routeMatchesActivity } from '../utils/route-activity-match';
 import { logGeneratedRoutes } from '@/features/generation-review/capture/hooks';
+import { applySurfaceFilter, useMapSurfaceFilterV1 } from '../map-surface-filter'; // map-surface-filter
 
 let _parksCache: Park[] | null = null;
 async function getCachedParks(): Promise<Park[]> {
@@ -118,6 +119,13 @@ export function useRouteGeneration(
   const viewportSearchActive = useMapStore((s) => s.viewportSearchActive);
   const viewportBounds = useMapStore((s) => s.viewportBounds);
 
+  // enable_map_surface_filter_v1: ONE place narrows the set the map lines (MapShell.mapRoutes) AND the
+  // carousel (DiscoverLayer) both read. Off → surfaceOn false → the memo below is unchanged.
+  const surfaceOn = useMapSurfaceFilterV1();
+  const surfaceFilter = useMapStore((s) => s.surfaceFilter);
+  const surfaceActivity = contextActivity ?? preferences.activity ?? null;
+  const surfaceStatsRef = useRef<{ shown: number; total: number; activity: string | null } | null>(null);
+
   const routesToDisplay = useMemo(() => {
     if (navState === 'navigating' && navigationRoutes[selectedNavActivity]) {
       return [navigationRoutes[selectedNavActivity]!];
@@ -135,7 +143,13 @@ export function useRouteGeneration(
       return isRouteNearby(r, proximityPos);
     });
 
-    const merged = [...dynamicRoutes, ...nearbyOfficial];
+    const mergedAll = [...dynamicRoutes, ...nearbyOfficial];
+    let merged = mergedAll;
+    if (surfaceOn) {
+      const res = applySurfaceFilter(mergedAll as Route[], surfaceFilter, surfaceActivity, true);
+      merged = res.routes.slice();
+      surfaceStatsRef.current = { shown: res.shown, total: res.total, activity: surfaceActivity };
+    }
 
     const MAX_DISPLAY = 3;
 
@@ -152,7 +166,13 @@ export function useRouteGeneration(
     return merged
       .sort((a, b) => distanceToRouteStart(a, sortPos) - distanceToRouteStart(b, sortPos))
       .slice(0, MAX_DISPLAY);
-  }, [navState, navigationRoutes, selectedNavActivity, filteredRoutes, officialRoutes, proximityPos, viewportSearchActive, viewportBounds]);
+  }, [navState, navigationRoutes, selectedNavActivity, filteredRoutes, officialRoutes, proximityPos, viewportSearchActive, viewportBounds, surfaceOn, surfaceFilter, surfaceActivity]);
+
+  // Publish "X of Y" for the layers panel (flag on only).
+  const setSurfaceStats = useMapStore((s) => s.setSurfaceStats);
+  useEffect(() => {
+    if (surfaceOn && surfaceStatsRef.current) setSurfaceStats(surfaceStatsRef.current);
+  }, [surfaceOn, routesToDisplay, setSurfaceStats]);
 
   const handleShuffle = useCallback(async (activity?: ActivityType) => {
     if (!currentUserPos) return;
