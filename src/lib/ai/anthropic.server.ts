@@ -209,7 +209,17 @@ export async function recordAiUsage(
   uid: string,
   model: string,
   usage: AiUsage,
-  opts: { feature?: string; now?: Date; db?: Firestore } = {},
+  opts: {
+    feature?: string;
+    /**
+     * Also add this call's estimated cost under byFeatureCostUsd[feature] (opt-in, additive —
+     * the Kelly chat sets it while model routing is live, so the fast / smart tiers' spend is
+     * visible apart). Without it the ledger write is exactly as before.
+     */
+    featureCost?: boolean;
+    now?: Date;
+    db?: Firestore;
+  } = {},
 ): Promise<{ costUsd: number }> {
   const costUsd = estimateCostUsd(model, usage);
   try {
@@ -227,7 +237,13 @@ export async function recordAiUsage(
     const batch = db.batch();
     batch.set(
       db.collection(AI_USAGE_COLLECTION).doc(`${uid}_${day}`),
-      { uid, day, ...inc, ...(opts.feature ? { byFeature: { [opts.feature]: FieldValue.increment(1) } } : {}) },
+      {
+        uid,
+        day,
+        ...inc,
+        ...(opts.feature ? { byFeature: { [opts.feature]: FieldValue.increment(1) } } : {}),
+        ...(opts.feature && opts.featureCost ? { byFeatureCostUsd: { [opts.feature]: FieldValue.increment(costUsd) } } : {}),
+      },
       { merge: true },
     );
     batch.set(db.collection(AI_USAGE_GLOBAL_COLLECTION).doc(day), { day, ...inc }, { merge: true });

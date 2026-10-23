@@ -63,6 +63,8 @@ export interface StoredMessage extends HistoryMessage {
   actions?: CoachActionId[];
   /** Unified Kelly (kelly_unified_v1): who wrote it. Absent on messages stored before it. */
   source?: KellyMessageSource;
+  /** Kelly model routing: this answer ran on the smart tier (log.tier). Absent = fast / routing off. */
+  tier?: 'smart';
 }
 
 export interface PendingTurn {
@@ -130,6 +132,7 @@ function toStored(id: string, d: Record<string, any>): StoredMessage {
     createdAtMs: msOf(d.createdAt),
     ...(Array.isArray(d.actions) ? { actions: (d.actions as unknown[]).filter(isCoachActionId) } : {}),
     ...(isKellyMessageSource(d.source) ? { source: d.source } : {}),
+    ...(d.role === 'assistant' && d.log?.tier === 'smart' ? { tier: 'smart' as const } : {}),
   };
 }
 

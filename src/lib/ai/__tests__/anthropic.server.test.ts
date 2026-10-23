@@ -188,6 +188,23 @@ describe('recordAiUsage (ledger accumulation)', () => {
     expect(global.costUsd).toBeCloseTo(costUsd * 2 + sonnetCost, 12);
   });
 
+  it('Kelly model routing: per-tier labels + opt-in per-feature cost; both tiers count toward the global budget', async () => {
+    const usage = { inputTokens: 1000, outputTokens: 200, cacheReadTokens: 5000, cacheWriteTokens: 0 };
+    const fast = await recordAiUsage('u1', 'claude-haiku-5-5', usage, { now: NOW, db: state.db, feature: 'ai_coach_chat_fast', featureCost: true });
+    const smart = await recordAiUsage('u1', 'claude-sonnet-5-5', usage, { now: NOW, db: state.db, feature: 'ai_coach_chat_smart', featureCost: true });
+    const u1 = state.db.docs.get(`ai_usage/u1_${DAY}`);
+    expect(u1.byFeature).toEqual({ ai_coach_chat_fast: 1, ai_coach_chat_smart: 1 });
+    expect(u1.byFeatureCostUsd.ai_coach_chat_fast).toBeCloseTo(fast.costUsd, 12);
+    expect(u1.byFeatureCostUsd.ai_coach_chat_smart).toBeCloseTo(smart.costUsd, 12);
+    expect(smart.costUsd).toBeGreaterThan(fast.costUsd * 10);
+    expect(state.db.docs.get(`ai_usage_global/${DAY}`).costUsd).toBeCloseTo(fast.costUsd + smart.costUsd, 12);
+  });
+
+  it('without featureCost the ledger has no byFeatureCostUsd (unchanged write)', async () => {
+    await recordAiUsage('u1', 'claude-haiku-5-5', { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 }, { now: NOW, db: state.db, feature: 'ai_coach_chat' });
+    expect(Object.prototype.hasOwnProperty.call(state.db.docs.get(`ai_usage/u1_${DAY}`), 'byFeatureCostUsd')).toBe(false);
+  });
+
   it('feeds the budget check', async () => {
     state.db = createMockDb({ 'app_config/ai': { dailyBudgetUsd: 0.000001 } });
     await expect(assertAiBudget(state.db, { now: NOW })).resolves.toBeUndefined();
