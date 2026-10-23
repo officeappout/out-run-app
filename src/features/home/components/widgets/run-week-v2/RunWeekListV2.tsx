@@ -62,14 +62,16 @@ export default function RunWeekListV2({
   if (rows.length === 0) return null;
 
   return (
-    <section dir="rtl" aria-label="השבוע שלך">
+    <section dir="rtl" aria-label={t('runWeekList.label')}>
       <p className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
-        {programLabel} · {totalWeeks ? `שבוע ${week} מתוך ${totalWeeks}` : `שבוע ${week}`}
+        {totalWeeks
+          ? t('runWeekList.programWeekOf', { program: programLabel, week: String(week), total: String(totalWeeks) })
+          : t('runWeekList.programWeek', { program: programLabel, week: String(week) })}
       </p>
-      <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">השבוע שלך</h2>
+      <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('runWeekList.title')}</h2>
       <div className="mt-2 flex gap-1.5">
         <span className="inline-flex h-[26px] items-center whitespace-nowrap rounded-full bg-v2-tint px-2.5 text-[12px] font-extrabold text-v2-deep">
-          {summary.total} אימונים
+          {t('runWeekList.count', { n: String(summary.total) })}
         </span>
         <span className="inline-flex h-[26px] items-center whitespace-nowrap rounded-full bg-white px-2.5 text-[12px] font-extrabold text-v2-ink-2 shadow-v2-ring">
           {summary.label}
@@ -103,12 +105,12 @@ export default function RunWeekListV2({
           onClick={onSkipToday}
           className="mt-2 w-full whitespace-nowrap py-2 text-[12.5px] font-bold text-v2-muted"
         >
-          אין לי כוח היום — דלג לעוד
+          {t('runWeekList.skip')}
         </button>
       )}
       {!isRunDay && onUndoSkip && (
         <button type="button" onClick={onUndoSkip} className="mt-2 whitespace-nowrap text-[12.5px] font-extrabold text-v2-deep">
-          ביטול — אני בכל זאת רוצה להתאמן
+          {t('runWeekList.undo')}
         </button>
       )}
     </section>

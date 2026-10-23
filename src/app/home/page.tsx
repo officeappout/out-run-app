@@ -63,6 +63,8 @@ import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
 import { useTryRunningNudge } from '@/features/home/hooks/useTryRunningNudge';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { common } from '@/messages/ns/common';
+import { unitLabel, withUnit } from '@/lib/i18n/units';
 import { isPlainRunDoc, type RunCoverageDoc } from '@/lib/run-coverage';
 import TryRunningCard from '@/features/home/components/start-cards/TryRunningCard';
 import { TRY_RUNNING_CARD_ID } from '@/features/home/utils/try-running';
@@ -149,7 +151,7 @@ import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
 import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
 import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
 import { placeProgramSlides, programStartSlideId, programStartTrackOf, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
-import { PICK_PROGRAM_STRIP_HINT } from '@/features/home/components/start-cards/program-start-copy';
+import { PICK_PROGRAM_STRIP_HINT_KEY } from '@/features/home/components/start-cards/program-start-copy';
 import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
@@ -162,13 +164,15 @@ import { useFastStartGuard } from '@/features/home/hooks/useFastStartGuard';
 import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHomeCarouselStartupCache';
 import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
 
+// i18n-allow-hebrew (whole map): join verbs = text composed by PostJoinSuccessDrawer (community area), same as
+// app/community/_lib/community-constants.ts — they move together with that drawer.
 const GROUP_VERB: Record<string, string> = {
-  walking:      'ילך',
-  running:      'ירוץ',
-  yoga:         'יתאמן',
-  calisthenics: 'יתאמן',
-  cycling:      'ירכב',
-  other:        'יתאמן',
+  walking:      'ילך', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+  running:      'ירוץ', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+  yoga:         'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+  calisthenics: 'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+  cycling:      'ירכב', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+  other:        'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
 };
 
 
@@ -273,7 +277,7 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
                       onClick={() => handleGoToStep(item)}
                       className="text-[11px] text-[#00C9F2] font-bold hover:underline"
                     >
-                      השלם
+                      {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}השלם
                     </button>
                   )}
                 </div>
@@ -310,13 +314,14 @@ const WHO_WEEKLY_TARGET = 150;
 function HomeGreeting({ name, trailing }: { name: string; trailing?: React.ReactNode }) {
   const now = new Date();
   const h = now.getHours();
-  const hello = h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב';
+  const t = useT(home);
+  const part = h >= 5 && h < 12 ? 'morning' : h >= 12 && h < 17 ? 'noon' : h >= 17 && h < 21 ? 'evening' : 'night';
+  const hello = t('page.greeting', { part });
   const first = name.trim().split(/\s+/)[0] ?? '';
   return (
     <div className="flex items-center justify-between gap-3 pb-2 pt-2" dir="rtl">
       <h1 className="min-w-0 truncate text-[22px] font-black leading-tight tracking-v2-tight text-v2-ink">
-        {hello}
-        {first ? `, ${first}` : ''}
+        {first ? t('page.greetingName', { hello, name: first }) : hello}
       </h1>
       {trailing ? <div className="min-w-0 flex-shrink">{trailing}</div> : null}
     </div>
@@ -332,20 +337,24 @@ function ActivityCard() {
     (summary?.categoryTotals?.maintenance ?? 0),
   );
   const barPct = Math.min(100, (weeklyMinutes / WHO_WEEKLY_TARGET) * 100);
+  const t = useT(home);
+  const tCommon = useT(common);
 
   if (v2) {
     return (
       <div className="flex h-full w-full flex-col rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
-        <p className="text-[13px] font-extrabold text-v2-muted">פעילות שבועית</p>
+        <p className="text-[13px] font-extrabold text-v2-muted">{t('page.activity.title')}</p>
         <p className="mt-2 text-[30px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-ink">
-          {weeklyMinutes} <span className="text-[14px] font-bold text-v2-muted">דק׳</span>
+          {weeklyMinutes} <span className="text-[14px] font-bold text-v2-muted">{unitLabel('min', tCommon)}</span>
         </p>
-        <p className="mt-1 text-[12.5px] font-bold text-v2-muted">מתוך {WHO_WEEKLY_TARGET} דק׳</p>
+        <p className="mt-1 text-[12.5px] font-bold text-v2-muted">
+          {t('page.activity.ofTarget', { amount: withUnit('min', String(WHO_WEEKLY_TARGET), tCommon) })}
+        </p>
         <div className="mt-auto pt-3">
           <div className="h-2 overflow-hidden rounded-full bg-v2-tint">
             <div className="h-full rounded-full bg-v2-cta transition-[width] duration-500" style={{ width: `${barPct}%` }} />
           </div>
-          <p className="mt-2 text-[11px] font-bold leading-snug text-v2-muted">המלצת ארגון הבריאות העולמי</p>
+          <p className="mt-2 text-[11px] font-bold leading-snug text-v2-muted">{t('page.activity.who')}</p>
         </div>
       </div>
     );
@@ -359,13 +368,13 @@ function ActivityCard() {
     >
       <div>
         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-          פעילות שבועית
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}פעילות שבועית
         </p>
         <p style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }} className="text-gray-900 dark:text-white tabular-nums">
-          {weeklyMinutes} <span className="text-base font-normal">דק׳</span>
+          {weeklyMinutes} <span className="text-base font-normal">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}דק׳</span>
         </p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-          מתוך {WHO_WEEKLY_TARGET} דק׳
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מתוך {WHO_WEEKLY_TARGET} דק׳
         </p>
       </div>
       <div
@@ -515,6 +524,7 @@ export default function HomePage() {
   // mounted in ClientLayout.tsx) — used to surface a clear message when the safety-net slot's
   // tap-time GPS soft-ask or route resolve comes back empty, instead of a silent no-op.
   const { showToast } = useToast();
+  const tHome = useT(home);
 
   // Handle "pencil" tap from WorkoutPreviewDrawer — close drawer and open edit modal
   const handleEditFromDrawer = useCallback(() => {
@@ -679,8 +689,8 @@ export default function HomePage() {
     setPreviewEntry(entry);
     const cats = entry.scheduledCategories ?? [];
     const title = cats.length > 0
-      ? cats.map(c => c === 'strength' ? 'כוח' : c === 'cardio' ? 'ריצה' : c === 'walking' ? 'הליכה' : 'גמישות').join(' + ')
-      : 'אימון מתוזמן';
+      ? cats.map(c => c === 'strength' ? 'כוח' : c === 'cardio' ? 'ריצה' : c === 'walking' ? 'הליכה' : 'גמישות').join(' + ') // i18n-allow-hebrew: workout-object title (manual, PR list)
+      : 'אימון מתוזמן'; // i18n-allow-hebrew: workout-object title (manual, PR list)
     setOpenSurface('calendar');
     setSelectedWorkout({
       id: entry.entryId ?? entry.date,
@@ -1045,7 +1055,7 @@ export default function HomePage() {
     ? {
         key: `stepgoal-${todayISO}`,
         category: 'steps',
-        title: 'יעד הצעדים הושג',
+        title: tHome('page.stepGoalCard.title'),
         minutes: 0,
         stepsAchieved: todayActivity?.steps,
         streak: 1,
@@ -1148,7 +1158,7 @@ export default function HomePage() {
     ? {
         key: `stepgoal-${selectedDate}`,
         category: 'steps',
-        title: 'יעד הצעדים הושג',
+        title: tHome('page.stepGoalCard.title'),
         minutes: 0,
         stepsAchieved: pastDayGoalEntry?.stepsAchieved,
         streak: 1,
@@ -1176,8 +1186,8 @@ export default function HomePage() {
     [profile?.lifestyle?.scheduleDays, profile?.lifestyle?.recurringTemplate, selectedDate],
   );
   const pastDayEmptyCopy = pastDayWasScheduled
-    ? 'לא הסתדר הפעם — מחכה לך אימון הבא'
-    : 'רגוע, נחת — איזה כיף';
+    ? tHome('page.pastDay.empty.scheduled')
+    : tHome('page.pastDay.empty.rest');
 
   const handlePastDayActivityCardTap = useCallback((card: TodayActivityCardData) => {
     // The synthetic step-goal card (key starts with 'stepgoal-') has no backing workout doc —
@@ -1651,7 +1661,7 @@ export default function HomePage() {
                   : [];
               setJoinSuccessData({
                 name:          group.name,
-                verb:          GROUP_VERB[group.category] ?? 'יתאמן',
+                verb:          GROUP_VERB[group.category] ?? 'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
                 scheduleSlots: allSlots,
                 category:      group.category,
                 address:       group.meetingLocation?.address,
@@ -1733,7 +1743,6 @@ export default function HomePage() {
     workouts: todaysWorkouts as unknown as RunCoverageDoc[] | null,
     writeback: featureFlags.enableHomeV2 && featureFlags.enableRunDoneStateV1,
   });
-  const tHome = useT(home);
   // enable_home_v2 walking track (owner 20.10.2026): planned walks in the coming week →
   // today's walk is the pinned card of the daily carousel (the run card's slot), the
   // short "complete your steps" walk a slide on other days, "מדדי בריאות" the first tab.
@@ -2013,11 +2022,6 @@ export default function HomePage() {
   // screen), reusing handleWorkoutGenerated for the generatedWorkout/ref/
   // loading state exactly as any other generated workout would.
   const PARK_DIFFICULTY_ORDER: ParkWorkoutDifficulty[] = ['easy', 'medium', 'hard'];
-  const PARK_DIFFICULTY_LABELS: Record<ParkWorkoutDifficulty, string> = {
-    easy: 'קל',
-    medium: 'בינוני',
-    hard: 'קשה',
-  };
 
   const composeAndOpenParkWorkout = useCallback(async (park: Park, difficulty: ParkWorkoutDifficulty) => {
     if (!profile) return;
@@ -2030,8 +2034,8 @@ export default function HomePage() {
     setOpenSurface('map-park');
     setSelectedWorkout((prev: any) => prev ?? {
       id: `park-workout-${park.id}`,
-      title: park.name ? `אימון ב${park.name}` : 'אימון בפארק',
-      description: 'אימון משולב: מתקנים + משקל גוף',
+      title: park.name ? `אימון ב${park.name}` : 'אימון בפארק', // i18n-allow-hebrew: workout-object title (manual, PR list)
+      description: 'אימון משולב: מתקנים + משקל גוף', // i18n-allow-hebrew: workout-object text (manual, PR list)
       level: 'medium',
       difficulty,
       duration: 20,
@@ -2065,7 +2069,7 @@ export default function HomePage() {
 
       setTrioSelector({
         options: PARK_DIFFICULTY_ORDER.map((d) => ({
-          label: PARK_DIFFICULTY_LABELS[d],
+          label: tHome('page.intensity.park', { difficulty: d }),
           difficulty: d,
           duration: 20,
         })),
@@ -2081,7 +2085,7 @@ export default function HomePage() {
       setTrioSelector(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, handleWorkoutGenerated, featureFlags.enableHomeV2]);
+  }, [profile, handleWorkoutGenerated, featureFlags.enableHomeV2, tHome]);
 
   const pendingParkWorkoutStart = useMapStore((s) => s.pendingParkWorkoutStart);
   useEffect(() => {
@@ -2200,7 +2204,7 @@ export default function HomePage() {
   const { handleStartWorkout: handleRecoveryShortcutStart } = useWorkoutSession({
     workout: {
       id: recoveryShortcutWorkoutId,
-      title: generatedWorkout?.title || 'שיקום',
+      title: generatedWorkout?.title || 'שיקום', // i18n-allow-hebrew: workout-object title (manual, PR list)
       segments: [],
     },
     workoutPlan: null,
@@ -2300,12 +2304,12 @@ export default function HomePage() {
           // prompt; denied/unsupported/no-fix simply resolves to null.
           const coords = await useGPSStore.getState().requestPermissionIfAllowed();
           if (!coords) {
-            showToast('error', 'לא הצלחנו לאתר את המיקום שלך. אפשר לנסות שוב מאוחר יותר.');
+            showToast('error', tHome('page.toast.noLocation'));
             return;
           }
           const route = await resolveRouteWorkout(cacheKey, { ...context, location: coords });
           if (!route) {
-            showToast('error', 'לא מצאנו מסלול מתאים כרגע. אפשר לנסות שוב מאוחר יותר.');
+            showToast('error', tHome('page.toast.noRoute'));
             return;
           }
           useMapStore.getState().openGlobalRouteSheet(route);
@@ -2372,9 +2376,9 @@ export default function HomePage() {
         preWorkoutTrioSuggestionRef.current = { suggestion, context };
         setTrioSelector({
           options: [
-            { label: 'קלה', difficulty: 1, duration: 30 },
-            { label: 'מאוזנת', difficulty: 2, duration: 45 },
-            { label: 'אינטנסיבית', difficulty: 3, duration: 60 },
+            { label: tHome('page.intensity.trio.light'), difficulty: 1, duration: 30 },
+            { label: tHome('page.intensity.trio.balanced'), difficulty: 2, duration: 45 },
+            { label: tHome('page.intensity.trio.intense'), difficulty: 3, duration: 60 },
           ],
           selectedIndex: 1,
           onSelect: handleIntensityToggleSelect,
@@ -2389,7 +2393,7 @@ export default function HomePage() {
     } finally {
       setStartingPreWorkoutSuggestionId(null);
     }
-  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected, showToast]);
+  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected, showToast, tHome]);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
@@ -2464,14 +2468,14 @@ export default function HomePage() {
         }
 
         // Hebrew grammar: '1 חזרה' not '1 חזרות'
-        const fmtReps = (n: number) => (n === 1 ? 'חזרה אחת' : `${n} חזרות`);
-        const fmtSecs = (n: number) => (n === 1 ? 'שנייה אחת' : `${n} שניות`);
+        const fmtReps = (n: number) => (n === 1 ? 'חזרה אחת' : `${n} חזרות`); // i18n-allow-hebrew: runner plan text (manual, PR list)
+        const fmtSecs = (n: number) => (n === 1 ? 'שנייה אחת' : `${n} שניות`); // i18n-allow-hebrew: runner plan text (manual, PR list)
         // Follow-along VIDEO items carry their real length on the execution method
         // (media.videoDurationSeconds). Their `reps` is a placeholder — the recovery
         // trio builder hardcodes reps:1 — so deriving the duration text from reps
         // renders "שנייה אחת" for a 14-minute clip. Parity with the builder path
         // (buildRunnerWorkoutPlanFromGenerated). Rep-based exercises untouched.
-        const fmtClip = (s: number) => (s >= 60 ? `${Math.round(s / 60)} דקות` : fmtSecs(s));
+        const fmtClip = (s: number) => (s >= 60 ? `${Math.round(s / 60)} דקות` : fmtSecs(s)); // i18n-allow-hebrew: runner plan text (manual, PR list)
         const clipSeconds = Number((ex.method as any)?.media?.videoDurationSeconds) || 0;
         const useClipDuration = Boolean(ex.exercise.isFollowAlong) && clipSeconds > 0;
 
@@ -2480,14 +2484,14 @@ export default function HomePage() {
           name: glt(ex.exercise.name),
           reps: actuallyTimeBased ? undefined : (
             ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-              ? `${ex.repsRange.min}-${ex.repsRange.max} חזרות`
+              ? `${ex.repsRange.min}-${ex.repsRange.max} חזרות` // i18n-allow-hebrew: runner plan text (manual, PR list)
               : fmtReps(ex.reps)
           ),
           duration: actuallyTimeBased ? (
             useClipDuration
               ? fmtClip(clipSeconds)
               : ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-                ? `${ex.repsRange.min}-${ex.repsRange.max} שניות`
+                ? `${ex.repsRange.min}-${ex.repsRange.max} שניות` // i18n-allow-hebrew: runner plan text (manual, PR list)
                 : fmtSecs(ex.reps)
           ) : undefined,
           videoUrl: resolvedVideoUrl,
@@ -2568,7 +2572,7 @@ export default function HomePage() {
         segments.push({
           id: 'seg-warmup',
           type: 'station' as const,
-          title: 'חימום',
+          title: 'חימום', // i18n-allow-hebrew: runner plan text (manual, PR list)
           icon: '🔥',
           target: { type: 'reps' as const, value: 12 },
           exercises: warmupExercises,
@@ -2580,7 +2584,7 @@ export default function HomePage() {
         segments.push({
           id: 'seg-main',
           type: 'station' as const,
-          title: gw.title || 'אימון כוח',
+          title: gw.title || 'אימון כוח', // i18n-allow-hebrew: runner plan text (manual, PR list)
           icon: '💪',
           target: { type: 'reps' as const, value: 12 },
           exercises: mainExercises,
@@ -2597,7 +2601,7 @@ export default function HomePage() {
         segments.push({
           id: 'seg-tabata',
           type: 'station' as const,
-          title: 'טבטה — פיניש',
+          title: 'טבטה — פיניש', // i18n-allow-hebrew: runner plan text (manual, PR list)
           icon: '🔥',
           target: { type: 'time' as const, value: (tabataCfg.workSec + tabataCfg.restSec) * tabataCfg.rounds },
           exercises: tabataExercises,
@@ -2611,7 +2615,7 @@ export default function HomePage() {
         segments.push({
           id: 'seg-cooldown',
           type: 'station' as const,
-          title: 'מתיחות',
+          title: 'מתיחות', // i18n-allow-hebrew: runner plan text (manual, PR list)
           icon: '🧘',
           target: { type: 'reps' as const, value: 12 },
           exercises: cooldownExercises,
@@ -2623,7 +2627,7 @@ export default function HomePage() {
         segments.push({
           id: 'seg-recovery',
           type: 'station' as const,
-          title: gw.title || 'שיקום',
+          title: gw.title || 'שיקום', // i18n-allow-hebrew: runner plan text (manual, PR list)
           icon: '🌙',
           target: { type: 'time' as const, value: 600 },
           exercises: recoveryExercises,
@@ -2635,7 +2639,7 @@ export default function HomePage() {
         segments.push({
           id: 'seg-all',
           type: 'station' as const,
-          title: gw.title || 'אימון כוח',
+          title: gw.title || 'אימון כוח', // i18n-allow-hebrew: runner plan text (manual, PR list)
           icon: '💪',
           target: { type: 'reps' as const, value: 12 },
           exercises,
@@ -2646,7 +2650,7 @@ export default function HomePage() {
 
       const workoutPlan = {
         id: uniqueWorkoutId,
-        name: gw.title || 'אימון כוח',
+        name: gw.title || 'אימון כוח', // i18n-allow-hebrew: runner plan text (manual, PR list)
         description: gw.description || '',
         logicCue: gw.logicCue || '',
         // "דגשי האימון" source (light scalars) — read by WorkoutPreviewClient,
@@ -2687,8 +2691,8 @@ export default function HomePage() {
       // file's Section L fix (above) can still leave open, showing a fabricated recovery
       // workout with no connection to what was actually tapped. Falls straight to the same
       // generic hardcoded defaults handleCalendarEntryTap's own stub already uses.
-      title: gw?.title || 'אימון כוח',
-      description: gw?.description || 'אימון מותאם אישית',
+      title: gw?.title || 'אימון כוח', // i18n-allow-hebrew: workout-object title (manual, PR list)
+      description: gw?.description || 'אימון מותאם אישית', // i18n-allow-hebrew: workout-object text (manual, PR list)
       level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
       difficulty: gw ? String(gw.difficulty) : 'medium',
       duration: gw?.estimatedDuration || 45,
@@ -3056,7 +3060,7 @@ export default function HomePage() {
     if (loadingLook(flagsReady, featureFlags.enableHomeV2) === 'skeleton') return <ScreenSkeleton />;
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-slate-600 animate-pulse text-sm">טוען...</p>
+        <p className="text-slate-600 animate-pulse text-sm">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}טוען...</p>
       </div>
     );
   }
@@ -3064,7 +3068,7 @@ export default function HomePage() {
   if (!profile) {
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-slate-600 text-sm">{isCheckingFirestore ? 'בודק פרופיל...' : 'מעביר להרשמה...'}</p>
+        <p className="text-slate-600 text-sm">{isCheckingFirestore ? tHome('page.checkingProfile') : tHome('page.redirecting')}</p>
       </div>
     );
   }
@@ -3288,7 +3292,7 @@ export default function HomePage() {
               onOpenPlanner={() => setShowPlanner(true)}
               hasCompletedAssessment={hasStrengthProgram || runStripOnly}
               hasSchedule={pickProgramStrip ? false : cardHasScheduleAndPersona}
-              overlayHint={pickProgramStrip ? PICK_PROGRAM_STRIP_HINT : undefined}
+              overlayHint={pickProgramStrip ? tHome(PICK_PROGRAM_STRIP_HINT_KEY) : undefined}
               onStartAssessment={handleHeroPress}
               onSetSchedule={() => setShowLifestyleWizard(true)}
               runningSchedule={profile?.running?.activeProgram?.schedule as any}
@@ -3352,8 +3356,8 @@ export default function HomePage() {
             ════════════════════════════════════════════════════════════════ */}
         {(() => {
           const TAB_LABELS: Record<'strength' | 'health', string> = {
-            strength: 'התקדמות שבועית',
-            health: 'מדדי בריאות',
+            strength: tHome('page.tabs.strength'),
+            health: tHome('page.tabs.health'),
           };
 
           // Pre-registration users (no strength program yet) see only "מדדי בריאות"
@@ -3601,7 +3605,7 @@ export default function HomePage() {
                   ? calmCopy(profile?.core?.gender).welcomeBackSubtitle
                   : activeCarouselWorkout?.description
                     || activePreWorkoutSuggestion?.subtitle
-                    || 'מוכן להתחיל?';
+                    || tHome('page.preWorkout.readyFallback');
 
                 // Strength-invite carousel slide (placement change, 19.09.2026): the
                 // sentinel (STRENGTH_INVITE_CARD_ID/isStrengthInviteCarouselItem, hoisted to
@@ -3634,7 +3638,7 @@ export default function HomePage() {
                               : 'text-2xl font-extrabold text-gray-900 dark:text-white'
                           }
                         >
-                          {calmReturn.welcomeBack ? calmCopy(profile?.core?.gender).welcomeBackTitle : 'האימון היומי שלך'}
+                          {calmReturn.welcomeBack ? calmCopy(profile?.core?.gender).welcomeBackTitle : tHome('page.preWorkout.dailyTitle')}
                         </h3>
                         {isActiveSuggestionHeroTreated && (
                           <AnchorLocationChip
@@ -3831,7 +3835,7 @@ export default function HomePage() {
                       // Follow-up fix (29.08.2026): TodayActivityStrip's hardcoded default
                       // header ("הפעילות שלי היום") was flagged as wrong for a past date —
                       // now overridden via the strip's new optional `title` prop.
-                      title="מה עשית ביום הזה"
+                      title={tHome('page.pastDay.title')}
                     />
                   ) : (
                     <div className="px-5 py-8 text-center" dir="rtl">
@@ -4014,7 +4018,7 @@ export default function HomePage() {
                   ) : (
                     <PostWorkoutCardRenderer
                       suggestion={s}
-                      titleOverride={strengthTopUp.mode === 'top-up' && s.generatorId === 'partial-completion' ? topUpTitleHe(strengthTopUp.remainingSets) : undefined}
+                      titleOverride={strengthTopUp.mode === 'top-up' && s.generatorId === 'partial-completion' ? topUpTitleHe(strengthTopUp.remainingSets, tHome) : undefined}
                       onStart={() => handlePostWorkoutSuggestionStart(s)}
                       isStarting={startingSuggestionId === s.id}
                       userGender={profile?.core?.gender}
@@ -4174,7 +4178,7 @@ export default function HomePage() {
               ? { boxShadow: '0 28px 56px -24px rgba(9,30,50,0.45), 0 0 0 1px rgba(14,27,42,0.08)' }
               : {}),
           }}
-          title="הוסף"
+          title={tHome('page.addButton.title')}
         >
           <Plus size={22} />
         </button>
@@ -4355,7 +4359,10 @@ export default function HomePage() {
                 <Shield size={14} /> Dev Mode — Tier Toggle
               </p>
               <p className="text-[10px] text-gray-500 mb-3">
-                רמה נוכחית: <span className="text-white font-bold">Tier {currentTier}</span>
+                {tHome.rich('page.dev.currentTier', {
+                  tier: String(currentTier),
+                  b: (chunks: React.ReactNode) => <span className="text-white font-bold">{chunks}</span>,
+                })}
               </p>
               <div className="space-y-2">
                 {([1, 2, 3] as const).map((tier) => (
@@ -4395,8 +4402,8 @@ export default function HomePage() {
             >
               <span className="text-lg">🎒</span>
               <div className="flex-1 text-right">
-                <p className="text-sm font-bold leading-snug">הציוד עודכן!</p>
-                <p className="text-xs text-slate-300">תמיד אפשר לערוך אותו בפרופיל האישי</p>
+                <p className="text-sm font-bold leading-snug">{tHome('page.gearToast.title')}</p>
+                <p className="text-xs text-slate-300">{tHome('page.gearToast.body')}</p>
               </div>
               <ChevronDown size={16} className="text-slate-400 rotate-[-90deg]" />
             </button>
@@ -4421,8 +4428,8 @@ export default function HomePage() {
             >
               <span className="text-lg">⚠️</span>
               <div className="flex-1 text-right">
-                <p className="text-sm font-bold leading-snug">לא הצלחנו לבדוק את האימון</p>
-                <p className="text-xs text-slate-300">נסו ללחוץ שוב בעוד רגע</p>
+                <p className="text-sm font-bold leading-snug">{tHome('page.lookupFailed.title')}</p>
+                <p className="text-xs text-slate-300">{tHome('page.lookupFailed.body')}</p>
               </div>
             </button>
           </motion.div>
@@ -4446,7 +4453,7 @@ export default function HomePage() {
           if (g) setBannerGroup(g);
         }}
         name={joinSuccessData?.name ?? ''}
-        verb={joinSuccessData?.verb ?? 'יתאמן'}
+        verb={joinSuccessData?.verb ?? 'יתאמן'} // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
         scheduleSlots={joinSuccessData?.scheduleSlots}
         category={joinSuccessData?.category}
         address={joinSuccessData?.address}

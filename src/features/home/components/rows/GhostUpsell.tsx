@@ -34,6 +34,8 @@
 
 import React from 'react';
 import { Plus } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 interface GhostUpsellProps {
   /** Fired when the user taps the upsell card */
@@ -65,12 +67,14 @@ interface GhostUpsellProps {
 export function GhostUpsell({
   onClick,
   label,
-  ctaText = 'להתחיל →',
+  ctaText: ctaTextProp,
   icon,
   children,
   variant = 'card',
   className = '',
 }: GhostUpsellProps) {
+  const t = useT(home);
+  const ctaText = ctaTextProp === undefined ? t('ghostUpsell.cta') : ctaTextProp;
   if (variant === 'silent') {
     return (
       <div

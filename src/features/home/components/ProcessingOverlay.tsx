@@ -10,6 +10,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 interface ProcessingOverlayProps {
   /** Controls visibility */
@@ -20,6 +22,7 @@ interface ProcessingOverlayProps {
 
 export default function ProcessingOverlay({ isVisible, onComplete }: ProcessingOverlayProps) {
   const [progress, setProgress] = useState(0);
+  const t = useT(home);
 
   useEffect(() => {
     if (!isVisible) {
@@ -104,7 +107,7 @@ export default function ProcessingOverlay({ isVisible, onComplete }: ProcessingO
             transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
             className="text-cyan-400 text-base font-medium mb-6"
           >
-            מעדכן אימון...
+            {t('processing.updating')}
           </motion.p>
 
           {/* Progress Bar */}

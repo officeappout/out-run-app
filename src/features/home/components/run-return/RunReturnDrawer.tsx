@@ -21,6 +21,8 @@ import {
   localDayKey,
 } from '@/lib/calm-return';
 import type { RunReturnAsk, RunReturnChoice } from '../../hooks/useRunCatchUp';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export interface RunReturnDrawerProps {
   ask: RunReturnAsk | null;
@@ -31,6 +33,7 @@ export interface RunReturnDrawerProps {
 export default function RunReturnDrawer({ ask, onChoose, onClose }: RunReturnDrawerProps) {
   const [raceDate, setRaceDate] = useState<string>(ask?.raceDate ?? '');
   const [busy, setBusy] = useState(false);
+  const t = useT(home);
   const todayKey = localDayKey(new Date());
 
   const race = useMemo(() => {
@@ -53,16 +56,16 @@ export default function RunReturnDrawer({ ask, onChoose, onClose }: RunReturnDra
   };
 
   return (
-    <Sheet open onClose={onClose} title="חוזרים לרוץ" zIndex={SHEET_Z.drawerPanel} backdropZIndex={SHEET_Z.drawer} frameClassName="mx-auto max-w-md">
+    <Sheet open onClose={onClose} title={t('runReturn.title')} zIndex={SHEET_Z.drawerPanel} backdropZIndex={SHEET_Z.drawer} frameClassName="mx-auto max-w-md">
       <div dir="rtl" className="flex flex-col gap-4 px-5 pb-2 font-simpler text-v2-ink">
         <div className="rounded-[18px] bg-v2-tint px-4 py-3">
           <p className="text-[15px] font-extrabold">{catchUpLineHe(d)}</p>
           <p className="mt-1 text-[13px] font-bold text-v2-muted">{catchUpWhyHe(d, ask.beginner)}</p>
-          {d.offerLevelCheck && <p className="mt-1 text-[13px] font-bold text-v2-deep">אפשר גם לבדוק רמה בדרך</p>}
+          {d.offerLevelCheck && <p className="mt-1 text-[13px] font-bold text-v2-deep">{t('runReturn.levelCheck')}</p>}
         </div>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-[14px] font-extrabold">יש לך מירוץ / יעד בתאריך?</span>
+          <span className="text-[14px] font-extrabold">{t('runReturn.raceQuestion')}</span>
           <input
             type="date"
             min={todayKey}
@@ -71,22 +74,22 @@ export default function RunReturnDrawer({ ask, onChoose, onClose }: RunReturnDra
             className="h-11 rounded-[14px] bg-white px-3 text-[15px] font-bold shadow-v2-ring"
           />
           {race && <span className="text-[13px] font-bold text-v2-muted">{race.noteHe}</span>}
-          {race?.offerShorterGoal && <span className="text-[13px] font-bold text-v2-deep">אפשר גם לבחור יעד קצר יותר</span>}
+          {race?.offerShorterGoal && <span className="text-[13px] font-bold text-v2-deep">{t('runReturn.shorterGoal')}</span>}
         </label>
 
         <div className="flex flex-col gap-2.5">
           <Button variant="cta" block disabled={busy} onClick={() => void pick('recommended')}>
-            כמו שהמלצנו
+            {t('runReturn.recommended')}
           </Button>
           <button type="button" disabled={busy || !resumeOk} onClick={() => void pick('resume')} className={CONFIRM_ACTION_CLASS.secondary}>
-            להמשיך מאיפה שעצרתי
+            {t('runReturn.resume')}
           </button>
           {!resumeOk && (
-            <p className="-mt-1 text-center text-[12.5px] font-bold text-v2-muted">אחרי הפסקה ארוכה זה מעמיס מדי — עדיף לחזור בהדרגה</p>
+            <p className="-mt-1 text-center text-[12.5px] font-bold text-v2-muted">{t('runReturn.resumeBlocked')}</p>
           )}
           {race && (
             <button type="button" disabled={busy} onClick={() => void pick('race')} className={CONFIRM_ACTION_CLASS.secondary}>
-              לבנות לי מחדש לפי המירוץ
+              {t('runReturn.rebuildForRace')}
             </button>
           )}
         </div>

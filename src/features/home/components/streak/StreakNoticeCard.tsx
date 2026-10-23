@@ -18,8 +18,11 @@ import StreakFlame from '@/components/ui/v2/StreakFlame';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { addSeenKey, type StreakCardModel } from './streak-notice';
 import { useStreakCard } from './useStreakCard';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export function StreakNoticeView({ card, onDismiss }: { card: StreakCardModel; onDismiss: () => void }) {
+  const t = useT(home);
   const icon =
     card.kind === 'shield_used' || card.kind === 'shield_earned' ? (
       <IconTile icon={Shield} tone="accent" size="md" />
@@ -36,7 +39,7 @@ export function StreakNoticeView({ card, onDismiss }: { card: StreakCardModel; o
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="סגירה"
+        aria-label={t('streakCard.close')}
         className="absolute top-3 left-3 grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline text-v2-ink-2 active:scale-[0.97] transition-transform duration-150 ease-v2"
       >
         <X size={16} aria-hidden />

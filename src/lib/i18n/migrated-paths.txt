@@ -567,3 +567,19 @@ src/app/api/tv/
 
 # Workout overview single ⋯ menu (enable_overview_more_menu_v1, namespace wide, keys menu.* + pair.menu.*) — translation-ready from the first commit.
 src/features/workouts/components/workout-preview-drawer/components/OverviewMoreMenu.tsx
+
+# wave 2 batch al (namespace home, keys page.* / calmReturnCard.* / runCatchUp.* / streakCard.* / firstWeekCard.* /
+# ghostUpsell.* / processing.* / topUp.* / runWeekList.* / runReturn.*) — src/app/home/page.tsx + small home components.
+# Marked in page.tsx (manual list in the PR): GROUP_VERB join verbs (composed by PostJoinSuccessDrawer, like
+# community-constants.ts), workout-object titles / the runner plan's segment titles and rep / second strings (they
+# reach the drawer, sessionStorage and the active runner; workout-engine text has no namespace yet), the v1-only
+# (enable_home_v2 off) loader, ProfileProgressBar and ActivityCard branch. calmCopy / catchUp*He stay in src/lib.
+src/app/home/page.tsx
+src/features/home/components/CalmReturnCard.tsx
+src/features/home/components/ProcessingOverlay.tsx
+src/features/home/components/rows/GhostUpsell.tsx
+src/features/home/components/run-return/
+src/features/home/components/streak/
+src/features/home/components/first-week/
+src/features/home/components/widgets/run-week-v2/RunWeekListV2.tsx
+src/features/home/utils/strength-top-up.ts
