@@ -99,7 +99,7 @@ describe('prompt + tools (cache-friendly)', () => {
   });
   it('rough size: rules + dictionary + tools ≈ the plan\'s lean prefix (< 28K chars)', () => {
     // raised from 20K as the tool list grew (authority / users / places / business batches); still a cheap cached prefix
-    expect(adminAssistantSystemPrompt().length + JSON.stringify(adminToolDefinitions()).length).toBeLessThan(24_000);
+    expect(adminAssistantSystemPrompt().length + JSON.stringify(adminToolDefinitions()).length).toBeLessThan(28_000);
   });
 });
 
