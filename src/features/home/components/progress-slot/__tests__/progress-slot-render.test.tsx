@@ -184,7 +184,7 @@ describe('ActivityMinutesRingCard', () => {
     const strokes = Array.from(card.querySelectorAll('circle')).map((c) => c.getAttribute('stroke'));
     expect(strokes).toEqual(expect.arrayContaining(['#00baf7', '#84cc16', '#f97316']));
     await m.click(card);
-    expect(h.push).toHaveBeenLastCalledWith('/progress');
+    expect(h.push).toHaveBeenLastCalledWith('/progression');
   });
 
   it('loading → a quiet placeholder; error → a short message', async () => {
