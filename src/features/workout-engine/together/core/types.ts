@@ -25,6 +25,10 @@ export interface PresenceStatus {
   distanceKm?: number;
   /** run: current average pace, seconds per km (0/undefined = unknown) */
   paceSecPerKm?: number;
+  /** run: average pace so far (sec/km), elapsed seconds and positive elevation (m) — the me-vs-them panel. */
+  avgPaceSecPerKm?: number;
+  elapsedSec?: number;
+  elevGainM?: number;
   /** strength: 1-based set / exercise counters */
   set?: number;
   totalSets?: number;
