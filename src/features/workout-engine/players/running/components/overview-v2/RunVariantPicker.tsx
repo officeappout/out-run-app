@@ -13,8 +13,8 @@
 
 import { SegmentedPicker } from '@/components/ui/v2';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
-import { estimateRunTotals, type RunPaceContext } from '../../utils/run-preview/run-estimates';
-import type { RunVariant, RunVariantKey } from '../../utils/run-overview/run-variants';
+import type { RunPaceContext } from '../../utils/run-preview/run-estimates';
+import { variantMinutes, variantsAreDistinct, type RunVariant, type RunVariantKey } from '../../utils/run-overview/run-variants';
 import { useT, type ReactTFunction } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
@@ -36,13 +36,15 @@ export interface RunVariantPickerProps {
 
 /** "קליל · 34׳" (the level's whole-workout minutes). */
 export function variantOptionLabel(v: RunVariant, ctx: RunPaceContext, t: ReactTFunction<PlayerKey>): string {
-  const sec = estimateRunTotals(v.blocks, ctx).seconds;
+  const min = variantMinutes(v, ctx);
   const name = t(LEVEL_NAME_KEYS[v.key]);
-  return sec ? t('run.overview.level.withMinutes', { name, min: String(Math.max(1, Math.round(sec / 60))) }) : name;
+  return min ? t('run.overview.level.withMinutes', { name, min: String(min) }) : name;
 }
 
 export default function RunVariantPicker({ variants, value, onChange, ctx, manual = false, className }: RunVariantPickerProps) {
   const t = useT(player);
+  // Two levels with the same minutes are no choice — hide the selector (a manual swap keeps its note).
+  if (!manual && !variantsAreDistinct(variants, ctx)) return null;
   return (
     <div className={className}>
       <SegmentedPicker<RunVariantKey | 'manual'>

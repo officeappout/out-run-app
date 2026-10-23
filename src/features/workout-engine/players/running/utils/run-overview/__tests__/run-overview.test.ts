@@ -4,7 +4,7 @@ import type { ComputedPaceZone, RunZoneType } from '../../../../../core/types/ru
 import { ALL_RUN_ZONES } from '../../../../../core/types/running.types';
 import type { RunPaceContext } from '../../run-preview/run-estimates';
 import { estimateRunTotals } from '../../run-preview/run-estimates';
-import { applyRunVariant, bareSize, buildRunVariants } from '../run-variants';
+import { applyRunVariant, bareSize, buildRunVariants, variantsAreDistinct } from '../run-variants';
 import { buildRunOverviewLegs, routeWalkMinutes } from '../run-overview-legs';
 import { buildWorkoutElevation, elevationAlongRun, EASY_BAND_COLOR } from '../run-elevation-bands';
 import { plannedRunMapUrl, readVariantParam } from '../run-overview-url';
@@ -70,6 +70,37 @@ describe('run variants (M-6a selector)', () => {
     expect(v.map((x) => x.label)).toEqual(['30 דק׳', '35 דק׳', '45 דק׳']);
     expect(v[0].blocks[0].durationSeconds).toBe(1800);
     expect(v[2].blocks[0].durationSeconds).toBe(2700);
+  });
+  it('distance-based long run (durationSeconds 0): variants differ, nothing collapses to 30 s', () => {
+    const longRun = () => [
+      blk({ type: 'warmup', label: 'חימום', durationSeconds: 600, zoneType: 'easy' }),
+      blk({ type: 'run', label: 'ריצה ארוכה', durationSeconds: 0, distanceMeters: 10000, zoneType: 'long_run' }),
+      blk({ type: 'cooldown', label: 'שחרור', durationSeconds: 480, zoneType: 'easy' }),
+    ];
+    const v = buildRunVariants(longRun(), ctx)!;
+    const mins = v.map((x) => Math.round(estimateRunTotals(x.blocks, ctx).seconds! / 60));
+    expect(mins[0]).toBeLessThan(mins[1]);
+    expect(mins[1]).toBeLessThan(mins[2]);
+    expect(mins[0]).toBeGreaterThan(20);
+    expect(v[0].blocks[1].durationSeconds).toBe(0);
+    expect(v[0].blocks[1].distanceMeters).toBeLessThan(10000);
+    expect(v[2].blocks[1].distanceMeters).toBeGreaterThan(10000);
+    expect(variantsAreDistinct(v, ctx)).toBe(true);
+  });
+  it('distance-based reps with an explicit 0 duration keep 0 when lightened', () => {
+    const v = buildRunVariants([
+      blk({ type: 'run', label: '1000', durationSeconds: 0, distanceMeters: 1000, zoneType: 'tempo' }),
+      blk({ type: 'recovery', label: 'ג׳וג', durationSeconds: 120, _isSynthesizedRest: true }),
+      blk({ type: 'run', label: '1000', durationSeconds: 0, distanceMeters: 1000, zoneType: 'tempo' }),
+    ], ctx)!;
+    expect(work(v[0].blocks).map((b) => b.durationSeconds)).toEqual([0, 0]);
+    expect(work(v[0].blocks).map((b) => b.distanceMeters)).toEqual([800, 800]);
+  });
+  it('variantsAreDistinct: false when two levels show the same minutes', () => {
+    const w = easy35();
+    const v = buildRunVariants(w, ctx)!;
+    expect(variantsAreDistinct(v, ctx)).toBe(true);
+    expect(variantsAreDistinct([v[1], { ...v[2], blocks: v[1].blocks }], ctx)).toBe(false);
   });
   it('applyRunVariant: planned / unknown → the same object', () => {
     const w = { blocks: sixBy400() };
