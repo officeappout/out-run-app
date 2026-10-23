@@ -69,10 +69,10 @@ describe('flag gate', () => {
   });
   it('deeper page shell: hub off → skeleton only, no page', () => {
     flagState.flags = { enableHomeV2: true, enableProgressHubV2: false };
-    const off = renderToStaticMarkup(h(HubPageShell, { kind: 'steps', title: 'T' }, h('p', null, 'body')));
+    const off = renderToStaticMarkup(h(HubPageShell, { kind: 'steps', title: 'T', children: h('p', null, 'body') }));
     expect(off).not.toContain('body');
     flagState.flags = { enableHomeV2: true, enableProgressHubV2: true };
-    const on = renderToStaticMarkup(h(HubPageShell, { kind: 'steps', title: 'T' }, h('p', null, 'body')));
+    const on = renderToStaticMarkup(h(HubPageShell, { kind: 'steps', title: 'T', children: h('p', null, 'body') }));
     expect(on).toContain('body');
     expect(on).toContain('aria-label="חזרה"');
     expect(on).toContain('data-hub-page="steps"');
