@@ -54,7 +54,7 @@ export function israelDate(ms: number): string {
 /** The Israel dates a reminder scan has to read: today, plus tomorrow when the lead window crosses midnight. */
 export function reminderScanDates(nowMs: number): string[] {
   const dates = new Set([israelDate(nowMs), israelDate(nowMs + SESSION_REMINDER_LEAD_MIN * MIN_MS)]);
-  return [...dates];
+  return Array.from(dates);
 }
 
 export function stringList(v: unknown): string[] {
@@ -83,7 +83,7 @@ export function newlyPromoted(before: AttendanceLike | undefined, after: Attenda
 /** Everyone to tell when a session flips to cancelled (attendees first, then the waitlist), else []. */
 export function cancellationRecipients(before: AttendanceLike | undefined, after: AttendanceLike | undefined): string[] {
   if (!after || after.cancelled !== true || before?.cancelled === true) return [];
-  return [...new Set([...stringList(after.attendees), ...stringList(after.waitlist)])];
+  return Array.from(new Set([...stringList(after.attendees), ...stringList(after.waitlist)]));
 }
 
 /** 'HH:mm' as shown in the copy. */

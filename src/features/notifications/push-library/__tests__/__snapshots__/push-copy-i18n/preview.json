@@ -1511,6 +1511,76 @@
       }
     }
   ],
+  "session_reminder": [
+    {
+      "id": "default:session_reminder:0",
+      "preview": {
+        "title": "עוד 15 דקות: רצים בפארק",
+        "body": "המפגש מתחיל ב-18:30. מחכים לכם.",
+        "deepLink": "/community/group123"
+      }
+    },
+    {
+      "id": "default:session_reminder:1",
+      "preview": {
+        "title": "עוד 15 דקות לרצים בפארק",
+        "body": "הנעליים עליך? המפגש ב-18:30 והחבר׳ה כבר מתחממים.",
+        "deepLink": "/community/group123"
+      }
+    },
+    {
+      "id": "default:session_reminder:2",
+      "preview": {
+        "title": "עוד 15 דקות לרצים בפארק",
+        "body": "הנעליים עלייך? המפגש ב-18:30 והחבר׳ה כבר מתחממים.",
+        "deepLink": "/community/group123"
+      }
+    }
+  ],
+  "session_cancelled": [
+    {
+      "id": "default:session_cancelled:0",
+      "preview": {
+        "title": "המפגש של רצים בפארק בוטל",
+        "body": "המפגש ב-18:30 לא יתקיים. נעדכן אותך כשיהיה מועד חדש.",
+        "deepLink": "/community/group123"
+      }
+    },
+    {
+      "id": "default:session_cancelled:1",
+      "preview": {
+        "title": "המפגש של רצים בפארק בוטל",
+        "body": "סליחה על הבלבול, אין צורך להגיע ב-18:30. נעדכן אותך כשיהיה מועד חדש.",
+        "deepLink": "/community/group123"
+      }
+    }
+  ],
+  "session_waitlist_promoted": [
+    {
+      "id": "default:session_waitlist_promoted:0",
+      "preview": {
+        "title": "התפנה מקום ברצים בפארק",
+        "body": "המקום שלך במפגש ב-18:30 שמור. מחכים לכם.",
+        "deepLink": "/community/group123"
+      }
+    },
+    {
+      "id": "default:session_waitlist_promoted:1",
+      "preview": {
+        "title": "יש מקום! נכנסת לרצים בפארק",
+        "body": "התפנה מקום ואתה בפנים. מפגש ב-18:30, נתראה שם.",
+        "deepLink": "/community/group123"
+      }
+    },
+    {
+      "id": "default:session_waitlist_promoted:2",
+      "preview": {
+        "title": "יש מקום! נכנסת לרצים בפארק",
+        "body": "התפנה מקום ואת בפנים. מפגש ב-18:30, נתראה שם.",
+        "deepLink": "/community/group123"
+      }
+    }
+  ],
   "friend_joined": [
     {
       "id": "default:friend_joined:0",

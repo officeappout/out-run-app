@@ -1084,9 +1084,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     vars: ['@שם', '@קבוצה', '@שעה'],
     deepLinks: ['community_group', 'community'],
     defaults: [
-      { title: 'עוד 15 דקות: @קבוצה', body: 'המפגש מתחיל ב-@שעה. מחכים לכם.' },
-      { title: 'עוד 15 דקות ל@קבוצה', body: 'הנעליים עליך? המפגש ב-@שעה והחבר׳ה כבר מתחממים.', gender: 'male', pair: 'friendly', audience: CASUAL_AGES },
-      { title: 'עוד 15 דקות ל@קבוצה', body: 'הנעליים עלייך? המפגש ב-@שעה והחבר׳ה כבר מתחממים.', gender: 'female', pair: 'friendly', audience: CASUAL_AGES },
+      { title: T('session_reminder.0.title'), body: T('session_reminder.0.body') },
+      { title: T('session_reminder.1.title'), body: T('session_reminder.1.body'), gender: 'male', pair: 'friendly', audience: CASUAL_AGES },
+      { title: T('session_reminder.2.title'), body: T('session_reminder.2.body'), gender: 'female', pair: 'friendly', audience: CASUAL_AGES },
     ],
   },
   {
@@ -1101,8 +1101,8 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     vars: ['@שם', '@קבוצה', '@שעה'],
     deepLinks: ['community_group', 'community'],
     defaults: [
-      { title: 'המפגש של @קבוצה בוטל', body: 'המפגש ב-@שעה לא יתקיים. נעדכן אותך כשיהיה מועד חדש.' },
-      { title: 'המפגש של @קבוצה בוטל', body: 'סליחה על הבלבול, אין צורך להגיע ב-@שעה. נעדכן אותך כשיהיה מועד חדש.', audience: CASUAL_AGES },
+      { title: T('session_cancelled.0.title'), body: T('session_cancelled.0.body') },
+      { title: T('session_cancelled.1.title'), body: T('session_cancelled.1.body'), audience: CASUAL_AGES },
     ],
   },
   {
@@ -1117,9 +1117,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     vars: ['@שם', '@קבוצה', '@שעה'],
     deepLinks: ['community_group', 'community'],
     defaults: [
-      { title: 'התפנה מקום ב@קבוצה', body: 'המקום שלך במפגש ב-@שעה שמור. מחכים לכם.' },
-      { title: 'יש מקום! נכנסת ל@קבוצה', body: 'התפנה מקום ואתה בפנים. מפגש ב-@שעה, נתראה שם.', gender: 'male', pair: 'friendly', audience: CASUAL_AGES },
-      { title: 'יש מקום! נכנסת ל@קבוצה', body: 'התפנה מקום ואת בפנים. מפגש ב-@שעה, נתראה שם.', gender: 'female', pair: 'friendly', audience: CASUAL_AGES },
+      { title: T('session_waitlist_promoted.0.title'), body: T('session_waitlist_promoted.0.body') },
+      { title: T('session_waitlist_promoted.1.title'), body: T('session_waitlist_promoted.1.body'), gender: 'male', pair: 'friendly', audience: CASUAL_AGES },
+      { title: T('session_waitlist_promoted.2.title'), body: T('session_waitlist_promoted.2.body'), gender: 'female', pair: 'friendly', audience: CASUAL_AGES },
     ],
   },
   {

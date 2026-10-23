@@ -92,7 +92,7 @@ export interface SessionPushInput {
 export async function sendSessionPushes(db: admin.firestore.Firestore, input: SessionPushInput): Promise<number> {
   const cfg = KINDS[input.kind];
   let sent = 0;
-  for (const uid of withoutDemoUids([...new Set(input.uids)])) {
+  for (const uid of withoutDemoUids(Array.from(new Set(input.uids)))) {
     if (!(await claim(db, sessionPushMarkerId(input.kind, input.groupId, input.sessionId, uid)))) continue;
     try {
       const recipient = await loadPushRecipient(uid);

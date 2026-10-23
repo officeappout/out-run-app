@@ -77,7 +77,7 @@ describe('copy in the push library', () => {
       for (const d of e.defaults) {
         expect(d.title.length).toBeLessThanOrEqual(PUSH_TITLE_MAX);
         expect(d.body.length).toBeLessThanOrEqual(PUSH_BODY_MAX);
-        expect(`${d.title}${d.body}`).not.toMatch(/[\u{1F300}-\u{1FAFF}/]/u);
+        expect(`${d.title}${d.body}`).not.toMatch(/[\uD83C-\uD83E][\uDC00-\uDFFF]|\//);
       }
       const male = e.defaults.filter((d) => d.gender === 'male').length;
       const female = e.defaults.filter((d) => d.gender === 'female').length;
