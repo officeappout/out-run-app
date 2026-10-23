@@ -272,8 +272,10 @@ export interface BlindContext {
  * "העברתי לצוות" / "הועבר לצוות קלי" — a claim that the request reached the team. Owner thread
  * 18.10.2026 21:09: "העברתי להם את הבקשה" with no tool call at all; the admin queue got nothing.
  */
+// Only a first-person "I passed / sent it" (or "it was passed") to the team: ordinary sentences
+// about the team ("הצוות יודע", "הצוות מטפל בזה", "אפשר להעביר לצוות") never match.
 const HANDOFF_CLAIM =
-  /(?:העברתי|הועבר(?:ה|ו)?|שלחתי|העברנו|מסרתי|עדכנתי)\s+(?:את\s+)?(?:זה|הבקשה|השאלה|ההודעה|הפנייה|הכול|הכל|להם)?[^.!?\n]{0,25}(?:לצוות|לאנשי\s+הצוות|למאמנים|לנציג)|(?:העברתי|שלחתי|מסרתי)\s+להם|(?:הצוות|צוות\s+קלי)\s+(?:כבר\s+)?(?:קיבל|יודע|מטפל)/;
+  /(?:העברתי|הועבר(?:ה|ו)?|שלחתי|העברנו|מסרתי|עדכנתי)\s+(?:את\s+)?(?:זה|הבקשה|השאלה|ההודעה|הפנייה|הכול|הכל|להם)?[^.!?\n]{0,25}(?:לצוות|לאנשי\s+הצוות|למאמנים|לנציג)|(?:העברתי|שלחתי|מסרתי)\s+להם\s+(?:את\s+)?(?:הבקשה|השאלה|ההודעה|הפנייה|זה)/;
 
 export function findHandoffClaim(reply: string, ctx: Pick<BlindContext, 'toolNames' | 'handoffOpen'>): string | null {
   if (ctx.handoffOpen || ctx.toolNames.includes('handoff_to_human')) return null;

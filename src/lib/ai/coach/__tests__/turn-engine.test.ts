@@ -445,5 +445,7 @@ describe('a server tool that throws (owner thread 22-23.10.2026)', () => {
     const summary = out.state.log!.toolCalls[0].resultSummary;
     expect(summary).toMatch(/^error: tool threw: TypeError: Cannot read properties of undefined \(reading 'map'\)/);
     expect(summary.length).toBeLessThanOrEqual(700);
+    // Owner-readable through the client SDK: no stack frames / server paths.
+    expect(summary).not.toMatch(/\bat\s|\.ts:|\.js:/);
   });
 });

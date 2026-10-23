@@ -206,6 +206,9 @@ describe('handoff claims need a real handoff (owner thread 18.10.2026: "העבר
     expect(findHandoffClaim('העברתי לצוות.', { toolNames: ['handoff_to_human'] })).toBeNull();
     expect(findHandoffClaim('העברתי לצוות.', { toolNames: [], handoffOpen: true })).toBeNull();
     expect(findHandoffClaim('אפשר להעביר את זה לצוות אם תרצה.', { toolNames: [] })).toBeNull();
+    for (const ordinary of ['הצוות יודע לעזור בזה.', 'הצוות מטפל בבקשות כאלה.', 'הצוות קיבל משוב טוב על האימון הזה.', 'רוצה שאעביר את זה לצוות?', 'צוות קלי זמין כאן בצ׳אט.', 'שלחתי לך אימון חדש.']) {
+      expect(findHandoffClaim(ordinary, { toolNames: [] })).toBeNull();
+    }
   });
 });
 

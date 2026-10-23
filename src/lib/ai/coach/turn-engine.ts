@@ -341,11 +341,15 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
   }
 }
 
-/** A thrown tool error as one short line for the review log (name, message, first stack frame). */
+/**
+ * A thrown tool error as one short line for the review log: name + message only. The stored
+ * message (with its log) is readable by the thread's owner through the client SDK
+ * (firestore.rules ai_coach_threads owner read), so no stack frames / server paths go in it;
+ * the full error is in the server log (console.error above).
+ */
 export function toolErrorDetail(err: unknown): string {
-  if (!(err instanceof Error)) return String(err).slice(0, 200);
-  const frame = (err.stack ?? '').split('\n').find((l) => /^\s+at /.test(l))?.trim() ?? '';
-  return `${err.name}: ${err.message}${frame ? ` (${frame})` : ''}`.replace(/\s+/g, ' ').slice(0, 300);
+  if (!(err instanceof Error)) return String(err).replace(/\s+/g, ' ').slice(0, 200);
+  return `${err.name}: ${err.message}`.replace(/\s+/g, ' ').slice(0, 200);
 }
 
 function guardType(i: ReplyIssue): string {

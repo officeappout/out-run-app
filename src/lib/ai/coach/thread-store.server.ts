@@ -444,7 +444,8 @@ export async function maybeRollSummary(
     const msgs = snap.docs.map((d) => toStored(d.id, d.data()));
     if (msgs.length <= keep + 4) return false;
     const fold = msgs.slice(0, msgs.length - keep);
-    const summary = await summarize(current.summary, fold);
+    // A stored "couldn't answer" reply (turnFailed) is not part of the conversation.
+    const summary = await summarize(current.summary, fold.filter((m) => !m.failed));
     if (!summary) return false;
     await threadRef(db, uid).set(
       { summary: summary.slice(0, 1500), summarizedUntil: Timestamp.fromMillis(fold[fold.length - 1].createdAtMs) },

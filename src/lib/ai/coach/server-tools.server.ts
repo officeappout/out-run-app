@@ -100,8 +100,12 @@ async function readWorkouts(ctx: ServerToolContext, sinceMs: number | null, limi
  * (week-plan.ts — K0 F1/F2/F3). Nothing is written; the only reads are the day docs (one
  * getAll, as before) — the rest comes from the user doc the turn already holds.
  */
-async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<RawScheduleEntry[]> {
-  if (dates.length === 0) return [];
+/**
+ * `partial`: the virtual layering threw, so only the day docs are in `entries`; a day without a
+ * doc is UNKNOWN, not empty (never a "nothing planned" that isn't really nothing).
+ */
+async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<{ entries: RawScheduleEntry[]; partial?: true }> {
+  if (dates.length === 0) return { entries: [] };
   const refs = dates.map((d) => ctx.db.collection('userSchedule').doc(`${ctx.uid}_${d}`));
   const snaps = await ctx.db.getAll(...refs);
   const docs = new Map<string, Array<Record<string, unknown>>>();
@@ -111,18 +115,19 @@ async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<Ra
     if (Array.isArray(entries)) docs.set(dates[i], entries as Array<Record<string, unknown>>);
   });
   try {
-    return plannedWeekEntries({
+    const entries = plannedWeekEntries({
       dates,
       docs,
       profile: ctx.profile,
       advisorProfile: normalizeAdvisorProfile(ctx.profile),
       ...(ctx.runsByType ? { runsByType: true } : {}),
     });
+    return { entries };
   } catch (err) {
     // The virtual layering (template / training days / running plan) failed on this user's
-    // data: the day docs that were read are still the truth for those days — never lose the
-    // whole week (and Kelly's "לא הצלחתי לטעון את הלו״ז") to one bad profile field.
-    console.error('[ai-coach] planned-week layering failed, using the day docs only', err);
+    // data: the day docs that were read are still true for THOSE days, but every other day is
+    // unknown — returned marked partial, never as a complete week.
+    console.error('[ai-coach] planned-week layering failed, using the day docs only (partial)', err);
     const out: RawScheduleEntry[] = [];
     for (const date of dates) {
       for (const e of docs.get(date) ?? []) {
@@ -130,7 +135,7 @@ async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<Ra
         out.push({ date, type: e.type, programIds: e.programIds, startTime: e.startTime, completed: e.completed, title: e.title, scheduledCategories: e.scheduledCategories, plannedRun: e.plannedRun });
       }
     }
-    return out;
+    return { entries: out, partial: true };
   }
 }
 
@@ -216,7 +221,8 @@ export async function loadUserContextSheet(ctx: ServerToolContext): Promise<User
   const [workouts, weekSchedule, areaName, programIndex, advisor] = await Promise.all([
     readWorkouts(ctx, null, 5),
     // K0 F4: a failed day-doc read is "unknown", never "nothing planned".
-    readSchedule(ctx, week).catch((err) => {
+    // A partial week (layering failed) is unknown for the sheet, exactly like a failed read.
+    readSchedule(ctx, week).then((r) => (r.partial ? null : r.entries)).catch((err) => {
       console.warn('[ai-coach] week schedule unavailable this turn', err);
       return null;
     }),
@@ -274,7 +280,16 @@ export async function getProgress(ctx: ServerToolContext, input: { range: Progre
 
 export async function getSchedule(ctx: ServerToolContext, input: { from: string; to: string }): Promise<ToolExecResult> {
   const days = daysBetween(input.from, input.to);
-  const entries = await readSchedule(ctx, days);
+  const { entries, partial } = await readSchedule(ctx, days);
+  if (partial) {
+    return json({
+      from: input.from,
+      to: input.to,
+      partial: true,
+      entries: entries.map(sheetScheduleEntry),
+      note: 'Only part of the schedule could be read: the planned template and running entries could not be read. Days without an entry here are UNKNOWN, not empty. Never say nothing is planned on them; say you could not check the full schedule and suggest opening it in the app.',
+    });
+  }
   return json({ from: input.from, to: input.to, entries: entries.map(sheetScheduleEntry) });
 }
 

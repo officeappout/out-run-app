@@ -54,6 +54,7 @@ import {
   stripThinkingBlocks,
   turnUserText,
   TURN_FAILED_TEXT,
+  toolErrorDetail,
   type TurnState,
 } from '@/lib/ai/coach/turn-engine';
 import {
@@ -431,6 +432,7 @@ export async function POST(request: Request) {
           const log = newTurnLog('none');
           log.guards.push({ type: 'safety', action: `fixed_reply:${safetyTrigger}` });
           const id = await appendMessage(db, uid, { role: 'assistant', text: safetyText, log, ...(unified ? { source: 'ai' as const } : {}) });
+          settled = true;
           emit({ type: 'done', messageId: id });
           return;
         }
@@ -567,7 +569,8 @@ export async function POST(request: Request) {
         if (!settled) {
           try {
             const log = newTurnLog(model);
-            log.guards.push({ type: 'turn_failed', action: `${code}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300) });
+            // Owner-readable (client SDK): name + message only, the full error is in the server log.
+            log.guards.push({ type: 'turn_failed', action: `${code}: ${toolErrorDetail(err)}` });
             await appendMessage(db, uid, { role: 'assistant', text: TURN_FAILED_TEXT, log, turnFailed: true, ...(unified ? { source: 'ai' as const } : {}) });
           } catch (e) {
             console.error('[ai-coach] storing the failed-turn reply failed', e);
