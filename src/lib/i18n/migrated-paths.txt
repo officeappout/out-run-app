@@ -559,3 +559,6 @@ src/features/workout-engine/services/shared-workout-media.ts
 src/features/tv-mode/
 src/app/tv/
 src/app/api/tv/
+
+# Workout overview single ⋯ menu (enable_overview_more_menu_v1, namespace wide, keys menu.* + pair.menu.*) — translation-ready from the first commit.
+src/features/workouts/components/workout-preview-drawer/components/OverviewMoreMenu.tsx

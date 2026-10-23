@@ -1,4 +1,15 @@
 {
+  "menu.download": "הורדה לטלפון",
+  "menu.download.hint": "לאימון בלי רשת",
+  "menu.download.busy": "מורידים… {percent}",
+  "menu.download.done": "הורד לטלפון",
+  "menu.fav": "אהבתי",
+  "menu.fav.hint": "למועדפים",
+  "menu.fav.on": "במועדפים · לחיצה להסרה",
+  "menu.share": "שיתוף",
+  "menu.share.hint": "שליחה בקישור",
+  "menu.share.busy": "מכינים קישור…",
+
   "pair.menu.aria": "עוד פעולות",
   "pair.menu.item": "הצגה על מסך גדול",
   "pair.menu.hint": "לפני ההתחלה",

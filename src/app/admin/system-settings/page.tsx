@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode, Tv,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode, Tv, MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -125,6 +125,7 @@ interface FlagState {
   enable_group_fixes_v1: boolean;
   enable_together_layer_v1: boolean;
   enable_tv_mode_v1: boolean;
+  enable_overview_more_menu_v1: boolean;
 }
 
 // ============================================================================
@@ -1021,6 +1022,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-600',
     title: 'הצגת אימון על מסך גדול (טלוויזיה)',
     description: 'בתצוגת האימון, בתפריט ⋯, נוספת האפשרות "הצגה על מסך גדול". הטלוויזיה פותחת outrun.co.il/tv ומציגה QR וקוד של 6 ספרות; הטלפון הראשון שמזין את הקוד הוא המארח והשלט (הפעלה/השהיה/הבא/דילוג/עוצמת קול), טלפונים נוספים מצטרפים כמשתתפים ומופיעים בשורת החברים. הקוד תקף 4 שעות. דורש שכללי tvSessions יפורסמו (דוד) וכן מדיניות TTL. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום, וכתובת /tv מציגה "לא זמין".',
+  },
+  // Workout overview single ⋯ menu (23.10.2026) — owner-approved canvas W-17 variant B.
+  {
+    key: 'enable_overview_more_menu_v1',
+    icon: MoreHorizontal,
+    iconBg: 'bg-slate-50',
+    iconColor: 'text-slate-600',
+    title: 'תפריט ⋯ אחד בתצוגת האימון',
+    description: 'בתצוגת האימון, במקום שורת האייקונים (שיתוף / אהבתי / הורדה) יש כפתור ⋯ אחד שפותח תפריט: הורדה לטלפון, אהבתי, שיתוף, ואם הצגה על מסך גדול פעילה גם "הצגה על מסך גדול". אותן פעולות בדיוק, רק מאחורי תפריט אחד. מנהל-על רואה את זה כבר עכשיו. כבוי = שורת האייקונים כמו היום.',
   },
 ];
 

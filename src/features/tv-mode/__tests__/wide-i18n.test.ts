@@ -13,7 +13,7 @@ const t = makeT('he', wide);
 describe('wide catalog shape', () => {
   it('uses the agreed prefixes only', () => {
     const prefixes = new Set(Object.keys(he).map((k) => k.split('.')[0]));
-    expect(Array.from(prefixes).sort()).toEqual(['download', 'joined', 'lobby', 'lost', 'pair', 'remote', 'stage']);
+    expect(Array.from(prefixes).sort()).toEqual(['download', 'joined', 'lobby', 'lost', 'menu', 'pair', 'remote', 'stage']);
   });
   it('has no empty strings and no leftover placeholders without a value', () => {
     for (const [k, v] of Object.entries(he)) {

@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import { useSwapFixesV1 } from '@/features/workout-engine/players/strength/hooks/useSwapFixesV1';
 import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
+import { useOverviewMoreMenuV1 } from '@/hooks/useOverviewMoreMenuV1';
+import OverviewActionsMenu from './components/OverviewActionsMenu';
 import type { LocationAvailability } from './hooks/useLocationSwapPlanner';
 import { collectWorkoutExerciseIds } from '@/features/workout-engine/players/strength/logic/swap-fixes';
 import StrengthOverviewCard from '@/features/workout-engine/components/StrengthOverviewCard';
@@ -150,6 +152,7 @@ export default function WorkoutPreviewDrawer({
   // always tracks the exercises actually shown. Location follows the workout's
   // stamped executionLocation (updated by swap-all), falling back to the prop.
   const locationGateOn = useLocationGateV1(); // enable_location_gate_v1
+  const moreMenuOn = useOverviewMoreMenuV1(); // enable_overview_more_menu_v1
   const { heroMedia, cachedHeroThumb, cachedHeroVideo } = useDrawerMediaState(
     generatedWorkout?.exercises,
     (generatedWorkout?.executionLocation as string | undefined) ??
@@ -726,6 +729,25 @@ export default function WorkoutPreviewDrawer({
                       onShare: handleShare,
                       onDownload: handleDownload,
                       // enable_tv_mode_v1: ⋯ → "show on a big screen" (renders nothing with the flag off).
+                      // enable_overview_more_menu_v1: the icons + the TV ⋯ collapse into one menu (flag off = unchanged).
+                      menu: moreMenuOn ? (
+                        <OverviewActionsMenu
+                          actions={{
+                            isFav,
+                            isFavToggling,
+                            isFavDownloading,
+                            isFavDownloaded,
+                            downloadProgress: dlProgress,
+                            isSharing,
+                            onToggleFavorite: handleToggleFavorite,
+                            onShare: handleShare,
+                            onDownload: handleDownload,
+                          }}
+                          workout={generatedWorkout}
+                          onStart={() => handleStartWorkout()}
+                          prepareShare={async () => (await persistSharedWorkout(generatedWorkout, workoutLocation)).docId}
+                        />
+                      ) : undefined,
                       trailing: (
                         <TvEntryMenu
                           workout={generatedWorkout}
