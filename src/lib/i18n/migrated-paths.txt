@@ -583,3 +583,9 @@ src/features/home/components/streak/
 src/features/home/components/first-week/
 src/features/home/components/widgets/run-week-v2/RunWeekListV2.tsx
 src/features/home/utils/strength-top-up.ts
+# Home progress slot (enable_home_progress_slot_v1, namespace home, keys progressSlot.*) — translation-ready from the first commit.
+src/features/home/components/progress-slot/
+src/features/home/utils/progress-slot.ts
+src/features/home/hooks/useWeekActivitySummary.ts
+src/components/ui/v2/PagedCarousel.tsx
+src/components/ui/v2/paged-carousel.ts

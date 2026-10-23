@@ -145,7 +145,7 @@ import {
   ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
   CalmReturnCard, StreakNoticeCard, FirstWeekHomeCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
-  HomeProgramSlide,
+  HomeProgramSlide, HomeProgressSlotRow, ActivityMinutesRingCard,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
 import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
@@ -3365,6 +3365,8 @@ export default function HomePage() {
           // ghost-upsell entries into the strength questionnaire the Hero already
           // covers — hidden until a program exists, then it returns.
           // enable_home_v2 walker: "מדדי בריאות" (steps + activity) first and the default.
+          // enable_home_progress_slot_v1 (v2 home only). Off → the tabs below render exactly as before.
+          const progressSlotOn = featureFlags.enableHomeV2 && featureFlags.enableHomeProgressSlotV1;
           const { tabs, active: effectiveTab } = resolveHomeTabs(
             hasProgram,
             featureFlags.enableHomeV2 && walkWeek.isWalker,
@@ -3416,7 +3418,11 @@ export default function HomePage() {
               </div>
 
               {/* ── Tab content ──────────────────────────────────────── */}
-              {effectiveTab === 'strength' ? (
+              {effectiveTab === 'strength' && progressSlotOn ? (
+                /* enable_home_progress_slot_v1 (boards PG-1): same grid, the program slot
+                   becomes strength ↔ running/walking with pager dots. */
+                <HomeProgressSlotRow aside={<ConsistencyWidget />} />
+              ) : effectiveTab === 'strength' ? (
                 /* התקדמות שבועית — program ring (minmax(0,1fr)) + consistency bars (111px).
                    Grid (not flex) so each cell has an explicit physical boundary —
                    no item can bleed into the neighbouring cell regardless of its
@@ -3435,13 +3441,15 @@ export default function HomePage() {
                   style={{ gridTemplateColumns: '1fr 1fr', direction: 'rtl' }}
                 >
                   <ActivityCard />
-                  <StepsSummaryCard variant="compact" />
+                  {/* enable_home_progress_slot_v1: the week's active-minutes ring (Progress page's ring) instead of steps. */}
+                  {progressSlotOn ? <ActivityMinutesRingCard /> : <StepsSummaryCard variant="compact" />}
                 </div>
               )}
 
               {/* Home v2 only: race prediction from the user's real paceProfile.basePace.
-                  The card returns null without v2 / for non-runners. */}
-              {featureFlags.enableHomeV2 && (
+                  The card returns null without v2 / for non-runners.
+                  enable_home_progress_slot_v1: gone — the forecast lives on the running card. */}
+              {featureFlags.enableHomeV2 && !progressSlotOn && (
                 <RacePredictionCard runningProgramsEnabled={featureFlags.enableRunningPrograms} />
               )}
             </div>

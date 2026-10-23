@@ -107,6 +107,8 @@ export default defineConfig({
       'src/features/workouts/components/workout-preview-drawer/__tests__/**/*.test.tsx',
       // i18n wave 2 (namespace home) — home screen components, Hebrew markup parity (static + jsdom).
       'src/features/home/components/__tests__/**/*.test.tsx',
+      // Home progress slot (enable_home_progress_slot_v1) — carousel / cards / minutes ring render tests (jsdom).
+      'src/features/home/components/progress-slot/__tests__/**/*.test.tsx',
       // i18n wave 2 batch v (community namespace, communityPage.*) — /community page surfaces, Hebrew markup parity, static markup.
       'src/app/community/_components/__tests__/**/*.test.tsx',
       // i18n wave 2 batch al (home namespace, page.*) — src/app/home/page.tsx Hebrew markup parity, static markup.

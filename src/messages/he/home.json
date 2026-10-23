@@ -526,5 +526,22 @@
   "runReturn.recommended": "כמו שהמלצנו",
   "runReturn.resume": "להמשיך מאיפה שעצרתי",
   "runReturn.resumeBlocked": "אחרי הפסקה ארוכה זה מעמיס מדי — עדיף לחזור בהדרגה",
-  "runReturn.rebuildForRace": "לבנות לי מחדש לפי המירוץ"
+  "runReturn.rebuildForRace": "לבנות לי מחדש לפי המירוץ",
+  "progressSlot.carousel.aria": "התוכניות שלך",
+  "progressSlot.carousel.dot": "כרטיס {page} מתוך {count}",
+  "progressSlot.run.forecast": "תחזית {dist}",
+  "progressSlot.run.kicker": "תוכנית הריצה",
+  "progressSlot.run.sessions": "{done}/{total} אימונים",
+  "progressSlot.run.week": "שבוע {week} מתוך {weeks}",
+  "progressSlot.run.trend": "{direction, select, faster {מהיר ב-{clock}} other {איטי ב-{clock}}} ב-30 יום",
+  "progressSlot.run.ringLabel": "{pct} מתוכנית הריצה הושלמו",
+  "progressSlot.walk.kicker": "תוכנית ההליכה",
+  "progressSlot.walk.minutes": "{minutes} דק׳",
+  "progressSlot.walk.ofTarget": "מתוך {target} דק׳ השבוע",
+  "progressSlot.walk.ringLabel": "{pct} מיעד ההליכה של השבוע",
+  "progressSlot.minutesRing.label": "דק׳ פעילות השבוע",
+  "progressSlot.minutesRing.vsLastWeek": "{delta} מול שבוע שעבר",
+  "progressSlot.minutesRing.sameAsLastWeek": "כמו בשבוע שעבר",
+  "progressSlot.minutesRing.ringAria": "{minutes} דקות פעילות השבוע",
+  "progressSlot.minutesRing.error": "לא הצלחנו לטעון את הדקות"
 }

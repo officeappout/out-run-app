@@ -67,6 +67,8 @@ export interface ProgramProgressData {
   progressPercent: number;
   /** Number of active programs the user has — drives carousel mode in `ProgramProgressCard`. */
   programCount: number;
+  /** The primary program's id / slug (home progress slot: its progression map). */
+  programId?: string | null;
 }
 
 /** True if the user has completed the strength survey. */
@@ -215,6 +217,7 @@ export function useProgramProgress(): ProgramProgressData | null {
     maxLevel,
     progressPercent,
     programCount,
+    programId: primaryDomainId,
   };
 }
 
