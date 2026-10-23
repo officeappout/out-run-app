@@ -34,13 +34,14 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
 import { PUSH_TYPE_IDS } from './services/push-measure-all';
+import { getT } from './shared/i18n-t';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 export const KELLY_PUSH_DEEP_LINK = '/ai-coach';
-export const KELLY_PUSH_TITLE = 'קלי';
+export const KELLY_PUSH_TITLE = getT('he', 'push')('kelly.pushTitle'); // i18n wave 2A: user locale = wave 5B
 const RATE_CAP_HOURS = 0.25;
 const STALE_MS = 10 * 60 * 1000;
 const BODY_MAX = 100;

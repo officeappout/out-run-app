@@ -263,6 +263,13 @@ describe('every sender takes its copy from the push library', () => {
     sentWith('kudos_bundle');
   });
 
+  it('onKudosCreated without a sender name → the fallback word fills @שולח (i18n wave 2A: recorded before the extraction)', async () => {
+    state.docs.set('users/r1', USER);
+    const event = { params: { recipientUid: 'r1', kudoId: 'k2' }, data: { data: () => ({ fromUid: 's9', type: 'high_five' }) } };
+    await run(onKudosCreated, event);
+    expect(ctxFor('kudos_single').vars).toMatchObject({ '@שולח': 'מישהו' });
+  });
+
   it('onGroupMemberJoin → group_join_welcome (joiner) + group_join_admin (leader)', async () => {
     state.docs.set('community_groups/g1', { name: 'רצים בפארק', leaderUserId: 'lead1' });
     state.docs.set('users/j1', USER);

@@ -51,7 +51,7 @@ file — resolve that conflict by keeping both sides).
 | `workout-engine/{players,components,budget-light}`, `app/{run,session,active-workout-ui}` | `player.json` | new |
 | `workout-engine/summary` | `summary.json` | new |
 | `src/features/schedule` | `schedule.json` | new |
-| `src/features/notifications` (push library, client side) | `push.json` | new (wave 2A, server mirror) |
+| `src/features/notifications` (push library code defaults, first-week home card) + the static words Cloud Functions senders add around library copy | `push.json` | exists (wave 2A: `<pushType>.<index>.title\|body`, `firstWeekCard.*`, `distance.*`, `workoutType.*`, `chat.*`, `kudos.*`, `kelly.*`, `legacy.*`) |
 | `src/features/arena`, `app/{community,arena,league}` (community / arena / group screens) | `community.json` | exists (#583 `group.*`; arena components: `banner.*`, `groupCard.*`, `report.*`, …) |
 | `src/features/{social,challenge,messages}` | `social.json` | new |
 | `src/lib/ai`, `src/features/ai-coach`, `app/ai-coach` | `coach.json` | exists (batch w: `page.*`, `chat.*`, `entry.*`, `memory.*`, `proposal.*`, `card.*`, `aerobic.*`, `parks.*`) |
@@ -262,6 +262,14 @@ const title = t('streak.title', { days: String(days), gender: user.core?.gender 
 
 Inside React but outside render (event handlers, effects): use the `t` from `useT` captured in the component.
 `useLocaleStore.getState().locale` gives the current locale anywhere on the client.
+
+**Push copy / Cloud Functions** (wave 2A): `push-library.core.ts` and `first-week.core.ts` are mirrored byte for byte into
+`functions/src/shared/` and import only `./push-copy-t` (a hand-written twin per tree, same API:
+`pushCopyT(locale = 'he')(key, values?)`). Code defaults are keyed `<pushType>.<index>.title|body` (the index is the one
+in the row id `default:<pushType>:<index>`); male / female twins stay separate rows (ids, pairs and selection are
+unchanged), so the catalog holds plain text. Senders in `functions/src` use `getT('he', 'push')` from
+`./shared/i18n-t` (sync; add a namespace to `FUNCTIONS_I18N_NAMESPACES` in `functions/scripts/i18n-catalog-mirror.js`,
+run `node functions/scripts/vendor-copy-geo-discovery.js`, commit the regenerated mirrors). The user's locale is wave 5B.
 
 **Synchronous client services that return display text** (a `lockedHint`, a `formatRequirementsHint()`, an exported
 `CHECK_LEVEL_CTA`) are the hard case: `getT` is async, and a module-level string can't follow the locale.

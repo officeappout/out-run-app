@@ -48,6 +48,7 @@ import {
   normalizePersonaValue,
   type CanonicalPersona,
 } from './persona-alias-map.service';
+import { getT } from '../shared/i18n-t';
 
 const getDb = () => admin.firestore();
 
@@ -241,6 +242,7 @@ export function personaliseNotificationText(
   // display name) is spliced in LAST specifically so it is never re-scanned
   // by this pass — a name containing a literal "{steps_left}"-shaped
   // substring must never be treated as a template placeholder.
+  const t = getT('he', 'push'); // i18n wave 2A: the user's locale arrives with wave 5B
   let result = text.replace(/\{(\w+)\}/g, (_, key: string) => {
     const v = vars[key];
     return v === undefined ? '' : String(v);
@@ -254,14 +256,14 @@ export function personaliseNotificationText(
       : '0',
   );
   result = result.replace(/@מרחק/g, () => {
-    if (vars.distanceMeters === undefined || vars.distanceMeters === null) return 'קרוב';
-    if (vars.distanceMeters < 1000) return `${vars.distanceMeters} מטר`;
-    return `${(vars.distanceMeters / 1000).toFixed(1)} ק"מ`;
+    if (vars.distanceMeters === undefined || vars.distanceMeters === null) return t('legacy.near');
+    if (vars.distanceMeters < 1000) return t('distance.meters', { meters: String(vars.distanceMeters) });
+    return t('distance.km', { km: (vars.distanceMeters / 1000).toFixed(1) });
   });
   result = result.replace(/@דקות/g, () =>
     vars.walkMinutes !== undefined && vars.walkMinutes !== null ? String(vars.walkMinutes) : '0',
   );
-  result = result.replace(/@שם/g, vars.name || 'חבר');
+  result = result.replace(/@שם/g, vars.name || t('legacy.friend'));
   return result;
 }
 

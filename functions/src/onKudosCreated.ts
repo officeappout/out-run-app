@@ -41,6 +41,7 @@ import { sendPush } from './services/push.service';
 import { resolvePushCopy, pushCopyData, loadPushRecipient, loadPushSubjectGender } from './services/push-copy.service';
 import type { PushCopyContext, PushGender } from './shared/push-library.core';
 import { isDemoUid } from './lib/demo';
+import { getT } from './shared/i18n-t';
 import { loadDemoViewerUids } from './lib/demo-world';
 import { PUSH_TYPE_IDS } from './services/push-measure-all';
 
@@ -107,7 +108,7 @@ export const onKudosCreated = onDocumentCreated(
       return;
     }
 
-    const senderName = String(kudoData.fromName ?? 'מישהו');
+    const senderName = String(kudoData.fromName ?? getT('he', 'push')('kudos.someone')); // i18n wave 2A: user locale = wave 5B
     const kudoType   = String(kudoData.type ?? 'high_five');
 
     // Guard: don't push self-kudos (shouldn't happen but defensive)

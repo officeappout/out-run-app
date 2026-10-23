@@ -21,7 +21,7 @@ const fs = require('fs');
 const path = require('path');
 
 /** Namespaces Cloud Functions can translate. Add one here, then run the functions build. */
-const FUNCTIONS_I18N_NAMESPACES = ['common'];
+const FUNCTIONS_I18N_NAMESPACES = ['common', 'push'];
 
 /** Must match LOCALES in src/lib/i18n/locales.ts (the root test checks it). */
 const I18N_MIRROR_LOCALES = ['he', 'en', 'ru', 'de'];
