@@ -17,9 +17,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { together } from '@/messages/ns/together';
+import { useTogetherLocale } from '@/features/workout-engine/together/hooks/useTogetherLocale';
+import { localizeParams } from '@/features/workout-engine/together/core/localize';
 import type { OrderedParticipant } from '@/features/workout-engine/together/core/presence-order';
 import {
-  DEFAULT_RAIL_PLACEMENT, RAIL_STORAGE_KEY, parsePlacement, placementTopPx, railStatus, resolveDrop, toggleSelected,
+  DEFAULT_RAIL_PLACEMENT, RAIL_STORAGE_KEY, parsePlacement, physicalEdge, placementTopPx, railStatus, resolveDrop, toggleSelected,
   type RailPlacement,
 } from '@/features/workout-engine/together/core/rail-logic';
 
@@ -49,6 +51,7 @@ function savePlacement(p: RailPlacement) {
 
 export default function PresenceRail({ participants, selectedUid = null, onSelect, topInset, bottomInset, renderExtra, maxHeight = ROW * 4.5 }: PresenceRailProps) {
   const t = useT(together);
+  const { locale, isRtl } = useTogetherLocale();
   const [place, setPlace] = useState<RailPlacement>(DEFAULT_RAIL_PLACEMENT);
   const [viewH, setViewH] = useState(typeof window !== 'undefined' ? window.innerHeight : 800);
   const [dragY, setDragY] = useState<number | null>(null);
@@ -69,7 +72,7 @@ export default function PresenceRail({ participants, selectedUid = null, onSelec
   const freeHeight = Math.max(0, viewH - topInset - bottomInset);
   const railH = Math.min(maxHeight, participants.length * ROW + 28, freeHeight);
   const top = dragY ?? placementTopPx(place.topFrac, freeTop, freeHeight, railH);
-  const sideStyle = place.side === 'left' ? { left: 8 } : { right: 8 };
+  const sideStyle = { insetInlineStart: place.side === 'start' ? 8 : undefined, insetInlineEnd: place.side === 'end' ? 8 : undefined };
 
   const onHandleDown = (e: React.PointerEvent) => {
     const rect = railRef.current?.getBoundingClientRect();
@@ -82,14 +85,14 @@ export default function PresenceRail({ participants, selectedUid = null, onSelec
   };
   const onHandleUp = (e: React.PointerEvent) => {
     if (!grab.current) return;
-    const next = resolveDrop({ x: e.clientX, y: e.clientY, viewW: window.innerWidth, freeTop, freeHeight: Math.max(1, freeHeight - railH), grabOffsetY: grab.current.dy });
+    const next = resolveDrop({ isRtl, x: e.clientX, y: e.clientY, viewW: window.innerWidth, freeTop, freeHeight: Math.max(1, freeHeight - railH), grabOffsetY: grab.current.dy });
     grab.current = null;
     setDragY(null);
     commit({ ...next, collapsed: place.collapsed });
   };
 
   if (participants.length === 0) return null;
-  const Chevron = place.side === 'left' ? ChevronLeft : ChevronRight;
+  const Chevron = physicalEdge(place.side, isRtl) === 'left' ? ChevronLeft : ChevronRight;
 
   if (place.collapsed) {
     return (
@@ -153,7 +156,7 @@ export default function PresenceRail({ participants, selectedUid = null, onSelec
                     {p.photoURL ? <img src={p.photoURL} alt="" className="h-full w-full object-cover" /> : (p.name.charAt(0) || '·')}
                   </span>
                   <span className="max-w-[60px] truncate text-[9px] font-semibold leading-none text-white/90 tabular-nums" data-testid="rail-status">
-                    {t(st.key, st.params)}
+                    {t(st.key, localizeParams(st.params, locale))}
                   </span>
                 </button>
                 {renderExtra?.(p)}

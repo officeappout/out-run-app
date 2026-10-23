@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RAIL_PLACEMENT, formatPace, parsePlacement, placementTopPx, railStatus, resolveDrop, toggleSelected } from '../core/rail-logic';
+import { physicalEdge, DEFAULT_RAIL_PLACEMENT, formatPace, parsePlacement, placementTopPx, railStatus, resolveDrop, toggleSelected } from '../core/rail-logic';
 import type { OrderedParticipant } from '../core/presence-order';
 
 const P = (o: Partial<OrderedParticipant>): OrderedParticipant => ({
@@ -34,15 +34,20 @@ describe('rail status', () => {
 
 describe('rail placement', () => {
   it('parses defensively', () => {
+    expect(physicalEdge('end', true)).toBe('left');
+    expect(physicalEdge('end', false)).toBe('right');
     expect(parsePlacement(null)).toEqual(DEFAULT_RAIL_PLACEMENT);
     expect(parsePlacement('{bad')).toEqual(DEFAULT_RAIL_PLACEMENT);
-    expect(parsePlacement('{"side":"right","topFrac":4,"collapsed":true}')).toEqual({ side: 'right', topFrac: 1, collapsed: true });
+    expect(parsePlacement('{"side":"start","topFrac":4,"collapsed":true}')).toEqual({ side: 'start', topFrac: 1, collapsed: true });
     expect(parsePlacement('{"side":"x","topFrac":"a"}')).toEqual(DEFAULT_RAIL_PLACEMENT);
   });
   it('drop picks the nearer side and clamps the vertical fraction', () => {
-    expect(resolveDrop({ x: 300, y: 400, viewW: 390, freeTop: 100, freeHeight: 600 })).toEqual({ side: 'right', topFrac: 0.5, collapsed: false });
-    expect(resolveDrop({ x: 10, y: 20, viewW: 390, freeTop: 100, freeHeight: 600 })).toMatchObject({ side: 'left', topFrac: 0 });
-    expect(resolveDrop({ x: 10, y: 9000, viewW: 390, freeTop: 100, freeHeight: 600 }).topFrac).toBe(1);
+    expect(resolveDrop({ isRtl: false, x: 300, y: 400, viewW: 390, freeTop: 100, freeHeight: 600 })).toEqual({ side: 'end', topFrac: 0.5, collapsed: false });
+    expect(resolveDrop({ isRtl: false, x: 10, y: 20, viewW: 390, freeTop: 100, freeHeight: 600 })).toMatchObject({ side: 'start', topFrac: 0 });
+    // RTL: the left half is the END edge
+    expect(resolveDrop({ isRtl: true, x: 10, y: 20, viewW: 390, freeTop: 100, freeHeight: 600 }).side).toBe('end');
+    expect(resolveDrop({ isRtl: true, x: 380, y: 20, viewW: 390, freeTop: 100, freeHeight: 600 }).side).toBe('start');
+    expect(resolveDrop({ isRtl: false, x: 10, y: 9000, viewW: 390, freeTop: 100, freeHeight: 600 }).topFrac).toBe(1);
   });
   it('top px stays inside the free area', () => {
     expect(placementTopPx(0, 100, 600, 200)).toBe(100);
