@@ -28,10 +28,11 @@
  * confirmation before adding more machinery for it.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronRight, Dumbbell, Loader2, Search } from 'lucide-react';
+import { Check, ChevronRight, Loader2, Search } from 'lucide-react';
 import { useWizardV2, V2_LABEL, V2_INPUT, v2Chip, V2BackButton, V2PrimaryButton } from './wizard-v2';
 import type { WizardData } from './index';
 import EquipmentCard from '../equipment-detail/EquipmentCard';
+import { EquipmentPillIcon } from './EquipmentPillIcon';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 
@@ -149,19 +150,8 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
                     title={eq.name}
                     className={`flex h-12 min-w-0 items-center gap-2 rounded-full ps-1.5 pe-3 text-start text-[13.5px] font-extrabold ${v2Chip(on)}`}
                   >
-                    <span className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-full ${on ? 'bg-white' : 'bg-v2-surface'}`}>
-                      {eq.iconKey ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={`/assets/icons/equipment/${eq.iconKey}.svg`}
-                          alt=""
-                          className="h-6 w-6 object-contain"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      ) : (
-                        <Dumbbell size={16} strokeWidth={2.4} className={on ? 'text-v2-deep' : 'text-v2-muted'} />
-                      )}
+                    <span className={`grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full ${on ? 'bg-white' : 'bg-v2-surface'}`}>
+                      <EquipmentPillIcon equipment={eq} selected={on} />
                     </span>
                     <span className="min-w-0 flex-1 truncate whitespace-nowrap">{eq.name}</span>
                     {on && <Check size={15} strokeWidth={3} className="flex-shrink-0 text-v2-deep" />}

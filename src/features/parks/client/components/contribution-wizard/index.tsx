@@ -11,6 +11,7 @@ import { createContribution } from '@/features/parks/core/services/contribution.
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { WizardV2Context } from './wizard-v2';
+import { indicatorStepIds, wizardStepIds, type StepId } from './wizard-steps';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
@@ -43,7 +44,6 @@ export interface WizardData {
   photoStoragePath: string | null;
 }
 
-type StepId = 'location' | 'details' | 'equipment' | 'photo';
 const STEP_LABELS: Record<StepId, string> = {
   location: 'מיקום',
   details: 'פרטים',
@@ -84,9 +84,13 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
 
   // The "equipment" step is inserted only for gym_park, before the photo step.
   const stepIds = useMemo<StepId[]>(
-    () => ['location', 'details', ...(data.facilityType === 'gym_park' ? (['equipment'] as StepId[]) : []), 'photo'],
+    () => wizardStepIds(data),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [data.facilityType],
   );
+  // v2 indicator: counts the equipment step from the start while a park's type
+  // is still open, so it doesn't jump 3 → 4 mid-flow (wizard-steps.ts).
+  const v2IndicatorIds = indicatorStepIds(data, step);
   const currentId = stepIds[Math.min(step, stepIds.length - 1)];
 
   // If the step list shrinks (e.g. gym_park → court on the details step), keep
@@ -258,7 +262,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
               </div>
               {/* Step indicator — current = gradient dot, done = tint, upcoming = ring */}
               <div className="flex items-center justify-center gap-1 px-4 pb-4">
-                {stepIds.map((id, i) => {
+                {v2IndicatorIds.map((id, i) => {
                   const state = i === step ? 'current' : i < step ? 'done' : 'upcoming';
                   return (
                     <div key={id} className="flex items-center gap-1">
@@ -276,7 +280,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
                       <span className={`whitespace-nowrap text-[12px] font-extrabold transition-colors ${
                         state === 'current' ? 'text-v2-ink' : state === 'done' ? 'text-v2-deep' : 'text-v2-muted'
                       }`}>{STEP_LABELS[id]}</span>
-                      {i < stepIds.length - 1 && (
+                      {i < v2IndicatorIds.length - 1 && (
                         <div className={`mx-0.5 h-0.5 w-3 rounded-full ${i < step ? 'bg-v2-accent/40' : 'bg-v2-hairline'}`} />
                       )}
                     </div>
