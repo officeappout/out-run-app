@@ -26,6 +26,21 @@ export interface ScoredLoop {
   crossingsAll: RoutedPath['crossings'];
   /** 0..1 on our mapped routes — only when our routes were passed (enable_loops_prefer_official). */
   ourRoutesShare?: number;
+  /** 0..1 on path / track / bridleway (GraphHopper road_class) — only with preferTrails (enable_loops_prefer_marked_trails). */
+  trailShare?: number;
+}
+
+/**
+ * enable_loops_prefer_marked_trails: a loop on trails ranks a little better. Same size as the
+ * our-routes bonus: a tie-breaker between loops that passed — far below the 10 for failing a v1 bar and
+ * the 2·|distance error| term, so it can neither rescue a failing loop nor trade away the distance.
+ * NOTE: nothing in the score looks at `surface`, so unpaved trails are not penalised today; this only adds a bonus.
+ */
+export const TRAIL_SCORE_WEIGHT = 0.3;
+const TRAIL_ROAD_CLASSES = ['path', 'track', 'bridleway'] as const;
+
+export function trailShareOf(roadClassShare: RoutedPath['roadClassShare']): number {
+  return Math.min(1, TRAIL_ROAD_CLASSES.reduce((a, k) => a + (roadClassShare?.[k] ?? 0), 0));
 }
 
 /**
@@ -52,7 +67,7 @@ export function turnScorePenalty(m: Pick<RouteQualityMetrics, 'turnsPerKm' | 'zi
 export const MAX_DISTANCE_ERROR = 0.3;
 
 /** `ourRoutes` (enable_loops_prefer_official): loops along our mapped routes rank better — see OUR_ROUTES_GH_SCORE_WEIGHT. */
-export function scoreLoop(c: LoopCandidate, targetKm: number, osm: OsmRoadLayer | null, ourRoutes?: OurRoutesIndex | null): ScoredLoop {
+export function scoreLoop(c: LoopCandidate, targetKm: number, osm: OsmRoadLayer | null, ourRoutes?: OurRoutesIndex | null, preferTrails?: boolean): ScoredLoop {
   const r = c.routed;
   const t = trimSpurs(r.path);
   const metrics = computeRouteQualityMetrics(t.path, { targetKm, osm });
@@ -83,6 +98,11 @@ export function scoreLoop(c: LoopCandidate, targetKm: number, osm: OsmRoadLayer 
   if (share != null) {
     scored.ourRoutesShare = share;
     scored.score -= OUR_ROUTES_GH_SCORE_WEIGHT * share;
+  }
+  if (preferTrails) {
+    const trails = trailShareOf(r.roadClassShare);
+    scored.trailShare = trails;
+    scored.score -= TRAIL_SCORE_WEIGHT * trails;
   }
   return scored;
 }

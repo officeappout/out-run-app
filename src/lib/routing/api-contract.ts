@@ -19,6 +19,8 @@ export interface GenerateLoopsRequest {
   maxResults?: number;
   /** Our mapped routes near the start (enable_loops_prefer_official) — see lib/routing/our-routes. */
   ourRoutes?: WireOurRoute[];
+  /** enable_loops_prefer_marked_trails (running/walking, outside the big cities — the app decides): prefer trails. */
+  preferTrails?: boolean;
   /** "Shadiest route" (enable_route_pref_shade): rank candidates by Technion shade where the city has a layer. */
   preferShade?: boolean;
   /** The app's resolved city name — picks the shade / hourly-shade / lighting layer. Only read with preferShade, timeAware or shadeTag. */
@@ -127,6 +129,7 @@ export function parseGenerateRequest(body: unknown): GenerateRequest | { error: 
     return {
       mode: 'loop', start, targetKm, activity, seed, maxResults,
       ...(ourRoutes ? { ourRoutes } : {}),
+      ...(b.preferTrails === true && activity !== 'cycling' ? { preferTrails: true } : {}),
       ...(b.preferShade === true ? { preferShade: true, ...(city ? { city } : {}) } : {}),
       ...(b.preferShade !== true && b.timeAware === true
         ? { timeAware: true, ...(city ? { city } : {}), ...(parseAt(b.at) ? { at: parseAt(b.at)! } : {}) }

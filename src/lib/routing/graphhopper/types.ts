@@ -30,6 +30,11 @@ export interface RouteTags {
    * buildOurRoutesArea). Set only with flag enable_loops_prefer_official.
    */
   preferOurRoutes?: GeoJsonPolygonFeature;
+  /**
+   * Prefer trails (enable_loops_prefer_marked_trails, foot profiles only): paved streets that are not
+   * part of a marked hiking route get a mild priority cut. Multipliers <= 1 only.
+   */
+  preferMarkedTrails?: boolean;
   // lit: not modelled yet — GraphHopper 11 has no `lit` encoded value (needs a custom import).
 }
 
