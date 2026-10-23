@@ -193,7 +193,7 @@ export const SIM_WALK_TRAIL = {
 
 // Brand palette (design-language.md: `v2-cyan` #00c9f2 = brand cyan, `v2-ink` #0e1419).
 // Fill is brand INK (not cyan): white count text on brand cyan is only ~2:1, on ink it is
-// ~18:1 (WCAG AA/AAA), and a cyan ring + soft cyan halo makes the disc read on light
+// ~16.6:1 (WCAG AA/AAA), and a cyan ring + soft cyan halo makes the disc read on light
 // streets-v12 as well as on dark/satellite styles. (cluster-style, 23.10.2026)
 export const CLUSTER_BRAND = {
   fill: '#0e1419',
