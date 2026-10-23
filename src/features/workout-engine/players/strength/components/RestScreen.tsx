@@ -11,6 +11,8 @@ import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { usePlayerAudioMute } from '../logic/player-audio-mute';
 import { REST_EXTEND_SECONDS } from '../logic/player-controls.utils';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
+import { useWidePlayer } from '../../shared/v2/WidePlayerContext';
+import WideKeyHints from '../../shared/v2/WideKeyHints';
 
 /**
  * RestScreen — unified REST-phase card, shared by every workout type
@@ -118,6 +120,8 @@ export default function RestScreen({
   const [posterFailed, setPosterFailed] = useState(false);
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
+  // enable_wide_player_v1: big proportional clock, ~5% safe margins, bigger controls (flag off = unchanged).
+  const { wide, scale } = useWidePlayer();
   // Session-wide mute for countdown beeps (and later voice) — see player-audio-mute.ts.
   const audioMuted = usePlayerAudioMute((st) => st.muted);
   const toggleAudioMuted = usePlayerAudioMute((st) => st.toggleMuted);
@@ -165,7 +169,11 @@ export default function RestScreen({
               Pause button (physical top-left under this app's dir="rtl"). */}
           <div
             className="absolute z-20 flex flex-col items-start gap-1 transition-all duration-300"
-            style={{
+            style={wide ? {
+              top: 'max(5vh, calc(env(safe-area-inset-top, 0px) + 5.5rem))',
+              insetInlineEnd: '5vw',
+              width: isPreviewExpanded ? 'min(40vw, 30vmin + 160px)' : 'clamp(96px, 14vmin, 280px)',
+            } : {
               top: 'calc(env(safe-area-inset-top, 44px) + 5.5rem)',
               left: '1rem',
               width: isPreviewExpanded ? 'min(78vw, 360px)' : 84,
@@ -234,7 +242,7 @@ export default function RestScreen({
             </p>
             <div
               className={v2 ? 'text-7xl font-black text-v2-ink !tracking-[-0.03em] tabular-nums mb-4' : 'text-7xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums mb-4'}
-              style={{ fontFamily: 'var(--font-simpler)' }}
+              style={wide ? { fontFamily: 'var(--font-simpler)', fontSize: 'clamp(96px, 26vmin, 320px)', lineHeight: 1 } : { fontFamily: 'var(--font-simpler)' }}
             >
               {formatTime(clampedRemaining)}
             </div>
@@ -251,14 +259,17 @@ export default function RestScreen({
                 ) : '💡 '}{nextExercise.notificationText}
               </p>
             )}
-            <DotLottieReact src={REST_ANIMATION_SRC} loop autoplay style={{ width: 180, height: 180 }} />
+            {wide
+              ? <DotLottieReact src={REST_ANIMATION_SRC} loop autoplay style={{ width: 'clamp(80px, 16vmin, 240px)', height: 'clamp(80px, 16vmin, 240px)' }} />
+              : <DotLottieReact src={REST_ANIMATION_SRC} loop autoplay style={{ width: 180, height: 180 }} />}
+            {wide && <WideKeyHints />}
           </div>
 
           {/* Secondary rest controls (G2.4) — mute (every rest, incl. tabata) + "+15 שנ׳"
               (when the caller provides onExtend). Text + icon, above the skip button. */}
           <div
             className="absolute z-20 left-1/2 -translate-x-1/2 flex items-center justify-center gap-2"
-            style={{ bottom: onSkip ? `calc(max(2rem, env(safe-area-inset-bottom, 24px)) + ${v2 ? 56 : 48}px)` : 'max(2rem, env(safe-area-inset-bottom, 24px))' }}
+            style={wide ? { bottom: `calc(max(5vh, env(safe-area-inset-bottom, 0px)) + ${Math.round(56 * scale)}px)`, zoom: scale } : { bottom: onSkip ? `calc(max(2rem, env(safe-area-inset-bottom, 24px)) + ${v2 ? 56 : 48}px)` : 'max(2rem, env(safe-area-inset-bottom, 24px))' }}
           >
             <button
               type="button"
@@ -296,7 +307,7 @@ export default function RestScreen({
               className={v2
                 ? 'absolute z-20 left-1/2 -translate-x-1/2 flex items-center justify-center gap-2 h-11 px-6 rounded-full bg-v2-cta text-v2-on-cta shadow-v2-cta text-[15px] font-extrabold whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2'
                 : 'absolute z-20 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 py-2 px-5 border border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all active:scale-[0.98] bg-white dark:bg-[#0F172A]'}
-              style={{ bottom: 'max(2rem, env(safe-area-inset-bottom, 24px))', fontFamily: 'var(--font-simpler)' }}
+              style={{ bottom: wide ? 'max(5vh, env(safe-area-inset-bottom, 0px))' : 'max(2rem, env(safe-area-inset-bottom, 24px))', fontFamily: 'var(--font-simpler)', ...(wide ? { zoom: scale } : null) }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/icons/ui/skip.svg" className={v2 ? 'w-4 h-4' : 'w-4 h-4 dark:invert'} alt="Skip" />
@@ -340,7 +351,7 @@ export default function RestScreen({
           >
             <span
               className={v2 ? 'text-9xl font-black tabular-nums text-v2-accent' : 'text-9xl font-bold tabular-nums'}
-              style={v2 ? { fontFamily: 'var(--font-simpler)' } : { fontFamily: 'var(--font-simpler)', color: '#93C5FD' }}
+              style={{ fontFamily: 'var(--font-simpler)', ...(v2 ? null : { color: '#93C5FD' }), ...(wide ? { fontSize: 'clamp(160px, 50vmin, 640px)', lineHeight: 1 } : null) }}
             >
               {clampedRemaining}
             </span>

@@ -62,6 +62,11 @@ import { hapticMedium } from '@/lib/haptics';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { StrengthPlayerV2Provider } from './context/StrengthPlayerV2Context';
+import { WidePlayerProvider } from '../shared/v2/WidePlayerContext';
+import { useWideLayout } from '../shared/v2/useWideLayout';
+import { useWideKeys } from '../shared/v2/useWideKeys';
+import { useWidePlayerV1 } from './hooks/useWidePlayerV1';
+import { resolveWideAction } from './logic/wide-key-actions';
 import { g } from '@/lib/utils/gendered-text';
 import { guidanceLine } from '@/features/workout-engine/hybrid/guided-station';
 import DemoGateOverlay from './components/DemoGateOverlay';
@@ -159,6 +164,12 @@ export default function StrengthRunner({
   // via StrengthPlayerV2Context. Styling only, EXCEPT the timed engine right below.
   const isSuperAdminV2 = useUserStore((s) => !!(s.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const playerV2 = useFeatureFlags(isSuperAdminV2).flags.enableHomeV2;
+  // enable_wide_player_v1: the container-based wide decision (landscape / tablet / desktop / TV).
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Immersive (landscape-filmed clip on a landscape screen): header / story bars are hidden, set by ActiveExerciseView.
+  const [immersive, setImmersive] = useState(false);
+  const wideFlag = useWidePlayerV1();
+  const wideLayout = useWideLayout(rootRef, wideFlag);
 
   // enable_home_v2 only: an AMRAP / EMOM / Tabata segment runs on the timed engine (its own
   // screens below); every other segment — and everything with the flag off or inside a hybrid
@@ -627,6 +638,23 @@ export default function StrengthRunner({
     return seq.slice(sm.currentRound);
   }, [sm.isPyramidActive, sm.activeExercise, sm.currentRound]);
 
+  // enable_wide_player_v1 keyboard (wide only): Space / arrows / Esc → the same actions the buttons run.
+  useWideKeys(wideLayout.wide, (intent) => {
+    const action = resolveWideAction(intent, {
+      workoutState: sm.workoutState,
+      clockDriven: timed.active || (sm.exerciseType === 'time' && !sm.isFollowAlongMode) || sm.blockProtocol?.id === 'tabata',
+      minimized: isMinimized,
+      paused: sm.isPaused,
+      blocked: showExitConfirmModal || needsHold || !!tourActive,
+    });
+    if (action === 'complete') sm.handleExerciseComplete();
+    else if (action === 'skipRest') sm.skipRest();
+    else if (action === 'togglePause') sm.togglePause();
+    else if (action === 'exitConfirm') setShowExitConfirmModal(true);
+    else if (action === 'minimize') setIsMinimized(true);
+    else if (action === 'expand') setIsMinimized(false);
+  });
+
   // ── State-specific content ──────────────────────────────────────────────
 
   const renderStateContent = () => {
@@ -778,6 +806,10 @@ export default function StrengthRunner({
         // enable_swap_fixes_v1: no swap while a tabata work interval runs (the clock doesn't stop).
         onSwap={isSwapBlockedNow(swapFixesOn, { isTabata: isTabataBlock, isWorkPhase: blockWorkSec != null }) ? undefined : handleSwap}
         onSetVideoProgress={sm.setVideoProgress}
+        posterUrl={safeImageUrl ?? null}
+        onImmersiveChange={setImmersive}
+        onMinimize={() => setIsMinimized(true)}
+        nextUp={sm.nextExercise.name ? { name: sm.nextExercise.name, imageUrl: sm.nextExercise.imageUrl, caption: (sm.nextExercise.exerciseType === 'time' ? sm.nextExercise.duration : sm.nextExercise.reps) || null } : undefined}
         // PR-B2: the demo keeps looping behind the gate while the player is held paused, and the
         // gate needs the <video> element to unmute it inside the tap. A timed (non-tabata) card
         // starts on its own after "צפיתי, התחל" — that tap was the start.
@@ -803,7 +835,9 @@ export default function StrengthRunner({
 
   return (
     <StrengthPlayerV2Provider value={playerV2}>
+    <WidePlayerProvider value={wideLayout}>
     <div
+      ref={rootRef}
       className="relative w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden"
       style={{ overscrollBehavior: 'none' }}
     >
@@ -926,7 +960,7 @@ export default function StrengthRunner({
             />
 
             {/* Header overlay — also the drag handle for minimize */}
-            {showHeader && !gateActive && !findActive && (
+            {showHeader && !gateActive && !findActive && !immersive && (
               <RunnerHeader
                 progressBars={mixedBars ?? sm.progressBars}
                 autoCompleteTime={sm.autoCompleteTime}
@@ -984,6 +1018,7 @@ export default function StrengthRunner({
       />
 
     </div>
+    </WidePlayerProvider>
     </StrengthPlayerV2Provider>
   );
 }
