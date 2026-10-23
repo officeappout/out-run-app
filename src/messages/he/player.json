@@ -261,6 +261,8 @@
   "run.overview.cta.suggest": "הצע לי מסלול",
   "run.overview.cta.searching": "מחפש מסלולים מכאן…",
   "run.overview.cta.noneNear": "לא מצאנו מסלול מתאים קרוב — אפשר לרוץ מכאן",
+  "run.overview.hill.nearby": "גבעה מתאימה {distance} ממך: עלייה של {grade}% באורך {length}",
+  "run.overview.hill.nearbyNamed": "גבעה מתאימה ב{name}, {distance} ממך: עלייה של {grade}% באורך {length}",
   "run.overview.header.typeCustomized": "{type} · מותאם",
   "run.overview.homeSheet.close": "סגירה",
   "run.overview.homeSheet.loading": "טוען אימון...",

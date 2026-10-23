@@ -678,6 +678,12 @@ export const FLAG_DEFS = [
   // "show on a big screen" when enable_tv_mode_v1 is on). Same handlers as the icons. Fail-closed; super admins
   // preview it. Off = the icon row is byte-identical to today.
   { key: 'enableOverviewMoreMenuV1', firestoreKey: 'enable_overview_more_menu_v1', defaultValue: false, superAdminValue: true },
+  // Hill finder (23.10.2026): in the run overview, when today's run is a hill workout and none of the
+  // suggested routes has a climb that meets the rep spec, a one-line notice names the nearest suitable
+  // hill (published climb_segments + climbs on nearby official routes' elevationProfile —
+  // route-fit/hill-finder.ts). Reads only. Fail-closed; super admins preview it. Off = no extra reads,
+  // the overview is byte-identical to today.
+  { key: 'enableHillFinderV1', firestoreKey: 'enable_hill_finder_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

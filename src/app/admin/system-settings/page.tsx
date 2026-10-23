@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode, Tv, MoreHorizontal,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode, Tv, MoreHorizontal, Mountain,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -126,6 +126,7 @@ interface FlagState {
   enable_together_layer_v1: boolean;
   enable_tv_mode_v1: boolean;
   enable_overview_more_menu_v1: boolean;
+  enable_hill_finder_v1: boolean;
 }
 
 // ============================================================================
@@ -1031,6 +1032,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-slate-600',
     title: 'תפריט ⋯ אחד בתצוגת האימון',
     description: 'בתצוגת האימון, במקום שורת האייקונים (שיתוף / אהבתי / הורדה) יש כפתור ⋯ אחד שפותח תפריט: הורדה לטלפון, אהבתי, שיתוף, ואם הצגה על מסך גדול פעילה גם "הצגה על מסך גדול". אותן פעולות בדיוק, רק מאחורי תפריט אחד. מנהל-על רואה את זה כבר עכשיו. כבוי = שורת האייקונים כמו היום.',
+  },
+  // Hill finder for hill-repeat runs (23.10.2026) — route-fit/hill-finder.ts.
+  {
+    key: 'enable_hill_finder_v1',
+    icon: Mountain,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'מציאת גבעה לאימון עליות',
+    description: 'בתצוגת אימון הריצה, כשהאימון של היום הוא אימון עליות ואף אחד מהמסלולים שהוצעו לא כולל עלייה מתאימה (שיפוע ואורך החזרה), מופיעה שורה עם הגבעה המתאימה הקרובה: מקטעי עלייה מאושרים (climb_segments) ועליות שזוהו בפרופיל הגובה של מסלולים רשמיים קרובים, עד 5 ק״מ. קריאה בלבד, לא נכתב כלום. מנהל-על רואה את זה כבר עכשיו. כבוי = התצוגה כמו היום, בלי קריאות נוספות.',
   },
 ];
 
