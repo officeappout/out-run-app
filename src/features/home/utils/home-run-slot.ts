@@ -32,6 +32,10 @@
 import { isQualityDay, type RunningDayRole } from '@/features/schedule/engine/runningRules';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import type { RunningDayState, RunningScheduleEntry } from '@/lib/running-day-resolution';
+import type { RunDoneState } from '@/lib/run-coverage';
+import { makeT } from '@/lib/i18n/t';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import { home, type HomeKey } from '@/messages/ns/home';
 
 export interface HomeRunEntry extends RunningScheduleEntry {
   isQualityWorkout?: boolean;
@@ -48,6 +52,12 @@ export interface HomeRunSlot<E extends HomeRunEntry = HomeRunEntry> {
   position: HomeRunSlotPosition;
   /** The user tapped "דלג להיום" on today's run (local, unsaved). */
   skippedToday?: boolean;
+  /**
+   * Run-done state (enable_home_v2): today's run was started but stopped too short to count
+   * (run-coverage.ts 'partial'). The slot stays — Start is still offered — but the card is
+   * demoted (compact + a soft line). Never set without doneState.
+   */
+  partial?: boolean;
 }
 
 export interface ResolveHomeRunSlotInput<E extends HomeRunEntry> {
@@ -59,6 +69,12 @@ export interface ResolveHomeRunSlotInput<E extends HomeRunEntry> {
   dayState: Pick<RunningDayState<E>, 'isRunDay' | 'todayEntry' | 'nextEntry' | 'nextEntryDaysAway'>;
   /** "דלג להיום" was tapped on today's run. */
   skippedToday?: boolean;
+  /**
+   * Run-done state of today's entry from today's saved runs (plannedRunDoneToday, enable_home_v2).
+   * 'done' / 'covered' → today's run counts as not pending (the next run, or nothing);
+   * 'partial' → today's run stays, flagged `partial`; 'none' / absent → exactly as before.
+   */
+  doneState?: RunDoneState;
 }
 
 const isPending = (e: RunningScheduleEntry | undefined): e is RunningScheduleEntry =>
@@ -77,10 +93,12 @@ export function isQualityRunEntry(entry: HomeRunEntry): boolean {
 export function resolveHomeRunSlot<E extends HomeRunEntry>(
   input: ResolveHomeRunSlotInput<E>,
 ): HomeRunSlot<E> | null {
-  const { enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday = false } = input;
+  const { enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday = false, doneState } = input;
   if (!enabled || !hasRunningPlan) return null;
 
-  const hasTodayRun = dayState.isRunDay && isPending(dayState.todayEntry);
+  // A finished (or covered) run is no longer pending, whatever the stored status still says.
+  const todayDone = doneState === 'done' || doneState === 'covered';
+  const hasTodayRun = dayState.isRunDay && isPending(dayState.todayEntry) && !todayDone;
   if (hasTodayRun && skippedToday) {
     const position: HomeRunSlotPosition = hasStrengthProgram ? 'last' : 'first';
     if (isPending(dayState.nextEntry)) {
@@ -94,7 +112,7 @@ export function resolveHomeRunSlot<E extends HomeRunEntry>(
     const position: HomeRunSlotPosition = !hasStrengthProgram
       ? 'first'
       : isQualityRunEntry(entry) ? 'first' : 'afterFirst';
-    return { kind: 'today', entry, position };
+    return { kind: 'today', entry, position, ...(doneState === 'partial' ? { partial: true } : {}) };
   }
 
   if (isPending(dayState.nextEntry)) {
@@ -151,9 +169,15 @@ export function placeRunCard<T>(items: readonly T[], runItem: T, position: HomeR
   return [...items, runItem];
 }
 
-/** "מחר" / "בעוד 3 ימים" / "הבא" — the "next" card's day hint. */
-export function nextRunDayHint(daysAway: number | undefined): string {
-  if (daysAway === 1) return 'מחר';
-  if (daysAway != null && daysAway > 1) return `בעוד ${daysAway} ימים`;
-  return 'הבא';
+/** Any home-namespace t() — a component's useT(home) or makeT('he', home). */
+export type HomeT = (key: HomeKey, values?: MessageValues) => string;
+
+/** "מחר" / "בעוד 3 ימים" / "הבא" — the "next" card's day hint (Hebrew unless a `t` is passed). */
+export function nextRunDayHint(
+  daysAway: number | undefined,
+  t: HomeT = makeT('he', home),
+): string {
+  if (daysAway === 1) return t('runCard.dayHint.tomorrow');
+  if (daysAway != null && daysAway > 1) return t('runCard.dayHint.inDays', { n: daysAway });
+  return t('runCard.dayHint.next');
 }

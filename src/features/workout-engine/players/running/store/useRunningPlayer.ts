@@ -18,6 +18,7 @@ import type { WorkoutHistoryEntry } from '../../../core/services/storage.service
 import { rdpSimplify, truncatePrecision } from '@/lib/geo/path-simplify';
 import { runnerShouldSelfSave, shouldRedirectToHybridFinish } from '@/features/workout-engine/hybrid/hybrid-finish-policy';
 import { RUNNING_NATIVE_KEEP_AWAKE_ENABLED } from '@/config/feature-flags';
+import { isDiscardableRun } from '@/lib/run-coverage';
 // Direct sibling import — both stores live under workout-engine/* with no
 // circular concern (core never imports from players). Using a static import
 // instead of the previous `require()`-inside-try/catch eliminates the silent
@@ -1751,7 +1752,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           // ── Minimum threshold guard ───────────────────────────────────
           // Workouts under 60 s AND under 100 m are test taps / accidental
           // starts. Skip save + XP + streak so they don't pollute history.
-          if (safeDuration < 60 && safeDistance < 0.1) {
+          if (isDiscardableRun(safeDuration, safeDistance)) {
             console.log('[useRunningPlayer] Below minimum threshold — skipping save');
             sessionState.endSession();
             return;
@@ -1958,6 +1959,33 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             recordPlannedQualityRun(currentUser.uid, plannedRunSnapshot).catch((e) =>
               console.warn('[useRunningPlayer] pace self-correction failed:', e),
             );
+          }
+
+          // enable_home_v2 + enable_run_done_state_v1: a run started from the plan that reached its
+          // target (or covered the slot) marks that schedule entry completed — the write the
+          // KNOWN GAP in PlannedRun/index.tsx never had. runMeta.plan exists only for plan-mode
+          // runs, so a free run never writes here (home covers those, useRunDoneWriteback).
+          // Transactional on the one entry; best-effort, never throws.
+          if (workoutSaved && runMeta?.plan) {
+            const planPos = runMeta.plan;
+            const planTarget = runMeta.target;
+            const savedRunId = get().savedWorkoutId ?? null;
+            import('../lib/home-v2-gate')
+              .then(async ({ runDoneWriteEnabledNow, clearPlannedRunPosition }) => {
+                clearPlannedRunPosition();
+                if (!runDoneWriteEnabledNow()) return;
+                const { classifyRunDoc } = await import('@/lib/run-coverage');
+                const state = classifyRunDoc({ duration: safeDuration, distance: safeDistance }, planTarget, true);
+                if (state === 'partial') return;
+                const { completePlannedRunEntry } = await import('../../../core/services/planned-run-complete');
+                await completePlannedRunEntry(currentUser.uid, {
+                  week: planPos.week,
+                  day: planPos.day,
+                  workoutId: savedRunId,
+                  coverage: state === 'done' ? 'plan' : 'free',
+                });
+              })
+              .catch((e) => console.warn('[useRunningPlayer] planned run completion skipped:', e));
           }
 
           // enable_home_v2 walking track: a walk started from a planned walk marks that

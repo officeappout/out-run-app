@@ -25,6 +25,22 @@ export function cyclingFixesEnabledNow(): boolean {
   return readLiveFlag('enableCyclingFixesV1');
 }
 
+/**
+ * enable_run_done_state_v1 outside React — the schedule write after a saved run. Needs home v2
+ * too. Super admins preview it (flag def superAdminValue true); everyone else the device's
+ * last-known value. Unknown ⇒ off (fail-closed).
+ */
+export function runDoneWriteEnabledNow(): boolean {
+  try {
+    if (!homeV2EnabledNow()) return false;
+    const core = useUserStore.getState().profile?.core as { isSuperAdmin?: boolean } | undefined;
+    if (core?.isSuperAdmin) return true;
+    return readLiveFlag('enableRunDoneStateV1');
+  } catch {
+    return false;
+  }
+}
+
 /** A ride may be recorded as a ride: home v2 OR enable_cycling_fixes_v1. */
 export function rideModeEnabledNow(): boolean {
   return rideModeOn(homeV2EnabledNow(), cyclingFixesEnabledNow());
@@ -43,5 +59,16 @@ export function readPlannedRunPosition(): { week: number; day: number } | null {
     return week > 0 && day > 0 ? { week, day } : null;
   } catch {
     return null;
+  }
+}
+
+/** Forget the planned-run position once it has been used (a stale key must not outlive its run). */
+export function clearPlannedRunPosition(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.removeItem('planned_run_week');
+    window.sessionStorage.removeItem('planned_run_day');
+  } catch {
+    /* sessionStorage unavailable */
   }
 }

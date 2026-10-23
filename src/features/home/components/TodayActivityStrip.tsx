@@ -44,6 +44,8 @@
  * shared 260px cap when this card was first built.
  */
 
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 import React from 'react';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
@@ -81,14 +83,15 @@ export interface TodayActivityStripProps {
   title?: string;
 }
 
-export default function TodayActivityStrip({ cards, onCardTap, title = 'הפעילות שלי היום' }: TodayActivityStripProps) {
+export default function TodayActivityStrip({ cards, onCardTap, title }: TodayActivityStripProps) {
+  const t = useT(home);
   // v2: pager dots are a passive indicator (no 6px tap targets).
   const v2 = useHomeV2();
   if (cards.length === 0) return null;
 
   return (
     <div className="w-full" dir="rtl">
-      <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3">{title}</h3>
+      <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3">{title ?? t('doneToday.title')}</h3>
 
       <SuggestionCarousel<TodayActivityCardData>
         items={cards}

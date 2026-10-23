@@ -50,12 +50,15 @@ export default function HomeRunCarouselCard({
   const skipped = !!slot.skippedToday;
   // Today's run, still on (not skipped) — the one with the CTA and the preloaded strip.
   const isToday = slot.kind === 'today' && !skipped;
+  // Run-done state: today's run was started but stopped too short to count (run-coverage.ts).
+  // Demoted — compact, a soft line, Start still one tap away; no "missed" wording.
+  const partial = isToday && !!slot.partial;
   const isSkippedToday = slot.kind === 'today' && skipped;
   const { entry } = slot;
   const calmLoad = calmReturn?.isLightened ? calmReturn.load : null;
 
   const { workout, loading } = usePlannedRunWorkout({
-    enabled: open || isToday,
+    enabled: open || (isToday && !partial),
     profile,
     workoutId: entry.workoutId,
     week: entry.week,
@@ -90,11 +93,41 @@ export default function HomeRunCarouselCard({
       typeLabel={isToday || isSkippedToday ? typeLabel : t('runCard.typeNext', { type: typeLabel })}
       title={model?.title ?? entry.workoutName ?? typeLabel}
       state={isToday ? 'today' : isSkippedToday ? 'skipped' : 'upcoming'}
-      dayLetter={isToday || isSkippedToday ? null : nextRunDayHint(slot.daysAway)}
+      dayLetter={isToday || isSkippedToday ? null : nextRunDayHint(slot.daysAway, t)}
       model={model}
       onStart={isToday ? () => setOpen(true) : undefined}
     />
   );
+
+  const sheet = (
+    <RunOverviewHomeSheet
+      isOpen={open}
+      onClose={() => setOpen(false)}
+      onGo={(edits) => go(edits, false)}
+      onSuggestRoute={(edits) => go(edits, true)}
+      workout={workout}
+      isLoading={loading}
+      templateCategory={entry.category ?? null}
+      week={{ week: entry.week, day: entry.day, totalWeeks }}
+    />
+  );
+
+  if (partial) {
+    return (
+      <div className="flex w-full flex-col rounded-v2-card bg-v2-surface px-3 py-2.5" dir="rtl" data-run-partial="true">
+        <h3 className="whitespace-nowrap text-[15px] font-black !tracking-[-0.02em] text-v2-ink">{t('runCard.title.today')}</h3>
+        <p className="mt-0.5 text-[12.5px] font-bold leading-snug text-v2-muted">{t('runCard.partial.note')}</p>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-1.5 self-start whitespace-nowrap py-1 text-[13px] font-extrabold text-v2-deep"
+        >
+          {t('runCard.partial.cta')}
+        </button>
+        {sheet}
+      </div>
+    );
+  }
 
   return (
     <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} dir="rtl">
@@ -139,16 +172,7 @@ export default function HomeRunCarouselCard({
           </button>
         )}
       </div>
-      <RunOverviewHomeSheet
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        onGo={(edits) => go(edits, false)}
-        onSuggestRoute={(edits) => go(edits, true)}
-        workout={workout}
-        isLoading={loading}
-        templateCategory={entry.category ?? null}
-        week={{ week: entry.week, day: entry.day, totalWeeks }}
-      />
+      {sheet}
     </div>
   );
 }

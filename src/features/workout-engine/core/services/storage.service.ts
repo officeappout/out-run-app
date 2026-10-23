@@ -208,6 +208,8 @@ export interface RunSummaryMeta {
   timeInZone?: { inSec: number; totalSec: number };
   /** Program position when started from the running plan (week / day ordinal). */
   plan?: { week: number; day: number };
+  /** Planned runs: what the plan asked for in total (run-coverage.ts judges 'done' against it). */
+  target?: { durationSec?: number; distanceKm?: number };
   /** Planned runs: warm-up / cool-down actuals. */
   warmup?: { durationSeconds: number; distanceMeters: number };
   cooldown?: { durationSeconds: number; distanceMeters: number };

@@ -161,3 +161,54 @@ describe('resolveRunSlotSurface', () => {
     expect(resolveRunSlotSurface(today, 'loading', 'HYBRID', false)).toBeNull();
   });
 });
+
+describe('resolveHomeRunSlot — run-done state (enable_home_v2, 23.10.2026)', () => {
+  const base = { enabled: true, hasRunningPlan: true, hasStrengthProgram: false };
+  const week2 = { ...tempo, day: 5 };
+
+  it('flag-off parity: no doneState → exactly the old slot (no partial key)', () => {
+    const old = resolveHomeRunSlot({ ...base, dayState: runDay(easy, week2, 2) });
+    expect(old).toEqual({ kind: 'today', entry: easy, position: 'first' });
+    expect(Object.keys(old!)).not.toContain('partial');
+    expect(resolveHomeRunSlot({ ...base, doneState: 'none', dayState: runDay(easy, week2, 2) })).toEqual(old);
+  });
+
+  it('done → today is no longer pending: the next run shows', () => {
+    expect(resolveHomeRunSlot({ ...base, doneState: 'done', dayState: runDay(easy, week2, 2) }))
+      .toEqual({ kind: 'next', entry: week2, daysAway: 2, position: 'first' });
+  });
+
+  it('covered → same as done', () => {
+    expect(resolveHomeRunSlot({ ...base, doneState: 'covered', dayState: runDay(easy, week2, 2) })?.kind).toBe('next');
+  });
+
+  it('done with no run left this week → no slot at all', () => {
+    expect(resolveHomeRunSlot({ ...base, doneState: 'done', dayState: runDay(easy) })).toBeNull();
+  });
+
+  it('done wins over a local "skip today"', () => {
+    expect(resolveHomeRunSlot({ ...base, doneState: 'done', skippedToday: true, dayState: runDay(easy, week2, 2) })?.skippedToday).toBeUndefined();
+  });
+
+  it('partial → today stays, flagged partial (Start is still offered)', () => {
+    expect(resolveHomeRunSlot({ ...base, doneState: 'partial', dayState: runDay(easy, week2, 2) }))
+      .toEqual({ kind: 'today', entry: easy, position: 'first', partial: true });
+  });
+
+  it('partial keeps the weaver position with a strength program', () => {
+    expect(resolveHomeRunSlot({ ...base, hasStrengthProgram: true, doneState: 'partial', dayState: runDay(easy) })?.position).toBe('afterFirst');
+  });
+
+  it('the slot surface for a partial run after a strength workout is still the standalone card', () => {
+    const slot = resolveHomeRunSlot({ ...base, doneState: 'partial', dayState: runDay(easy) });
+    expect(resolveRunSlotSurface(slot, 'done', 'HYBRID')).toBe('standalone');
+  });
+});
+
+describe('nextRunDayHint (catalog-backed)', () => {
+  it('keeps the Hebrew exactly', () => {
+    expect(nextRunDayHint(1)).toBe('מחר');
+    expect(nextRunDayHint(3)).toBe('בעוד 3 ימים');
+    expect(nextRunDayHint(undefined)).toBe('הבא');
+  });
+});

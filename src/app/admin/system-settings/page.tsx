@@ -80,6 +80,7 @@ interface FlagState {
   enable_entry_whatnow_v1: boolean;
   enable_entry_single_choice_v1: boolean;
   enable_home_two_cards_v1: boolean;
+  enable_run_done_state_v1: boolean;
   enable_generation_review: boolean;
   enable_generation_review_llm: boolean;
   enable_org_access_code_prompt: boolean;
@@ -610,6 +611,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'בית: שני כרטיסי התחלה + "מוכן לנסות לרוץ?"',
     description: 'משתמש בלי תוכנית רואה שני כרטיסים: "כוח" ו"הליכה וריצה" (שאלון אחד להליכה או לריצה). מי שהלך 4 שבועות ברצף מקבל כרטיס אחד "מוכן לנסות לרוץ?" (נסגר ל-30 יום עם "לא עכשיו"). כבוי = כמו היום.',
+  },
+  // Run-done state (23.10.2026).
+  {
+    key: 'enable_run_done_state_v1',
+    icon: ListChecks,
+    iconBg: 'bg-lime-50',
+    iconColor: 'text-lime-700',
+    title: 'בית: ריצה שבוצעה מסומנת בתוכנית',
+    description: 'אחרי ריצה מתוכננת שהגיעה ל-70% מהיעד שלה (או ריצה חופשית של לפחות 10 דקות ו-50% מהמתוכנן) האימון בלוח מסומן כבוצע, וכרטיס "הריצה של היום" כבר לא מציע להתחיל. ריצה קצרה מדי מוצגת בכרטיס קטן ולא נספרת לתוכנית ולא ליעד השבועי. הכרטיס עצמו תלוי ב"בית v2" ופועל גם כשהדגל הזה כבוי; הדגל שולט רק בכתיבת הסימון ללוח. כבוי = כמו היום.',
   },
   // Generation review (19.10.2026).
   {

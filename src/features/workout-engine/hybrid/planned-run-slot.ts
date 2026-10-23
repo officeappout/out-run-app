@@ -10,7 +10,9 @@
  * something to go out for now, and the map has no day picker.
  */
 
-import type { HomeRunSlot } from '@/features/home/utils/home-run-slot';
+import type { HomeRunSlot, HomeT } from '@/features/home/utils/home-run-slot';
+import { makeT } from '@/lib/i18n/t';
+import { home } from '@/messages/ns/home';
 import { plannedRunMapUrl } from '@/features/workout-engine/players/running/utils/run-overview/run-overview-url';
 import { inferRunKind, resolveRunCategory, runTypeLabel } from '@/features/workout-engine/players/running/utils/run-preview/run-kind';
 import type { Bolts, HybridSlot, PlannedRunSlot } from './hybrid-slots';
@@ -20,8 +22,9 @@ export const PLANNED_RUN_SLOT_ID = 'planned_run';
 /** Cardio green (v2 activity colour). */
 const RUN_ACCENT = '#84cc16';
 
-export function buildPlannedRunSlot(runSlot: HomeRunSlot | null | undefined): PlannedRunSlot | null {
-  if (!runSlot || runSlot.kind !== 'today' || runSlot.skippedToday) return null;
+export function buildPlannedRunSlot(runSlot: HomeRunSlot | null | undefined, t: HomeT = makeT('he', home)): PlannedRunSlot | null {
+  // A partial (too-short) run keeps its home card but is not offered as a map slot.
+  if (!runSlot || runSlot.kind !== 'today' || runSlot.skippedToday || runSlot.partial) return null;
   const { entry } = runSlot;
   const category = resolveRunCategory(entry.category);
   const kind = inferRunKind(category);
@@ -30,12 +33,12 @@ export function buildPlannedRunSlot(runSlot: HomeRunSlot | null | undefined): Pl
   return {
     kind: 'planned_run',
     id: PLANNED_RUN_SLOT_ID,
-    title: 'הריצה של היום',
+    title: t('runCard.title.today'),
     subtitle: entry.workoutName || typeLabel,
     bolts,
     recommended: false,
     accent: RUN_ACCENT,
-    reason: `${typeLabel} בתוכנית שלך — נמצא לה מסלול מתאים`,
+    reason: t('runSlot.reason', { type: typeLabel }),
     href: plannedRunMapUrl({ workoutId: entry.workoutId, week: entry.week, day: entry.day, suggest: true }),
   };
 }

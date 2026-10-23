@@ -5,6 +5,7 @@
  */
 
 import { common } from '@/messages/ns/common';
+import { home } from '@/messages/ns/home';
 import { makeT } from '@/lib/i18n/t';
 import { withUnit } from '@/lib/i18n/units';
 import { formatNumber } from '@/lib/i18n/core/fmt';
@@ -45,7 +46,7 @@ export function doneRowMeta(card: TodayActivityCardData, workout?: DoneRowWorkou
   const isDistance = card.category === 'cardio' || DISTANCE_TYPES.has(card.workoutType ?? '') || card.workoutType === 'hybrid';
   if (isDistance && typeof km === 'number' && Number.isFinite(km) && km >= 0.1) parts.push(formatKm(km, locale));
   const sets = workout?.setsCompleted;
-  if (typeof sets === 'number' && Number.isFinite(sets) && sets > 0) parts.push(`${Math.round(sets)} סטים`);
+  if (typeof sets === 'number' && Number.isFinite(sets) && sets > 0) parts.push(makeT(locale, home)('doneToday.sets', { n: Math.round(sets) }));
   return parts.length ? parts.join(' · ') : null;
 }
 
@@ -57,12 +58,18 @@ export function buildDoneWorkoutRows(
   cards: readonly TodayActivityCardData[],
   workouts: readonly DoneRowWorkout[],
   locale: Locale = 'he',
+  /** Run-done state: a short extra line per workout id ("נספרה כריצת היום" / the plan recap). */
+  notes?: Readonly<Record<string, string>>,
 ): DoneWorkoutRowData[] {
   const byId = new Map<string, DoneRowWorkout>();
   for (const w of workouts) if (w.id) byId.set(w.id, w);
-  return cards.map((card) => ({
-    card,
-    meta: doneRowMeta(card, byId.get(card.key), locale),
-    tappable: card.category !== 'steps',
-  }));
+  return cards.map((card) => {
+    const base = doneRowMeta(card, byId.get(card.key), locale);
+    const note = notes?.[card.key];
+    return {
+      card,
+      meta: note ? (base ? `${base} · ${note}` : note) : base,
+      tappable: card.category !== 'steps',
+    };
+  });
 }

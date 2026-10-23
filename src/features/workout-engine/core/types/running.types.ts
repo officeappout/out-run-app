@@ -429,6 +429,14 @@ export interface ActiveRunningProgram {
       avgPace: number;
       completionRate: number;
     };
+    /**
+     * Run-done state (enable_run_done_state_v1, 23.10.2026): the saved workout doc that completed
+     * this entry and how — 'plan' (the planned run itself, >= 70% of its target) or 'free' (a free
+     * / shorter run that covered the slot: >= 10 min and >= 50% of the plan). Optional; absent on
+     * every older entry. Readers treat status as the truth; these are provenance.
+     */
+    coveredBy?: string;
+    coverage?: 'plan' | 'free';
   }[];
 }
 
