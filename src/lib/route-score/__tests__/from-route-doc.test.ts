@@ -83,3 +83,13 @@ describe('trails pipeline proxy (B routes carry trail.stats, no composition)', (
     expect(i.composition?.genuinePct).toBe(50);
   });
 });
+
+describe('geometryGapM (straight-bridge flag)', () => {
+  it('is the longest vertex step of the path, null without a path', () => {
+    const dense = routeScoreInputFromDoc('a', { name: 'x', path: line(34.8, 32, 2000) });
+    expect(dense.geometryGapM).not.toBeNull();
+    const bridged = routeScoreInputFromDoc('b', { name: 'x', path: [{ lng: 35.0, lat: 31.9 }, { lng: 35.001, lat: 31.9 }, { lng: 35.3, lat: 31.9 }, { lng: 35.301, lat: 31.9 }] });
+    expect(bridged.geometryGapM).toBeGreaterThan(25_000);
+    expect(routeScoreInputFromDoc('c', { name: 'x', path: [] }).geometryGapM).toBeNull();
+  });
+});
