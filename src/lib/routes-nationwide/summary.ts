@@ -26,6 +26,8 @@ export interface AuthoritySummary {
     /** RC9: points per component (surface/geometry/safety/source/comfort/experience) and which inputs the urban measurement filled. */
     pts?: Record<string, number>;
     measured?: string[];
+    /** Only on a route the city low floor selected (reason 'low_score_fill'); absent otherwise. */
+    lowConfidence?: { reason: string };
   }>;
 }
 
@@ -33,6 +35,7 @@ export function summarizeAuthority(r: AuthorityRunResult, meta: { name: string; 
   const docById = new Map(r.score.docs.map((d) => [d.routeId, d]));
   const scoredById = new Map(r.score.scored.map((x) => [x.input.id, x]));
   const selectedIds = new Set(r.score.selection.selectedIds);
+  const lowById = new Map(r.score.selection.rows.filter((x) => x.lowConfidence).map((x) => [x.id, x.lowConfidence!]));
   const selectedBySource: Partial<Record<StageKey, number>> = {};
   let selExisting = 0, selNew = 0;
   for (const p of r.pool) {
@@ -64,6 +67,8 @@ export function summarizeAuthority(r: AuthorityRunResult, meta: { name: string; 
         id: p.id, name: String(p.data?.name ?? ''), stage: p.stage, isNew: p.isNew,
         score: d?.score ?? 0, band: d?.band ?? 'yellow', surfaceClass: d?.surfaceClass ?? 'unknown',
         selection: d?.selection ?? null, reason: d?.selectionReason ?? null,
+        // Only on a route the city low floor let in — every other route entry is unchanged.
+        ...(lowById.has(p.id) ? { lowConfidence: lowById.get(p.id) } : {}),
         km: typeof p.data?.distance === 'number' ? p.data.distance : null,
         ...componentPoints(scoredById.get(p.id)),
       };
@@ -90,6 +95,8 @@ export interface NationalSummary {
   bands: { green: number; yellow: number; red: number };
   surfaceSelected: Record<string, number>;
   perCity: Array<{ name: string; authorityId: string; selected: number; quotaMin: number; quotaMax: number; surfaceSelected: Record<string, number>; newProposed: number }>;
+  /** Routes the city low floor selected — present only when a summarised authority ran with it (municipal). */
+  lowScoreFill?: number;
 }
 
 export function summarizeNation(rows: AuthoritySummary[]): NationalSummary {
@@ -104,6 +111,7 @@ export function summarizeNation(rows: AuthoritySummary[]): NationalSummary {
     n.bands.green += r.bands.green; n.bands.yellow += r.bands.yellow; n.bands.red += r.bands.red;
     for (const [k, v] of Object.entries(r.surface.selected)) n.surfaceSelected[k] = (n.surfaceSelected[k] ?? 0) + v;
     n.perCity.push({ name: r.name, authorityId: r.authorityId, selected: r.selected.total, quotaMin: r.quota.min, quotaMax: r.quota.max, surfaceSelected: r.surface.selected, newProposed: r.newProposed });
+    if (typeof r.selection?.lowScoreFill === 'number') n.lowScoreFill = (n.lowScoreFill ?? 0) + r.selection.lowScoreFill;
   }
   return n;
 }

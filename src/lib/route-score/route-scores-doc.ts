@@ -52,7 +52,7 @@ export interface RouteScoreDoc {
 export function buildRouteScoreDoc(
   input: RouteScoreInput,
   score: RouteScore,
-  selection: { decision: SelectionDecision; reason: string } | null,
+  selection: { decision: SelectionDecision; reason: string; lowConfidence?: { reason: string } } | null,
   opts: { routeCollection?: RouteScoreDoc['routeCollection']; now?: Date } = {},
 ): RouteScoreDoc {
   const components = {} as RouteScoreDoc['components'];
@@ -79,7 +79,8 @@ export function buildRouteScoreDoc(
     selection: selection?.decision ?? null,
     selectionReason: selection?.reason ?? null,
     geometryGapM: typeof input.geometryGapM === 'number' ? input.geometryGapM : null,
-    ...(input.lowConfidenceReason ? { lowConfidenceReason: input.lowConfidenceReason } : {}),
+    // The selection's own marker (city low floor) wins over the candidate's informational one.
+    ...(selection?.lowConfidence?.reason ? { lowConfidenceReason: selection.lowConfidence.reason } : input.lowConfidenceReason ? { lowConfidenceReason: input.lowConfidenceReason } : {}),
     scoreVersion: score.version,
     computedAt: opts.now ?? new Date(),
   };
