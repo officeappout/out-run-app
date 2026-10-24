@@ -21,6 +21,7 @@
 import { approveEntity, rejectEntity, type ModeratorInfo } from './moderation.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import type { BatchOutcome, PendingRouteCandidate } from '@/lib/city-mapping-hub/bulk-approve.logic';
+import type { RouteReviewFilter } from '@/lib/city-mapping-hub/review-filters';
 
 export type HubModerationKind = 'route' | 'park' | 'contribution' | 'amenity';
 export type HubAction = 'approve' | 'reject';
@@ -98,12 +99,14 @@ export async function loadPendingRoutesNationwide(fetchImpl: typeof fetch = fetc
  */
 export async function approvePendingRoutesBatch(
   authorityId: string, ids: string[], admin: ModeratorInfo, fetchImpl: typeof fetch = fetch,
+  /** The confirmed review filter — the server re-applies it at write time and skips mismatches. */
+  filter?: RouteReviewFilter,
 ): Promise<BatchOutcome> {
   const res = await fetchImpl('/api/admin/city-mapping/hub/bulk-routes', {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ authorityId, ids }),
+    body: JSON.stringify({ authorityId, ids, ...(filter ? { filter } : {}) }),
   });
   const json = (await res.json().catch(() => ({}))) as Partial<BatchOutcome> & { error?: string };
   if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);

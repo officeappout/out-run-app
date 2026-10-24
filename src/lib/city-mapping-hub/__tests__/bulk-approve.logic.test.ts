@@ -5,7 +5,7 @@ import {
 } from '../bulk-approve.logic';
 
 const c = (id: string, authorityId: string, o: Partial<PendingRouteCandidate> = {}): PendingRouteCandidate =>
-  ({ id, authorityId, name: id, distanceKm: 5, score: 82, origin: 'osm_import', geometry: 'ok', gapM: 0, ...o });
+  ({ id, authorityId, name: id, distanceKm: 5, score: 82, origin: 'osm_import', geometry: 'ok', gapM: 0, lowConfidenceReason: null, authorityKind: 'municipal', city: null, activityType: null, ...o });
 const names = new Map([['a', 'אילת'], ['b', 'באר שבע']]);
 const base = { minScore: 0, minKm: 0, origin: 'all' as const, authorityIds: new Set(['a', 'b']) };
 

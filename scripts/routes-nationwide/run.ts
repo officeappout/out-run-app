@@ -18,6 +18,9 @@
  * has a layer, turns/zigzag on loops; urban candidates measured on the OSM slice — composition, lighting,
  * amenities ≤ 50 m, road crossings — src/lib/urban-measure) and the top-N set re-selected
  * (src/lib/route-score); once the quota minimum is met the generating stages are skipped.
+ * City low floor (owner 24.10.2026, municipal only): a city still below its quota minimum may fill
+ * up to it with candidates scoring ≥ CITY_LOW_FLOOR (55), marked low_score_fill (route_scores
+ * .lowConfidenceReason) — the approval center / hub filter them; regional councils are unchanged.
  *
  *   npx tsx scripts/routes-nationwide/run.ts                          # whole country, dry-run, resumes automatically
  *   npx tsx scripts/routes-nationwide/run.ts --city=חיפה --city=ערד   # by authority name (repeatable)
