@@ -46,7 +46,9 @@ export async function POST(request: NextRequest) {
     if (action === 'approve') {
       const parsed = parseBulkApproveRequest(body);
       if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
-      if (!parsed.value.filter) return NextResponse.json({ error: 'filter is required' }, { status: 400 });
+      // The parser defaults a missing filter to ≥70 / no low confidence; this route still requires an explicit one.
+      const rawFilter = (body as { filter?: unknown } | null)?.filter;
+      if (rawFilter === undefined || rawFilter === null) return NextResponse.json({ error: 'filter is required' }, { status: 400 });
       return NextResponse.json(await approvePendingRoutes(db, uid, parsed.value));
     }
     if (action === 'reject') {

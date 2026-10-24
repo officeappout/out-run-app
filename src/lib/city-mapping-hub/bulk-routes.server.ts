@@ -20,7 +20,7 @@ import { validAuthorityId } from './url-state';
 import { isPendingRoute } from './rows';
 import { BULK_APPROVE_BATCH, classifyGeometry, type BatchOutcome, type PendingRouteCandidate } from './bulk-approve.logic';
 import { readAuthorityNames } from './layers.server';
-import { authorityKindOf, matchesReviewFilter, parseReviewFilter, type AuthorityKind, type RouteReviewFilter } from './review-filters';
+import { NATIONWIDE_APPROVE_DEFAULT_FILTER, authorityKindOf, matchesReviewFilter, parseReviewFilter, type AuthorityKind, type RouteReviewFilter } from './review-filters';
 
 type Data = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
@@ -115,7 +115,9 @@ export interface BulkApproveRequest {
    * The review filter the admin confirmed (review-filters.ts). When present, every id is
    * re-checked against it at write time — score / low confidence from route_scores, the
    * authority's type, city / activity / name from the route doc — and a mismatch is
-   * skipped ('filter_mismatch'), never written. Absent = the previous behaviour.
+   * skipped ('filter_mismatch'), never written. A request with NO filter gets
+   * NATIONWIDE_APPROVE_DEFAULT_FILTER (score ≥ 70, low confidence excluded) — never the old
+   * unfiltered approve, so an older / scripted caller cannot publish low-score fills by omission.
    */
   filter?: RouteReviewFilter;
 }
@@ -127,13 +129,13 @@ export function parseBulkApproveRequest(body: unknown): { ok: true; value: BulkA
   if (!Array.isArray(b.ids) || b.ids.length === 0 || b.ids.length > BULK_APPROVE_BATCH || !b.ids.every(validDocId)) {
     return { ok: false, error: `ids must be 1..${BULK_APPROVE_BATCH} document ids` };
   }
-  let filter: RouteReviewFilter | undefined;
+  let filter: RouteReviewFilter = { ...NATIONWIDE_APPROVE_DEFAULT_FILTER };
   if (b.filter !== undefined && b.filter !== null) {
     const f = parseReviewFilter(b.filter);
     if (!f.ok) return f;
     filter = f.value;
   }
-  return { ok: true, value: { authorityId, ids: Array.from(new Set(b.ids as string[])), ...(filter ? { filter } : {}) } };
+  return { ok: true, value: { authorityId, ids: Array.from(new Set(b.ids as string[])), filter } };
 }
 
 export interface BulkRejectRequest extends BulkApproveRequest { reason: string | null }
@@ -142,7 +144,9 @@ export interface BulkRejectRequest extends BulkApproveRequest { reason: string |
 export function parseBulkRejectRequest(body: unknown): { ok: true; value: BulkRejectRequest } | { ok: false; error: string } {
   const base = parseBulkApproveRequest(body);
   if (!base.ok) return base;
-  if (!base.value.filter) return { ok: false, error: 'filter is required for a bulk reject' };
+  // Judged on the raw body: the approve parser fills a default filter, a reject never gets one implicitly.
+  const rawFilter = (body as Data).filter;
+  if (rawFilter === undefined || rawFilter === null) return { ok: false, error: 'filter is required for a bulk reject' };
   const raw = (body as Data).reason;
   if (raw != null && (typeof raw !== 'string' || raw.length > 500)) return { ok: false, error: 'reason must be a string ≤ 500 chars' };
   return { ok: true, value: { ...base.value, reason: typeof raw === 'string' && raw.trim() ? raw.trim() : null } };

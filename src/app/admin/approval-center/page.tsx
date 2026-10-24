@@ -1171,6 +1171,7 @@ export default function ApprovalCenterPage() {
           action={filteredBulkAction}
           plan={filteredBulkPlan}
           filterSummary={describeReviewFilter(routeReviewFilter)}
+          requireTypedCount={!routeReviewFilterActive}
           runBatch={(authorityId, ids, reason) => filteredBulkAction === 'approve'
             ? approveFilteredRoutesBatch(authorityId, ids, routeReviewFilter, { adminId: currentUserId || '', adminName })
             : rejectFilteredRoutesBatch(authorityId, ids, routeReviewFilter, reason)}

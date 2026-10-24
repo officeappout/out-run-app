@@ -10,13 +10,15 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { runBulkApprove, type ApproveBatchFn, type RunSummary } from '@/lib/city-mapping-hub/bulk-approve.logic';
+import { confirmPhrase, isConfirmValid, runBulkApprove, type ApproveBatchFn, type RunSummary } from '@/lib/city-mapping-hub/bulk-approve.logic';
 import type { FilteredAction, FilteredActionPlan } from '@/lib/city-mapping-hub/review-filters';
 
 export default function FilteredBulkDialog({
-  action, plan, filterSummary, runBatch, onClose, onDone,
+  action, plan, filterSummary, runBatch, onClose, onDone, requireTypedCount = false,
 }: {
   action: FilteredAction;
+  /** No review filter active → the whole queue is in play: require typing the exact count, as the hub dialog does. */
+  requireTypedCount?: boolean;
   plan: FilteredActionPlan;
   filterSummary: string;
   runBatch: (authorityId: string, ids: string[], reason: string | null) => ReturnType<ApproveBatchFn>;
@@ -24,6 +26,8 @@ export default function FilteredBulkDialog({
   onDone: (summary: RunSummary) => void;
 }) {
   const [reason, setReason] = useState('');
+  const [typed, setTyped] = useState('');
+  const confirmed = !requireTypedCount || isConfirmValid(typed, plan.total);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [summary, setSummary] = useState<RunSummary | null>(null);
@@ -38,7 +42,7 @@ export default function FilteredBulkDialog({
   }, [running, onClose]);
 
   const run = useCallback(async () => {
-    if (ran.current || plan.total === 0) return;
+    if (ran.current || plan.total === 0 || !confirmed) return;
     ran.current = true;
     setRunning(true);
     setProgress({ done: 0, total: plan.perAuthority.length });
@@ -50,7 +54,7 @@ export default function FilteredBulkDialog({
     } finally {
       setRunning(false);
     }
-  }, [plan, reason, runBatch, onDone]);
+  }, [plan, reason, runBatch, onDone, confirmed]);
 
   return (
     <>
@@ -81,6 +85,12 @@ export default function FilteredBulkDialog({
                 <input className="rounded-lg border border-slate-200 px-2 py-1" value={reason} maxLength={500} disabled={running} onChange={(e) => setReason(e.target.value)} data-testid="filtered-bulk-reason" />
               </label>
             )}
+            {requireTypedCount && (
+              <label className="flex flex-col gap-1 text-sm font-semibold">
+                <span>לא הוגדר סינון ציון / ביטחון / סוג רשות. להמשך הקלידו <code className="rounded bg-slate-100 px-1">{confirmPhrase(plan.total)}</code></span>
+                <input className="rounded-lg border border-slate-200 px-2 py-1" value={typed} disabled={running || plan.total === 0} onChange={(e) => setTyped(e.target.value)} data-testid="filtered-bulk-typed" />
+              </label>
+            )}
             {progress && <p role="status" className="text-sm font-bold text-emerald-800">{approve ? 'מאשר' : 'דוחה'}… {progress.done} / {progress.total} רשויות</p>}
           </>
         )}
@@ -99,7 +109,7 @@ export default function FilteredBulkDialog({
 
         <div className="flex gap-2">
           {!summary && (
-            <button type="button" disabled={running || plan.total === 0} onClick={run} data-testid="filtered-bulk-ok"
+            <button type="button" disabled={running || plan.total === 0 || !confirmed} onClick={run} data-testid="filtered-bulk-ok"
               className={`inline-flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50 ${approve ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}>
               {running && <Loader2 className="h-4 w-4 animate-spin" />} {verb} {plan.total}
             </button>

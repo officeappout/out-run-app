@@ -38,6 +38,7 @@ const db = {
 };
 const put = (p: string, d: Record<string, unknown>) => store.set(p, wrap(d));
 
+import { NATIONWIDE_APPROVE_DEFAULT_FILTER } from '../review-filters';
 import { approvePendingRoutes, parseBulkApproveRequest, parseBulkRejectRequest, readPendingRoutesNationwide, rejectPendingRoutes } from '../bulk-routes.server';
 
 beforeEach(() => {
@@ -148,7 +149,7 @@ describe('approvePendingRoutes — TOCTOU', () => {
 
 describe('parseBulkApproveRequest', () => {
   it('validates', () => {
-    expect(parseBulkApproveRequest({ authorityId: 'a', ids: ['x', 'x'] })).toEqual({ ok: true, value: { authorityId: 'a', ids: ['x'] } });
+    expect(parseBulkApproveRequest({ authorityId: 'a', ids: ['x', 'x'] })).toEqual({ ok: true, value: { authorityId: 'a', ids: ['x'], filter: NATIONWIDE_APPROVE_DEFAULT_FILTER } });
     expect(parseBulkApproveRequest({ authorityId: 'a', ids: [] }).ok).toBe(false);
     expect(parseBulkApproveRequest({ authorityId: 'a', ids: Array.from({ length: 500 }, (_, i) => `i${i}`) }).ok).toBe(false);
     expect(parseBulkApproveRequest({ authorityId: 'a/b', ids: ['x'] }).ok).toBe(false);
@@ -204,5 +205,26 @@ describe('review filter — re-applied at write time (owner 24.10.2026)', () => 
     expect(parseBulkApproveRequest({ authorityId: 'a', ids: ['x'], filter: { scoreMin: 70 } })).toMatchObject({ ok: true, value: { filter: { scoreMin: 70 } } });
     expect(parseBulkRejectRequest({ authorityId: 'a', ids: ['x'] }).ok).toBe(false);
     expect(parseBulkRejectRequest({ authorityId: 'a', ids: ['x'], filter: {}, reason: '  ' })).toMatchObject({ ok: true, value: { reason: null } });
+  });
+});
+
+describe('no filter sent → server default ≥70, low confidence excluded', () => {
+  it('a hub POST without a filter never approves a <70 or low-confidence route', async () => {
+    put('route_scores/r2', { score: 58, lowConfidenceReason: 'low_score_fill', geometryGapM: 80 });
+    put('route_scores/r3', { score: 85, lowConfidenceReason: 'low_score_fill', geometryGapM: 80 });
+    put('official_routes/r8', { name: 'mid', authorityId: 'a', published: false, status: 'pending', path: [{ lat: 32, lng: 34.8 }, { lat: 32.001, lng: 34.8 }] });
+    put('route_scores/r8', { score: 66, geometryGapM: 80 });
+    const parsed = parseBulkApproveRequest({ authorityId: 'a', ids: ['r1', 'r2', 'r3', 'r8'] });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.filter).toEqual(NATIONWIDE_APPROVE_DEFAULT_FILTER);
+    const out = await approvePendingRoutes(db as never, 'admin-1', parsed.value);
+    expect(out.updated).toEqual(['r1']);
+    expect(Object.fromEntries(out.skipped.map((s) => [s.id, s.reason]))).toEqual({ r2: 'filter_mismatch', r3: 'filter_mismatch', r8: 'filter_mismatch' });
+    expect(writes.filter((w) => w.op === 'update').map((w) => w.path)).toEqual(['official_routes/r1']);
+  });
+  it('an explicit filter replaces the default', () => {
+    const p = parseBulkApproveRequest({ authorityId: 'a', ids: ['x'], filter: { scoreMin: 55, lowConfidence: 'any' } });
+    expect(p).toMatchObject({ ok: true, value: { filter: { scoreMin: 55, lowConfidence: 'any' } } });
   });
 });
