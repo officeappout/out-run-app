@@ -79,6 +79,18 @@ export const URBAN_FLOOR_MAX_DISTANCE_ERROR = 0.15;
 export const SETTLEMENT_LOOP_PIPELINE = 'gh-settlement-loops';
 export const SETTLEMENT_LOOPS_SELECT_MAX = 3;
 
+/**
+ * City low floor (owner 24.10.2026). The municipal dry run selected 659 routes in
+ * 209 cities (79 with none, median 1): generated / neighbourhood / park loops score
+ * 46-60, below both the 70 bar and the urban floor (named routes only). For a CITY
+ * (never a regional council) still below its quota MINIMUM after the normal
+ * selection, plain candidates scoring ≥ CITY_LOW_FLOOR may fill up to that minimum,
+ * best first, marked lowConfidence LOW_SCORE_FILL_REASON so the approval center can
+ * filter them. They never count toward "quota met" (the generating stages still run).
+ */
+export const CITY_LOW_FLOOR = 55;
+export const LOW_SCORE_FILL_REASON = 'low_score_fill';
+
 /** Official-dataset routes scoring 55-70 are flagged for manual review, never auto-selected. */
 export const MANUAL_REVIEW_MIN_SCORE = 55;
 

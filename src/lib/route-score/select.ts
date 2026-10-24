@@ -27,7 +27,7 @@ import type { AuthorityQuota } from './quota';
 import type { RouteScore, RouteScoreInput } from './types';
 import { LOOP_QUALITY_THRESHOLDS } from '../route-quality/acceptance';
 import { pathLengthM } from '../route-quality/geo';
-import { MANUAL_REVIEW_MIN_SCORE, NAMED_PLACE_PATTERN, SELECTION_MIN_SCORE, SETTLEMENT_LOOPS_SELECT_MAX, URBAN_FLOOR_MAX_DISTANCE_ERROR, URBAN_SELECTION_MIN_SCORE } from './weights';
+import { LOW_SCORE_FILL_REASON, MANUAL_REVIEW_MIN_SCORE, NAMED_PLACE_PATTERN, SELECTION_MIN_SCORE, SETTLEMENT_LOOPS_SELECT_MAX, URBAN_FLOOR_MAX_DISTANCE_ERROR, URBAN_SELECTION_MIN_SCORE } from './weights';
 import { GEOMETRY_GAP_REVIEW_M } from '../route-geometry/gaps';
 import { SURFACE_CLASSES, type SurfaceClass } from './surface-class';
 
@@ -43,12 +43,14 @@ export interface SelectionRow {
   decision: SelectionDecision;
   reason: string;
   score: number;
+  /** Set only on a route the city low floor let in (municipal) — absent otherwise (axiom §24). */
+  lowConfidence?: { reason: typeof LOW_SCORE_FILL_REASON };
 }
 
 export interface SelectionResult {
   rows: SelectionRow[];
   selectedIds: string[];
-  counts: Record<SelectionDecision, number> & { parkLoops: number; cycling: number; urbanFloor: number; settlementLoops?: number };
+  counts: Record<SelectionDecision, number> & { parkLoops: number; cycling: number; urbanFloor: number; settlementLoops?: number; lowScoreFill?: number };
   /** Selected routes per surface class. */
   selectedBySurface: Record<SurfaceClass, number>;
 }
@@ -113,6 +115,12 @@ export function urbanFloorBlocker(i: RouteScoreInput): string | null {
 export interface SelectOptions {
   /** Urban floor (RC9). Default URBAN_SELECTION_MIN_SCORE; ≥ SELECTION_MIN_SCORE turns it off. */
   urbanFloor?: number;
+  /**
+   * City low floor (owner 24.10.2026, municipal only — the nationwide runner passes
+   * CITY_LOW_FLOOR for non-regional authorities). Absent = off, and the result is
+   * exactly as before (no `lowScoreFill` count key). See the step in selectTopN.
+   */
+  lowScoreFill?: number;
 }
 
 export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota, opts: SelectOptions = {}): SelectionResult {
@@ -208,6 +216,28 @@ export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota, opts: S
     }
   }
 
+  // City low floor (owner 24.10.2026): a city still below the quota MINIMUM after the ≥70 pass and
+  // the urban floor may fill — up to that minimum, never beyond — with plain candidates scoring
+  // ≥ lowScoreFill, best first, under the same hard bars + diversity rules as the urban floor.
+  // Never a manual_review route (official 55-70, geometry gap), never a settlement loop, never red.
+  // Each one is marked lowConfidence 'low_score_fill' (→ route_scores.lowConfidenceReason).
+  let lowTaken = 0;
+  const lowFloor = opts.lowScoreFill;
+  if (typeof lowFloor === 'number' && lowFloor < SELECTION_MIN_SCORE && picked.length < quota.total.min) {
+    const pool = routes
+      .filter((r) => !isSettlementLoop(r.input) && r.score.band !== 'red' && r.score.score >= lowFloor && r.score.score < SELECTION_MIN_SCORE && rows.get(r.input.id)?.decision === 'candidate')
+      .sort((a, b) => b.score.score - a.score.score || b.score.confidence - a.score.confidence || a.input.id.localeCompare(b.input.id));
+    for (const r of pool) {
+      if (picked.length >= quota.total.min) break;
+      const s = r.score.score;
+      const bar = urbanFloorBlocker(r.input) ?? blocker(r);
+      if (bar) { rows.set(r.input.id, { id: r.input.id, decision: 'candidate', reason: `score ${s} < ${SELECTION_MIN_SCORE}; ${LOW_SCORE_FILL_REASON}: ${bar}`, score: s }); continue; }
+      take(r, `${LOW_SCORE_FILL_REASON}: score ${s} (city floor ${lowFloor}, below quota min ${quota.total.min})`);
+      rows.get(r.input.id)!.lowConfidence = { reason: LOW_SCORE_FILL_REASON };
+      lowTaken++;
+    }
+  }
+
   // Settlement loops: extras on top of the set (never displace, never count toward the quota).
   let settlementTaken = 0;
   settlement.sort((a, b) => b.score.score - a.score.score || b.score.confidence - a.score.confidence || a.input.id.localeCompare(b.input.id));
@@ -222,7 +252,7 @@ export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota, opts: S
 
   const out = routes.map((r) => rows.get(r.input.id)!);
   // settlementLoops only when there were any — every other authority's counts stay exactly as before.
-  const counts = { selected: 0, candidate: 0, manual_review: 0, rejected: 0, parkLoops, cycling, urbanFloor: urbanTaken, ...(settlement.length ? { settlementLoops: settlementTaken } : {}) };
+  const counts = { selected: 0, candidate: 0, manual_review: 0, rejected: 0, parkLoops, cycling, urbanFloor: urbanTaken, ...(settlement.length ? { settlementLoops: settlementTaken } : {}), ...(typeof lowFloor === 'number' ? { lowScoreFill: lowTaken } : {}) };
   for (const row of out) counts[row.decision]++;
   const selectedBySurface: Record<SurfaceClass, number> = { walk_run_paved: 0, hike_offroad: 0, bike_road: 0, bike_offroad: 0, unknown: 0 };
   const byId = new Map(routes.map((r) => [r.input.id, r.input]));

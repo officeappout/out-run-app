@@ -42,11 +42,12 @@ export function scoreAuthorityRoutes(
   const quota = quotaForAuthority(authority);
   const selection = selectTopN(scored, quota, opts);
   const floorCalibration: Record<string, number> = {};
+  // Urban-floor calibration only (no city low floor) — the same numbers as before for every authority.
   for (const f of URBAN_FLOOR_CALIBRATION) floorCalibration[String(f)] = selectTopN(scored, quota, { urbanFloor: f }).selectedIds.length;
   const byId = new Map(selection.rows.map((row) => [row.id, row]));
   const docs = scored.map((s) => {
     const row = byId.get(s.input.id);
-    return buildRouteScoreDoc(s.input, s.score, row ? { decision: row.decision, reason: row.reason } : null, { now });
+    return buildRouteScoreDoc(s.input, s.score, row ? { decision: row.decision, reason: row.reason, ...(row.lowConfidence ? { lowConfidence: row.lowConfidence } : {}) } : null, { now });
   });
   const bands = { green: 0, yellow: 0, red: 0 };
   for (const s of scored) bands[s.score.band]++;
