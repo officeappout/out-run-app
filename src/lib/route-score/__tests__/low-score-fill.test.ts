@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { selectTopN, type ScoredRoute } from '../select';
 import { quotaForAuthority } from '../quota';
 import { buildRouteScoreDoc } from '../route-scores-doc';
-import type { RouteScoreInput } from '../types';
+import type { RouteScore, RouteScoreInput } from '../types';
 import { CITY_LOW_FLOOR, LOW_SCORE_FILL_REASON } from '../weights';
 import { rectLoop } from './fixtures';
 import { GEOMETRY_GAP_REVIEW_M } from '../../route-geometry/gaps';
@@ -25,7 +25,7 @@ function route(o: { score: number; km?: number; geom?: RouteScoreInput['geometry
     ...(o.settlement ? { settlementLoop: true } : {}),
     ...(o.low ? { lowConfidenceReason: o.low } : {}),
   };
-  return { input, score: { score: o.score, confidence: 0.8, band: o.band ?? 'yellow', components: {} as any, version: 'v1.4' } };
+  return { input, score: { score: o.score, confidence: 0.8, band: o.band ?? 'yellow', components: {} as RouteScore['components'], version: 'v1.4' } };
 }
 const small = quotaForAuthority({ type: 'local_council', population: 20_000 }); // total 8-15
 const FILL = { lowScoreFill: CITY_LOW_FLOOR };
@@ -112,9 +112,10 @@ describe('city low floor in the nationwide stages', () => {
   const now = new Date('2026-10-24T00:00:00Z');
 
   it('quotaMet ignores low-score-fill selections (the generating stages keep running)', () => {
-    const run = { quota: small, selection: { counts: { selected: small.total.min, urbanFloor: 0, lowScoreFill: 3 } } } as any;
-    expect(quotaMet(run)).toBe(false);
-    expect(quotaMet({ ...run, selection: { counts: { selected: small.total.min, urbanFloor: 0 } } })).toBe(true);
+    type Run = Parameters<typeof quotaMet>[0];
+    const run = (counts: Record<string, number>) => ({ quota: small, selection: { counts } }) as unknown as Run;
+    expect(quotaMet(run({ selected: small.total.min, urbanFloor: 0, lowScoreFill: 3 }))).toBe(false);
+    expect(quotaMet(run({ selected: small.total.min, urbanFloor: 0 }))).toBe(true);
   });
 
   it('a regional council is byte-identical with or without the city low floor', async () => {

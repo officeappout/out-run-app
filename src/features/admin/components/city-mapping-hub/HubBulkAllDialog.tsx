@@ -127,7 +127,7 @@ export default function HubBulkAllDialog({ admin, onClose, onDone }: { admin: Mo
               </label>
             </div>
             <p className="text-xs text-slate-500" data-testid="hub-bulkall-filter-summary">סינון: {describeReviewFilter(review)}{(review.scoreMin != null || review.scoreMax != null) ? ' · מסלול בלי ציון לא נכלל בטווח ציון.' : ''}</p>
-            {!includeLow && lowInSelection > 0 && <p className="text-xs font-semibold text-amber-700">{lowInSelection} מסלולים בביטחון נמוך (למשל השלמת עיר בציון 55–69) לא נכללים — סמנו "כלול ביטחון נמוך" כדי לאשר גם אותם.</p>}
+            {!includeLow && lowInSelection > 0 && <p className="text-xs font-semibold text-amber-700">{lowInSelection} מסלולים בביטחון נמוך (למשל השלמת עיר בציון 55–69) לא נכללים — סמנו &quot;כלול ביטחון נמוך&quot; כדי לאשר גם אותם.</p>}
             {(excluded.gap > 0 || excluded.unmeasured > 0) && (
               <div role="note" data-testid="hub-bulkall-excluded" className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-800">
                 {excluded.gap > 0 && <p>⚠ {excluded.gap} מסלולים עם קפיצה ישרה חשודה (500 מ׳ ומעלה) הוחרגו מהאישור.</p>}
