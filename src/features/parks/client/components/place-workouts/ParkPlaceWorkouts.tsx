@@ -107,7 +107,7 @@ function useLeadWorkout(park: Park, equipment: readonly GymEquipment[], lead: Pl
 export default function ParkPlaceWorkouts({ park, equipment, userLocation, onClose, onLeadChange }: ParkPlaceWorkoutsProps) {
   const t = useT(map);
   const nearestRouteKm = useNearestRouteKm(park.location);
-  const { ctx, todayRun } = usePlaceUserContext(true, userLocation);
+  const { ctx, todayRun, paceCtx } = usePlaceUserContext(true, userLocation);
   const basePace = useUserStore((s) => s.profile?.running?.paceProfile?.basePace ?? null);
 
   const place = useMemo<ParkPlace | null>(() => (nearestRouteKm === undefined ? null : {
@@ -147,6 +147,8 @@ export default function ParkPlaceWorkouts({ park, equipment, userLocation, onClo
       lead={lead}
       leadId={strengthCard?.id ?? null}
       placePhoto={placePhoto}
+      planRunBlocks={todayRun?.workout.blocks ?? null}
+      paceCtx={paceCtx}
       onStart={(s) => start(s.start)}
     />
   );

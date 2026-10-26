@@ -7,11 +7,14 @@
  * gradient), a dark gradient over the media and the text + CTA on it.
  * Sized for a carousel (≈ home's side card), the whole card is the button.
  * Used by the place pages ("מתאים לך כאן", "אימונים על המסלול הזה").
+ * `art` replaces the media with a drawn visual on the ink surface (the run /
+ * walk / hybrid cards' intensity graph).
  *
  *   <MediaWorkoutCard media={{ thumbnailUrl, videoUrl }} eyebrow="מהתוכנית שלך"
  *     title="גוף מלא" meta="35 דק׳ · 6 תרגילים" cta="התחל אימון" onStart={start} />
  */
 
+import type { ReactNode } from 'react';
 import { Play } from 'lucide-react';
 import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
 import HeroMediaBackground from './HeroMediaBackground';
@@ -20,6 +23,8 @@ export const MEDIA_WORKOUT_CARD_W = 248;
 export const MEDIA_WORKOUT_CARD_H = 292;
 
 /** Dark scrim: clear over the top half, near-ink under the text. */
+/** The ink surface under `art` (no media). */
+const INK_BG = 'linear-gradient(160deg, #0e1419, #24323d)';
 const SCRIM = 'linear-gradient(to bottom, rgba(14,20,25,0) 28%, rgba(14,20,25,0.55) 55%, rgba(14,20,25,0.94) 100%)';
 
 export interface MediaWorkoutCardMedia {
@@ -29,6 +34,8 @@ export interface MediaWorkoutCardMedia {
 
 export interface MediaWorkoutCardProps {
   media: MediaWorkoutCardMedia;
+  /** Drawn instead of the media (top of the card, over the ink surface). */
+  art?: ReactNode;
   /** Small pill over the media (e.g. "מהתוכנית שלך", the style). */
   eyebrow: string;
   title: string;
@@ -43,7 +50,7 @@ export interface MediaWorkoutCardProps {
 }
 
 export default function MediaWorkoutCard({
-  media, eyebrow, title, meta, cta, onStart, highlight = false, busy = false, ariaLabel,
+  media, art, eyebrow, title, meta, cta, onStart, highlight = false, busy = false, ariaLabel,
 }: MediaWorkoutCardProps) {
   return (
     <button
@@ -53,12 +60,18 @@ export default function MediaWorkoutCard({
       aria-label={ariaLabel ?? `${cta} · ${title}`}
       aria-busy={busy || undefined}
       className="relative block shrink-0 overflow-hidden rounded-[24px] text-start text-white shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:opacity-80"
-      style={{ width: MEDIA_WORKOUT_CARD_W, height: MEDIA_WORKOUT_CARD_H }}
+      style={{ width: MEDIA_WORKOUT_CARD_W, height: MEDIA_WORKOUT_CARD_H, background: art ? INK_BG : undefined }}
     >
-      <span className="absolute inset-0">
-        <HeroMediaBackground thumbnailUrl={media.thumbnailUrl} videoUrl={media.videoUrl} alt="" />
-      </span>
-      <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: SCRIM }} />
+      {art ? (
+        <span aria-hidden className="absolute inset-x-4 top-14 block" data-card-art>{art}</span>
+      ) : (
+        <>
+          <span className="absolute inset-0">
+            <HeroMediaBackground thumbnailUrl={media.thumbnailUrl} videoUrl={media.videoUrl} alt="" />
+          </span>
+          <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: SCRIM }} />
+        </>
+      )}
       <span
         className={`absolute start-3 top-3 max-w-[calc(100%-24px)] truncate whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-extrabold ${
           highlight ? 'bg-v2-tint text-v2-deep' : 'bg-black/35 text-white backdrop-blur-md'

@@ -27,7 +27,7 @@ export interface RoutePlaceWorkoutsProps {
 
 export default function RoutePlaceWorkouts({ route, userLocation, onClose }: RoutePlaceWorkoutsProps) {
   const t = useT(map);
-  const { ctx, todayRun } = usePlaceUserContext(true, userLocation);
+  const { ctx, todayRun, paceCtx } = usePlaceUserContext(true, userLocation);
   const basePace = useUserStore((s) => s.profile?.running?.paceProfile?.basePace ?? null);
   const place = useMemo<RoutePlace>(() => ({ kind: 'route', route, parkNearRoute: parkNearRoute(route) }), [route]);
   const suggestions = useMemo(() => (ctx ? suggestWorkoutsForPlace(place, ctx) : []), [place, ctx]);
@@ -41,6 +41,8 @@ export default function RoutePlaceWorkouts({ route, userLocation, onClose }: Rou
       suggestions={suggestions}
       banner={banner}
       placePhoto={placePhotoOf(route)}
+      planRunBlocks={todayRun?.workout.blocks ?? null}
+      paceCtx={paceCtx}
       onStart={(s) => start(s.start)}
     />
   );
