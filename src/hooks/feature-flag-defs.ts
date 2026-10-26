@@ -706,6 +706,10 @@ export const FLAG_DEFS = [
   // active-minutes ring (the Progress page's ring) instead of the steps ring. Fail-closed; super admins preview
   // it. Off = the home tabs are byte-identical to today.
   { key: 'enableHomeProgressSlotV1', firestoreKey: 'enable_home_progress_slot_v1', defaultValue: false, superAdminValue: true },
+  // Park-workout difficulty carousel (26.10.2026, pilot note M11): the קל/בינוני/קשה pill in the hybrid
+  // overview (HybridOverviewScreen). Off (default, also for super admins) = the carousel is hidden and the
+  // engine's own pick runs (its selectedIndex, by the workout rules). On = the carousel as before.
+  { key: 'enableHybridDifficultyCarousel', firestoreKey: 'enable_hybrid_difficulty_carousel', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

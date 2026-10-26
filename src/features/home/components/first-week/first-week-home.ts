@@ -45,7 +45,10 @@ export function firstWeekArtTrack(profile: ProfileLike | null | undefined): Firs
   return profile?.lifestyle?.primaryTrack === 'run' || profile?.running?.isUnlocked === true ? 'running' : 'strength';
 }
 
-/** The card for this profile today, or null (not first week / already trained / unknown signup). */
+/**
+ * The card for this profile today, or null (not first week / already trained / unknown signup).
+ * Day 0 (welcome) is not shown on home: it promised a 12-minute workout with no button (pilot 26.10, O9).
+ */
 export function firstWeekCardForProfile(
   profile: ProfileLike | null | undefined,
   nowMs: number,
@@ -53,11 +56,12 @@ export function firstWeekCardForProfile(
 ): FirstWeekCard | null {
   if (!profile) return null;
   const name = typeof profile.core?.name === 'string' ? profile.core.name.trim().split(/\s+/)[0] : '';
-  return firstWeekCard({
+  const card = firstWeekCard({
     dayIndex: firstWeekDayIndex(createdAtMillis(profile.createdAt), nowMs),
     hasWorkout: profileHasWorkout(profile, doneToday),
     firstName: name,
   });
+  return card?.lever === 'welcome' ? null : card;
 }
 
 /** Per-viewer dismissal key (one card per day). */
