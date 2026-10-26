@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
-import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { startMiniDomainAssessment, startFullStrengthQuestionnaire } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
@@ -1273,7 +1273,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       // the default window.location.pathname fallback — no specific route
       // is in play here (resetHybridFlow already cleared it), so plain
       // '/map' (matching the idle mode we just set) is the correct target.
-      startMiniDomainAssessment(router, 'push', '/map');
+      // Pilot Q4: no strength program yet, so run the FULL questionnaire (program choice
+      // first), not a push-only mini top-up.
+      startFullStrengthQuestionnaire(router, profile, '/map');
       return;
     }
     // enable_home_v2 (planned-run-slot.ts): the planned run's overview, straight into
@@ -1342,7 +1344,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     resetHybridFlow();
     setMapMode('idle');
     logic.startActiveWorkout();
-  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic, keyFor, resetHybridFlow, router]);
+  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic, keyFor, resetHybridFlow, router, profile]);
 
   const [effectiveRadius, setEffectiveRadius] = useState(requestedDistanceKm);
 

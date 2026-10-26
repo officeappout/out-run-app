@@ -38,6 +38,8 @@ import {
   startMiniDomainAssessment,
   isMiniAssessmentActive,
   consumeMiniAssessmentState,
+  clearStaleMiniAssessmentState,
+  startFullStrengthQuestionnaire,
   resolveBaseCategoryForProgramId,
   MINI_ASSESSMENT_ACTIVE_KEY,
   MINI_ASSESSMENT_DOMAIN_KEY,
@@ -200,5 +202,37 @@ describe('resolveBaseCategoryForProgramId — WorkoutBuilderSheet unlock CTA dom
 
   it('falls back to the (slug-resolved) id when nothing matches', () => {
     expect(resolveBaseCategoryForProgramId('mystery_program', DOMAIN_ENROLLMENT_SLUGS)).toBe('mystery_program');
+  });
+});
+
+describe('clearStaleMiniAssessmentState: pilot B1 / Q4 (full questionnaire after an abandoned mini)', () => {
+  it('clears an abandoned mini flag so the full questionnaire is not saved as a single push track', () => {
+    startMiniDomainAssessment({ push: vi.fn() }, 'push', '/map');
+    expect(isMiniAssessmentActive()).toBe(true);
+    expect(clearStaleMiniAssessmentState()).toBe(true);
+    expect(isMiniAssessmentActive()).toBe(false);
+    expect(sessionStorageStub.getItem(MINI_ASSESSMENT_DOMAIN_KEY)).toBeNull();
+    expect(sessionStorageStub.getItem(MINI_ASSESSMENT_RETURN_TO_KEY)).toBeNull();
+  });
+
+  it('is a no-op (returns false) when no mini assessment was started', () => {
+    expect(clearStaleMiniAssessmentState()).toBe(false);
+    expect(isMiniAssessmentActive()).toBe(false);
+  });
+});
+
+describe('startFullStrengthQuestionnaire: pilot Q4 (map prompt for a user with no strength program)', () => {
+  it('opens the full questionnaire at the program choice screen, not the push-only mini', () => {
+    const router = { push: vi.fn() };
+    startFullStrengthQuestionnaire(router, mockProfile, '/map');
+    expect(router.push).toHaveBeenCalledWith('/onboarding-new/program-path');
+    expect(isMiniAssessmentActive()).toBe(false);
+    expect(sessionStorageStub.getItem('onboarding_muscle_focus')).toBeNull();
+  });
+
+  it('drops a stale mini flag left by an earlier abandoned top-up', () => {
+    startMiniDomainAssessment({ push: vi.fn() }, 'push', '/map');
+    startFullStrengthQuestionnaire({ push: vi.fn() }, mockProfile, '/map');
+    expect(isMiniAssessmentActive()).toBe(false);
   });
 });
