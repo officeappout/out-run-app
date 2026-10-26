@@ -17,6 +17,7 @@ import { map } from '@/messages/ns/map';
 import PlaceWorkoutRail from './PlaceWorkoutRail';
 import { usePlaceUserContext } from './hooks/usePlaceUserContext';
 import { usePlaceWorkoutStart } from './hooks/usePlaceWorkoutStart';
+import { placePhotoOf } from './place-card-media';
 
 export interface RoutePlaceWorkoutsProps {
   route: Route;
@@ -39,6 +40,7 @@ export default function RoutePlaceWorkouts({ route, userLocation, onClose }: Rou
       subtitle={t('placeWorkouts.route.subtitle')}
       suggestions={suggestions}
       banner={banner}
+      placePhoto={placePhotoOf(route)}
       onStart={(s) => start(s.start)}
     />
   );

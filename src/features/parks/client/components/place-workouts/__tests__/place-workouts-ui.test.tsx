@@ -4,7 +4,8 @@
  *    and every placeWorkouts.* catalog key is used (no orphans), with no hard-coded Hebrew left;
  *  - the card copy (eyebrow / title / meta) and the sticky label, numbers through Intl;
  *  - "מה יש בדרך": start → points → climb → finish, with gaps; nothing known → no axis;
- *  - the rail renders the cards (dark plan card first, one start pill each) and at most one banner;
+ *  - the rail renders media cards (home's treatment: generated workout media → place photo → gradient),
+ *    one start button each, and at most one banner;
  *  - the hybrid card's intent is the map composer's own shape.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -15,7 +16,8 @@ import he from '@/messages/he/map.json';
 import { makeT } from '@/lib/i18n/t';
 import { map } from '@/messages/ns/map';
 import type { PlaceWorkoutSuggestion } from '@/features/workout-engine/place-fit';
-import { placeWorkoutCopy, styleStrip, type MapT } from '../place-workout-copy';
+import { placeWorkoutCopy, type MapT } from '../place-workout-copy';
+import { NO_MEDIA, placeCardMedia, placePhotoOf } from '../place-card-media';
 import { routeAxisNodes } from '../route-axis';
 import { hybridIntentFor } from '../place-hybrid-intent';
 import PlaceWorkoutRail from '../PlaceWorkoutRail';
@@ -80,15 +82,12 @@ describe('placeWorkoutCopy', () => {
     expect(hybrid).toMatchObject({ eyebrow: 'משולב · ריצה וכוח', title: 'ריצה + תחנת כוח', meta: '40 דק׳ · עצירה בק״מ 1.1' });
     const walkHybrid = placeWorkoutCopy(sug({ style: 'hybrid', meta: { kind: 'loop', minutes: 40 }, start: { kind: 'hybrid', aerobicKind: 'walking', minutes: 40, parkId: 'p' } }), t);
     expect(walkHybrid).toMatchObject({ eyebrow: 'משולב · הליכה וכוח', title: 'הליכה + תחנות כוח' });
-    const short = placeWorkoutCopy(sug({ style: 'strength_short', durationMin: 15, meta: { kind: 'equipment', names: ['מתח', 'מקבילים'] } }), t);
-    expect(short).toMatchObject({ eyebrow: 'כוח קצר', title: 'אימון קצר · 15 דק׳', meta: 'מתח · מקבילים' });
     const easy = placeWorkoutCopy(sug({ style: 'run_easy', durationMin: 30, meta: { kind: 'distance', km: 4.6, laps: null } }), t);
     expect(easy).toMatchObject({ eyebrow: 'ריצה', title: 'ריצה רציפה קלה', meta: '30 דק׳ · ~4.6 ק״מ' });
     const hills = placeWorkoutCopy(sug({ style: 'run_hills', isFromPlan: true, durationMin: 28, meta: { kind: 'hill_reps', reps: 5, climbAtKm: 2.3 } }), t);
     expect(hills).toMatchObject({ eyebrow: 'מהתוכנית שלך', title: '5 × עלייה', meta: '28 דק׳ · עלייה בק״מ 2.3' });
     const walk = placeWorkoutCopy(sug({ style: 'walk', isFromPlan: true, durationMin: 40, meta: { kind: 'distance', km: 4, laps: null } }), t);
     expect(walk.eyebrow).toBe('מתוכנית ההליכה');
-    expect(styleStrip('hybrid').length).toBe(6);
   });
 });
 
@@ -120,8 +119,25 @@ describe('routeAxisNodes', () => {
   });
 });
 
+describe('placeCardMedia', () => {
+  const media = { thumbnailUrl: 'https://x/thumb.jpg', videoUrl: 'https://x/v.mp4' };
+  it('the generated park workout → its own hero media (home card treatment)', () => {
+    expect(placeCardMedia(sug({}), { durationMin: 20, exerciseCount: 5, media }, 'https://p/park.jpg')).toEqual(media);
+  });
+  it('no generated media → the place photo; nothing → the gradient (no stock photo)', () => {
+    expect(placeCardMedia(sug({}), 'loading', 'https://p/park.jpg')).toEqual({ thumbnailUrl: 'https://p/park.jpg', videoUrl: '' });
+    const run = sug({ style: 'run_easy', start: { kind: 'route_activity', routeId: 'r', activity: 'running' } });
+    expect(placeCardMedia(run, { durationMin: 20, exerciseCount: 5, media }, 'https://p/route.jpg').videoUrl).toBe('');
+    expect(placeCardMedia(run, null, null)).toEqual(NO_MEDIA);
+  });
+  it('placePhotoOf: cover url first, blanks skipped', () => {
+    expect(placePhotoOf({ imageUrl: ' ', images: ['https://a.jpg'], image: 'https://b.jpg' })).toBe('https://a.jpg');
+    expect(placePhotoOf({})).toBeNull();
+  });
+});
+
 describe('PlaceWorkoutRail', () => {
-  it('renders the cards with a start pill each, the plan card dark, one banner', () => {
+  it('renders media cards, one start button each, one banner — no filler card', () => {
     const html = renderToStaticMarkup(
       <PlaceWorkoutRail
         title="מתאים לך כאן"
@@ -129,9 +145,11 @@ describe('PlaceWorkoutRail', () => {
         banner="climb_for_plan"
         suggestions={[
           sug({ id: 'a', isFromPlan: true, planTitle: 'גוף מלא' }),
-          sug({ id: 'b', style: 'strength_short', durationMin: 15, meta: { kind: 'equipment', names: ['מתח'] } }),
+          sug({ id: 'b', style: 'hybrid', meta: { kind: 'loop', minutes: 40 }, durationMin: 40, start: { kind: 'hybrid', aerobicKind: 'running', minutes: 40, parkId: 'p' } }),
         ]}
-        lead={{ durationMin: 35, exerciseCount: 6 }}
+        lead={{ durationMin: 35, exerciseCount: 6, media: { thumbnailUrl: 'https://x/squat.jpg', videoUrl: 'https://x/squat.mp4' } }}
+        leadId="a"
+        placePhoto="https://p/park.jpg"
         onStart={() => {}}
       />,
     );
@@ -140,10 +158,13 @@ describe('PlaceWorkoutRail', () => {
     expect(html).toContain('35 דק׳ · 6 תרגילים');
     expect(html.match(/<button/g)?.length).toBe(2);
     expect(html).toContain('התחל אימון');
-    expect(html).toContain('linear-gradient(160deg, #0e1419, #24323d)');
+    // The plan card: the workout's exercise still + video loop; the hybrid: the park photo.
+    expect(html).toContain('src="https://x/squat.jpg"');
+    expect(html).toContain('src="https://x/squat.mp4"');
+    expect(html).toContain('src="https://p/park.jpg"');
+    expect(html).toContain('rgba(14,20,25,0.94)');
     expect(html).not.toContain('placeWorkouts.');
   });
-
   it('nothing to suggest → nothing rendered', () => {
     expect(renderToStaticMarkup(<PlaceWorkoutRail title="x" subtitle="y" banner={null} suggestions={[]} onStart={() => {}} />)).toBe('');
   });

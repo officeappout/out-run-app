@@ -30,12 +30,13 @@ import {
   ExecutionMethod,
   ExternalVideo,
   getLocalizedText,
-  findMethodForLocation,
   resolvePreviewForLang,
   resolveTutorialForLang,
 } from '../../core/exercise.types';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import ExerciseHeroV2 from './ExerciseHeroV2';
+import { V2FactTile, V2LevelNode, V2MuscleStrip, V2Step } from './detail-v2/DetailV2Parts';
+import { resolveExerciseThumbnail } from './detail-v2/exercise-thumbnail';
 import LocationVariantSwitcher, {
   type LocationSwitcherOption,
 } from './LocationVariantSwitcher';
@@ -47,7 +48,6 @@ import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
-import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import {
   useExerciseMasterData,
   getExerciseLevel,
@@ -125,33 +125,6 @@ function splitSteps(text: string): string[] {
     .filter(Boolean);
 }
 
-/** One numbered step row (v2) — tint numeral, never a filled black/brand disc. */
-function V2Step({ n, children }: { n: number; children: ReactNode }) {
-  return (
-    <li className="flex items-start gap-3">
-      <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-[13px] font-black tabular-nums text-v2-deep ring-1 ring-inset ring-v2-accent/40">
-        {n}
-      </span>
-      <span className="flex-1 pt-[3px] text-[14.5px] leading-relaxed text-v2-ink-2" style={SECTION_FONT}>
-        {children}
-      </span>
-    </li>
-  );
-}
-
-/** v2 key-fact tile (muscle / equipment / level). */
-function V2FactTile({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex min-w-0 flex-col items-start gap-1.5 rounded-[18px] bg-white px-3 py-2.5 shadow-v2-ring">
-      <span className="grid h-8 w-8 place-items-center rounded-full bg-v2-tint text-v2-deep">{icon}</span>
-      <span className="whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{label}</span>
-      <span className="w-full truncate whitespace-nowrap text-[13.5px] font-extrabold text-v2-ink" style={SECTION_FONT}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
 export interface MasterExerciseViewProps {
   exercise: Exercise;
   filterLocation?: 'home' | 'park' | 'gym' | null;
@@ -195,85 +168,6 @@ export interface MasterExerciseViewProps {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Extract a Bunny CDN video UUID from any CDN URL.
- * Matches paths like: /{uuid}/play_360p.mp4, /{uuid}/playlist.m3u8, /{uuid}/thumbnail.jpg
- */
-function extractBunnyVideoId(url: string): string | null {
-  const m = url.match(
-    /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i,
-  );
-  return m ? m[1] : null;
-}
-
-/**
- * Resolve the best thumbnail for a chain node (prev / current / next).
- *
- * Resolution waterfall for a single method:
- *   a) method.media.imageUrl                                   (explicit stored image)
- *   b) buildBunnyThumbnailUrl(uuid from mainVideoUrl)          (video-derived poster)
- *   c) buildBunnyThumbnailUrl(previewVideo.he.videoId)         (preview Bunny ID)
- *   d) buildBunnyThumbnailUrl(tutorialVideo.he.videoId)        (tutorial Bunny ID)
- *
- * Method priority:
- *   1. Method matching `preferredLocation` — exact context match
- *   2. First method with ANY resolvable thumbnail — graceful sibling fallback
- *   3. Root-level exercise.media.imageUrl                      (legacy cover, last resort)
- *   4. IMAGE_PLACEHOLDER
- */
-function resolveThumbnail(ex: Exercise, preferredLocation: string | null): string {
-  const methods = (ex.execution_methods ?? ex.executionMethods ?? []) as ExecutionMethod[];
-
-  /** Best thumbnail from a single method, trying all video-ID paths. */
-  function methodThumb(m: ExecutionMethod): string | null {
-    const media = m?.media as Record<string, any> | undefined;
-    if (!media) return null;
-
-    // a) Explicit stored imageUrl.
-    if (media.imageUrl) return media.imageUrl as string;
-
-    // b) Derive thumbnail from mainVideoUrl Bunny CDN path.
-    const mainUrl: string | undefined = media.mainVideoUrl;
-    if (mainUrl) {
-      const vid = extractBunnyVideoId(mainUrl);
-      if (vid) return buildBunnyThumbnailUrl(vid);
-    }
-
-    // c) Bunny preview videoId (e.g. previewVideo.he.videoId).
-    const preview = resolvePreviewForLang(media as any, 'he');
-    if (preview?.videoId) return buildBunnyThumbnailUrl(preview.videoId);
-
-    // d) Bunny tutorial videoId.
-    const tutorial = resolveTutorialForLang(media as any, 'he');
-    if (tutorial?.videoId) return buildBunnyThumbnailUrl(tutorial.videoId);
-
-    return null;
-  }
-
-  // 1. Location-matched method.
-  if (preferredLocation) {
-    const matched = findMethodForLocation(ex, preferredLocation);
-    if (matched) {
-      const thumb = methodThumb(matched);
-      if (thumb) return thumb;
-    }
-  }
-
-  // 2. First method with any resolvable thumbnail (sibling exercise fallback).
-  for (const m of methods) {
-    const thumb = methodThumb(m);
-    if (thumb) return thumb;
-  }
-
-  // 3. Root-level cover image (last resort).
-  const rootImage =
-    (ex as any).media?.imageUrl as string | undefined ??
-    (ex as any).imageUrl as string | undefined;
-  if (rootImage) return rootImage;
-
-  return IMAGE_PLACEHOLDER;
-}
 
 function toDate(value: unknown): Date | null {
   if (!value) return null;
@@ -323,59 +217,20 @@ function ChainNode({
   const v2 = useContext(MevV2);
   const cfg = LEVEL_ICONS[variant];
   const isCurrent = variant === 'same';
-  const thumb = resolveThumbnail(exercise, location);
+  const thumb = resolveExerciseThumbnail(exercise, location);
   const level = getExerciseLevelForProgram(exercise, activeProgramId);
   const name = getLocalizedText(exercise.name, 'he');
 
   if (v2) {
-    const size = isCurrent ? 88 : 72;
     return (
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col items-center gap-1.5">
-        <div className="grid h-[88px] place-items-center">
-        <div className="relative" style={{ width: size, height: size }}>
-          <div
-            className={`h-full w-full overflow-hidden rounded-[22px] ${locked ? 'bg-v2-tint' : 'bg-white'} ${
-              isCurrent
-                ? 'shadow-v2-float ring-[3px] ring-v2-accent'
-                : completed
-                  ? 'shadow-v2-card ring-2 ring-v2-accent/50'
-                  : 'shadow-v2-ring ring-[3px] ring-white'
-            }`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={thumb}
-              alt={name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-              style={locked ? { filter: 'grayscale(70%) saturate(0.8)', opacity: 0.72 } : undefined}
-              onError={(e) => { (e.target as HTMLImageElement).src = IMAGE_PLACEHOLDER; }}
-            />
-          </div>
-          {locked && (
-            <div className="absolute bottom-1.5 left-1/2 grid h-6 w-6 -translate-x-1/2 place-items-center rounded-full bg-white/95 text-v2-muted shadow-v2-ring">
-              <Lock size={12} strokeWidth={2.5} />
-            </div>
-          )}
-          {completed && !locked && (
-            <div className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-v2-accent text-white shadow-v2-card ring-2 ring-white">
-              <Check size={12} strokeWidth={3} />
-            </div>
-          )}
-        </div>
-        </div>
-        <span className={`whitespace-nowrap text-[11.5px] font-extrabold ${isCurrent ? 'text-v2-deep' : 'text-v2-muted'}`}>
-          {t('exercises.detail.chain.node', { variant, level: String(level) })}
-        </span>
-        <span
-          className={`w-full truncate whitespace-nowrap text-center text-[12.5px] font-extrabold ${locked ? 'text-v2-muted' : 'text-v2-ink'}`}
-          style={SECTION_FONT}
-          title={name}
-        >
-          {name}
-        </span>
-      </div>
+      <V2LevelNode
+        thumb={thumb}
+        name={name}
+        levelLabel={t('exercises.detail.chain.node', { variant, level: String(level) })}
+        current={isCurrent}
+        completed={completed}
+        locked={locked}
+      />
     );
   }
 
@@ -1214,38 +1069,12 @@ export default function MasterExerciseView({
             {(primaryMuscle || secondaryMuscles.length > 0) && (
               <section className="mb-6">
                 <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>{t('exercises.detail.muscles')}</h3>
-                <div className="-mx-4 flex flex-row items-stretch gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
-                  {[...(primaryMuscle ? [primaryMuscle] : []), ...secondaryMuscles].map((m, i) => {
-                    const isPrimary = !!primaryMuscle && i === 0;
-                    return (
-                      <div
-                        key={m}
-                        className={`flex w-[84px] flex-shrink-0 flex-col items-center gap-1.5 rounded-[18px] px-2 py-2.5 ${
-                          isPrimary ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
-                        }`}
-                      >
-                        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={MUSCLE_ICON_PATHS[m] ?? MUSCLE_FALLBACK_ICON}
-                            alt=""
-                            className="max-h-full max-w-full object-contain"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        </div>
-                        <span
-                          className={`w-full truncate whitespace-nowrap text-center text-[12px] font-extrabold ${isPrimary ? 'text-v2-deep' : 'text-v2-ink-2'}`}
-                          style={SECTION_FONT}
-                        >
-                          {getMuscleGroupLabel(m)}
-                        </span>
-                        <span className="whitespace-nowrap text-[11px] font-bold text-v2-muted">
-                          {isPrimary ? t('exercises.detail.musclePrimary') : t('exercises.detail.muscleSecondary')}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                <V2MuscleStrip
+                  primary={primaryMuscle}
+                  secondary={secondaryMuscles}
+                  primaryLabel={t('exercises.detail.musclePrimary')}
+                  secondaryLabel={t('exercises.detail.muscleSecondary')}
+                />
               </section>
             )}
 

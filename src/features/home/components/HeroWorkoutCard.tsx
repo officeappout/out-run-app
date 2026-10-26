@@ -2,7 +2,7 @@
 
 import { Play } from 'lucide-react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
-import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { MockWorkout } from '../data/mock-schedule-data';
 import { Dumbbell, PersonStanding } from 'lucide-react';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -22,6 +22,7 @@ import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
 import { useT } from '@/hooks/useT';
 import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
 import { home } from '@/messages/ns/home';
+import HeroMediaBackground from '@/components/ui/v2/HeroMediaBackground';
 
 // Hero-media selection + resolution moved to a shared util so the map/workout
 // preview drawer can compute the hero from its OWN generatedWorkout (no more
@@ -29,69 +30,10 @@ import { home } from '@/messages/ns/home';
 // (StatsOverview, WorkoutSelectionCarousel) keep their `./HeroWorkoutCard` import.
 export { pickHeroExercise, resolveHeroMedia };
 
-// ============================================================================
-// Lazy Video Background -- thumbnail -> video crossfade
-// ============================================================================
-export function HeroMediaBackground({
-  thumbnailUrl,
-  videoUrl,
-}: {
-  thumbnailUrl: string;
-  videoUrl: string;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoReady, setVideoReady] = useState(false);
-
-  const handleCanPlay = useCallback(() => setVideoReady(true), []);
-
-  useEffect(() => {
-    setVideoReady(false);
-  }, [videoUrl]);
-
-  return (
-    <>
-      {/* Thumbnail (always rendered as base layer) — falls to an on-brand
-          gradient, never a stock photo, when no real exercise media resolved
-          at all (hero-image fix, 2026-10-01: see heroMedia.utils.ts's own
-          doc comment — this used to be a generic indoor-gym Unsplash bank
-          unrelated to the actual workout; removed, not patched). Same
-          gradient as this card's own CTA pill below, for brand consistency. */}
-      {thumbnailUrl ? (
-        <img
-          src={thumbnailUrl}
-          alt="Workout"
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-        />
-      ) : (
-        <div
-          className="absolute inset-0 w-full h-full"
-          style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
-        />
-      )}
-
-      {/* Lazy video loop (fades in when ready) */}
-      {videoUrl && (
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          autoPlay
-          loop
-          muted
-          playsInline
-          {...{"webkit-playsinline": "true"}}
-          preload="auto"
-          onCanPlayThrough={handleCanPlay}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-            videoReady ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
-      )}
-
-      {/* Subtle dark vignette at the very top for badge readability */}
-      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/20 to-transparent" />
-    </>
-  );
-}
+// Lazy video background (thumbnail -> video crossfade) — moved to the shared
+// v2 primitives so the place pages' workout cards use the same treatment;
+// re-exported here for the existing home consumers.
+export { HeroMediaBackground };
 
 // ============================================================================
 // Difficulty labels — keyed by 1–3 (catalog keys, src/messages/he/home.json)

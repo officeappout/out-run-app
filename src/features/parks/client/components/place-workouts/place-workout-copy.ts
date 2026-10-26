@@ -1,6 +1,6 @@
 /**
- * PlaceWorkoutSuggestion → the card's words and its mini intensity strip.
- * Pure (the caller passes its useT(map)); numbers go through Intl.
+ * PlaceWorkoutSuggestion → the card's words. Pure (the caller passes its
+ * useT(map)); numbers go through Intl.
  */
 
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
@@ -8,8 +8,8 @@ import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import type { Locale } from '@/lib/i18n/locales';
 import type { map } from '@/messages/ns/map';
-import type { ProfileStripSegment } from '@/components/ui/v2/ProfileStrip';
-import type { PlaceWorkoutStyle, PlaceWorkoutSuggestion } from '@/features/workout-engine/place-fit';
+import type { MediaWorkoutCardMedia } from '@/components/ui/v2/MediaWorkoutCard';
+import type { PlaceWorkoutSuggestion } from '@/features/workout-engine/place-fit';
 
 export type MapT = ((key: NamespaceKey<typeof map>, values?: MessageValues) => string) & { locale?: Locale };
 
@@ -17,6 +17,8 @@ export type MapT = ((key: NamespaceKey<typeof map>, values?: MessageValues) => s
 export interface GeneratedLead {
   durationMin: number;
   exerciseCount: number;
+  /** The generated workout's hero media (home's pickHeroExercise + resolveHeroMedia). */
+  media?: MediaWorkoutCardMedia;
 }
 
 export interface PlaceWorkoutCopy {
@@ -26,20 +28,6 @@ export interface PlaceWorkoutCopy {
   /** Short title for the sticky CTA ("התחל · גוף מלא 35׳"). */
   shortTitle: string;
   minutes: number | null;
-}
-
-const ACCENT: Record<PlaceWorkoutStyle, string> = {
-  strength: '#4f46e5',
-  strength_short: '#4f46e5',
-  hybrid: '#c2410c',
-  run_easy: '#0284c7',
-  run_hills: '#b45309',
-  run_quality: '#be185d',
-  walk: '#047857',
-};
-
-export function styleAccent(style: PlaceWorkoutStyle): string {
-  return ACCENT[style];
 }
 
 function num(n: number, t: MapT, digits = 1): string {
@@ -53,7 +41,6 @@ function aerobicOf(s: PlaceWorkoutSuggestion): 'walking' | 'running' {
 function styleTitle(s: PlaceWorkoutSuggestion, t: MapT): string {
   switch (s.style) {
     case 'strength': return t('placeWorkouts.title.strength');
-    case 'strength_short': return t('placeWorkouts.title.strengthShort', { min: String(s.durationMin ?? 0) });
     case 'hybrid':
       return s.start.kind === 'hybrid' && s.start.routeId
         ? t('placeWorkouts.title.hybridRoute', { aerobic: aerobicOf(s) })
@@ -74,8 +61,6 @@ function metaLine(s: PlaceWorkoutSuggestion, t: MapT, lead: GeneratedLead | null
       if (lead === 'loading') return t('placeWorkouts.meta.preparing');
       if (lead) return t('placeWorkouts.meta.parkWorkout', { min: String(lead.durationMin), count: lead.exerciseCount });
       return minStr ? t('placeWorkouts.meta.min', { min: minStr }) : null;
-    case 'equipment':
-      return m.names.length ? m.names.join(' · ') : minStr ? t('placeWorkouts.meta.min', { min: minStr }) : null;
     case 'loop':
       return t('placeWorkouts.meta.min', { min: String(m.minutes) });
     case 'distance':
@@ -98,31 +83,4 @@ export function placeWorkoutCopy(s: PlaceWorkoutSuggestion, t: MapT, lead: Gener
     : t('placeWorkouts.eyebrow.style', { style: s.style, aerobic: aerobicOf(s) });
   const minutes = lead && lead !== 'loading' && s.meta.kind === 'park_workout' ? lead.durationMin : s.durationMin;
   return { eyebrow, title, meta: metaLine(s, t, lead), shortTitle: title, minutes };
-}
-
-/** A decorative intensity shape per style (the real profile lives in the workout overview). */
-export function styleStrip(style: PlaceWorkoutStyle): ProfileStripSegment[] {
-  const seg = (key: string, color: string, flex: number, height: number) => ({ key, color, flex, height });
-  const LIME = '#84cc16';
-  const INDIGO = '#6366f1';
-  const SKY = '#38bdf8';
-  const AMBER = '#f59e0b';
-  const ROSE = '#f43f5e';
-  const GREEN = '#10b981';
-  switch (style) {
-    case 'hybrid':
-      return [0, 1, 2, 3, 4, 5].map((i) => seg(`h${i}`, i % 2 ? INDIGO : LIME, 2, i % 2 ? 90 : 45));
-    case 'strength':
-    case 'strength_short':
-      return [0, 1, 2, 3, 4].map((i) => seg(`s${i}`, INDIGO, 2, i === 0 ? 40 : 85));
-    case 'run_hills':
-      return [seg('w', SKY, 3, 35), ...[0, 1, 2, 3, 4].flatMap((i) => [seg(`u${i}`, AMBER, 1, 95), seg(`d${i}`, SKY, 1, 30)]), seg('c', SKY, 2, 30)];
-    case 'run_quality':
-      return [seg('w', SKY, 3, 35), ...[0, 1, 2, 3].flatMap((i) => [seg(`q${i}`, ROSE, 1.5, 90), seg(`r${i}`, SKY, 1, 30)]), seg('c', SKY, 2, 30)];
-    case 'walk':
-      return [seg('w', GREEN, 10, 40)];
-    case 'run_easy':
-    default:
-      return [seg('e', SKY, 10, 55)];
-  }
 }

@@ -70,6 +70,9 @@ import type { Program } from '@/features/content/programs/core/program.types';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import EquipmentDetailSheetV2 from './EquipmentDetailSheetV2';
+import { parseVideoEmbed } from './v2/video-embed';
+import EquipmentDetailBodyV2 from './v2/EquipmentDetailBodyV2';
+import { usePlaceWorkoutsFlag } from '../place-workouts/hooks/usePlaceWorkoutsFlag';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
@@ -79,23 +82,6 @@ import type { NamespaceKey } from '@/lib/i18n/catalogs';
 //    with `ExerciseDetailSheet.tsx` if either side evolves. ─────────
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
-
-/**
- * Extract a YouTube or Vimeo video id from a free-form url so we can
- * render an `<iframe>` embed. Returns null when the url doesn't match
- * either provider — the caller falls back to an "open in external"
- * link instead.
- */
-function parseVideoEmbed(url: string | undefined): { src: string } | null {
-  if (!url) return null;
-  const yt = url.match(
-    /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/,
-  );
-  if (yt) return { src: `https://www.youtube.com/embed/${yt[1]}` };
-  const vimeo = url.match(/(?:vimeo\.com\/)(\d+)/);
-  if (vimeo) return { src: `https://player.vimeo.com/video/${vimeo[1]}` };
-  return null;
-}
 
 /**
  * Sanitize an admin-form name field — equipment names occasionally
@@ -188,6 +174,8 @@ export default function EquipmentDetailDrawer({
   // enable_home_v2: the shared <Sheet> (EquipmentDetailSheetV2); flag off keeps the markup below untouched.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  // enable_place_workouts_v1 (inside enable_home_v2): the body in the exercise page's design.
+  const placeV2 = usePlaceWorkoutsFlag();
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -684,9 +672,25 @@ export default function EquipmentDetailDrawer({
   );
 
   if (v2) {
+    const v2Body = placeV2 && equipment && !error ? (
+      <EquipmentDetailBodyV2
+        equipment={equipment}
+        name={equipmentName}
+        activeBrand={activeBrand}
+        activeBrandIndex={activeBrandIndex}
+        onBrandChange={setActiveBrandIndex}
+        pinnedToPark={pinnedToPark}
+        videoUrl={effectiveVideoUrl}
+        imageUrl={effectiveImageUrl}
+        cues={cues}
+        cuesSource={cuesSource}
+        tips={tips}
+        programs={programs}
+      />
+    ) : body;
     return (
       <EquipmentDetailSheetV2 isOpen={isOpen} onClose={onClose} ariaLabel={equipmentName || t('equipment.sheet.label')}>
-        {body}
+        {v2Body}
       </EquipmentDetailSheetV2>
     );
   }

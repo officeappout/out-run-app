@@ -3,7 +3,6 @@ import {
   suggestWorkoutsForPlace, pickPlaceBanner, HYBRID_MAX_KM, MAX_SUGGESTIONS,
   type ParkPlace, type PlaceUserContext, type RoutePlace,
 } from '..';
-import { parkTraits, barKindOf } from '../park-traits';
 import { parkNearRoute, nearestRouteKmFromPark } from '../place-geo';
 import type { WorkoutRouteNeeds } from '../../players/running/lib/route-fit/types';
 import { ORIGIN, at, makeRoute, profileWithClimb, qs, squareLoop } from '../../players/running/lib/route-fit/__tests__/fixtures';
@@ -28,24 +27,12 @@ const planRun = (needs: WorkoutRouteNeeds) => ({ workoutId: 'w1', week: 2, day: 
 
 const styles = (s: { style: string }[]) => s.map((x) => x.style);
 
-describe('park-traits', () => {
-  it('finds pull and dip bars by icon, pattern or name', () => {
-    expect(barKindOf({ id: 'a', name: 'x', iconKey: 'parallelbars' })).toBe('push');
-    expect(barKindOf({ id: 'a', name: 'x', iconKey: 'pullupbar' })).toBe('pull');
-    expect(barKindOf({ id: 'a', name: 'x', movementPattern: 'vertical_pull' })).toBe('pull');
-    expect(barKindOf({ id: 'a', name: 'מקבילים' })).toBe('push');
-    expect(barKindOf({ id: 'a', name: 'ספסל בטן' })).toBeNull();
-    const t = parkTraits(bars);
-    expect(t).toMatchObject({ hasPullBar: true, hasDipBars: true });
-    expect(t.highlightNames).toEqual(['מתח', 'מקבילים', 'ספסל בטן']);
-  });
-});
-
 describe('suggestWorkoutsForPlace — park', () => {
   it('a strength day: the plan card first, flagged and starting the park workout', () => {
     const s = suggestWorkoutsForPlace(park(), { ...noPlan, hasStrengthPlan: true, today: { ...noPlan.today, strength: { title: 'גוף מלא' } } });
     expect(s[0]).toMatchObject({ style: 'strength', isFromPlan: true, planTitle: 'גוף מלא', start: { kind: 'park_strength', parkId: 'p1' } });
-    expect(styles(s)).toEqual(['strength', 'strength_short']);
+    // No filler: the plan's park workout is the one strength card (owner 26.10).
+    expect(styles(s)).toEqual(['strength']);
   });
 
   it('hybrid only with a route within 400 m', () => {
@@ -54,9 +41,15 @@ describe('suggestWorkoutsForPlace — park', () => {
     expect(styles(suggestWorkoutsForPlace(park({ nearestRouteKm: null }), noPlan))).not.toContain('hybrid');
   });
 
-  it('no bars → no short pull/push card', () => {
-    const s = suggestWorkoutsForPlace(park({ equipment: [{ id: 'x', name: 'ספסל' }] }), noPlan);
-    expect(styles(s)).toEqual(['strength']);
+  it('never a placeholder short-strength card, bars or not — only real, startable workouts', () => {
+    for (const eq of [bars, [{ id: 'x', name: 'ספסל' }]]) {
+      const s = suggestWorkoutsForPlace(park({ equipment: eq }), noPlan);
+      expect(styles(s)).toEqual(['strength']);
+      expect(s[0].start).toMatchObject({ kind: 'park_strength', difficulty: 'medium' });
+    }
+    // Plan strength + a route close by → 2 good cards, not a weak third.
+    const plan = { ...noPlan, hasStrengthPlan: true, today: { ...noPlan.today, strength: { title: 'גוף מלא' } } };
+    expect(styles(suggestWorkoutsForPlace(park({ nearestRouteKm: 0.2 }), plan))).toEqual(['strength', 'hybrid']);
   });
 
   it('weekly strength budget spent → no extra strength, a hybrid still fits', () => {
