@@ -56,6 +56,8 @@ interface WorkoutLocationSwitcherProps {
   onOpen?: (otherLocations: ExecutionLocation[]) => void;
   /** enable_location_gate_v1 — location whose swap was just refused: shows the inline notice. */
   blockedLocation?: ExecutionLocation | null;
+  /** enable_location_gate_v1 — why it was refused (shown in plain words in the notice). */
+  blockedReason?: string | null;
 }
 
 export default function WorkoutLocationSwitcher({
@@ -65,6 +67,7 @@ export default function WorkoutLocationSwitcher({
   availability,
   onOpen,
   blockedLocation,
+  blockedReason,
 }: WorkoutLocationSwitcherProps) {
   const [open, setOpen] = useState(false);
   const t = useT(library);
@@ -108,7 +111,7 @@ export default function WorkoutLocationSwitcher({
       {isSwapping && <span className="text-xs text-cyan-600 animate-pulse">{t('preview.location.swapping')}</span>}
       {!isSwapping && blockedLocation && (
         <span className="text-xs text-amber-600" role="status">
-          {t('preview.location.unavailable.notice', { location: blockedLocation })}
+          {t('preview.location.unavailable.explained', { location: blockedLocation, reason: blockedReason ?? 'notEnoughContent' })}
         </span>
       )}
     </div>

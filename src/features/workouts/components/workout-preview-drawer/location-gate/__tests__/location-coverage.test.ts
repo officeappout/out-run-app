@@ -29,9 +29,20 @@ describe('computeLocationCoverage', () => {
     expect(r).toMatchObject({ allowed: false, reason: 'notEnoughContent' });
   });
 
-  it('ratio below 80% with one uncovered main is disabled (warm-up and cool-down count)', () => {
-    // 3 of 5 counted resolved = 60%; only ONE main uncovered but the unresolved warm-up/cool-down pull the ratio down
-    const r = computeLocationCoverage([w(false), m(true), m(true), m(false), c(false)]);
+  it('uncovered warm-up / cool-down never block (home -> park: home-filmed stretches have no park media)', () => {
+    // The owner's case 26.10: every main resolves at the park, the 3 cool-down stretches and a warm-up do not.
+    const r = computeLocationCoverage([w(false), w(true), m(true), m(true), m(true), m(true), c(false), c(false), c(false)]);
+    expect(r).toMatchObject({ allowed: true, reason: null, uncoveredMains: 0 });
+    expect(r.resolved).toBe(5); // still reported
+  });
+
+  it('warm-up / cool-down count as buildable, so they only ever loosen the ratio', () => {
+    // 1 uncovered of 4 mains = 75% on mains alone; with 2 supplementals it is 5/6 = 83% -> allowed
+    expect(computeLocationCoverage([w(false), m(true), m(true), m(true), m(false), c(false)]).allowed).toBe(true);
+  });
+
+  it('ratio below 80% driven by the mains is still disabled', () => {
+    const r = computeLocationCoverage([m(true), m(true), m(false)]); // 2/3 = 67%, one uncovered main
     expect(r.uncoveredMains).toBe(1);
     expect(r).toMatchObject({ allowed: false, reason: 'notEnoughContent' });
   });

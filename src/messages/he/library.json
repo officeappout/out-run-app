@@ -297,6 +297,7 @@
   "preview.location.unavailable.title": "לא זמין לאימון הזה",
   "preview.location.unavailable.reason": "{reason, select, pinnedUncovered {חסר תוכן למיומנות} tooFewMains {מעט תרגילים זמינים} other {אין מספיק תוכן}}",
   "preview.location.unavailable.notice": "{location, select, home {המעבר לבית} park {המעבר לפארק} service {המעבר לשירות} other {המעבר למיקום הזה}} לא זמין באימון הזה",
+  "preview.location.unavailable.explained": "{location, select, home {המעבר לבית} park {המעבר לפארק} service {המעבר לשירות} other {המעבר למיקום הזה}} לא זמין באימון הזה: {reason, select, pinnedUncovered {לתרגיל המיומנות עוד אין גרסה למקום הזה} tooFewMains {רוב התרגילים עוד לא מוכנים למקום הזה} other {חלק מהתרגילים עוד לא מוכנים למקום הזה או צריכים מתקן שאין שם}}",
   "preview.list.duration": "{minutes} דק'",
   "preview.list.share": "שתף",
   "preview.list.favRemove": "הסר ממועדפים",

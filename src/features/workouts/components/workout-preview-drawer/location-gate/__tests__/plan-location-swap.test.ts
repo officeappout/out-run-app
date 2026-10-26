@@ -109,15 +109,15 @@ describe('planLocationSwap', () => {
     expect(plan2.entries[0].exercise.id).toBe('easier');
   });
 
-  it('warm-up and cool-down count: unresolved ones lower the ratio and are omitted (collapse-guard restores a lone one)', async () => {
+  it('unresolved warm-up and cool-down never block the switch; they are omitted (collapse-guard restores a lone one)', async () => {
     const warm = entry('w', { exerciseRole: 'warmup' });
     const cool = entry('c', { exerciseRole: 'cooldown' });
     const mains = ['a', 'b', 'c2', 'd'].map((id) => entry(id));
     const home = Object.fromEntries(['a', 'b', 'c2', 'd'].map((id) => [id, { location: 'home', ...VIDEO }]));
     const plan = await planLocationSwap([warm, ...mains, cool], 'home', deps({ homeMethod: home }));
     expect(plan.slots.filter((s) => s.kind !== 'main' && !s.resolved)).toHaveLength(2);
-    expect(plan.coverage.ratio).toBeCloseTo(4 / 6);
-    expect(plan.coverage).toMatchObject({ allowed: false, reason: 'notEnoughContent' });
+    expect(plan.coverage.ratio).toBe(1);
+    expect(plan.coverage).toMatchObject({ allowed: true, reason: null });
     // collapse guard: each role block still has its (restored) exercise
     expect(plan.entries.filter((e) => e.exerciseRole === 'warmup')).toHaveLength(1);
     expect(plan.entries.filter((e) => e.exerciseRole === 'cooldown')).toHaveLength(1);
