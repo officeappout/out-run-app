@@ -9,6 +9,8 @@ import {
   markWhatNowPlanArrival,
   FIRST_WORKOUT_NOTE,
   isNearParkOrRoute,
+  isWhatNowRoutePending,
+  WHATNOW_ROUTE_REACH_M,
   routeSuggestionFromSlots,
   shouldOpenWhatNow,
   shouldSuppressWelcomeDrawer,
@@ -221,5 +223,21 @@ describe('single choice (enable_entry_single_choice_v1)', () => {
     const page = src('../../../../../app/home/page.tsx');
     expect(page).toContain('!welcomeSuppressedByMap');
     expect(page).toContain('featureFlags.enableEntrySingleChoiceV1');
+  });
+});
+
+describe('isWhatNowRoutePending (pilot L4: the route card must not pop in above the plan card)', () => {
+  const route = { minutes: 20, stops: 1, aerobicKind: 'walking' as const };
+  it('park within reach, route not in yet -> pending (hold the drawer)', () => {
+    expect(isWhatNowRoutePending({ nearestPark: { name: 'x', distanceM: 300 }, route: null })).toBe(true);
+    expect(isWhatNowRoutePending({ nearestPark: { name: 'x', distanceM: WHATNOW_ROUTE_REACH_M }, route: null })).toBe(true);
+  });
+  it('route already here -> not pending', () => {
+    expect(isWhatNowRoutePending({ nearestPark: { name: 'x', distanceM: 300 }, route })).toBe(false);
+  });
+  it('no park / far park -> not pending (no route card can ever show)', () => {
+    expect(isWhatNowRoutePending({ nearestPark: null, route: null })).toBe(false);
+    expect(isWhatNowRoutePending({ nearestPark: { name: 'x', distanceM: WHATNOW_ROUTE_REACH_M + 1 }, route: null })).toBe(false);
+    expect(isWhatNowRoutePending({ nearestPark: { name: 'x', distanceM: NaN }, route: null })).toBe(false);
   });
 });

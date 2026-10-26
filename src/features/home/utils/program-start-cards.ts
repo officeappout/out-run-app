@@ -22,6 +22,9 @@
  * first card (S-6d: "שקופית שנייה, אחרי האימון של היום").
  */
 
+import { hasRunningTrack } from '@/lib/track-ownership';
+import { readStoredWalkingGoal } from '@/features/schedule/walking/walkingGoal';
+
 export type ProgramTrack = 'strength' | 'running';
 
 export type ProgramSlidePlan =
@@ -39,6 +42,18 @@ export interface ResolveProgramSlideInput {
   addDismissed?: Partial<Record<ProgramTrack, boolean>>;
   /** enable_running_programs (with the super-admin override). Default true. */
   runningOpen?: boolean;
+}
+
+/**
+ * Owns the aerobic ("הליכה וריצה") track: running unlocked, OR a saved walking plan
+ * (lifestyle.walkingGoal, written by the walking signup). Pilot O5: a walker kept seeing
+ * the "fill the walking / running questionnaire" card right after finishing it, because
+ * only running.isUnlocked counted.
+ */
+export function hasAerobicTrack(
+  profile: (Parameters<typeof hasRunningTrack>[0] & { lifestyle?: { walkingGoal?: unknown } | null }) | null | undefined,
+): boolean {
+  return hasRunningTrack(profile) || readStoredWalkingGoal(profile?.lifestyle?.walkingGoal) != null;
 }
 
 export const ADD_TRACK_DISMISS_DAYS = 14;

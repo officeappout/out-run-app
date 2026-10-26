@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs';
 import {
-  chooseWhatNowCards, shouldOpenWhatNow, shouldSuppressWelcomeDrawer, whatNowRouteCopy, whatNowSeenKey,
+  chooseWhatNowCards, isWhatNowRoutePending, shouldOpenWhatNow, WHATNOW_ROUTE_WAIT_MS, shouldSuppressWelcomeDrawer, whatNowRouteCopy, whatNowSeenKey,
   type WhatNowAnswer, type WhatNowLayout, type WhatNowPark, type WhatNowRouteCopy, type WhatNowRouteSuggestion,
 } from '../services/entry-whatnow';
 
@@ -102,20 +102,39 @@ export function useEntryWhatNow(input: {
     [park, hasPos],
   );
 
+  // Park within reach, route not in yet (pilot L4): hold the drawer so the route card does not
+  // pop in above the plan card after it opened. Bounded by WHATNOW_ROUTE_WAIT_MS.
+  const routePending = isWhatNowRoutePending({ nearestPark: park ?? null, route });
+  const [routeWaitOver, setRouteWaitOver] = useState(false);
+  useEffect(() => {
+    if (!routePending || routeWaitOver) return;
+    const timer = setTimeout(() => setRouteWaitOver(true), WHATNOW_ROUTE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [routePending, routeWaitOver]);
+
   // Latch: once open, it stays open until answered (a later "busy" signal must not yank it).
-  const [latched, setLatched] = useState(false);
+  // The cards are frozen at that moment too: a late route never reorders an open drawer.
+  const [latched, setLatched] = useState<{ layout: WhatNowLayout; routeCopy: WhatNowRouteCopy | null } | null>(null);
   const wantsOpen =
-    !answered && parkResolved && seen !== undefined &&
+    !answered && parkResolved && seen !== undefined && (!routePending || routeWaitOver) &&
     shouldOpenWhatNow({ enabled, landing, seenValue: seen, blocked });
-  useEffect(() => { if (wantsOpen) setLatched(true); }, [wantsOpen]);
+  useEffect(() => {
+    if (wantsOpen) setLatched((cur) => cur ?? { layout, routeCopy });
+  }, [wantsOpen, layout, routeCopy]);
 
   const answer = useCallback((a: WhatNowAnswer) => {
     setOnboardingPref(whatNowSeenKey(uid), a); // dismiss / browse count as seen too
     setAnswered(true);
-    setLatched(false);
+    setLatched(null);
   }, [uid]);
 
-  return { open: latched && !answered, layout, routeCopy, routeCenter, answer };
+  return {
+    open: latched != null && !answered,
+    layout: latched?.layout ?? layout,
+    routeCopy: latched ? latched.routeCopy : routeCopy,
+    routeCenter,
+    answer,
+  };
 }
 
 /**
