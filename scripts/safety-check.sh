@@ -522,7 +522,7 @@ while IFS= read -r file; do
   DIR_LINES=$(git show ":$file" 2>/dev/null \
     | grep -vE '^\s*(//|\*|/\*|\{/\*)' \
     | grep -v 'dir-allow' \
-    | grep -E 'dir=("rtl"|\{"rtl"\})|(^|[^a-zA-Z0-9_-])(-?(ml|mr|pl|pr)-(\[|[0-9]|px|auto)|(left|right)-(0|[2-9]|1[0-9]|px|full|\[)|text-(left|right)([^a-zA-Z0-9_-]|$)|rounded-(l|r|tl|tr|bl|br)(-|[^a-zA-Z0-9_-]|$)|border-(l|r)([^a-zA-Z0-9_-]|$)|float-(left|right))' \
+    | grep -E 'dir=("rtl"|\{"rtl"\})|(^|[^a-zA-Z0-9_-])(-?(ml|mr|pl|pr)-(\[|[0-9]|px|auto)|(left|right)-(0|[2-9]|1[0-9]|px|full|\[)|text-(left|right)([^a-zA-Z0-9_-]|$)|rounded-(l|r|tl|tr|bl|br)(-|[^a-zA-Z0-9_-]|$)|border-(l|r)([^a-zA-Z0-9]|$)|float-(left|right))' \
     || true)
   if [ -n "$DIR_LINES" ]; then
     COUNT=$(echo "$DIR_LINES" | wc -l | tr -d ' ')
