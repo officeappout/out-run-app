@@ -8,9 +8,9 @@ import { FLAG_DEFS } from '@/hooks/feature-flag-defs';
 const SUPER_ADMIN_VALUE = FLAG_DEFS.find((d) => d.key === 'aiCoachWorkoutFormat')?.superAdminValue === true;
 
 /** Flag off: a `format` the model sent anyway never reaches the device or the engine. */
-export function stripFormatUnlessOn<T extends { format?: unknown }>(input: T, on: boolean): T {
+export function stripFormatUnlessOn<T extends object>(input: T, on: boolean): T {
   if (on || !('format' in input)) return input;
-  const { format: _format, ...rest } = input;
+  const { format: _format, ...rest } = input as T & { format?: unknown };
   return rest as T;
 }
 
