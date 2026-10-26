@@ -396,5 +396,11 @@
   "sharedWorkout.link.cta.save": "שמירה לאימונים שלי",
   "sharedWorkout.link.cta.saved": "נשמר באימונים שלי",
   "sharedWorkout.link.cta.start": "התחלת אימון",
-  "sharedWorkout.link.cta.join": "מצטרפים לאימון"
+  "sharedWorkout.link.cta.join": "מצטרפים לאימון",
+  "preview.where.park": "פארק",
+  "preview.where.home": "בית",
+  "preview.where.homeGear": "בבית · {gear}",
+  "preview.where.homeBodyweight": "בבית · משקל גוף",
+  "preview.where.parksLabel": "גינות קרובות",
+  "preview.where.workoutLine": "{title} · {duration}"
 }

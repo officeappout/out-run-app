@@ -590,3 +590,8 @@ src/features/home/utils/progress-slot.ts
 src/features/home/hooks/useWeekActivitySummary.ts
 src/components/ui/v2/PagedCarousel.tsx
 src/components/ui/v2/paged-carousel.ts
+# Where to train + the shared "I'm training here" sheet (enable_where_to_train_v1; namespaces library preview.where.*, map trainingHere.*) — translation-ready from the first commit.
+src/features/workouts/components/where-to-train/
+src/features/parks/client/components/training-here/
+src/features/parks/client/components/park-preview/park-card-meta.ts
+src/hooks/useWhereToTrainV1.ts

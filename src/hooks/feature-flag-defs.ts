@@ -712,6 +712,12 @@ export const FLAG_DEFS = [
   // Park-workout difficulty carousel (26.10.2026, pilot note M11): the קל/בינוני/קשה pill in the hybrid
   // overview (HybridOverviewScreen). Off (default, also for super admins) = the carousel is hidden and the
   // engine's own pick runs (its selectedIndex, by the workout rules). On = the carousel as before.
+  // Where to train + "I'm training here" (26.10.2026, owner-approved canvas page 11, board RP-13 phones 4–7 —
+  // agent-briefs/where-to-train-share-build-brief.md). In the strength workout preview: "איפה מתאמנים?" moves under
+  // the intensity selector as a פארק / בית toggle; פארק shows a carousel of nearby parks (compact map card) ranked by
+  // distance + equipment coverage; a card (and the share toggles on the workout / route pages) opens ONE sheet
+  // "מתאמן ב…" that publishes a planned_sessions arrival. Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableWhereToTrainV1', firestoreKey: 'enable_where_to_train_v1', defaultValue: false, superAdminValue: true },
   { key: 'enableHybridDifficultyCarousel', firestoreKey: 'enable_hybrid_difficulty_carousel', defaultValue: false, superAdminValue: false },
 ] as const;
 

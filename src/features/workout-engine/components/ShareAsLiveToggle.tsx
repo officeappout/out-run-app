@@ -17,6 +17,9 @@ import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
 import PlannedActivityComposeSheet, {
   type ComposeActivityType,
 } from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
+import TrainingHereSheet from '@/features/parks/client/components/training-here/TrainingHereSheet';
+import type { TrainingHerePlace } from '@/features/parks/client/components/training-here/training-here.logic';
+import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
 
 /**
  * ShareAsLiveToggle — single-source-of-truth "Share that I'm working out" toggle.
@@ -109,6 +112,16 @@ interface ShareAsLiveToggleProps {
   contextRoute?: PlaceContext;
   /** Home v2 (enable_home_v2) styling only. Default false = today's UI. */
   v2?: boolean;
+  /**
+   * enable_where_to_train_v1: extra prefill for the shared "I'm training here" sheet, which the
+   * toggle opens instead of the compose sheet whenever a park / route is in scope.
+   */
+  trainingHere?: {
+    workoutLabel?: string | null;
+    distanceM?: number | null;
+    alternatives?: readonly TrainingHerePlace[];
+    onStartNow?: () => void;
+  };
 }
 
 export default function ShareAsLiveToggle({
@@ -120,6 +133,7 @@ export default function ShareAsLiveToggle({
   contextPark,
   contextRoute,
   v2 = false,
+  trainingHere,
 }: ShareAsLiveToggleProps) {
   const t = useT(player);
   const profile = useUserStore((s) => s.profile);
@@ -233,7 +247,22 @@ export default function ShareAsLiveToggle({
     ? { kind: 'park' as const, id: contextPark.id, name: contextPark.name, lat: contextPark.lat ?? null, lng: contextPark.lng ?? null }
     : undefined;
 
-  const composeSheet = SOCIAL_COMPOSE_UI_ENABLED && (
+  // enable_where_to_train_v1: the same toggle opens the ONE "I'm training here" sheet when a place is in scope.
+  const whereToTrainOn = useWhereToTrainV1();
+  const trainingHereSheet = SOCIAL_COMPOSE_UI_ENABLED && whereToTrainOn && initialPlace ? (
+    <TrainingHereSheet
+      open={composeOpen}
+      onClose={() => setComposeOpen(false)}
+      activity={toComposeActivityType(activityType)}
+      workoutLabel={trainingHere?.workoutLabel ?? null}
+      place={{ ...initialPlace, distanceM: trainingHere?.distanceM ?? null }}
+      alternatives={trainingHere?.alternatives}
+      onStartNow={trainingHere?.onStartNow}
+      onPublished={() => setShareAsLive(true)}
+    />
+  ) : null;
+
+  const composeSheet = trainingHereSheet ?? (SOCIAL_COMPOSE_UI_ENABLED && (
     <PlannedActivityComposeSheet
       isOpen={composeOpen}
       onClose={() => setComposeOpen(false)}
@@ -241,7 +270,7 @@ export default function ShareAsLiveToggle({
       initialPlace={initialPlace}
       onCreated={() => setShareAsLive(true)}
     />
-  );
+  ));
 
   if (v2) {
     // v2: brand-tint icon tile, 14/12.5px text (the legacy 10px sub-line was
@@ -298,15 +327,7 @@ export default function ShareAsLiveToggle({
           }`}
         />
       </button>
-      {SOCIAL_COMPOSE_UI_ENABLED && (
-        <PlannedActivityComposeSheet
-          isOpen={composeOpen}
-          onClose={() => setComposeOpen(false)}
-          initialType={toComposeActivityType(activityType)}
-          initialPlace={initialPlace}
-          onCreated={() => setShareAsLive(true)}
-        />
-      )}
+      {composeSheet}
     </div>
   );
 }

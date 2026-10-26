@@ -6,6 +6,7 @@ import { Play, Pencil, Volume2, VolumeX, WifiOff } from 'lucide-react';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
+import type { TrainingHerePlace } from '@/features/parks/client/components/training-here/training-here.logic';
 
 // Local duplicate of the orchestrator's pill border constant.  One-line
 // string — duplicated rather than imported to keep this module self-contained
@@ -35,6 +36,15 @@ export interface DrawerFooterProps {
   onToggleAudio: () => void;
   /** Callback ref on the footer root — the drawer measures it to pad its scroll body. */
   measureRef?: (el: HTMLDivElement | null) => void;
+  /**
+   * enable_where_to_train_v1: the picked park + prefill — the share toggle then opens the shared
+   * "I'm training here" sheet for it. Omitted = today's toggle.
+   */
+  shareTrainingHere?: {
+    place: TrainingHerePlace | null;
+    alternatives: readonly TrainingHerePlace[];
+    workoutLabel: string | null;
+  };
 }
 
 /**
@@ -64,6 +74,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
   isAudioEnabled,
   onToggleAudio,
   measureRef,
+  shareTrainingHere,
 }) => {
   const v2 = useHomeV2();
   const t = useT(library);
@@ -94,6 +105,22 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
         workoutTitle={workoutTitleForPresence}
         userLocation={userLocation}
         className="pb-2"
+        {...(shareTrainingHere?.place
+          ? {
+              contextPark: {
+                id: shareTrainingHere.place.id,
+                name: shareTrainingHere.place.name,
+                lat: shareTrainingHere.place.lat,
+                lng: shareTrainingHere.place.lng,
+              },
+              trainingHere: {
+                workoutLabel: shareTrainingHere.workoutLabel,
+                distanceM: shareTrainingHere.place.distanceM ?? null,
+                alternatives: shareTrainingHere.alternatives,
+                onStartNow: () => onStart(),
+              },
+            }
+          : {})}
       />
 
       {startDisabled && (
