@@ -10,10 +10,22 @@
  *
  * Used by cooldown.service (generation) and the location-switch plan (preview drawer), so a
  * workout generated at the park and one switched to the park end the same way.
+ *
+ * Body focus (owner 26.10, same rule as the warm-up guides — warmup-guide-focus.utils): an
+ * upper-body workout gets the upper stretch video, lower → lower, full body → BOTH (upper, then
+ * lower). Guide focus = tag `cooldown_upper` / `cooldown_lower`, else muscles. No focus, or no
+ * video of that side at this location → one video, as before.
  */
 import type { Exercise, ExecutionLocation, ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
 import { methodHasAnyMedia } from '../shared/utils/method-media.utils';
 import { isTestOrPlaceholderExercise } from '../shared/utils/test-exercise.utils';
+import {
+  COOLDOWN_GUIDE_TAGS,
+  planWarmupGuideBuckets,
+  resolveWorkoutBodyFocus,
+} from './warmup-guide-focus.utils';
+
+export interface CooldownGuidePick { exercise: Exercise; method: ExecutionMethod }
 
 const methodsOf = (ex: Exercise): ExecutionMethod[] => ex.execution_methods ?? ex.executionMethods ?? [];
 
@@ -33,20 +45,37 @@ export function cooldownGuideMethod(ex: Exercise, location: ExecutionLocation): 
 }
 
 /**
- * The cool-down video for `location`, or null when none is filmed there. Deterministic: the
- * first eligible doc by id, so the generator and the switch plan agree on the same video.
+ * The cool-down video(s) for `location`, in play order — chosen by the workout's body focus
+ * (from its MAIN exercises). Empty when none is filmed there. Deterministic: the first eligible
+ * doc by id within each side, so the generator and the switch plan agree.
  */
+export function pickCooldownGuides(
+  pool: readonly Exercise[],
+  location: ExecutionLocation,
+  mainExercises: readonly Exercise[] = [],
+  excludeIds?: ReadonlySet<string>,
+): CooldownGuidePick[] {
+  const methodById = new Map<string, ExecutionMethod>();
+  const eligible = pool
+    .filter((ex) => isCooldownGuide(ex) && !excludeIds?.has(ex.id))
+    .filter((ex) => {
+      const m = cooldownGuideMethod(ex, location);
+      if (m) methodById.set(ex.id, m);
+      return m !== null;
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const focus = resolveWorkoutBodyFocus(mainExercises);
+  return planWarmupGuideBuckets(eligible, focus, COOLDOWN_GUIDE_TAGS)
+    .map((bucket) => ({ exercise: bucket[0], method: methodById.get(bucket[0].id)! }));
+}
+
+/** The single (focus-less) cool-down video for `location`, or null. */
 export function pickCooldownGuide(
   pool: readonly Exercise[],
   location: ExecutionLocation,
   excludeIds?: ReadonlySet<string>,
-): { exercise: Exercise; method: ExecutionMethod } | null {
-  const eligible = pool
-    .filter((ex) => isCooldownGuide(ex) && !excludeIds?.has(ex.id))
-    .map((ex) => ({ exercise: ex, method: cooldownGuideMethod(ex, location) }))
-    .filter((x): x is { exercise: Exercise; method: ExecutionMethod } => x.method !== null)
-    .sort((a, b) => a.exercise.id.localeCompare(b.exercise.id));
-  return eligible[0] ?? null;
+): CooldownGuidePick | null {
+  return pickCooldownGuides(pool, location, [], excludeIds)[0] ?? null;
 }
 
 /** Seconds the cool-down slot lasts: the clip's own length when known, else a 30s hold. */

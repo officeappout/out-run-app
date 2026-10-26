@@ -9,8 +9,9 @@
  * Per slot (the legacy null-rule, with the media/replacement rules tightened):
  *   0. pyramid → out of scope: kept + marked, NOT counted.
  *   C. cool-down, when a follow-along cool-down VIDEO is filmed for the new location
- *      (cooldown-guide.utils) → the first cool-down slot becomes that video, the rest are dropped —
- *      the same cool-down the generator builds there (owner 26.10). Counted as resolved.
+ *      (cooldown-guide.utils) → the first cool-down slot becomes that video (two for a full-body
+ *      workout: upper, then lower), the rest are dropped — the same cool-down the generator builds
+ *      there (owner 26.10). Counted as resolved.
  *   F. warm-up / cool-down follow-along guide → keep if it covers the location, else a pool guide of the
  *      SAME role that does (with media; never a recovery session / tabata clip, never a test doc);
  *      otherwise keep (location-agnostic clip). Counted as resolved.
@@ -28,7 +29,7 @@ import { computeLocationCoverage, type CoverageResult, type CoverageSlot } from 
 import { LOCATION_GATE_DEFAULTS, type LocationGateConfig } from './location-gate.config';
 import { methodHasAnyMedia } from '@/features/workout-engine/shared/utils/method-media.utils';
 import { slotRulesFor, buildCandidateFilter, pickReplacement, type SlotRules } from './replacement-rules.util';
-import { pickCooldownGuide } from '@/features/workout-engine/services/cooldown-guide.utils';
+import { cooldownGuideSeconds, pickCooldownGuides } from '@/features/workout-engine/services/cooldown-guide.utils';
 import { isTestOrPlaceholderExercise } from '@/features/workout-engine/shared/utils/test-exercise.utils';
 
 export interface SwapPlanDeps {
@@ -74,8 +75,11 @@ export async function planLocationSwap(
   const omittedSupplemental: WorkoutExercise[] = [];
   const slots: CoverageSlot[] = [];
   const counts = { swappedMethod: 0, swappedExercise: 0, keptMarked: 0 };
-  // C) the cool-down video for the new location, if one is filmed there.
-  const cooldownGuide = pickCooldownGuide(deps.pool, location);
+  // C) the cool-down video(s) for the new location, if filmed there — by the workout's body focus.
+  const mains = exercises
+    .filter((we) => we.exerciseRole !== 'warmup' && we.exerciseRole !== 'cooldown')
+    .map((we) => we.exercise);
+  const cooldownGuides = pickCooldownGuides(deps.pool, location, mains);
   let cooldownGuidePlaced = false;
 
   for (const we of exercises) {
@@ -85,17 +89,24 @@ export async function planLocationSwap(
     const rules = slotRulesFor(we);
     const slot = (resolved: boolean) => slots.push({ kind, pinned: rules.pinned && !isSupplemental, resolved });
 
-    // C) cool-down video: the first cool-down slot becomes the video, the others are dropped.
-    if (role === 'cooldown' && cooldownGuide) {
+    // C) cool-down video(s): the first cool-down slot becomes the video(s), the others are dropped.
+    if (role === 'cooldown' && cooldownGuides.length > 0) {
       slot(true);
       if (cooldownGuidePlaced) continue;
       cooldownGuidePlaced = true;
-      if (we.exercise.id === cooldownGuide.exercise.id) { newEntries.push(we); continue; }
-      newEntries.push(deriveSwappedEntry(we, cooldownGuide.exercise, cooldownGuide.method));
-      systemSwaps.push({ from: we, to: cooldownGuide.exercise });
-      exclude.add(cooldownGuide.exercise.id);
-      oldToNew.set(we.exercise.id, cooldownGuide.exercise.id);
-      counts.swappedExercise++;
+      for (const g of cooldownGuides) {
+        const seconds = cooldownGuideSeconds(g.method);
+        const timed = { sets: 1, reps: seconds, repsRange: undefined, isTimeBased: true };
+        if (we.exercise.id === g.exercise.id) {
+          newEntries.push({ ...we, method: g.method as WorkoutExercise['method'], ...timed });
+          continue;
+        }
+        newEntries.push({ ...deriveSwappedEntry(we, g.exercise, g.method), ...timed });
+        systemSwaps.push({ from: we, to: g.exercise });
+        exclude.add(g.exercise.id);
+        if (!oldToNew.has(we.exercise.id)) oldToNew.set(we.exercise.id, g.exercise.id);
+        counts.swappedExercise++;
+      }
       continue;
     }
 
