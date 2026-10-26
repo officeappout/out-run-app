@@ -162,6 +162,7 @@ import { useToast } from '@/components/ui/Toast';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { resolveStripSchedule } from '@/features/home/utils/strip-schedule';
 import { useFastStartGuard } from '@/features/home/hooks/useFastStartGuard';
+import { useBackgroundWorkoutHold } from '@/features/home/hooks/useBackgroundWorkoutHold';
 import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHomeCarouselStartupCache';
 import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
 
@@ -2031,6 +2032,10 @@ export default function HomePage() {
     logGeneratedWorkout('home_strength', workout); // generation review (flag-gated, no-op when off)
   }, []);
 
+  // StatsOverview's background trio must not overwrite an open park workout (owner 26.10:
+  // a park card turned into a home workout). See background-workout-hold.ts.
+  const backgroundHold = useBackgroundWorkoutHold<GeneratedWorkout, TrioSelector>(handleWorkoutGenerated, setTrioSelector);
+
   // ── Park "התחל אימון" wiring (Phase 1, park-start-workout-wiring-plan) ──────
   // The workout drawer has no global mount (it's page-local state here on
   // /home) — ParkDetailSheet's onStartWorkout hands off via
@@ -2044,6 +2049,7 @@ export default function HomePage() {
 
   const composeAndOpenParkWorkout = useCallback(async (park: Park, difficulty: ParkWorkoutDifficulty, availableTime = 20) => {
     if (!profile) return;
+    backgroundHold.begin();
 
     // Open the drawer immediately in its loading state (skeleton), matching
     // the same isGeneratingWorkout pattern every other preview path uses —
@@ -2104,18 +2110,19 @@ export default function HomePage() {
       setTrioSelector(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, handleWorkoutGenerated, featureFlags.enableHomeV2, tHome]);
+  }, [profile, handleWorkoutGenerated, featureFlags.enableHomeV2, tHome, backgroundHold.begin]);
 
   const pendingParkWorkoutStart = useMapStore((s) => s.pendingParkWorkoutStart);
   useEffect(() => {
-    if (!pendingParkWorkoutStart) return;
+    // Wait for the profile: consuming before it loads dropped the start silently (compose returns on !profile).
+    if (!pendingParkWorkoutStart || !profile) return;
     const park = useMapStore.getState().consumePendingParkWorkoutStart();
     // enable_place_workouts_v1: a park-page card may carry its difficulty / length; none → as before.
     const opts = useMapStore.getState().consumePendingParkWorkoutOptions();
     if (!park) return;
     void composeAndOpenParkWorkout(park, opts?.difficulty ?? 'medium', opts?.minutes ?? 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingParkWorkoutStart]);
+  }, [pendingParkWorkoutStart, profile?.id]);
 
   // Regression fix (30.08.2026, "3 intensity toggles disappeared from the workout preview
   // drawer"): the old StatsOverview anchor was always mounted and ran generateHomeWorkoutTrio
@@ -3883,16 +3890,16 @@ export default function HomePage() {
                     stats={MOCK_STATS}
                     onStartWorkout={handleHeroPress}
                     onDirectStart={handleDirectStart}
-                    onWorkoutGenerated={handleWorkoutGenerated}
+                    onWorkoutGenerated={backgroundHold.onBackgroundWorkout}
                     selectedDate={selectedDate}
                     hasCompletedAssessment={hasStrengthProgram}
                     hideWorkoutSection={postWorkoutDone || todayWorkoutDone}
                     enableRunningPrograms={featureFlags.enableRunningPrograms}
                     scheduleVersion={scheduleVersion}
                     onBuildCustom={handleBuildCustom}
-                    generateSingleOption={isWorkoutLoading}
+                    generateSingleOption={isWorkoutLoading && openSurface !== 'map-park'}
                     isViewingFutureDate={selectedDate > toISODate(new Date())}
-                    onTrioSelectorChange={setTrioSelector}
+                    onTrioSelectorChange={backgroundHold.onBackgroundControl}
                     healthConnected={healthConnected}
                     onConnectSteps={triggerHealthPermission}
                     weather={homeWeather?.workoutWeather ?? null}
@@ -4350,6 +4357,12 @@ export default function HomePage() {
           // from this preview so the next-opened suggestion (of any type) never inherits it.
           preWorkoutTrioSuggestionRef.current = null;
           setTrioSelector(null);
+          // A park preview ended: home's own workout (held meanwhile) is the drawer's content again.
+          const homeWorkout = backgroundHold.end();
+          if (homeWorkout) {
+            generatedWorkoutRef.current = homeWorkout;
+            setGeneratedWorkout(homeWorkout);
+          }
         }}
         workout={selectedWorkout}
         generatedWorkout={generatedWorkout}

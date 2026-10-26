@@ -3,14 +3,17 @@
 /**
  * One equipment tile of the park page (enable_place_workouts_v1): the
  * equipment's real picture (equipmentImageUrl — the drawer's own chain) on
- * top, fading into the dark tile, name + brand below. The equipment icon
- * shows only when there is truly no picture (or it fails to load).
+ * top, fading into the dark tile, then the primary-muscle icon + name (the
+ * classic EquipmentCard tile's muscle icon). No brand line (owner 26.10) —
+ * the brand still picks the picture. The equipment icon shows only when
+ * there is truly no picture (or it fails to load).
  */
 
 import { useState } from 'react';
 import { Dumbbell } from 'lucide-react';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { bunnyImg } from '@/lib/bunny-image';
+import { MUSCLE_FALLBACK_ICON, MUSCLE_ICON_PATHS } from '@/lib/muscle-icons.const';
 import { equipmentImageUrl } from '../equipment-detail/equipment-media';
 
 const TILE_BG = '#0e1419';
@@ -19,6 +22,7 @@ const IMG_W = 360;
 
 export interface ParkEquipmentTileProps {
   equipment: GymEquipment;
+  /** The park's installed brand: picks the picture only (not shown). */
   brand: string;
   onSelect: () => void;
 }
@@ -27,6 +31,8 @@ export default function ParkEquipmentTile({ equipment: eq, brand, onSelect }: Pa
   const [failed, setFailed] = useState(false);
   const image = equipmentImageUrl(eq, brand || null);
   const showImage = !!image && !failed;
+  // Same primary-muscle resolution as EquipmentCard / the equipment drawer.
+  const muscle = eq.primaryMuscle ?? eq.muscleGroups?.[0];
   return (
     <button
       type="button"
@@ -58,9 +64,21 @@ export default function ParkEquipmentTile({ equipment: eq, brand, onSelect }: Pa
         )}
         <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-10" style={{ background: `linear-gradient(to bottom, transparent, ${TILE_BG})` }} />
       </span>
-      <span className="min-w-0 px-3 pb-3 pt-1">
-        <span className="block truncate text-[14px] font-black">{eq.name}</span>
-        {brand && <span className="block truncate text-[11.5px] font-bold opacity-70">{brand}</span>}
+      <span className="flex min-w-0 items-center gap-2 px-3 pb-3 pt-1">
+        {muscle && (
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/90 p-0.5" data-muscle-icon>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={MUSCLE_ICON_PATHS[muscle] ?? MUSCLE_FALLBACK_ICON}
+              alt=""
+              className="max-h-full max-w-full object-contain"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+            />
+          </span>
+        )}
+        <span className="min-w-0 truncate text-[14px] font-black">{eq.name}</span>
       </span>
     </button>
   );

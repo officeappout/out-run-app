@@ -635,3 +635,6 @@ src/features/activity/hooks/useFlameTiersFlag.ts
 src/features/home/utils/strength-day-gate.ts
 src/features/activity/lib/saved-day-goals.ts
 src/features/home/utils/flame-tier-props.ts
+# Park start: home background trio held while a park workout is open (owner 26.10) — no text.
+src/features/home/hooks/background-workout-hold.ts
+src/features/home/hooks/useBackgroundWorkoutHold.ts

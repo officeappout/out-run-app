@@ -10,7 +10,8 @@
  * real length and exercise count. The other cards are composed on tap by the
  * existing start paths. Reports the lead card to the sheet for its sticky CTA.
  * The generated workout also gives its card home's hero media (the main
- * exercise's still / video loop); the other cards show the park's photo.
+ * exercise's still / video loop, workout-card-media); the park's photo only
+ * when the workout has no exercise media at all.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -18,7 +19,7 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
-import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/shared/utils/heroMedia.utils';
+import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import {
   nearestRouteKmFromPark, pickPlaceBanner, suggestWorkoutsForPlace, type ParkPlace, type PlaceWorkoutSuggestion,
 } from '@/features/workout-engine/place-fit';
@@ -29,6 +30,7 @@ import { placeWorkoutCopy, type GeneratedLead } from './place-workout-copy';
 import { usePlaceUserContext } from './hooks/usePlaceUserContext';
 import { usePlaceWorkoutStart } from './hooks/usePlaceWorkoutStart';
 import { placePhotoOf } from './place-card-media';
+import { pickWorkoutCardMedia } from './workout-card-media';
 
 export interface PlaceLeadCta {
   label: string;
@@ -61,7 +63,7 @@ function useNearestRouteKm(location: { lat: number; lng: number } | undefined): 
   return km;
 }
 
-type GeneratedState = Omit<GeneratedLead, 'media'> & { hero: ReturnType<typeof pickHeroExercise> };
+type GeneratedState = Omit<GeneratedLead, 'media'> & { exercises: WorkoutExercise[] };
 
 /** Generates the park workout card's workout once per (park, difficulty, minutes): its meta line and hero media. */
 function useLeadWorkout(park: Park, equipment: readonly GymEquipment[], lead: PlaceWorkoutSuggestion | undefined): GeneratedLead | 'loading' | null {
@@ -86,7 +88,7 @@ function useLeadWorkout(park: Park, equipment: readonly GymEquipment[], lead: Pl
         setState({ key, value: {
           durationMin: Math.round(workout.estimatedDuration),
           exerciseCount: workout.exercises.length,
-          hero: pickHeroExercise(workout.exercises, 'park'),
+          exercises: workout.exercises,
         } });
       })
       .catch(() => { if (alive) setState({ key, value: null }); });
@@ -99,7 +101,7 @@ function useLeadWorkout(park: Park, equipment: readonly GymEquipment[], lead: Pl
     if (!start) return null;
     if (!key || ready === undefined) return 'loading';
     if (!ready) return null;
-    const media = resolveHeroMedia(ready.hero, 'park', posterFromVideo ? { posterFromVideo } : undefined);
+    const media = pickWorkoutCardMedia(ready.exercises, 'park', posterFromVideo ? { posterFromVideo } : undefined);
     return { durationMin: ready.durationMin, exerciseCount: ready.exerciseCount, media };
   }, [start, key, ready, posterFromVideo]);
 }
