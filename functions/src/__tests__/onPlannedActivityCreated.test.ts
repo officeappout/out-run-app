@@ -163,6 +163,21 @@ describe('onPlannedActivityCreated — recipient gate by privacyMode', () => {
     expect(recipients).toEqual(['follower1']);
   });
 
+  it('enableTrainingHereReminders on: a later share leaves its mutual partners to onTrainingHereShared', async () => {
+    setDoc('app_config', 'feature_flags', { socialActivityNearbyPushEnabled: true, enableTrainingHereReminders: true });
+    setDoc('connections', 'creator1', { followers: ['follower1', 'mutual1'], following: ['mutual1'] });
+    setDoc('users', 'mutual1', { core: { name: 'Mutual' } });
+    const now = Date.now();
+    const later = { startTime: new Date(now + 2 * 3_600_000), createdAt: new Date(now), status: 'planned' };
+    await (onPlannedActivityCreated as any)(makeEvent('t1', { ...BASE_SESSION, ...later, privacyMode: 'squad' }));
+    expect(sendPushMock.mock.calls.map((c: any) => c[0].toUids[0])).toEqual(['follower1']);
+
+    sendPushMock.mockClear();
+    const soon = { startTime: new Date(now + 5 * 60_000), createdAt: new Date(now), status: 'planned' };
+    await (onPlannedActivityCreated as any)(makeEvent('t2', { ...BASE_SESSION, ...soon, privacyMode: 'squad' }));
+    expect(sendPushMock.mock.calls.map((c: any) => c[0].toUids[0]).sort()).toEqual(['follower1', 'mutual1']);
+  });
+
   it('ghost → no recipients at all', async () => {
     await (onPlannedActivityCreated as any)(
       makeEvent('s3', { ...BASE_SESSION, privacyMode: 'ghost' }),

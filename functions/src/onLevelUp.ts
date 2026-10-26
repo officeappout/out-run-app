@@ -42,6 +42,7 @@ import {
 } from './services/push-copy.service';
 import type { PushCopyContext } from './shared/push-library.core';
 import { PUSH_TYPE_IDS } from './services/push-measure-all';
+import { shouldSendLevelUpPush } from './shared/level-up-gate';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -85,17 +86,9 @@ export const onLevelUp = onDocumentUpdated(
     const prevLevel = (before?.progression as Record<string, unknown> | undefined)?.globalLevel;
     const newLevel = (after?.progression as Record<string, unknown> | undefined)?.globalLevel;
 
-    // Fast exit: no change or not a numeric level increase
-    if (
-      typeof newLevel !== 'number' ||
-      typeof prevLevel !== 'number' ||
-      newLevel <= prevLevel
-    ) {
-      return;
-    }
-
-    // Never push for level 1 (initial state on account creation)
-    if (newLevel <= 1) return;
+    // Fast exit: no numeric level increase above 1, or XP paused (pilot N4).
+    if (typeof newLevel !== 'number' || typeof prevLevel !== 'number') return;
+    if (!shouldSendLevelUpPush(prevLevel, newLevel)) return;
 
     logger.info(`[onLevelUp] uid=${uid} level ${prevLevel} → ${newLevel}`);
 

@@ -7,6 +7,7 @@
  * any future block-type dispatch without dragging UI dependencies.
  */
 
+import { parseDurationSeconds } from '../../logic/duration-target';
 import type {
   WorkoutPlan,
   WorkoutSegment,
@@ -95,12 +96,8 @@ export function parseTargetReps(ex: WorkoutExercise): number {
 
   const isTime = ex.exerciseType === 'time' || ex.isTimeBased === true;
   if (isTime) {
-    const durationStr = ex.duration;
-    if (durationStr) {
-      const match = durationStr.match(/(\d+)/);
-      if (match) return parseInt(match[1], 10);
-    }
-    return 30;
+    // "1×20 שניות" (hybrid station label) is 20 s, not 1 s (pilot M20).
+    return parseDurationSeconds(ex.duration);
   }
 
   const repsStr = ex.reps ?? '';
@@ -163,7 +160,8 @@ export function flattenWorkoutToExercises(workout: WorkoutPlan): FlatExercise[] 
         exerciseIndex: ei,
         exercise: ex,
         sets,
-        targetReps: parseTargetReps(ex),
+        // Tabata: every member works the block's interval (protocolConfig.workSec).
+        targetReps: blockProtocol?.config.workSec ?? parseTargetReps(ex),
         repsText,
         exerciseType: isTime ? 'time' : 'reps',
         restDuration: typeof rest === 'number' ? rest : 30,

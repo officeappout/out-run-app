@@ -126,7 +126,7 @@ describe('tours list (help hub + search Help tab)', () => {
     }
   });
   it('both help surfaces render it; the search tab only under ai_coach_round4', () => {
-    expect(src('../../../../help/components/HelpHub.tsx')).toContain('<TourList title="סיורים באפליקציה" />');
+    expect(src('../../../../help/components/HelpHub.tsx')).toContain("<TourList title={t('help.hub.toursTitle')} />"); // i18n batch am: the title text is pinned in batch-am-he.test.ts
     const tab = src('../../../../search/components/tabs/HelpTab.tsx');
     expect(tab).toContain('{toursOn && <TourList');
     expect(src('../../../../search/components/UnifiedSearchScreen.tsx')).toContain('toursOn={aiCoachRound4}');

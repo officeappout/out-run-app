@@ -70,6 +70,12 @@ vi.mock('../services/shabbat.service', async (importOriginal) => {
   const orig = await importOriginal<typeof import('../services/shabbat.service')>();
   return { ...orig, isShabbatOrYomTov: () => false };
 });
+// Pilot N4: level-up pushes are off while XP is paused; this suite checks the sender's copy
+// wiring, so it runs with the switch on.
+vi.mock('../shared/level-up-gate', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../shared/level-up-gate')>();
+  return { ...real, shouldSendLevelUpPush: (a: unknown, b: unknown) => real.shouldSendLevelUpPush(a, b, true) };
+});
 vi.mock('../lib/resolveUserStepGoal', () => ({ resolveUserStepGoal: async () => 8000 }));
 
 const sendPushMock = vi.fn(async (_opts: any) => ({

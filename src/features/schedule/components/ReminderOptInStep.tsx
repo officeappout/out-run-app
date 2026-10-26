@@ -24,6 +24,8 @@ import {
   type ReminderLeadMinutes,
 } from '../utils/reminderOptIn';
 import { PUSH_SOFT_ASK_COPY } from '../utils/pushReAsk';
+import { auth } from '@/lib/firebase';
+import { openCalendarOnSwitchOn, useCalendarFeedPath } from '@/lib/calendar-subscription';
 
 export interface ReminderOptInResult {
   leadMinutes: ReminderLeadMinutes;
@@ -59,6 +61,8 @@ export default function ReminderOptInStep(p: ReminderOptInStepProps) {
   const reduce = useReducedMotion();
   const [lead, setLead] = useState<ReminderLeadMinutes>(p.initialLeadMinutes ?? DEFAULT_REMINDER_LEAD);
   const [calendarSync, setCalendarSync] = useState<boolean>(p.initialCalendarSync ?? false);
+  // Pilot P17: switching the calendar ON opens the subscription in the tap.
+  const calendarFeedPath = useCalendarFeedPath(auth.currentUser?.uid);
   const [busy, setBusy] = useState<'accept' | 'skip' | null>(null);
 
   const run = async (kind: 'accept' | 'skip') => {
@@ -144,7 +148,11 @@ export default function ReminderOptInStep(p: ReminderOptInStepProps) {
             type="button"
             role="switch"
             aria-checked={calendarSync}
-            onClick={() => setCalendarSync((v) => !v)}
+            onClick={() => {
+              const next = !calendarSync;
+              setCalendarSync(next);
+              openCalendarOnSwitchOn(next, calendarFeedPath);
+            }}
             className="flex w-full items-center gap-2.5 px-3.5 py-3 text-start"
           >
             <CalendarDays size={18} strokeWidth={2.2} className="shrink-0 text-v2-deep" aria-hidden />

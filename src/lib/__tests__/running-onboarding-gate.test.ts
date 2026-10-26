@@ -31,9 +31,10 @@ describe('resolveCardHasScheduleAndPersona', () => {
       expect(resolveCardHasScheduleAndPersona(profile, true, true)).toBe(false);
     });
 
-    it('confirmed days + persona NOT answered -> false (overlay+CTA)', () => {
+    it('confirmed days + persona NOT answered -> true (pilot O10: the v2 run signup never asks persona)', () => {
       const profile = { ...RUNNING_CONFIRMED };
-      expect(resolveCardHasScheduleAndPersona(profile, true, true)).toBe(false);
+      expect(resolveCardHasScheduleAndPersona(profile, true, true)).toBe(true);
+      expect(resolveCardHasScheduleAndPersona(profile, false, true)).toBe(true);
     });
 
     it('neither confirmed nor answered -> false (overlay+CTA) -- the exact stuck-runner case this gate exists for', () => {
@@ -66,6 +67,19 @@ describe('resolveCardHasScheduleAndPersona', () => {
     it('null/undefined profile with hasSchedule=true and persona unanswered -> false, not a throw', () => {
       expect(resolveCardHasScheduleAndPersona(null, true, true)).toBe(false);
       expect(resolveCardHasScheduleAndPersona(undefined, true, true)).toBe(false);
+    });
+  });
+
+  describe('pilot O10: a saved walking plan clears the card', () => {
+    const WALKER = { lifestyle: { walkingGoal: { goal: 'health', targetWeeklyMinutes: 150 } } };
+    it('walk plan saved, no persona, no strength days -> true', () => {
+      expect(resolveCardHasScheduleAndPersona(WALKER, false, true)).toBe(true);
+    });
+    it('junk walking goal -> the strength rule as before', () => {
+      expect(resolveCardHasScheduleAndPersona({ lifestyle: { walkingGoal: { goal: 'x' } } }, false, true)).toBe(false);
+    });
+    it('a runner still needs confirmed days even with a walk plan', () => {
+      expect(resolveCardHasScheduleAndPersona({ ...WALKER, ...RUNNING_SYSTEM_DEFAULT }, true, true)).toBe(false);
     });
   });
 

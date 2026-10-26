@@ -84,6 +84,7 @@ import {
   useTimedSegment, useMixedStoryBars, useTimedPlaylistRenderer, TimedRuntime, TimedBlockPlayer, TimedListBehind, TimedMiniPlayerBar,
   mergeSegmentLog, segmentLogId,
 } from './timed';
+import { keepActiveMounted } from './logic/minimized-layer';
 import { markGenerationOutcome } from '@/features/generation-review/capture/hooks';
 import { useGoalReachedCelebration } from './hooks/useGoalReachedCelebration';
 import GoalReachedChip from './components/GoalReachedChip';
@@ -915,16 +916,6 @@ export default function StrengthRunner({
             onExpand={() => setIsMinimized(false)}
             onTogglePause={sm.togglePause}
           />
-        ) : isMinimized ? (
-          <MiniPlayerBar
-            exerciseName={sm.exerciseName}
-            elapsedTimeLabel={sm.formatTime(sm.elapsedTime)}
-            safeVideoUrl={safeVideoUrl}
-            isPaused={sm.isPaused}
-            dragControls={dragControls}
-            onExpand={() => setIsMinimized(false)}
-            onTogglePause={sm.togglePause}
-          />
         ) : timed.active ? (
           <TimedBlockPlayer
             store={timed.store}
@@ -936,7 +927,21 @@ export default function StrengthRunner({
             onHeaderPointerDown={handleHeaderPointerDown}
           />
         ) : (
-          <div className="relative w-full h-full overflow-hidden">
+          <>
+          {isMinimized && (
+            <MiniPlayerBar
+              exerciseName={sm.exerciseName}
+              elapsedTimeLabel={sm.formatTime(sm.elapsedTime)}
+              safeVideoUrl={safeVideoUrl}
+              isPaused={sm.isPaused}
+              dragControls={dragControls}
+              onExpand={() => setIsMinimized(false)}
+              onTogglePause={sm.togglePause}
+            />
+          )}
+          {/* Pilot M20: stays MOUNTED (hidden) while minimized, so dragging the drawer never
+              remounts the timer card (a running tabata / hold interval restarted from zero). */}
+          <div className={keepActiveMounted(isMinimized).className} aria-hidden={isMinimized || undefined}>
             {/* State content */}
             {renderStateContent()}
 
@@ -965,7 +970,7 @@ export default function StrengthRunner({
             {/* First-run player tour — over the held first set (portal; see FirstRunTour). */}
             <FirstRunTour
               tour="player"
-              active={tourActive}
+              active={tourActive && !isMinimized}
               uid={profileId}
               gender={userGender}
               onClose={handlePlayerTourClose}
@@ -1000,6 +1005,7 @@ export default function StrengthRunner({
               />
             )}
           </div>
+          </>
         )}
       </motion.div>
 

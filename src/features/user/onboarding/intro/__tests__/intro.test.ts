@@ -7,6 +7,7 @@ import { onboarding } from '@/messages/ns/onboarding';
 import {
   EXPLORER_ROUTE, INTRO_ARRIVAL_KEY, INTRO_PREVIEW_ROUTE, INTRO_ROUTE, consumeIntroArrival, isIntroPreview, isIntroSeen,
   markIntroArrival, resolveQuickSignupHref, withIntroRedirect,
+  shouldHoldLandingSplash,
 } from '../intro-route';
 import { arcPath, labelCenter, segmentPath } from '../ring-geometry';
 import { trackProps } from '../story-timeline';
@@ -194,5 +195,18 @@ describe('story timeline', () => {
       for (let i = 1; i < t.times.length; i++) expect(t.times[i]).toBeGreaterThanOrEqual(t.times[i - 1]);
       for (const v of Object.values(t.values)) expect(v).toHaveLength(t.times.length);
     }
+  });
+});
+
+describe('shouldHoldLandingSplash (pilot L2: no flash of the old landing)', () => {
+  it('holds while auth is still restoring', () => {
+    expect(shouldHoldLandingSplash({ isGuest: false, introFlagLoading: false, introPreview: false })).toBe(true);
+  });
+  it('a guest whose intro flag is still unknown keeps the splash (the old carousel must not paint)', () => {
+    expect(shouldHoldLandingSplash({ isGuest: true, introFlagLoading: true, introPreview: false })).toBe(true);
+  });
+  it('flag known, or the owner preview: the landing shows', () => {
+    expect(shouldHoldLandingSplash({ isGuest: true, introFlagLoading: false, introPreview: false })).toBe(false);
+    expect(shouldHoldLandingSplash({ isGuest: true, introFlagLoading: true, introPreview: true })).toBe(false);
   });
 });

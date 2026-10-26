@@ -2024,7 +2024,7 @@ export default function HomePage() {
   // loading state exactly as any other generated workout would.
   const PARK_DIFFICULTY_ORDER: ParkWorkoutDifficulty[] = ['easy', 'medium', 'hard'];
 
-  const composeAndOpenParkWorkout = useCallback(async (park: Park, difficulty: ParkWorkoutDifficulty) => {
+  const composeAndOpenParkWorkout = useCallback(async (park: Park, difficulty: ParkWorkoutDifficulty, availableTime = 20) => {
     if (!profile) return;
 
     // Open the drawer immediately in its loading state (skeleton), matching
@@ -2045,7 +2045,7 @@ export default function HomePage() {
     });
 
     try {
-      const result = await composeParkWorkout(park, profile, { difficulty, availableTime: 20 });
+      const result = await composeParkWorkout(park, profile, { difficulty, availableTime });
       const uniqueWorkoutId = `park-workout-${park.id}-${Date.now()}`;
       const workoutPlan = buildRunnerWorkoutPlanFromGenerated(result.workout, { id: uniqueWorkoutId, timedBlocks: featureFlags.enableHomeV2 });
 
@@ -2092,8 +2092,10 @@ export default function HomePage() {
   useEffect(() => {
     if (!pendingParkWorkoutStart) return;
     const park = useMapStore.getState().consumePendingParkWorkoutStart();
+    // enable_place_workouts_v1: a park-page card may carry its difficulty / length; none → as before.
+    const opts = useMapStore.getState().consumePendingParkWorkoutOptions();
     if (!park) return;
-    void composeAndOpenParkWorkout(park, 'medium');
+    void composeAndOpenParkWorkout(park, opts?.difficulty ?? 'medium', opts?.minutes ?? 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingParkWorkoutStart]);
 
