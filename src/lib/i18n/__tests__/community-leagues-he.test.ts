@@ -115,7 +115,7 @@ describe('community (he) leagues.* — byte-identical to the pre-extraction lite
       ['leagues.group.unit.points', 'נקודות'],
       ['leagues.group.unit.km', 'ק״מ'],
       ['leagues.group.showLess', 'הצג פחות'],
-      ['leagues.group.note.km', 'הק״מ מוצגים בשביל הכיף — הם לא משנים את הנקודות.'],
+      ['leagues.group.note.km', 'הק״מ מוצגים בשביל הכיף, הם לא משנים את הנקודות.'],
       ['leagues.group.note.points', '3 נקודות על כל 1,000 צעדים ביום, ועוד נקודות על כל דקת אימון.'],
     ];
     for (const [key, old] of cases) expect([key, t(key)]).toEqual([key, old]);
@@ -126,14 +126,14 @@ describe('community (he) leagues.* — byte-identical to the pre-extraction lite
       expect(t('leagues.opponent.place', { rank: String(n) })).toBe(`מקום #${n}`);
       expect(t('leagues.units.active', { count: String(n) })).toBe(`${n} פעילים`);
       expect(t('leagues.units.activeParticipants', { count: String(n) })).toBe(`${n} משתתפים פעילים`);
-      expect(t('leagues.units.belowFloor.body', { count: String(n) })).toBe(`${n} משתתפים פעילים כרגע — שלחו לחברים ביחידה!`); // gender batch 2: other = neutral
+      expect(t('leagues.units.belowFloor.body', { count: String(n) })).toBe(`${n} משתתפים פעילים כרגע, שלחו לחברים ביחידה!`); // gender batch 2: other = neutral
       expect(t('leagues.units.belowFloor.title', { needed: String(n), name: 'פלוגה ג' })).toBe(`עוד ${n} מ${'פלוגה ג'} וייפתח הדירוג`);
       expect(t('leagues.group.showAll', { count: String(n) })).toBe(`הצג את כל ה-${n}`);
     }
     // Gender batch 2 (21.10.2026): male keeps the old text, other is neutral.
-    expect(t('leagues.opponent.subtitle', { name: 'נווה {צדק}', gender: 'male' })).toBe(`אתה נשאר ${'נווה {צדק}'} — רק היריבה מתחלפת`);
-    expect(t('leagues.opponent.subtitle', { name: 'נווה צדק', gender: 'female' })).toBe('את נשארת נווה צדק — רק היריבה מתחלפת');
-    expect(t('leagues.opponent.subtitle', { name: 'נווה צדק', gender: 'other' })).toBe('נווה צדק לא משתנה — רק היריבה מתחלפת');
+    expect(t('leagues.opponent.subtitle', { name: 'נווה {צדק}', gender: 'male' })).toBe(`אתה נשאר ${'נווה {צדק}'}, רק היריבה מתחלפת`);
+    expect(t('leagues.opponent.subtitle', { name: 'נווה צדק', gender: 'female' })).toBe('את נשארת נווה צדק, רק היריבה מתחלפת');
+    expect(t('leagues.opponent.subtitle', { name: 'נווה צדק', gender: 'other' })).toBe('נווה צדק לא משתנה, רק היריבה מתחלפת');
     expect(t('leagues.units.updated', { when: 'לפני 5 דקות' })).toBe(`עודכן ${'לפני 5 דקות'}`);
     expect(t('leagues.units.kmPerDay', { km: '5.4' })).toBe(`${'5.4'} ק״מ ליום`);
     expect(t('leagues.group.sub.points', { points: '1,234' })).toBe(`${'1,234'} נקודות`);

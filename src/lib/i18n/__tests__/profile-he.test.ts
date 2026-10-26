@@ -18,10 +18,10 @@ const t = makeT('he', profile);
 describe('profile (he) — byte-identical to the pre-extraction literals', () => {
   it('plain strings', () => {
     const cases: Array<[keyof typeof he, string]> = [
-      ['skillTree.unavailable', 'המסלול הזה עדיין לא זמין כמפה — בקרוב.'],
+      ['skillTree.unavailable', 'המסלול הזה עדיין לא זמין כמפה, בקרוב.'],
       ['skillTree.back', 'חזרה'],
-      ['skillTree.lockedNotice', '🔒 שים לב — זה עוד לא תרגיל ברמה שלך'],
-      ['skillTree.unassessed.banner', 'עדיין לא יודעים את הרמה שלך — מבדק קצר יסמן איפה הרמה שלך'],
+      ['skillTree.lockedNotice', '🔒 שים לב, זה עוד לא תרגיל ברמה שלך'],
+      ['skillTree.unassessed.banner', 'עדיין לא יודעים את הרמה שלך, מבדק קצר יסמן איפה הרמה שלך'],
       ['skillTree.unassessed.cta', 'בצע מבדק'],
       ['skillTree.empty', 'לא נמצאו תרגילים למסלול הזה כרגע.'],
       ['skillTree.node.youAreHere', 'הרמה שלך'],
@@ -143,7 +143,7 @@ describe('profile hub.* (he) — byte-identical to the pre-extraction literals',
       ['hub.compare.now.week', 'השבוע'],
       ['hub.compare.now.month', 'החודש'],
       ['hub.compare.before.week', 'שבוע שעבר'],
-      ['hub.compare.empty', 'עוד אין מה להשוות — אימון אחד ויש לנו נקודת התחלה.'],
+      ['hub.compare.empty', 'עוד אין מה להשוות, אימון אחד ויש לנו נקודת התחלה.'],
       ['hub.summary.vs.week', 'מול שבוע שעבר'],
       ['hub.summary.stat.workouts', 'אימונים'],
       ['hub.summary.stat.kmUnit', 'ק״מ'],

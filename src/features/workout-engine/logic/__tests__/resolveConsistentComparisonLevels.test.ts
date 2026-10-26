@@ -42,7 +42,7 @@ describe('resolveConsistentComparisonLevels', () => {
     expect(Math.abs(result.exerciseLevel - result.userLevel)).toBeLessThanOrEqual(3);
   });
 
-  it('must-fail case — proves the fix is not "always true": [pull:17, one_arm_pullup:2], user oap=7 pull=16 — 2 vs 7 is outside ±3', () => {
+  it('must-fail case — proves the fix is not "always true": [pull:17, one_arm_pullup:2], user oap=7 pull=16, 2 vs 7 is outside ±3', () => {
     const ex = exercise([
       { programId: 'pull', level: 17 },
       { programId: 'one_arm_pullup', level: 2 },

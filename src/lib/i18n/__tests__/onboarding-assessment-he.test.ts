@@ -30,12 +30,12 @@ describe('onboarding · assessment page (he) — byte-identical to the pre-extra
     ['assessment.followUp.badge', 'הערכה מתקדמת'],
     ['assessment.followUp.titleFallback', 'הערכה מתקדמת'],
     ['assessment.saving', 'שומר תוצאות...'],
-    ['assessment.fallbackProgramName', 'גוף מלא — ברירת מחדל'],
+    ['assessment.fallbackProgramName', 'גוף מלא, ברירת מחדל'],
     ['assessment.saveError.network', describeSaveErrorOld({ code: 'unavailable' })],
     ['assessment.saveError.auth', describeSaveErrorOld({ code: 'permission-denied' })],
     ['assessment.saveError.generic', describeSaveErrorOld({ code: 'internal' })],
-    ['assessment.alert.saveFailed', 'שגיאה בשמירה — נסו שנית'],
-    ['assessment.alert.noUser', 'לא נמצא משתמש מחובר — נסו לרענן.'],
+    ['assessment.alert.saveFailed', 'שגיאה בשמירה, נסו שנית'],
+    ['assessment.alert.noUser', 'לא נמצא משתמש מחובר, נסו לרענן.'],
   ];
 
   it('every assessment.* key is covered', () => {

@@ -56,7 +56,7 @@ export const FUNCTIONS_CATALOGS = {
       "weekdays.letter.4": "ה",
       "weekdays.letter.5": "ו",
       "weekdays.letter.6": "ש",
-      "sync.backfillChip": "מסנכרן — ייקח 1-2 דקות לטעון 3 חודשים של נתונים"
+      "sync.backfillChip": "מסנכרן, ייקח 1-2 דקות לטעון 3 חודשים של נתונים"
     },
     "en": {
       "actions.continue": "Continue",

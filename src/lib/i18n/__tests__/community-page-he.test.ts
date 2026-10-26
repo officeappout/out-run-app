@@ -97,7 +97,7 @@ describe('community page (communityPage.*)', () => {
     expect(t('communityPage.leagues.v2.whereCity', { city: 'חיפה' })).toBe(`ב${'חיפה'}`);
     expect(t('communityPage.axis.hintInCity', { city: 'חיפה' })).toBe(`ב${'חיפה'} · ` + 'הקשה להחלפת ציר'); // gender batch 3: noun
     expect(t('communityPage.leagues.v2.month', { month: 'אוקטובר' })).toBe(`ליגת ${'אוקטובר'}`);
-    expect(t('groupDrawer.calendarDetails', { category: 'ריצה', groupName: 'רצי הירקון' })).toBe(`קבוצת ${'ריצה'} — ${'רצי הירקון'}`);
+    expect(t('groupDrawer.calendarDetails', { category: 'ריצה', groupName: 'רצי הירקון' })).toBe(`קבוצת ${'ריצה'}, ${'רצי הירקון'}`);
   });
 
   it('selects: every branch equals the old ternary / map', () => {

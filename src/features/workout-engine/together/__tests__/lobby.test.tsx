@@ -62,7 +62,7 @@ describe('lobby panel', () => {
   const html = (p: Parameters<typeof TogetherLobbyPanel>[0]) => renderToStaticMarkup(<TogetherLobbyPanel {...p} />).replaceAll('<!-- -->', '');
   it('shows the one-line explanation, the roster and the waiting note for a guest', () => {
     const h = html(base);
-    expect(h).toContain('כולם ברמה 3 בערך — אותו אימון, שעון משותף');
+    expect(h).toContain('כולם ברמה 3 בערך, אותו אימון, שעון משותף');
     expect(h).toContain('דני');
     expect(h).toContain('ממתינים שהמארח יתחיל');
     expect(h).not.toContain('מתחילים יחד');

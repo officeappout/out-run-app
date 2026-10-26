@@ -103,7 +103,7 @@ describe('community (he) social.* — byte-identical to the pre-extraction liter
       ['social.share.toast.photoError', 'לא הצלחנו לפתוח את התמונה'],
       ['social.share.toast.saved', 'התמונה נשמרה'],
       ['social.share.toast.shareFailed', 'השיתוף לא הצליח'],
-      ['social.share.toast.denied', 'אין הרשאה לשמור בגלריה — אפשר לאשר בהגדרות הטלפון'],
+      ['social.share.toast.denied', 'אין הרשאה לשמור בגלריה, אפשר לאשר בהגדרות הטלפון'],
       ['social.share.toast.saveFailed', 'השמירה לא הצליחה'],
       ['social.share.stickerInkTitle', 'צבע הסטיקר'],
       ['social.share.backgroundTitle', 'רקע'],
@@ -116,7 +116,7 @@ describe('community (he) social.* — byte-identical to the pre-extraction liter
       ['social.share.ink.white', 'לבן'],
       ['social.share.ink.dark', 'כהה'],
       ['social.share.ink.brand', 'צבעי OUT'],
-      ['social.share.ink.hint', 'רקע שקוף — באינסטגרם מדביקים אותו מעל תמונה או סרטון'],
+      ['social.share.ink.hint', 'רקע שקוף, באינסטגרם מדביקים אותו מעל תמונה או סרטון'],
       ['social.share.bg.otherPhoto', 'תמונה אחרת'],
       ['social.share.bg.addPhoto', 'הוספת תמונה'],
       ['social.share.bg.unavailable', 'לא זמינה'],
@@ -124,7 +124,7 @@ describe('community (he) social.* — byte-identical to the pre-extraction liter
       ['social.share.bg.night', 'לילה'],
       ['social.share.bg.brand', 'צבעי OUT'],
       ['social.share.bg.plain', 'נקי'],
-      ['social.share.bg.addPhotoHint', 'אפשר להוסיף תמונה מהאימון — הנתונים יופיעו עליה.'],
+      ['social.share.bg.addPhotoHint', 'אפשר להוסיף תמונה מהאימון, הנתונים יופיעו עליה.'],
       ['social.share.bg.photoFailed', 'את התמונה הזו לא הצלחנו לצרף. אפשר לבחור תמונה מהגלריה.'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);

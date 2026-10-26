@@ -122,8 +122,8 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['identity.gender.other', 'אחר'],
       ['identity.intro.workout', 'אני קלי. לפני שיוצאים למסלול אני צריך רק 3 דברים קטנים, ואחריהם הצהרת בריאות קצרה.'],
       ['identity.intro.program', 'אני קלי. כדי לשמור את התוכנית שבנינו אני צריך רק 3 דברים קטנים.'],
-      ['identity.intro.profileOnly', 'היי, אני קלי — המאמן האישי שלך! נשאר רק להגדיר כמה פרטים בפרופיל וזהו.'],
-      ['identity.intro.default', 'אני קלי, המאמן האישי שלך. כדי שאבנה לך תוכנית שבאמת מתאימה — אני צריך רק 3 דברים קטנים.'],
+      ['identity.intro.profileOnly', 'היי, אני קלי, המאמן האישי שלך! נשאר רק להגדיר כמה פרטים בפרופיל וזהו.'],
+      ['identity.intro.default', 'אני קלי, המאמן האישי שלך. כדי שאבנה לך תוכנית שבאמת מתאימה, אני צריך רק 3 דברים קטנים.'],
       ['identity.alert.noUser', 'לא נמצא משתמש מחובר. נסו לרענן את הדף.'],
       ['identity.alert.authError', 'שגיאה באימות המשתמש. נסו לרענן את הדף.'],
       ['identity.alert.saveError', 'שגיאה בשמירת הפרופיל'],
@@ -157,7 +157,7 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['lifestyle.ios.shareAria', 'שיתוף'],
       ['lifestyle.ios.ok', 'הבנתי, אוסיף למסך הבית'],
       // ProgramResult
-      ['result.gauge.startLine', '1% — קו ההתחלה שלך'],
+      ['result.gauge.startLine', '1%, קו ההתחלה שלך'],
       ['result.program.skills', 'תוכנית מיומנויות מותאמת'],
       ['result.program.fullBody', 'תוכנית כל הגוף'],
       ['result.program.custom', 'תוכנית אימונים מותאמת אישית'],
@@ -176,16 +176,16 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['personaDrawer.saveFailed.title', 'לא הצלחנו לשמור את התשובות שלך כרגע.'],
       [
         'personaDrawer.saveFailed.body',
-        'מה שכבר מילאת נשמר אצלך — אפשר לנסות שוב, או לסגור ולנסות מאוחר יותר; שום דבר לא הולך לאיבוד.',
+        'מה שכבר מילאת נשמר אצלך, אפשר לנסות שוב, או לסגור ולנסות מאוחר יותר; שום דבר לא הולך לאיבוד.',
       ],
       ['personaDrawer.privacy', 'הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.'],
-      ['personaDrawer.staleUnit', 'היחידה שנבחרה בעבר כבר לא קיימת — צריך לבחור מחדש'],
+      ['personaDrawer.staleUnit', 'היחידה שנבחרה בעבר כבר לא קיימת, צריך לבחור מחדש'],
       ['personaDrawer.skip', 'דילוג'],
       // HierarchySearchStep
       ['hierarchy.searchPlaceholder', 'חיפוש לפי שם או מספר...'],
       ['hierarchy.loading', 'טוען...'],
       ['hierarchy.noResults', 'אין תוצאות'],
-      ['hierarchy.add.open', 'היחידה שלי לא ברשימה — הוסף'],
+      ['hierarchy.add.open', 'היחידה שלי לא ברשימה, הוסף'],
       ['hierarchy.add.namePlaceholder', 'שם היחידה'],
       ['hierarchy.add.sending', 'שולח...'],
       ['hierarchy.add.send', 'שליחה'],
@@ -308,8 +308,8 @@ describe('onboarding — remaining screens (batch t)', () => {
       for (const [nextLevel, sessions] of [[5, 13], [1000, 1234]]) {
         expect(t('result.achievement', { gender, level: String(nextLevel), sessions: String(sessions) })).toBe(
           gender === 'female'
-            ? `כ-1,280 משתמשות התחילו ב-1% בדיוק כמוך — רובן הגיעו לרמה ${nextLevel} תוך כ-${sessions} אימונים.`
-            : `כ-1,280 משתמשים התחילו ב-1% בדיוק כמוך — רובם הגיעו לרמה ${nextLevel} תוך כ-${sessions} אימונים.`,
+            ? `כ-1,280 משתמשות התחילו ב-1% בדיוק כמוך, רובן הגיעו לרמה ${nextLevel} תוך כ-${sessions} אימונים.`
+            : `כ-1,280 משתמשים התחילו ב-1% בדיוק כמוך, רובם הגיעו לרמה ${nextLevel} תוך כ-${sessions} אימונים.`,
         );
       }
       expect(t('result.continue', { gender })).toBe(mfn(gender, 'בוא נמשיך', 'בואי נמשיך', 'בואו נמשיך'));
@@ -383,6 +383,6 @@ describe('onboarding — remaining screens (batch t)', () => {
       '[b:שימו לב:] לחיצה על כפתור זה מצהירה שאתם בריאים ולא סובלים מאף אחת מהבעיות הרפואיות המפורטות בשאלון. אם יש לכם ספק, אנא ענו על כל שאלה בנפרד.',
     );
     const sibling = "גדוד 11 (חי\"ר)";
-    expect(rich('hierarchy.add.match', { name: sibling }, ['b'])).toBe(`מצאנו את [b:${sibling}] — זו שלך?`);
+    expect(rich('hierarchy.add.match', { name: sibling }, ['b'])).toBe(`מצאנו את [b:${sibling}], זו שלך?`);
   });
 });

@@ -60,8 +60,8 @@ describe('onboarding · quiz (he) — byte-identical to the pre-extraction liter
 
   it('gendered (isFemale ? female : male) — female and male keep the old copy', () => {
     const cases: Array<[Key, string, string]> = [
-      ['quiz.tier.subtitle', 'בחר נקודת התחלה — נעדן את זה ביחד בשלב הבא', 'בחרי נקודת התחלה — נעדן את זה ביחד בשלב הבא'],
-      ['quiz.tier.footer', 'אל דאגה — תוכל לכוונן כל קטגוריה בנפרד בשלב הבא', 'אל דאגה — תוכלי לכוונן כל קטגוריה בנפרד בשלב הבא'],
+      ['quiz.tier.subtitle', 'בחר נקודת התחלה, נעדן את זה ביחד בשלב הבא', 'בחרי נקודת התחלה, נעדן את זה ביחד בשלב הבא'],
+      ['quiz.tier.footer', 'אל דאגה, תוכל לכוונן כל קטגוריה בנפרד בשלב הבא', 'אל דאגה, תוכלי לכוונן כל קטגוריה בנפרד בשלב הבא'],
       ['quiz.slider.tutorial.drag', 'גרור כדי לשנות את הקושי והתרגיל', 'גררי כדי לשנות את הקושי והתרגיל'],
       ['quiz.slider.tutorial.checkMin', 'בדוק את המינימום: הזמן והחזרות יופיעו כאן', 'בדקי את המינימום: הזמן והחזרות יופיעו כאן'],
       [
@@ -71,7 +71,7 @@ describe('onboarding · quiz (he) — byte-identical to the pre-extraction liter
       ],
       ['quiz.slider.escape', 'עוד לא מצליח?', 'עוד לא מצליחה?'],
       ['quiz.slider.instruction', 'עצור על התרגיל הכי קשה שאתה בטוח שתבצע', 'עצרי על התרגיל הכי קשה שאת בטוחה שתבצעי'],
-      ['quiz.slider.notSure', 'לא בטוח? בחר בערך — נדייק תוך כמה אימונים', 'לא בטוחה? בחרי בערך — נדייק תוך כמה אימונים'],
+      ['quiz.slider.notSure', 'לא בטוח? בחר בערך, נדייק תוך כמה אימונים', 'לא בטוחה? בחרי בערך, נדייק תוך כמה אימונים'],
       ['quiz.hint.intro.title', 'גרור את התמונות לצדדים', 'גררי את התמונות לצדדים'],
       ['quiz.hint.after.title', 'יפה. עכשיו עצור על הכי קשה שאתה בטוח שתבצע', 'יפה. עכשיו עצרי על הכי קשה שאת בטוחה שתבצעי'],
       ['quiz.hint.after.sub', 'ולחץ למטה', 'ולחצי למטה'],

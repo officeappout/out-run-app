@@ -38,10 +38,10 @@ export const STRENGTH_LABELS_OLD: Record<number, string> = {
 export function describeSaveErrorOld(err: any): string { // eslint-disable-line @typescript-eslint/no-explicit-any
   const code: string = err?.code ?? '';
   if (code === 'unavailable' || code === 'deadline-exceeded' || code.includes('network')) {
-    return 'החיבור לאינטרנט נראה לא יציב כרגע. אפשר לנסות שוב, או להמשיך — נשלים את השמירה בשלב הבא.';
+    return 'החיבור לאינטרנט נראה לא יציב כרגע. אפשר לנסות שוב, או להמשיך, נשלים את השמירה בשלב הבא.';
   }
   if (code === 'permission-denied' || code === 'unauthenticated') {
-    return 'החשבון שלך לא מזוהה כרגע. נסה שוב, ואם זה חוזר — המשך בכל זאת, נשלים את השמירה בשלב הבא.';
+    return 'החשבון שלך לא מזוהה כרגע. נסה שוב, ואם זה חוזר, המשך בכל זאת, נשלים את השמירה בשלב הבא.';
   }
-  return 'לא הצלחנו לשמור את התוצאות כרגע. אפשר לנסות שוב, או להמשיך — נשלים את השמירה בשלב הבא.';
+  return 'לא הצלחנו לשמור את התוצאות כרגע. אפשר לנסות שוב, או להמשיך, נשלים את השמירה בשלב הבא.';
 }
