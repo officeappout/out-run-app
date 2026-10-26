@@ -416,11 +416,21 @@ export function buildPhaseSummary({
   });
 }
 
+/**
+ * Pilot S6: warm-up sets are not workout sets. Sets done / planned and the completion
+ * percent count every phase EXCEPT the warm-up (one main exercise after a full warm-up
+ * used to read as ~30%). Reps, work seconds and exercise counts still cover the whole
+ * session. A warm-up-only session falls back to its own sets.
+ */
 export function sessionTotals(phases: PhaseSummary[]): SessionTotals {
   const t = totalsFor(phases.flatMap((p) => p.blocks));
+  const counted = phases.filter((p) => p.phase !== 'warmup');
+  const sets = counted.length > 0 ? totalsFor(counted.flatMap((p) => p.blocks)) : t;
   const completionPercent =
-    t.setsPlanned && t.setsPlanned > 0 ? Math.min(100, Math.round((t.setsDone / t.setsPlanned) * 100)) : null;
-  return { ...t, completionPercent };
+    sets.setsPlanned && sets.setsPlanned > 0
+      ? Math.min(100, Math.round((sets.setsDone / sets.setsPlanned) * 100))
+      : null;
+  return { ...t, setsDone: sets.setsDone, setsPlanned: sets.setsPlanned, completionPercent };
 }
 
 /** "m:ss" for work-seconds totals (e.g. 95 → "1:35"). */

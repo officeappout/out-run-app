@@ -725,5 +725,9 @@
   "accessCodeLink.error.inactive": "קוד הגישה אינו פעיל יותר.",
   "accessCodeLink.error.profile": "יש להשלים את הפרופיל (כולל תאריך לידה) לפני הזנת קוד גישה.",
   "accessCodeLink.error.age": "לא ניתן להשתמש בקוד גישה בשלב זה.",
-  "accessCodeLink.error.generic": "שגיאה בבדיקת הקוד. נסו שוב."
+  "accessCodeLink.error.generic": "שגיאה בבדיקת הקוד. נסו שוב.",
+  "healthPage.loading": "טוען...",
+  "healthPage.skipFailed": "לא הצלחנו לשמור את ההמשך. בדקו את החיבור ונסו שוב.",
+  "healthPage.title": "הצהרת בריאות",
+  "healthPage.description": "כדי להתאים לך אימון בטוח, נשמח לדעת על מצבך הרפואי"
 }

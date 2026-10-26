@@ -4,14 +4,22 @@
  */
 import { Pause, Square } from 'lucide-react';
 import PreviewMap from './PreviewMap';
+import { useT } from '@/hooks/useT';
+import { legal } from '@/messages/ns/legal';
+import { common } from '@/messages/ns/common';
+import { unitLabel } from '@/lib/i18n/units';
 
 const STATS = [
-  { v: '12:40', l: 'זמן' },
-  { v: '1.8', l: 'ק״מ' },
-  { v: '7:02', l: 'קצב' },
-];
+  { v: '12:40', id: 'time' },
+  { v: '1.8', id: 'km' },
+  { v: '7:02', id: 'pace' },
+] as const;
 
 export default function PreviewRoutePlayer() {
+  const t = useT(legal);
+  const tCommon = useT(common);
+  const label = (id: (typeof STATS)[number]['id']) =>
+    id === 'km' ? unitLabel('km', tCommon) : id === 'time' ? t('help.preview.routePlayer.time') : t('help.preview.routePlayer.pace');
   return (
     <div className="absolute inset-0 overflow-hidden">
       <PreviewMap route />
@@ -19,9 +27,9 @@ export default function PreviewRoutePlayer() {
         <div className="rounded-v2-card bg-white p-4 shadow-v2-float">
           <div className="flex justify-around">
             {STATS.map((s) => (
-              <div key={s.l} className="text-center">
+              <div key={s.id} className="text-center">
                 <p className="text-[22px] font-black tabular-nums text-v2-ink">{s.v}</p>
-                <p className="text-[12px] font-bold text-v2-muted">{s.l}</p>
+                <p className="text-[12px] font-bold text-v2-muted">{label(s.id)}</p>
               </div>
             ))}
           </div>

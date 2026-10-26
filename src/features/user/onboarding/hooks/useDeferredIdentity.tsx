@@ -42,10 +42,13 @@ export function useDeferredIdentity(v2: boolean, onBack?: () => void): {
     setOpen(true);
   }, [v2]);
 
+  // Pilot M1: `kb-fit` ends this fixed overlay at the keyboard (same fix JITSetupModal got
+  // 20.10.2026); without it the form fits, nothing scrolls, and the keyboard covers the
+  // field. Inert while enable_keyboard_insets_v1 is off.
   const identityOverlay = open ? (
     <div
-      className="fixed inset-0 z-[140] flex flex-col bg-white"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="kb-fit fixed inset-0 z-[140] flex flex-col bg-white"
+      style={{ paddingBottom: 'var(--kb-safe-bottom, env(safe-area-inset-bottom, 0px))' }}
     >
       <IdentityProfileScreen
         context="program"

@@ -4,14 +4,17 @@
  */
 import { Dumbbell } from 'lucide-react';
 import PreviewMap from './PreviewMap';
+import { useT } from '@/hooks/useT';
+import { legal } from '@/messages/ns/legal';
 
 export default function PreviewRoute() {
+  const t = useT(legal);
   return (
     <div className="absolute inset-0 overflow-hidden">
       <PreviewMap route />
       <div className="absolute" style={{ left: '50%', top: '37%', transform: 'translate(-50%, -100%)' }}>
         <div className="flex flex-col items-center" data-coach="route-strength-stop">
-          <span className="mb-1 rounded-full bg-[#00BAF7] px-2 py-0.5 text-[11px] font-black text-white">גינת הכושר</span>
+          <span className="mb-1 rounded-full bg-[#00BAF7] px-2 py-0.5 text-[11px] font-black text-white">{t('help.preview.route.stop')}</span>
           <span className="rounded-full border-[3px] border-white bg-[#00BAF7] p-2.5 shadow-v2-float">
             <Dumbbell size={22} color="white" aria-hidden />
           </span>
@@ -19,10 +22,10 @@ export default function PreviewRoute() {
       </div>
       <div className="absolute inset-x-4" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}>
         <div className="rounded-v2-card bg-white p-4 shadow-v2-float" data-coach="route-card">
-          <p className="text-[17px] font-black text-v2-ink">מסלול בפארק · 3.2 ק״מ</p>
-          <p className="mt-0.5 text-[13px] font-semibold text-v2-muted">כ־35 דקות · 2 עצירות כוח</p>
+          <p className="text-[17px] font-black text-v2-ink">{t('help.preview.route.title')}</p>
+          <p className="mt-0.5 text-[13px] font-semibold text-v2-muted">{t('help.preview.route.meta')}</p>
           <div className="mt-3" data-coach="route-start">
-            <div className="grid h-12 place-items-center rounded-full bg-v2-cta text-[15px] font-bold text-v2-on-cta shadow-v2-cta">יוצאים לדרך</div>
+            <div className="grid h-12 place-items-center rounded-full bg-v2-cta text-[15px] font-bold text-v2-on-cta shadow-v2-cta">{t('help.preview.route.start')}</div>
           </div>
         </div>
       </div>

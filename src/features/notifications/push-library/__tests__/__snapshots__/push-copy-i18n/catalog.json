@@ -2945,6 +2945,202 @@
     ]
   },
   {
+    "pushType": "training_here_reminder",
+    "label": "תזכורת: \"מתאמן כאן\" בעוד רבע שעה",
+    "lever": "routine",
+    "channel": "training_reminder",
+    "sender": "sessionReminderScheduler",
+    "description": "המשתמש שיתף \"אני מתאמן כאן\" לשעה מאוחרת יותר. התזכורת יוצאת רבע שעה לפני.",
+    "whenSent": "סריקה כל 5 דקות. נשלח 15 דקות לפני השעה שנבחרה, פעם אחת לכל מועד. אימון שבוטל לא מקבל תזכורת, ושינוי שעה מזיז אותה. כפוף לשעות שקט ולמדיניות הפושים. רק כשהדגל enableTrainingHereReminders דולק.",
+    "pending": "השולח נכתב ועוד לא נפרס",
+    "vars": [
+      "@שם",
+      "@אימון",
+      "@שעה",
+      "@מקום"
+    ],
+    "conditions": [
+      {
+        "key": "place",
+        "label": "סוג המקום",
+        "options": [
+          {
+            "value": "park",
+            "label": "גינה"
+          },
+          {
+            "value": "route",
+            "label": "מסלול"
+          }
+        ]
+      }
+    ],
+    "deepLinks": [
+      "map_place",
+      "map"
+    ],
+    "defaults": [
+      {
+        "title": "הגינה מחכה · @אימון ב-@שעה",
+        "body": "עוד רבע שעה ב@מקום. נתראה שם?",
+        "conditions": {
+          "place": [
+            "park"
+          ]
+        }
+      },
+      {
+        "title": "הגינה מחכה · @אימון ב-@שעה",
+        "body": "עוד רבע שעה ב@מקום. אתה בדרך?",
+        "gender": "male",
+        "pair": "park",
+        "conditions": {
+          "place": [
+            "park"
+          ]
+        }
+      },
+      {
+        "title": "הגינה מחכה · @אימון ב-@שעה",
+        "body": "עוד רבע שעה ב@מקום. את בדרך?",
+        "gender": "female",
+        "pair": "park",
+        "conditions": {
+          "place": [
+            "park"
+          ]
+        }
+      },
+      {
+        "title": "הגינה מחכה · ב-@שעה",
+        "body": "עוד רבע שעה ב@מקום. נתראה שם?",
+        "fallbackOnly": true,
+        "conditions": {
+          "place": [
+            "park"
+          ]
+        }
+      },
+      {
+        "title": "המסלול מחכה · @אימון ב-@שעה",
+        "body": "עוד רבע שעה ב@מקום. נתראה שם?",
+        "conditions": {
+          "place": [
+            "route"
+          ]
+        }
+      },
+      {
+        "title": "המסלול מחכה · @אימון ב-@שעה",
+        "body": "עוד רבע שעה ב@מקום. אתה בדרך?",
+        "gender": "male",
+        "pair": "route",
+        "conditions": {
+          "place": [
+            "route"
+          ]
+        }
+      },
+      {
+        "title": "המסלול מחכה · @אימון ב-@שעה",
+        "body": "עוד רבע שעה ב@מקום. את בדרך?",
+        "gender": "female",
+        "pair": "route",
+        "conditions": {
+          "place": [
+            "route"
+          ]
+        }
+      },
+      {
+        "title": "המסלול מחכה · ב-@שעה",
+        "body": "עוד רבע שעה ב@מקום. נתראה שם?",
+        "fallbackOnly": true,
+        "conditions": {
+          "place": [
+            "route"
+          ]
+        }
+      },
+      {
+        "title": "עוד רבע שעה, ב-@שעה",
+        "body": "האימון שקבעת מתחיל בקרוב. נתראה שם?",
+        "fallbackOnly": true
+      }
+    ]
+  },
+  {
+    "pushType": "training_here_partner",
+    "label": "שותף מגיע לגינה מאוחר יותר",
+    "lever": "social",
+    "channel": "community",
+    "sender": "onTrainingHereShared",
+    "description": "שותף (עוקבים זה אחרי זה) שיתף \"אני מתאמן כאן\" לשעה מאוחרת יותר, לשותפים או לכולם.",
+    "whenSent": "מיד כשהשיתוף נוצר, רק לשותפים הדדיים, לכל היותר פעם אחת לכל שותף לכל אימון. כפוף להעדפת \"קהילה\", לשעות שקט ולתקרה היומית. רק כשהדגל enableTrainingHereReminders דולק.",
+    "pending": "השולח נכתב ועוד לא נפרס",
+    "vars": [
+      "@שם",
+      "@שולח",
+      "@מקום",
+      "@שעה"
+    ],
+    "subject": {
+      "label": "מי שמגיע להתאמן",
+      "var": "@שולח"
+    },
+    "dualGender": true,
+    "deepLinks": [
+      "map_place",
+      "map"
+    ],
+    "defaults": [
+      {
+        "title": "אימון של @שולח ב-@שעה",
+        "body": "ב@מקום. מצטרפים?"
+      },
+      {
+        "title": "@שולח מגיע ב-@שעה ל@מקום",
+        "body": "מצטרף?",
+        "gender": "male",
+        "subjectGender": "male",
+        "pair": "join_m"
+      },
+      {
+        "title": "@שולח מגיעה ב-@שעה ל@מקום",
+        "body": "מצטרף?",
+        "gender": "male",
+        "subjectGender": "female",
+        "pair": "join_m"
+      },
+      {
+        "title": "@שולח מגיע ב-@שעה ל@מקום",
+        "body": "מצטרפת?",
+        "gender": "female",
+        "subjectGender": "male",
+        "pair": "join_f"
+      },
+      {
+        "title": "@שולח מגיעה ב-@שעה ל@מקום",
+        "body": "מצטרפת?",
+        "gender": "female",
+        "subjectGender": "female",
+        "pair": "join_f"
+      },
+      {
+        "title": "@שולח מגיע ב-@שעה ל@מקום",
+        "body": "מצטרפים?",
+        "subjectGender": "male",
+        "pair": "join_n"
+      },
+      {
+        "title": "@שולח מגיעה ב-@שעה ל@מקום",
+        "body": "מצטרפים?",
+        "subjectGender": "female",
+        "pair": "join_n"
+      }
+    ]
+  },
+  {
     "pushType": "friend_joined",
     "label": "חבר הצטרף",
     "lever": "social",

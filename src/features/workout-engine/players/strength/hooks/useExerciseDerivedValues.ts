@@ -1,5 +1,6 @@
 'use client';
 
+import { parseDurationSeconds } from '../logic/duration-target';
 import { useMemo } from 'react';
 import type { MutableRefObject } from 'react';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
@@ -188,12 +189,7 @@ export function useExerciseDerivedValues({
     }
     if (exerciseType === 'time' || exerciseType === 'follow-along') {
       if ((currentSegment as any)?.target?.type === 'time') return (currentSegment as any).target.value;
-      const durationStr = activeExercise?.duration;
-      if (durationStr) {
-        const match = durationStr.match(/(\d+)/);
-        return match ? parseInt(match[1], 10) : 30;
-      }
-      return 30;
+      return parseDurationSeconds(activeExercise?.duration);
     }
     return 0;
   }, [exerciseType, currentSegment, activeExercise, pyramidStep]);

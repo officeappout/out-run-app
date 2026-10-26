@@ -3,6 +3,8 @@
 import React from 'react';
 import { Play } from 'lucide-react';
 import type { HelpChapter } from '@/lib/app-help/chapters';
+import { useT } from '@/hooks/useT';
+import { legal } from '@/messages/ns/legal';
 
 /** A help-hub chapter: title, one line, and "תראה לי" when it has a tour or a screen to open. */
 export default function HelpChapterCard({ chapter, onShow, onSelect, selected }: {
@@ -11,6 +13,7 @@ export default function HelpChapterCard({ chapter, onShow, onSelect, selected }:
   onSelect: () => void;
   selected: boolean;
 }) {
+  const t = useT(legal);
   return (
     <div
       className={`flex flex-col gap-2 rounded-2xl bg-white p-3 shadow-[0_0_0_1px_rgba(14,27,42,0.06)] ${selected ? 'ring-2 ring-v2-accent' : ''}`}
@@ -26,7 +29,7 @@ export default function HelpChapterCard({ chapter, onShow, onSelect, selected }:
           className="flex h-9 items-center justify-center gap-1.5 rounded-full bg-v2-tint text-[12.5px] font-extrabold text-v2-deep active:scale-[0.97]"
         >
           <Play size={12} strokeWidth={2.6} className="fill-current" aria-hidden />
-          {chapter.tour ? 'תראה לי' : 'פתח'}
+          {chapter.tour ? t('help.chapter.showTour') : t('help.chapter.open')}
         </button>
       )}
     </div>

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ADD_TRACK_DISMISS_DAYS,
+  hasAerobicTrack,
   hasRunningIntent,
   isAddDismissActive,
   placeProgramSlide,
@@ -154,5 +155,23 @@ describe('resolveProgramSlide — running frozen (enable_running_programs off, p
   });
   it('a runner without strength still gets "add strength"', () => {
     expect(resolveProgramSlide({ ...base, hasStrength: false, hasRunning: true })).toEqual({ mode: 'add', track: 'strength' });
+  });
+});
+
+describe('hasAerobicTrack (pilot O5: the walking questionnaire card hides once a walk plan is saved)', () => {
+  it('a saved walking plan owns the aerobic track', () => {
+    expect(hasAerobicTrack({ lifestyle: { walkingGoal: { goal: 'health', targetWeeklyMinutes: 150 } } })).toBe(true);
+  });
+  it('running unlocked owns it too', () => {
+    expect(hasAerobicTrack({ running: { isUnlocked: true } })).toBe(true);
+  });
+  it('nothing saved / junk goal -> no track', () => {
+    expect(hasAerobicTrack(null)).toBe(false);
+    expect(hasAerobicTrack({ lifestyle: { walkingGoal: { goal: 'nope', targetWeeklyMinutes: 0 } } })).toBe(false);
+  });
+  it('a walker gets "add strength", never the start pair again', () => {
+    const hasRunning = hasAerobicTrack({ lifestyle: { walkingGoal: { goal: 'health', targetWeeklyMinutes: 150 } } });
+    expect(resolveProgramSlide({ enabled: true, hasStrength: false, hasRunning, runningIntent: false }))
+      .toEqual({ mode: 'add', track: 'strength' });
   });
 });

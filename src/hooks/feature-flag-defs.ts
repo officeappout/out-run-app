@@ -719,6 +719,14 @@ export const FLAG_DEFS = [
   // "מתאמן ב…" that publishes a planned_sessions arrival. Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableWhereToTrainV1', firestoreKey: 'enable_where_to_train_v1', defaultValue: false, superAdminValue: true },
   { key: 'enableHybridDifficultyCarousel', firestoreKey: 'enable_hybrid_difficulty_carousel', defaultValue: false, superAdminValue: false },
+  // Workouts that fit a place (26.10.2026, owner-approved boards RP-12 / RP-13, agent-briefs/place-workouts-build-brief.md).
+  // Inside enable_home_v2: the park page gets "מתאים לך כאן" (up to 3 workout cards, today's plan first, from
+  // src/features/workout-engine/place-fit) under the title, the equipment as dark tiles (6 + "עוד N") and the
+  // sticky CTA starting the first card; the route page gets shade / lit chips, "אימונים על המסלול הזה", a
+  // collapsed "פירוט" (elevation, what's along the way, calories / uses / path / surface) and the park page's
+  // "מתאמנים כאן" section. Reads only (the park's first workout is generated on open). Fail-closed; super admins
+  // preview it. Off = both pages byte-identical to today.
+  { key: 'enablePlaceWorkoutsV1', firestoreKey: 'enable_place_workouts_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
