@@ -19,6 +19,7 @@ import { GET } from '../route';
 
 const later = new Date(Date.now() + 3 * 3_600_000);
 const soon = new Date(Date.now() + 3_600_000);
+const mid = new Date(Date.now() + 2 * 3_600_000);
 const past = new Date(Date.now() - 3_600_000);
 
 const shares = async (uid: string) =>
@@ -37,6 +38,7 @@ beforeEach(() => {
     'planned_sessions/sq': { userId: 'noa', parkId: 'yarkon', activityType: 'workout', privacyMode: 'squad', status: 'planned', startTime: soon, expiresAt: later },
     'planned_sessions/gone': { userId: 'noa', parkId: 'yarkon', activityType: 'workout', audience: 'partners', privacyMode: 'ghost', status: 'cancelled', startTime: soon, expiresAt: later },
     'planned_sessions/old': { userId: 'noa', parkId: 'yarkon', activityType: 'workout', audience: 'partners', privacyMode: 'ghost', status: 'planned', startTime: past, expiresAt: past },
+    'planned_sessions/r1': { userId: 'noa', routeId: 'r9', routeName: 'טיילת', activityType: 'running', audience: 'partners', privacyMode: 'ghost', status: 'planned', startTime: mid, expiresAt: later, workoutTitle: 'ריצה קלה' },
     'planned_sessions/dan1': { userId: 'dan', parkId: 'x', activityType: 'workout', audience: 'public', privacyMode: 'verified_global', status: 'planned', startTime: soon, expiresAt: later },
   }).db;
 });
@@ -44,7 +46,7 @@ beforeEach(() => {
 describe('/api/training-here/partners', () => {
   it('a mutual follow sees the partner\'s partners + public shares, soonest first, with gender', async () => {
     const out = await shares('me');
-    expect(out.map((s: any) => s.id)).toEqual(['p1', 'pub']);
+    expect(out.map((s: any) => s.id)).toEqual(['p1', 'r1', 'pub']);
     expect(out[0]).toMatchObject({ parkName: 'גינת הירקון', gender: 'female', audience: 'partners' });
   });
   it('a one-way follower gets nothing (not a partner)', async () => {
@@ -58,6 +60,14 @@ describe('/api/training-here/partners', () => {
     const res = await GET(new NextRequest('http://localhost/api/training-here/partners?parkId=yarkon', { headers: { authorization: 'Bearer me' } }));
     expect((await res.json()).shares.map((s: any) => s.id)).toEqual(['p1', 'pub']);
     const none = await GET(new NextRequest('http://localhost/api/training-here/partners?parkId=other', { headers: { authorization: 'Bearer me' } }));
+    expect((await none.json()).shares).toEqual([]);
+  });
+  it('?routeId= keeps only that route (the route page list), with the workout title', async () => {
+    const res = await GET(new NextRequest('http://localhost/api/training-here/partners?routeId=r9', { headers: { authorization: 'Bearer me' } }));
+    const out = (await res.json()).shares;
+    expect(out.map((s: any) => s.id)).toEqual(['r1']);
+    expect(out[0]).toMatchObject({ workoutTitle: 'ריצה קלה' });
+    const none = await GET(new NextRequest('http://localhost/api/training-here/partners?routeId=other', { headers: { authorization: 'Bearer me' } }));
     expect((await none.json()).shares).toEqual([]);
   });
   it('401 without a token', async () => {
