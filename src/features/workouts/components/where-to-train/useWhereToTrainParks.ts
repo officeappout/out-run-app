@@ -12,7 +12,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { fetchRealParks, getPark } from '@/features/parks/core/services/parks.service';
+import { fetchRealParks } from '@/features/parks/core/services/parks.service';
+import { getParkOnce } from '@/features/parks/core/services/park-point-fetch';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { calculateDistance } from '@/lib/services/location.service';
 import { resolveParkImage } from '@/lib/park-image';
@@ -39,16 +40,6 @@ export interface WhereToTrainPark {
   machineCount: number;
   amenityTags: ParkFeatureTag[];
   gearIds: string[];
-}
-
-const pointFetches = new Map<string, Promise<Park | null>>();
-function getParkOnce(id: string): Promise<Park | null> {
-  let p = pointFetches.get(id);
-  if (!p) {
-    p = getPark(id).catch(() => null);
-    pointFetches.set(id, p);
-  }
-  return p;
 }
 
 function toCard(park: Park, distanceM: number): WhereToTrainPark {

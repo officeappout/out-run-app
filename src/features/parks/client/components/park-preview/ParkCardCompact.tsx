@@ -45,6 +45,8 @@ export interface ParkCardCompactProps {
   layout?: 'floating' | 'inline';
   /** inline only: accent ring (the picked / best-match park). */
   selected?: boolean;
+  /** inline only: take the container's width instead of the carousel width (map places drawer list). */
+  fill?: boolean;
 }
 
 const FLOATING_WRAPPER = 'absolute bottom-[100px] left-6 right-6 z-30 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer';
@@ -52,7 +54,7 @@ const INLINE_WRAPPER = 'relative shrink-0 cursor-pointer snap-start';
 
 export default function ParkCardCompact({
   name, heroSrc, objectPosition, rating, metaParts, amenityTags, onOpen, onClose, onNavigate,
-  layout = 'floating', selected = false,
+  layout = 'floating', selected = false, fill = false,
 }: ParkCardCompactProps) {
   const t = useT(map);
   const chips = amenityTags.slice(0, COMPACT_MAX_CHIPS);
@@ -60,7 +62,7 @@ export default function ParkCardCompact({
   return (
     <div
       className={inline ? INLINE_WRAPPER : FLOATING_WRAPPER}
-      style={inline ? { width: COMPACT_INLINE_WIDTH_PX } : undefined}
+      style={inline ? { width: fill ? '100%' : COMPACT_INLINE_WIDTH_PX } : undefined}
       onClick={onOpen}
       role="button"
       tabIndex={0}
