@@ -8,12 +8,16 @@
  *
  * Gate: app_config/feature_flags.enableSessionPushes (default off, fails closed).
  * Needs the collection-group index community attendance.date (firestore.indexes.json).
+ *
+ * Second pass on the same tick (26.10.2026): the "I'm training here later" owner reminder
+ * (trainingHere/send-training-here-push.ts), gated separately by enableTrainingHereReminders.
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { loadSessionGroup, sendSessionPushes, sessionPushesEnabled } from './sessionPushes/send-session-push';
 import { reminderRecipients, reminderScanDates } from './sessionPushes/session-time';
+import { runTrainingHereReminderPass } from './trainingHere/send-training-here-push';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -48,6 +52,18 @@ export async function runSessionReminderPass(db: admin.firestore.Firestore, nowM
 export const sessionReminderScheduler = onSchedule(
   { schedule: '*/5 * * * *', timeZone: 'Asia/Jerusalem', region: 'us-central1', timeoutSeconds: 240, memory: '512MiB' },
   async () => {
-    await runSessionReminderPass(admin.firestore(), Date.now());
+    const db = admin.firestore();
+    const now = Date.now();
+    // Independent passes: one failing must not starve the other.
+    try {
+      await runSessionReminderPass(db, now);
+    } catch (err) {
+      logger.error('[session-reminder] group-session pass failed', err);
+    }
+    try {
+      await runTrainingHereReminderPass(db, now);
+    } catch (err) {
+      logger.error('[session-reminder] training-here pass failed', err);
+    }
   },
 );

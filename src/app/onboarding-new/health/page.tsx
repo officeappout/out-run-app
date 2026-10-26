@@ -21,9 +21,12 @@ import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 export default function HealthDeclarationPage() {
   const uiGender = useUiGender();
   const router = useRouter();
+  const t = useT(onboarding);
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const { data: onboardingData } = useOnboardingStore();
   const [mounted, setMounted] = useState(false);
@@ -290,7 +293,7 @@ export default function HealthDeclarationPage() {
   if (!mounted || !_hasHydrated || (alreadyAccepted && !skipFailed)) {
     return (
       <div className={v2 ? 'h-full bg-v2-surface flex items-center justify-center' : 'min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center'}>
-        <div className={v2 ? 'text-[14px] font-bold text-v2-muted' : 'text-slate-500'}>טוען...</div>
+        <div className={v2 ? 'text-[14px] font-bold text-v2-muted' : 'text-slate-500'}>{t('healthPage.loading')}</div>
       </div>
     );
   }
@@ -306,7 +309,7 @@ export default function HealthDeclarationPage() {
   if (skipFailed) {
     return (
       <div className={v2 ? 'h-full bg-v2-surface flex flex-col items-center justify-center gap-4 px-6 text-center' : 'min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center gap-4 px-6 text-center'}>
-        <div className={v2 ? 'text-[15px] font-bold text-v2-ink-2 leading-relaxed' : 'text-slate-500'}>לא הצלחנו לשמור את ההמשך. בדקו את החיבור ונסו שוב.</div>
+        <div className={v2 ? 'text-[15px] font-bold text-v2-ink-2 leading-relaxed' : 'text-slate-500'}>{t('healthPage.skipFailed')}</div>
         {v2 ? (
           <button
             type="button"
@@ -332,13 +335,13 @@ export default function HealthDeclarationPage() {
     <Suspense
       fallback={
         <div className={v2 ? 'flex-1 h-full bg-v2-surface flex items-center justify-center' : 'min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center'}>
-          <div className={v2 ? 'text-[14px] font-bold text-v2-muted' : 'text-slate-500'}>טוען...</div>
+          <div className={v2 ? 'text-[14px] font-bold text-v2-muted' : 'text-slate-500'}>{t('healthPage.loading')}</div>
         </div>
       }
     >
       <HealthDeclarationStep
-        title="הצהרת בריאות"
-        description="כדי להתאים לך אימון בטוח, נשמח לדעת על מצבך הרפואי"
+        title={t('healthPage.title')}
+        description={t('healthPage.description')}
         onContinue={handleManualContinue}
       />
     </Suspense>

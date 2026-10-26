@@ -56,3 +56,22 @@ export function deriveRunnerSwapVolume(
     ? { exerciseType, repsRange: r, duration: `${setsPrefix}${rangeText(r)} שניות`, reps: undefined }
     : { exerciseType, repsRange: r, reps: `${setsPrefix}${rangeText(r)} חזרות${isUnilateral ? ' (לכל צד)' : ''}`, duration: undefined };
 }
+
+/**
+ * Pilot S4: the volume to apply on an in-workout swap, or null to keep the old numbers.
+ * Flag on: always re-derive (as before). Flag off: still re-derive when the metric changes
+ * (reps to hold or back), so a "4-6 reps" target never carries over as a hold target.
+ * The level-delta scaling stays behind the flag.
+ */
+export function runnerSwapVolumeFor(
+  old: RunnerSwapSource | null | undefined,
+  newIsTimeBased: boolean,
+  newLevel: number | undefined,
+  isUnilateral: boolean,
+  swapFixesOn: boolean,
+): RunnerSwapVolume | null {
+  if (!old) return null;
+  if (swapFixesOn) return deriveRunnerSwapVolume(old, newIsTimeBased, newLevel, isUnilateral);
+  const metricChanged = newIsTimeBased !== (old.exerciseType === 'time');
+  return metricChanged ? deriveRunnerSwapVolume(old, newIsTimeBased, undefined, isUnilateral) : null;
+}

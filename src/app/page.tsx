@@ -32,7 +32,7 @@ import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import ExistingAccountModal from '@/components/ExistingAccountModal';
 import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
 import { IntroLanding } from '@/features/user/onboarding/intro/components/IntroLanding';
-import { INTRO_SEEN_PREF, isIntroPreview, isIntroSeen, withIntroRedirect } from '@/features/user/onboarding/intro/intro-route';
+import { INTRO_SEEN_PREF, isIntroPreview, isIntroSeen, shouldHoldLandingSplash, withIntroRedirect } from '@/features/user/onboarding/intro/intro-route';
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
 import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 import { runNewAccountFlow } from '@/features/user/onboarding/services/run-new-account-flow';
@@ -311,7 +311,7 @@ export default function LandingPage() {
   // never waits for them (unknown = today's carousel landing, unchanged).
   // `/?intro=preview` (owner preview, client-side only) shows it regardless of the
   // flag and of "seen", and the intro then never marks itself seen.
-  const { enabled: introFlag } = useEntryIntroV1();
+  const { enabled: introFlag, loading: introFlagLoading } = useEntryIntroV1();
   const [introPreview, setIntroPreview] = useState(false);
   useEffect(() => {
     if (isIntroPreview(window.location.search, 'landing')) setIntroPreview(true);
@@ -802,7 +802,7 @@ export default function LandingPage() {
           Rendered above the marketing UI (z-[100]) so the carousel can
           preload in the background without the user seeing a flash. */}
       <AnimatePresence>
-        {authState !== 'guest' && (
+        {shouldHoldLandingSplash({ isGuest: authState === 'guest', introFlagLoading, introPreview }) && (
           <motion.div
             key="branded-splash"
             initial={{ opacity: 1 }}

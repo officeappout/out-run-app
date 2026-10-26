@@ -5,6 +5,7 @@ import type { Route } from '../types/route.types';
 import type { WalkStep } from '../hooks/useWalkToRoute';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 import type { SurfaceFilter } from '../utils/route-surface';
+import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 
 /**
  * Map performance pressure signal — written by `useMapPerfMonitor`
@@ -25,6 +26,12 @@ export interface ViewportBounds {
 export type LayerType = 'parks' | 'routes' | 'water' | 'toilet' | 'gym';
 
 export type PartnerActivityFilter = 'all' | 'strength' | 'running' | 'walking';
+
+/** A park-page workout card's difficulty and length (enable_place_workouts_v1). */
+export interface ParkWorkoutStartOptions {
+  difficulty: 'easy' | 'medium' | 'hard';
+  minutes: number;
+}
 
 export interface MapDeepLinkIntent {
   type: 'park' | 'route';
@@ -354,8 +361,23 @@ interface MapStore {
    * and opens the drawer pre-filled. See docs/research/park-start-workout-wiring-plan.md.
    */
   pendingParkWorkoutStart: Park | null;
-  setPendingParkWorkoutStart: (park: Park | null) => void;
+  /**
+   * `opts` (enable_place_workouts_v1, a card on the park page): the workout's difficulty and
+   * length for /home's composer. Omitted → null → the consumer's defaults (medium, 20′), unchanged.
+   */
+  setPendingParkWorkoutStart: (park: Park | null, opts?: ParkWorkoutStartOptions | null) => void;
   consumePendingParkWorkoutStart: () => Park | null;
+  pendingParkWorkoutOptions: ParkWorkoutStartOptions | null;
+  consumePendingParkWorkoutOptions: () => ParkWorkoutStartOptions | null;
+  /**
+   * One-shot "compose this hybrid on the map" request (enable_place_workouts_v1: a hybrid
+   * card on the park / route page). DiscoverLayer consumes it and runs its existing
+   * composeAndShowOverview — the same compose + overview the free-run drawer uses.
+   * `at` (ms) lets a hand-off the map never picked up expire.
+   */
+  pendingHybridIntent: { intent: HybridStartIntent; at: number } | null;
+  setPendingHybridIntent: (intent: HybridStartIntent | null) => void;
+  consumePendingHybridIntent: () => { intent: HybridStartIntent; at: number } | null;
   /**
    * Monotonic counter that AppMap bumps whenever a click on the Mapbox
    * canvas falls through every interactive layer (no park / route /
@@ -573,10 +595,23 @@ export const useMapStore = create<MapStore>((set, get) => ({
   routeOverviewHostMounted: false,
   setRouteOverviewHostMounted: (mounted) => set({ routeOverviewHostMounted: mounted }),
   pendingParkWorkoutStart: null,
-  setPendingParkWorkoutStart: (park) => set({ pendingParkWorkoutStart: park }),
+  setPendingParkWorkoutStart: (park, opts) => set({ pendingParkWorkoutStart: park, pendingParkWorkoutOptions: opts ?? null }),
   consumePendingParkWorkoutStart: () => {
     const current = get().pendingParkWorkoutStart;
     if (current) set({ pendingParkWorkoutStart: null });
+    return current;
+  },
+  pendingParkWorkoutOptions: null,
+  consumePendingParkWorkoutOptions: () => {
+    const current = get().pendingParkWorkoutOptions;
+    if (current) set({ pendingParkWorkoutOptions: null });
+    return current;
+  },
+  pendingHybridIntent: null,
+  setPendingHybridIntent: (intent) => set({ pendingHybridIntent: intent ? { intent, at: Date.now() } : null }),
+  consumePendingHybridIntent: () => {
+    const current = get().pendingHybridIntent;
+    if (current) set({ pendingHybridIntent: null });
     return current;
   },
   mapEmptyTapTick: 0,

@@ -15,6 +15,7 @@ import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { openCalendarOnSwitchOn, useCalendarFeedPath } from '@/lib/calendar-subscription';
 import {
   buildDefaultTemplate,
   validateSchedule,
@@ -118,6 +119,8 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   // extracted function stays pure/testable — see scheduleSeed.service.ts's
   // own header for why.
   const userProfile = useUserStore((s) => s.profile);
+  // Pilot P17: switching "סנכרון ליומן" ON opens the calendar subscription in the tap.
+  const calendarFeedPath = useCalendarFeedPath(userProfile?.id);
 
   const skillFocusSlugs = useMemo<string[] | undefined>(() => {
     if (typeof window === 'undefined') return undefined;
@@ -279,6 +282,11 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   const [calendarSyncEnabled, setCalendarSyncEnabled] = useState<boolean>(() => {
     return (data as any).calendarSyncEnabled ?? true; // ON by default
   });
+  const toggleCalendarSync = () => {
+    const next = !calendarSyncEnabled;
+    setCalendarSyncEnabled(next);
+    openCalendarOnSwitchOn(next, calendarFeedPath);
+  };
   const [showRecommendation, setShowRecommendation] = useState<boolean>(false);
   
   // Auto-reveal animation states
@@ -782,7 +790,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                   <button
                     type="button"
                     aria-pressed={calendarSyncEnabled}
-                    onClick={() => setCalendarSyncEnabled(!calendarSyncEnabled)}
+                    onClick={toggleCalendarSync}
                     className={`flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[12px] transition-transform duration-150 ease-v2 active:scale-[0.97] ${
                       calendarSyncEnabled
                         ? 'bg-v2-tint font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40'
@@ -1332,7 +1340,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
             onClick={() => {
               // Local-only until handleContinue's consolidated write — see
               // the note above handleHistoryFreq.
-              setCalendarSyncEnabled(!calendarSyncEnabled);
+              toggleCalendarSync();
             }}
             className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 ${
               calendarSyncEnabled 

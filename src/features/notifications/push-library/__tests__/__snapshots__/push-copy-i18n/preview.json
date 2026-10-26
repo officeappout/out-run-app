@@ -1581,6 +1581,138 @@
       }
     }
   ],
+  "training_here_reminder": [
+    {
+      "id": "default:training_here_reminder:0",
+      "preview": {
+        "title": "הגינה מחכה · אימון כוח ב-18:30",
+        "body": "עוד רבע שעה בגן הבנים. נתראה שם?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_reminder:1",
+      "preview": {
+        "title": "הגינה מחכה · אימון כוח ב-18:30",
+        "body": "עוד רבע שעה בגן הבנים. אתה בדרך?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_reminder:2",
+      "preview": {
+        "title": "הגינה מחכה · אימון כוח ב-18:30",
+        "body": "עוד רבע שעה בגן הבנים. את בדרך?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_reminder:3",
+      "preview": {
+        "title": "הגינה מחכה · ב-18:30",
+        "body": "עוד רבע שעה בגן הבנים. נתראה שם?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_reminder:4",
+      "preview": {
+        "title": "המסלול מחכה · אימון כוח ב-18:30",
+        "body": "עוד רבע שעה בגן הבנים. נתראה שם?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_reminder:5",
+      "preview": {
+        "title": "המסלול מחכה · אימון כוח ב-18:30",
+        "body": "עוד רבע שעה בגן הבנים. אתה בדרך?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_reminder:6",
+      "preview": {
+        "title": "המסלול מחכה · אימון כוח ב-18:30",
+        "body": "עוד רבע שעה בגן הבנים. את בדרך?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_reminder:7",
+      "preview": {
+        "title": "המסלול מחכה · ב-18:30",
+        "body": "עוד רבע שעה בגן הבנים. נתראה שם?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_reminder:8",
+      "preview": {
+        "title": "עוד רבע שעה, ב-18:30",
+        "body": "האימון שקבעת מתחיל בקרוב. נתראה שם?",
+        "deepLink": "/map?openPark=park123"
+      }
+    }
+  ],
+  "training_here_partner": [
+    {
+      "id": "default:training_here_partner:0",
+      "preview": {
+        "title": "אימון של נועה ב-18:30",
+        "body": "בגן הבנים. מצטרפים?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_partner:1",
+      "preview": {
+        "title": "יואב מגיע ב-18:30 לגן הבנים",
+        "body": "מצטרף?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_partner:2",
+      "preview": {
+        "title": "נועה מגיעה ב-18:30 לגן הבנים",
+        "body": "מצטרף?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_partner:3",
+      "preview": {
+        "title": "יואב מגיע ב-18:30 לגן הבנים",
+        "body": "מצטרפת?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_partner:4",
+      "preview": {
+        "title": "נועה מגיעה ב-18:30 לגן הבנים",
+        "body": "מצטרפת?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_partner:5",
+      "preview": {
+        "title": "יואב מגיע ב-18:30 לגן הבנים",
+        "body": "מצטרפים?",
+        "deepLink": "/map?openPark=park123"
+      }
+    },
+    {
+      "id": "default:training_here_partner:6",
+      "preview": {
+        "title": "נועה מגיעה ב-18:30 לגן הבנים",
+        "body": "מצטרפים?",
+        "deepLink": "/map?openPark=park123"
+      }
+    }
+  ],
   "friend_joined": [
     {
       "id": "default:friend_joined:0",

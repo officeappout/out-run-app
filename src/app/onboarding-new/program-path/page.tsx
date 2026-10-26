@@ -71,6 +71,7 @@ import {
 import { genderArg } from '@/lib/i18n/core/i18n-core';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { clearStaleMiniAssessmentState } from '@/features/user/onboarding/services/mini-domain-assessment';
 
 
 /**
@@ -130,6 +131,11 @@ export default function ProgramPathPage() {
     if (sessionStorage.getItem('onboarding_running_answers')) {
       sessionStorage.removeItem('onboarding_running_answers');
       console.log('[ProgramPath] Cleared stale onboarding_running_answers — entering the strength path.');
+    }
+    // Pilot B1 / Q4: the full questionnaire starts here, so an abandoned mini top-up
+    // must not turn this run into a single-domain (push) write.
+    if (clearStaleMiniAssessmentState()) {
+      console.log('[ProgramPath] Cleared stale mini assessment flags — entering the full strength questionnaire.');
     }
     const g = sessionStorage.getItem('onboarding_personal_gender') as 'male' | 'female' | 'other' | null;
     setGender(g);

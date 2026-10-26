@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { FeedPrivacySheet } from '@/features/social/components/FeedPublishSheets';
-import { openCalendarSubscription, useCalendarFeedPath } from '@/features/home/hooks/useCalendarFeed';
+import { openCalendarSubscription, useCalendarFeedPath } from '@/lib/calendar-subscription';
 import { feedPrefsFrom, saveFeedPrefs, type FeedPrefs } from '@/features/social/services/feed-prefs';
 
 /** Home v2 (enable_home_v2) for the row primitives below — set once by the modal. */

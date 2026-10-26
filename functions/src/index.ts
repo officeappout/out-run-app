@@ -82,6 +82,9 @@ export { onGroupMemberJoin } from './onGroupMemberJoin';
 // waitlist promoted. Written, NOT deployed; a no-op until app_config/feature_flags.enableSessionPushes.
 export { sessionReminderScheduler } from './sessionReminderScheduler';
 export { onSessionAttendanceUpdate } from './onSessionAttendanceUpdate';
+// "I'm training here later" (26.10.2026): partner notice on create. The owner reminder rides
+// sessionReminderScheduler. No-op until app_config/feature_flags.enableTrainingHereReminders.
+export { onTrainingHereShared } from './onTrainingHereShared';
 export { onKudosCreated } from './onKudosCreated';
 // ── Notification-Manager-driven Triggers (reads workoutMetadata/notifications) ─
 export { stepGoalNudgeScheduler } from './stepGoalNudgeScheduler';

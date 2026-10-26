@@ -41,6 +41,13 @@ import ParkActionBar from './sections/ParkActionBar';
 import ParkPhotoLightbox from './sections/ParkPhotoLightbox';
 import ParkShelterTag from './sections/ParkShelterTag';
 import { parkTarget, useMapPolishV1, useNavigateTo } from '@/features/parks/core/map-polish';
+import dynamic from 'next/dynamic';
+import { isPlaceWorkoutsOn } from '../place-workouts/hooks/usePlaceWorkoutsFlag';
+import type { PlaceLeadCta } from '../place-workouts/ParkPlaceWorkouts';
+
+// enable_place_workouts_v1 — loaded only when the flag is on (flag off: nothing imported, nothing read).
+const ParkPlaceWorkouts = dynamic(() => import('../place-workouts/ParkPlaceWorkouts'), { ssr: false });
+const ParkEquipmentTiles = dynamic(() => import('../place-workouts/ParkEquipmentTiles'), { ssr: false });
 
 interface ParkDetailSheetProps {
   isOpen: boolean;
@@ -49,11 +56,17 @@ interface ParkDetailSheetProps {
   userLocation?: { lat: number; lng: number } | null;
 }
 
-export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userLocation }: ParkDetailSheetProps) {
+export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onStartWorkoutProp, userLocation }: ParkDetailSheetProps) {
   const { selectedPark } = useMapStore();
   const { profile } = useUserStore();
   // Home v2 (enable_home_v2): the design-lab park page.
-  const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
+  const sheetFlags = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags;
+  const v2 = sheetFlags.enableHomeV2;
+  // enable_place_workouts_v1 (inside v2): "מתאים לך כאן", dark equipment tiles, the CTA starts the first card.
+  const placeOn = isPlaceWorkoutsOn(sheetFlags);
+  const [placeLead, setPlaceLead] = useState<PlaceLeadCta | null>(null);
+  // The sticky CTA starts the first card when there is one; otherwise the host's start, as before.
+  const onStartWorkout = placeOn && placeLead ? placeLead.start : onStartWorkoutProp;
   const motion = useParkSheetMotion(isOpen, onClose);
 
   const [suggestEditOpen, setSuggestEditOpen] = useState(false);
@@ -167,6 +180,16 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
             <ParkMetaRow park={park} v2={v2} avgRating={avgRating} ratedCount={ratedReviews.length} distText={distText} />
             {polish && <ParkShelterTag park={park} />}
 
+            {placeOn && (
+              <ParkPlaceWorkouts
+                park={park}
+                equipment={parkEquipment}
+                userLocation={userLocation ?? null}
+                onClose={onClose}
+                onLeadChange={setPlaceLead}
+              />
+            )}
+
             <ParkPulseSection
               v2={v2}
               parkEvents={parkEvents}
@@ -207,8 +230,9 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
               </p>
             )}
 
-            {parkEquipment.length > 0 && (
-              <ParkEquipmentSection park={park} v2={v2} sections={equipmentSections} onSelect={setSelectedEquipment} />
+            {parkEquipment.length > 0 && (placeOn
+              ? <ParkEquipmentTiles park={park} equipment={parkEquipment} onSelect={setSelectedEquipment} />
+              : <ParkEquipmentSection park={park} v2={v2} sections={equipmentSections} onSelect={setSelectedEquipment} />
             )}
 
             {photoGallery.length > 1 && (
@@ -242,7 +266,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
         <ParkActionBar
           v2={v2}
-          ctaLabel={startWorkoutCta}
+          ctaLabel={placeOn && placeLead ? placeLead.label : startWorkoutCta}
           onStartWorkout={() => { onClose(); onStartWorkout?.(); }}
           onSuggestEdit={() => setSuggestEditOpen(true)}
           onNavigate={handleNavigate}

@@ -18,6 +18,8 @@ import PreviewPlayer from './PreviewPlayer';
 import PreviewRoute from './PreviewRoute';
 import PreviewRoutePlayer from './PreviewRoutePlayer';
 import PreviewStation from './PreviewStation';
+import { useT } from '@/hooks/useT';
+import { legal } from '@/messages/ns/legal';
 
 export const PREVIEW_ILLUSTRATION: Partial<Record<ReplayableTour, () => React.ReactElement>> = {
   player: PreviewPlayer,
@@ -34,15 +36,16 @@ export default function TourPreviewScreen({ tour, step, gender, onClose }: {
 }) {
   const Illustration = PREVIEW_ILLUSTRATION[tour];
   const [steps, setSteps] = useState<CoachMarkStep[] | null>(null);
+  const t = useT(legal);
 
   // Measure after the illustration has painted.
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       const shown = presentSteps(replayStepsFrom(replayTourSteps(tour, gender), step), coachTargetVisible);
       if (shown.length) setSteps(shown);
       else onClose();
     }, 350);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [tour, step, gender, onClose]);
 
   if (!Illustration) return null;
@@ -54,7 +57,7 @@ export default function TourPreviewScreen({ tour, step, gender, onClose }: {
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 14px)' }}
       >
         <span className="rounded-full bg-white/95 px-3 py-1 text-[12px] font-bold text-v2-ink-2 shadow-v2-card">
-          {`תצוגה לדוגמה · ${tourCatalogEntry(tour).name}`}
+          {t('help.preview.label', { name: tourCatalogEntry(tour).name })}
         </span>
       </div>
       {steps && <CoachMarks steps={steps} {...firstRunTourChrome(tour)} onFinish={onClose} />}
