@@ -17,8 +17,10 @@ export async function buildSwapPlanDeps(
   userProfile: UserFullProfile,
   location: ExecutionLocation,
   pool: readonly Exercise[] | undefined,
+  /** The park the user chose (chosen-park.ts); null → the nearest equipped park. */
+  chosenParkId: string | null = null,
 ): Promise<SwapPlanDeps> {
-  const gear = await resolveSwapGear(userProfile, location);
+  const gear = await resolveSwapGear(userProfile, location, chosenParkId);
   const poolArr = (pool ?? []) as Exercise[];
   return {
     pool: poolArr,

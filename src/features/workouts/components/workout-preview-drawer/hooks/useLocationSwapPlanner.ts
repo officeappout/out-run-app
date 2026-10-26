@@ -22,9 +22,11 @@ interface PlannerParams {
   generatedWorkout: GeneratedWorkout | null | undefined;
   userProfile: UserFullProfile | null | undefined;
   exercisePool?: Exercise[];
+  /** Which park a switch to park / street uses (chosen-park.ts); null → nearest. */
+  parkIdFor?: (location: ExecutionLocation) => string | null;
 }
 
-export function useLocationSwapPlanner({ generatedWorkout, userProfile, exercisePool }: PlannerParams) {
+export function useLocationSwapPlanner({ generatedWorkout, userProfile, exercisePool, parkIdFor }: PlannerParams) {
   const cache = useRef<{
     key: [unknown, unknown, unknown];
     plans: Map<string, Promise<LocationSwapPlan>>;
@@ -38,17 +40,19 @@ export function useLocationSwapPlanner({ generatedWorkout, userProfile, exercise
         cache.current = { key, plans: new Map() };
       }
       const plans = cache.current.plans;
-      let p = plans.get(location);
+      const parkId = parkIdFor?.(location) ?? null;
+      const planKey = parkId ? `${location}:${parkId}` : location; // another park → another plan
+      let p = plans.get(planKey);
       if (!p) {
-        p = buildSwapPlanDeps(userProfile, location, exercisePool).then((deps) =>
+        p = buildSwapPlanDeps(userProfile, location, exercisePool, parkId).then((deps) =>
           planLocationSwap(generatedWorkout.exercises, location, deps),
         );
-        p.catch(() => plans.delete(location)); // a failed plan is retried next time
-        plans.set(location, p);
+        p.catch(() => plans.delete(planKey)); // a failed plan is retried next time
+        plans.set(planKey, p);
       }
       return p;
     },
-    [generatedWorkout, userProfile, exercisePool],
+    [generatedWorkout, userProfile, exercisePool, parkIdFor],
   );
 
   const checkAvailability = useCallback(

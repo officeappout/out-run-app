@@ -62,6 +62,7 @@ import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
 import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 import WhereToTrainSection from '../where-to-train/WhereToTrainSection';
 import { useWhereToTrain } from '../where-to-train/useWhereToTrain';
+import { chosenParkIdForSwap } from './location-gate/chosen-park';
 import TrainingHereSheet from '@/features/parks/client/components/training-here/TrainingHereSheet';
 
 const DRAWER_HEIGHT = '95vh';
@@ -111,6 +112,7 @@ export default function WorkoutPreviewDrawer({
   selectedIntensityIndex,
   onSelectIntensity,
   surface,
+  sourceParkId = null,
 }: WorkoutPreviewDrawerProps) {
   const homeV2 = useHomeV2();
   const t = useT(library);
@@ -313,6 +315,17 @@ export default function WorkoutPreviewDrawer({
     (generatedWorkout?.executionLocation as ExecutionLocation) ||
     (workoutLocation as ExecutionLocation) ||
     'park';
+  // ── enable_where_to_train_v1: "איפה מתאמנים?" under the intensity selector + the shared sheet ──
+  // (above the swap: a switch to the park uses the park chosen there — chosen-park.ts)
+  const whereOn = useWhereToTrainV1();
+  const where = useWhereToTrain(whereOn && isOpen && !!generatedWorkout, generatedWorkout?.exercises);
+  const wherePicked = whereOn ? where.pickedParkId : null;
+  const whereSuggested = whereOn ? where.selectedParkId : null;
+  const swapParkIdFor = useCallback(
+    (location: ExecutionLocation) =>
+      chosenParkIdForSwap({ location, pickedParkId: wherePicked, sourceParkId, suggestedParkId: whereSuggested }),
+    [wherePicked, sourceParkId, whereSuggested],
+  );
   const { swapAll, isSwapping, lastResult: swapResult, checkAvailability } = useSwapAll({
     generatedWorkout,
     onGeneratedWorkoutUpdate,
@@ -320,6 +333,7 @@ export default function WorkoutPreviewDrawer({
     currentLocation: resolvedSwapLocation,
     exercisePool,
     locationGateEnabled: locationGateOn,
+    parkIdFor: swapParkIdFor,
   });
   // enable_location_gate_v1: which other locations the switcher may offer, decided by a dry-run when it
   // opens; reset whenever the workout changes (a swap, a method pick) so a stale verdict never lingers.
@@ -368,9 +382,6 @@ export default function WorkoutPreviewDrawer({
     [generatedWorkout, detailExercise, onGeneratedWorkoutUpdate],
   );
 
-  // ── enable_where_to_train_v1: "איפה מתאמנים?" under the intensity selector + the shared sheet ──
-  const whereOn = useWhereToTrainV1();
-  const where = useWhereToTrain(whereOn && isOpen && !!generatedWorkout, generatedWorkout?.exercises);
   const tc = useT(common);
   // Military persona keeps its "service" location (as in WorkoutLocationSwitcher) — a third segment.
   const whereShowService = profile ? hasPersona(profile, 'military') : false;

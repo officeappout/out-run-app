@@ -150,6 +150,19 @@ describe('placeCardVisual', () => {
   it('strength → the exercise media', () => {
     expect(placeCardVisual(sug({}), opts)).toEqual({ kind: 'media' });
   });
+  it('strength never draws a graph — not even with a run-shaped start or plan run blocks (owner 26.10)', () => {
+    const blocks = [{ id: 'w', type: 'run', label: 'w', zoneType: 'easy', durationSeconds: 600, colorHex: '' }] as unknown as RunBlock[];
+    const ctx = { planRunBlocks: blocks, paceCtx: { basePace: 300, zones: null } };
+    expect(placeCardVisual(sug({ style: 'strength' }), ctx)).toEqual({ kind: 'media' });
+    expect(placeCardVisual(sug({ style: 'strength', start: { kind: 'planned_run', workoutId: 'w', week: 1, day: 1 } }), ctx)).toEqual({ kind: 'media' });
+    expect(placeCardVisual(sug({ style: 'strength', start: { kind: 'hybrid', aerobicKind: 'running', minutes: 30 } }), ctx)).toEqual({ kind: 'media' });
+    const html = renderToStaticMarkup(
+      <PlaceWorkoutRail title="x" subtitle="y" banner={null} planRunBlocks={blocks}
+        suggestions={[sug({ id: 'a', style: 'strength' }), sug({ id: 'b', style: 'strength', start: { kind: 'planned_run', workoutId: 'w', week: 1, day: 1 } })]}
+        onStart={() => {}} />,
+    );
+    expect(html).not.toContain('data-card-art');
+  });
   it("today's planned run → its own blocks' intensity graph", () => {
     const blocks = [
       { id: 'w', type: 'warmup', label: 'w', durationSeconds: 600, colorHex: '' },
@@ -206,6 +219,10 @@ describe('PlaceWorkoutRail', () => {
     expect(html.match(/data-card-art/g)?.length).toBe(1);
     expect(html).toContain('rgba(14,20,25,0.94)');
     expect(html).not.toContain('placeWorkouts.');
+    // Compact cards (owner 26.10): every card — media or graph — is 200×236, the CTA ≥ 44px.
+    expect(html.match(/width:200px;height:236px/g)?.length).toBe(2);
+    expect(html).not.toContain('width:248px');
+    expect(html.match(/ h-11 /g)?.length).toBe(2);
   });
   it('nothing to suggest → nothing rendered', () => {
     expect(renderToStaticMarkup(<PlaceWorkoutRail title="x" subtitle="y" banner={null} suggestions={[]} onStart={() => {}} />)).toBe('');

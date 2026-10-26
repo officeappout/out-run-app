@@ -12,7 +12,7 @@
  */
 
 import { Info } from 'lucide-react';
-import { HScroller, MediaWorkoutCard, ProfileStrip } from '@/components/ui/v2';
+import { HScroller, MediaWorkoutCard, MEDIA_WORKOUT_CARD_ART_H, ProfileStrip } from '@/components/ui/v2';
 import type { RunBlock } from '@/features/workout-engine/players/running/types/run-block.type';
 import type { RunPaceContext } from '@/features/workout-engine/players/running/utils/run-preview/run-estimates';
 import type { PlaceBanner, PlaceWorkoutSuggestion } from '@/features/workout-engine/place-fit';
@@ -23,7 +23,6 @@ import { placeCardMedia } from './place-card-media';
 import { placeCardVisual } from './place-card-visual';
 
 const NO_PACE: RunPaceContext = { basePace: 0, zones: null };
-const GRAPH_H = 96;
 
 const BANNER_KEY = {
   unlit_after_dark: 'placeWorkouts.banner.unlitAfterDark',
@@ -74,7 +73,7 @@ export default function PlaceWorkoutRail({
             <MediaWorkoutCard
               key={s.id}
               media={placeCardMedia(s, isLead ? lead : null, placePhoto)}
-              art={visual.kind === 'graph' ? <ProfileStrip segments={visual.segments} height={GRAPH_H} /> : undefined}
+              art={visual.kind === 'graph' ? <ProfileStrip segments={visual.segments} height={MEDIA_WORKOUT_CARD_ART_H} /> : undefined}
               highlight={s.isFromPlan}
               eyebrow={copy.eyebrow}
               title={copy.title}

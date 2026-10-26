@@ -63,6 +63,8 @@ interface UseSwapAllParams {
    * coverage is below the threshold, otherwise applied from the plan. false/omitted → today's loop, unchanged.
    */
   locationGateEnabled?: boolean;
+  /** Which park a switch to park / street uses (chosen-park.ts); null / omitted → nearest. */
+  parkIdFor?: (location: ExecutionLocation) => string | null;
 }
 
 export interface SwapAllResult {
@@ -90,10 +92,11 @@ export function useSwapAll({
   currentLocation,
   exercisePool,
   locationGateEnabled = false,
+  parkIdFor,
 }: UseSwapAllParams): UseSwapAllReturn {
   const [isSwapping, setIsSwapping] = useState(false);
   const [lastResult, setLastResult] = useState<SwapAllResult | null>(null);
-  const { planFor, checkAvailability } = useLocationSwapPlanner({ generatedWorkout, userProfile, exercisePool });
+  const { planFor, checkAvailability } = useLocationSwapPlanner({ generatedWorkout, userProfile, exercisePool, parkIdFor });
 
   const swapAll = useCallback(
     async (dimension: SwapDimension, value: string) => {
@@ -128,7 +131,7 @@ export function useSwapAll({
         }
 
         // ── Resolve gear for the new location — SAME source as generation ──
-        const gear = await resolveSwapGear(userProfile, newLocation);
+        const gear = await resolveSwapGear(userProfile, newLocation, parkIdFor?.(newLocation) ?? null);
 
         // ── Per-exercise null-rule (sequential: exclude set grows per replacement) ──
         const exclude = new Set<string>(generatedWorkout.exercises.map((e) => e.exercise.id));
@@ -287,7 +290,7 @@ export function useSwapAll({
         setIsSwapping(false);
       }
     },
-    [generatedWorkout, onGeneratedWorkoutUpdate, userProfile, currentLocation, exercisePool, locationGateEnabled, planFor],
+    [generatedWorkout, onGeneratedWorkoutUpdate, userProfile, currentLocation, exercisePool, locationGateEnabled, planFor, parkIdFor],
   );
 
   return { swapAll, isSwapping, lastResult, checkAvailability };

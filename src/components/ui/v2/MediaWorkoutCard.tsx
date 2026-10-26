@@ -5,7 +5,7 @@
  * home daily card's media treatment (HeroMediaBackground: the workout's own
  * exercise still → its video loop, or the place's photo, or the brand
  * gradient), a dark gradient over the media and the text + CTA on it.
- * Sized for a carousel (≈ home's side card), the whole card is the button.
+ * Compact carousel card (200×236), the whole card is the button.
  * Used by the place pages ("מתאים לך כאן", "אימונים על המסלול הזה").
  * `art` replaces the media with a drawn visual on the ink surface (the run /
  * walk / hybrid cards' intensity graph).
@@ -19,8 +19,11 @@ import { Play } from 'lucide-react';
 import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
 import HeroMediaBackground from './HeroMediaBackground';
 
-export const MEDIA_WORKOUT_CARD_W = 248;
-export const MEDIA_WORKOUT_CARD_H = 292;
+/** Compact rail card (owner 26.10: smaller), ≈ home's card proportions. */
+export const MEDIA_WORKOUT_CARD_W = 200;
+export const MEDIA_WORKOUT_CARD_H = 236;
+/** Height the drawn `art` (intensity graph) gets inside the card. */
+export const MEDIA_WORKOUT_CARD_ART_H = 72;
 
 /** Dark scrim: clear over the top half, near-ink under the text. */
 /** The ink surface under `art` (no media). */
@@ -59,11 +62,11 @@ export default function MediaWorkoutCard({
       disabled={busy}
       aria-label={ariaLabel ?? `${cta} · ${title}`}
       aria-busy={busy || undefined}
-      className="relative block shrink-0 overflow-hidden rounded-[24px] text-start text-white shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:opacity-80"
+      className="relative block shrink-0 overflow-hidden rounded-[22px] text-start text-white shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:opacity-80"
       style={{ width: MEDIA_WORKOUT_CARD_W, height: MEDIA_WORKOUT_CARD_H, background: art ? INK_BG : undefined }}
     >
       {art ? (
-        <span aria-hidden className="absolute inset-x-4 top-14 block" data-card-art>{art}</span>
+        <span aria-hidden className="absolute inset-x-3 top-11 block" data-card-art>{art}</span>
       ) : (
         <>
           <span className="absolute inset-0">
@@ -73,20 +76,20 @@ export default function MediaWorkoutCard({
         </>
       )}
       <span
-        className={`absolute start-3 top-3 max-w-[calc(100%-24px)] truncate whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-extrabold ${
+        className={`absolute start-2.5 top-2.5 max-w-[calc(100%-20px)] truncate whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
           highlight ? 'bg-v2-tint text-v2-deep' : 'bg-black/35 text-white backdrop-blur-md'
         }`}
       >
         {eyebrow}
       </span>
-      <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-3.5">
-        <span className="truncate whitespace-nowrap text-[19px] font-black !tracking-[-0.02em]">{title}</span>
-        {meta && <span className="truncate whitespace-nowrap text-[13px] font-bold text-white/80">{meta}</span>}
+      <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-3">
+        <span className="truncate whitespace-nowrap text-[16px] font-black !tracking-[-0.02em]">{title}</span>
+        {meta && <span className="truncate whitespace-nowrap text-[12px] font-bold text-white/80">{meta}</span>}
         <span
-          className={`${BRAND_CTA_FILL_CLASS} mt-2.5 flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[15px] font-extrabold`}
+          className={`${BRAND_CTA_FILL_CLASS} mt-2 flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-extrabold`}
           style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 26px -12px rgba(0,186,247,0.7)' }}
         >
-          <Play size={14} strokeWidth={2.6} className="fill-current" aria-hidden />
+          <Play size={13} strokeWidth={2.6} className="fill-current" aria-hidden />
           {cta}
         </span>
       </span>

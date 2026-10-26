@@ -473,6 +473,8 @@ export default function HomePage() {
   // reliable firing over perfect per-caller granularity, same call this
   // phase made for handleHeroPress's own ~6 shared callers below.
   const [openSurface, setOpenSurface] = useState<string | null>(null);
+  /** The park whose page started the open preview (park page → "התחל אימון"); null otherwise. */
+  const [previewParkId, setPreviewParkId] = useState<string | null>(null);
   // True from the instant a new workout card is tapped until the engine
   // delivers fresh data — drives the skeleton shimmer inside the drawer.
   const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
@@ -2062,6 +2064,7 @@ export default function HomePage() {
 
   const composeAndOpenParkWorkout = useCallback(async (park: Park, difficulty: ParkWorkoutDifficulty, availableTime = 20) => {
     if (!profile) return;
+    setPreviewParkId(park.id); // a switch to the park keeps THIS park (chosen-park.ts), not the nearest
     backgroundHold.begin();
 
     // Open the drawer immediately in its loading state (skeleton), matching
@@ -4363,6 +4366,7 @@ export default function HomePage() {
         onClose={() => {
           setSelectedWorkout(null);
           setOpenSurface(null);
+          setPreviewParkId(null);
           setPreviewEntry(null);
           previewEntryRef.current = null;
           setIsWorkoutLoading(false);
@@ -4387,6 +4391,7 @@ export default function HomePage() {
         selectedIntensityIndex={trioSelector?.selectedIndex}
         onSelectIntensity={trioSelector?.onSelect}
         surface={openSurface ?? 'home-primary'}
+        sourceParkId={previewParkId}
       />
 
       {/* Edit modal — opened by drawer pencil or directly from other entry points */}

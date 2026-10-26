@@ -55,10 +55,10 @@ export function placeCardVisual(
   opts: { planRunBlocks: readonly RunBlock[] | null; paceCtx: RunPaceContext },
 ): PlaceCardVisual {
   const { start } = s;
+  // Strength is exercise media only — never a graph, whatever start it carries (owner 26.10).
+  if (s.style === 'strength' || start.kind === 'park_strength') return { kind: 'media' };
   const minutes = s.durationMin ?? FALLBACK_MIN;
   switch (start.kind) {
-    case 'park_strength':
-      return { kind: 'media' };
     case 'planned_run':
       return {
         kind: 'graph',
