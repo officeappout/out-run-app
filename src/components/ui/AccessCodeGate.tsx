@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Loader2, Send, SkipForward } from 'lucide-react';
 import { validateAccessCode, type AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
 import { getContactLabel } from '@/features/arena/utils/contactLabels';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 interface AccessCodeGateProps {
   /** Group or org display name — used in the WhatsApp template */
@@ -31,26 +33,26 @@ interface AccessCodeGateProps {
   optional?: boolean;
 }
 
-const ERROR_MAP: Record<string, string> = {
-  'not-found': 'קוד גישה לא נמצא. בדקו ונסו שוב.',
-  'not found': 'קוד גישה לא נמצא. בדקו ונסו שוב.',
-  expired: 'קוד הגישה פג תוקף.',
-  'resource-exhausted': 'קוד הגישה הגיע למכסה המקסימלית.',
-  maximum: 'קוד הגישה הגיע למכסה המקסימלית.',
-  precondition: 'קוד הגישה אינו פעיל יותר.',
-  'no longer active': 'קוד הגישה אינו פעיל יותר.',
+const ERROR_MAP = {
+  'not-found': 'ui.accessCode.error.notFound',
+  'not found': 'ui.accessCode.error.notFound',
+  expired: 'ui.accessCode.error.expired',
+  'resource-exhausted': 'ui.accessCode.error.max',
+  maximum: 'ui.accessCode.error.max',
+  precondition: 'ui.accessCode.error.inactive',
+  'no longer active': 'ui.accessCode.error.inactive',
   // SPEC-04 Wave C: validateAccessCode's own age-gate rejections. Neither
   // message text overlaps any key above, so match order doesn't matter here.
-  'complete your profile': 'יש להשלים את הפרופיל שלך (כולל תאריך לידה) לפני הזנת קוד גישה.',
-  'under-minimum-age': 'לא ניתן להשתמש בקוד גישה בשלב זה.',
-};
+  'complete your profile': 'ui.accessCode.error.completeProfile',
+  'under-minimum-age': 'ui.accessCode.error.underAge',
+} as const;
 
-function mapError(err: any): string {
+function mapError(err: any, t: (key: (typeof ERROR_MAP)[keyof typeof ERROR_MAP] | 'ui.accessCode.error.generic') => string): string {
   const msg = err?.message || err?.code || '';
   for (const [key, label] of Object.entries(ERROR_MAP)) {
-    if (msg.includes(key)) return label;
+    if (msg.includes(key)) return t(label);
   }
-  return 'שגיאה בבדיקת הקוד. נסו שוב.';
+  return t('ui.accessCode.error.generic');
 }
 
 export default function AccessCodeGate({
@@ -65,6 +67,7 @@ export default function AccessCodeGate({
   compact = false,
   optional = false,
 }: AccessCodeGateProps) {
+  const t = useT(common);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,7 +76,7 @@ export default function AccessCodeGate({
 
   const handleSubmit = useCallback(async () => {
     if (!code.trim()) {
-      setError('יש להזין קוד גישה');
+      setError(t('ui.accessCode.error.empty'));
       return;
     }
     setLoading(true);
@@ -83,21 +86,21 @@ export default function AccessCodeGate({
       onSuccess(result);
     } catch (err: any) {
       console.error('[AccessCodeGate] Validation failed for code:', code, '| Full error:', err, '| message:', err?.message, '| code:', err?.code, '| details:', err?.details);
-      setError(mapError(err));
+      setError(mapError(err, t));
     } finally {
       setLoading(false);
     }
-  }, [code, onSuccess]);
+  }, [code, onSuccess, t]);
 
   const handleContact = useCallback(() => {
-    const senderLabel = personaLabel || 'משתמש/ת';
-    const text = `שלום, אני ${senderLabel} ואשמח לקבל קוד גישה עבור ${orgName}.`;
+    const senderLabel = personaLabel || t('ui.accessCode.senderFallback');
+    const text = t('ui.accessCode.contactMessage', { sender: senderLabel, org: orgName });
     const phone = contactPhone?.replace(/[^0-9]/g, '') || '';
     const url = phone
       ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
       : `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
-  }, [personaLabel, orgName, contactPhone]);
+  }, [personaLabel, orgName, contactPhone, t]);
 
   return (
     <div
@@ -109,10 +112,10 @@ export default function AccessCodeGate({
           <Lock className="w-4 h-4 text-amber-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-gray-900">{optional ? 'קוד גישה (לא חובה)' : 'נדרש קוד גישה'}</p>
+          <p className="text-sm font-black text-gray-900">{optional ? t('ui.accessCode.titleOptional') : t('ui.accessCode.titleRequired')}</p>
           {!compact && (
             <p className="text-xs text-gray-500 mt-0.5">
-              {optional ? 'קיבלתם קוד מהארגון? הזינו אותו כאן' : 'הזינו את הקוד שקיבלתם מהארגון'}
+              {optional ? t('ui.accessCode.hintOptional') : t('ui.accessCode.hintRequired')}
             </p>
           )}
         </div>
@@ -134,7 +137,7 @@ export default function AccessCodeGate({
           disabled={loading || !code.trim()}
           className="px-4 py-2.5 rounded-xl font-black text-sm text-on-brand bg-brand-cta hover:brightness-105 disabled:opacity-40 transition-opacity flex items-center gap-1.5"
         >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'אישור'}
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('ui.accessCode.submit')}
         </button>
       </div>
 
@@ -153,7 +156,7 @@ export default function AccessCodeGate({
 
       <div className="flex items-center gap-3 mt-3">
         <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-[10px] text-gray-400 font-bold">או</span>
+        <span className="text-[10px] text-gray-400 font-bold">{t('ui.accessCode.or')}</span>
         <div className="flex-1 h-px bg-gray-200" />
       </div>
 
@@ -162,7 +165,7 @@ export default function AccessCodeGate({
         className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition-all"
       >
         <Send className="w-3.5 h-3.5" />
-        <span>פנה ל{contact.he}</span>
+        <span>{t('ui.accessCode.contact', { contact: contact.he })}</span>
       </button>
 
       {!hideSkip && onSkip && (
@@ -171,7 +174,7 @@ export default function AccessCodeGate({
           className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
           <SkipForward className="w-3 h-3" />
-          דלג — המשך בלי קוד
+          {t('ui.accessCode.skip')}
         </button>
       )}
     </div>

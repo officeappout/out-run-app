@@ -29,7 +29,8 @@ describe('shown once per user', () => {
 describe('skip works', () => {
   it('"דלג" is rendered on every step (outside the step branch) and finishes with "skip"', () => {
     const cm = src('../../../../components/ui/CoachMarks.tsx');
-    expect(cm).toContain("skipLabel = 'דלג'");
+    // batch ao: the default label moved to the catalog (common ui.coach.skip = "דלג")
+    expect(cm).toContain("skipLabel = skipProp ?? t('ui.coach.skip')");
     expect(cm).toContain("onClick={() => onFinish('skip')}");
     // the skip button is not inside any step-conditional block
     const skipBlock = cm.slice(cm.lastIndexOf('<button'), cm.lastIndexOf('</button>'));

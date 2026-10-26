@@ -31,8 +31,8 @@ import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
-import { currentUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 interface ProfilePhotoUploaderProps {
   /** Current photo URL (falls back to placeholder when missing). */
@@ -65,18 +65,19 @@ export default function ProfilePhotoUploader({
   const [uploading, setUploading] = useState(false);
   const updateProfileStore = useUserStore((s) => s.updateProfile);
   const { showToast } = useToast();
+  const t = useT(common);
 
   const handlePick = useCallback(async () => {
     if (uploading) return;
 
     if (!isNativePlatform()) {
-      showToast('error', 'עדכון תמונת פרופיל זמין באפליקציה הנייטיב בלבד');
+      showToast('error', t('ui.photo.nativeOnly'));
       return;
     }
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
-      showToast('error', 'לא נמצא משתמש מחובר.');
+      showToast('error', t('ui.photo.noUser'));
       return;
     }
 
@@ -92,7 +93,7 @@ export default function ProfilePhotoUploader({
           permissions: ['camera', 'photos'],
         });
         if (requested.camera === 'denied' && requested.photos === 'denied') {
-          showToast('error', 'לא ניתן לקבל הרשאות מצלמה/גלריה.');
+          showToast('error', t('ui.photo.permission'));
           return;
         }
       }
@@ -130,18 +131,18 @@ export default function ProfilePhotoUploader({
       updateProfileStore({ core: { photoURL: url } } as any);
 
       onUploaded?.(url);
-      showToast('success', 'תמונת הפרופיל עודכנה');
+      showToast('success', t('ui.photo.updated'));
     } catch (err: any) {
       // Capacitor cancellation appears as a thrown "User cancelled photos app"
       // error — treat it as silent.
       const msg = String(err?.message || err || '');
       if (/cancel/i.test(msg)) return;
       console.error('[ProfilePhotoUploader] upload failed:', err);
-      showToast('error', pickGendered(currentUiGender(), { male: 'שגיאה בהעלאת התמונה. נסה שוב.', female: 'שגיאה בהעלאת התמונה. נסי שוב.', other: 'שגיאה בהעלאת התמונה. נסו שוב.' }));
+      showToast('error', t('ui.photo.uploadFailed'));
     } finally {
       setUploading(false);
     }
-  }, [uploading, showToast, updateProfileStore, onUploaded]);
+  }, [uploading, showToast, updateProfileStore, onUploaded, t]);
 
   const dim = `${size}px`;
   const overlayDim = Math.max(24, Math.round(size * 0.3));
@@ -172,7 +173,7 @@ export default function ProfilePhotoUploader({
         type="button"
         onClick={handlePick}
         disabled={uploading}
-        aria-label="עדכון תמונת פרופיל"
+        aria-label={t('ui.photo.edit')}
         className="absolute bottom-0 left-0 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-60"
         style={{ width: overlayDim, height: overlayDim }}
       >

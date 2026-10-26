@@ -3,6 +3,8 @@
 import { useId, type ComponentType } from 'react';
 import { Dumbbell, TrendingUp, type LucideProps } from 'lucide-react';
 import { formatGain, type ProgramRingModel } from './summary';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 /**
  * "התקדמות בתוכניות שלי" — the program-level ring (brand gradient = % inside
@@ -89,6 +91,7 @@ function Ring({ ring, gain, size = SIZE }: { ring: ProgramRingModel; gain: numbe
 }
 
 export default function ProgramProgressRing({ items }: { items: ProgramProgressItem[] }) {
+  const t = useT(common);
   if (items.length === 0) return null;
   const anyGain = items.some((i) => i.ring.gainPercent > 0);
   return (
@@ -97,12 +100,12 @@ export default function ProgramProgressRing({ items }: { items: ProgramProgressI
         <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-[10px] bg-v2-tint text-v2-deep">
           <TrendingUp size={16} strokeWidth={2.4} aria-hidden />
         </span>
-        <span className="truncate text-[14.5px] font-black text-v2-ink">התקדמות בתוכניות שלי</span>
+        <span className="truncate text-[14.5px] font-black text-v2-ink">{t('ui.programRing.title')}</span>
         <span className="flex-1" />
         {anyGain && (
           <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11.5px] font-extrabold text-v2-muted">
             <span aria-hidden className="h-1 w-2.5 rounded-full bg-v2-up" />
-            האימון של היום
+            {t('ui.programRing.today')}
           </span>
         )}
       </div>
