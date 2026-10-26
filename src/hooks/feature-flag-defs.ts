@@ -744,6 +744,13 @@ export const FLAG_DEFS = [
   // workout happened below the bar), 1 streak day, 2 + one domain goal (strength or aerobic), 3 both.
   // The streak count is unchanged. Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableFlameTiersV1', firestoreKey: 'enable_flame_tiers_v1', defaultValue: false, superAdminValue: true },
+  // Strength questionnaire v3 (26.10.2026, owner-approved canvas https://claude.ai/artifact/CWe21GxmVEpbM6QjnwxTLM,
+  // pilot wave 2, brief ~/Development/agent-briefs/strength-quiz-v3/). The strength signup without the goal screen:
+  // welcome + "what is calisthenics", the short-assessment intro, per-group transitions with progress icons, the
+  // slider's bolt chips and help link, skills offered only after the assessment (pull 14 = front lever, push 16 =
+  // planche), the summary as progress-tab program cards and three explainers. Fail-closed; super admins preview it.
+  // Off = the signup is byte-identical to today.
+  { key: 'enableStrengthQuizV3', firestoreKey: 'enable_strength_quiz_v3', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
