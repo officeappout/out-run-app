@@ -11,6 +11,7 @@
  * At most one handoff per turn.
  */
 import 'server-only';
+import { scheduleFailureReason } from './schedule-diagnostic';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { getIsraelDateKey, getIsraelDayOfWeek } from '@/lib/israelTime';
 import { KELLY_NAME, KELLY_UID } from '@/features/social/services/kelly-welcome-bot.service';
@@ -104,7 +105,7 @@ async function readWorkouts(ctx: ServerToolContext, sinceMs: number | null, limi
  * `partial`: the virtual layering threw, so only the day docs are in `entries`; a day without a
  * doc is UNKNOWN, not empty (never a "nothing planned" that isn't really nothing).
  */
-async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<{ entries: RawScheduleEntry[]; partial?: true }> {
+async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<{ entries: RawScheduleEntry[]; partial?: true; reason?: string }> {
   if (dates.length === 0) return { entries: [] };
   const refs = dates.map((d) => ctx.db.collection('userSchedule').doc(`${ctx.uid}_${d}`));
   const snaps = await ctx.db.getAll(...refs);
@@ -135,7 +136,7 @@ async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<{ 
         out.push({ date, type: e.type, programIds: e.programIds, startTime: e.startTime, completed: e.completed, title: e.title, scheduledCategories: e.scheduledCategories, plannedRun: e.plannedRun });
       }
     }
-    return { entries: out, partial: true };
+    return { entries: out, partial: true, reason: scheduleFailureReason(err) };
   }
 }
 
@@ -280,14 +281,16 @@ export async function getProgress(ctx: ServerToolContext, input: { range: Progre
 
 export async function getSchedule(ctx: ServerToolContext, input: { from: string; to: string }): Promise<ToolExecResult> {
   const days = daysBetween(input.from, input.to);
-  const { entries, partial } = await readSchedule(ctx, days);
+  const { entries, partial, reason } = await readSchedule(ctx, days);
   if (partial) {
     return json({
       from: input.from,
       to: input.to,
       partial: true,
+      // Why it failed — lands in the turn log's resultSummary so the next owner chat explains itself.
+      ...(reason ? { diagnostic: reason } : {}),
       entries: entries.map(sheetScheduleEntry),
-      note: 'Only part of the schedule could be read: the planned template and running entries could not be read. Days without an entry here are UNKNOWN, not empty. Never say nothing is planned on them; say you could not check the full schedule and suggest opening it in the app.',
+      note: 'Only part of the schedule could be read: the planned template and running entries could not be read. Days without an entry here are UNKNOWN, not empty. Never say nothing is planned on them, and never mention the diagnostic field; say you could not check the full schedule and suggest opening it in the app.',
     });
   }
   return json({ from: input.from, to: input.to, entries: entries.map(sheetScheduleEntry) });
