@@ -3,9 +3,9 @@
  *
  * Appends 1-3 cooldown (static stretch) exercises to a generated workout.
  * Tiers (test / placeholder docs are excluded from ALL of them — H5):
- *   0. a follow-along cool-down VIDEO filmed for this location (cooldown-guide.utils) → it IS
- *      the whole cool-down, one slot (owner 26.10: the park cool-down is the filmed video, not
- *      the home-filmed stretches)
+ *   0. follow-along cool-down VIDEO(s) filmed for this location (cooldown-guide.utils) → they ARE
+ *      the whole cool-down (owner 26.10: the filmed stretch video, not the home-filmed single
+ *      stretches), chosen by body focus — upper / lower / full body → both (upper, then lower)
  *   1. exerciseRole 'cooldown', bodyweight method at this location
  *   2. exerciseRole 'cooldown', any method at this location
  *   3. bodyweight stretch fallback: flexibility-tagged / movementGroup 'flexibility'
@@ -26,7 +26,7 @@ import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 import { isTestOrPlaceholderExercise } from '../shared/utils/test-exercise.utils';
-import { cooldownGuideSeconds, pickCooldownGuide } from './cooldown-guide.utils';
+import { cooldownGuideSeconds, pickCooldownGuides } from './cooldown-guide.utils';
 
 // ============================================================================
 // COOLDOWN APPEND
@@ -55,24 +55,32 @@ export function appendCooldownExercises(
 
   const workoutIds = new Set(workout.exercises.map(e => e.exercise.id));
 
-  // Tier 0 — the follow-along cool-down video for this location replaces the stretches.
-  const guide = pickCooldownGuide(allExercises, location, workoutIds);
-  if (guide) {
-    const seconds = cooldownGuideSeconds(guide.method);
-    workout.exercises.push({
-      exercise: guide.exercise,
-      method: guide.method,
-      mechanicalType: (guide.exercise.mechanicalType || 'none') as any,
-      sets: 1,
-      reps: seconds,
-      isTimeBased: true,
-      restSeconds: 0,
-      priority: 'isolation' as const,
-      score: 0,
-      reasoning: ['cooldown: follow-along video for this location'],
-      exerciseRole: 'cooldown' as const,
-    });
-    console.log(`[Cooldown] Follow-along cool-down video "${guide.exercise.id}" (${seconds}s) for ${location}`);
+  // Tier 0 — the follow-along cool-down video(s) for this location replace the stretches.
+  // Picked by the workout's body focus; a full-body workout gets both (upper, then lower). The
+  // second video is ON TOP of the cool-down budget — main work is never cut for it (same as the
+  // warm-up guides, #848).
+  const mains = workout.exercises
+    .filter((we) => we.exerciseRole !== 'warmup' && we.exerciseRole !== 'cooldown')
+    .map((we) => we.exercise);
+  const guides = pickCooldownGuides(allExercises, location, mains, workoutIds);
+  if (guides.length > 0) {
+    for (const guide of guides) {
+      const seconds = cooldownGuideSeconds(guide.method);
+      workout.exercises.push({
+        exercise: guide.exercise,
+        method: guide.method,
+        mechanicalType: (guide.exercise.mechanicalType || 'none') as any,
+        sets: 1,
+        reps: seconds,
+        isTimeBased: true,
+        restSeconds: 0,
+        priority: 'isolation' as const,
+        score: 0,
+        reasoning: ['cooldown: follow-along video for this location'],
+        exerciseRole: 'cooldown' as const,
+      });
+      console.log(`[Cooldown] Follow-along cool-down video "${guide.exercise.id}" (${seconds}s) for ${location}`);
+    }
     return;
   }
 

@@ -215,6 +215,9 @@ export function applyDomainPrioritySort(exercises: WorkoutExercise[]): WorkoutEx
       const rb = roleOrder[b.we.exerciseRole ?? 'main'] ?? 1;
       if (ra !== rb) return ra - rb;
 
+      // Cool-down follow-along videos (full-body workout: upper, then lower) keep their order.
+      if (ra === 2 && a.we.exercise.isFollowAlong === true && b.we.exercise.isFollowAlong === true) return a.i - b.i;
+
       // ── GENERAL-WARMUP PIN — Stage-1 mobility drill leads the warmup block ──
       // Fires only within the warmup role bucket (both sides warmup). The
       // Stage-1 general mobility warmup is stamped `isGeneralWarmup` by

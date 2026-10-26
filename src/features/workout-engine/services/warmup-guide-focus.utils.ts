@@ -19,6 +19,14 @@ type GuideFocus = 'upper' | 'lower';
 
 export const WARMUP_UPPER_TAG = 'warmup_upper';
 export const WARMUP_LOWER_TAG = 'warmup_lower';
+/** The cool-down stretch videos use the same rule with their own tags (cooldown-guide.utils). */
+export const COOLDOWN_UPPER_TAG = 'cooldown_upper';
+export const COOLDOWN_LOWER_TAG = 'cooldown_lower';
+
+/** Which tags mark a guide as upper / lower. Defaults to the warm-up tags. */
+export interface GuideFocusTags { upper: string; lower: string }
+const WARMUP_TAGS: GuideFocusTags = { upper: WARMUP_UPPER_TAG, lower: WARMUP_LOWER_TAG };
+export const COOLDOWN_GUIDE_TAGS: GuideFocusTags = { upper: COOLDOWN_UPPER_TAG, lower: COOLDOWN_LOWER_TAG };
 
 const UPPER_MGS = new Set(['vertical_pull', 'horizontal_pull', 'vertical_push', 'horizontal_push']);
 const LOWER_MGS = new Set(['squat', 'hinge', 'lunge']);
@@ -64,11 +72,11 @@ export function resolveWorkoutBodyFocus(mainExercises: readonly MaybeMuscled[]):
   return null;
 }
 
-/** A warm-up guide's own focus: tag first, then muscles; untagged / mixed → upper (general). */
-export function warmupGuideFocus(guide: MaybeMuscled): GuideFocus {
+/** A guide's own focus: tag first, then muscles; untagged / mixed → upper (general). */
+export function warmupGuideFocus(guide: MaybeMuscled, focusTags: GuideFocusTags = WARMUP_TAGS): GuideFocus {
   const tags = guide.tags ?? [];
-  if (tags.includes(WARMUP_LOWER_TAG)) return 'lower';
-  if (tags.includes(WARMUP_UPPER_TAG)) return 'upper';
+  if (tags.includes(focusTags.lower)) return 'lower';
+  if (tags.includes(focusTags.upper)) return 'upper';
   const muscles = musclesOf(guide);
   const lower = muscles.some((m) => LOWER_MUSCLES.has(m));
   const upper = muscles.some((m) => UPPER_MUSCLES.has(m));
@@ -83,12 +91,13 @@ export function warmupGuideFocus(guide: MaybeMuscled): GuideFocus {
 export function planWarmupGuideBuckets<T extends MaybeMuscled>(
   guides: readonly T[],
   focus: BodyFocus | null,
+  focusTags: GuideFocusTags = WARMUP_TAGS,
 ): T[][] {
   if (guides.length === 0) return [];
   const all = [...guides];
   if (focus === null) return [all];
-  const upper = all.filter((g) => warmupGuideFocus(g) === 'upper');
-  const lower = all.filter((g) => warmupGuideFocus(g) === 'lower');
+  const upper = all.filter((g) => warmupGuideFocus(g, focusTags) === 'upper');
+  const lower = all.filter((g) => warmupGuideFocus(g, focusTags) === 'lower');
   const wanted = focus === 'full' ? [upper, lower] : focus === 'upper' ? [upper] : [lower];
   const buckets = wanted.filter((b) => b.length > 0);
   return buckets.length > 0 ? buckets : [all];
