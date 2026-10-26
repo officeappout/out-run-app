@@ -20,6 +20,7 @@
  * the fixed safety reply. Without unified Kelly the denial is returned as before (the screen
  * shows its error card).
  */
+import { workoutFormatFor } from '@/lib/ai/coach/workout-format-gate';
 import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import type { AiDenial } from '@/lib/ai/verify-ai-request.server';
@@ -198,6 +199,8 @@ export async function POST(request: Request) {
   // Owner chat review fixes (ai_coach_request_fidelity): ask where, judge the user's own week,
   // honest set schemes / weekly sets / praise. Off = the exact prompt and tool results as before.
   const fidelity = auth.flags?.aiCoachRequestFidelity === true;
+  // ai_coach_workout_format: Kelly can request EMOM / core Tabata from the engine (owner + office always).
+  const workoutFormat = workoutFormatFor(auth.flags, auth.profile?.core?.isSuperAdmin === true);
   // get_app_help reads the help loader: refresh its site_content copy (≤ once / 5 min, never throws).
   if (round4) await primeHelpEntries(db);
   let safetyText: string | null = null;
@@ -242,7 +245,7 @@ export async function POST(request: Request) {
       pending.pendingResults,
       clientOutcomeToToolResult(pending.toolUseId, outcome, {
         ...(round4 ? { round4: true } : {}),
-        ...(fidelity ? { requestedFormat: inferRequestedFormat(turnUserText(pending.state)) } : {}),
+        ...(fidelity || workoutFormat ? { requestedFormat: inferRequestedFormat(turnUserText(pending.state)) } : {}),
       }),
       pending.toolName || 'generate_workout',
     );
@@ -364,7 +367,7 @@ export async function POST(request: Request) {
 
   const cached = withPromptCaching({
     system: round4 ? coachSystemPrompt({ round4: true }) : COACH_SYSTEM_PROMPT,
-    tools: coachToolDefinitions({ scheduleAdvisor, ...(phase2 ? { phase2: true } : {}), ...(round4 ? { round4: true } : {}), ...(builder ? { builder: true } : {}) }),
+    tools: coachToolDefinitions({ scheduleAdvisor, ...(phase2 ? { phase2: true } : {}), ...(round4 ? { round4: true } : {}), ...(builder ? { builder: true } : {}), ...(workoutFormat ? { format: true } : {}) }),
   });
   const system: Anthropic.TextBlockParam[] = [
     ...cached.system,
@@ -385,6 +388,7 @@ export async function POST(request: Request) {
         ...(memoryBlock ? { memory: memoryBlock } : {}),
         ...(round4 ? { round4Note: ROUND4_NOTE } : {}),
         ...(fidelity ? { requestFidelity: true } : {}),
+        ...(workoutFormat ? { workoutFormat: true } : {}),
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.

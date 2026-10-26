@@ -473,6 +473,8 @@ export interface WorkoutGenerationContext {
   periodizationWeek?: number;
   protocolProbability?: number;
   preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset' | 'tabata')[];
+  /** Kelly (ai_coach_workout_format): the core block is built as a tabata block (falls back to form A when it can't be composed). */
+  forcedCoreForm?: 'tabata';
   /** Dedicated conditioning pool for tabata blocks — ALL `hiit_friendly`-tagged
    *  exercises (incl. program-less gems like burpees/crawls that never enter the
    *  scored strength pool). Passed as data so the generator stays pure; buildTabataBlock

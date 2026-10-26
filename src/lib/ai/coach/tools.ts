@@ -90,6 +90,8 @@ export const GenerateWorkoutInput = z.object({
   domains: z.array(z.enum(COACH_DOMAINS)).max(4).default([]),
   equipment: z.array(z.string().min(1).max(64)).max(12).default([]),
   intent: z.string().max(80).optional(),
+  /** ai_coach_workout_format: the set scheme the user named. Tabata only for a core-only request. */
+  format: z.enum(['emom', 'tabata']).optional(),
 });
 export type GenerateWorkoutInputT = z.infer<typeof GenerateWorkoutInput>;
 
@@ -294,6 +296,26 @@ export function toolKind(name: string): CoachToolKind | null {
 }
 
 /**
+ * ai_coach_workout_format: generate_workout's definition with the optional `format`. Same name and
+ * zod schema (GenerateWorkoutInput already accepts it); only the model-facing schema/description
+ * grow, so flag off = the exact list as before.
+ */
+function generateWithFormat(base: Pick<Anthropic.Tool, 'description' | 'input_schema'>): Pick<Anthropic.Tool, 'description' | 'input_schema'> {
+  const schema = base.input_schema as { properties: Record<string, unknown> };
+  return {
+    description:
+      `${base.description} Set scheme: when the user names EMOM or Tabata, pass format. 'emom' works for any area. 'tabata' works ONLY for a core / abs request (domains ["core"]); never pass it for anything else, the engine has no full-body Tabata. Omit format when no scheme was named.`,
+    input_schema: {
+      ...(base.input_schema as object),
+      properties: {
+        ...schema.properties,
+        format: { type: 'string', enum: ['emom', 'tabata'], description: "The named set scheme. 'tabata' only with domains [\"core\"]." },
+      },
+    } as Anthropic.Tool['input_schema'],
+  };
+}
+
+/**
  * Kelly in the week builder (enable_week_builder_v1): propose_schedule_change's definition while
  * the chat is open over the week builder. Same name and input (zod: ProposeScheduleChangeInput,
  * whose moves accept `track`); it works on the DRAFT week on screen, every track.
@@ -333,7 +355,7 @@ const PROPOSE_IN_BUILDER: Pick<Anthropic.Tool, 'description' | 'input_schema'> =
  * `phase2`, the round 4 tools only with `round4` — off = exactly today's list. `builder` (only
  * with phase2): propose_schedule_change in its week-builder form; absent = unchanged.
  */
-export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean; phase2?: boolean; round4?: boolean; builder?: boolean } = {}): Anthropic.Tool[] {
+export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean; phase2?: boolean; round4?: boolean; builder?: boolean; format?: boolean } = {}): Anthropic.Tool[] {
   return Object.values(COACH_TOOLS)
     .filter((t) => opts.scheduleAdvisor || !SCHEDULE_ADVISOR_TOOL_NAMES.includes(t.name))
     .filter((t) => opts.phase2 || !PHASE2_TOOL_NAMES.includes(t.name))
@@ -341,7 +363,9 @@ export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean; phase2?:
     .map((t) =>
       opts.builder && t.name === 'propose_schedule_change'
         ? { name: t.name, ...PROPOSE_IN_BUILDER }
-        : {
+        : opts.format && t.name === 'generate_workout'
+          ? { name: t.name, ...generateWithFormat({ description: t.description, input_schema: t.inputSchema as Anthropic.Tool['input_schema'] }) }
+          : {
     name: t.name,
     description: t.description,
     input_schema: t.inputSchema,

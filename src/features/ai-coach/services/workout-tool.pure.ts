@@ -22,14 +22,26 @@ export interface BudgetSnapshot {
   strength?: StrengthBudgetSnapshot | null;
 }
 
+/**
+ * The scheme the engine can really be asked for: EMOM anywhere, Tabata ONLY for a core-only request
+ * (the general tabata finisher is frozen by design, 08.09.2026). Anything else → none.
+ */
+export function effectiveFormat(input: Pick<GenerateWorkoutInputT, 'format' | 'domains'>): 'emom' | 'tabata' | null {
+  if (input.format === 'emom') return 'emom';
+  if (input.format === 'tabata' && input.domains.length === 1 && input.domains[0] === 'core') return 'tabata';
+  return null;
+}
+
 export function buildGenerateOptions(
   input: GenerateWorkoutInputT,
   userProfile: HomeWorkoutOptions['userProfile'],
   budget: BudgetSnapshot,
   parkEquipmentIds: string[] | undefined,
 ): HomeWorkoutOptions {
-  const autoBlast = input.difficulty === 3 && input.durationMin <= 20;
   const domains = input.domains.length > 0 ? [...input.domains] : undefined;
+  const format = effectiveFormat(input);
+  // A named scheme wins over the automatic blast (blast beats tabata and picks EMOM/AMRAP at random).
+  const autoBlast = !format && input.difficulty === 3 && input.durationMin <= 20;
   const difficulty = input.difficulty as 1 | 2 | 3;
   return {
     userProfile,
@@ -45,6 +57,9 @@ export function buildGenerateOptions(
     weeklyBudgetUsagePercent: (budget.usagePct ?? 0) > 0 ? budget.usagePct : undefined,
     parkEquipmentIds: parkEquipmentIds?.length ? parkEquipmentIds : undefined,
     isManualOverride: true,
+    // ai_coach_workout_format: the engine is asked for the scheme (absent = as before).
+    ...(format === 'emom' ? { forcedProtocol: 'emom' as const } : {}),
+    ...(format === 'tabata' ? { forcedCoreForm: 'tabata' as const } : {}),
     // Budget light mode: Kelly RECOMMENDS this session → lighter (with a "why") when the strength
     // budget is spent. isManualOverride above still keeps the deficit math off, as before.
     budgetEntry: 'recommended',
@@ -77,6 +92,8 @@ export interface CompactDetails {
   domains: string[];
   difficulty: number;
   shortOfMinimum?: boolean;
+  /** ai_coach_workout_format: the scheme the model asked for (the result then reports a core tabata block). */
+  format?: 'emom' | 'tabata';
 }
 
 /** The engine clamped the user's level to the content ceiling for this location (#404). */
@@ -129,6 +146,8 @@ export function compactWorkout(
     out.domains = details.domains.slice(0, 8);
     out.difficulty = clampInt(details.difficulty, 1, 3);
     out.structure = String(workout.structure ?? 'standard').slice(0, 20);
+    // Only while the format flag is on: a core Tabata block is reported as the scheme that was built.
+    if (details.format && workout.tabataBlock) out.structure = 'tabata';
     out.warmupCount = workout.exercises.filter((e) => e.exerciseRole === 'warmup').length;
     out.cooldownCount = workout.exercises.filter((e) => e.exerciseRole === 'cooldown').length;
     out.levelCeiling = hasLevelCeiling(workout);

@@ -267,6 +267,13 @@ export const FLAG_DEFS = [
   // route); fail-closed, superAdminValue false — the panel toggle is the switch. Off = the exact
   // prompt and tool results as before.
   { key: 'aiCoachRequestFidelity', firestoreKey: 'ai_coach_request_fidelity', defaultValue: false, superAdminValue: false },
+  // aiCoachWorkoutFormat (owner chat review 18-25.10.2026) — Kelly can REQUEST a set scheme from the
+  // engine: EMOM (any area) and Tabata (core / abs only — the general tabata finisher is frozen,
+  // 08.09.2026). generate_workout gains an optional `format`; the engine forces the protocol / the
+  // core form. Server-read (chat route, workout-format-gate.ts). Live value for everyone; a super
+  // admin (owner + office) always sees it (superAdminValue true). Off = tool list, prompt, engine
+  // options and results exactly as before.
+  { key: 'aiCoachWorkoutFormat', firestoreKey: 'ai_coach_workout_format', defaultValue: false, superAdminValue: true },
   // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
   // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
   // the focused field is scrolled into view, and the Capacitor Keyboard plugin is

@@ -95,6 +95,7 @@ async function generateWorkoutExecutor(rawInput: unknown, profile: UserFullProfi
       domains: input.domains,
       difficulty: input.difficulty,
       shortOfMinimum: report.shortOfMinimum,
+      ...(input.format ? { format: input.format } : {}),
     });
     return { outcome: { ok: true, result: compact } };
   } catch (err) {
