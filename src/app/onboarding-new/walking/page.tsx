@@ -12,6 +12,7 @@ import { useOnboardingV2State } from '@/features/user/onboarding/hooks/useOnboar
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { WALK_SIGNUP_DONE_ROUTE } from '@/features/user/onboarding/utils/walk-signup-routing';
 import { removeOnboardingPref } from '@/lib/onboardingPrefs';
+import { useAerobicSignupGuard } from '@/features/user/onboarding/hooks/useAerobicProgramsOpen';
 
 /**
  * /onboarding-new/walking — enable_home_v2 only (owner 20.10.2026; boards wr/WR-3a..3d).
@@ -27,13 +28,15 @@ export default function WalkingSignupPage() {
   const hasHydrated = useUserStore((s) => s._hasHydrated);
   const signedIn = useUserStore((s) => !!s.profile?.id);
   const [sub, setSub] = useState(0);
+  // Walking plans are frozen with running for regular users (pilot 26.10, C1).
+  const frozen = useAerobicSignupGuard();
 
   const blocked = ready && hasHydrated && (!v2 || !signedIn);
   useEffect(() => {
     if (blocked) router.replace(WALK_SIGNUP_DONE_ROUTE);
   }, [blocked, router]);
 
-  if (!ready || !hasHydrated || blocked) return null;
+  if (!ready || !hasHydrated || blocked || frozen) return null;
 
   return (
     <OnboardingLayout

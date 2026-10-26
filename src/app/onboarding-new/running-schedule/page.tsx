@@ -9,7 +9,7 @@ import RunSignupScheduleFlow, { RUN_SIGNUP_SUBSTEPS } from '@/features/user/onbo
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useAerobicSignupGuard } from '@/features/user/onboarding/hooks/useAerobicProgramsOpen';
 import { useOnboardingV2State } from '@/features/user/onboarding/hooks/useOnboardingV2';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { runScheduleStepMode } from '@/features/schedule/utils/runWeekRecommendation';
@@ -42,11 +42,12 @@ import { ADD_TRACK_COMBINED_WEEK_ROUTE, runSignupNextRoute } from '@/features/us
  * strength is handed to the add-track combined week
  * (ADD_TRACK_COMBINED_WEEK_ROUTE → /onboarding-new/add-track-week, journey J3).
  *
- * Route guard: when enable_running_programs is false, immediately redirects to /home.
+ * Route guard: when enable_running_programs is false, immediately redirects to /home
+ * (super admins pass: useAerobicSignupGuard reads the flags with the super-admin override).
  */
 export default function RunningSchedulePage() {
   const router = useRouter();
-  const { flags, loading } = useFeatureFlags();
+  const frozen = useAerobicSignupGuard();
   const { v2, ready: v2Ready } = useOnboardingV2State();
   const profile = useUserStore((s) => s.profile);
   const hasHydrated = useUserStore((s) => s._hasHydrated);
@@ -57,18 +58,12 @@ export default function RunningSchedulePage() {
   const handOffToAddTrack = v2 && hasHydrated && mode === 'add_track' && ADD_TRACK_COMBINED_WEEK_ROUTE !== null;
 
   useEffect(() => {
-    if (!loading && !flags.enableRunningPrograms) {
-      router.replace('/home');
-    }
-  }, [loading, flags.enableRunningPrograms, router]);
-
-  useEffect(() => {
     if (handOffToAddTrack && ADD_TRACK_COMBINED_WEEK_ROUTE) router.replace(ADD_TRACK_COMBINED_WEEK_ROUTE);
   }, [handOffToAddTrack, router]);
 
   // Wait for the flag (and, under v2, the profile) so a v2 user never
   // mounts the legacy pass-through, which writes a default on mount.
-  if (loading || !flags.enableRunningPrograms || !v2Ready || (v2 && !hasHydrated) || handOffToAddTrack) return null;
+  if (frozen || !v2Ready || (v2 && !hasHydrated) || handOffToAddTrack) return null;
 
   const handleNext = () => {
     firePhaseConfetti();

@@ -7,14 +7,19 @@ import RunningPlanSummary from '@/features/user/onboarding/components/steps/Runn
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
+import { useAerobicSignupGuard } from '@/features/user/onboarding/hooks/useAerobicProgramsOpen';
 
 export default function RunningSummaryPage() {
   const router = useRouter();
+  // Running frozen for regular users (pilot 26.10, C1).
+  const frozen = useAerobicSignupGuard();
 
   const handleGenerate = () => {
     firePhaseConfetti();
     router.push('/onboarding-new/health');
   };
+
+  if (frozen) return null;
 
   return (
     <OnboardingLayout

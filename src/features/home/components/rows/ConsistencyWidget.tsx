@@ -25,6 +25,7 @@ import { WIDGET_CARD_STYLE } from '@/features/home/components/widgets/StrengthVo
 import { GhostUpsell } from './GhostUpsell';
 import { hasStrengthSurvey, hasRunSurvey } from '@/features/home/hooks/useProgramProgress';
 import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
+import { useAerobicProgramsOpen } from '@/features/user/onboarding/hooks/useAerobicProgramsOpen';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 
@@ -156,6 +157,9 @@ export function ConsistencyWidget() {
 
   const strengthDone = hasStrengthSurvey(profile);
   const runDone = hasRunSurvey(profile);
+  // Running frozen for regular users (pilot 26.10, C1): no locked run row leading to the
+  // running questionnaire. A user who already runs keeps the row.
+  const { open: runningOpen } = useAerobicProgramsOpen();
 
   const { done: strengthSessions, target: strengthTarget } = getStrengthAdherence(profile, summary);
   const cardioSessions = summary?.categorySessions?.cardio ?? 0;
@@ -207,7 +211,7 @@ export function ConsistencyWidget() {
 
       {runDone ? (
         runRow
-      ) : (
+      ) : !runningOpen ? null : (
         <GhostUpsell
           variant="silent"
           onClick={() => router.push(resolveOnboardingEntryHref(profile, 'RUNNING'))}

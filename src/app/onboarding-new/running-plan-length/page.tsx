@@ -9,16 +9,21 @@ import { RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
 import { runSignupNextRoute } from '@/features/user/onboarding/utils/run-signup-routing';
+import { useAerobicSignupGuard } from '@/features/user/onboarding/hooks/useAerobicProgramsOpen';
 
 export default function RunningPlanLengthPage() {
   const router = useRouter();
   // enable_home_v2: plan length comes before the days step (run-signup-routing.ts).
   const v2 = useOnboardingV2();
+  // Running frozen for regular users (pilot 26.10, C1).
+  const frozen = useAerobicSignupGuard();
 
   const handleNext = () => {
     firePhaseConfetti();
     router.push(runSignupNextRoute('running-plan-length', v2));
   };
+
+  if (frozen) return null;
 
   return (
     <OnboardingLayout

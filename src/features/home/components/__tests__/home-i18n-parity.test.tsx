@@ -31,6 +31,9 @@ const personaSummary: Record<string, Record<string, unknown>> = {};
 const programProgress = { data: null as Record<string, unknown> | null };
 const cachedRoute = { route: null as Record<string, unknown> | null };
 
+// Running open (pilot 26.10 C1 freeze off): the ConsistencyWidget snapshots keep the run row.
+vi.mock('@/features/user/onboarding/hooks/useAerobicProgramsOpen', () => ({ useAerobicProgramsOpen: () => ({ open: true, ready: true }) }));
+
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: { currentUser: { uid: 'u1' } }, app: {}, storage: {} }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {}, replace: () => {} }) }));
 vi.mock('@/features/user', () => {

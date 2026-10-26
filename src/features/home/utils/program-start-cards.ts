@@ -13,6 +13,9 @@
  *    user tapped "לא עכשיו" within the last 14 days (stored locally).
  *  - Both tracks → nothing.
  *  - Flag off → nothing (home keeps today's AddStrengthProgramCard path).
+ *  - Running / walking frozen (enable_running_programs off, pilot 26.10, C1) → no
+ *    running card at all: a new user gets the strength start card alone, nobody gets
+ *    "add running". A runner without strength still gets "add strength".
  *
  * placeProgramSlide then puts the slide in the carousel: a start pair leads
  * (it IS the new user's day); an add card goes second, right after the day's
@@ -23,7 +26,7 @@ export type ProgramTrack = 'strength' | 'running';
 
 export type ProgramSlidePlan =
   | { mode: 'none' }
-  | { mode: 'start'; order: readonly [ProgramTrack, ProgramTrack] }
+  | { mode: 'start'; order: readonly ProgramTrack[] }
   | { mode: 'add'; track: ProgramTrack };
 
 export interface ResolveProgramSlideInput {
@@ -34,14 +37,20 @@ export interface ResolveProgramSlideInput {
   runningIntent: boolean;
   /** "לא עכשיו" is still active for that track's add card. */
   addDismissed?: Partial<Record<ProgramTrack, boolean>>;
+  /** enable_running_programs (with the super-admin override). Default true. */
+  runningOpen?: boolean;
 }
 
 export const ADD_TRACK_DISMISS_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function resolveProgramSlide(input: ResolveProgramSlideInput): ProgramSlidePlan {
-  const { enabled, hasStrength, hasRunning, runningIntent, addDismissed = {} } = input;
+  const { enabled, hasStrength, hasRunning, runningIntent, addDismissed = {}, runningOpen = true } = input;
   if (!enabled) return { mode: 'none' };
+  if (!runningOpen) {
+    if (!hasStrength && !hasRunning) return { mode: 'start', order: ['strength'] };
+    if (hasStrength) return { mode: 'none' };
+  }
   if (!hasStrength && !hasRunning) {
     return { mode: 'start', order: runningIntent ? ['running', 'strength'] : ['strength', 'running'] };
   }
