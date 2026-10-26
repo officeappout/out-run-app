@@ -12,7 +12,6 @@ import { home } from '@/messages/ns/home';
 import { onboarding } from '@/messages/ns/onboarding';
 import { makeT } from '../t';
 import { pickGendered, type GenderedText } from '../gender-copy';
-import { SETTINGS_COPY } from '@/features/home/components/settings/settings-gender-copy';
 import { SUMMARY_COPY } from '@/features/workout-engine/summary/summary-gender-copy';
 import { FREE_RUN_COPY } from '@/features/parks/core/components/free-run/free-run-gender-copy';
 import { LEAGUE_COPY } from '@/features/arena/components/league-gender-copy';
@@ -30,6 +29,13 @@ const T: Record<string, (key: string, values?: Record<string, unknown>) => strin
 
 /** [ns:key, male, female, other] */
 const CATALOG_CASES: Array<[string, string, string, string]> = [
+  // SettingsModal errors (moved from settings-gender-copy.ts in batch ao; the coupon lines were feminine for everyone)
+  ["home:settings.error.couponNotFound", "קוד לא נמצא. בדוק ונסה שוב.", "קוד לא נמצא. בדקי ונסי שוב.", "קוד לא נמצא. בדקו ונסו שוב."],
+  ["home:settings.error.couponFailed", "שגיאה בבדיקת הקוד. נסה שוב.", "שגיאה בבדיקת הקוד. נסי שוב.", "שגיאה בבדיקת הקוד. נסו שוב."],
+  ["home:settings.error.signOut", "שגיאה בהתנתקות. נסה שוב.", "שגיאה בהתנתקות. נסי שוב.", "שגיאה בהתנתקות. נסו שוב."],
+  ["home:settings.error.deleteSessionExpired", "תוקף החיבור פג. התחבר מחדש ונסה שוב.", "תוקף החיבור פג. התחברי מחדש ונסי שוב.", "תוקף החיבור פג. התחברו מחדש ונסו שוב."],
+  ["home:settings.error.deleteNetwork", "בעיית חיבור - נסה שוב", "בעיית חיבור - נסי שוב", "בעיית חיבור - נסו שוב"],
+  ["home:settings.error.deleteFailed", "שגיאה במחיקת החשבון. הנתונים לא נמחקו. נסה שוב.", "שגיאה במחיקת החשבון. הנתונים לא נמחקו. נסי שוב.", "שגיאה במחיקת החשבון. הנתונים לא נמחקו. נסו שוב."],
   ["community:group.dropIn.join", "כן, הצטרף לקבוצה", "כן, הצטרפי לקבוצה", "כן, מצטרפים לקבוצה"],
   ["community:banner.late.toggle", "מאחר?", "מאחרת?", "מאחרים?"],
   ["community:banner.register", "הירשם", "הירשמי", "הרשמה"],
@@ -135,20 +141,9 @@ describe('gender batch 2 — catalog keys, three outputs', () => {
   });
 });
 
-describe('gender batch 2 — code copy (not extracted yet), three outputs', () => {
-  it('SettingsModal errors (the coupon lines were feminine for everyone)', () => {
-    expectThree('couponNotFound', SETTINGS_COPY.couponNotFound, 'קוד לא נמצא. בדוק ונסה שוב.', 'קוד לא נמצא. בדקי ונסי שוב.', 'קוד לא נמצא. בדקו ונסו שוב.');
-    expectThree('couponError', SETTINGS_COPY.couponError, 'שגיאה בבדיקת הקוד. נסה שוב.', 'שגיאה בבדיקת הקוד. נסי שוב.', 'שגיאה בבדיקת הקוד. נסו שוב.');
-    expectThree('signOutError', SETTINGS_COPY.signOutError, 'שגיאה בהתנתקות. נסה שוב.', 'שגיאה בהתנתקות. נסי שוב.', 'שגיאה בהתנתקות. נסו שוב.');
-    expectThree('deleteSessionExpired', SETTINGS_COPY.deleteSessionExpired, 'תוקף החיבור פג. התחבר מחדש ונסה שוב.', 'תוקף החיבור פג. התחברי מחדש ונסי שוב.', 'תוקף החיבור פג. התחברו מחדש ונסו שוב.');
-    expectThree('deleteNetwork', SETTINGS_COPY.deleteNetwork, 'בעיית חיבור - נסה שוב', 'בעיית חיבור - נסי שוב', 'בעיית חיבור - נסו שוב');
-    expectThree('deleteFailed', SETTINGS_COPY.deleteFailed, 'שגיאה במחיקת החשבון. הנתונים לא נמחקו. נסה שוב.', 'שגיאה במחיקת החשבון. הנתונים לא נמחקו. נסי שוב.', 'שגיאה במחיקת החשבון. הנתונים לא נמחקו. נסו שוב.');
-  });
-});
-
 describe('gender batch 2 — code copy modules: every entry', () => {
   const modules: Record<string, Record<string, GenderedText>> = {
-    SETTINGS_COPY, SUMMARY_COPY, FREE_RUN_COPY, LEAGUE_COPY, ARENA_CREATE_COPY,
+    SUMMARY_COPY, FREE_RUN_COPY, LEAGUE_COPY, ARENA_CREATE_COPY,
   };
   for (const [mod, entries] of Object.entries(modules)) {
     for (const [id, text] of Object.entries(entries)) {

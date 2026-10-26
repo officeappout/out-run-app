@@ -10,6 +10,8 @@
  *     notes={['+ ליבה 10′ ×2 בערב']} />
  */
 import { Sparkles } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface RecommendationCardProps {
   /** The recommendation itself, one or two lines. */
@@ -25,7 +27,8 @@ export interface RecommendationCardProps {
   className?: string;
 }
 
-export default function RecommendationCard({ title, detail, aside, notes, eyebrow = 'ממליצים לך', className = '' }: RecommendationCardProps) {
+export default function RecommendationCard({ title, detail, aside, notes, eyebrow, className = '' }: RecommendationCardProps) {
+  const t = useT(common);
   return (
     <div
       className={`rounded-[20px] p-3.5 ring-1 ring-inset ring-v2-accent/35 ${className}`}
@@ -33,7 +36,7 @@ export default function RecommendationCard({ title, detail, aside, notes, eyebro
     >
       <div className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-extrabold text-v2-deep">
         <Sparkles size={14} strokeWidth={2.2} aria-hidden />
-        {eyebrow}
+        {eyebrow ?? t('ui.recommendation.eyebrow')}
       </div>
       <p className="mt-1 text-[18px] font-black leading-[1.35] !tracking-[-0.01em] text-v2-ink">{title}</p>
       {(detail || aside) && (

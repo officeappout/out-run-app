@@ -9,6 +9,8 @@
 
 import React from 'react';
 import { Target } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface RepPaceRow {
   key: string;
@@ -101,15 +103,16 @@ export default function RepPaceTable({
   band,
   summaryLabel,
   barColor = '#e5484d',
-  title = 'קצב בכל חזרה',
+  title,
   variant = 'full',
   legend,
 }: RepPaceTableProps) {
+  const t = useT(common);
   if (rows.length === 0) return null;
   return (
     <div dir="rtl">
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate whitespace-nowrap text-[15px] font-black text-v2-ink">{title}</span>
+        <span className="truncate whitespace-nowrap text-[15px] font-black text-v2-ink">{title ?? t('ui.repPace.title')}</span>
         {summaryLabel && (
           <span className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#ecfdf5] px-3 text-[12.5px] font-extrabold text-[#047857]">
             <Target size={14} strokeWidth={2.4} aria-hidden />
@@ -122,12 +125,12 @@ export default function RepPaceTable({
       {variant === 'full' && (
       <div className="mt-2 divide-y divide-v2-hairline">
         {rows.map((r) => {
-          const t = TONE[r.tone];
+          const tone = TONE[r.tone];
           return (
             <div key={r.key} className="flex min-h-[50px] items-center gap-3 py-2">
               <span
                 className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[12.5px] font-black tabular-nums text-white"
-                style={{ background: t.fg }}
+                style={{ background: tone.fg }}
                 aria-hidden
               >
                 {r.n}
@@ -137,7 +140,7 @@ export default function RepPaceTable({
                 {r.sub && <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{r.sub}</span>}
               </span>
               {r.status && (
-                <span className="shrink-0 whitespace-nowrap text-[12.5px] font-extrabold" style={{ color: t.text }}>
+                <span className="shrink-0 whitespace-nowrap text-[12.5px] font-extrabold" style={{ color: tone.text }}>
                   {r.status}
                 </span>
               )}

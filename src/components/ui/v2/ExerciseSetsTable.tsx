@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { tonesPresent, type SetTile, type SetTone } from './summary';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 /**
  * ExerciseSetsTable — the one strength table used by every v2 summary
@@ -33,12 +35,6 @@ const TONE_CLASS: Record<SetTone, string> = {
   missed: 'bg-white text-v2-muted border border-dashed border-v2-pill-border',
 };
 
-const LEGEND_LABEL: Record<SetTone, string> = {
-  in: 'ביעד',
-  below: 'מתחת ליעד',
-  missed: 'לא בוצע',
-};
-
 export function SetTileBox({ tile, size = 28 }: { tile: SetTile; size?: number }) {
   return (
     <span
@@ -52,18 +48,19 @@ export function SetTileBox({ tile, size = 28 }: { tile: SetTile; size?: number }
 }
 
 export function SetsLegend({ tones }: { tones: SetTone[] }) {
+  const t = useT(common);
   if (tones.length === 0) return null;
   return (
     <span className="inline-flex shrink-0 items-center gap-2.5 text-[11.5px] font-extrabold text-v2-muted">
-      {tones.map((t) => (
-        <span key={t} className="inline-flex items-center gap-1 whitespace-nowrap">
+      {tones.map((tone) => (
+        <span key={tone} className="inline-flex items-center gap-1 whitespace-nowrap">
           <span
             aria-hidden
             className={`h-2.5 w-2.5 rounded-[3px] ${
-              t === 'in' ? 'bg-v2-accent' : t === 'below' ? 'bg-v2-amber' : 'border border-dashed border-v2-muted bg-white'
+              tone === 'in' ? 'bg-v2-accent' : tone === 'below' ? 'bg-v2-amber' : 'border border-dashed border-v2-muted bg-white'
             }`}
           />
-          {LEGEND_LABEL[t]}
+          {t('ui.sets.legend', { tone })}
         </span>
       ))}
     </span>
@@ -109,6 +106,7 @@ export interface ExerciseSetsTableProps {
 }
 
 export default function ExerciseSetsTable({ title, rows, hideLegend = false }: ExerciseSetsTableProps) {
+  const t = useT(common);
   if (rows.length === 0) return null;
   const tones = tonesPresent(rows.flatMap((r) => r.tiles));
   const size = tileSize(Math.max(...rows.map((r) => r.tiles.length)));
@@ -133,7 +131,7 @@ export default function ExerciseSetsTable({ title, rows, hideLegend = false }: E
               <span className="mt-px truncate text-[12.5px] font-bold text-v2-ink-2">{r.subtitle}</span>
             </div>
             {r.tiles.length > 0 && (
-              <div className="flex shrink-0 items-center gap-1 pl-2.5" aria-label="סטים">
+              <div className="flex shrink-0 items-center gap-1 pl-2.5" aria-label={t('ui.sets.aria')}>
                 {r.tiles.map((t, i) => (
                   <SetTileBox key={i} tile={t} size={size} />
                 ))}

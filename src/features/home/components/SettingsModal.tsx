@@ -71,9 +71,10 @@ import {
   removeReminderSlot,
 } from '@/features/notifications/services/reminder-schedule.service';
 import { Analytics } from '@/features/analytics/AnalyticsService';
-import { pickGendered } from '@/lib/i18n/gender-copy';
-import { currentUiGender } from '@/hooks/useUiGender';
-import { SETTINGS_COPY } from './settings/settings-gender-copy';
+import { useT } from '@/hooks/useT';
+import { home, type HomeKey } from '@/messages/ns/home';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel, type WeekdayIndex } from '@/lib/i18n/units';
 import type { ReminderSlot, ReminderWeekday } from '@/features/user/core/types/user.types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,29 +94,29 @@ interface SettingsModalProps {
 // would actually fire a push at these times) is a separate, not-yet-built
 // Part B — this UI only persists the user's chosen slots.
 
-const DAYS_OF_WEEK: { value: ReminderWeekday; label: string }[] = [
-  { value: 'sunday',    label: 'ראשון' },
-  { value: 'monday',    label: 'שני' },
-  { value: 'tuesday',   label: 'שלישי' },
-  { value: 'wednesday', label: 'רביעי' },
-  { value: 'thursday',  label: 'חמישי' },
-  { value: 'friday',    label: 'שישי' },
-  { value: 'saturday',  label: 'שבת' },
+const DAYS_OF_WEEK: { value: ReminderWeekday; index: WeekdayIndex }[] = [
+  { value: 'sunday',    index: 0 },
+  { value: 'monday',    index: 1 },
+  { value: 'tuesday',   index: 2 },
+  { value: 'wednesday', index: 3 },
+  { value: 'thursday',  index: 4 },
+  { value: 'friday',    index: 5 },
+  { value: 'saturday',  index: 6 },
 ];
 
 const PRIVACY_MODES: Array<{
   value: PrivacyMode;
-  label: string;
-  sublabel: string;
+  labelKey: HomeKey;
+  sublabelKey: HomeKey;
   icon: React.FC<{ className?: string }>;
   activeColor: string;
 }> = [
-  { value: 'ghost',          label: 'רוח',    sublabel: 'לא נראה לאף אחד',              icon: EyeOff, activeColor: 'bg-gray-100 border-gray-400 text-gray-700' },
-  { value: 'squad',          label: 'חברים',  sublabel: 'רק מי שאני עוקב אחריו',        icon: Users,  activeColor: 'bg-cyan-50 border-cyan-400 text-cyan-700' },
-  { value: 'verified_global',label: 'גלובלי', sublabel: 'כל המאומתים בקבוצת הגיל שלי', icon: Globe,  activeColor: 'bg-green-50 border-green-400 text-green-700' },
+  { value: 'ghost',          labelKey: 'settings.privacy.mode.ghost.label',  sublabelKey: 'settings.privacy.mode.ghost.sub',  icon: EyeOff, activeColor: 'bg-gray-100 border-gray-400 text-gray-700' },
+  { value: 'squad',          labelKey: 'settings.privacy.mode.squad.label',  sublabelKey: 'settings.privacy.mode.squad.sub',  icon: Users,  activeColor: 'bg-cyan-50 border-cyan-400 text-cyan-700' },
+  { value: 'verified_global',labelKey: 'settings.privacy.mode.global.label', sublabelKey: 'settings.privacy.mode.global.sub', icon: Globe,  activeColor: 'bg-green-50 border-green-400 text-green-700' },
 ];
 
-const DELETE_CONFIRM_WORD = 'מחק';
+const DELETE_CONFIRM_WORD = 'מחק'; // i18n-allow-hebrew: data — the word the user types; compared with the input (shown through settings.delete.typeToConfirm)
 
 // Chrome polish — temporary UI-hide only. City Pass status + coupon-code
 // entry are hidden pending restoration; their state/handlers/write-paths
@@ -346,13 +347,14 @@ function PermissionStatusBadge({
   status: PermStatus;
   requesting?: boolean;
 }) {
+  const t = useT(home);
   if (requesting) {
     return <Loader2 size={16} className="animate-spin text-gray-400 flex-shrink-0" />;
   }
   if (!isNativeApp()) {
     return (
       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 font-simpler flex-shrink-0">
-        נייטיב
+        {t('settings.perm.native')}
       </span>
     );
   }
@@ -363,20 +365,20 @@ function PermissionStatusBadge({
     return (
       <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-simpler flex-shrink-0">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-        פעיל
+        {t('settings.perm.active')}
       </span>
     );
   }
   if (status === 'denied') {
     return (
       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-simpler flex-shrink-0">
-        נחסם
+        {t('settings.perm.blocked')}
       </span>
     );
   }
   return (
     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-simpler flex-shrink-0">
-      הפעל
+      {t('settings.perm.enable')}
     </span>
   );
 }
@@ -386,6 +388,8 @@ function PermissionStatusBadge({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+  const t = useT(home);
+  const tc = useT(common);
   // Opt-in third-party accessibility toolbar (UserWay). Default OFF; the actual
   // script load lives in AccessibilityWidgetLoader, driven by this preference.
   const [a11yWidgetOn, setA11yWidgetOn] = useState(false);
@@ -420,7 +424,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setFeedPrivacyOpen(false);
     } catch (err) {
       console.error('[Settings] saveFeedPrefs failed:', err);
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setFeedPrivacyBusy(false);
     }
@@ -446,12 +450,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       },
       onDenied: () => {
         store.patch({ healthBridgeEnabled: false });
-        showToast('error', 'לא ניתן לקבל גישה לנתוני הבריאות');
+        showToast('error', t('settings.toast.healthFailed'));
       },
     });
 
   // ── Derived ──────────────────────────────────────────────────────────────
-  const userName = profile?.core?.name ?? 'משתמש';
+  const userName = profile?.core?.name ?? t('settings.userFallback');
   const userEmail = profile?.core?.email ?? auth.currentUser?.email ?? '';
   const userAvatar = profile?.core?.photoURL;
   const cityAffiliation = profile?.core?.affiliations?.find((a) => a.type === 'city');
@@ -840,22 +844,22 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       if (fresh) useUserStore.setState({ profile: fresh });
       setCouponSuccessResult(result);
       setCouponCode('');
-      showToast('success', 'הקוד אומת בהצלחה!');
+      showToast('success', t('settings.toast.couponOk'));
     } catch (err: unknown) {
       const msg = (err instanceof Error ? err.message : '') + String((err as Record<string, unknown>)?.code ?? '');
       if (msg.includes('not-found') || msg.includes('not found')) {
-        setCouponError(pickGendered(currentUiGender(), SETTINGS_COPY.couponNotFound));
+        setCouponError(t('settings.error.couponNotFound'));
       } else if (msg.includes('expired')) {
-        setCouponError('הקוד פג תוקף.');
+        setCouponError(t('settings.error.couponExpired'));
       } else if (msg.includes('resource-exhausted') || msg.includes('maximum')) {
-        setCouponError('הקוד הגיע למכסה המקסימלית.');
+        setCouponError(t('settings.error.couponMax'));
       } else {
-        setCouponError(pickGendered(currentUiGender(), SETTINGS_COPY.couponError));
+        setCouponError(t('settings.error.couponFailed'));
       }
     } finally {
       setCouponLoading(false);
     }
-  }, [couponCode, showToast]);
+  }, [couponCode, showToast, t]);
 
   // ── Password reset ───────────────────────────────────────────────────────
 
@@ -866,13 +870,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     try {
       await sendPasswordResetEmail(auth, email);
       setPwResetSent(true);
-      showToast('success', 'לינק לאיפוס סיסמה נשלח לאימייל שלך');
+      showToast('success', t('settings.toast.resetSent'));
     } catch {
-      showToast('error', 'שגיאה בשליחת מייל האיפוס');
+      showToast('error', t('settings.toast.resetFailed'));
     } finally {
       setPwResetLoading(false);
     }
-  }, [userEmail, hasEmailAuth, showToast]);
+  }, [userEmail, hasEmailAuth, showToast, t]);
 
   // ── Notification toggles (HIDDEN — App Store cleanup D3/D4/D5) ────────────
   // These three toggles wrote to `settings.notifications.{inactivity,
@@ -915,7 +919,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           // user to system settings.
           store.patch({ pushEnabled: false });
           await checkPushPermission();
-          showToast('error', 'לא ניתן לאפשר התראות. אפשר גישה בהגדרות המכשיר.');
+          showToast('error', t('settings.toast.pushDenied'));
           return;
         }
         // OS granted — reflect it so the toggle renders ON immediately.
@@ -925,11 +929,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err) {
       console.error('[Settings] pushEnabled write failed:', err);
       store.patch({ pushEnabled: !v });
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setPushSaving(false);
     }
-  }, [store, pushSaving, showToast, checkPushPermission]);
+  }, [store, pushSaving, showToast, checkPushPermission, t]);
 
   // ── Chat notification channel toggle ─────────────────────────────────────
   const handleChatNotifToggle = useCallback(async (v: boolean) => {
@@ -944,11 +948,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err) {
       console.error('[Settings] chatNotifEnabled write failed:', err);
       store.patch({ chatNotifEnabled: !v });
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setChatNotifSaving(false);
     }
-  }, [store, chatNotifSaving, showToast]);
+  }, [store, chatNotifSaving, showToast, t]);
 
   // ── Generic channel toggle for new channels ───────────────────────────────
   const handleChannelToggle = useCallback(async (
@@ -965,11 +969,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err) {
       console.error(`[Settings] ${channel} write failed:`, err);
       store.patch({ [storeKey]: !v });
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setChannelSaving((prev) => ({ ...prev, [channel]: false }));
     }
-  }, [store, channelSaving, showToast]);
+  }, [store, channelSaving, showToast, t]);
 
   // ── Notification frequency (min/balanced/high) ────────────────────────────
   const handleFrequencyChange = useCallback(async (v: NotificationFrequency) => {
@@ -983,11 +987,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err) {
       console.error('[Settings] notificationFrequency write failed:', err);
       store.patch({ notificationFrequency: previous });
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setFrequencySaving(false);
     }
-  }, [store, frequencySaving, showToast]);
+  }, [store, frequencySaving, showToast, t]);
 
   // ── Shabbat observer ("שמירת שבת", settings.shabbatObserver) ─────────────
   // Server-side: push.service.ts holds every push except 1:1 chat for this user
@@ -1003,11 +1007,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err) {
       console.error('[Settings] shabbatObserver write failed:', err);
       store.patch({ shabbatObserver: !v });
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setShabbatSaving(false);
     }
-  }, [store, shabbatSaving, showToast]);
+  }, [store, shabbatSaving, showToast, t]);
 
   // ── Units (debounced Firestore) ──────────────────────────────────────────
 
@@ -1040,11 +1044,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       await setStepGoalChoice(profile.id, value === 'auto' ? 'auto' : Number(value));
     } catch (err) {
       console.error('[Settings] setStepGoalChoice failed:', err);
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setStepGoalSaving(false);
     }
-  }, [profile?.id, showToast]);
+  }, [profile?.id, showToast, t]);
 
   // ── HealthKit disconnect (connect path is handled by useHealthWithDisclosure) ──
 
@@ -1078,11 +1082,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       console.error('[Settings][Firestore] ✗ core.analyticsOptOut write failed');
       setAnalyticsOptOut(!next);
       applyAnalyticsConsent(!next);
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setIsSavingAnalytics(false);
     }
-  }, [analyticsOptOut, showToast]);
+  }, [analyticsOptOut, showToast, t]);
 
   // ── Profile discoverability (immediate) ──────────────────────────────────
 
@@ -1099,11 +1103,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch {
       console.error('[Settings][Firestore] ✗ core.discoverable write failed');
       setDiscoverable(!next);
-      showToast('error', 'שגיאה בשמירת ההגדרה');
+      showToast('error', t('settings.toast.saveFailed'));
     } finally {
       setIsSavingDiscoverable(false);
     }
-  }, [discoverable, showToast]);
+  }, [discoverable, showToast, t]);
 
   // ── Native permission handlers ───────────────────────────────────────────
 
@@ -1117,11 +1121,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
    */
   const handleLocationPermission = useCallback(async () => {
     if (!isNativeApp()) {
-      showToast('error', 'הרשאות מיקום זמינות באפליקציה הנייטיב בלבד');
+      showToast('error', t('settings.toast.locationNativeOnly'));
       return;
     }
     if (locationStatus === 'granted') {
-      if (window.confirm('לפתוח את הגדרות המכשיר לניהול הרשאת המיקום?')) {
+      if (window.confirm(t('settings.confirm.openLocationSettings'))) {
         openNativeAppSettings();
       }
       return;
@@ -1133,12 +1137,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       // reactively into `locationStatus` and updates the row.
       const coords = await useGPSStore.getState().requestPermissionNow();
       if (!coords) {
-        showToast('error', 'לא ניתן לקבל גישה למיקום');
+        showToast('error', t('settings.toast.locationFailed'));
       }
     } finally {
       setLocationRequesting(false);
     }
-  }, [locationStatus, showToast]);
+  }, [locationStatus, showToast, t]);
 
   /**
    * Camera row click.
@@ -1150,11 +1154,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
    */
   const handleCameraPermission = useCallback(async () => {
     if (!isNativeApp()) {
-      showToast('error', 'הרשאות מצלמה זמינות באפליקציה הנייטיב בלבד');
+      showToast('error', t('settings.toast.cameraNativeOnly'));
       return;
     }
     if (cameraStatus === 'granted') {
-      if (window.confirm('לפתוח את הגדרות המכשיר לניהול הרשאת המצלמה?')) {
+      if (window.confirm(t('settings.confirm.openCameraSettings'))) {
         openNativeAppSettings();
       }
       return;
@@ -1167,7 +1171,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       // does nothing, so we deep-link them to Settings instead.
       if (current.camera === 'denied') {
         setCameraStatus('denied');
-        if (window.confirm('הרשאת המצלמה נדחתה. לפתוח את הגדרות המכשיר?')) {
+        if (window.confirm(t('settings.confirm.cameraDenied'))) {
           openNativeAppSettings();
         }
         return;
@@ -1178,16 +1182,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }
       setCameraStatus(result.camera === 'granted' ? 'granted' : 'denied');
       if (result.camera !== 'granted') {
-        showToast('error', 'לא ניתן לקבל גישה למצלמה');
+        showToast('error', t('settings.toast.cameraFailed'));
       }
     } catch (err) {
       console.warn('[Settings] Camera permission request failed:', err);
       setCameraStatus('denied');
-      showToast('error', 'לא ניתן לקבל גישה למצלמה');
+      showToast('error', t('settings.toast.cameraFailed'));
     } finally {
       setCameraRequesting(false);
     }
-  }, [cameraStatus, showToast]);
+  }, [cameraStatus, showToast, t]);
 
   /**
    * Health row click.
@@ -1197,17 +1201,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
    */
   const handleHealthPermission = useCallback(() => {
     if (!isNativeApp()) {
-      showToast('error', 'הרשאות בריאות זמינות באפליקציה הנייטיב בלבד');
+      showToast('error', t('settings.toast.healthNativeOnly'));
       return;
     }
     if (store.healthBridgeEnabled) {
-      if (window.confirm('לפתוח את הגדרות המכשיר לניהול הרשאות הבריאות?')) {
+      if (window.confirm(t('settings.confirm.openHealthSettings'))) {
         openNativeAppSettings();
       }
       return;
     }
     triggerHealthPermission();
-  }, [store.healthBridgeEnabled, triggerHealthPermission, showToast]);
+  }, [store.healthBridgeEnabled, triggerHealthPermission, showToast, t]);
 
   // ── Reminders ──────────────────────────────────────────────────────────────
   const handleAddReminder = useCallback(async () => {
@@ -1230,13 +1234,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err) {
       console.error('[Settings] addReminderSlot failed:', err);
       setReminders(previous);
-      showToast('error', 'שגיאה בשמירת התזכורת');
+      showToast('error', t('settings.toast.reminderSaveFailed'));
     } finally {
       setRemindersSaving(false);
       setSelectedDay('sunday');
       setSelectedTime('18:00');
     }
-  }, [selectedDay, selectedTime, reminders, remindersSaving, showToast]);
+  }, [selectedDay, selectedTime, reminders, remindersSaving, showToast, t]);
 
   const handleRemoveReminder = useCallback(async (slot: ReminderSlot) => {
     const uid = auth.currentUser?.uid;
@@ -1256,15 +1260,18 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err) {
       console.error('[Settings] removeReminderSlot failed:', err);
       setReminders(previous);
-      showToast('error', 'שגיאה בהסרת התזכורת');
+      showToast('error', t('settings.toast.reminderRemoveFailed'));
     } finally {
       setRemindersSaving(false);
     }
-  }, [reminders, remindersSaving, showToast]);
+  }, [reminders, remindersSaving, showToast, t]);
 
   const getDayLabel = useCallback(
-    (v: string) => DAYS_OF_WEEK.find((d) => d.value === v)?.label ?? v,
-    [],
+    (v: string) => {
+      const day = DAYS_OF_WEEK.find((d) => d.value === v);
+      return day ? weekdayLabel(day.index, 'long', tc) : v;
+    },
+    [tc],
   );
 
   // ── Logout ───────────────────────────────────────────────────────────────
@@ -1288,9 +1295,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       // page reload (unlike window.location.replace which caused -999 on iOS).
       router.replace('/');
     } catch {
-      showToast('error', pickGendered(currentUiGender(), SETTINGS_COPY.signOutError));
+      showToast('error', t('settings.error.signOut'));
     }
-  }, [resetOnboarding, resetProfile, onClose, router, showToast]);
+  }, [resetOnboarding, resetProfile, onClose, router, showToast, t]);
 
   // ── Delete account ───────────────────────────────────────────────────────
 
@@ -1299,7 +1306,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setDeleteError(null);
     setIsDeleting(true);
     if (!auth.currentUser) {
-      setDeleteError('לא נמצא משתמש מחובר.');
+      setDeleteError(t('settings.error.noUser'));
       setIsDeleting(false);
       return;
     }
@@ -1332,14 +1339,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         // 'functions/unauthenticated'; plain 'unauthenticated' covers
         // the web-SDK httpsCallable path.
         code?.includes('unauthenticated')
-          ? pickGendered(currentUiGender(), SETTINGS_COPY.deleteSessionExpired)
+          ? t('settings.error.deleteSessionExpired')
           : isNetwork
-          ? pickGendered(currentUiGender(), SETTINGS_COPY.deleteNetwork)
-          : pickGendered(currentUiGender(), SETTINGS_COPY.deleteFailed),
+          ? t('settings.error.deleteNetwork')
+          : t('settings.error.deleteFailed'),
       );
       setIsDeleting(false);
     }
-  }, [deleteConfirmText, resetOnboarding, resetProfile, onClose, router]);
+  }, [deleteConfirmText, resetOnboarding, resetProfile, onClose, router, t]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -1404,23 +1411,23 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <button
                     type="button"
                     onClick={() => setScreen('main')}
-                    aria-label="חזרה"
+                    aria-label={tc('actions.back')}
                     className="p-1 -mr-1 text-gray-500 hover:text-gray-800 flex-shrink-0"
                   >
                     <ArrowRight size={20} />
                   </button>
                 )}
                 <h2 className={v2 ? 'flex-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'flex-1 text-xl font-black text-gray-900 font-simpler'}>
-                  {screen === 'main' ? 'הגדרות'
-                    : screen === 'personal' ? 'פרטים אישיים'
-                    : screen === 'notifications' ? 'התראות'
-                    : screen === 'personas' ? 'הפרסונות שלי'
-                    : 'פרטיות ונראות'}
+                  {screen === 'main' ? t('settings.title')
+                    : screen === 'personal' ? t('settings.screen.personal')
+                    : screen === 'notifications' ? t('settings.screen.notifications')
+                    : screen === 'personas' ? t('settings.screen.personas')
+                    : t('settings.screen.privacy')}
                 </h2>
                 <button
                   onClick={onClose}
                   disabled={isDeleting}
-                  aria-label={v2 ? 'סגירה' : undefined}
+                  aria-label={v2 ? tc('actions.close') : undefined}
                   className={
                     v2
                       ? 'grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-40'
@@ -1465,7 +1472,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <button
                       type="button"
                       onClick={openPersonalEdit}
-                      aria-label="פרטים אישיים"
+                      aria-label={t('settings.screen.personal')}
                       className="p-2 text-gray-400 hover:text-gray-600 flex-shrink-0"
                     >
                       <Pencil size={16} />
@@ -1476,28 +1483,28 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 {/* ══════════════════════════════════════════════════════════
                     2. חשבון
                    ══════════════════════════════════════════════════════════ */}
-                <Section title="חשבון">
+                <Section title={t('settings.section.account')}>
                   <SettingsRow
                     icon={<User size={20} className="text-gray-700" />}
-                    label="פרטים אישיים"
-                    sublabel="עיר, משקל, תאריך לידה"
+                    label={t('settings.screen.personal')}
+                    sublabel={t('settings.account.personalSub')}
                     onClick={openPersonalEdit}
                   />
                   <SettingsRow
                     icon={<Users size={20} className="text-gray-700" />}
-                    label="הפרסונות שלי"
-                    sublabel="פרטים פרטיים, לא מופיעים בפרופיל הציבורי"
+                    label={t('settings.screen.personas')}
+                    sublabel={t('settings.account.personasSub')}
                     onClick={() => setScreen('personas')}
                   />
                   <SettingsRow
                     icon={<Lock size={20} className="text-gray-700" />}
-                    label={pwResetSent ? 'מייל נשלח ✓' : 'סיסמה ואבטחה'}
+                    label={pwResetSent ? t('settings.account.passwordSent') : t('settings.account.password')}
                     sublabel={
                       !hasEmailAuth
-                        ? 'מחובר דרך גוגל / אפל — לא נדרשת סיסמה'
+                        ? t('settings.account.passwordSubSocial')
                         : pwResetSent
-                        ? 'בדוק את תיבת הדואר שלך'
-                        : 'שלח קישור לאיפוס סיסמה'
+                        ? t('settings.account.passwordSubSent')
+                        : t('settings.account.passwordSubIdle')
                     }
                     disabled={!hasEmailAuth || pwResetSent || pwResetLoading}
                     onClick={handlePasswordReset}
@@ -1515,15 +1522,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     state/handlers/write-paths below are untouched.
                    ══════════════════════════════════════════════════════════ */}
                 {SHOW_SUBSCRIPTION_SECTION && (
-                <Section title="מנוי">
+                <Section title={t('settings.section.subscription')}>
                   {/* City Pass status */}
                   <SettingsRow
                     icon={<CreditCard size={20} className="text-gray-700" />}
                     label="City Pass"
                     sublabel={
                       cityAffiliation
-                        ? `פעיל — ${cityAffiliation.name ?? cityAffiliation.id}`
-                        : 'לא פעיל — הצטרף לעיר שלך'
+                        ? t('settings.subscription.activeSub', { name: cityAffiliation.name ?? cityAffiliation.id })
+                        : t('settings.subscription.inactiveSub')
                     }
                     right={
                       <span
@@ -1533,7 +1540,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             : 'bg-gray-100 text-gray-400'
                         }`}
                       >
-                        {cityAffiliation ? 'פעיל' : 'לא פעיל'}
+                        {cityAffiliation ? t('settings.subscription.badgeActive') : t('settings.subscription.badgeInactive')}
                       </span>
                     }
                   />
@@ -1545,7 +1552,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <Tag size={20} className="text-gray-700" />
                       </div>
                       <div className="flex-1 min-w-0 text-right">
-                        <p className="text-sm font-semibold text-gray-900 font-simpler">הזנת קוד קופון</p>
+                        <p className="text-sm font-semibold text-gray-900 font-simpler">{t('settings.subscription.couponTitle')}</p>
                         {couponSuccessResult && (
                           <div className="mt-1">
                             <UnitJoinSuccessBanner result={couponSuccessResult} />
@@ -1573,7 +1580,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         disabled={couponLoading || !couponCode.trim()}
                         className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-xl text-sm font-bold font-simpler transition-colors active:scale-[0.98]"
                       >
-                        {couponLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'אמת קוד'}
+                        {couponLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : t('settings.subscription.couponVerify')}
                       </button>
                     </div>
                   </div>
@@ -1586,15 +1593,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     instead of inline sections; these two rows are the only
                     thing left here.
                    ══════════════════════════════════════════════════════════ */}
-                <Section title="התראות ופרטיות">
+                <Section title={t('settings.section.notifPrivacy')}>
                   <SettingsRow
                     icon={<Bell size={20} className="text-gray-700" />}
-                    label="התראות"
+                    label={t('settings.screen.notifications')}
                     onClick={() => setScreen('notifications')}
                   />
                   <SettingsRow
                     icon={<Lock size={20} className="text-gray-700" />}
-                    label="פרטיות ונראות"
+                    label={t('settings.screen.privacy')}
                     onClick={() => setScreen('privacy')}
                   />
                 </Section>
@@ -1627,11 +1634,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                         : <Bell size={20} className="text-gray-700" />
                     }
-                    label="התראות פוש"
+                    label={t('settings.notif.push')}
                     sublabel={
                       nativePushBlocked
-                        ? (pushPermStatus === 'denied' ? 'נחסם — פתח הגדרות' : 'הפעל כדי לקבל התראות')
-                        : isNativeApp() ? 'הפעלה תבקש הרשאת מערכת' : 'ניהול מרכזי של כל ההתראות'
+                        ? (pushPermStatus === 'denied' ? t('settings.notif.blockedOpen') : t('settings.notif.pushEnableToReceive'))
+                        : isNativeApp() ? t('settings.notif.pushNativeAsk') : t('settings.notif.pushCentral')
                     }
                     right={
                       nativePushBlocked ? (
@@ -1645,7 +1652,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             }
                           }}
                           className="active:scale-95 transition-transform"
-                          aria-label="אפשר התראות בהגדרות המכשיר"
+                          aria-label={t('settings.notif.enableInDeviceSettings')}
                         >
                           <PermissionStatusBadge status={pushPermStatus} />
                         </button>
@@ -1708,11 +1715,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                         : <MessageSquare size={20} className="text-gray-700" />
                     }
-                    label="התראות צ׳אט"
+                    label={t('settings.notif.chat')}
                     sublabel={
                       nativePushBlocked
-                        ? (pushPermStatus === 'denied' ? 'נחסם — פתח הגדרות' : 'הפעל התראות כדי לקבל')
-                        : 'קבל הודעה כשמישהו כותב לך'
+                        ? (pushPermStatus === 'denied' ? t('settings.notif.blockedOpen') : t('settings.notif.chatEnable'))
+                        : t('settings.notif.chatSub')
                     }
                     right={
                       nativePushBlocked ? (
@@ -1726,7 +1733,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             }
                           }}
                           className="active:scale-95 transition-transform"
-                          aria-label="אפשר התראות בהגדרות המכשיר"
+                          aria-label={t('settings.notif.enableInDeviceSettings')}
                         >
                           <PermissionStatusBadge status={pushPermStatus} />
                         </button>
@@ -1748,8 +1755,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                         : <Dumbbell size={20} className="text-gray-700" />
                     }
-                    label="התקדמות"
-                    sublabel="עלייה ברמה, שיאים אישיים"
+                    label={t('settings.notif.progression')}
+                    sublabel={t('settings.notif.progressionSub')}
                     right={
                       <Toggle
                         checked={store.progressionNotif}
@@ -1765,8 +1772,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                         : <Users size={20} className="text-gray-700" />
                     }
-                    label="חברתי"
-                    sublabel="הצטרפות לקבוצה, קאדוז"
+                    label={t('settings.notif.social')}
+                    sublabel={t('settings.notif.socialSub')}
                     right={
                       <Toggle
                         checked={store.socialNotif}
@@ -1782,8 +1789,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                         : <Calendar size={20} className="text-gray-700" />
                     }
-                    label="תזכורות אימון"
-                    sublabel="בוקר לפני אימון מתוזמן"
+                    label={t('settings.notif.trainingReminder')}
+                    sublabel={t('settings.notif.trainingReminderSub')}
                     right={
                       <Toggle
                         checked={store.trainingReminderNotif}
@@ -1799,8 +1806,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                         : <Bell size={20} className="text-gray-700" />
                     }
-                    label="עידוד ומוטיבציה"
-                    sublabel="הודעות מהעירייה שלך"
+                    label={t('settings.notif.encouragement')}
+                    sublabel={t('settings.notif.encouragementSub')}
                     right={
                       <Toggle
                         checked={store.encouragementNotif}
@@ -1816,8 +1823,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                         : <Heart size={20} className="text-gray-700" />
                     }
-                    label="חזרה לשגרה"
-                    sublabel="תזכורת כשלא התאמנת כמה ימים"
+                    label={t('settings.notif.retention')}
+                    sublabel={t('settings.notif.retentionSub')}
                     right={
                       <Toggle
                         checked={store.retentionNotif}
@@ -1834,11 +1841,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                           : <MessageSquare size={20} className="text-gray-700" />
                       }
-                      label="הודעות מקלי"
-                      sublabel="עד הודעה אחת ביום: האימון של היום, סיכום שבועי, ואיך היה אחרי אימון"
+                      label={t('settings.notif.kelly')}
+                      sublabel={t('settings.notif.kellySub')}
                       right={
                         <Toggle
-                          label="הודעות מקלי"
+                          label={t('settings.notif.kelly')}
                           checked={store.coachProactiveNotif}
                           onChange={(v) => { void handleChannelToggle('coach_proactive', 'coachProactiveNotif', v); }}
                           disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['coach_proactive']}
@@ -1854,11 +1861,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                         : <Moon size={20} className="text-gray-700" />
                     }
-                    label="שמירת שבת"
-                    sublabel="לא נשלח התראות משישי לפני כניסת שבת ועד מוצאי שבת, וכך גם בחגים"
+                    label={t('settings.notif.shabbat')}
+                    sublabel={t('settings.notif.shabbatSub')}
                     right={
                       <Toggle
-                        label="שמירת שבת"
+                        label={t('settings.notif.shabbat')}
                         checked={store.shabbatObserver}
                         onChange={(v) => { void handleShabbatObserverToggle(v); }}
                         disabled={!store.isLoaded || shabbatSaving}
@@ -1873,11 +1880,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           ? <Loader2 size={18} className="text-gray-700 animate-spin" />
                           : <CalendarDays size={20} className="text-gray-700" />
                       }
-                      label="תחילת שבוע"
-                      sublabel="תזכורת קצרה במוצאי שבת לתכנן את האימון הראשון"
+                      label={t('settings.notif.weekStart')}
+                      sublabel={t('settings.notif.weekStartSub')}
                       right={
                         <Toggle
-                          label="תחילת שבוע"
+                          label={t('settings.notif.weekStart')}
                           checked={store.weekStartNotif}
                           onChange={(v) => { void handleChannelToggle('week_start', 'weekStartNotif', v); }}
                           disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['week_start']}
@@ -1890,13 +1897,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                   {/* Notification frequency — drives push.service.ts's per-user daily engagement cap */}
                   <div className="pt-4" dir="rtl">
-                    <p className="text-sm font-semibold text-gray-900 font-simpler text-right mb-2">כמה תזכורות?</p>
+                    <p className="text-sm font-semibold text-gray-900 font-simpler text-right mb-2">{t('settings.freq.title')}</p>
                     <div className="space-y-2">
                       {(
                         [
-                          { value: 'min' as const, label: 'מינימלי', sublabel: 'רק החשוב ביותר. עד תזכורת אחת ביום.' },
-                          { value: 'balanced' as const, label: 'מאוזן', sublabel: 'כמה תזכורות ביום שיעזרו לך להתמיד.', recommended: true },
-                          { value: 'high' as const, label: 'גבוה', sublabel: 'דחוף אותי — כמה שיותר תזכורות שיזיזו אותי.' },
+                          { value: 'min' as const, labelKey: 'settings.freq.min.label' as const, subKey: 'settings.freq.min.sub' as const },
+                          { value: 'balanced' as const, labelKey: 'settings.freq.balanced.label' as const, subKey: 'settings.freq.balanced.sub' as const, recommended: true },
+                          { value: 'high' as const, labelKey: 'settings.freq.high.label' as const, subKey: 'settings.freq.high.sub' as const },
                         ]
                       ).map((opt) => {
                         const selected = store.notificationFrequency === opt.value;
@@ -1919,14 +1926,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-semibold text-gray-900 font-simpler">{opt.label}</span>
+                                <span className="text-sm font-semibold text-gray-900 font-simpler">{t(opt.labelKey)}</span>
                                 {opt.recommended && (
                                   <span className="text-[10px] font-bold text-cyan-600 bg-cyan-100 rounded-full px-1.5 py-0.5">
-                                    מומלץ
+                                    {t('settings.freq.recommended')}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-500 mt-0.5">{opt.sublabel}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{t(opt.subKey)}</p>
                             </div>
                           </button>
                         );
@@ -1948,11 +1955,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <Clock size={18} className="text-blue-500" />
                       </div>
                       <div className="flex-1 text-right">
-                        <p className="text-sm font-semibold text-gray-900 font-simpler">תזכורות אימון</p>
+                        <p className="text-sm font-semibold text-gray-900 font-simpler">{t('settings.reminders.title')}</p>
                         <p className="text-xs text-gray-400 font-simpler mt-0.5">
                           {remindersLoading
-                            ? 'טוען...'
-                            : reminders.length > 0 ? `${reminders.length} תזכורות מוגדרות` : 'לא הוגדרו תזכורות'}
+                            ? t('settings.reminders.loading')
+                            : reminders.length > 0 ? t('settings.reminders.count', { count: String(reminders.length) }) : t('settings.reminders.none')}
                         </p>
                       </div>
                       <motion.div animate={{ rotate: remindersExpanded ? 90 : 0 }}>
@@ -1979,7 +1986,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                   onClick={() => { void handleRemoveReminder(r); }}
                                   disabled={remindersSaving}
                                   className="text-red-400 hover:text-red-600 p-1 disabled:opacity-50"
-                                  aria-label="הסר תזכורת"
+                                  aria-label={t('settings.reminders.remove')}
                                 >
                                   <X size={14} />
                                 </button>
@@ -1998,7 +2005,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                   className="w-full px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler outline-none focus:ring-2 focus:ring-cyan-400"
                                 >
                                   {DAYS_OF_WEEK.map((d) => (
-                                    <option key={d.value} value={d.value}>{d.label}</option>
+                                    <option key={d.value} value={d.value}>{weekdayLabel(d.index, 'long', tc)}</option>
                                   ))}
                                 </select>
                                 <DrumTimePicker value={selectedTime} onChange={setSelectedTime} />
@@ -2008,7 +2015,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     onClick={() => setShowAddReminder(false)}
                                     className="flex-1 py-2 text-sm text-gray-500 font-simpler bg-gray-100 rounded-xl hover:bg-gray-200"
                                   >
-                                    ביטול
+                                    {tc('actions.cancel')}
                                   </button>
                                   <button
                                     type="button"
@@ -2016,7 +2023,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     disabled={remindersSaving}
                                     className="flex-1 py-2 text-sm font-bold text-on-brand bg-brand-cta hover:brightness-105 rounded-xl font-simpler disabled:opacity-50"
                                   >
-                                    הוסף
+                                    {t('settings.reminders.add')}
                                   </button>
                                 </div>
                               </div>
@@ -2027,7 +2034,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-cyan-600 font-semibold font-simpler border border-cyan-200 bg-cyan-50 rounded-xl hover:bg-cyan-100 transition-colors"
                               >
                                 <Plus size={16} />
-                                הוסף תזכורת
+                                {t('settings.reminders.addReminder')}
                               </button>
                             )}
                           </div>
@@ -2044,7 +2051,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <MapPin size={20} className="text-gray-700" />
-                      <p className="text-base font-semibold text-gray-800 font-simpler">נראות במפה</p>
+                      <p className="text-base font-semibold text-gray-800 font-simpler">{t('settings.privacy.mapVisibility')}</p>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {(computeAgeGroup(profile?.core?.birthDate) === 'minor'
@@ -2069,8 +2076,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             }`}
                           >
                             <Icon className="w-5 h-5" />
-                            <p className="text-xs font-bold font-simpler leading-tight">{m.label}</p>
-                            <p className="text-[9px] text-current opacity-70 font-simpler leading-snug">{m.sublabel}</p>
+                            <p className="text-xs font-bold font-simpler leading-tight">{t(m.labelKey)}</p>
+                            <p className="text-[9px] text-current opacity-70 font-simpler leading-snug">{t(m.sublabelKey)}</p>
                           </button>
                         );
                       })}
@@ -2083,16 +2090,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     {v2Flags.enableCommunityFeed && (
                       <SettingsRow
                         icon={<Users size={20} className="text-gray-700" />}
-                        label="מי רואה את הפוסטים שלי"
-                        sublabel="פרסום אוטומטי, קהל ברירת מחדל, שם הפארק"
+                        label={t('settings.privacy.feedPosts')}
+                        sublabel={t('settings.privacy.feedPostsSub')}
                         onClick={() => setFeedPrivacyOpen(true)}
                       />
                     )}
                     {/* Profile discoverability */}
                     <SettingsRow
                       icon={discoverable ? <Eye size={20} className="text-gray-700" /> : <EyeOff size={20} className="text-gray-700" />}
-                      label="נגישות פרופיל בחיפוש"
-                      sublabel="אפשר למשתמשים אחרים למצוא אותך לפי שם"
+                      label={t('settings.privacy.discoverable')}
+                      sublabel={t('settings.privacy.discoverableSub')}
                       right={
                         <Toggle
                           checked={discoverable}
@@ -2105,8 +2112,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     {/* Analytics sharing — note: display is inverted (analyticsOptOut → "share" = !optOut) */}
                     <SettingsRow
                       icon={<BarChart3 size={20} className="text-gray-700" />}
-                      label="שיתוף אנליטיקס"
-                      sublabel="שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה"
+                      label={t('settings.privacy.analytics')}
+                      sublabel={t('settings.privacy.analyticsSub')}
                       right={
                         <Toggle
                           checked={!analyticsOptOut}
@@ -2124,7 +2131,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 {/* ══════════════════════════════════════════════════════════
                     6. כלים
                    ══════════════════════════════════════════════════════════ */}
-                <Section title="כלים">
+                <Section title={t('settings.section.tools')}>
                   {/* ── Health Tracking (HealthKit / Health Connect) ──────── */}
                   <SettingsRow
                     icon={
@@ -2136,10 +2143,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     label="HealthKit / Health Connect"
                     sublabel={
                       !isNativeApp()
-                        ? 'זמין באפליקציה הנייטיב בלבד'
+                        ? t('settings.tools.nativeOnly')
                         : store.healthBridgeEnabled
-                        ? 'מחובר — לחץ לניהול הרשאות ב-OS'
-                        : 'סנכרן צעדים, קלוריות ודקות פעילות'
+                        ? t('settings.tools.healthConnected')
+                        : t('settings.tools.healthIdle')
                     }
                     onClick={handleHealthPermission}
                     disabled={healthDisclosureRequesting}
@@ -2171,9 +2178,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           <Ruler size={20} className="text-v2-ink" />
                         </span>
                         <span className="min-w-0 flex-1 text-right">
-                          <span className="block text-[14.5px] font-extrabold text-v2-ink">יחידות מידה</span>
+                          <span className="block text-[14.5px] font-extrabold text-v2-ink">{t('settings.tools.units')}</span>
                           <span className="mt-0.5 block text-[12px] font-bold leading-snug text-v2-muted">
-                            {store.units === 'km' ? 'קילומטרים' : 'מיילים'}
+                            {t('settings.tools.unitName', { unit: store.units })}
                           </span>
                         </span>
                         <motion.span animate={{ rotate: unitsExpanded ? -90 : 0 }} className="flex flex-shrink-0">
@@ -2190,9 +2197,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           <Ruler size={20} className="text-gray-700" />
                         </div>
                         <div className="flex-1 min-w-0 text-right">
-                          <p className="text-base font-semibold text-gray-900 font-simpler">יחידות מידה</p>
+                          <p className="text-base font-semibold text-gray-900 font-simpler">{t('settings.tools.units')}</p>
                           <p className="text-sm text-gray-400 font-simpler mt-0.5">
-                            {store.units === 'km' ? 'קילומטרים' : 'מיילים'}
+                            {t('settings.tools.unitName', { unit: store.units })}
                           </p>
                         </div>
                         <motion.div animate={{ rotate: unitsExpanded ? -90 : 0 }} className="flex-shrink-0">
@@ -2221,7 +2228,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     : 'border-gray-100 bg-gray-50 text-gray-500'
                                 }`}
                               >
-                                {u === 'km' ? 'קילומטרים' : 'מיילים'}
+                                {t('settings.tools.unitName', { unit: u })}
                               </button>
                             ))}
                           </div>
@@ -2234,8 +2241,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   {v2 && (
                     <SettingsRow
                       icon={<CalendarDays size={20} className="text-gray-700" />}
-                      label="סנכרון ליומן"
-                      sublabel={calendarFeedPath ? 'האימונים שלך ביומן של הטלפון' : 'טוען…'}
+                      label={t('settings.tools.calendar')}
+                      sublabel={calendarFeedPath ? t('settings.tools.calendarSub') : t('settings.loading')}
                       onClick={calendarFeedPath ? () => openCalendarSubscription(calendarFeedPath) : undefined}
                       disabled={!calendarFeedPath}
                     />
@@ -2243,8 +2250,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   {/* Equipment */}
                   <SettingsRow
                     icon={<Dumbbell size={20} className="text-gray-700" />}
-                    label="הציוד שלי"
-                    sublabel="עדכן את הציוד הזמין לך"
+                    label={t('settings.tools.equipment')}
+                    sublabel={t('settings.tools.equipmentSub')}
                     onClick={() => setEquipmentSheetOpen(true)}
                   />
 
@@ -2256,15 +2263,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         className="text-gray-700"
                       />
                     }
-                    label="גישה למצלמה וגלריה"
+                    label={t('settings.tools.camera')}
                     sublabel={
                       !isNativeApp()
-                        ? 'זמין באפליקציה הנייטיב בלבד'
+                        ? t('settings.tools.nativeOnly')
                         : cameraStatus === 'granted'
-                        ? 'מורשה — לחץ לניהול הרשאות ב-OS'
+                        ? t('settings.tools.permGranted')
                         : cameraStatus === 'denied'
-                        ? 'נחסם — פתח הגדרות מכשיר לשחרור'
-                        : 'אפשר גישה למצלמה ולגלריה'
+                        ? t('settings.tools.permDenied')
+                        : t('settings.tools.cameraIdle')
                     }
                     onClick={handleCameraPermission}
                     disabled={cameraRequesting}
@@ -2281,15 +2288,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         className="text-gray-700"
                       />
                     }
-                    label="גישה למיקום"
+                    label={t('settings.tools.location')}
                     sublabel={
                       !isNativeApp()
-                        ? 'זמין באפליקציה הנייטיב בלבד'
+                        ? t('settings.tools.nativeOnly')
                         : locationStatus === 'granted'
-                        ? 'מורשה — לחץ לניהול הרשאות ב-OS'
+                        ? t('settings.tools.permGranted')
                         : locationStatus === 'denied'
-                        ? 'נחסם — פתח הגדרות מכשיר לשחרור'
-                        : 'אפשר גישה למיקום ל-GPS'
+                        ? t('settings.tools.permDenied')
+                        : t('settings.tools.locationIdle')
                     }
                     onClick={handleLocationPermission}
                     disabled={locationRequesting}
@@ -2305,20 +2312,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 {/* ══════════════════════════════════════════════════════════
                     חוויית אימון — guided hybrid-station layer (PR-B1)
                    ══════════════════════════════════════════════════════════ */}
-                <Section title="חוויית אימון">
+                <Section title={t('settings.section.training')}>
                   <SettingsRow
                     icon={<Footprints size={20} className="text-gray-700" />}
-                    label="יעד צעדים יומי"
+                    label={t('settings.training.stepGoal')}
                     sublabel={
                       stepGoalMode === 'manual'
-                        ? `${(resolvedStepGoal ?? 0).toLocaleString('en-US')} צעדים ביום, לפי הבחירה שלך`
+                        ? t('settings.training.stepGoalManual', { steps: (resolvedStepGoal ?? 0).toLocaleString('en-US') })
                         : resolvedStepGoal
-                          ? `${resolvedStepGoal.toLocaleString('en-US')} צעדים · מתעדכן פעם בשבוע לפי ההליכה שלך`
-                          : 'מתעדכן פעם בשבוע לפי ההליכה שלך'
+                          ? t('settings.training.stepGoalAuto', { steps: resolvedStepGoal.toLocaleString('en-US') })
+                          : t('settings.training.stepGoalAutoNone')
                     }
                     right={
                       <select
-                        aria-label="יעד צעדים יומי"
+                        aria-label={t('settings.training.stepGoal')}
                         value={stepGoalMode === 'manual' && resolvedStepGoal ? String(resolvedStepGoal) : 'auto'}
                         disabled={stepGoalSaving || !profile?.id}
                         onChange={(e) => void handleStepGoalChange(e.target.value)}
@@ -2328,7 +2335,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             : 'max-w-[9.5rem] flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1 text-base font-semibold text-gray-900 disabled:opacity-50'
                         }
                       >
-                        <option value="auto">אוטומטי (מומלץ)</option>
+                        <option value="auto">{t('settings.training.stepGoalAutoOption')}</option>
                         {Array.from(
                           { length: (MANUAL_STEP_GOAL_MAX - MANUAL_STEP_GOAL_MIN) / STEP_GOAL_INCREMENT + 1 },
                           (_, i) => MANUAL_STEP_GOAL_MIN + i * STEP_GOAL_INCREMENT,
@@ -2340,13 +2347,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
                   <SettingsRow
                     icon={<ListChecks size={20} className="text-gray-700" />}
-                    label="ליווי צעד-אחר-צעד"
-                    sublabel="מסך פתיחה, הדרכה, 'מצא את המתקן' וסרטון לפני כל תרגיל"
+                    label={t('settings.training.guided')}
+                    sublabel={t('settings.training.guidedSub')}
                     right={
                       <Toggle
                         checked={store.guidedStation}
                         onChange={handleGuidedStationToggle}
-                        label="ליווי צעד-אחר-צעד"
+                        label={t('settings.training.guided')}
                       />
                     }
                   />
@@ -2355,67 +2362,67 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 {/* ══════════════════════════════════════════════════════════
                     7. כללי
                    ══════════════════════════════════════════════════════════ */}
-                <Section title="כללי">
+                <Section title={t('settings.section.general')}>
                   {/* Kelly round 4 (flag ai_coach_round4) — the help hub + replayable tours. */}
                   {v2Flags.aiCoachRound4 === true && (
                     <SettingsRow
                       icon={<HelpCircle size={20} className="text-gray-700" />}
-                      label="איך משתמשים ושאלות נפוצות"
-                      sublabel="סיור באפליקציה לפי נושא, ותשובות לשאלות"
+                      label={t('settings.general.help')}
+                      sublabel={t('settings.general.helpSub')}
                       onClick={() => { onClose(); router.push('/help'); }}
                     />
                   )}
                   <SettingsRow
                     icon={<Accessibility size={20} className="text-gray-700" />}
-                    label="הפעלת סרגל נגישות"
-                    sublabel="סרגל של צד שלישי (UserWay) להתאמת גודל טקסט, ניגודיות ותנועה. כבוי כברירת מחדל; כיבוי נכנס לתוקף בהפעלה הבאה."
+                    label={t('settings.general.a11yWidget')}
+                    sublabel={t('settings.general.a11yWidgetSub')}
                     right={
                       <Toggle
                         checked={a11yWidgetOn}
                         onChange={handleA11yWidgetToggle}
-                        label="הפעלת סרגל נגישות"
+                        label={t('settings.general.a11yWidget')}
                       />
                     }
                   />
                   {v2Flags.enableHapticsV1 === true && (
                     <SettingsRow
                       icon={<Vibrate size={20} className="text-gray-700" />}
-                      label="רטט"
-                      sublabel="רטט קל בבחירה ובכפתורים הראשיים באימון. במכשיר הזה בלבד."
+                      label={t('settings.general.haptics')}
+                      sublabel={t('settings.general.hapticsSub')}
                       right={
                         <Toggle
                           checked={hapticsOn}
                           onChange={(v) => { writeHapticsPref(v); setHapticsOn(v); }}
-                          label="רטט"
+                          label={t('settings.general.haptics')}
                         />
                       }
                     />
                   )}
                   <SettingsRow
                     icon={<FileText size={20} className="text-gray-700" />}
-                    label="תנאי שימוש ופרטיות"
+                    label={t('settings.general.terms')}
                     onClick={() => setShowTermsModal(true)}
                   />
                   <SettingsRow
                     icon={<Shield size={20} className="text-gray-700" />}
-                    label="מדיניות פרטיות"
+                    label={t('settings.general.privacyPolicy')}
                     onClick={() => setShowPrivacyModal(true)}
                   />
                   <SettingsRow
                     icon={<Accessibility size={20} className="text-gray-700" />}
-                    label="הצהרת נגישות"
+                    label={t('settings.general.accessibility')}
                     onClick={() => { onClose(); router.push('/accessibility'); }}
                   />
                   {/* About data sources — map/trail + elevation credits (ODbL / Copernicus). */}
                   <SettingsRow
                     icon={<MapIcon size={20} className="text-gray-700" />}
-                    label="מקורות מידע"
-                    sublabel="מפות ושבילים: © OpenStreetMap contributors · גובה: Copernicus WorldDEM-30 © DLR/Airbus"
+                    label={t('settings.general.sources')}
+                    sublabel={t('settings.general.sourcesSub')}
                     onClick={() => window.open('https://www.openstreetmap.org/copyright', '_blank', 'noopener,noreferrer')}
                   />
                   <SettingsRow
                     icon={<Mail size={20} className="text-gray-700" />}
-                    label="יצירת קשר"
+                    label={t('settings.general.contact')}
                     sublabel="office@appout.co.il"
                     onClick={() => window.open('mailto:office@appout.co.il', '_blank')}
                   />
@@ -2436,7 +2443,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <div className="flex-shrink-0">
                       <LogOut size={20} className="text-gray-700" />
                     </div>
-                    <span className="flex-1 text-right text-base font-semibold text-gray-700 font-simpler">התנתק</span>
+                    <span className="flex-1 text-right text-base font-semibold text-gray-700 font-simpler">{t('settings.logout')}</span>
                   </button>
                 </div>
 
@@ -2447,10 +2454,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div className="border-2 border-red-200 rounded-2xl p-4 bg-red-50/50">
                     <div className="flex items-center gap-2 mb-1">
                       <AlertTriangle size={16} className="text-red-500" />
-                      <h3 className="text-sm font-bold text-red-900 font-simpler">אזור מסוכן</h3>
+                      <h3 className="text-sm font-bold text-red-900 font-simpler">{t('settings.danger.title')}</h3>
                     </div>
                     <p className="text-xs text-red-700 font-simpler mb-3 leading-relaxed">
-                      פעולות בלתי הפיכות שימחקו את כל הנתונים שלך.
+                      {t('settings.danger.desc')}
                     </p>
                     <button
                       type="button"
@@ -2459,14 +2466,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-red-400 text-red-600 bg-white rounded-xl text-sm font-bold font-simpler hover:bg-red-50 transition-colors active:scale-[0.98] disabled:opacity-50"
                     >
                       <Trash2 size={16} />
-                      מחק חשבון
+                      {t('settings.danger.deleteAccount')}
                     </button>
                   </div>
                 </div>
 
                 {/* Footer */}
                 <div className="px-5 py-5 text-center">
-                  <p className="text-[10px] text-gray-300 font-simpler">גרסה 1.0.0</p>
+                  <p className="text-[10px] text-gray-300 font-simpler">{t('settings.version')}</p>
                 </div>
                 </>
               )}
@@ -2482,7 +2489,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                  ══════════════════════════════════════════════════════════ */}
               {screen === 'personal' && (
                 <div className="px-5 py-5">
-                  <p className="text-xs text-gray-400 font-simpler mb-4">הנתונים שמזהים את מנוע האימון</p>
+                  <p className="text-xs text-gray-400 font-simpler mb-4">{t('settings.personal.intro')}</p>
                   <div className="divide-y divide-gray-100">
                     {/* City — display-only here, links out to /explorer
                         (core.authorityId is client-write-locked, can't join
@@ -2513,10 +2520,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       }}
                       className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-right"
                     >
-                      <span className="text-cyan-600 font-semibold text-xs">ערוך</span>
+                      <span className="text-cyan-600 font-semibold text-xs">{t('settings.personal.edit')}</span>
                       <span className="flex items-center gap-2">
-                        <span className="text-gray-900">{cityResolving ? 'טוען…' : cityDisplay ?? 'לא הוגדרה'}</span>
-                        <span className="text-gray-900 font-semibold">עיר</span>
+                        <span className="text-gray-900">{cityResolving ? t('settings.loading') : cityDisplay ?? t('settings.personal.notSet')}</span>
+                        <span className="text-gray-900 font-semibold">{t('settings.personal.city')}</span>
                       </span>
                     </button>
 
@@ -2533,7 +2540,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                         dir="ltr"
                       />
-                      <span className="text-gray-900 font-semibold text-sm">משקל</span>
+                      <span className="text-gray-900 font-semibold text-sm">{t('settings.personal.weight')}</span>
                     </div>
 
                     {/* Birthdate — read-only (production incident, round 8):
@@ -2571,9 +2578,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                           />
                         </div>
-                        <span className="text-gray-900 font-semibold text-sm">תאריך לידה</span>
+                        <span className="text-gray-900 font-semibold text-sm">{t('settings.personal.birthDate')}</span>
                       </div>
-                      <p className="text-[10px] text-gray-400 mt-1.5 font-simpler">תאריך לידה לא ניתן לעריכה כאן</p>
+                      <p className="text-[10px] text-gray-400 mt-1.5 font-simpler">{t('settings.personal.birthDateLocked')}</p>
                     </div>
 
                     {/* Neighborhood — staged like weight/DOB, constrained to
@@ -2585,19 +2592,19 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-right disabled:opacity-50"
                     >
                       <span className="text-cyan-600 font-semibold text-xs">
-                        {editNeighborhoodName ? 'עריכה' : 'בחירה'}
+                        {editNeighborhoodName ? t('settings.personal.neighborhoodEdit') : t('settings.personal.neighborhoodChoose')}
                       </span>
                       <span className="flex items-center gap-2">
                         <span className="text-gray-900">
-                          {!cityAuthorityId ? 'קודם בחר עיר' : editNeighborhoodName ?? 'לא הוגדרה'}
+                          {!cityAuthorityId ? t('settings.personal.chooseCityFirst') : editNeighborhoodName ?? t('settings.personal.notSet')}
                         </span>
-                        <span className="text-gray-900 font-semibold">שכונה</span>
+                        <span className="text-gray-900 font-semibold">{t('settings.personal.neighborhood')}</span>
                       </span>
                     </button>
                   </div>
 
                   <p className="text-[11px] text-gray-400 font-simpler mt-5 leading-relaxed">
-                    הנתונים האלה לא מופיעים בכרטיס הציבורי שלך. שינוי תאריך לידה עובר דרך זיהוי.
+                    {t('settings.personal.footnote')}
                   </p>
                 </div>
               )}
@@ -2618,7 +2625,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] text-on-brand font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
                   >
                     {editSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={3} />}
-                    שמירה
+                    {tc('actions.save')}
                   </button>
                 </div>
               )}
@@ -2683,7 +2690,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div className="flex items-center justify-between p-5 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={20} className="text-red-500" />
-                  <h2 className="text-base font-bold text-red-700 font-simpler">מחיקת חשבון לצמיתות</h2>
+                  <h2 className="text-base font-bold text-red-700 font-simpler">{t('settings.delete.title')}</h2>
                 </div>
                 <button
                   type="button"
@@ -2697,11 +2704,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               <div className="p-5 space-y-4 font-simpler">
                 <p className="text-sm text-slate-700 leading-relaxed">
-                  הפעולה הזו <span className="font-bold text-red-600">לא ניתנת לביטול</span>. כל המידע שלך יימחק לצמיתות.
+                  {t.rich('settings.delete.warning', { b: (chunks: React.ReactNode) => <span className="font-bold text-red-600">{chunks}</span> })}
                 </p>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    הקלד <span className="font-bold text-red-600">{DELETE_CONFIRM_WORD}</span> לאישור
+                    {t.rich('settings.delete.typeToConfirm', { word: DELETE_CONFIRM_WORD, b: (chunks: React.ReactNode) => <span className="font-bold text-red-600">{chunks}</span> })}
                   </label>
                   <input
                     type="text"
@@ -2728,7 +2735,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   disabled={isDeleting}
                   className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold font-simpler disabled:opacity-50 transition-colors"
                 >
-                  ביטול
+                  {tc('actions.cancel')}
                 </button>
                 <button
                   type="button"
@@ -2737,9 +2744,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold font-simpler transition-all disabled:bg-red-200 disabled:text-red-400 enabled:bg-red-600 enabled:hover:bg-red-700 enabled:text-white"
                 >
                   {isDeleting ? (
-                    <><Loader2 size={16} className="animate-spin" /><span>מוחק...</span></>
+                    <><Loader2 size={16} className="animate-spin" /><span>{t('settings.delete.deleting')}</span></>
                   ) : (
-                    <><Trash2 size={16} /><span>מחק לצמיתות</span></>
+                    <><Trash2 size={16} /><span>{t('settings.delete.confirm')}</span></>
                   )}
                 </button>
               </div>

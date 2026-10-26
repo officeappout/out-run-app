@@ -12,3 +12,4 @@ export { PROGRAM_PROFILES, profileOf } from './programProfiles';
 export { renderV2ReasonHe, renderV2ReasonsHe, type V2Reason, type V2ReasonCode } from './reasonsV2';
 export * from './config';
 export type * from './types';
+export * from './structure';

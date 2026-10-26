@@ -60,17 +60,17 @@ export default function OfflineBanner() {
           <div className="flex items-center justify-center gap-2">
             <WifiOff size={16} className="flex-shrink-0 text-gray-300" />
             <span className="text-[13px] font-medium tracking-wide">
-              אין חיבור לאינטרנט — מציג אימונים שמורים בלבד
+              {t('ui.offline.banner')}
             </span>
           </div>
           {queued > 0 && (
             <div className="text-[11px] text-gray-400">
               {depth.workouts > 0 && (
-                <span>{depth.workouts} אימונים ממתינים לסנכרון</span>
+                <span>{t('ui.offline.workouts', { count: String(depth.workouts) })}</span>
               )}
               {depth.workouts > 0 && depth.samples > 0 && <span> · </span>}
               {depth.samples > 0 && (
-                <span>{depth.samples} מדידות סנסור ממתינות</span>
+                <span>{t('ui.offline.samples', { count: String(depth.samples) })}</span>
               )}
             </div>
           )}
