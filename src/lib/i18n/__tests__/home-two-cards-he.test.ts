@@ -19,9 +19,9 @@ describe('home (he) — two start cards + try-running nudge', () => {
   });
   it('renders the canvas copy', () => {
     expect(t('programStart.aerobic.title')).toBe('הליכה וריצה');
-    expect(t('programStart.aerobic.valueLine')).toBe('מהליכה מהירה ועד 10 ק״מ — נתאים לך מסלול');
+    expect(t('programStart.aerobic.valueLine')).toBe('מהליכה מהירה ועד 10 ק״מ, נתאים לך מסלול');
     expect(t('tryRun.title')).toBe('מוכן לנסות ריצה קלה?');
-    expect(t('tryRun.kicker', { weeks: '4' })).toBe('4 שבועות של הליכה — כל הכבוד');
+    expect(t('tryRun.kicker', { weeks: '4' })).toBe('4 שבועות של הליכה, כל הכבוד');
     expect(t('tryRun.cta')).toBe('בוא ננסה · שבוע ראשון');
     expect(t('tryRun.dismiss')).toBe('לא עכשיו, ממשיך ללכת');
   });

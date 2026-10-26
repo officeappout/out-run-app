@@ -12,6 +12,7 @@ import { loadAssessmentContext } from '@/features/user/onboarding/services/branc
 import { useUserStore } from '@/features/user';
 import { mapAnswersToProfile } from '@/features/user/identity/services/profile.service';
 import { getOnboardingLocale } from '@/lib/i18n/onboarding-locales';
+import { useAerobicSignupGuard } from '@/features/user/onboarding/hooks/useAerobicProgramsOpen';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { shouldInitOnboardingEngine } from '@/features/user/onboarding/utils/onboarding-guard';
 import DynamicQuestionRenderer from '@/features/user/onboarding/components/DynamicQuestionRenderer';
@@ -96,6 +97,8 @@ export default function DynamicOnboardingPage() {
   const direction = savedLanguage === 'he' ? 'rtl' : 'ltr';
 
   const isRunningTrackRender = getOnboardingPref('gateway_track') === 'RUNNING';
+  // The running questionnaire is frozen for regular users (pilot 26.10, C1).
+  const runningFrozen = useAerobicSignupGuard(isRunningTrackRender);
 
   // Save claim params
   useEffect(() => {
@@ -623,6 +626,8 @@ export default function DynamicOnboardingPage() {
       router.push('/onboarding-new/health');
     }
   }, [router, v2]);
+
+  if (runningFrozen) return null;
 
   // Show reveal screens if active
   if (showResultLoading) {

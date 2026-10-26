@@ -20,6 +20,8 @@ import TodayActivityStripRaw from '@/features/home/components/TodayActivityStrip
 import DoneTodayCardRaw from '@/features/home/components/DoneTodayCard';
 import StepsSummaryCardRaw from '@/features/home/components/widgets/StepsSummaryCard';
 import RacePredictionCardRaw from '@/features/home/components/widgets/RacePredictionCard';
+import HomeProgressSlotRowRaw, { type HomeProgressSlotRowProps } from '@/features/home/components/progress-slot/HomeProgressSlotRow';
+import ActivityMinutesRingCardRaw from '@/features/home/components/progress-slot/ActivityMinutesRingCard';
 import WeatherChipRaw from '@/features/weather/components/WeatherChip';
 import { AiCoachHomeEntry as AiCoachHomeEntryRaw } from '@/features/ai-coach/components/AiCoachEntry';
 import AnchorLocationChipRaw from '@/features/home/components/AnchorLocationChip';
@@ -54,6 +56,9 @@ export const HomeProgramSlide = withWidgetBoundary(HomeProgramSlideRaw, 'home.Ho
 export const DoneTodayCard = withWidgetBoundary(DoneTodayCardRaw, 'home.DoneTodayCard');
 export const StepsSummaryCard = withWidgetBoundary(StepsSummaryCardRaw, 'home.StepsSummaryCard');
 export const RacePredictionCard = withWidgetBoundary(RacePredictionCardRaw, 'home.RacePredictionCard');
+// enable_home_progress_slot_v1: strength ↔ running/walking pair beside the bars; the week's active-minutes ring.
+export const HomeProgressSlotRow = withWidgetBoundary<HomeProgressSlotRowProps>(HomeProgressSlotRowRaw, 'home.HomeProgressSlotRow');
+export const ActivityMinutesRingCard = withWidgetBoundary(ActivityMinutesRingCardRaw, 'home.ActivityMinutesRingCard');
 export const WeatherChip = withWidgetBoundary(WeatherChipRaw, 'home.WeatherChip');
 export const AiCoachHomeEntry = withWidgetBoundary(AiCoachHomeEntryRaw, 'home.AiCoachHomeEntry');
 export const AnchorLocationChip = withWidgetBoundary(AnchorLocationChipRaw, 'home.AnchorLocationChip');

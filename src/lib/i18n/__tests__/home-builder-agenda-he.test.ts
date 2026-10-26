@@ -30,7 +30,7 @@ describe('home — builder / agenda / day preview / nearby spots (batch y)', () 
       ['builder.gearNudge.title', 'רוצים אימון מותאם ב-100% לציוד שלכם?'],
       ['builder.gearNudge.body', 'לחצו כאן כדי לסמן מה יש לכם בסביבה'],
       ['builder.recommended.title', 'מילאנו עבורכם הגדרות מומלצות'],
-      ['builder.recommended.body', 'תוכנית, משך, עצימות ואזורי אימון — אפשר לשנות כל דבר למטה'],
+      ['builder.recommended.body', 'תוכנית, משך, עצימות ואזורי אימון, אפשר לשנות כל דבר למטה'],
       ['builder.schedule.section', 'שעה'],
       ['builder.schedule.sectionSub', 'מתי?'],
       ['builder.schedule.startTime', 'שעת התחלה'],
@@ -90,7 +90,7 @@ describe('home — builder / agenda / day preview / nearby spots (batch y)', () 
       ['rollingAgenda.week.current', ' · השבוע'],
       ['dayPreview.done', 'בוצע'],
       ['dayPreview.rest.title', 'יום מנוחה'],
-      ['dayPreview.rest.subtitle', 'התאוששות ומוביליטי — הגוף בונה את עצמו'],
+      ['dayPreview.rest.subtitle', 'התאוששות ומוביליטי, הגוף בונה את עצמו'],
       ['dayPreview.empty.title', 'אין אימון מתוכנן'],
       ['dayPreview.empty.subtitle', 'אפשר להוסיף אימון מהלו״ז'],
       ['dayPreview.opensOnDay', 'האימון ייפתח ביום עצמו'],
@@ -115,9 +115,9 @@ describe('home — builder / agenda / day preview / nearby spots (batch y)', () 
     expect(t('builder.program.includes', { list: 'דחיפה · משיכה' })).toBe(`כולל: ${'דחיפה · משיכה'}`);
     expect(t('builder.muscles.selected', { n: String(1234) })).toBe(`${1234} אזורים נבחרו`);
     expect(t('builder.cta.generate', { minutes: String(45) })).toBe(`צור אימון · ${45} דק׳`);
-    // JSX: "יאומן לפי <b>{label}</b> — …שבחרת." + line break + "אפשר לבחור…" → one space.
+    // JSX: "יאומן לפי <b>{label}</b>, …שבחרת." + line break + "אפשר לבחור…" → one space.
     expect(t.rich('builder.program.autoApplied', { label: 'קליסטניקס', b: (c: unknown) => `[${String(c)}]` }).join(''))
-      .toBe('יאומן לפי [קליסטניקס] — הותאם אוטומטית לשרירים שבחרת. אפשר לבחור תוכנית אחרת למעלה.');
+      .toBe('יאומן לפי [קליסטניקס], הותאם אוטומטית לשרירים שבחרת. אפשר לבחור תוכנית אחרת למעלה.');
     expect(t('agendaCard.title.skill', { name: 'פלאנץ׳' })).toBe(`אימון ${'פלאנץ׳'}`);
     expect(t('agendaCard.communityBadge.group', { name: 'רצים' })).toBe(`קבוצה: ${'רצים'}`);
     expect(t('rollingAgenda.header.days', { n: String(1234) })).toBe(`${1234} ימים`);

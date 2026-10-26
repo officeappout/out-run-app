@@ -12,6 +12,7 @@ import { useOnboardingV2State } from '@/features/user/onboarding/hooks/useOnboar
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { addTrackDoneRoute, HOME_ROUTE, parseAddedTrack } from '@/features/user/onboarding/utils/add-track-routing';
 import { removeOnboardingPref } from '@/lib/onboardingPrefs';
+import { useAerobicSignupGuard } from '@/features/user/onboarding/hooks/useAerobicProgramsOpen';
 
 /**
  * /onboarding-new/add-track-week?added=running|strength — enable_home_v2 only
@@ -28,13 +29,15 @@ function AddTrackWeekPage() {
   const { v2, ready } = useOnboardingV2State();
   const hasHydrated = useUserStore((s) => s._hasHydrated);
   const [sub, setSub] = useState(0);
+  // Adding running is frozen for regular users (pilot 26.10, C1); adding strength is not.
+  const frozen = useAerobicSignupGuard(added === 'running');
 
   const blocked = ready && (!v2 || !added);
   useEffect(() => {
     if (blocked) router.replace(HOME_ROUTE);
   }, [blocked, router]);
 
-  if (!ready || blocked || !added || !hasHydrated) return null;
+  if (!ready || blocked || !added || !hasHydrated || frozen) return null;
 
   const phases = added === 'running' ? RUNNING_PHASES : STRENGTH_PHASES;
   const segment = added === 'running' ? RUNNING_PHASES.SCHEDULE : STRENGTH_PHASES.RESULT;

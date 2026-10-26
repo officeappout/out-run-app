@@ -1,5 +1,5 @@
 /**
- * RouteEditor freehand drawing (kein Directions API) — 22.09.2026, field-test
+ * RouteEditor freehand drawing (kein Directions API), 22.09.2026, field-test
  * doc 24. RouteEditor.tsx itself can't be pure-function-imported under this
  * repo's vitest config (verified — a .tsx transform fails at the oxc/
  * vite:define step regardless of jsdom), so the pure geometry it calls lives

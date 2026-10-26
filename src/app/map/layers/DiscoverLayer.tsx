@@ -2766,7 +2766,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
           blocked={
             !isMapVisuallyReady || logic.isWorkoutActive || mapMode !== 'idle' || logic.isGenerating || !!mapGlobalSheet
           }
-          kellyUnified={mapFeatureFlags.kellyUnifiedV1 === true}
+          kellyOpenToAll={mapFeatureFlags.aiCoachFreeForAll === true}
           onAnswered={(a) => { if (mapTourAfterWhatNow(a)) setWhatNowBrowsed(true); }}
           onRoute={() => {
             // The map's existing "מה עושים היום?" carousel — same entry as its own button /

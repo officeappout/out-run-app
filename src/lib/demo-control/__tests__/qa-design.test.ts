@@ -29,7 +29,7 @@ const design: DesignSummary = {
   avgScore: 3.4,
   lowScreens: 1,
   findings: 4,
-  screens: [row('home_strength', 2.3, { label: 'בית — כוח', screenshot: SHOT, clarity: 2, consistency: 2.5, density: 3, rtl: 1.7 }), row('summary_run', 3.9), row('/parks/[id]', null)],
+  screens: [row('home_strength', 2.3, { label: 'בית, כוח', screenshot: SHOT, clarity: 2, consistency: 2.5, density: 3, rtl: 1.7 }), row('summary_run', 3.9), row('/parks/[id]', null)],
   resume: ['D02_summary@summary_tabs'],
 };
 

@@ -82,7 +82,7 @@ describe('home/page.tsx — v2 run card wiring', () => {
   });
 
   it('v2 program slide (start pair / add card) replaces the strength invite only under the flag', () => {
-    expect(pageSrc).toContain('useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2)');
+    expect(pageSrc).toContain('useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2, featureFlags.enableRunningPrograms)');
     expect(pageSrc).toContain('!hasStrengthProgram && !featureFlags.enableHomeV2');
     // The walker's walk card (enable_home_v2) is placed between the run card and the program slide.
     // Owner 20.10.2026: each start card is its own slide (placeProgramSlides), in both carousels.
@@ -114,7 +114,7 @@ describe('home/page.tsx — v2 run card wiring', () => {
   it('after a workout (v2): top-up rule, next-run card, runs-only week', () => {
     expect(pageSrc).toContain('applyStrengthTopUp(dropStepsDuplicate(postWorkoutSuggestions, shortWalkShown), strengthTopUp');
     expect(pageSrc).toContain('const nextRunCardShown = !!nextUp && nextRunCardDue({');
-    expect(pageSrc).toContain("titleOverride={strengthTopUp.mode === 'top-up' && s.generatorId === 'partial-completion' ? topUpTitleHe(strengthTopUp.remainingSets) : undefined}");
+    expect(pageSrc).toContain("titleOverride={strengthTopUp.mode === 'top-up' && s.generatorId === 'partial-completion' ? topUpTitleHe(strengthTopUp.remainingSets, tHome) : undefined}");
     expect(pageSrc).toContain('...(topUpSets > 0 ? { dailyStrengthTopUpSets: topUpSets } : {}),');
     // Flag off: the post carousel keeps its own gate and list.
     expect(pageSrc).toContain('(featureFlags.enableHomeV2 ? postWorkoutHasCards : postWorkoutCarouselReady)');

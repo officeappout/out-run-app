@@ -93,7 +93,7 @@
   "challenge.landing.step1.title": "הרשמה",
   "challenge.landing.step1.desc": "שם, גיל ומין. 20 שניות, בלי אפליקציה.",
   "challenge.landing.step2.title": "מחזיקים L-sit",
-  "challenge.landing.step2.desc": "הטיימר מודד — משחררים כשצריך.",
+  "challenge.landing.step2.desc": "הטיימר מודד, משחררים כשצריך.",
   "challenge.landing.step3.title": "הדירוג שלכם",
   "challenge.landing.step3.desc": "בליגת האתגר, בזמן אמת.",
   "challenge.landing.cta": "הצטרפו לאתגר",
@@ -118,7 +118,7 @@
   "challenge.join.submit": "נסו את האתגר",
   "challenge.join.note": "בלי הרשמה · נכנסים ישר",
   "challenge.join.error.invalidCode": "קישור לא תקין. אנא נסו שוב.",
-  "challenge.join.error.general": "שגיאה — אנא נסו שוב.",
+  "challenge.join.error.general": "שגיאה, אנא נסו שוב.",
   "challenge.timer.instruction": "מחזיקים כמה שיותר זמן. משחררים כשצריך.",
   "challenge.timer.exerciseName": "ישיבת L",
   "challenge.done.congrats": "כל הכבוד",
@@ -135,11 +135,11 @@
   "challenge.done.appleBtn": "המשך עם Apple",
   "challenge.done.free": "אין צורך בכרטיס אשראי · בחינם לנצח",
   "challenge.done.saved": "החשבון נשמר!",
-  "challenge.done.savedDesc": "התוצאה שלך מקושרת לחשבון — תמצא אותה בליגת האתגר.",
+  "challenge.done.savedDesc": "התוצאה שלך מקושרת לחשבון, תמצא אותה בליגת האתגר.",
   "challenge.done.qrLabel": "סרוק להורדת אפליקציית OUT",
   "challenge.done.error.accountExists": "חשבון Google זה כבר משויך לפרופיל אחר.",
   "challenge.done.error.generic": "שגיאת חיבור. אנא ודא שהכתובת הוסמכה ב-Firebase Console.",
-  "challenge.done.error.general": "שגיאה — אנא נסו שוב.",
+  "challenge.done.error.general": "שגיאה, אנא נסו שוב.",
   "challenge.done.existingAccount": "כבר יש לכם חשבון OUT",
   "challenge.done.signin": "התחברות",
   "challenge.done.download.title": "הורד את OUT",
@@ -152,5 +152,5 @@
   "challenge.booth.waiting": "ממתין למשתתפים...",
   "challenge.booth.newEntry.suffix": "נכנס לדירוג!",
   "challenge.booth.refresh": "מתרענן כל 8 שניות",
-  "challenge.booth.error": "שגיאת חיבור — מנסה שוב..."
+  "challenge.booth.error": "שגיאת חיבור, מנסה שוב..."
 }

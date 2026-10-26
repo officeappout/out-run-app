@@ -64,6 +64,8 @@ src/features/progression-hub/v2/components/
 # deeper pages (/progress/steps · run · strength); translation-ready from the first commit.
 src/features/progression-hub/v2/hub/
 src/app/progress/steps/
+src/app/progress/run/
+src/app/progress/strength/
 # wave 2 (namespace library, exercises.* keys) — the exercise library (/library → /search?tab=exercises
 # → ExerciseLibraryContent) and its detail sheet (MasterExerciseView). Not migrated:
 # EquipmentFilterSheet/EquipmentFilterShell (not rendered by the library — home builder, settings,
@@ -577,3 +579,24 @@ src/app/chat/
 src/app/progress/
 src/app/onboarding-new/health/
 src/features/help/
+# wave 2 batch al (namespace home, keys page.* / calmReturnCard.* / runCatchUp.* / streakCard.* / firstWeekCard.* /
+# ghostUpsell.* / processing.* / topUp.* / runWeekList.* / runReturn.*) — src/app/home/page.tsx + small home components.
+# Marked in page.tsx (manual list in the PR): GROUP_VERB join verbs (composed by PostJoinSuccessDrawer, like
+# community-constants.ts), workout-object titles / the runner plan's segment titles and rep / second strings (they
+# reach the drawer, sessionStorage and the active runner; workout-engine text has no namespace yet), the v1-only
+# (enable_home_v2 off) loader, ProfileProgressBar and ActivityCard branch. calmCopy / catchUp*He stay in src/lib.
+src/app/home/page.tsx
+src/features/home/components/CalmReturnCard.tsx
+src/features/home/components/ProcessingOverlay.tsx
+src/features/home/components/rows/GhostUpsell.tsx
+src/features/home/components/run-return/
+src/features/home/components/streak/
+src/features/home/components/first-week/
+src/features/home/components/widgets/run-week-v2/RunWeekListV2.tsx
+src/features/home/utils/strength-top-up.ts
+# Home progress slot (enable_home_progress_slot_v1, namespace home, keys progressSlot.*) — translation-ready from the first commit.
+src/features/home/components/progress-slot/
+src/features/home/utils/progress-slot.ts
+src/features/home/hooks/useWeekActivitySummary.ts
+src/components/ui/v2/PagedCarousel.tsx
+src/components/ui/v2/paged-carousel.ts

@@ -19,8 +19,8 @@ describe('first-week home card (enable_home_v2)', () => {
     expect(createdAtMillis(null)).toBeNull();
   });
 
-  it('welcome on day 0 with the first name; the day-2 walk card links to a walk on the map', () => {
-    expect(firstWeekCardForProfile({ createdAt: NOW - 3_600_000, core: { name: 'דנה כהן' } }, NOW)?.title).toBe('דנה, הכול מוכן');
+  it('no card on day 0 (the welcome had no button); the day-2 walk card links to a walk on the map', () => {
+    expect(firstWeekCardForProfile({ createdAt: NOW - 3_600_000, core: { name: 'דנה כהן' } }, NOW)).toBeNull();
     const d2 = firstWeekCardForProfile({ createdAt: NOW - 2 * D }, NOW);
     expect(d2?.lever).toBe('low_bar');
     expect(d2?.href).toBe('/map?openRun=walking');

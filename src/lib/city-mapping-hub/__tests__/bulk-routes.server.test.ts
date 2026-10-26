@@ -38,7 +38,8 @@ const db = {
 };
 const put = (p: string, d: Record<string, unknown>) => store.set(p, wrap(d));
 
-import { approvePendingRoutes, parseBulkApproveRequest, readPendingRoutesNationwide } from '../bulk-routes.server';
+import { NATIONWIDE_APPROVE_DEFAULT_FILTER } from '../review-filters';
+import { approvePendingRoutes, parseBulkApproveRequest, parseBulkRejectRequest, readPendingRoutesNationwide, rejectPendingRoutes } from '../bulk-routes.server';
 
 beforeEach(() => {
   store.clear(); writes.length = 0; version.clear(); failBatch = false;
@@ -148,9 +149,82 @@ describe('approvePendingRoutes — TOCTOU', () => {
 
 describe('parseBulkApproveRequest', () => {
   it('validates', () => {
-    expect(parseBulkApproveRequest({ authorityId: 'a', ids: ['x', 'x'] })).toEqual({ ok: true, value: { authorityId: 'a', ids: ['x'] } });
+    expect(parseBulkApproveRequest({ authorityId: 'a', ids: ['x', 'x'] })).toEqual({ ok: true, value: { authorityId: 'a', ids: ['x'], filter: NATIONWIDE_APPROVE_DEFAULT_FILTER } });
     expect(parseBulkApproveRequest({ authorityId: 'a', ids: [] }).ok).toBe(false);
     expect(parseBulkApproveRequest({ authorityId: 'a', ids: Array.from({ length: 500 }, (_, i) => `i${i}`) }).ok).toBe(false);
     expect(parseBulkApproveRequest({ authorityId: 'a/b', ids: ['x'] }).ok).toBe(false);
+  });
+});
+
+describe('review filter — re-applied at write time (owner 24.10.2026)', () => {
+  beforeEach(() => {
+    put('authorities/a', { name: 'אילת', type: 'city' });
+    put('route_scores/r2', { score: 58, lowConfidenceReason: 'low_score_fill', geometryGapM: 80 });
+    put('route_scores/r3', { score: 66, geometryGapM: 80 });
+  });
+  it('preview carries low confidence, authority kind, city, activity', async () => {
+    put('authorities/b', { name: 'חיפה', type: 'regional_council' });
+    const r = await readPendingRoutesNationwide(db as never);
+    const by = (id: string) => r.candidates.find((c) => c.id === id)!;
+    expect(by('r2')).toMatchObject({ score: 58, lowConfidenceReason: 'low_score_fill', authorityKind: 'municipal' });
+    expect(by('r1').lowConfidenceReason).toBeNull();
+    expect(by('r7').authorityKind).toBe('regional');
+    expect(by('r3').city).toBe('אילת');
+  });
+  it('approve: ids outside the confirmed filter are skipped as filter_mismatch, never written', async () => {
+    const filter = { authorityKind: 'all' as const, scoreMin: 70, scoreMax: null, lowConfidence: 'exclude' as const };
+    const out = await approvePendingRoutes(db as never, 'admin-1', { authorityId: 'a', ids: ['r1', 'r2', 'r3'], filter });
+    expect(out.updated).toEqual(['r1']);
+    expect(Object.fromEntries(out.skipped.map((s) => [s.id, s.reason]))).toEqual({ r2: 'filter_mismatch', r3: 'filter_mismatch' });
+    expect(writes.filter((w) => w.op === 'update').map((w) => w.path)).toEqual(['official_routes/r1']);
+  });
+  it('approve: authority kind is read from the authority doc', async () => {
+    const out = await approvePendingRoutes(db as never, 'admin-1', { authorityId: 'a', ids: ['r1'], filter: { authorityKind: 'regional', scoreMin: null, scoreMax: null, lowConfidence: 'any' } });
+    expect(out.updated).toEqual([]);
+    expect(writes).toHaveLength(0);
+  });
+  it('reject: archives only pending, own, matching routes — same fields as the single reject — one audit row', async () => {
+    const filter = { authorityKind: 'municipal' as const, scoreMin: 55, scoreMax: 61, lowConfidence: 'only' as const };
+    const out = await rejectPendingRoutes(db as never, 'admin-1', { authorityId: 'a', ids: ['r1', 'r2', 'r4', 'r7'], filter, reason: 'ציון נמוך' });
+    expect(out.updated).toEqual(['r2']);
+    expect(Object.fromEntries(out.skipped.map((s) => [s.id, s.reason]))).toEqual({ r1: 'filter_mismatch', r4: 'not_pending', r7: 'other_authority' });
+    const upd = writes.filter((w) => w.op === 'update');
+    expect(upd.map((w) => w.path)).toEqual(['official_routes/r2']);
+    expect(upd[0].data).toMatchObject({ published: false, status: 'archived', rejectionReason: 'ציון נמוך', reviewedBy: 'admin-1', reviewedAt: TS, updatedAt: TS });
+    const audit = writes.filter((w) => w.op === 'set');
+    expect(audit).toHaveLength(1);
+    expect(audit[0].data).toMatchObject({ actionType: 'REJECT', targetEntity: 'Route' });
+  });
+  it('reject ignores the straight-bridge guard (a bridged route can be rejected)', async () => {
+    put('official_routes/g1', { name: 'g1', authorityId: 'a', published: false, status: 'pending' });
+    const out = await rejectPendingRoutes(db as never, 'admin-1', { authorityId: 'a', ids: ['g1'], filter: { authorityKind: 'all', scoreMin: null, scoreMax: null, lowConfidence: 'any' }, reason: null });
+    expect(out.updated).toEqual(['g1']);
+  });
+  it('request parsing: malformed filter is a 400, reject requires a filter', () => {
+    expect(parseBulkApproveRequest({ authorityId: 'a', ids: ['x'], filter: { scoreMin: 'high' } }).ok).toBe(false);
+    expect(parseBulkApproveRequest({ authorityId: 'a', ids: ['x'], filter: { scoreMin: 70 } })).toMatchObject({ ok: true, value: { filter: { scoreMin: 70 } } });
+    expect(parseBulkRejectRequest({ authorityId: 'a', ids: ['x'] }).ok).toBe(false);
+    expect(parseBulkRejectRequest({ authorityId: 'a', ids: ['x'], filter: {}, reason: '  ' })).toMatchObject({ ok: true, value: { reason: null } });
+  });
+});
+
+describe('no filter sent → server default ≥70, low confidence excluded', () => {
+  it('a hub POST without a filter never approves a <70 or low-confidence route', async () => {
+    put('route_scores/r2', { score: 58, lowConfidenceReason: 'low_score_fill', geometryGapM: 80 });
+    put('route_scores/r3', { score: 85, lowConfidenceReason: 'low_score_fill', geometryGapM: 80 });
+    put('official_routes/r8', { name: 'mid', authorityId: 'a', published: false, status: 'pending', path: [{ lat: 32, lng: 34.8 }, { lat: 32.001, lng: 34.8 }] });
+    put('route_scores/r8', { score: 66, geometryGapM: 80 });
+    const parsed = parseBulkApproveRequest({ authorityId: 'a', ids: ['r1', 'r2', 'r3', 'r8'] });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.filter).toEqual(NATIONWIDE_APPROVE_DEFAULT_FILTER);
+    const out = await approvePendingRoutes(db as never, 'admin-1', parsed.value);
+    expect(out.updated).toEqual(['r1']);
+    expect(Object.fromEntries(out.skipped.map((s) => [s.id, s.reason]))).toEqual({ r2: 'filter_mismatch', r3: 'filter_mismatch', r8: 'filter_mismatch' });
+    expect(writes.filter((w) => w.op === 'update').map((w) => w.path)).toEqual(['official_routes/r1']);
+  });
+  it('an explicit filter replaces the default', () => {
+    const p = parseBulkApproveRequest({ authorityId: 'a', ids: ['x'], filter: { scoreMin: 55, lowConfidence: 'any' } });
+    expect(p).toMatchObject({ ok: true, value: { filter: { scoreMin: 55, lowConfidence: 'any' } } });
   });
 });

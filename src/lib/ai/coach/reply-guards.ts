@@ -47,7 +47,9 @@ export type ReplyIssue =
   | { kind: 'feminine'; forms: string[] }
   | { kind: 'blind'; claim: string; tools: string[] }
   /** Kelly phase 2: said the schedule was changed while it is only a proposal awaiting the user's tap. */
-  | { kind: 'unconfirmed_save'; claim: string };
+  | { kind: 'unconfirmed_save'; claim: string }
+  /** Said the request reached the team while handoff_to_human never ran (and no handoff is open). */
+  | { kind: 'unconfirmed_handoff'; claim: string };
 
 const ALLOWED_LATIN = new Set(['ai', 'out', 'emom', 'amrap', 'hiit', 'trx']);
 
@@ -262,6 +264,23 @@ export interface BlindContext {
   toolNames: string[];
   /** Kelly round 4 on: "can't" about parks, weather, a run or the tutorial is also caught. */
   round4?: boolean;
+  /** The thread is already in the team queue (an earlier real handoff): saying so is true. */
+  handoffOpen?: boolean;
+}
+
+/**
+ * "העברתי לצוות" / "הועבר לצוות קלי" — a claim that the request reached the team. Owner thread
+ * 18.10.2026 21:09: "העברתי להם את הבקשה" with no tool call at all; the admin queue got nothing.
+ */
+// Only a first-person "I passed / sent it" (or "it was passed") to the team: ordinary sentences
+// about the team ("הצוות יודע", "הצוות מטפל בזה", "אפשר להעביר לצוות") never match.
+const HANDOFF_CLAIM =
+  /(?:העברתי|הועבר(?:ה|ו)?|שלחתי|העברנו|מסרתי|עדכנתי)\s+(?:את\s+)?(?:זה|הבקשה|השאלה|ההודעה|הפנייה|הכול|הכל|להם)?[^.!?\n]{0,25}(?:לצוות|לאנשי\s+הצוות|למאמנים|לנציג)|(?:העברתי|שלחתי|מסרתי)\s+להם\s+(?:את\s+)?(?:הבקשה|השאלה|ההודעה|הפנייה|זה)/;
+
+export function findHandoffClaim(reply: string, ctx: Pick<BlindContext, 'toolNames' | 'handoffOpen'>): string | null {
+  if (ctx.handoffOpen || ctx.toolNames.includes('handoff_to_human')) return null;
+  const m = (reply ?? '').normalize('NFC').match(HANDOFF_CLAIM);
+  return m ? m[0].trim() : null;
 }
 
 /**
@@ -296,6 +315,8 @@ export function checkReply(
   if (fem.length) issues.push({ kind: 'feminine', forms: fem.map((h) => h.text) });
   const b = blind ? (findBlindClaim(reply, blind) ?? (blind.round4 ? findRound4BlindClaim(reply, blind.userText, blind.toolNames) : null)) : null;
   if (b) issues.push({ kind: 'blind', ...b });
+  const handoff = blind ? findHandoffClaim(reply, blind) : null;
+  if (handoff) issues.push({ kind: 'unconfirmed_handoff', claim: handoff });
   // Only reachable when propose_schedule_change ran this turn (flag ai_coach_phase2).
   if (blind?.toolNames.includes(PROPOSE_TOOL)) {
     const claim = findSavedClaim(reply);
@@ -329,6 +350,11 @@ export function correctionNote(issues: ReplyIssue[]): string {
         `You told the user you can't see it ("${i.claim}"), but ${i.tools.join(' and ')} can answer this. Call ${i.tools.join(' and ')} now and answer from the result. ` +
           'For a persona question, say which persona the user has and what it means in one plain sentence. For "what should I do now", use today\'s entries and the hour. ' +
           'You can\'t see the app\'s screens, but today\'s schedule is what the app plans for the user: answer from it.',
+      );
+    }
+    if (i.kind === 'unconfirmed_handoff') {
+      lines.push(
+        `You said the request was passed to the team ("${i.claim}"), but it was not: nothing was sent. Never say that unless handoff_to_human returned sent true in this conversation. If the user wants a person, ask in one short question whether to pass it to the team, and call handoff_to_human only after they agree.`,
       );
     }
     if (i.kind === 'unconfirmed_save') {

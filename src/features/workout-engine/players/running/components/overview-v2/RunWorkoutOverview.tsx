@@ -80,6 +80,8 @@ export interface RunWorkoutOverviewProps {
   onClearRoute?: () => void;
   onShowOnMap?: () => void;
   onPickOnMap?: () => void;
+  /** enable_hill_finder_v1: "the nearest suitable hill" line above the CTA (null/absent = nothing). */
+  hillHint?: string | null;
   initialDetent?: DetentId;
   snapRequest?: { to: DetentId; n: number } | null;
 }
@@ -155,6 +157,7 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
           onSuggest={props.onSuggest}
           onClearRoute={props.onClearRoute}
           onPickOnMap={props.onPickOnMap}
+          hillHint={props.hillHint}
         />
       )}
     >

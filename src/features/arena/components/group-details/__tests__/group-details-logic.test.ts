@@ -134,7 +134,7 @@ describe('group-details logic', () => {
     );
     expect([v.catConfig.label, v.hasPrice, v.spotsLeft, v.isFull, v.isMilitaryGroup]).toEqual(['אחר', true, 0, true, true]);
     expect(v.staticMapUrl).toContain('access_token=tok');
-    expect(new URL(v.calendarUrl!).searchParams.get('details')).toBe('קבוצת אחר — n');
+    expect(new URL(v.calendarUrl!).searchParams.get('details')).toBe('קבוצת אחר, n');
     const bare = deriveGroupPageView(g({}), null, null, undefined, '', makeT('he', community));
     expect([bare.calendarUrl, bare.staticMapUrl, bare.hasPrice, bare.spotsLeft, bare.scheduledRunActivity]).toEqual([null, null, false, null, null]);
   });

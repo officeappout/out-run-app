@@ -41,6 +41,8 @@ export function useProgramSlide(
   profile: UserFullProfile | null | undefined,
   hasStrengthProgram: boolean,
   enabled: boolean,
+  /** enable_running_programs with the super-admin override (pilot 26.10, C1). */
+  runningOpen = true,
 ): ProgramSlideState {
   const uid = profile?.id;
   // Bumped by "לא עכשיו" so the plan re-reads the local stamps.
@@ -64,6 +66,7 @@ export function useProgramSlide(
     const gatewayTrack = enabled && uid ? getOnboardingPref('gateway_track') : null;
     return resolveProgramSlide({
       enabled,
+      runningOpen,
       hasStrength: hasStrengthProgram,
       hasRunning,
       runningIntent: hasRunningIntent({ lifestyle: { primaryTrack, dashboardMode } }, gatewayTrack),
@@ -74,7 +77,7 @@ export function useProgramSlide(
     });
     // dismissVersion: re-read the stamps after "לא עכשיו".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, uid, hasStrengthProgram, hasRunning, primaryTrack, dashboardMode, dismissVersion]);
+  }, [enabled, runningOpen, uid, hasStrengthProgram, hasRunning, primaryTrack, dashboardMode, dismissVersion]);
 
   return { plan, dismissAdd };
 }

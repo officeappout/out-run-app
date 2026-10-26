@@ -812,7 +812,7 @@ describe('computeSoldierCurrentStatus (point 10 — expiry reverts to not_yet_te
 
   it('an expired FAIL reverts to not_yet_tested — never displayed as a current fail', () => {
     const results = [base({ outcome: 'fail', recordedAt: new Date('2026-01-01') })];
-    // 180 days after 2026-01-01 is ~2026-06-30 — 2027-01-01 is well past expiry
+    // 180 days after 2026-01-01 is ~2026-06-30, 2027-01-01 is well past expiry
     expect(computeSoldierCurrentStatus(results, 't1', new Date('2027-01-01'))).toBe('not_yet_tested');
   });
 

@@ -76,7 +76,7 @@ describe('home (he) — batch aj, NextRunWorkoutCard', () => {
       ['nextRun.stuck.cta.building', 'בונה...'],
       ['nextRun.stuck.cta.retry', 'נסה שוב'],
       ['nextRun.missing.title', 'משהו חסר בהגדרת הריצה שלך.'],
-      ['nextRun.missing.body', 'נעבור שוב על ההגדרה — זה ייקח דקה.'],
+      ['nextRun.missing.body', 'נעבור שוב על ההגדרה, זה ייקח דקה.'],
       ['nextRun.none.preparing.title', 'התוכנית שלך בהכנה'],
       ['nextRun.none.preparing.body', 'לוח האימונים ייווצר בכניסה הבאה'],
       ['nextRun.none.empty.title', 'אין תוכנית ריצה'],
@@ -85,11 +85,11 @@ describe('home (he) — batch aj, NextRunWorkoutCard', () => {
       ['nextRun.label.tempo', 'ריצת טמפו'],
       ['nextRun.label.long', 'ריצה ארוכה'],
       ['nextRun.rest.title', 'היום זה להתאושש 🧘'],
-      ['nextRun.rest.undo', 'ביטול — אני בכל זאת רוצה להתאמן'],
+      ['nextRun.rest.undo', 'ביטול, אני בכל זאת רוצה להתאמן'],
       ['nextRun.fallbackName', 'אימון ריצה'],
       ['nextRun.today.title', 'האימון שלך היום'],
       ['nextRun.today.start', 'התחל ריצה'],
-      ['nextRun.today.skip', 'אין לי כוח היום — דלג לעוד'],
+      ['nextRun.today.skip', 'אין לי כוח היום, דלג לעוד'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
     expect(count('nextRun.')).toBe(cases.length + 6); // + label.easy, programLabel, rest.tomorrow / inDays / next, today.minutes
@@ -101,7 +101,7 @@ describe('home (he) — batch aj, NextRunWorkoutCard', () => {
     for (const dist of ['2k', '3k', '5k', '10k', 'maintenance', 'weird']) {
       const distLabel = DIST_LABEL[dist] ?? '5 ק״מ';
       const km = String(DIST_KM[dist] ?? 5);
-      expect(t('nextRun.label.easy', { km })).toBe(`ריצה קלה — ${distLabel}`);
+      expect(t('nextRun.label.easy', { km })).toBe(`ריצה קלה, ${distLabel}`);
       expect(t('nextRun.programLabel', { km })).toBe(`תוכנית ${distLabel}`);
     }
     for (const name of ['ריצת טמפו', 'אימון ריצה']) {
@@ -224,7 +224,7 @@ describe('home (he) — batch aj, StatsOverview', () => {
       ['statsOverview.stepRoute.cta', 'הליכה עד היעד'],
       ['statsOverview.teaser.aria', 'בואו נגלה כמה אתם חזקים'],
       ['statsOverview.teaser.title', 'בואו נגלה כמה אתם חזקים'],
-      ['statsOverview.teaser.sub', 'שאלון של דקה — והכול נפתח'],
+      ['statsOverview.teaser.sub', 'שאלון של דקה, והכול נפתח'],
       ['statsOverview.trainAhead.title', 'רוצה להקדים את האימון שלך?'],
       ['statsOverview.trainAhead.confirm', 'אני רוצה לעשות את האימון היום!'],
       ['statsOverview.trainAhead.dismiss', 'תשאירו ביום המקורי'],

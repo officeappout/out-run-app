@@ -49,6 +49,12 @@ import {
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
+import FilteredBulkDialog from '@/features/admin/components/approval/FilteredBulkDialog';
+import { approveFilteredRoutesBatch, loadRouteReviewData, rejectFilteredRoutesBatch } from '@/features/admin/services/route-review-bulk.service';
+import {
+  AUTHORITY_KIND_LABELS, SCORE_PRESETS, describeReviewFilter, filterReviewRows, parseScoreBound, planFilteredAction, presetIdOf,
+  type AuthorityKindFilter, type FilteredAction, type ReviewMeta, type RouteReviewFilter,
+} from '@/lib/city-mapping-hub/review-filters';
 import AccuracyQueueTab from '@/features/admin/components/routes/AccuracyQueueTab';
 import {
   CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, AMENITY_CATEGORY_LABELS, COURT_SPORT_LABELS,
@@ -142,7 +148,17 @@ export default function ApprovalCenterPage() {
   const [bulkRejectingRoutes, setBulkRejectingRoutes] = useState(false);
   // Selection is filter-scoped: a route hidden by the city/activity/search filters must
   // not stay silently selected for a bulk action once it's out of view.
-  useEffect(() => { setSelectedRouteIds(new Set()); }, [routeCityFilter, routeActivityFilter, routeSearchQuery]);
+  // Review filters (owner 24.10.2026) — score / low confidence from route_scores and the authority
+  // kind, read server-side (GET /api/admin/routes/review-bulk, super admin) and joined by route id.
+  const [routeKindFilter, setRouteKindFilter] = useState<AuthorityKindFilter>('all');
+  const [routeScoreMin, setRouteScoreMin] = useState('');
+  const [routeScoreMax, setRouteScoreMax] = useState('');
+  const [routeLowOnly, setRouteLowOnly] = useState(false);
+  const [routeReviewMeta, setRouteReviewMeta] = useState<Map<string, ReviewMeta>>(new Map());
+  const [routeReviewNames, setRouteReviewNames] = useState<Map<string, string>>(new Map());
+  const [routeReviewState, setRouteReviewState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [filteredBulkAction, setFilteredBulkAction] = useState<FilteredAction | null>(null);
+  useEffect(() => { setSelectedRouteIds(new Set()); }, [routeCityFilter, routeActivityFilter, routeSearchQuery, routeKindFilter, routeScoreMin, routeScoreMax, routeLowOnly]);
   // Bulk-reject selection — climbs tab only (Stage 6, 17.08.2026): triaging
   // structural noise at scale means selecting many, not clicking "דחה" 175 times.
   const [selectedClimbIds, setSelectedClimbIds] = useState<Set<string>>(new Set());
@@ -220,6 +236,7 @@ export default function ApprovalCenterPage() {
         loadPendingUnits(sa),
       ]);
       setParks(p); setRoutes(r); setClimbs(c); setUgc(u); setPendingUnits(pu);
+      if (sa) void loadRouteReviewMeta();
       // Amenities are lazy — only refetch on refresh if the tab was already
       // opened once this session; never on the initial page load.
       if (amenitiesLoaded) {
@@ -268,6 +285,21 @@ export default function ApprovalCenterPage() {
       });
       return scoped(items, sa, aids, uid);
     } catch { return []; }
+  };
+
+  // Score / low confidence / authority kind per pending route (super admin; server-side read).
+  // A failure never blanks the queue — the review filters just stay unavailable.
+  const loadRouteReviewMeta = async () => {
+    setRouteReviewState('loading');
+    try {
+      const data = await loadRouteReviewData();
+      setRouteReviewMeta(new Map(data.candidates.map(c => [c.id, c])));
+      setRouteReviewNames(new Map(Object.entries(data.authorityNames)));
+      setRouteReviewState('ready');
+    } catch (err) {
+      console.warn('[approval-center] route review data failed:', err);
+      setRouteReviewState('error');
+    }
   };
 
   const loadPendingRoutes = async (sa: boolean, aids: string[], uid: string | null): Promise<QueueItem[]> => {
@@ -737,16 +769,20 @@ export default function ApprovalCenterPage() {
   // Routes tab — city/activity/name filters, same "distinct values from the loaded
   // list" approach as uniqueCities/filteredInventoryRoutes in admin/routes/page.tsx.
   const routeCities = Array.from(new Set(routes.map(r => r.city).filter(Boolean) as string[])).sort();
-  const filteredRoutes = routes.filter(r => {
-    if (routeCityFilter !== 'all' && r.city !== routeCityFilter) return false;
-    if (routeActivityFilter !== 'all') {
-      const act = r.activityType || '';
-      if (routeActivityFilter === 'cycling' && act !== 'cycling') return false;
-      if (routeActivityFilter === 'pedestrian' && act !== 'walking' && act !== 'running') return false;
-    }
-    if (routeSearchQuery.trim() && !r.title.toLowerCase().includes(routeSearchQuery.trim().toLowerCase())) return false;
-    return true;
-  });
+  // One filter object for the list, the confirmation summary AND the server's write-time re-check.
+  const routeReviewFilter: RouteReviewFilter = {
+    authorityKind: routeKindFilter,
+    scoreMin: parseScoreBound(routeScoreMin),
+    scoreMax: parseScoreBound(routeScoreMax),
+    lowConfidence: routeLowOnly ? 'only' : 'any',
+    city: routeCityFilter !== 'all' ? routeCityFilter : null,
+    activity: routeActivityFilter,
+    nameQuery: routeSearchQuery.trim() || null,
+  };
+  const filteredRoutes = filterReviewRows(routes, routeReviewMeta, routeReviewFilter);
+  const routeScorePreset = presetIdOf(routeReviewFilter.scoreMin, routeReviewFilter.scoreMax);
+  const routeReviewFilterActive = routeKindFilter !== 'all' || routeScoreMin !== '' || routeScoreMax !== '' || routeLowOnly;
+  const filteredBulkPlan = filteredBulkAction ? planFilteredAction(filteredRoutes, routeReviewMeta, filteredBulkAction, routeReviewNames) : null;
 
   // 'accuracy' has no TABS entry (see ApprovalTab's own comment) — short-
   // circuited first so `active.items` below is never reached for it.
@@ -898,9 +934,55 @@ export default function ApprovalCenterPage() {
             <option value="pedestrian">🚶 הולכי רגל / ריצה</option>
             <option value="cycling">🚴 רכיבה</option>
           </select>
-          {(routeCityFilter !== 'all' || routeActivityFilter !== 'all' || routeSearchQuery) && (
+          {isSuperAdmin && (
+            <>
+              <select
+                value={routeKindFilter}
+                onChange={(e) => setRouteKindFilter(e.target.value as AuthorityKindFilter)}
+                disabled={routeReviewState !== 'ready'}
+                aria-label="סוג רשות"
+                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] font-bold text-gray-700 focus:border-cyan-400 focus:outline-none cursor-pointer disabled:opacity-50"
+              >
+                {(['all', 'municipal', 'regional'] as const).map(k => (
+                  <option key={k} value={k}>{k === 'all' ? 'כל סוגי הרשויות' : AUTHORITY_KIND_LABELS[k]}</option>
+                ))}
+              </select>
+              <select
+                value={routeScorePreset}
+                onChange={(e) => {
+                  const p = SCORE_PRESETS.find(x => x.id === e.target.value);
+                  if (!p) return; // 'custom' — keep the typed bounds
+                  setRouteScoreMin(p.min == null ? '' : String(p.min));
+                  setRouteScoreMax(p.max == null ? '' : String(p.max));
+                }}
+                disabled={routeReviewState !== 'ready'}
+                aria-label="טווח ציון"
+                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] font-bold text-gray-700 focus:border-cyan-400 focus:outline-none cursor-pointer disabled:opacity-50"
+              >
+                {SCORE_PRESETS.map(p => <option key={p.id} value={p.id}>{p.id === 'all' ? p.label : `ציון ${p.label}`}</option>)}
+                <option value="custom">טווח מותאם</option>
+              </select>
+              <span className="flex items-center gap-1 text-[11px] font-bold text-gray-500">
+                ציון
+                <input value={routeScoreMin} onChange={(e) => setRouteScoreMin(e.target.value)} inputMode="numeric" placeholder="מ-" aria-label="ציון מינימלי"
+                  disabled={routeReviewState !== 'ready'} className="w-12 bg-white border border-gray-200 rounded-lg px-1.5 py-1 text-[11px] disabled:opacity-50" />
+                –
+                <input value={routeScoreMax} onChange={(e) => setRouteScoreMax(e.target.value)} inputMode="numeric" placeholder="עד" aria-label="ציון מקסימלי"
+                  disabled={routeReviewState !== 'ready'} className="w-12 bg-white border border-gray-200 rounded-lg px-1.5 py-1 text-[11px] disabled:opacity-50" />
+              </span>
+              <label className="flex items-center gap-1 text-[11px] font-bold text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={routeLowOnly} onChange={(e) => setRouteLowOnly(e.target.checked)} disabled={routeReviewState !== 'ready'} className="accent-amber-500" />
+                ביטחון נמוך בלבד
+              </label>
+              {routeReviewState === 'loading' && <span className="flex items-center gap-1 text-[10px] text-gray-400"><Loader2 size={10} className="animate-spin" /> טוען ציונים…</span>}
+              {routeReviewState === 'error' && (
+                <button type="button" onClick={() => void loadRouteReviewMeta()} className="text-[10px] font-bold text-red-500">טעינת הציונים נכשלה — נסה שוב</button>
+              )}
+            </>
+          )}
+          {(routeCityFilter !== 'all' || routeActivityFilter !== 'all' || routeSearchQuery || routeReviewFilterActive) && (
             <button
-              onClick={() => { setRouteCityFilter('all'); setRouteActivityFilter('all'); setRouteSearchQuery(''); }}
+              onClick={() => { setRouteCityFilter('all'); setRouteActivityFilter('all'); setRouteSearchQuery(''); setRouteKindFilter('all'); setRouteScoreMin(''); setRouteScoreMax(''); setRouteLowOnly(false); }}
               className="flex items-center gap-1 text-[10px] font-bold text-red-500 hover:text-red-700 transition-colors"
             >
               <X size={12} />
@@ -1036,6 +1118,26 @@ export default function ApprovalCenterPage() {
           >
             {selectedRouteIds.size === shownItems.length ? 'נקה בחירה' : `בחר הכל (${shownItems.length} מוצגים)`}
           </button>
+          {selectedRouteIds.size === 0 && routeReviewState === 'ready' && (
+            <div className="flex items-center gap-2 mr-auto">
+              <button
+                type="button"
+                onClick={() => setFilteredBulkAction('approve')}
+                data-testid="routes-approve-filtered"
+                className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
+              >
+                <ShieldCheck size={12} /> אשר מסוננים ({shownItems.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilteredBulkAction('reject')}
+                data-testid="routes-reject-filtered"
+                className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
+              >
+                <X size={12} /> דחה מסוננים ({shownItems.length})
+              </button>
+            </div>
+          )}
           {selectedRouteIds.size > 0 && (
             <>
               <span className="text-xs font-bold text-cyan-600">{selectedRouteIds.size} נבחרו</span>
@@ -1062,6 +1164,20 @@ export default function ApprovalCenterPage() {
             </>
           )}
         </div>
+      )}
+
+      {filteredBulkAction && filteredBulkPlan && (
+        <FilteredBulkDialog
+          action={filteredBulkAction}
+          plan={filteredBulkPlan}
+          filterSummary={describeReviewFilter(routeReviewFilter)}
+          requireTypedCount={!routeReviewFilterActive}
+          runBatch={(authorityId, ids, reason) => filteredBulkAction === 'approve'
+            ? approveFilteredRoutesBatch(authorityId, ids, routeReviewFilter, { adminId: currentUserId || '', adminName })
+            : rejectFilteredRoutesBatch(authorityId, ids, routeReviewFilter, reason)}
+          onClose={() => setFilteredBulkAction(null)}
+          onDone={() => { void loadPendingItems(); }}
+        />
       )}
 
       {/* Bulk-reject bar — climbs tab only. Triaging noise (stairs / construction-
@@ -1266,6 +1382,12 @@ export default function ApprovalCenterPage() {
                         </span>
                       )}
                       {item.subtitle && <span>{item.subtitle}</span>}
+                      {activeTab === 'routes' && routeReviewMeta.get(item.id)?.score != null && (
+                        <span className="font-bold text-slate-700 bg-slate-100 rounded px-1.5 tabular-nums" title="ציון מסלול (route_scores)">ציון {routeReviewMeta.get(item.id)!.score}</span>
+                      )}
+                      {activeTab === 'routes' && routeReviewMeta.get(item.id)?.lowConfidenceReason && (
+                        <span className="font-bold text-amber-800 bg-amber-100 rounded px-1.5" title={`ביטחון נמוך: ${routeReviewMeta.get(item.id)!.lowConfidenceReason === 'low_score_fill' ? 'נבחר כהשלמה לעיר מתחת למכסה (ציון 55–69)' : routeReviewMeta.get(item.id)!.lowConfidenceReason}`}>ביטחון נמוך</span>
+                      )}
                       {item.createdByUser && (
                         <span className="text-gray-400">מגיש: {item.createdByUser.slice(0, 8)}…</span>
                       )}

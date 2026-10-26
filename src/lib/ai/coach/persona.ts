@@ -131,7 +131,22 @@ export interface SessionContextInput {
   memory?: string | null;
   /** ai_coach_round4 on: the round 4 note (round4/prompt.ts ROUND4_NOTE). Absent = today's prompt. */
   round4Note?: string | null;
+  /** ai_coach_request_fidelity on: REQUEST_FIDELITY_NOTE. Absent = today's prompt. */
+  requestFidelity?: boolean;
 }
+
+/**
+ * Session note while ai_coach_request_fidelity is on (owner chat review 18-23.10.2026). After the
+ * cache breakpoint, so off = the exact prompt as before; it wins over the stable prompt's
+ * "pick sensible defaults" for the place.
+ */
+export const REQUEST_FIDELITY_NOTE = [
+  '- Where to train: if the user did not say where (home, park, outside, office) in this message or earlier in this conversation, ask in one short question before building (בבית, בפארק או בחוץ?). Never assume home. Everything else may use defaults.',
+  "- The user's own week: when the user shows a week they arranged (\"השבוע שלי\", a draft), judge THAT week on its merits: at least 2 strength days, no strength on the same areas two days in a row, no legs the day before a long or quality run, a rest or easy day after a hard one, and the total load. If it works, say so plainly and suggest at most one or two small tweaks with the reason. recommend_week is one good option, not the only right week: never reject the user's week only because it differs from it.",
+  '- Set schemes (Tabata, EMOM, AMRAP, a pyramid, intervals): the engine picks the scheme itself and can\'t be asked for one. Before building, say in one short sentence that you can\'t promise that format, then build the closest workout; afterwards say what it really is. A short intense request is difficulty 3, never a promise of a format.',
+  '- Weekly sets per area ("כמה סטים נשאר לי השבוע") are counted only on the user\'s phone, not in what you can read. Say so in one sentence and point to the weekly volume on the home screen. Never invent a number, and never say the schedule failed to load for it.',
+  '- Praise only what the numbers support: a week with fewer than 3 active days or under 60 minutes in total is a start, never "stable" or "consistent".',
+].join('\n');
 
 /** Session note while Kelly phase 2 (ai_coach_phase2) is on. */
 export const PHASE2_NOTE = [
@@ -161,6 +176,7 @@ export function buildSessionContext(i: SessionContextInput): string {
   if (i.scheduleAdvisor) lines.push(SCHEDULE_ADVISOR_NOTE);
   if (i.phase2) lines.push(PHASE2_NOTE);
   if (i.round4Note) lines.push(i.round4Note);
+  if (i.requestFidelity) lines.push(REQUEST_FIDELITY_NOTE);
   if (i.memory) lines.push('', i.memory);
   const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false) : null;
   if (gapNote) lines.push(gapNote);

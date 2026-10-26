@@ -10,6 +10,9 @@
  */
 import { isStreakMilestone, STREAK_SHIELD_MAX } from '@/features/activity/lib/streak-day.core';
 import type { StreakNotice } from '@/features/activity/store/streak-policy';
+import { makeT } from '@/lib/i18n/t';
+import { home, type HomeKey } from '@/messages/ns/home';
+import type { HomeT } from '@/features/home/utils/home-run-slot';
 
 export type StreakCardKind = 'broken' | 'shield_used' | 'milestone' | 'shield_earned';
 
@@ -23,45 +26,48 @@ export interface StreakCardModel {
   milestone?: number;
 }
 
-const MILESTONE_COPY: Record<number, { title: string; body: string }> = {
-  3: { title: '3 ימים ברצף', body: 'ההתחלה הכי קשה כבר מאחור. ממשיכים מחר.' },
-  7: { title: 'שבוע שלם', body: '7 ימים ברצף. ככה נראה הרגל שנולד.' },
-  14: { title: 'שבועיים ברצף', body: '14 ימים. הגוף כבר מחכה לזה.' },
-  30: { title: 'חודש. וואו', body: '30 ימים ברצף. זה כבר לא ניסיון, זה הרגל.' },
-  50: { title: '50 ימים ברצף', body: 'חצי הדרך למאה. ממשיכים בקצב שלך.' },
-  100: { title: '100. מישהו פה רציני', body: '100 ימים ברצף. השכנים מדברים.' },
-  365: { title: 'שנה שלמה ברצף', body: '365 ימים. אין מילים, רק כבוד.' },
+/** Copy: `home` catalog, keys `streakCard.*` (i18n batch al). Pass the caller's `useT(home)`; default Hebrew. */
+const MILESTONE_KEYS: Record<number, { title: HomeKey; body: HomeKey }> = {
+  3: { title: 'streakCard.milestone.3.title', body: 'streakCard.milestone.3.body' },
+  7: { title: 'streakCard.milestone.7.title', body: 'streakCard.milestone.7.body' },
+  14: { title: 'streakCard.milestone.14.title', body: 'streakCard.milestone.14.body' },
+  30: { title: 'streakCard.milestone.30.title', body: 'streakCard.milestone.30.body' },
+  50: { title: 'streakCard.milestone.50.title', body: 'streakCard.milestone.50.body' },
+  100: { title: 'streakCard.milestone.100.title', body: 'streakCard.milestone.100.body' },
+  365: { title: 'streakCard.milestone.365.title', body: 'streakCard.milestone.365.body' },
 };
 
-function days(n: number): string {
-  return n === 1 ? 'יום אחד' : `${n} ימים`;
+function days(n: number, t: HomeT): string {
+  return t('streakCard.days', { n, count: String(n) });
 }
 
-export function noticeCard(n: StreakNotice): StreakCardModel {
+export function noticeCard(n: StreakNotice, t: HomeT = makeT('he', home)): StreakCardModel {
   switch (n.kind) {
     case 'broken':
       return {
         kind: 'broken',
         key: `broken:${n.on}`,
-        title: 'הרצף נעצר. השיא נשאר',
-        body: `${days(n.best)} זה שלך לתמיד. מתחילים רצף חדש היום?`,
+        title: t('streakCard.broken.title'),
+        body: t('streakCard.broken.body', { days: days(n.best, t) }),
       };
-    case 'shield_used':
+    case 'shield_used': {
+      const many = n.days.length > 1 ? 'yes' : 'no';
       return {
         kind: 'shield_used',
         key: `shield_used:${n.days.join(',')}`,
-        title: n.days.length > 1 ? 'המגנים שמרו על הרצף' : 'המגן שמר על הרצף',
+        title: t('streakCard.shieldUsed.title', { many }),
         body:
           n.left > 0
-            ? `${n.days.length > 1 ? 'הימים בלי פעילות לא שברו' : 'היום בלי פעילות לא שבר'} את הרצף. נשאר עוד מגן ${n.left === 1 ? 'אחד' : 'שניים'}.`
-            : `${n.days.length > 1 ? 'הימים בלי פעילות לא שברו' : 'היום בלי פעילות לא שבר'} את הרצף. כל 7 ימי רצף מביאים מגן חדש.`,
+            ? t('streakCard.shieldUsed.bodyLeft', { many, left: n.left === 1 ? 'one' : 'other' })
+            : t('streakCard.shieldUsed.bodyNoneLeft', { many }),
       };
+    }
     case 'shield_earned':
       return {
         kind: 'shield_earned',
         key: `shield_earned:${n.streak}:${n.on}`,
-        title: 'מגן רצף חדש',
-        body: `${n.streak} ימים ברצף שווים מגן. ביום שלא נסגר הוא שומר על הרצף לבד. ${n.held} מתוך ${STREAK_SHIELD_MAX}.`,
+        title: t('streakCard.shieldEarned.title'),
+        body: t('streakCard.shieldEarned.body', { streak: String(n.streak), held: String(n.held), max: String(STREAK_SHIELD_MAX) }),
       };
   }
 }
@@ -76,16 +82,17 @@ export interface StreakCardInput {
 }
 
 /** The one card to show now, or null. */
-export function pickStreakCard(i: StreakCardInput): StreakCardModel | null {
+export function pickStreakCard(i: StreakCardInput, t: HomeT = makeT('he', home)): StreakCardModel | null {
   const candidates: StreakCardModel[] = [];
-  if (i.notice && i.notice.kind !== 'shield_earned') candidates.push(noticeCard(i.notice));
+  if (i.notice && i.notice.kind !== 'shield_earned') candidates.push(noticeCard(i.notice, t));
   if (i.lastStreakDate === i.todayKey && isStreakMilestone(i.currentStreak)) {
-    const copy = MILESTONE_COPY[i.currentStreak];
-    if (copy) {
+    const keys = MILESTONE_KEYS[i.currentStreak];
+    if (keys) {
+      const copy = { title: t(keys.title), body: t(keys.body) };
       candidates.push({ kind: 'milestone', key: `milestone:${i.currentStreak}:${i.todayKey}`, milestone: i.currentStreak, ...copy });
     }
   }
-  if (i.notice && i.notice.kind === 'shield_earned') candidates.push(noticeCard(i.notice));
+  if (i.notice && i.notice.kind === 'shield_earned') candidates.push(noticeCard(i.notice, t));
   return candidates.find((c) => !i.seen.has(c.key)) ?? null;
 }
 

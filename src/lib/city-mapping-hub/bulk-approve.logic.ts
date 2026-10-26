@@ -7,6 +7,7 @@
 /** 499 updates + 1 audit_logs row = 500, Firestore's per-batch write limit. */
 import { GEOMETRY_GAP_REVIEW_M, GEOMETRY_GAP_SUSPICIOUS_M, maxVertexGapM } from '../route-geometry/gaps';
 import { normalizeStoredRoutePath } from '@/features/parks/core/utils/routePath';
+import { matchesReviewFilter, type AuthorityKind, type RouteReviewFilter } from './review-filters';
 
 export const BULK_APPROVE_BATCH = 499;
 
@@ -47,6 +48,12 @@ export interface PendingRouteCandidate {
   origin: string | null;
   geometry: GeometryStatus;
   gapM: number | null;
+  /** route_scores.lowConfidenceReason (e.g. 'low_score_fill'); null = none. */
+  lowConfidenceReason: string | null;
+  /** From the attributed authority's `type` (regional_council → 'regional'). */
+  authorityKind: AuthorityKind | null;
+  city: string | null;
+  activityType: string | null;
 }
 
 export type OriginFilter = 'all' | 'known' | 'other';
@@ -57,6 +64,8 @@ export interface BulkApproveFilters {
   origin: OriginFilter;
   /** Authority ids the owner left selected. */
   authorityIds: ReadonlySet<string>;
+  /** Score range / low confidence / authority kind (review-filters.ts) — the server re-applies it at write time. */
+  review?: RouteReviewFilter;
 }
 
 /** "Known routes from research" are stamped origin:'web_research' by the nationwide pipeline. */
@@ -72,6 +81,7 @@ export function applyBulkFilters(cands: readonly PendingRouteCandidate[], f: Bul
     const known = isKnownRouteOrigin(c.origin);
     if (f.origin === 'known' && !known) return false;
     if (f.origin === 'other' && known) return false;
+    if (f.review && !matchesReviewFilter(c, f.review)) return false;
     return true;
   });
 }
@@ -136,7 +146,7 @@ export function chunk<T>(items: readonly T[], size = BULK_APPROVE_BATCH): T[][] 
   return out;
 }
 
-export type SkipReason = 'not_found' | 'other_authority' | 'not_pending' | 'conflict' | 'geometry_gap' | 'geometry_unmeasured';
+export type SkipReason = 'not_found' | 'other_authority' | 'not_pending' | 'conflict' | 'geometry_gap' | 'geometry_unmeasured' | 'filter_mismatch';
 
 export interface BatchOutcome {
   updated: string[];

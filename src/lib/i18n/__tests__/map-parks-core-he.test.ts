@@ -23,7 +23,7 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
       ['marker.labelEmpty', 'יעד'],
       ['searchBar.placeholder', 'לאן הולכים?'],
       ['legPlan.startNowLabel', 'יוצאים לריצה עכשיו'],
-      ['legPlan.ready', '🏁 המסלול מוכן — מתחילים...'],
+      ['legPlan.ready', '🏁 המסלול מוכן, מתחילים...'],
       ['legPlan.cta', 'מתחילים עכשיו'],
       ['layers.title', 'שכבות במפה'],
       ['layers.close', 'סגירה'],
@@ -103,7 +103,7 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
       ['overview.axis.start', 'תחילת המסלול'],
       ['overview.axis.end', 'סיום המסלול'],
       ['overview.axis.yourLocation', 'המיקום שלך'],
-      ['overview.axis.loopNote', 'מסלול מעגלי — חוזר לנקודת ההתחלה'],
+      ['overview.axis.loopNote', 'מסלול מעגלי, חוזר לנקודת ההתחלה'],
       ['overview.axis.reps', 'חזרות'],
       ['overview.roundTrip.off', 'הוסף הליכה הלוך וחזור'],
     ];
@@ -160,8 +160,8 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
       expect(t('hybrid.split.strength', { pct: String(100 - pct) })).toBe(`כוח ${100 - pct}%`);
     }
     const stationName = 'גינת כושר הירקון';
-    expect(t('hybrid.station.titleNamed', { name: stationName })).toBe(`${stationName} — כוח`);
-    expect(t('hybrid.station.titleOrdinal', { n: String(2) })).toBe(`תחנה ${2} — כוח`);
+    expect(t('hybrid.station.titleNamed', { name: stationName })).toBe(`${stationName}, כוח`);
+    expect(t('hybrid.station.titleOrdinal', { n: String(2) })).toBe(`תחנה ${2}, כוח`);
     expect(t('overview.axis.pace', { pace: '5:30' })).toBe(`${'5:30'} /ק״מ`);
     expect(t('overview.axis.watchVideo', { name: 'ברכיים גבוהות' })).toBe(`צפה בסרטון: ${'ברכיים גבוהות'}`);
     expect(t('overview.roundTrip.on', { min: String(12) })).toBe(`הלוך וחזור · כולל ${12} דק׳ הליכה אל המסלול וממנו`);

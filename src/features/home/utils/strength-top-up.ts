@@ -13,6 +13,9 @@
  * A rest day (target 0) never asks for more strength. A gap below MIN_TOP_UP_SETS is not a
  * workout — it counts as reached.
  */
+import { makeT } from '@/lib/i18n/t';
+import { home } from '@/messages/ns/home';
+import type { HomeT } from './home-run-slot';
 
 export type StrengthTopUp =
   | { mode: 'none' }
@@ -58,7 +61,7 @@ export function applyStrengthTopUp<T extends { generatorId: string }>(
 }
 
 /** "השלמת סטים · נשארו 6 סטים להיום" (1 → "נשאר סט אחד"). */
-export function topUpTitleHe(remainingSets: number): string {
+export function topUpTitleHe(remainingSets: number, t: HomeT = makeT('he', home)): string {
   const n = Math.max(0, Math.round(remainingSets));
-  return n === 1 ? 'השלמת סטים · נשאר סט אחד להיום' : `השלמת סטים · נשארו ${n} סטים להיום`;
+  return t('topUp.title', { n, count: String(n) });
 }

@@ -111,7 +111,7 @@ describe('BudgetDistributor — _balancedClusterCap duration-aware release (D2)'
     };
 
     // Generator QA round 1 (H3 variety floor): the cluster never culls below
-    // minMainExercisesFor(availableTime) — 30 min → 4 (was the 3 baseline), 60 → 6
+    // minMainExercisesFor(availableTime), 30 min → 4 (was the 3 baseline), 60 → 6
     // (was the 4 duration release). The 3/4 caps still apply above the floor.
     const shortResult = distributor.distribute(
       pool8(), baseContext({ availableTime: 30 }), 2, constraints,

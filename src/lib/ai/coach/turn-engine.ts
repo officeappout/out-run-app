@@ -38,6 +38,12 @@ import { ROUND4_GAP_NOTE } from './round4/prompt';
 export const REFUSAL_TEXT = 'על זה אני לא יכול לעזור. אפשר לשאול אותי על אימונים, התקדמות ותוכנית השבוע.';
 export const EMPTY_TEXT = 'לא הצלחתי לנסח תשובה הפעם. אפשר לנסות שוב במילים אחרות.';
 export const TRUNCATED_TOOL_TEXT = 'משהו נקטע באמצע. אפשר לבקש שוב?';
+/**
+ * Stored when a turn throws after the user's message was saved (model / tool / Firestore
+ * error): without it the thread keeps the user's message with no reply at all, and on reopen
+ * nothing shows that it failed. Kept out of the model history (StoredMessage.failed).
+ */
+export const TURN_FAILED_TEXT = 'משהו השתבש אצלי ולא הצלחתי לענות על ההודעה הזו. אפשר לשלוח אותה שוב?';
 
 /** Short chat replies: thinking off (allowed on Haiku at effort ≤ high), effort low. */
 export const COACH_THINKING: Anthropic.ThinkingConfigParam = { type: 'disabled' };
@@ -82,6 +88,8 @@ export interface TurnGuardConfig {
   userGender?: CoachGender | null;
   /** Kelly round 4 on (the round 4 "can't" checks). */
   round4?: boolean;
+  /** The thread is already in the team queue (needsHuman): a "passed to the team" line is true. */
+  handoffOpen?: boolean;
 }
 
 export interface TurnConfig {
@@ -255,7 +263,12 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
         const userGender = cfg.guards?.userGender ?? null;
         // "Can't see it" checks need the request and the tools used; only with guards on.
         const blind = cfg.guards
-          ? { userText: turnUserText(state), toolNames: (state.log?.toolCalls ?? []).map((c) => c.name), ...(cfg.guards.round4 ? { round4: true } : {}) }
+          ? {
+              userText: turnUserText(state),
+              toolNames: (state.log?.toolCalls ?? []).map((c) => c.name),
+              ...(cfg.guards.round4 ? { round4: true } : {}),
+              ...(cfg.guards.handoffOpen ? { handoffOpen: true } : {}),
+            }
           : null;
         const issues = checkReply(text, facts, userGender, blind);
         if (issues.length && !state.correctionUsed) {
@@ -312,7 +325,9 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
           return { type: 'tool_result', tool_use_id: c.id, content: r.content, ...(r.isError ? { is_error: true } : {}) };
         } catch (err) {
           console.error(`[ai-coach] tool ${c.name} failed`, err);
-          log.toolCalls.push({ name: c.name, input: c.input, resultSummary: 'error: tool threw' });
+          // The error itself goes into the review log: "tool threw" alone left the owner's
+          // "לא הצלחתי לטעון את הלו״ז" turns (22-23.10.2026) without a root cause.
+          log.toolCalls.push({ name: c.name, input: c.input, resultSummary: `error: tool threw: ${toolErrorDetail(err)}`.slice(0, MAX_SUMMARY) });
           return { type: 'tool_result', tool_use_id: c.id, content: 'The tool failed. Tell the user simply and offer another way.', is_error: true };
         }
       }),
@@ -324,6 +339,17 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
     }
     state.turnMessages.push({ role: 'user', content: results });
   }
+}
+
+/**
+ * A thrown tool error as one short line for the review log: name + message only. The stored
+ * message (with its log) is readable by the thread's owner through the client SDK
+ * (firestore.rules ai_coach_threads owner read), so no stack frames / server paths go in it;
+ * the full error is in the server log (console.error above).
+ */
+export function toolErrorDetail(err: unknown): string {
+  if (!(err instanceof Error)) return String(err).replace(/\s+/g, ' ').slice(0, 200);
+  return `${err.name}: ${err.message}`.replace(/\s+/g, ' ').slice(0, 200);
 }
 
 function guardType(i: ReplyIssue): string {
@@ -338,6 +364,8 @@ function guardType(i: ReplyIssue): string {
       return 'tool_routing';
     case 'unconfirmed_save':
       return 'proposal_not_saved';
+    case 'unconfirmed_handoff':
+      return 'handoff_not_sent';
   }
 }
 
@@ -349,7 +377,7 @@ function issueDetail(i: ReplyIssue): string {
         ? i.words
         : i.kind === 'feminine'
           ? i.forms
-          : i.kind === 'unconfirmed_save'
+          : i.kind === 'unconfirmed_save' || i.kind === 'unconfirmed_handoff'
             ? [i.claim]
             : [`${i.claim} → ${i.tools.join('+')}`];
   return parts.join(', ').slice(0, 200);
@@ -386,7 +414,30 @@ function emitChecked(
 }
 
 /** What the model reads back from a generate_workout outcome. */
-export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome, opts: { round4?: boolean } = {}): Anthropic.ToolResultBlockParam {
+/** The set scheme the engine really built (decision record), else the workout structure. */
+export function builtFormatOf(result: { structure?: string; decisionRecord?: unknown }): string {
+  const p = (result.decisionRecord as { expect?: { protocol?: unknown } } | undefined)?.expect?.protocol;
+  return typeof p === 'string' && p ? p : (result.structure ?? 'standard');
+}
+
+const FORMAT_MATCHES: Record<string, readonly string[]> = {
+  tabata: ['tabata'],
+  emom: ['emom'],
+  amrap: ['amrap'],
+  pyramid: ['pyramid'],
+  superset: ['superset', 'antagonist'],
+  intervals: [],
+};
+
+export function clientOutcomeToToolResult(
+  id: string,
+  outcome: ClientToolOutcome,
+  opts: {
+    round4?: boolean;
+    /** ai_coach_request_fidelity: the set scheme the user named this turn (intent.ts inferRequestedFormat). */
+    requestedFormat?: string | null;
+  } = {},
+): Anthropic.ToolResultBlockParam {
   if (outcome.ok) {
     // The decision record stays server-side (explain_workout reads it from the card).
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -414,6 +465,16 @@ export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome
     }
     // Kelly round 4 (ai_coach_round4): honest about the gap + the nearby parks.
     if (opts.round4 && (result.levelCeiling || result.shortOfMinimum)) notes.push(ROUND4_GAP_NOTE);
+    // ai_coach_request_fidelity: the user named a set scheme the engine doesn't take as input
+    // (owner thread: "טבטה" → pyramid sets). Say what was really built, never call it the scheme.
+    if (opts.requestedFormat) {
+      const built = builtFormatOf(outcome.result);
+      if (!(FORMAT_MATCHES[opts.requestedFormat] ?? []).includes(built)) {
+        notes.push(
+          `The user asked for ${opts.requestedFormat}. The engine picks the set scheme itself and built ${built === 'straight' || built === 'standard' ? 'regular sets' : built} instead. Say plainly in one short sentence that this is not a ${opts.requestedFormat} and what it is; never call it one.`,
+        );
+      }
+    }
     return {
       type: 'tool_result',
       tool_use_id: id,

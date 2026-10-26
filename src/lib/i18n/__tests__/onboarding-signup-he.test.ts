@@ -26,13 +26,13 @@ describe('onboarding — signup v2 / what-now / program-path keys', () => {
       // running-v2/RunningChoiceV2
       ['signup.runChoice.continue', 'המשך'],
       ['signup.runChoice.walking.label', 'הליכה'],
-      ['signup.runChoice.walking.sub', 'בלי ריצה — הליכה מהירה, ירידה במשקל, תנועה יומית'],
+      ['signup.runChoice.walking.sub', 'בלי ריצה, הליכה מהירה, ירידה במשקל, תנועה יומית'],
       ['signup.runChoice.ability.title', 'כמה זמן אפשר לרוץ ברצף?'],
-      ['signup.runChoice.ability.description', 'בלי לעצור, בקצב נוח — לא שיא'],
-      ['signup.runChoice.ability.info', 'התשובה קובעת את השבוע הראשון בלבד — התוכנית מתעדכנת לפי הריצות שלך'],
+      ['signup.runChoice.ability.description', 'בלי לעצור, בקצב נוח, לא שיא'],
+      ['signup.runChoice.ability.info', 'התשובה קובעת את השבוע הראשון בלבד, התוכנית מתעדכנת לפי הריצות שלך'],
       // RunCountStep
       ['signup.run.count.title', 'מתי נרוץ?'],
-      ['signup.run.count.subtitle', 'הכנו המלצה — אישור בלחיצה'],
+      ['signup.run.count.subtitle', 'הכנו המלצה, אישור בלחיצה'],
       ['signup.run.count.aside', 'אפשר לשנות'],
       ['signup.run.count.question', 'כמה ריצות בשבוע?'],
       ['signup.run.count.aria', 'מספר ריצות בשבוע'],
@@ -71,7 +71,7 @@ describe('onboarding — signup v2 / what-now / program-path keys', () => {
       ['signup.runSummary.firstWeek.title', 'השבוע הראשון'],
       // strength-v2
       ['signup.strength.count.title', 'מתי נתאמן?'],
-      ['signup.strength.count.subtitle', 'הכנו המלצה — אישור בלחיצה'],
+      ['signup.strength.count.subtitle', 'הכנו המלצה, אישור בלחיצה'],
       ['signup.strength.count.aside', 'אפשר לשנות'],
       ['signup.strength.count.aria', 'מספר ימי אימון בשבוע'],
       ['signup.strength.count.recommended', 'מומלץ'],

@@ -6,10 +6,12 @@
  *   searching — a short "מחפש מסלולים…" line above the same row
  *   none      — "לא מצאנו מסלול מתאים קרוב — אפשר לרוץ מכאן" + "התחל אימון" / "בחר במפה"
  *   route     — "התחל אימון במסלול" + "בלי מסלול"
+ * enable_hill_finder_v1: in none / route, a hill workout without a matching
+ * climb on the route gets one more line — the nearest suitable hill (`hillHint`).
  * One gradient (the start); the other button is a white pill.
  */
 
-import { Loader2, Map as MapIcon, Route as RouteIcon } from 'lucide-react';
+import { Loader2, Map as MapIcon, Mountain, Route as RouteIcon } from 'lucide-react';
 import OverviewStartButton from '@/features/parks/core/components/overview/OverviewStartButton';
 import OverviewSecondaryButton from '@/features/parks/core/components/overview/OverviewSecondaryButton';
 import { useT } from '@/hooks/useT';
@@ -24,10 +26,12 @@ export interface RunOverviewCtaProps {
   onSuggest?: () => void;
   onClearRoute?: () => void;
   onPickOnMap?: () => void;
+  /** enable_hill_finder_v1 — already-translated text; null/absent = no line. */
+  hillHint?: string | null;
 }
 
-function Notice({ children, spin = false }: { children: string; spin?: boolean }) {
-  const Icon = spin ? Loader2 : RouteIcon;
+function Notice({ children, spin = false, hill = false }: { children: string; spin?: boolean; hill?: boolean }) {
+  const Icon = spin ? Loader2 : hill ? Mountain : RouteIcon;
   return (
     <div className="mb-2.5 flex items-center gap-2 rounded-2xl bg-white px-3 py-2.5 shadow-v2-ring">
       <Icon size={16} className={`shrink-0 text-v2-muted ${spin ? 'animate-spin' : ''}`} aria-hidden />
@@ -36,7 +40,7 @@ function Notice({ children, spin = false }: { children: string; spin?: boolean }
   );
 }
 
-export default function RunOverviewCta({ mode, onStart, onStartOnRoute, onSuggest, onClearRoute, onPickOnMap }: RunOverviewCtaProps) {
+export default function RunOverviewCta({ mode, onStart, onStartOnRoute, onSuggest, onClearRoute, onPickOnMap, hillHint = null }: RunOverviewCtaProps) {
   const t = useT(player);
   const routeMode = mode === 'route' && !!onStartOnRoute;
   const primary = routeMode
@@ -54,6 +58,7 @@ export default function RunOverviewCta({ mode, onStart, onStartOnRoute, onSugges
     <div>
       {mode === 'searching' && <Notice spin>{t('run.overview.cta.searching')}</Notice>}
       {mode === 'none' && <Notice>{t('run.overview.cta.noneNear')}</Notice>}
+      {hillHint && (mode === 'none' || mode === 'route') && <Notice hill>{hillHint}</Notice>}
       <div className="flex gap-2">
         <div className="min-w-0" style={{ flex: 1.5 }}>{primary}</div>
         {secondary && <div className="min-w-0" style={{ flex: 1 }}>{secondary}</div>}

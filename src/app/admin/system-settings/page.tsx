@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode, Tv, MoreHorizontal,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode, Tv, MoreHorizontal, Mountain,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -63,6 +63,7 @@ interface FlagState {
   ai_coach_smart_routing: boolean;
   ai_coach_fast_thinking: boolean;
   ai_coach_model_routing_all_users: boolean;
+  ai_coach_request_fidelity: boolean;
   enable_keyboard_insets_v1: boolean;
   enable_fast_startup_v1: boolean;
   enable_budget_light_mode: boolean;
@@ -127,6 +128,8 @@ interface FlagState {
   enable_together_layer_v1: boolean;
   enable_tv_mode_v1: boolean;
   enable_overview_more_menu_v1: boolean;
+  enable_hill_finder_v1: boolean;
+  enable_home_progress_slot_v1: boolean;
 }
 
 // ============================================================================
@@ -464,6 +467,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-fuchsia-500',
     title: 'קלי — מודל חכם / חשיבה: לכל המשתמשים',
     description: 'כבוי = שני המתגים "מודל חכם לשאלות מורכבות" ו"המודל המהיר חושב" פועלים רק לסופר-אדמינים (לבדיקה על החשבון שלך). דלוק = לכל המשתמשים עם AI. בשימוש בקלי, כל תור נרשם בעלויות לפי המודל (ai_coach_chat_fast / ai_coach_chat_smart).',
+    parentKey: 'ai_coach_enabled',
+  },
+  // Kelly owner chat review fixes (23.10.2026).
+  {
+    key: 'ai_coach_request_fidelity',
+    icon: ListChecks,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — נאמן לבקשה',
+    description: 'קלי שואל איפה מתאמנים כשלא נאמר (במקום לבנות לבית), בודק את השבוע שהמשתמש הציע לפי מנוחה ונפח ומציע שיפורים קטנים (במקום לפסול כי זה לא הסידור שלו), אומר בכנות כשהבונה בחר מבנה אחר מטבטה / EMOM שביקשו, אומר שספירת הסטים השבועית לפי אזור נמצאת רק בטלפון, ומשבח רק מה שהמספרים מראים. כבוי = כמו היום.',
     parentKey: 'ai_coach_enabled',
   },
   // iOS keyboard insets (19.10.2026).
@@ -1042,6 +1055,24 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-slate-600',
     title: 'תפריט ⋯ אחד בתצוגת האימון',
     description: 'בתצוגת האימון, במקום שורת האייקונים (שיתוף / אהבתי / הורדה) יש כפתור ⋯ אחד שפותח תפריט: הורדה לטלפון, אהבתי, שיתוף, ואם הצגה על מסך גדול פעילה גם "הצגה על מסך גדול". אותן פעולות בדיוק, רק מאחורי תפריט אחד. מנהל-על רואה את זה כבר עכשיו. כבוי = שורת האייקונים כמו היום.',
+  },
+  // Hill finder for hill-repeat runs (23.10.2026) — route-fit/hill-finder.ts.
+  {
+    key: 'enable_hill_finder_v1',
+    icon: Mountain,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'מציאת גבעה לאימון עליות',
+    description: 'בתצוגת אימון הריצה, כשהאימון של היום הוא אימון עליות ואף אחד מהמסלולים שהוצעו לא כולל עלייה מתאימה (שיפוע ואורך החזרה), מופיעה שורה עם הגבעה המתאימה הקרובה: מקטעי עלייה מאושרים (climb_segments) ועליות שזוהו בפרופיל הגובה של מסלולים רשמיים קרובים, עד 5 ק״מ. קריאה בלבד, לא נכתב כלום. מנהל-על רואה את זה כבר עכשיו. כבוי = התצוגה כמו היום, בלי קריאות נוספות.',
+  },
+  // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
+  {
+    key: 'enable_home_progress_slot_v1',
+    icon: Footprints,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-600',
+    title: 'התקדמות בבית: כוח ↔ ריצה, וטבעת דקות הפעילות',
+    description: 'בבית (עיצוב חדש), בלשונית "התקדמות שבועית": כרטיס התוכנית ליד הפסים הופך לזוג כרטיסים בהחלקה עם נקודות — תוכנית הכוח ↔ תוכנית הריצה (טבעת התקדמות בתוכנית, תחזית למרוץ, "שבוע N מתוך M"), ולמי שיש תוכנית הליכה כרטיס הליכה בכתום. בלי תוכנית ריצה/הליכה יש רק כרטיס הכוח. כרטיס "תחזית למרוץ" הגבוה יורד. בלשונית "מדדי בריאות": במקום טבעת הצעדים — טבעת דקות הפעילות של השבוע (כמו בראש מסך ההתקדמות), ולחיצה פותחת את מסך ההתקדמות. מנהל-על רואה את זה כבר עכשיו. כבוי = הבית כמו היום.',
   },
 ];
 

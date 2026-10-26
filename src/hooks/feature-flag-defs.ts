@@ -41,6 +41,9 @@
  * both derive everything they need from this array.
  */
 export const FLAG_DEFS = [
+  // enable_running_programs also freezes WALKING plan signup (pilot 26.10, owner C1): off = no running
+  // or walking questionnaire, start card, "add running" card, try-running nudge or locked run row for
+  // regular users (useAerobicProgramsOpen). Existing plans and the map's run / walk chips stay.
   { key: 'enableRunningPrograms', firestoreKey: 'enable_running_programs', defaultValue: false, superAdminValue: true },
   { key: 'enableCommunityFeed', firestoreKey: 'enable_community_feed', defaultValue: false, superAdminValue: true },
   { key: 'enableLeagues', firestoreKey: 'enable_leagues', defaultValue: false, superAdminValue: true },
@@ -256,6 +259,14 @@ export const FLAG_DEFS = [
   // aiCoachModelRoutingAllUsers — audience for BOTH flags above: OFF = super admins only (the
   // owner tries it alone first), ON = every AI user.
   { key: 'aiCoachModelRoutingAllUsers', firestoreKey: 'ai_coach_model_routing_all_users', defaultValue: false, superAdminValue: false },
+  // aiCoachRequestFidelity (owner chat review 18-23.10.2026) — Kelly follows the request more
+  // faithfully: asks where when no place was given (never assumes home), judges the user's own
+  // week on its merits instead of only comparing it to recommend_week, is honest about set
+  // schemes the engine picks itself (Tabata / EMOM asked, pyramid built), about per-area weekly
+  // sets (device-only), and praises only what the numbers support. Server-read only (the chat
+  // route); fail-closed, superAdminValue false — the panel toggle is the switch. Off = the exact
+  // prompt and tool results as before.
+  { key: 'aiCoachRequestFidelity', firestoreKey: 'ai_coach_request_fidelity', defaultValue: false, superAdminValue: false },
   // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
   // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
   // the focused field is scrolled into view, and the Capacitor Keyboard plugin is
@@ -686,6 +697,22 @@ export const FLAG_DEFS = [
   // "show on a big screen" when enable_tv_mode_v1 is on). Same handlers as the icons. Fail-closed; super admins
   // preview it. Off = the icon row is byte-identical to today.
   { key: 'enableOverviewMoreMenuV1', firestoreKey: 'enable_overview_more_menu_v1', defaultValue: false, superAdminValue: true },
+  // Hill finder (23.10.2026): in the run overview, when today's run is a hill workout and none of the
+  // suggested routes has a climb that meets the rep spec, a one-line notice names the nearest suitable
+  // hill (published climb_segments + climbs on nearby official routes' elevationProfile —
+  // route-fit/hill-finder.ts). Reads only. Fail-closed; super admins preview it. Off = no extra reads,
+  // the overview is byte-identical to today.
+  { key: 'enableHillFinderV1', firestoreKey: 'enable_hill_finder_v1', defaultValue: false, superAdminValue: true },
+  // Home progress slot (23.10.2026, owner-approved progress hub boards PG-1): under enable_home_v2, the
+  // 'התקדמות שבועית' tab's program card becomes a swipeable pair (strength program ↔ running / walking plan,
+  // pager dots) next to the weekly bars, and the tall 'תחזית למרוץ' card goes; 'מדדי בריאות' shows the weekly
+  // active-minutes ring (the Progress page's ring) instead of the steps ring. Fail-closed; super admins preview
+  // it. Off = the home tabs are byte-identical to today.
+  { key: 'enableHomeProgressSlotV1', firestoreKey: 'enable_home_progress_slot_v1', defaultValue: false, superAdminValue: true },
+  // Park-workout difficulty carousel (26.10.2026, pilot note M11): the קל/בינוני/קשה pill in the hybrid
+  // overview (HybridOverviewScreen). Off (default, also for super admins) = the carousel is hidden and the
+  // engine's own pick runs (its selectedIndex, by the workout rules). On = the carousel as before.
+  { key: 'enableHybridDifficultyCarousel', firestoreKey: 'enable_hybrid_difficulty_carousel', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

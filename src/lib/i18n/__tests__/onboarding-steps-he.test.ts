@@ -106,7 +106,7 @@ describe('onboarding steps + location keys (he)', () => {
     ["steps.planLength.options.aria", "משך התוכנית"],
     ["steps.planLength.preset.recommended", "מומלץ"],
     ["steps.planLength.race.title", "יש לי מרוץ"],
-    ["steps.planLength.race.hint", "בחרו תאריך — נחשב את מספר השבועות"],
+    ["steps.planLength.race.hint", "בחרו תאריך, נחשב את מספר השבועות"],
     ["steps.planLength.race.pickEnd", "בחרו תאריך סיום"],
     ["steps.planLength.custom.title", "אחר"],
     ["steps.planLength.custom.hint", "4–52 שבועות"],
@@ -120,7 +120,7 @@ describe('onboarding steps + location keys (he)', () => {
     ["steps.runSchedule.title", "מתי נרוץ?"],
     ["steps.runSchedule.subtitle", "נבנה תוכנית שמתאימה לשבוע שלך"],
     ["steps.runSchedule.loadNotice.line1", "בחרת יותר ימים מהתוכנית הנוכחית שלך."],
-    ["steps.runSchedule.loadNotice.line2", "נעדכן אותה בהתאם — ההתקדמות שלך תישמר."],
+    ["steps.runSchedule.loadNotice.line2", "נעדכן אותה בהתאם, ההתקדמות שלך תישמר."],
     ["steps.runSchedule.frequency.title", "כמה ריצות בשבוע?"],
     ["steps.runSchedule.days.title", "באילו ימים?"],
     ["steps.runSchedule.legend.run", "ריצה"],
@@ -246,9 +246,9 @@ describe('onboarding steps + location keys (he)', () => {
       expect(join(t.rich('steps.account.warning.loss', { gender, b: keep }))).toBe(
         gn(
           gender,
-          'אם תמחק את האפליקציה, תחליף מכשיר, או תנקה נתונים — תאבד את כל ההתקדמות שלך.',
-          'אם תמחקי את האפליקציה, תחליפי מכשיר, או תנקי נתונים — תאבדי את כל ההתקדמות שלך.',
-          'אם מוחקים את האפליקציה, מחליפים מכשיר, או מנקים נתונים — כל ההתקדמות שלך הולכת לאיבוד.',
+          'אם תמחק את האפליקציה, תחליף מכשיר, או תנקה נתונים, תאבד את כל ההתקדמות שלך.',
+          'אם תמחקי את האפליקציה, תחליפי מכשיר, או תנקי נתונים, תאבדי את כל ההתקדמות שלך.',
+          'אם מוחקים את האפליקציה, מחליפים מכשיר, או מנקים נתונים, כל ההתקדמות שלך הולכת לאיבוד.',
         ),
       );
       expect(t('steps.account.warning.secureLater', { gender })).toBe(
@@ -335,7 +335,7 @@ describe('onboarding steps + location keys (he)', () => {
     }
     const days = ['ב', 'ד'].join(', ');
     expect(t('steps.runSchedule.hybridNotice', { days })).toBe(
-      `ימי הכוח שלך (${days}) מסומנים במשקולת. אפשר לבחור בהם גם ריצה — שני האימונים יופיעו באותו יום בלוז.`,
+      `ימי הכוח שלך (${days}) מסומנים במשקולת. אפשר לבחור בהם גם ריצה, שני האימונים יופיעו באותו יום בלוז.`,
     );
     expect(t('steps.runSchedule.days.count', { selected: '2', total: '3' })).toBe(`${2} מתוך ${3} נבחרו`);
     for (const isStrength of [true, false])
@@ -362,7 +362,7 @@ describe('onboarding steps + location keys (he)', () => {
     expect(t('steps.schedule.days.count', { selected: '3', total: '7' })).toBe(`נבחרו ${3} מתוך ${7} ימים`);
     for (const [isRest, n] of [[true, 0], [false, 1], [false, 2], [false, 1234]] as const)
       expect(t('steps.schedule.days.aria', { day: 'א', rest: isRest ? 'yes' : 'no', n: String(n) })).toBe(
-        `${'א'} — ${isRest ? 'יום מנוחה' : `${n} סשנים`}`,
+        `${'א'}, ${isRest ? 'יום מנוחה' : `${n} סשנים`}`,
       );
     expect(t('steps.schedule.popover.title', { day: 'ג' })).toBe(`מה מתאמנים ביום ${'ג'}׳?`);
   });

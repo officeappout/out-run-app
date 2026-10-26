@@ -150,14 +150,14 @@ describe('library (he) — byte-identical to the pre-extraction literals', () =>
       ["search.legacy.mode.my", "שלי"],
       ["search.legacy.invite", "הזמנת חברים"], // gender batch 3 (was: הזמן חברים)
       ["search.legacy.filterGroups", "סנן קבוצות"],
-      ["search.legacy.myGroupsEmpty", "עוד לא הצטרפת לקבוצות — עבור ל\"גלה\" כדי למצוא קבוצות"],
+      ["search.legacy.myGroupsEmpty", "עוד לא הצטרפת לקבוצות, עבור ל\"גלה\" כדי למצוא קבוצות"],
       ["search.legacy.partners.loading", "טוען..."],
       ["search.legacy.partners.empty.title", "עדיין אין לך שותפים"],
       // search.legacy.partners.empty.body: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ["search.legacy.partners.empty.invite", "הזמנת חברים"], // gender batch 3 (was: הזמן חברים)
       ["search.legacy.people.searching", "מחפש..."],
       ["search.legacy.people.minChars", "הקלד לפחות 2 תווים לחיפוש"],
-      ["search.legacy.people.nationwide", "חיפוש משתמשים מכל הארץ — לא מוגבל לעיר שלך"],
+      ["search.legacy.people.nationwide", "חיפוש משתמשים מכל הארץ, לא מוגבל לעיר שלך"],
       ["search.legacy.people.none.title", "לא נמצאו תוצאות"],
       // search.legacy.people.none.body: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ["search.legacy.groups.none.title", "לא נמצאו קבוצות"],
@@ -257,7 +257,7 @@ describe('library (he) — exercises.* byte-identical to the pre-extraction lite
       ['exercises.filters.open', 'סינון מתקדם'],
       ['exercises.filters.title', 'פילטרים'],
       ['exercises.filters.muscles', 'שרירים'],
-      ['exercises.filters.associatedHint', 'מסומן בכתום — שרירים שקשורים למסלול שנבחר (מידע בלבד, לא משפיע על התוצאות)'],
+      ['exercises.filters.associatedHint', 'מסומן בכתום, שרירים שקשורים למסלול שנבחר (מידע בלבד, לא משפיע על התוצאות)'],
       ['exercises.filters.tracks', 'מסלול'],
       ['exercises.filters.tracksLoading', 'טוען מסלולים...'],
       ['exercises.filters.subTracksHide', 'הסתר תת-מסלולים'],

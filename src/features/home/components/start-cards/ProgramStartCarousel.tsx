@@ -11,7 +11,7 @@ import { home } from '@/messages/ns/home';
 import type { ProgramTrackNavigate } from './entry-tap';
 
 export interface ProgramStartCarouselProps {
-  order: readonly [ProgramTrack, ProgramTrack];
+  order: readonly ProgramTrack[];
   profile: UserFullProfile | null | undefined;
   onNavigate?: ProgramTrackNavigate;
   /** enable_home_two_cards_v1 — see ProgramStartSlide. */
@@ -34,10 +34,13 @@ export default function ProgramStartCarousel({ order, profile, onNavigate, aerob
     <div className="mb-4" data-program-start-carousel={order.join(',')}>
       <div className="mb-2 px-5" dir="rtl">
         <h3 className="whitespace-nowrap text-[19px] font-black !tracking-[-0.02em] text-v2-ink">{t('programStart.title')}</h3>
-        <p className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
-          <Sparkles size={14} strokeWidth={2.2} aria-hidden="true" />
-          {t(PROGRAM_START_HINT_KEY)}
-        </p>
+        {/* "You can do both" only when there are two cards (running frozen = strength alone). */}
+        {order.length > 1 && (
+          <p className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
+            <Sparkles size={14} strokeWidth={2.2} aria-hidden="true" />
+            {t(PROGRAM_START_HINT_KEY)}
+          </p>
+        )}
       </div>
       <SuggestionCarousel<ProgramTrack>
         items={[...order]}

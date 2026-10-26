@@ -9,10 +9,11 @@ import {
   correctionNote,
   factsFromEvidence,
   findForeignWords,
+  findHandoffClaim,
   findUngroundedClaims,
   stripForeignWords,
 } from '../reply-guards';
-import { aiWorkoutTitle, applyUserIntent, inferBodyIntent, inferDifficulty, inferLocation, inferMinutes } from '../intent';
+import { aiWorkoutTitle, applyUserIntent, inferBodyIntent, inferDifficulty, inferLocation, inferMinutes, inferSkillDomains } from '../intent';
 import { detectSafetyTrigger, safetyReply } from '../safety';
 import { GenerateWorkoutInput } from '../tools';
 import { renderSheet } from '../persona';
@@ -145,7 +146,7 @@ describe('titles of AI-built workouts come from the request', () => {
     [['core'], 'home', 'אימון בטן בבית'],
     [[], 'home', 'אימון גוף מלא בבית'],
     [['legs', 'core'], 'park', 'אימון רגליים ובטן בפארק'],
-    [['planche'], 'park', 'אימון כוח בפארק'],
+    [['planche'], 'park', 'אימון פלאנץ׳ בפארק'],
   ] as const)('%j %s → %s', (domains, loc, title) => {
     expect(aiWorkoutTitle(domains, loc)).toBe(title);
   });
@@ -190,5 +191,45 @@ describe('safety gate — genuine symptoms only', () => {
     expect(safetyReply('chest', 'male')).toContain('אני עוצר');
     expect(safetyReply('chest', 'female')).toContain('התקשרי');
     expect(safetyReply('injury', 'other')).toContain('צריך להתקשר');
+  });
+});
+
+describe('handoff claims need a real handoff (owner thread 18.10.2026: "העברתי להם" with no tool call)', () => {
+  it('flags "passed to the team" when handoff_to_human never ran', () => {
+    for (const t of ['העברתי להם את הבקשה, הם יחזרו אליך.', 'הועבר לצוות קלי.', 'שלחתי את זה לצוות שלנו.']) {
+      expect(findHandoffClaim(t, { toolNames: [] })).not.toBeNull();
+      expect(checkReply(t, null, 'male', { userText: 'x', toolNames: [] }).map((i) => i.kind)).toContain('unconfirmed_handoff');
+    }
+  });
+
+  it('is fine after a real handoff this turn, or while one is open in the queue', () => {
+    expect(findHandoffClaim('העברתי לצוות.', { toolNames: ['handoff_to_human'] })).toBeNull();
+    expect(findHandoffClaim('העברתי לצוות.', { toolNames: [], handoffOpen: true })).toBeNull();
+    expect(findHandoffClaim('אפשר להעביר את זה לצוות אם תרצה.', { toolNames: [] })).toBeNull();
+    for (const ordinary of ['הצוות יודע לעזור בזה.', 'הצוות מטפל בבקשות כאלה.', 'הצוות קיבל משוב טוב על האימון הזה.', 'רוצה שאעביר את זה לצוות?', 'צוות קלי זמין כאן בצ׳אט.', 'שלחתי לך אימון חדש.']) {
+      expect(findHandoffClaim(ordinary, { toolNames: [] })).toBeNull();
+    }
+  });
+});
+
+describe('combo requests keep every part (owner thread: pull-ups + planche → a plain back workout)', () => {
+  const base = GenerateWorkoutInput.parse({ durationMin: 25, location: 'park', difficulty: 2, domains: ['pull', 'planche'] });
+  it('keeps the named skill next to the base area', () => {
+    const r = applyUserIntent(base, "תבנה לי אימון מתח ופלאנץ'");
+    expect(r.input.domains).toEqual(['pull', 'planche']);
+  });
+  it('adds a named skill the model left out', () => {
+    const r = applyUserIntent({ ...base, domains: ['pull'] }, 'אימון משיכות ופלאנץ׳ בפארק');
+    expect(r.input.domains).toEqual(['pull', 'planche']);
+  });
+  it('a base-only request still replaces the model domains (no regression)', () => {
+    expect(applyUserIntent({ ...base, domains: ['planche'] }, 'אימון בטן').input.domains).toEqual(['core']);
+  });
+  it('titles the combo by every part', () => {
+    expect(aiWorkoutTitle(['pull', 'planche'], 'park')).toBe('אימון גב ופלאנץ׳ בפארק');
+    expect(aiWorkoutTitle(['planche'], 'home')).toBe('אימון פלאנץ׳ בבית');
+  });
+  it('never reads a skill out of an unrelated word', () => {
+    expect(inferSkillDomains('בא לי מסלול ריצה ארוך')).toEqual([]);
   });
 });

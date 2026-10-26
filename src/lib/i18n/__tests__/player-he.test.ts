@@ -145,7 +145,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.free.classic.goal.beyond', "מעבר ליעד"],
       ['run.free.classic.finish', "סיים אימון"],
       ['run.free.classic.gps.searching', "מחפש GPS…"],
-      ['run.free.classic.gps.poor', "GPS חלש — ממשיך לחפש"],
+      ['run.free.classic.gps.poor', "GPS חלש, ממשיך לחפש"],
       ['run.free.classic.gps.good', "GPS תקין ✓"],
       ['run.free.classic.aria.guided', "מסלול מודרך"],
       ['run.free.classic.aria.free', "אימון חופשי"],
@@ -212,7 +212,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.overview.cta.pickOnMap', "בחירה במפה"],
       ['run.overview.cta.suggest', "הצע לי מסלול"],
       ['run.overview.cta.searching', "מחפש מסלולים מכאן…"],
-      ['run.overview.cta.noneNear', "לא מצאנו מסלול מתאים קרוב — אפשר לרוץ מכאן"],
+      ['run.overview.cta.noneNear', "לא מצאנו מסלול מתאים קרוב, אפשר לרוץ מכאן"],
       ['run.overview.homeSheet.close', "סגירה"],
       ['run.overview.homeSheet.loading', "טוען אימון..."],
       ['run.overview.suggest.back', "חזרה"],
@@ -224,7 +224,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.overview.level.planned', "מאוזן"],
       ['run.overview.level.harder', "עוצמתי"],
       ['run.overview.level.aria', "בחירת עומס"],
-      ['run.overview.level.manualNote', "העיקר הוחלף ידנית — בחירה ברמה תחזיר מבנה מהתוכנית"],
+      ['run.overview.level.manualNote', "העיקר הוחלף ידנית, בחירה ברמה תחזיר מבנה מהתוכנית"],
       ['run.overview.detail', "פירוט"],
       ['run.overview.axisTitle', "מהלך האימון"],
       ['run.overview.axis.fromHere', "יוצאים מכאן · ה-GPS מודד את הדרך"],
@@ -236,7 +236,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.overview.swap.level.same', "דומה"],
       ['run.overview.swap.level.higher', "קשה יותר"],
       ['run.overview.swap.title', "החלף מקטע"],
-      ['run.overview.swap.subtitle', "העיקר כולו — חזרות והתאוששות יחד · הקצב נשאר שלך"],
+      ['run.overview.swap.subtitle', "העיקר כולו, חזרות והתאוששות יחד · הקצב נשאר שלך"],
       ['run.overview.swap.confirm', "החלפה"],
       ['run.overview.swap.current', "נוכחי"],
       ['run.overview.swap.empty', "אין חלופות לאימון הזה"],
@@ -248,8 +248,8 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.overview.pace.fromProfile', "מהפרופיל שלך"],
       ['run.overview.pace.barFast', "מהיר"],
       ['run.overview.pace.barSlow', "איטי"],
-      ['run.overview.pace.warn.fast', "מהיר מדי לרמה שלך — עלול לפגוע בתוכנית. אפשר לשמור, אבל עדיף להישאר בטווח."],
-      ['run.overview.pace.warn.slow', "איטי מהטווח שלך — האימון יהיה קל מהמתוכנן. אפשר לשמור, אבל עדיף להישאר בטווח."],
+      ['run.overview.pace.warn.fast', "מהיר מדי לרמה שלך, עלול לפגוע בתוכנית. אפשר לשמור, אבל עדיף להישאר בטווח."],
+      ['run.overview.pace.warn.slow', "איטי מהטווח שלך, האימון יהיה קל מהמתוכנן. אפשר לשמור, אבל עדיף להישאר בטווח."],
       ['run.overview.edit.editedTag', "מותאם"],
       ['run.overview.edit.swapAria', "החלף מקטע"],
       ['run.overview.edit.swap', "החלפה"],
@@ -389,6 +389,10 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
     expect(t('run.overview.level.withMinutes', { name: 'קליל', min: String(Math.max(1, Math.round(1830 / 60))) }))
       .toBe(`${'קליל'} · ${Math.max(1, Math.round(1830 / 60))}׳`);
     expect(t('run.overview.finishAt', { clock: '09:26' })).toBe(`מסיים ~${'09:26'}`);
+    expect(t('run.overview.hill.nearby', { distance: '800 מ׳', grade: '6', length: '300 מ׳' }))
+      .toBe('גבעה מתאימה 800 מ׳ ממך: עלייה של 6% באורך 300 מ׳');
+    expect(t('run.overview.hill.nearbyNamed', { name: 'רחוב הגבעה', distance: '1.2 ק״מ', grade: '7', length: '400 מ׳' }))
+      .toBe('גבעה מתאימה ברחוב הגבעה, 1.2 ק״מ ממך: עלייה של 7% באורך 400 מ׳');
     expect(t('run.overview.swap.confirmTo', { title: '4 × 600 מ׳' })).toBe(`החלף ל-${'4 × 600 מ׳'}`);
     expect(t('run.overview.pace.subtitle', { subtitle: 'חזרות 400 · 6 ×' })).toBe(`${'חזרות 400 · 6 ×'} · לאימון הזה בלבד`);
     expect(t('run.overview.pace.reset', { band: '4:30–4:45' })).toBe(`איפוס לקצב שלך (${'4:30–4:45'})`);
@@ -418,6 +422,6 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
   it('no key is left untested', () => {
     // Keep in step with the catalog: a new run.* key needs a case above. Counted per prefix
     // (other batches add keys to the same namespace file — e.g. sessionInvite.*, app-pages-he.test.ts).
-    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(327);
+    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(329);
   });
 });

@@ -26,7 +26,7 @@ export const PICK_PROGRAM_STRIP_HINT_KEY = 'programStart.pickStripHint' as const
 
 /**
  * The same copy as Hebrew strings, read from the he catalog, for the callers outside the migrated files
- * (home/page.tsx's strip hint, AddTrackCard, start-cards-look.test). They switch to the *_KEY / PROGRAM_START_KEYS
+ * (AddTrackCard, start-cards-look.test; home/page.tsx reads PICK_PROGRAM_STRIP_HINT_KEY since i18n batch al). They switch to the *_KEY / PROGRAM_START_KEYS
  * exports above (rendered with useT(home)) when their files migrate; until then they show the Hebrew source text.
  */
 const heCopy = (keys: (typeof PROGRAM_START_KEYS)[ProgramTrack]) => ({

@@ -83,7 +83,10 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // tinted segmented difficulty, round white icon button, the single gradient CTA.
   // Flag off = today's drawer, byte-for-byte.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const flags = useFeatureFlags(isSuperAdmin).flags;
+  const v2 = flags.enableHomeV2;
+  // enable_hybrid_difficulty_carousel off (pilot 26.10, M11): no carousel; the engine's pick runs.
+  const showBolts = flags.enableHybridDifficultyCarousel;
   // Difficulty carousel (full-park only): 3 pre-composed bolt plans, swap by index —
   // NO re-compose. `plan` = the active bolt; budget-split cards have no `bolts` and
   // keep their single `composed.plan` unchanged.
@@ -285,7 +288,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       {/* meta row — difficulty carousel (full-park, קל/בינוני/קשה with emergent
           minutes) or, for budget-split cards, the original static bolts pill */}
       <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-        {composed.bolts ? (
+        {composed.bolts && showBolts ? (
           <div className={v2 ? 'flex w-full items-stretch bg-white rounded-full shadow-v2-ring' : 'flex w-full items-stretch bg-white rounded-full'} role="group" aria-label="בחירת עצימות"
             style={v2 ? { padding: 4, gap: 4 } : { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}>
             {composed.bolts.labels.map((label, i) => {
@@ -309,7 +312,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
           </div>
         ) : (
           <span className={v2 ? 'inline-flex items-center bg-white rounded-full shadow-v2-ring' : 'inline-flex items-center bg-white rounded-lg'} style={v2 ? { padding: '5px 12px' } : { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}>
-            <DifficultyBolts difficulty={2} size="sm" />
+            <DifficultyBolts difficulty={composed.bolts ? ((boltIndex + 1) as 1 | 2 | 3) : 2} size="sm" />
           </span>
         )}
       </div>

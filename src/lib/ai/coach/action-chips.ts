@@ -210,6 +210,19 @@ export interface ChipInput {
   scheduleAdvisor?: boolean;
   /** recommend_today said today's strength session is already done (derived from workouts). */
   strengthDoneToday?: boolean;
+  /**
+   * Kelly's final reply text. A reply that sends the user to the schedule "button below" gets
+   * that button even when the turn didn't look like a schedule question (owner thread
+   * 18.10.2026: "בדוק את הלו״ז בכפתור למטה" with no chip → "אין כפתור").
+   */
+  replyText?: string;
+}
+
+/** The reply points at the schedule button under it ("אפשר לפתוח את הלו״ז בכפתור למטה"). */
+const REPLY_SCHEDULE_BUTTON = /(?:לו["״׳']?ז|לוח\s+(?:ה)?זמנים|התוכנית\s+שלך)[^.!?\n]{0,40}(?:כפתור|בכפתור|בלחיצה)|(?:כפתור|בכפתור)[^.!?\n]{0,40}(?:לו["״׳']?ז|לוח\s+(?:ה)?זמנים)/;
+
+export function replyPointsAtScheduleButton(text: string | null | undefined): boolean {
+  return REPLY_SCHEDULE_BUTTON.test((text ?? '').normalize('NFC'));
 }
 
 /** The level-check chip for this turn, if any (at most one). */
@@ -240,6 +253,7 @@ export function chipsForTurn(i: ChipInput): CoachActionId[] {
     }
     if (recommendedWeek) out.push('open_builder');
   }
+  if (!out.includes('open_schedule') && replyPointsAtScheduleButton(i.replyText)) out.push('open_schedule');
   const check = checkLevelChipFor(i);
   if (check) out.push(check);
   return out;

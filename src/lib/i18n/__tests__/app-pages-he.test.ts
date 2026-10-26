@@ -145,7 +145,7 @@ describe('pages · /settings/refine-levels (he)', () => {
     ['refineLevels.saving', 'שומר שינויים...'],
     ['refineLevels.saved.title', 'הרמות עודכנו בהצלחה'],
     ['refineLevels.saved.subtitle', 'חוזרים להגדרות...'],
-    ['refineLevels.saveFailed', 'שגיאה בשמירה — נסו שנית'],
+    ['refineLevels.saveFailed', 'שגיאה בשמירה, נסו שנית'],
   ];
   it('every refineLevels.* key is covered', () => {
     expect(cases.map(([k]) => k).sort()).toEqual(keysWith(pagesHe, 'refineLevels.').sort());

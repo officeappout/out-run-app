@@ -29,6 +29,7 @@
 import { isDuplicate } from '../dataset-import/overlap';
 import { parsePath, type FromDocOptions } from '../route-score/from-route-doc';
 import { scoreAuthorityRoutes, type AuthorityScoreRun } from '../route-score/score-authority';
+import { CITY_LOW_FLOOR } from '../route-score/weights';
 
 export const STAGE_ORDER = ['existing', 'known_routes', 'dataset', 'osm', 'named_ways', 'bike_adjacent_walk', 'park_loops', 'generated', 'neighbourhood', 'settlement_loops'] as const;
 export type StageKey = (typeof STAGE_ORDER)[number];
@@ -97,9 +98,9 @@ const boxesMeet = (p: Box | null, q: Box | null) => !!p && !!q && p[0] <= q[2] &
 
 export function quotaMet(run: AuthorityScoreRun): boolean {
   // Only ≥70 selections count: routes the urban floor let in (RC9) never stop the generating stages,
-  // and neither do settlement loops (always-added extras, owner 22.10.2026).
+  // and neither do settlement loops (always-added extras, owner 22.10.2026) or the city low floor (24.10.2026).
   const c = run.selection.counts;
-  return c.selected - (c.urbanFloor ?? 0) - (c.settlementLoops ?? 0) >= run.quota.total.min;
+  return c.selected - (c.urbanFloor ?? 0) - (c.settlementLoops ?? 0) - (c.lowScoreFill ?? 0) >= run.quota.total.min;
 }
 
 export interface RunStagesOptions {
@@ -112,6 +113,12 @@ export interface RunStagesOptions {
    */
   regionalSkip?: ReadonlySet<StageKey>;
   settlementLoopsEnabled?: boolean;
+  /**
+   * City low floor (owner 24.10.2026): the score passed to selectTopN's lowScoreFill for a
+   * NON-regional authority. Default CITY_LOW_FLOOR; null turns it off. Never applied to a
+   * regional council (their selection stays byte-identical).
+   */
+  cityLowFloor?: number | null;
   /**
    * Cross-authority duplicate check (owner 22.10.2026): returns the id of a route in ANOTHER authority
    * that is the same trail by geometry (≥60% overlap), or null. A new candidate that has one is dropped
@@ -131,9 +138,11 @@ export async function runAuthorityStages(
   const geo: Array<{ coords: [number, number][]; box: Box | null }> = [];
   const stages: StageReport[] = [];
   let quotaMetAfter: StageKey | null = null;
-  let score = scoreAuthorityRoutes(authority, [], now);
-
   const regional = isRegional(authority);
+  const lowFloor = options.cityLowFloor === undefined ? CITY_LOW_FLOOR : options.cityLowFloor;
+  const selectOpts = !regional && lowFloor != null ? { lowScoreFill: lowFloor } : {};
+  let score = scoreAuthorityRoutes(authority, [], now, selectOpts);
+
   const regionalSkip = options.regionalSkip ?? REGIONAL_SKIPPED_STAGES;
   const settlementOn = options.settlementLoopsEnabled ?? SETTLEMENT_LOOPS_ENABLED;
 
@@ -166,7 +175,7 @@ export async function runAuthorityStages(
       geo.push({ coords, box });
       added++;
     }
-    score = scoreAuthorityRoutes(authority, pool.map((p) => ({ id: p.id, data: p.data, opts: p.opts })), now);
+    score = scoreAuthorityRoutes(authority, pool.map((p) => ({ id: p.id, data: p.data, opts: p.opts })), now, selectOpts);
     stages.push({ key, ran: true, offered: routes.length, added, droppedDuplicate: dropped, note: note ?? null, selectedAfter: score.selection.counts.selected });
     if (!quotaMetAfter && quotaMet(score)) quotaMetAfter = key;
   }

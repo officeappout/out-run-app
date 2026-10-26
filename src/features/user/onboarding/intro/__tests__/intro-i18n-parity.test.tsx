@@ -4,7 +4,7 @@
  * (landing, bridge, UI words, five stories) and the static markup of every screen.
  * `<!-- -->` (react-dom/server's text-node separator) is stripped before comparing.
  */
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactElement } from 'react';
 import { IntroLanding } from '../components/IntroLanding';
@@ -17,6 +17,15 @@ import { storiesUnderTest } from './stories-under-test';
 const noop = () => {};
 const html = (el: ReactElement) => renderToStaticMarkup(el).replaceAll('<!-- -->', '');
 const snap = (name: string) => `./__snapshots__/intro-i18n/${name}`;
+
+// The phone lock screens show today's date; the snapshots were recorded on Friday 23.10.2026.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-23T09:00:00+03:00'));
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 describe('intro copy and screens', () => {
   it('copy objects', async () => {

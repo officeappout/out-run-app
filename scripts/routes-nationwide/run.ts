@@ -18,6 +18,9 @@
  * has a layer, turns/zigzag on loops; urban candidates measured on the OSM slice — composition, lighting,
  * amenities ≤ 50 m, road crossings — src/lib/urban-measure) and the top-N set re-selected
  * (src/lib/route-score); once the quota minimum is met the generating stages are skipped.
+ * City low floor (owner 24.10.2026, municipal only): a city still below its quota minimum may fill
+ * up to it with candidates scoring ≥ CITY_LOW_FLOOR (55), marked low_score_fill (route_scores
+ * .lowConfidenceReason) — the approval center / hub filter them; regional councils are unchanged.
  *
  *   npx tsx scripts/routes-nationwide/run.ts                          # whole country, dry-run, resumes automatically
  *   npx tsx scripts/routes-nationwide/run.ts --city=חיפה --city=ערד   # by authority name (repeatable)
@@ -58,6 +61,7 @@ import * as path from 'path';
 import { boundaryFromStored, type AuthorityBoundary } from '../../src/lib/dataset-import';
 import { writeRouteScoreDocs } from '../../src/lib/route-score';
 import { surfaceClassField } from '../../src/lib/route-score/surface-class';
+import { CITY_LOW_FLOOR } from '../../src/lib/route-score/weights';
 import {
   buildAdminNameIndex, checkpointMismatch, knownAdminRelationFor, normalizeAuthorityName, filterAuthorities, markDone, matchAdminRelation, newCheckpoint, orderAuthorities, parseCheckpoint, remaining,
   combineEnrichers, runAuthorityStages, SETTLEMENT_LOOPS_ENABLED, summarizeAuthority, summarizeNation, type AdminRelation, type AuthorityRow, type AuthoritySummary, type Checkpoint,
@@ -117,6 +121,7 @@ function writeJson(file: string, v: unknown) {
 function printAuthority(s: AuthoritySummary) {
   const surf = s.surface.selected;
   console.log(`  selected ${s.selected.total}/${s.quota.min}-${s.quota.max} (${s.selected.existing} existing + ${s.selected.new} new) · pool ${s.pool} · 🟢${s.bands.green} 🟡${s.bands.yellow} 🔴${s.bands.red} · quota met after: ${s.quotaMetAfter ?? '—'}`);
+  if (s.selection.lowScoreFill) console.log(`  city low floor: +${s.selection.lowScoreFill} (score ≥ ${CITY_LOW_FLOOR}, low_score_fill — low confidence)`);
   console.log(`  surface selected: paved ${surf.walk_run_paved ?? 0} · offroad ${surf.hike_offroad ?? 0} · bike road ${surf.bike_road ?? 0} · bike offroad ${surf.bike_offroad ?? 0} · unknown ${surf.unknown ?? 0}`);
   for (const st of s.stages) console.log(`    ${st.ran ? '▸' : '·'} ${st.key.padEnd(13)} ${st.ran ? `+${st.added} (offered ${st.offered}, dup ${st.droppedDuplicate})` : ''} ${st.note ?? ''}`);
 }
@@ -273,6 +278,7 @@ async function main() {
   writeJson(path.join(OUT, 'summary.json'), { generatedAt: new Date().toISOString(), apply: APPLY, checkpoint: { done: Object.keys(cp.done).length, of: cp.order.length }, ...nation });
   console.log(`\nNATIONAL (${nation.authorities} authorities so far): selected ${nation.selected} (${nation.selectedNew} new) · new proposed ${nation.newProposed} · quota met ${nation.quotaMet} · 🟢${nation.bands.green} 🟡${nation.bands.yellow} 🔴${nation.bands.red}`);
   console.log(`surface selected: ${JSON.stringify(nation.surfaceSelected)}`);
+  if (nation.lowScoreFill != null) console.log(`city low floor (score ≥ ${CITY_LOW_FLOOR}, marked low_score_fill): ${nation.lowScoreFill} selected`);
   console.log(`summary: ${path.join(OUT, 'summary.json')}${stopRequested ? ' — stopped early; run the same command to continue' : ''}`);
   if (!APPLY) console.log('Dry run only — no Firestore writes.');
 }

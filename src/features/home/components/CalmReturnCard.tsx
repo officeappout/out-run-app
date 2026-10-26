@@ -9,6 +9,8 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { calmCopy, type CalmGender } from '@/lib/calm-return/surface';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 const CARD_STYLE = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' };
 
@@ -24,6 +26,7 @@ export default function CalmReturnCard({
   onDismiss: () => void;
 }) {
   const copy = calmCopy(gender);
+  const t = useT(home);
   return (
     <div
       className="relative w-full max-w-[358px] mx-auto bg-white dark:bg-[#1E2A28] rounded-2xl px-5 py-4"
@@ -34,7 +37,7 @@ export default function CalmReturnCard({
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="סגירה"
+        aria-label={t('calmReturnCard.close')}
         className="absolute top-3 left-3 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:text-gray-500"
       >
         <X size={16} />

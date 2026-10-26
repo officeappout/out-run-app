@@ -30,7 +30,7 @@ describe('player (he) swap modal — byte-identical to the pre-extraction litera
       ['swapModal.hint.alternative', 'תרגילים שונים לאותה קבוצת השרירים'],
       ['swapModal.empty.title', 'לא נמצאו תרגילים חלופיים'],
       ['swapModal.reason.prompt', 'למה מחליפים? (לא חובה)'],
-      ['swapModal.reason.painNote', 'כאב הוא סימן לעצור. אם הוא לא עובר — כדאי להתייעץ עם איש מקצוע.'],
+      ['swapModal.reason.painNote', 'כאב הוא סימן לעצור. אם הוא לא עובר, כדאי להתייעץ עם איש מקצוע.'],
       ['swapModal.cta', 'החליפו תרגיל'],
       ['strengthSummary.swappedTag', 'הוחלף'],
     ];

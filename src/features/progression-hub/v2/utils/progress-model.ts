@@ -42,6 +42,12 @@ export interface ProgressWorkout {
   domainSets: Record<string, number>;
   title?: string;
   /**
+   * Runs saved with runMeta.timeInZone (enable_home_v2 players): % of the scored
+   * time inside the target pace band (0–100). Absent on older runs. Read by the
+   * progress hub's running page only (enable_progress_hub_v2).
+   */
+  inZonePct?: number;
+  /**
    * Set only on a PART of a combined workout (hybrid counting, owner 20.10.2026):
    * the saved doc's id. A combined doc becomes one entry per part (run / walk /
    * strength) so each lens counts its own part; session counts dedupe on this.
@@ -130,7 +136,9 @@ export function toProgressWorkout(id: string, data: Record<string, unknown>): Pr
   const { sets, domainSets } = setsFromDoc(data);
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   const title = typeof data.title === 'string' ? data.title : typeof data.routeName === 'string' ? data.routeName : undefined;
+  const inZonePct = readInZonePct(data.runMeta);
   return {
+    ...(inZonePct != null ? { inZonePct } : {}),
     id,
     date,
     kind: kindOfWorkoutType(type),
@@ -142,6 +150,15 @@ export function toProgressWorkout(id: string, data: Record<string, unknown>): Pr
     domainSets,
     title,
   };
+}
+
+/** runMeta.timeInZone {inSec, totalSec} → % in zone, or null when absent / unscored. */
+export function readInZonePct(runMeta: unknown): number | null {
+  const tiz = (runMeta as { timeInZone?: { inSec?: unknown; totalSec?: unknown } } | null | undefined)?.timeInZone;
+  const inSec = typeof tiz?.inSec === 'number' ? tiz.inSec : NaN;
+  const total = typeof tiz?.totalSec === 'number' ? tiz.totalSec : NaN;
+  if (!(total > 0) || !(inSec >= 0)) return null;
+  return Math.max(0, Math.min(100, Math.round((inSec / total) * 100)));
 }
 
 /** A raw `dailyActivity` doc → ProgressDay. */
