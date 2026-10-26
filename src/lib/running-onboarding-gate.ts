@@ -7,7 +7,7 @@ import { countStrengthTemplateDays, type ResolveSlug } from '@/features/schedule
 type GateProfile = {
   running?: { isUnlocked?: unknown; scheduleDaysSource?: unknown };
   /** lifestyle.walkingGoal: written by the walking signup together with the walk days. */
-  lifestyle?: { walkingGoal?: unknown } | null;
+  lifestyle?: ({ walkingGoal?: unknown } & Record<string, unknown>) | null;
   // Shaped to satisfy hasAnsweredPersona's own parameter type
   // (persona-declaration.ts, owned by a different, separately-in-flight
   // piece of work) — not restated/asserted here as this function's own
