@@ -38,6 +38,7 @@ import { BackStack } from './backStack';
 import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 import { legacyGatewayRedirect } from '@/lib/landing-fallback/fallback-routes';
 import { initPushNotifications, unregisterPushNotifications, installTapListener } from './push';
+import { installShareShim, needsShareShim } from './shareShim';
 
 let installed = false;
 let pushAuthListenerAttached = false;
@@ -169,6 +170,19 @@ export async function initNativeShell(): Promise<void> {
   // Visible in native WebView console — confirms which web bundle is loaded.
   // Bump the date string on every web rebuild to detect stale SW cache.
   console.log('[boot] web build 2026-06-30 v=1.3.0 b=21');
+
+  // Android WebView has no navigator.share: route it to the OS share sheet (W2).
+  // Web code ships from the server before a new native build does, so only when the
+  // installed binary has the plugin; otherwise callers keep their copy-link fallback.
+  try {
+    const cap = (window as unknown as { Capacitor?: { isPluginAvailable?: (n: string) => boolean } }).Capacitor;
+    if (needsShareShim(navigator, true) && cap?.isPluginAvailable?.('Share') === true) {
+      const { Share } = await import('@capacitor/share');
+      installShareShim(navigator, Share);
+    }
+  } catch (e) {
+    console.warn('[native/init] share shim failed', e);
+  }
 
   try {
     const [{ App }] = await Promise.all([import('@capacitor/app')]);
