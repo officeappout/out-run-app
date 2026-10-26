@@ -22,5 +22,5 @@ export function mergePlannedStrengthDays(
     const ids = p.strengthSlugs.length ? [...p.strengthSlugs] : p.strengthIds.length ? [...p.strengthIds] : [slug];
     byDow.set(p.dayOfWeek, { dow: p.dayOfWeek, slug, ids });
   }
-  return [...byDow.values()].sort((a, b) => a.dow - b.dow);
+  return Array.from(byDow.values()).sort((a, b) => a.dow - b.dow);
 }
