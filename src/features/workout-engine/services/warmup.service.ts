@@ -28,6 +28,7 @@ import { warmupSlotBudget, WARMUP_SLOT_SECONDS } from '../logic/session-frame.ut
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 import { isExerciseSkillEligible } from '../core/middleware/InputSanitizerMiddleware';
+import { planWarmupGuideBuckets, resolveWorkoutBodyFocus } from './warmup-guide-focus.utils';
 
 // ============================================================================
 // CONSTANTS
@@ -657,7 +658,28 @@ export function prependWarmupExercises(
   let stage1Name = '(none)';
   let stage1Source = 'none';
 
-  if (generalCandidates.length > 0) {
+  // Body-focus routing (owner decision 26.10.2026): when the workout has an upper / lower /
+  // full-body focus and follow-along guides exist, the guide(s) follow the focus — full body
+  // gets BOTH (upper/general, then lower). No focus → the single-pick path below, unchanged.
+  const bodyFocus = resolveWorkoutBodyFocus(mainExercises.map((we) => we.exercise));
+  const isWarmupGuide = (ex: Exercise) => ex.isFollowAlong === true && ex.exerciseRole === 'warmup';
+  const addGuideBuckets = (pool: Exercise[], reason: string): string[] => {
+    const names: string[] = [];
+    for (const bucket of planWarmupGuideBuckets(pool, bodyFocus)) {
+      const chosen = pickWithVariety(bucket.filter((ex) => !workoutIds.has(ex.id)));
+      if (!chosen) continue;
+      addToBlock(chosen, reason, undefined, true);
+      recordWarmupPick(chosen.id);
+      names.push(chosen.name?.he ?? chosen.name?.en ?? chosen.id);
+    }
+    return names;
+  };
+  const locationGuides = generalCandidates.filter(isWarmupGuide);
+
+  if (bodyFocus !== null && locationGuides.length > 0) {
+    stage1Name = addGuideBuckets(locationGuides, `warmup: general mobility [${bodyFocus} focus]`).join(' + ');
+    stage1Source = `follow-along [location-matched, ${bodyFocus} focus]`;
+  } else if (generalCandidates.length > 0) {
     const chosen = pickWithVariety(generalCandidates)!;
     addToBlock(chosen, 'warmup: general mobility', undefined, true);
     recordWarmupPick(chosen.id);
@@ -677,8 +699,14 @@ export function prependWarmupExercises(
       ex.exerciseRole === 'warmup' &&
       (ex.execution_methods ?? ex.executionMethods ?? []).length > 0,
     );
-    const fallback = pickWithVariety(emergencyCandidates);
-    if (fallback) {
+    const fallback = bodyFocus === null ? pickWithVariety(emergencyCandidates) : undefined;
+    if (bodyFocus !== null && emergencyCandidates.length > 0) {
+      stage1Name = addGuideBuckets(
+        emergencyCandidates,
+        `warmup: general mobility [location-agnostic fallback, ${bodyFocus} focus]`,
+      ).join(' + ');
+      stage1Source = `fallback [no location match — location-ignored, ${bodyFocus} focus]`;
+    } else if (fallback) {
       addToBlock(fallback, 'warmup: general mobility [location-agnostic fallback]', undefined, true);
       recordWarmupPick(fallback.id);
       stage1Name = fallback.name?.he ?? fallback.name?.en ?? fallback.id;
@@ -968,7 +996,11 @@ export function prependWarmupExercises(
   // touches every pattern the workout trains — incl. the Mandatory Legs slot,
   // which is its family's first). Runs AFTER the full build so all safety
   // guarantees above are inputs to the trim, never bypassed by it.
-  const maxSlots = warmupSlotBudget(availableTimeMin) + extraWarmupSlots(extraWarmupMinutes);
+  // A full-body workout's second guide video (26.10.2026) is ON TOP of the ladder budget —
+  // the warm-up grows by that slot rather than trimming a ladder slot; main work is untouched.
+  const generalGuideCount = warmupBlock.filter((we) => we.isGeneralWarmup === true).length;
+  const maxSlots = warmupSlotBudget(availableTimeMin) + extraWarmupSlots(extraWarmupMinutes)
+    + Math.max(0, generalGuideCount - 1);
   let finalBlock = warmupBlock;
   if (warmupBlock.length > maxSlots) {
     const familyOf = (we: WorkoutExercise): string =>
@@ -978,7 +1010,8 @@ export function prependWarmupExercises(
     const extras: WorkoutExercise[] = [];
     for (const we of warmupBlock) {
       const fam = familyOf(we);
-      if (!seen.has(fam)) { seen.add(fam); coverage.push(we); }
+      if (we.isGeneralWarmup === true) { seen.add(fam); coverage.push(we); } // guides always survive
+      else if (!seen.has(fam)) { seen.add(fam); coverage.push(we); }
       else extras.push(we);
     }
     const keep = new Set<WorkoutExercise>(coverage.slice(0, maxSlots));
@@ -995,7 +1028,7 @@ export function prependWarmupExercises(
 
   if (finalBlock.length > 0) {
     workout.exercises.unshift(...finalBlock);
-    const generalCount = Math.min(1, finalBlock.length);
+    const generalCount = finalBlock.filter((we) => we.isGeneralWarmup === true).length;
     console.log(
       `[Warmup] Block finalised: ${generalCount} general + ${potentiationCount} ladder slots ` +
       `= ${finalBlock.length} total (budget ${maxSlots})`,
@@ -1093,7 +1126,10 @@ export function backfillMissingPatternWarmup(
   if (missing.length === 0) return;
 
   const maxSlots = warmupSlotBudget(availableTimeMin);
-  let currentSlotCount = workout.exercises.filter((ex) => ex.exerciseRole === 'warmup').length;
+  // A full-body workout's second guide video sits on top of the budget (see the trim above),
+  // so it does not eat a push/pull backfill slot.
+  const extraGuides = Math.max(0, workout.exercises.filter((ex) => ex.isGeneralWarmup === true).length - 1);
+  let currentSlotCount = workout.exercises.filter((ex) => ex.exerciseRole === 'warmup').length - extraGuides;
   if (currentSlotCount >= maxSlots) {
     console.warn(
       `[Warmup] Late backfill skipped for [${missing.join(', ')}] — already at slot budget ` +
