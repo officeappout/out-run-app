@@ -36,6 +36,7 @@ import {
   applyDomainPrioritySort,
   deduplicateExercises,
 } from '../../logic/workout-sorting.utils';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import { findProcessor } from '../../logic/protocols/protocol-processor.registry';
 import type { ProtocolHints } from './pipeline.types';
 
@@ -265,7 +266,9 @@ export class ProtocolInjector {
     // is in the candidate list.  This guarantees peak-session pyramids even when
     // Firestore configuration is missing or probability is set very low.
     let singleDomainPyramidOverride = false;
-    if (hints.forcePyramidOnSingleDomainIntense && isSingleDomain && difficulty === 3) {
+    // pyramid_injection_off (owner 22.10) wins over this native override, or a single-area D3
+    // request ("אימון בטן", chat or builder) would re-inject the pyramid the switch removed.
+    if (hints.forcePyramidOnSingleDomainIntense && isSingleDomain && difficulty === 3 && !readLiveFlag('pyramidInjectionOff')) {
       const SINGLE_DOMAIN_PYRAMID_FLOOR = 0.6;
       // Raise probability if below the floor
       if ((adminProbability ?? 0) < SINGLE_DOMAIN_PYRAMID_FLOOR) {
