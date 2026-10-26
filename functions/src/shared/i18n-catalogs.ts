@@ -56,7 +56,11 @@ export const FUNCTIONS_CATALOGS = {
       "weekdays.letter.4": "ה",
       "weekdays.letter.5": "ו",
       "weekdays.letter.6": "ש",
-      "sync.backfillChip": "מסנכרן, ייקח 1-2 דקות לטעון 3 חודשים של נתונים"
+      "sync.backfillChip": "מסנכרן, ייקח 1-2 דקות לטעון 3 חודשים של נתונים",
+      "flame.level.1": "להבה קטנה: יום שנספר ברצף",
+      "flame.level.2": "להבה בינונית: יום ברצף ויעד יומי אחד הושלם",
+      "flame.level.3": "להבה גדולה: יום ברצף, יעד הכוח ויעד האירובי הושלמו",
+      "flame.started": "אימון התחיל, עדיין מתחת לרף היומי"
     },
     "en": {
       "actions.continue": "Continue",
@@ -68,7 +72,11 @@ export const FUNCTIONS_CATALOGS = {
       "status.error": "Something went wrong, please try again",
       "greeting.ready": "Ready?",
       "count.minutes": "{count, plural, one {# minute} other {# minutes}}",
-      "sync.backfillChip": "Syncing — loading 3 months of data takes 1-2 minutes"
+      "sync.backfillChip": "Syncing — loading 3 months of data takes 1-2 minutes",
+      "flame.level.1": "Small flame: a streak day",
+      "flame.level.2": "Medium flame: a streak day with one daily goal met",
+      "flame.level.3": "Big flame: a streak day with the strength and aerobic goals met",
+      "flame.started": "Workout started, still below today's bar"
     },
     "ru": {},
     "de": {},
