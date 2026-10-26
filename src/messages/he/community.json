@@ -822,5 +822,9 @@
   "leagues.groupBoard.empty.body": "כשחברי קהילה יסיימו אימונים כחלק מקבוצה, היא תופיע כאן",
   "leagues.groupBoard.podiumSub": "{n, plural, =1 {{count} פעיל} other {{count} פעילים}}",
   "leagues.groupBoard.active": "{n, plural, =1 {{count} פעיל} other {{count} פעילים}}",
-  "leagues.groupBoard.unit": "ממוצע"
+  "leagues.groupBoard.unit": "ממוצע",
+  "trainingShares.title": "השותפים שלך מתאמנים",
+  "trainingShares.now": "{gender, select, female {{name} מתאמנת עכשיו ב{place}} male {{name} מתאמן עכשיו ב{place}} other {{name} · אימון עכשיו ב{place}}}",
+  "trainingShares.later": "{gender, select, female {{name} מגיעה ב-{time} ל{place}} male {{name} מגיע ב-{time} ל{place}} other {{name} · ב-{time} ב{place}}}",
+  "trainingShares.join": "{gender, select, female {מצטרפת} male {מצטרף} other {הצטרפות}}"
 }

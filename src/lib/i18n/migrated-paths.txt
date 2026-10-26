@@ -610,3 +610,11 @@ src/hooks/useWhereToTrainV1.ts
 src/features/parks/client/components/place-workouts/
 src/features/workout-engine/place-fit/
 src/components/ui/v2/WorkoutMiniCard.tsx
+# Training partners = mutual follow (enable_where_to_train_v1, owner 26.10): feed activity items (community trainingShares.*)
+# and the own profile's partners row / list (profile profile.partners.*).
+src/features/social/components/training-shares/
+src/features/social/services/training-share-visibility.ts
+src/features/social/services/training-shares.service.ts
+src/features/profile/components/partners/
+src/features/profile/hooks/useMutualPartners.ts
+src/app/api/training-here/

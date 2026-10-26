@@ -476,6 +476,12 @@ export interface PlannedSession {
    * the "I'm training here" sheet). Absent on older docs and on flows that don't know the workout.
    */
   workoutTitle?: string;
+  /**
+   * Feed-style audience (enable_where_to_train_v1). 'partners' = the publisher's mutual follows only
+   * (stored with privacyMode 'ghost'; partners read it via /api/training-here/partners). Absent on
+   * older docs — privacyMode alone decides then.
+   */
+  audience?: 'public' | 'partners';
   activityType: ActivityType;
   /**
    * Optional as of the unified-compose Phase 1 build: strength sessions

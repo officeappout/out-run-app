@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activityFromType,
+  prefillWhen,
   buildArrivalInput,
   laterTimeOptions,
   nextOccurrence,
@@ -49,13 +51,13 @@ describe('resolveStartTime / reminderTimeFor', () => {
 });
 
 describe('buildArrivalInput', () => {
-  const base = { userId: 'u1', displayName: 'Dana', photoURL: null, startTime: at(18, 0), visibility: 'verified_global' as const };
+  const base = { userId: 'u1', displayName: 'Dana', photoURL: null, startTime: at(18, 0), visibility: 'everyone' as const };
   it('a park writes parkId + parkName (no route fields) — what the park list reads', () => {
     const place: TrainingHerePlace = { kind: 'park', id: 'p1', name: 'Yarkon', lat: 32.1, lng: 34.8 };
     const input = buildArrivalInput({ ...base, place, activity: 'workout' });
     expect(input).toEqual({
       userId: 'u1', displayName: 'Dana', photoURL: null, parkId: 'p1', parkName: 'Yarkon',
-      lat: 32.1, lng: 34.8, activityType: 'workout', startTime: at(18, 0), privacyMode: 'verified_global',
+      lat: 32.1, lng: 34.8, activityType: 'workout', startTime: at(18, 0), privacyMode: 'verified_global', audience: 'public',
     });
     expect('routeId' in input).toBe(false);
     expect('workoutTitle' in input).toBe(false);
@@ -67,11 +69,35 @@ describe('buildArrivalInput', () => {
   });
   it('a route writes routeId + routeName with the activity type', () => {
     const place: TrainingHerePlace = { kind: 'route', id: 'r1', name: 'Loop', lat: null, lng: null };
-    const input = buildArrivalInput({ ...base, place, activity: 'running', visibility: 'squad' });
+    const input = buildArrivalInput({ ...base, place, activity: 'running', visibility: 'partners' });
     expect(input.routeId).toBe('r1');
     expect(input.routeName).toBe('Loop');
     expect(input.parkId).toBeUndefined();
     expect(input.activityType).toBe('running');
-    expect(input.privacyMode).toBe('squad');
+    // שותפי אימון = mutual follows: feed audience 'partners', privacyMode 'ghost' (no client listener reads it), no groupId.
+    expect(input.privacyMode).toBe('ghost');
+    expect(input.audience).toBe('partners');
+    expect('groupId' in input).toBe(false);
+  });
+});
+
+describe('prefillWhen (joining a partner\'s share)', () => {
+  const now = at(16, 20);
+  it('now when it starts within 10 minutes (or already started)', () => {
+    expect(prefillWhen(at(16, 25), now).when).toBe('now');
+    expect(prefillWhen(at(15, 0), now).when).toBe('now');
+  });
+  it('the matching hour chip, else אחר with HH:MM', () => {
+    expect(prefillWhen(at(18, 0), now)).toEqual({ when: 'later', chipKey: '1', otherTime: '18:00' });
+    expect(prefillWhen(at(18, 30), now)).toEqual({ when: 'later', chipKey: 'other', otherTime: '18:30' });
+  });
+});
+
+describe('activityFromType', () => {
+  it('maps planned_sessions types onto the sheet', () => {
+    expect(activityFromType('running')).toBe('running');
+    expect(activityFromType('walking')).toBe('walking');
+    expect(activityFromType('workout')).toBe('workout');
+    expect(activityFromType(undefined)).toBe('workout');
   });
 });
