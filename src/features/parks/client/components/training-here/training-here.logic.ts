@@ -53,7 +53,7 @@ export function resolveStartTime(when: TrainingHereWhen, picked: Date | null, no
   return when === 'later' && picked ? picked : now;
 }
 
-/** REMINDER_LEAD_MIN before the start, never in the past. (For the future reminder — see reminder.port.ts.) */
+/** REMINDER_LEAD_MIN before the start, never in the past. (The server sends it — functions/sessionReminderScheduler, flag enableTrainingHereReminders.) */
 export function reminderTimeFor(start: Date, now: Date, leadMin = REMINDER_LEAD_MIN): Date {
   return new Date(Math.max(start.getTime() - leadMin * 60_000, now.getTime()));
 }

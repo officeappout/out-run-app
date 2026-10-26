@@ -42,11 +42,12 @@ describe('map trainingHere.*', () => {
     ]);
     expect(g('trainingHere.cta.startNow')).toEqual(['התחילי אימון עכשיו', 'התחל אימון עכשיו', 'התחלת אימון עכשיו']);
     expect(g('trainingHere.cta.shareNow')).toEqual(['שתפי עכשיו', 'שתף עכשיו', 'שיתוף עכשיו']);
-    // No one-off reminder exists yet: the later CTA is a plain "שמור" and nothing promises a reminder.
+    // The later CTA promises a reminder only via saveRemind (shown when enableTrainingHereReminders is on).
     expect(g('trainingHere.cta.save')).toEqual(['שמור', 'שמור', 'שמור']);
     expect(g('trainingHere.later.hint.park')).toEqual(['תראי את זה בדף הפארק', 'תראה את זה בדף הפארק', 'זה יופיע בדף הפארק']);
     expect(g('trainingHere.later.hint.route')).toEqual(['תראי את זה בדף המסלול', 'תראה את זה בדף המסלול', 'זה יופיע בדף המסלול']);
-    expect(Object.values(he).some((v) => v.includes('נזכיר'))).toBe(false);
+    expect(Object.entries(he).filter(([, v]) => v.includes('נזכיר')).map(([k]) => k)).toEqual(['trainingHere.cta.saveRemind']);
+    expect(tm('trainingHere.cta.saveRemind', { time: '17:45' })).toBe('שמור · נזכיר לך ב-17:45');
     expect(g('trainingHere.cta.done')).toEqual(['סגרי', 'סגור', 'סגירה']);
   });
 
