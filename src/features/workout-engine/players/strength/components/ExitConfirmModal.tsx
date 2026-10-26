@@ -4,6 +4,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Square } from 'lucide-react';
 import { hapticWarning } from '@/lib/haptics';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * ExitConfirmModal — early-exit confirmation dialog.
@@ -31,6 +33,7 @@ export interface ExitConfirmModalProps {
 }
 
 export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConfirmModalProps) {
+  const t = useT(player);
   const handleExit = () => {
     hapticWarning();
     onExit();
@@ -63,13 +66,13 @@ export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConf
               className="text-xl font-black text-slate-900 dark:text-white mb-2"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              בטוחים שאתם רוצים לסיים את האימון?
+              {t('strengthPlayer.exit.title')}
             </h2>
             <p
               className="text-sm text-slate-500 dark:text-slate-400 mb-7"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              כבר עוצרים? השרירים רק התחילו להתחמם!
+              {t('strengthPlayer.exit.text')}
             </p>
 
             <button
@@ -77,7 +80,7 @@ export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConf
               className="w-full h-14 rounded-2xl font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              יאללה להמשיך
+              {t('strengthPlayer.exit.continue')}
             </button>
 
             <button
@@ -85,7 +88,7 @@ export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConf
               className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              אני רוצה לסיים את האימון באמצע
+              {t('strengthPlayer.exit.end')}
             </button>
           </motion.div>
         </motion.div>

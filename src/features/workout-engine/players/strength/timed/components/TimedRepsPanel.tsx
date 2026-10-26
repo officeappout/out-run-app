@@ -11,6 +11,8 @@ import HorizontalPicker from '../../components/HorizontalPicker';
 import { itemUnit } from '../logic/timed-labels';
 import { promptEyebrow, promptInitialValue, type TimedPrompt } from '../logic/timed-prompt';
 import TimedCardShell from './TimedCardShell';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface TimedRepsPanelProps {
   prompt: TimedPrompt;
@@ -19,6 +21,7 @@ export interface TimedRepsPanelProps {
 }
 
 export default function TimedRepsPanel({ prompt, onSave, onSkip }: TimedRepsPanelProps) {
+  const t = useT(player);
   const unit = itemUnit(prompt.item);
   const target = prompt.item.targetReps ?? prompt.item.targetHoldSec ?? 10;
   const promptKey = prompt.kind === 'amrap_partial' ? `a-${prompt.round}-${prompt.itemIndex}` : `e-${prompt.minuteIndex}`;
@@ -28,13 +31,13 @@ export default function TimedRepsPanel({ prompt, onSave, onSkip }: TimedRepsPane
   return (
     <TimedCardShell eyebrow={promptEyebrow(prompt)}>
       <h3 className="mb-2 text-center text-[20px] font-black !tracking-[-0.02em] text-v2-ink">
-        {unit === 'time' ? 'כמה שניות הספקת?' : 'כמה חזרות הספקת?'}
+        {unit === 'time' ? t('strengthPlayer.timed.reps.promptTime') : t('strengthPlayer.timed.reps.promptReps')}
       </h3>
       <div className="mb-3">
         <HorizontalPicker min={0} max={Math.max(target * 2, 30)} targetValue={target} value={value} onChange={setValue} unitType={unit} />
       </div>
       <Button variant="cta" size="lg" block onClick={() => onSave(value)} className="mb-2">
-        שמירה
+        {t('strengthPlayer.timed.reps.save')}
       </Button>
       <div className="flex justify-center">
         <button
@@ -42,7 +45,7 @@ export default function TimedRepsPanel({ prompt, onSave, onSkip }: TimedRepsPane
           onClick={onSkip}
           className="whitespace-nowrap rounded-full bg-white px-5 py-2 text-[14px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
-          {prompt.kind === 'amrap_partial' ? 'לא הספקתי חזרות' : 'דלג'}
+          {prompt.kind === 'amrap_partial' ? t('strengthPlayer.timed.reps.skipPartial') : t('strengthPlayer.timed.reps.skip')}
         </button>
       </div>
     </TimedCardShell>

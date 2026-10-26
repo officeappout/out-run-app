@@ -12,6 +12,8 @@ import { Button, ExerciseThumb } from '@/components/ui/v2';
 import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/timed.types';
 import { blockTitle, readyItemLine } from '../logic/timed-labels';
 import TimedCardShell from './TimedCardShell';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface TimedReadyCardProps {
   spec: TimedBlockSpec;
@@ -22,6 +24,7 @@ export interface TimedReadyCardProps {
 }
 
 export default function TimedReadyCard({ spec, segmentTitle, prefix, onInfo, onStart }: TimedReadyCardProps) {
+  const t = useT(player);
   const title = blockTitle(spec);
   return (
     <TimedCardShell eyebrow={prefix}>
@@ -30,7 +33,7 @@ export default function TimedReadyCard({ spec, segmentTitle, prefix, onInfo, onS
         <button
           type="button"
           onClick={onInfo}
-          aria-label="מה זה הפורמט"
+          aria-label={t('strengthPlayer.timed.ready.formatAria')}
           className="grid h-8 w-8 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
           <Info size={16} strokeWidth={2.4} className="text-v2-deep" aria-hidden />
@@ -54,7 +57,7 @@ export default function TimedReadyCard({ spec, segmentTitle, prefix, onInfo, onS
       </ul>
       <Button variant="cta" size="lg" block onClick={() => { hapticTap('impact'); onStart(); }}>
         <Play size={18} fill="currentColor" aria-hidden />
-        התחלה
+        {t('strengthPlayer.timed.ready.start')}
       </Button>
     </TimedCardShell>
   );

@@ -5,6 +5,10 @@ import { motion } from 'framer-motion';
 import { History } from 'lucide-react';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
+import { common } from '@/messages/ns/common';
+import { withUnit } from '@/lib/i18n/units';
 
 /**
  * ResumeWorkoutDialog — crash-recovery resume-offer dialog.
@@ -41,6 +45,8 @@ export interface ResumeWorkoutDialogProps {
 
 export default function ResumeWorkoutDialog({ elapsedTime, onResume, onStartOver }: ResumeWorkoutDialogProps) {
   const gender = useUiGender();
+  const t = useT(player);
+  const tc = useT(common);
   const minutes = Math.max(1, Math.round(elapsedTime / 60));
 
   return (
@@ -63,13 +69,13 @@ export default function ResumeWorkoutDialog({ elapsedTime, onResume, onStartOver
           className="text-xl font-black text-slate-900 dark:text-white mb-2"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          להמשיך מאיפה שעצרת?
+          {t('strengthPlayer.resume.title')}
         </h2>
         <p
           className="text-sm text-slate-500 dark:text-slate-400 mb-7"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          מצאנו אימון פעיל שלא הסתיים — עצרת אחרי כ-{minutes} דקות. אפשר להמשיך בדיוק מאותה נקודה.
+          {t('strengthPlayer.resume.text', { duration: withUnit('minutes', minutes, tc) })}
         </p>
 
         <button
@@ -85,7 +91,7 @@ export default function ResumeWorkoutDialog({ elapsedTime, onResume, onStartOver
           className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          להתחיל מחדש
+          {t('strengthPlayer.resume.startOver')}
         </button>
       </motion.div>
     </div>

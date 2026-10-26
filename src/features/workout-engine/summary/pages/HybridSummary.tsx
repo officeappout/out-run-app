@@ -26,6 +26,10 @@ import SegmentRail, { type SegmentRailItem } from '../blocks/SegmentRail';
 import { railTypeFromKind, segmentLabel, type SegmentRailType } from '../blocks/segment-rail.util';
 import { formatDuration } from '../format';
 import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
+import { useT } from '@/hooks/useT';
+import { summary as summaryNs, type SummaryT } from '@/messages/ns/summary';
+import { common } from '@/messages/ns/common';
+import { unitLabel, withUnit, type CommonT } from '@/lib/i18n/units';
 
 export interface HybridSummaryProps {
   result: HybridFinalizeResult;
@@ -60,16 +64,11 @@ export interface HybridSummaryProps {
   isReadOnly?: boolean;
 }
 
-const HYBRID_TABS: DrawerTab[] = [
-  { id: 'overview', label: 'סקירה' },
-  { id: 'aerobic', label: 'אירובי' },
-  { id: 'strength', label: 'כוח' },
-  { id: 'stats', label: 'סטטיסטיקה' },
-];
+const HYBRID_TAB_IDS = ['overview', 'aerobic', 'strength', 'stats'] as const;
 
 type Segments = HybridFinalizeResult['segments'];
 
-function buildRailItems(segments: Segments, only?: SegmentRailType): SegmentRailItem[] {
+function buildRailItems(segments: Segments, t: SummaryT, tc: CommonT, only?: SegmentRailType): SegmentRailItem[] {
   return segments
     .map((seg, i) => ({ seg, type: railTypeFromKind(seg.kind), i }))
     .filter(({ type }) => !only || type === only)
@@ -78,8 +77,8 @@ function buildRailItems(segments: Segments, only?: SegmentRailType): SegmentRail
       const timeStr = dur > 0 ? formatDuration(dur) : '';
       const detail =
         seg.kind === 'strength'
-          ? `${seg.actual?.sets ?? 0} סטים${timeStr ? ` · ${timeStr}` : ''}`
-          : `${(seg.actual?.distanceKm ?? 0).toFixed(2)} ק״מ${timeStr ? ` · ${timeStr}` : ''}`;
+          ? `${t('hybrid.sets', { n: String(seg.actual?.sets ?? 0) })}${timeStr ? ` · ${timeStr}` : ''}`
+          : `${withUnit('km', (seg.actual?.distanceKm ?? 0).toFixed(2), tc)}${timeStr ? ` · ${timeStr}` : ''}`;
       return {
         id: `seg-${seg.index ?? i}`,
         type,
@@ -113,6 +112,9 @@ export default function HybridSummary({
   initialSnap = 'full',
   isReadOnly = false,
 }: HybridSummaryProps) {
+  const t = useT(summaryNs);
+  const tc = useT(common);
+  const hybridTabs: DrawerTab[] = HYBRID_TAB_IDS.map((id) => ({ id, label: t(`hybrid.tab.${id}`) }));
   const [tab, setTab] = useState<string>('overview');
   // Home v2 (enable_home_v2): F-2f/F-3e overview (rings + streak strip, no XP)
   // and the F-3g strength table. Flag off ⇒ today's summary, unchanged.
@@ -132,18 +134,18 @@ export default function HybridSummary({
   const hero = (
     <div className="flex items-end justify-between gap-3 px-4 pt-1 pb-3">
       <div className="min-w-0">
-        <div className="text-[13px] font-extrabold text-v2-deep">אימון משולב</div>
+        <div className="text-[13px] font-extrabold text-v2-deep">{t('hybrid.title')}</div>
         <StatNumber
           value={totalDurationSec}
           format={(v) => formatDuration(Math.round(v))}
           size="lg"
-          label="זמן כולל"
+          label={t('hybrid.totalTime')}
           className="mt-1"
         />
       </div>
       <div className="flex flex-col items-end gap-1.5 shrink-0">
-        <Chip tone="accent">{`${summary.totalActualDistanceKm.toFixed(2)} ק״מ`}</Chip>
-        <Chip tone="neutral">{`${summary.totalStrengthSets} סטים`}</Chip>
+        <Chip tone="accent">{withUnit('km', summary.totalActualDistanceKm.toFixed(2), tc)}</Chip>
+        <Chip tone="neutral">{t('hybrid.sets', { n: String(summary.totalStrengthSets) })}</Chip>
         {xpVal > 0 && !v2 && (
           <Chip tone="accent" icon={<Sparkles size={13} strokeWidth={2.4} aria-hidden />}>
             {`+${xpVal} XP`}
@@ -157,7 +159,7 @@ export default function HybridSummary({
     <div className="mt-4 flex items-center gap-3 rounded-v2-card bg-v2-tint px-4 py-3">
       <IconTile icon={Target} tone="accent" size="sm" className="!bg-white" />
       <span className="text-[14px] font-extrabold text-v2-deep">
-        אימון משולב מלא — גם ריצה וגם כוח!
+        {t('hybrid.banner')}
       </span>
     </div>
   ) : null;
@@ -176,7 +178,7 @@ export default function HybridSummary({
             days={streakWeek.days}
             bars={[
               {
-                label: 'דקות פעילות',
+                label: t('hybrid.activeMinutes'),
                 value: (weeklySummary?.categoryTotals?.strength ?? 0) + (weeklySummary?.categoryTotals?.cardio ?? 0),
                 max: WHO_COMPLIANCE_BASELINE.weeklyAerobicMinutes,
               },
@@ -184,39 +186,39 @@ export default function HybridSummary({
           />
         )}
         <div>
-          <SectionLabel>מהלך האימון</SectionLabel>
-          <SegmentRail items={buildRailItems(segments)} />
+          <SectionLabel>{t('hybrid.course')}</SectionLabel>
+          <SegmentRail items={buildRailItems(segments, t, tc)} />
         </div>
       </div>
     ) : (
       <div className="px-4 pt-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
-          <StatTile value={summary.totalActualDistanceKm} decimals={2} unit="ק״מ" label="מרחק" />
-          <StatTile value={summary.totalStrengthSets} label="סטים" />
+          <StatTile value={summary.totalActualDistanceKm} decimals={2} unit={unitLabel('km', tc)} label={t('hybrid.tile.distance')} />
+          <StatTile value={summary.totalStrengthSets} label={t('hybrid.tile.sets')} />
           <StatTile
             value={completedSegments}
             format={() => `${completedSegments}/${summary.segmentCount}`}
-            label="מקטעים"
+            label={t('hybrid.tile.segments')}
           />
-          <StatTile value={Math.round(calories || 0)} unit="קק״ל" label="קלוריות" />
+          <StatTile value={Math.round(calories || 0)} unit={t('hybrid.kcal')} label={t('hybrid.tile.calories')} />
         </div>
         {banner}
-        <SectionLabel>מהלך האימון</SectionLabel>
-        <SegmentRail items={buildRailItems(segments)} />
+        <SectionLabel>{t('hybrid.course')}</SectionLabel>
+        <SegmentRail items={buildRailItems(segments, t, tc)} />
       </div>
     ),
     aerobic: (
       <div className="px-4 pt-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
-          <StatTile value={summary.totalActualDistanceKm} decimals={2} unit="ק״מ" label="מרחק ריצה" />
+          <StatTile value={summary.totalActualDistanceKm} decimals={2} unit={unitLabel('km', tc)} label={t('hybrid.aerobic.distance')} />
           <StatTile
             value={aerobicSec}
             format={() => (aerobicSec > 0 ? formatDuration(aerobicSec) : '--')}
-            label="זמן ריצה"
+            label={t('hybrid.aerobic.time')}
           />
         </div>
-        <SectionLabel>מקטעי ריצה</SectionLabel>
-        <SegmentRail items={buildRailItems(segments, 'aerobic')} />
+        <SectionLabel>{t('hybrid.aerobic.segments')}</SectionLabel>
+        <SegmentRail items={buildRailItems(segments, t, tc, 'aerobic')} />
       </div>
     ),
     strength: v2 && stationTables.length > 0 ? (
@@ -228,13 +230,13 @@ export default function HybridSummary({
     ) : (
       <div className="px-4 pt-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
-          <StatTile value={summary.totalStrengthSets} label="סטים שהושלמו" />
-          <StatTile value={summary.completedStrengthSegments} label="תחנות כוח" />
+          <StatTile value={summary.totalStrengthSets} label={t('hybrid.strength.setsDone')} />
+          <StatTile value={summary.completedStrengthSegments} label={t('hybrid.strength.stations')} />
         </div>
-        <SectionLabel>תחנות כוח</SectionLabel>
-        <SegmentRail items={buildRailItems(segments, 'strength')} />
+        <SectionLabel>{t('hybrid.strength.stations')}</SectionLabel>
+        <SegmentRail items={buildRailItems(segments, t, tc, 'strength')} />
         <div className="mt-3 text-center text-[12px] font-semibold text-v2-muted">
-          פירוט תרגילים (מתוכנן/בפועל) — בקרוב
+          {t('hybrid.strength.detailSoon')}
         </div>
       </div>
     ),
@@ -244,19 +246,19 @@ export default function HybridSummary({
           <StatTile
             value={totalDurationSec}
             format={() => formatDuration(totalDurationSec)}
-            label="זמן"
+            label={t('hybrid.stats.time')}
           />
-          <StatTile value={Math.round(calories || 0)} label="קק״ל" />
+          <StatTile value={Math.round(calories || 0)} label={t('hybrid.stats.kcal')} />
           {!v2 && <StatTile value={xpVal} label="XP" />}
         </div>
         <div className="mt-2 grid grid-cols-3 gap-2">
           <StatTile
             value={completedSegments}
             format={() => `${completedSegments}/${summary.segmentCount}`}
-            label="מקטעים"
+            label={t('hybrid.stats.segments')}
           />
-          <StatTile value={summary.completedAerobicSegments} label="מקטעי ריצה" />
-          <StatTile value={summary.completedStrengthSegments} label="תחנות כוח" />
+          <StatTile value={summary.completedAerobicSegments} label={t('hybrid.stats.aerobicSegments')} />
+          <StatTile value={summary.completedStrengthSegments} label={t('hybrid.stats.strengthStations')} />
         </div>
         {banner}
       </div>
@@ -264,7 +266,10 @@ export default function HybridSummary({
   };
 
   const handleShare = () => {
-    const text = `סיימתי אימון משולב — ${summary.totalActualDistanceKm.toFixed(2)} ק״מ · ${summary.totalStrengthSets} סטים 🏃💪`;
+    const text = t('hybrid.shareText', {
+      distance: withUnit('km', summary.totalActualDistanceKm.toFixed(2), tc),
+      sets: t('hybrid.sets', { n: String(summary.totalStrengthSets) }),
+    });
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       navigator.share({ text }).catch(() => {});
     }
@@ -277,21 +282,21 @@ export default function HybridSummary({
     <div className="flex items-center gap-2.5 px-4 py-3">
       <Button variant="ghost" size="lg" onClick={handleShare} className="flex-1">
         <Share2 size={18} strokeWidth={2.4} aria-hidden />
-        שתפו
+        {t('hybrid.share')}
       </Button>
       {onDelete && (
         <Button
           variant="ghost"
           size="lg"
           onClick={onDelete}
-          aria-label="מחק אימון"
+          aria-label={t('hybrid.deleteAria')}
           className="!px-4 !text-v2-down"
         >
           <Trash2 size={18} strokeWidth={2.4} aria-hidden />
         </Button>
       )}
       <Button variant="primary" size="lg" onClick={onFinish} className="flex-[1.4]">
-        סיום
+        {t('hybrid.finish')}
       </Button>
     </div>
     {!isReadOnly && (
@@ -302,13 +307,13 @@ export default function HybridSummary({
 
   return (
     <SummaryDrawerShell
-      tabs={HYBRID_TABS}
+      tabs={hybridTabs}
       activeTab={tab}
       onTabChange={setTab}
       header={hero}
       peekHeight={peekHeight}
       initialSnap={initialSnap}
-      topBar={isReadOnly ? { title: 'סיכום אימון', onClose: onFinish } : undefined}
+      topBar={isReadOnly ? { title: t('hybrid.topBar.title'), onClose: onFinish } : undefined}
       footer={footer}
     >
       {tabBody[tab] ?? tabBody.overview}

@@ -14,6 +14,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Check } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
 import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface FillingButtonProps {
   autoCompleteTime: number; // Time in seconds before auto-complete
@@ -29,12 +31,14 @@ interface FillingButtonProps {
 export default function FillingButton({
   autoCompleteTime,
   onClick,
-  label = 'סיימתי',
+  label,
   isPaused = false,
   disabled = false,
   className = '',
   v2 = false,
 }: FillingButtonProps) {
+  const t = useT(player);
+  const shownLabel = label ?? t('strengthPlayer.filling.done');
   const safeDuration = (!autoCompleteTime || autoCompleteTime <= 0) ? 10 : autoCompleteTime;
   const MIN_MOUNT_MS = 1500;
 
@@ -151,7 +155,7 @@ export default function FillingButton({
           }}
         />
         <div className="relative z-10 flex items-center gap-2.5">
-          <span className="text-[17px]">{label}</span>
+          <span className="text-[17px]">{shownLabel}</span>
           <Check size={22} strokeWidth={2.75} className="text-v2-on-cta" />
         </div>
       </button>
@@ -190,7 +194,7 @@ export default function FillingButton({
       {/* Content (Text + Icon) */}
       <div className="relative z-10 flex items-center gap-3">
         <span className="text-lg text-gray-900 dark:text-white">
-          {label}
+          {shownLabel}
         </span>
         <Check
           size={22}

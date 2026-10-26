@@ -9,13 +9,16 @@ import { CheckCircle2 } from 'lucide-react';
 import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/timed-result';
 import { resultLine } from '../logic/timed-labels';
 import TimedCardShell from './TimedCardShell';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export default function TimedDoneCard({ title, result }: { title: string; result: TimedBlockResult | null }) {
+  const t = useT(player);
   return (
     <TimedCardShell>
       <div className="flex flex-col items-center gap-1 pb-2 pt-1">
         <CheckCircle2 size={36} strokeWidth={2.2} className="text-v2-accent" aria-hidden />
-        <p className="whitespace-nowrap text-[20px] font-black !tracking-[-0.02em] text-v2-ink">{title} הושלם</p>
+        <p className="whitespace-nowrap text-[20px] font-black !tracking-[-0.02em] text-v2-ink">{t('strengthPlayer.timed.done.completed', { title })}</p>
         {result && <p className="whitespace-nowrap text-[14px] font-extrabold tabular-nums text-v2-deep">{resultLine(result)}</p>}
       </div>
     </TimedCardShell>

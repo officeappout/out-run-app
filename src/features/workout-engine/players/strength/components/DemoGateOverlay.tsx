@@ -9,6 +9,8 @@
  */
 import { motion } from 'framer-motion';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface Props {
   exerciseName: string;
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, onStart }: Props) {
+  const t = useT(player);
   return (
     <motion.div
       key="demo-gate"
@@ -31,7 +34,7 @@ export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, onStart }
       dir="rtl"
     >
       <p className="text-[12px] font-bold text-[#00ADEF] mb-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-        ככה עושים את זה
+        {t('strengthPlayer.demoGate.eyebrow')}
       </p>
       <h2 className="text-[20px] font-black text-slate-900 dark:text-white leading-tight" style={{ fontFamily: 'var(--font-simpler)' }}>
         {exerciseName}

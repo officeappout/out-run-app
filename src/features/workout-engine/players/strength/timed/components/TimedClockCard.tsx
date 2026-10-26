@@ -13,6 +13,8 @@ import TimedNextRow from './TimedNextRow';
 import PlayerDrawerCompact from '../../../shared/v2/PlayerDrawerCompact';
 import type { SnapDrawerState } from '../../../shared/v2/useSnapDrawer';
 import { useWidePlayer } from '../../../shared/v2/WidePlayerContext';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface TimedClockCardProps {
   mode: 'work' | 'rest';
@@ -34,6 +36,7 @@ export interface TimedClockCardProps {
 }
 
 export default function TimedClockCard({ mode, eyebrow, warn, clock, ofClock, item, next, nextCaption, line, drawer = null }: TimedClockCardProps) {
+  const t = useT(player);
   const isRest = mode === 'rest';
   const { wide } = useWidePlayer();
   const compact = drawer ? (
@@ -53,7 +56,7 @@ export default function TimedClockCard({ mode, eyebrow, warn, clock, ofClock, it
             isRest ? 'bg-v2-surface text-v2-ink-2 ring-v2-hairline' : 'bg-v2-tint text-v2-deep ring-v2-accent/40'
           }`}
         >
-          {isRest ? 'מנוחה' : 'עבודה'}
+          {isRest ? t('strengthPlayer.timed.clock.rest') : t('strengthPlayer.timed.clock.work')}
         </span>
       </div>
       <div className="mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">

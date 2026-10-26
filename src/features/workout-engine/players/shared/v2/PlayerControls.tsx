@@ -14,6 +14,8 @@ import { hapticTap } from '@/lib/haptics';
 import { useHoldToConfirm } from './useHoldToConfirm';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface PlayerControlsProps {
   isPaused: boolean;
@@ -29,6 +31,7 @@ const SIDE = 56;
 const CENTRE = 72;
 
 function HoldToStop({ onStop, holdSeconds }: { onStop: () => void; holdSeconds: number }) {
+  const t = useT(player);
   const { progress, handlers } = useHoldToConfirm(onStop, holdSeconds);
   const box = SIDE + 10;
   const r = SIDE / 2 + 3;
@@ -36,7 +39,7 @@ function HoldToStop({ onStop, holdSeconds }: { onStop: () => void; holdSeconds: 
   return (
     <button
       type="button"
-      aria-label="סיום אימון · לחיצה ארוכה"
+      aria-label={t('strengthPlayer.controls.stopAria')}
       {...handlers}
       className="relative grid shrink-0 select-none place-items-center active:scale-[0.97] transition-transform duration-150 ease-v2"
       style={{ width: box, height: box, touchAction: 'none', WebkitTouchCallout: 'none' }}
@@ -65,12 +68,13 @@ function HoldToStop({ onStop, holdSeconds }: { onStop: () => void; holdSeconds: 
 
 export default function PlayerControls({ isPaused, onPause, onResume, onLap, onStop, holdSeconds = 1.2 }: PlayerControlsProps) {
   const gender = useUiGender();
+  const t = useT(player);
   return (
     <div dir="rtl">
       <div className="flex items-center justify-center gap-6">
         <button
           type="button"
-          aria-label="הקפה"
+          aria-label={t('strengthPlayer.controls.lapAria')}
           onClick={onLap}
           className="grid shrink-0 place-items-center rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
           style={{ width: SIDE, height: SIDE }}
@@ -88,7 +92,7 @@ export default function PlayerControls({ isPaused, onPause, onResume, onLap, onS
         </button>
         <HoldToStop onStop={onStop} holdSeconds={holdSeconds} />
       </div>
-      <p className="mt-1 whitespace-nowrap text-center text-[11.5px] font-bold text-v2-muted">לחיצה ארוכה על הריבוע מסיימת</p>
+      <p className="mt-1 whitespace-nowrap text-center text-[11.5px] font-bold text-v2-muted">{t('strengthPlayer.controls.stopHint')}</p>
     </div>
   );
 }

@@ -23,6 +23,9 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { auth } from '@/lib/firebase';
 import { formatDate } from '@/lib/i18n/core/fmt';
 import { useLocaleStore } from '@/store/useLocaleStore';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
+import { getT } from '@/lib/i18n/t';
 
 interface RunShareBarProps {
   activityType: 'running' | 'walking';
@@ -77,12 +80,13 @@ function todayIso(): string {
  * deferred path FreeRunDrawer runs at start time.
  */
 export async function shareRunInviteNow(activityType: 'running' | 'walking'): Promise<void> {
+  const t = await getT(useLocaleStore.getState().locale, player);
   const { shareUrl, groupId, attendanceId, isNewGroup } = await createRunInvite(activityType);
 
   if (isNewGroup) {
     const user     = auth.currentUser;
     const uid      = user?.uid ?? '';
-    const name     = user?.displayName ?? 'אני';
+    const name     = user?.displayName ?? 'אני'; // i18n-allow-hebrew: data — fallback member name kept in the shared-session profile
     const profiles = uid ? { [uid]: { name } } : {};
     useSharedSession
       .getState()
@@ -92,8 +96,8 @@ export async function shareRunInviteNow(activityType: 'running' | 'walking'): Pr
   }
 
   const text = activityType === 'walking'
-    ? `בואו ללכת איתי עכשיו 🚶 ${shareUrl}`
-    : `בואו לרוץ איתי עכשיו 🏃 ${shareUrl}`;
+    ? t('runShare.nowWalk', { url: shareUrl })
+    : t('runShare.nowRun', { url: shareUrl });
 
   if (typeof navigator !== 'undefined' && navigator.share) {
     await navigator.share({ text }).catch(() => {
@@ -115,9 +119,10 @@ function NowLaterToggle({
   onChange: (v: 'now' | 'later') => void;
   v2?: boolean;
 }) {
+  const t = useT(player);
   if (v2) {
     return (
-      <div className="flex gap-2" role="group" aria-label="מתי">
+      <div className="flex gap-2" role="group" aria-label={t('runShare.when')}>
         {(['now', 'later'] as const).map((opt) => (
           <button
             key={opt}
@@ -128,7 +133,7 @@ function NowLaterToggle({
               value === opt ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
             }`}
           >
-            {opt === 'now' ? 'עכשיו' : 'אחר כך'}
+            {opt === 'now' ? t('runShare.now') : t('runShare.later')}
           </button>
         ))}
       </div>
@@ -150,7 +155,7 @@ function NowLaterToggle({
             color:           value === opt ? '#fff' : ACCENT,
           }}
         >
-          {opt === 'now' ? 'עכשיו' : 'אחר כך'}
+          {opt === 'now' ? t('runShare.now') : t('runShare.later')}
         </button>
       ))}
     </div>
@@ -172,6 +177,7 @@ function DateTimePicker({
   onTimeChange: (v: string) => void;
   v2?: boolean;
 }) {
+  const t = useT(player);
   if (v2) {
     const field =
       'h-11 rounded-[14px] bg-white px-3 text-[14px] font-bold text-v2-ink shadow-v2-ring focus:outline-none focus:ring-2 focus:ring-v2-accent';
@@ -183,7 +189,7 @@ function DateTimePicker({
           min={todayIso()}
           onChange={(e) => onDateChange(e.target.value)}
           className={`${field} flex-1`}
-          aria-label="תאריך"
+          aria-label={t('runShare.date')}
         />
         <input
           type="time"
@@ -191,7 +197,7 @@ function DateTimePicker({
           value={time}
           onChange={(e) => onTimeChange(e.target.value)}
           className={`${field} w-[104px]`}
-          aria-label="שעה"
+          aria-label={t('runShare.time')}
         />
       </div>
     );
@@ -246,6 +252,7 @@ export default function RunShareBar({
   nowInvite,
 }: RunShareBarProps) {
   const locale = useLocaleStore((s) => s.locale);
+  const t = useT(player);
   const [busy,           setBusy]          = useState(false);
   const [internalTiming, setInternalTiming] = useState<'now' | 'later'>('now');
   const [internalDate,   setInternalDate]   = useState(defaultDate);
@@ -301,7 +308,7 @@ export default function RunShareBar({
       if (isNewGroup && timing === 'now') {
         const user     = auth.currentUser;
         const uid      = user?.uid ?? '';
-        const name     = user?.displayName ?? 'אני';
+        const name     = user?.displayName ?? 'אני'; // i18n-allow-hebrew: data — fallback member name kept in the shared-session profile
         const profiles = uid ? { [uid]: { name } } : {};
         useSharedSession
           .getState()
@@ -312,11 +319,11 @@ export default function RunShareBar({
 
       const text = timing === 'later'
         ? activityType === 'walking'
-          ? `קבעתי הליכה ב-${formattedDate} בשעה ${schedTime} 🚶 בואו להצטרף! ${shareUrl}`
-          : `קבעתי ריצה ב-${formattedDate} בשעה ${schedTime} 🏃 בואו להצטרף! ${shareUrl}`
+          ? t('runShare.laterWalk', { date: formattedDate, time: schedTime, url: shareUrl })
+          : t('runShare.laterRun', { date: formattedDate, time: schedTime, url: shareUrl })
         : activityType === 'walking'
-        ? `בואו ללכת איתי עכשיו 🚶 ${shareUrl}`
-        : `בואו לרוץ איתי עכשיו 🏃 ${shareUrl}`;
+        ? t('runShare.nowWalk', { url: shareUrl })
+        : t('runShare.nowRun', { url: shareUrl });
 
       if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ text }).catch(() => {
@@ -333,7 +340,7 @@ export default function RunShareBar({
   };
 
   const workoutTitle =
-    activityType === 'walking' ? 'הליכה חופשית' : 'ריצה חופשית';
+    activityType === 'walking' ? 'הליכה חופשית' : 'ריצה חופשית'; // i18n-allow-hebrew: data — stored with the share (planned_sessions.workoutTitle)
 
   return (
     <div className={`flex flex-col gap-3 ${className}`} dir="rtl">
@@ -379,12 +386,12 @@ export default function RunShareBar({
         }
         <span className={v2 ? 'text-[14px] font-extrabold' : 'text-[13px] font-black'}>
           {busy
-            ? 'שותף...'
+            ? t('runShare.btn.busy')
             : nowPending
-            ? 'הקישור יישלח כשתתחיל'
+            ? t('runShare.btn.pending')
             : timing === 'later'
-            ? 'שתף אימון מתוזמן'
-            : 'הזמן חבר לאימון'}
+            ? t('runShare.btn.scheduled')
+            : t('runShare.btn.invite')}
         </span>
       </button>
 

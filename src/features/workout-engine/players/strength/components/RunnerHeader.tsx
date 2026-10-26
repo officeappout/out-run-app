@@ -12,6 +12,8 @@ import {
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * RunnerHeader — gradient overlay header for the live workout player.
@@ -125,6 +127,7 @@ export default function RunnerHeader({
   onTogglePause,
 }: RunnerHeaderProps) {
   const gender = useUiGender();
+  const t = useT(player);
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
   return (
@@ -182,11 +185,11 @@ export default function RunnerHeader({
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             {isPaused
-              ? 'הפסקה'
+              ? t('strengthPlayer.header.paused')
               : isLogDrawerOpen
-                ? 'התרגיל שביצעת'
+                ? t('strengthPlayer.header.logTitle')
                 : isResting
-                  ? 'מנוחה'
+                  ? t('strengthPlayer.header.rest')
                   : formatTime(elapsedTime)}
           </div>
 
@@ -204,7 +207,7 @@ export default function RunnerHeader({
                 <img src="/assets/icons/ui/pause.svg" className={v2 ? 'w-4 h-4' : 'w-4 h-4 dark:invert'} alt="" />
               )}
               <span className={v2 ? 'text-[12px] font-extrabold text-v2-ink whitespace-nowrap' : 'text-xs font-bold text-slate-700 dark:text-slate-200'} style={{ fontFamily: 'var(--font-simpler)' }}>
-                {isPaused ? 'המשך' : 'השהייה'}
+                {isPaused ? t('strengthPlayer.header.resume') : t('strengthPlayer.header.pause')}
               </span>
             </button>
           </div>
@@ -226,9 +229,10 @@ export default function RunnerHeader({
                 : 'text-[11px] font-bold text-[#007EA8] bg-white rounded-full px-2.5 py-0.5 uppercase tracking-wider tabular-nums'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              אינטרוול {isResting
-                ? Math.min(tabataInterval.current + 1, tabataInterval.total)
-                : tabataInterval.current}/{tabataInterval.total}
+              {t('strengthPlayer.header.interval', {
+                current: String(isResting ? Math.min(tabataInterval.current + 1, tabataInterval.total) : tabataInterval.current),
+                total: String(tabataInterval.total),
+              })}
             </span>
           </div>
         )}
@@ -348,7 +352,7 @@ export default function RunnerHeader({
                   className={v2 ? 'font-bold text-violet-500 truncate max-w-full whitespace-nowrap' : 'font-semibold text-violet-500 dark:text-violet-400 truncate max-w-full'}
                   style={{ fontFamily: 'var(--font-simpler)', fontSize: '12px', lineHeight: '18px' }}
                 >
-                  מעבר לבן זוג הסופרסט: {supersetPartnerName}
+                  {t('strengthPlayer.header.partner', { name: supersetPartnerName })}
                 </p>
               </div>
             )}

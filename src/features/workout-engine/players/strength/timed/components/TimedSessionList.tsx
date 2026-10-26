@@ -13,6 +13,8 @@ import type { CartRingItem } from '@/components/ui/v2';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
 import SessionListLayer from '../../../shared/v2/SessionListLayer';
 import type { PillTone, TimedListModel, TimedListRow } from '../logic/timed-list';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerT } from '@/messages/ns/player';
 
 export interface TimedSessionListProps {
   workout: WorkoutPlan;
@@ -68,29 +70,30 @@ function Row({ row, dim }: { row: TimedListRow; dim?: boolean }) {
   );
 }
 
-function segmentLine(workout: WorkoutPlan, i: number): string | null {
+function segmentLine(workout: WorkoutPlan, i: number, t: PlayerT): string | null {
   const s = workout.segments[i];
   const n = s?.exercises?.length ?? 0;
   if (!s || n === 0) return null;
-  return `${s.title || 'חלק'} · ${n} ${n === 1 ? 'תרגיל' : 'תרגילים'}`;
+  return t('strengthPlayer.timed.list.segmentLine', { title: s.title || t('strengthPlayer.timed.list.part'), n });
 }
 
 export default function TimedSessionList({ workout, segmentIndex, blockTitle, model, cartItems, remaining, onClose }: TimedSessionListProps) {
-  const before = workout.segments.map((_, i) => (i < segmentIndex ? segmentLine(workout, i) : null)).filter(Boolean) as string[];
-  const after = workout.segments.map((_, i) => (i > segmentIndex ? segmentLine(workout, i) : null)).filter(Boolean) as string[];
+  const t = useT(player);
+  const before = workout.segments.map((_, i) => (i < segmentIndex ? segmentLine(workout, i, t) : null)).filter(Boolean) as string[];
+  const after = workout.segments.map((_, i) => (i > segmentIndex ? segmentLine(workout, i, t) : null)).filter(Boolean) as string[];
   return (
     <SessionListLayer subtitle={`${blockTitle} · ${workout.name}`} onClose={onClose}>
       <div className="mt-4 flex items-center gap-3 rounded-[20px] bg-white px-3 py-3 shadow-v2-ring">
-        <CartProgressIcon items={cartItems} onClick={onClose} ariaLabel="חזרה לנגן" />
+        <CartProgressIcon items={cartItems} onClick={onClose} ariaLabel={t('strengthPlayer.timed.list.back')} />
         <div className="min-w-0">
           <div className="truncate whitespace-nowrap text-[16px] font-black text-v2-ink">{model.headline}</div>
           <div className="truncate whitespace-nowrap text-[12.5px] font-bold tabular-nums text-v2-muted">
-            {model.summary} · {remaining} נותרו
+            {t('strengthPlayer.timed.list.remaining', { summary: model.summary, remaining })}
           </div>
         </div>
       </div>
 
-      <h3 className="mb-2 mt-5 text-[15px] font-black text-v2-ink">בסל</h3>
+      <h3 className="mb-2 mt-5 text-[15px] font-black text-v2-ink">{t('strengthPlayer.timed.list.basket')}</h3>
       <ul className="space-y-2">
         {before.map((line) => (
           <li key={line} className="truncate whitespace-nowrap rounded-2xl bg-white px-3 py-2.5 text-[13px] font-bold text-v2-ink-2 shadow-v2-ring">
@@ -105,7 +108,7 @@ export default function TimedSessionList({ workout, segmentIndex, blockTitle, mo
       {model.queue.length > 0 && (
         <>
           <h3 className="mb-2 mt-5 text-[15px] font-black text-v2-ink">
-            הבא בתור{model.queueTitle && model.queueTitle !== 'הבא בתור' ? ` · ${model.queueTitle}` : ''}
+            {t('strengthPlayer.timed.list.queue')}{model.queueTitle && model.queueTitle !== 'הבא בתור' /* i18n-allow-hebrew: compared with the queueTitle timed-list builds */ ? t('strengthPlayer.timed.list.queueSuffix', { title: model.queueTitle }) : ''}
           </h3>
           <ul className="space-y-2">
             {model.queue.map((r) => (
@@ -116,7 +119,7 @@ export default function TimedSessionList({ workout, segmentIndex, blockTitle, mo
       )}
 
       {after.length > 0 && (
-        <p className="mt-4 truncate whitespace-nowrap text-[13px] font-bold text-v2-muted">אחר כך: {after.join(' · ')}</p>
+        <p className="mt-4 truncate whitespace-nowrap text-[13px] font-bold text-v2-muted">{t('strengthPlayer.timed.list.after', { list: after.join(' · ') })}</p>
       )}
     </SessionListLayer>
   );

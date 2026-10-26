@@ -9,6 +9,8 @@
 
 import React from 'react';
 import { ChevronUp } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface SessionListLayerProps {
   /** Default "מהלך האימון". */
@@ -22,7 +24,8 @@ export interface SessionListLayerProps {
   safeTop?: boolean;
 }
 
-export default function SessionListLayer({ title = 'מהלך האימון', subtitle, onClose, totals, children, safeTop = true }: SessionListLayerProps) {
+export default function SessionListLayer({ title, subtitle, onClose, totals, children, safeTop = true }: SessionListLayerProps) {
+  const t = useT(player);
   return (
     <div
       className="h-full overflow-y-auto bg-v2-surface px-4 pb-32"
@@ -31,13 +34,13 @@ export default function SessionListLayer({ title = 'מהלך האימון', subt
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{title}</h2>
+          <h2 className="truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{title ?? t('strengthPlayer.sessionList.title')}</h2>
           {subtitle && <p className="truncate whitespace-nowrap text-[13px] font-bold text-v2-muted">{subtitle}</p>}
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label="חזרה לנגן"
+          aria-label={t('strengthPlayer.sessionList.back')}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
         >
           <ChevronUp size={20} strokeWidth={2.4} className="text-v2-ink" aria-hidden />
@@ -48,7 +51,7 @@ export default function SessionListLayer({ title = 'מהלך האימון', subt
 
       {totals && (
         <div className="mt-4 flex items-center justify-between gap-3 rounded-[20px] bg-white px-4 py-3 shadow-v2-ring">
-          <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">עד עכשיו</span>
+          <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{t('strengthPlayer.sessionList.totals')}</span>
           <span dir="ltr" className="truncate whitespace-nowrap text-[13.5px] font-extrabold tabular-nums text-v2-ink-2">
             {totals}
           </span>

@@ -12,7 +12,9 @@
 import { motion } from 'framer-motion';
 import { Check, PersonStanding } from 'lucide-react';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
-import { g, type AppGender } from '@/lib/utils/gendered-text';
+import type { AppGender } from '@/lib/utils/gendered-text';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import {
   resolveEquipmentLabel, resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
@@ -46,6 +48,9 @@ interface Props {
 }
 
 export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }: Props) {
+  const t = useT(player);
+  // The gender prop is the caller's (g() semantics: unset = male); passed explicitly so it overrides the injected one.
+  const gv = gender ?? 'male';
   const isTabata = screen.kind === 'tabata';
   const single = screen.items[0];
   return (
@@ -62,13 +67,13 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 56px)' }}
       >
         <p className="text-[12px] font-bold text-[#00ADEF] mb-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-          {isTabata ? g(gender, 'מצא את המתקנים', 'מצאי את המתקנים') : g(gender, 'מצא את המתקן', 'מצאי את המתקן')}
+          {isTabata ? t('strengthPlayer.findEquipment.title.tabata', { gender: gv }) : t('strengthPlayer.findEquipment.title.single', { gender: gv })}
         </p>
 
         {isTabata ? (
           <>
             <h2 className="text-[22px] font-black text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-simpler)' }}>
-              לפני שמתחילים את הבלוק
+              {t('strengthPlayer.findEquipment.beforeBlock')}
             </h2>
             <div className="space-y-3">
               {screen.items.map((item) => (
@@ -90,7 +95,7 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }
                       onClick={() => onSwap(item)}
                       className="flex-shrink-0 rounded-full px-3 py-1.5 text-[12px] font-bold text-slate-600 border border-slate-200 bg-white active:scale-95 transition-transform"
                     >
-                      {g(gender, 'החלף', 'החליפי')}
+                      {t('strengthPlayer.findEquipment.swap', { gender: gv })}
                     </button>
                   )}
                 </div>
@@ -106,7 +111,7 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }
               {labels(single)}
             </h2>
             <p className="text-[14px] text-slate-500 mt-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-              לתרגיל: {single.exerciseName}
+              {t('strengthPlayer.findEquipment.forExercise', { name: single.exerciseName })}
             </p>
           </div>
         )}
@@ -114,7 +119,7 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }
 
       <div className="px-5 pt-2 space-y-2" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 20px))' }}>
         <BrandCtaButton onClick={onFound} className="w-full h-14 rounded-full text-[16px] font-bold inline-flex items-center justify-center gap-2">
-          מצאתי
+          {t('strengthPlayer.findEquipment.found')}
           <Check size={20} strokeWidth={2.6} aria-hidden />
         </BrandCtaButton>
         {!isTabata && onSwap && (
@@ -124,7 +129,7 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }
               onClick={() => onSwap(single)}
               className="rounded-full px-4 py-2 text-[13px] font-bold text-slate-500 border border-slate-200 active:scale-95 transition-transform"
             >
-              {g(gender, 'לא מוצא, החלף תרגיל', 'לא מוצאת, החליפי תרגיל')}
+              {t('strengthPlayer.findEquipment.cantFind', { gender: gv })}
             </button>
           </div>
         )}

@@ -14,9 +14,8 @@ import SummaryOrchestrator, {
 } from './components/SummaryOrchestrator';
 import AerobicSummaryShell from './components/aerobic/AerobicSummaryShell';
 import AerobicSummary from './pages/AerobicSummary';
-import { useUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
-import { SUMMARY_COPY } from './summary-gender-copy';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 
 interface WorkoutSummaryPageProps {
@@ -30,7 +29,7 @@ export default function WorkoutSummaryPage({
   workoutType = 'FREE_RUN',
 }: WorkoutSummaryPageProps) {
   const router = useRouter();
-  const uiGender = useUiGender();
+  const t = useT(summary);
   const { totalDistance, totalDuration } = useSessionStore();
   const { currentPace, routeCoords, activityType, laps, clearRunningData, elevationGain, savedWorkoutSnapshot } =
     useRunningPlayer();
@@ -164,7 +163,7 @@ export default function WorkoutSummaryPage({
   if (!mounted) {
     return (
       <div className="h-[100dvh] w-full bg-white flex items-center justify-center">
-        <p className="text-gray-500">טוען...</p>
+        <p className="text-gray-500">{t('page.loading')}</p>
       </div>
     );
   }
@@ -252,8 +251,8 @@ export default function WorkoutSummaryPage({
     routeCoords: routeCoords,
     laps: snap?.laps ?? laps.filter((lap) => !lap.isActive || lap.distanceMeters > 0),
     date: snap?.date ?? new Date(),
-    title: 'האימון הושלם!',
-    motivationalMessage: pickGendered(uiGender, SUMMARY_COPY.keepGoing),
+    title: t('page.title'),
+    motivationalMessage: t('page.keepGoing'),
   };
 
   return (
@@ -279,13 +278,13 @@ export default function WorkoutSummaryPage({
               onClick={handleFinish}
               className="flex-1 py-4 rounded-xl font-bold text-gray-500 hover:bg-white transition-colors border border-gray-200 bg-white"
             >
-              לא עכשיו
+              {t('page.notNow')}
             </button>
             <button
               onClick={handleClaim}
               className="flex-[2] py-4 rounded-xl font-black text-lg bg-[#00E5FF] text-black hover:bg-[#00D4EE] transition-all shadow-lg"
             >
-              {pickGendered(uiGender, SUMMARY_COPY.claimBonus)}
+              {t('page.claimBonus')}
             </button>
           </div>
         ) : (
@@ -293,7 +292,7 @@ export default function WorkoutSummaryPage({
             onClick={handleFinish}
             className="w-full max-w-4xl mx-auto py-4 rounded-xl font-bold bg-[#00E5FF] text-black hover:bg-[#00D4EE] transition-all shadow-lg"
           >
-            סיום וחזרה לבית
+            {t('page.finish')}
           </button>
         )}
       </div>

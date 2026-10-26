@@ -16,6 +16,8 @@
 
 import React, { useCallback, useRef, useState } from 'react';
 import StrengthExerciseCard from './StrengthExerciseCard';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import RestProgressBar from './RestProgressBar';
 import { findFirstIncompleteSet } from '../utils/set-status.utils';
 import type { ExerciseEntry, BlockStatus } from '../types';
@@ -49,6 +51,7 @@ export default function SupersetBlockGroup({
   onSkipRest,
   onSaveSet,
 }: SupersetBlockGroupProps) {
+  const t = useT(player);
   const isActive = cardStatus === 'active';
   const isCompleted = cardStatus === 'completed';
 
@@ -122,13 +125,13 @@ export default function SupersetBlockGroup({
           className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[60%]"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          סופר סט ({exercises.length} תרגילים)
+          {t('strengthPlayer.groups.superset', { n: String(exercises.length) })}
         </span>
         <span
           className="text-xs font-medium text-slate-500 dark:text-slate-400"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          {exercises.length} תרגילים
+          {t('strengthPlayer.groups.count', { n: String(exercises.length) })}
         </span>
       </div>
 

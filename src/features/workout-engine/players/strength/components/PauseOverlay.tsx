@@ -7,6 +7,8 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * PauseOverlay — unified full-screen pause veil.
@@ -33,8 +35,9 @@ export interface PauseOverlayProps {
   endLabel?: string;
 }
 
-export default function PauseOverlay({ onResume, onOpenExitModal, endLabel = 'סיום אימון' }: PauseOverlayProps) {
+export default function PauseOverlay({ onResume, onOpenExitModal, endLabel }: PauseOverlayProps) {
   const gender = useUiGender();
+  const t = useT(player);
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
   const handleResume = () => {
@@ -60,7 +63,7 @@ export default function PauseOverlay({ onResume, onOpenExitModal, endLabel = 'ס
         className="text-4xl font-black text-white mb-12"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
-        הפסקה
+        {t('strengthPlayer.pause.title')}
       </h1>
 
       <div className="w-full max-w-xs space-y-3 px-6">
@@ -81,7 +84,7 @@ export default function PauseOverlay({ onResume, onOpenExitModal, endLabel = 'ס
             : 'w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg'}
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          {endLabel}
+          {endLabel ?? t('strengthPlayer.pause.end')}
         </button>
       </div>
     </motion.div>

@@ -433,11 +433,11 @@ export default function ActiveExerciseView({
                   drawer={drawer}
                   title={exerciseName}
                   caption={[
-                    repsOrDurationText ? `${repsOrDurationText}${isUnilateral ? ' (לכל צד)' : ''}` : null,
-                    (isPyramidActive || (isSupersetActive && totalRounds > 1)) ? `סבב ${currentRound} מתוך ${totalRounds}` : null,
+                    repsOrDurationText ? `${repsOrDurationText}${isUnilateral ? t('strengthPlayer.active.perSide') : ''}` : null,
+                    (isPyramidActive || (isSupersetActive && totalRounds > 1)) ? t('strengthPlayer.active.captionRound', { current: String(currentRound), total: String(totalRounds) }) : null,
                   ].filter(Boolean).join(' · ')}
                   value={targetValue > 0 ? String(targetValue) : null}
-                  unit={targetValue > 0 ? 'יעד' : null}
+                  unit={targetValue > 0 ? t('strengthPlayer.active.targetUnit') : null}
                 />
               </div>
             ) : (
@@ -450,14 +450,14 @@ export default function ActiveExerciseView({
                   className={v2 ? 'text-4xl font-black text-v2-ink !tracking-[-0.02em] whitespace-nowrap tabular-nums' : 'text-4xl font-black'}
                   style={v2 ? { fontFamily: 'var(--font-simpler)' } : { fontFamily: 'var(--font-simpler)', color: '#000000' }}
                 >
-                  {repsOrDurationText}{isUnilateral ? ' (לכל צד)' : ''}
+                  {repsOrDurationText}{isUnilateral ? t('strengthPlayer.active.perSide') : ''}
                 </span>
                 {targetValue > 0 && (
                   <span
                     className={v2 ? 'text-[13px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-sm font-bold'}
                     style={v2 ? { fontFamily: 'var(--font-simpler)' } : { fontFamily: 'var(--font-simpler)', color: '#00B4FF' }}
                   >
-                    (יעד: {targetValue})
+                    {t('strengthPlayer.active.target', { target: String(targetValue) })}
                   </span>
                 )}
               </div>
@@ -471,7 +471,7 @@ export default function ActiveExerciseView({
                   className={v2 ? 'text-[12px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider'}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  שלב {currentRound} מתוך {totalRounds}
+                  {t('strengthPlayer.active.step', { current: String(currentRound), total: String(totalRounds) })}
                 </span>
 
                 {/* Upcoming steps mini-preview */}
@@ -479,7 +479,7 @@ export default function ActiveExerciseView({
                   <div className="flex items-center gap-1.5 flex-wrap justify-center">
                     {upcomingPyramidSteps.map((step, idx) => {
                       const val = step.targetHold ?? step.targetReps;
-                      const unit = step.targetHold != null ? 'שנ׳' : 'חז׳';
+                      const unit = t('strengthPlayer.active.stepUnit', { unit: step.targetHold != null ? 'seconds' : 'reps' });
                       return (
                         <span
                           key={idx}
@@ -518,7 +518,7 @@ export default function ActiveExerciseView({
               <div className="flex flex-col items-center gap-1 mb-2">
                 <div className={v2 ? 'inline-flex max-w-full items-center gap-1.5 px-3 py-1 bg-violet-50 ring-1 ring-inset ring-violet-200 rounded-full' : 'inline-flex items-center gap-1.5 px-3 py-1 bg-violet-50 border border-violet-200 dark:bg-violet-950/60 dark:border-violet-700 rounded-full'}>
                   <span className={v2 ? 'text-[11px] font-extrabold text-violet-600 whitespace-nowrap' : 'text-[10px] font-bold text-violet-600 dark:text-violet-300 uppercase tracking-wider'} style={{ fontFamily: 'var(--font-simpler)' }}>
-                    סופרסט
+                    {t('strengthPlayer.active.superset')}
                   </span>
                   <span className={v2 ? 'text-[11px] font-bold text-violet-500 truncate' : 'text-[10px] text-violet-400'} style={{ fontFamily: 'var(--font-simpler)' }}>
                     × {supersetPartnerName}
@@ -529,7 +529,7 @@ export default function ActiveExerciseView({
                     className={v2 ? 'text-[12px] font-extrabold text-violet-500 whitespace-nowrap' : 'text-[11px] font-semibold text-violet-500 dark:text-violet-400'}
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
-                    סבב {currentRound} מתוך {totalRounds}
+                    {t('strengthPlayer.active.round', { current: String(currentRound), total: String(totalRounds) })}
                   </span>
                 )}
               </div>
@@ -544,7 +544,6 @@ export default function ActiveExerciseView({
                 key={`fill-${activeKey}`}
                 autoCompleteTime={autoCompleteTime}
                 onClick={() => onComplete()}
-                label="סיימתי"
                 isPaused={isPaused}
                 v2={v2}
               />
@@ -564,7 +563,7 @@ export default function ActiveExerciseView({
                     className={v2 ? 'text-[14px] font-extrabold text-v2-ink-2 whitespace-nowrap' : 'text-sm font-bold text-slate-600 dark:text-slate-300'}
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
-                    החלפת תרגיל
+                    {t('strengthPlayer.active.swap')}
                   </span>
                 </button>
               </div>

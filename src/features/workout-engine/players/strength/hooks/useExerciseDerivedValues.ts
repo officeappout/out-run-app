@@ -10,6 +10,8 @@ import type { ExternalVideo } from '@/features/content/exercises/core/exercise.t
 import type { BlockProtocolInfo } from '../protocols/block-protocol';
 import { toCueList, resolveGenderedText } from '@/features/content/exercises/utils/cue-text.utils';
 import { tabataIntervalInfo, tabataMemberCosts, tabataRoundsPerMember } from '../protocols/tabata.advance';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * useExerciseDerivedValues — all 20+ display-value memos in one isolated hook
@@ -138,6 +140,7 @@ export function useExerciseDerivedValues({
   blockProtocol,
   userGender,
 }: ExerciseDerivedValuesInput): ExerciseDerivedValuesResult {
+  const t = useT(player);
 
   // ── Total sets for the currently active exercise ────────────────────────
   const setsForCurrentExercise = useMemo(() => {
@@ -150,8 +153,8 @@ export function useExerciseDerivedValues({
   // ── Follow-along detection ──────────────────────────────────────────────
   const isFollowAlongMode = useMemo(() => {
     const title = (currentSegment as any)?.title || '';
-    if (title.includes('חימום') || title.toLowerCase().includes('warmup')) return true;
-    if (title.includes('קירור') || title.toLowerCase().includes('cooldown')) return true;
+    if (title.includes('חימום') /* i18n-allow-hebrew: matches the stored segment title */ || title.toLowerCase().includes('warmup')) return true;
+    if (title.includes('קירור') /* i18n-allow-hebrew: matches the stored segment title */ || title.toLowerCase().includes('cooldown')) return true;
     if (activeExercise?.exerciseRole === 'warmup' || activeExercise?.exerciseRole === 'cooldown') return true;
     return activeExercise?.isFollowAlong === true;
   }, [activeExercise, currentSegment]);
@@ -208,11 +211,11 @@ export function useExerciseDerivedValues({
   // gate (reps-type exercises only) plus the segment-target fallback, which
   // are display-only concerns and stay here.
   const targetReps = useMemo(() => {
-    const t = resolveSetTarget(activeExercise, currentSetIndex);
-    if (t.source === 'pyramid') return t.reps ?? t.hold;
-    if (t.source === 'repsSequence') return t.reps;
+    const target = resolveSetTarget(activeExercise, currentSetIndex);
+    if (target.source === 'pyramid') return target.reps ?? target.hold;
+    if (target.source === 'repsSequence') return target.reps;
     if (exerciseType === 'reps') {
-      if (t.source === 'repsString') return t.reps;
+      if (target.source === 'repsString') return target.reps;
       if ((currentSegment as any)?.target?.type === 'reps') return (currentSegment as any).target.value;
     }
     return null;
@@ -305,8 +308,8 @@ export function useExerciseDerivedValues({
 
   // ── Exercise display values ─────────────────────────────────────────────
   const exerciseName = useMemo(
-    () => (pyramidStep as PyramidStep | null)?.name || activeExercise?.name || 'טוען...',
-    [activeExercise, pyramidStep],
+    () => (pyramidStep as PyramidStep | null)?.name || activeExercise?.name || t('strengthPlayer.derived.loading'),
+    [activeExercise, pyramidStep, t],
   );
 
   // toCueList: plans built before the cue fix (resumed sessions) or by other
@@ -407,8 +410,8 @@ export function useExerciseDerivedValues({
     // Fallback for any entry path that passes a full Firestore exercise.
     const methods = raw?.execution_methods || raw?.executionMethods || raw?.methods || [];
     for (const m of methods) {
-      const t = resolveTutorialForLang(m?.media, 'he');
-      if (t?.videoId) return t;
+      const tutorial = resolveTutorialForLang(m?.media, 'he');
+      if (tutorial?.videoId) return tutorial;
     }
     const rootTutorial = resolveTutorialForLang(raw?.media, 'he');
     return rootTutorial?.videoId ? rootTutorial : null;
@@ -567,7 +570,7 @@ export function useExerciseDerivedValues({
     })();
 
     return {
-      name: nextPyramidStep?.name || exercise?.name || 'סיום האימון',
+      name: nextPyramidStep?.name || exercise?.name || t('strengthPlayer.derived.workoutEnd'),
       videoUrl: nextPyramidStep?.videoSrc || resolvedMedia.video,
       bunnyVideoId: resolvedMedia.bunnyVideoId,
       imageUrl: resolvedMedia.image,
@@ -598,20 +601,19 @@ export function useExerciseDerivedValues({
         return null;
       })(),
     };
-  }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, currentSetIndex, getSetsForExercise, getExercises, blockProtocol, userGender]);
+  }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, currentSetIndex, getSetsForExercise, getExercises, blockProtocol, userGender, t]);
 
   // ── Coaching label (shown on the active exercise card) ──────────────────
   const repsOrDurationText = useMemo(() => {
     const step = pyramidStep as PyramidStep | null;
     if (step) {
       const val = step.targetHold ?? step.targetReps;
-      const unit = step.targetHold != null ? 'שניות' : 'חזרות';
-      return val != null ? `${val} ${unit}` : '';
+      return val != null ? t('strengthPlayer.derived.stepTarget', { value: String(val), unit: step.targetHold != null ? 'seconds' : 'reps' }) : '';
     }
     if (exerciseType === 'time') return activeExercise?.duration || '';
     if (exerciseType === 'reps') return strippedReps || '';
     return '';
-  }, [activeExercise, exerciseType, strippedReps, pyramidStep]);
+  }, [activeExercise, exerciseType, strippedReps, pyramidStep, t]);
 
   /**
    * Last confirmed reps for the current exercise (most recent entry in the log).

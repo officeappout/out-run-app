@@ -3,6 +3,8 @@
 import React from 'react';
 import Image from 'next/image';
 import { OFFLINE_PLACEHOLDER } from '../hooks/usePlayerMedia';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * PreparingStateView — full-screen big-number countdown overlay.
@@ -58,9 +60,10 @@ export default function PreparingStateView({
   exerciseName,
   fadeIn,
   aiCue,
-  label = 'מתכוננים...',
+  label,
   variant = 'prep',
 }: PreparingStateViewProps) {
+  const t = useT(player);
   const numberColor = VARIANT_NUMBER_COLOR[variant];
   return (
     <div
@@ -108,7 +111,7 @@ export default function PreparingStateView({
         <div className="text-8xl font-bold mb-4 tabular-nums" style={{ fontFamily: 'var(--font-simpler)', color: numberColor }}>
           {count}
         </div>
-        <p className="text-xl text-white/80" style={{ fontFamily: 'var(--font-simpler)' }}>{label}</p>
+        <p className="text-xl text-white/80" style={{ fontFamily: 'var(--font-simpler)' }}>{label ?? t('strengthPlayer.preparing.label')}</p>
         <p className="text-lg text-white/60 mt-4" style={{ fontFamily: 'var(--font-simpler)' }}>{exerciseName}</p>
         {aiCue && (
           <p className="text-sm text-white/50 mt-3 max-w-[260px] mx-auto" style={{ fontFamily: 'var(--font-simpler)' }}>

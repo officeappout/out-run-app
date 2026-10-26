@@ -19,6 +19,8 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { WorkoutPlan } from '@/features/parks';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import type { ExerciseResultLog } from '../hooks/useWorkoutStateMachine';
 import WorkoutBlockCard from './WorkoutBlockCard';
 import { useStrengthDrawerV1 } from '../hooks/useStrengthDrawerV1';
@@ -81,6 +83,7 @@ export default function WorkoutPlaylist({
   onSkipRest,
   renderTimedSegment,
 }: WorkoutPlaylistProps) {
+  const t = useT(player);
   // enable_strength_drawer_v1: rows get an expandable "פרטי התרגיל".
   const rowDetailsV1 = useStrengthDrawerV1();
 
@@ -143,13 +146,13 @@ export default function WorkoutPlaylist({
     const key = `${currentSegmentIndex}-${currentExerciseIndex}`;
     if (key !== prevActiveKey.current) {
       prevActiveKey.current = key;
-      const t = setTimeout(() => {
+      const timer = setTimeout(() => {
         activeCardRef.current?.scrollIntoView({
           behavior: 'smooth',
           block: 'center',
         });
       }, 520);
-      return () => clearTimeout(t);
+      return () => clearTimeout(timer);
     }
   }, [currentSegmentIndex, currentExerciseIndex]);
 
@@ -199,24 +202,24 @@ export default function WorkoutPlaylist({
           className="text-xl font-bold text-slate-900 dark:text-white mb-1"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          רשימת התרגילים
+          {t('strengthPlayer.playlist.title')}
         </h2>
         <p
           className="text-sm text-slate-400 dark:text-slate-500 mb-5"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          {flatExercises.length} תרגילים · {workout.name}
+          {t('strengthPlayer.playlist.subtitle', { count: String(flatExercises.length), name: workout.name })}
         </p>
 
         <div className="space-y-5">
             {groupedSegments.map(
               ({ segmentIndex, segmentTitle, segmentIcon, exercises }) => {
                 const isWarmupGroup =
-                  segmentTitle.includes('חימום') ||
+                  segmentTitle.includes('חימום') || // i18n-allow-hebrew: matches the stored segment title
                   segmentTitle.toLowerCase().includes('warmup');
                 const isCooldownGroup =
-                  segmentTitle.includes('שחרור') ||
-                  segmentTitle.includes('קירור') ||
+                  segmentTitle.includes('שחרור') || // i18n-allow-hebrew: matches the stored segment title
+                  segmentTitle.includes('קירור') || // i18n-allow-hebrew: matches the stored segment title
                   segmentTitle.toLowerCase().includes('cooldown');
 
                 return (
@@ -243,8 +246,7 @@ export default function WorkoutPlaylist({
                         className="text-xs text-slate-400 dark:text-slate-500"
                         style={{ fontFamily: 'var(--font-simpler)' }}
                       >
-                        · {exercises.length}{' '}
-                        {exercises.length === 1 ? 'תרגיל' : 'תרגילים'}
+                        {t('strengthPlayer.playlist.segmentCount', { n: exercises.length })}
                       </span>
                     </div>
 
@@ -351,7 +353,7 @@ export default function WorkoutPlaylist({
               >
                 <TabataBlockGroup
                   exercises={entries}
-                  title={group.groupTitle || 'טבטה'}
+                  title={group.groupTitle || t('strengthPlayer.playlist.tabata')}
                   cardStatus={cardStatus}
                   activeExerciseIndex={activeIdx}
                   isResting={isCardResting}
