@@ -29,6 +29,8 @@ function deferred<T>(): Deferred<T> {
 const S = {
   v2: false,
   flagsReady: true,
+  quizV3: false,
+  backCalls: 0,
   currentUser: { uid: 'u1' } as { uid: string } | null,
   miniActive: false,
   evaluate: deferred<unknown>(),
@@ -49,7 +51,7 @@ const PATH_CONFIG = {
 // ── Mocks ────────────────────────────────────────────────────────────
 
 vi.mock('next/navigation', () => {
-  const router = { push: () => {}, replace: () => {}, back: () => {}, prefetch: () => {} }; // stable, like Next's
+  const router = { push: () => {}, replace: () => {}, back: () => { S.backCalls++; }, prefetch: () => {} }; // stable, like Next's
   return { useRouter: () => router };
 });
 vi.mock('@/lib/firebase', () => ({
@@ -72,7 +74,13 @@ vi.mock('framer-motion', () => {
     return rest;
   };
   return {
-    motion: { div: (p: Record<string, unknown>) => createElement('div', strip(p)) },
+    motion: {
+      div: (p: Record<string, unknown>) => createElement('div', strip(p)),
+      // The v3 screens (enable_strength_quiz_v3) use the v2 Button / Chip.
+      button: ({ whileTap, ...p }: Record<string, unknown>) => { void whileTap; return createElement('button', strip(p)); },
+      span: (p: Record<string, unknown>) => createElement('span', strip(p)),
+    },
+    useReducedMotion: () => true,
     AnimatePresence: ({ children }: { children: ReactNode }) => createElement(Fragment, null, children),
   };
 });
@@ -154,7 +162,7 @@ vi.mock('@/features/user/onboarding/utils/skill-result-levels', () => ({ baselin
 vi.mock('@/features/user/onboarding/constants/skill-foundation-domain.constants', () => ({ SKILL_TO_FOUNDATION_DOMAIN: {} }));
 vi.mock('@/features/user/onboarding/utils/assessment-level-caps', () => ({ getFoundationAssessmentMax: () => 25 }));
 vi.mock('@/features/user/onboarding/hooks/useOnboardingV2', () => ({
-  useOnboardingV2State: () => ({ v2: S.v2, ready: S.flagsReady, quizHintV2: false }),
+  useOnboardingV2State: () => ({ v2: S.v2, ready: S.flagsReady, quizHintV2: false, quizV3: S.quizV3 }),
 }));
 vi.mock('@/features/user/onboarding/hooks/useDeferredIdentity', () => {
   // Stable like the real useCallback — a fresh function per render re-runs the page's init effect forever.
@@ -216,6 +224,8 @@ async function toResult() {
 beforeEach(() => {
   S.v2 = false;
   S.flagsReady = true;
+  S.quizV3 = false;
+  S.backCalls = 0;
   S.currentUser = { uid: 'u1' };
   S.miniActive = false;
   S.evaluate = deferred();
@@ -327,5 +337,37 @@ describe('assessment page — Hebrew byte-identical to origin/main', () => {
     await toResult();
     await click('accept');
     await expect(alerts.join('\n')).toMatchFileSnapshot('./__snapshots__/assessment-page-i18n/alert-no-user.txt');
+  });
+});
+
+// enable_strength_quiz_v3 (part B): the intro screens replace the why step.
+describe('assessment page, enable_strength_quiz_v3 on', () => {
+  it('skips the why step: opens on the first group transition, then the slider', async () => {
+    S.v2 = true;
+    S.quizV3 = true;
+    await mount();
+    expect(host!.querySelector('[data-stub="why"]')).toBeNull();
+    expect(host!.querySelector('[data-quiz-v3-transition="push"]')).not.toBeNull();
+    const cta = Array.from(host!.querySelectorAll('button')).find((b) => b.textContent === 'בואו נבדוק');
+    await act(async () => { cta!.click(); });
+    await flush();
+    expect(host!.querySelector('[data-stub="slider"]')).not.toBeNull();
+  });
+
+  it('back from the first transition leaves the page (router.back), not to the why step', async () => {
+    S.v2 = true;
+    S.quizV3 = true;
+    await mount();
+    const back = host!.querySelector('[data-quiz-v3-transition] header button') as HTMLElement;
+    await act(async () => { back.click(); });
+    await flush();
+    expect(S.backCalls).toBe(1);
+    expect(host!.querySelector('[data-stub="why"]')).toBeNull();
+  });
+
+  it('flag off: the why step still comes first', async () => {
+    await mount();
+    expect(host!.querySelector('[data-stub="why"]')).not.toBeNull();
+    expect(host!.querySelector('[data-quiz-v3-transition]')).toBeNull();
   });
 });

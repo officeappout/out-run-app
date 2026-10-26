@@ -24,6 +24,8 @@ import { hapticSelection } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import { genderArg } from '@/lib/i18n/core/i18n-core';
+import SliderV3View from '../strength-quiz-v3/SliderV3View';
+import { assessmentFill, progressRowItems, startStepIndex } from '../strength-quiz-v3/quiz-v3-model';
 
 // ── Category display metadata ──────────────────────────────────────
 // The displayed name goes through quiz.slider.category (src/messages/he/onboarding.json), a
@@ -105,6 +107,17 @@ interface VisualSliderProps {
   quizHintV2?: boolean;
   /** With quizHintV2: even stepIndex 0 gets only the short reminder (the demo was seen earlier). */
   quizHintReminderOnly?: boolean;
+  /** enable_strength_quiz_v3: the v3 three-card slider (strength-quiz-v3/SliderV3View). Absent = unchanged. */
+  quizV3?: QuizV3SliderProps;
+}
+
+export interface QuizV3SliderProps {
+  categories: readonly string[];
+  categoryIndex: number;
+  /** Open on the middle step (a group not answered yet) instead of the step nearest initialLevel. */
+  startMiddle: boolean;
+  /** Called with the confirmed level and its exercise name, just before onLevelConfirm. */
+  onChosen?: (level: number, exerciseName: string | null) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────
@@ -125,6 +138,7 @@ export default function VisualSlider({
   v2 = false,
   quizHintV2 = false,
   quizHintReminderOnly = false,
+  quizV3,
 }: VisualSliderProps) {
   const t = useT(onboarding);
   const [dynamicSteps, setDynamicSteps] = useState<number[] | null>(null);
@@ -228,8 +242,13 @@ export default function VisualSlider({
     // Clear the tier carousel so no stale video from the previous category bleeds through.
     setMountedTiers([]);
     setActiveTierId(null);
-    const sv = isSimple ? 0 : minLevel;
-    const realLvl = isSimple ? steps![0] : minLevel;
+    // enable_strength_quiz_v3: a muscle group opens on its middle step (no tier screen); a skill
+    // keeps step 0 behind its "not yet" card.
+    const v3Start = quizV3 && REGULAR_CATEGORIES.has(category.toLowerCase())
+      ? startStepIndex(steps!, initialLevel, quizV3.startMiddle)
+      : 0;
+    const sv = isSimple ? v3Start : minLevel;
+    const realLvl = isSimple ? steps![sv] : minLevel;
     setLevel(realLvl);
     setSliderVal(sv);
     prevSliderValRef.current = sv;
@@ -350,7 +369,7 @@ export default function VisualSlider({
   // ── enable_strength_quiz_hint_v2: the strip's self-demo (v2 coverflow only) ──
   // Flag off (or not v2 / not the coverflow strip) → `stripHintOn` is false and nothing
   // below changes today's behaviour.
-  const stripHintOn = v2 && quizHintV2 && isSimple && !!steps;
+  const stripHintOn = v2 && quizHintV2 && isSimple && !!steps && !quizV3;
   const thumbsReady = !!steps && steps.slice(0, 3).every((l) => thumbnails[l] !== undefined);
 
   // A demo move: the selection (and so the video, the card and the CTA label) really moves,
@@ -402,6 +421,7 @@ export default function VisualSlider({
         return;
       }
     }
+    quizV3?.onChosen?.(level, resolved?.exerciseName || null);
     onLevelConfirm(level);
   };
 
@@ -535,6 +555,33 @@ export default function VisualSlider({
       <div className="flex flex-col h-full items-center justify-center">
         <div className="w-8 h-8 border-2 border-slate-300 border-t-cyan-400 rounded-full animate-spin" />
       </div>
+    );
+  }
+
+  // ── Render: enable_strength_quiz_v3 (boards Slider / SliderSkill) ──
+  if (quizV3 && isSimple && steps) {
+    const isGroupCategory = !isSkillCategory;
+    return (
+      <SliderV3View
+        category={category}
+        gender={gender}
+        demographics={demographics}
+        lang={lang}
+        progress={progressRowItems(quizV3.categories, quizV3.categoryIndex)}
+        fillPercent={assessmentFill(quizV3.categoryIndex, quizV3.categories.length)}
+        steps={steps}
+        selectedIndex={sliderVal}
+        onSelectIndex={handleSliderChange}
+        tiers={mountedTiers}
+        activeTierId={activeTierId}
+        exerciseLabel={exerciseLabel}
+        repsLabel={repsLabel}
+        level={level}
+        contentFading={contentFading}
+        onNotYet={isGroupCategory ? undefined : onEscape}
+        onConfirm={handleConfirm}
+        onBack={onBack}
+      />
     );
   }
 

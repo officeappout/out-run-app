@@ -76,6 +76,8 @@ import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import type { OnboardingT } from '@/features/user/onboarding/utils/assessment-tier-label';
 import { genderArg } from '@/lib/i18n/core/i18n-core';
+import { useQuizV3Assessment } from '@/features/user/onboarding/components/strength-quiz-v3/useQuizV3Assessment';
+import GroupTransition from '@/features/user/onboarding/components/strength-quiz-v3/GroupTransition';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -187,11 +189,13 @@ export default function VisualAssessmentPage() {
   const router = useRouter();
   const t = useT(onboarding);
   // enable_home_v2 — see the root container below (one-viewport fit).
-  const { v2, ready: flagsReady, quizHintV2 } = useOnboardingV2State();
+  const { v2, ready: flagsReady, quizHintV2, quizV3: quizV3Flag } = useOnboardingV2State();
   // enable_home_v2 (journey J1): a home start card opens the strength flow without the
   // identity form — name / gender / birth date (the assessment's videos need them) are
   // asked here, inline, right after the program path; back returns to the program path.
   const { runAfterIdentity, identityOverlay } = useDeferredIdentity(v2, () => router.back());
+  // enable_strength_quiz_v3: no tier screen, a transition before each muscle group, the v3 slider.
+  const quizV3 = !!quizV3Flag;
 
   // ── Auth state ───────────────────────────────────────────────
 
@@ -286,6 +290,8 @@ export default function VisualAssessmentPage() {
     core: 5,
   });
   const [initialTierLevel, setInitialTierLevel] = useState(5);
+  // enable_strength_quiz_v3 (off = transition null, sliderProps undefined: nothing changes).
+  const v3 = useQuizV3Assessment(quizV3, pathConfig?.categories ?? PRIMARY_CATEGORIES, categoryIndex);
 
   // Follow-up state
   const [followUpCategories, setFollowUpCategories] = useState<string[]>([]);
@@ -315,6 +321,13 @@ export default function VisualAssessmentPage() {
         setStep('why');
         return true;
       case 'sliders':
+        if (v3.sliderProps) {
+          const r = v3.back();
+          if (r === 'toPrevSlider') setCategoryIndex((prev) => prev - 1);
+          // The first transition goes back to the questionnaire's intro (part A), not the legacy why step.
+          else if (r === 'exit') router.back();
+          return true;
+        }
         if (categoryIndex > 0) {
           setCategoryIndex((prev) => prev - 1);
         } else {
@@ -332,7 +345,7 @@ export default function VisualAssessmentPage() {
         // 'loading' | 'why' | 'evaluating' | 'resultLoading' | 'result' | 'saving'
         return false;
     }
-  }, [step, categoryIndex, followUpIndex, pathConfig]);
+  }, [step, categoryIndex, followUpIndex, pathConfig, v3, router]);
 
   // Map the Android hardware/gesture back button to the same state rollback.
   useAndroidBack(handleStepBack);
@@ -409,6 +422,12 @@ export default function VisualAssessmentPage() {
     setStep('why');
   }, [authReady, isHydrated, demographics, pathConfig, router, flagsReady, v2, runAfterIdentity]);
 
+  // enable_strength_quiz_v3: the intro screens (part A) replace the why step, so the assessment
+  // opens straight on the first group's transition. Flag off: never fires.
+  useEffect(() => {
+    if (quizV3 && step === 'why') setStep('sliders');
+  }, [quizV3, step]);
+
   // ── Diagnostic: log categories fed to sliders ───────────────
   useEffect(() => {
     if (!pathConfig) return;
@@ -449,12 +468,12 @@ export default function VisualAssessmentPage() {
   // ── BlurredWhyStep → tier or sliders (How step removed) ────────
 
   const handleWhyNext = useCallback(() => {
-    if (pathConfig?.skipTier) {
+    if (pathConfig?.skipTier || quizV3) {
       setStep('sliders');
     } else {
       setStep('tier');
     }
-  }, [pathConfig]);
+  }, [pathConfig, quizV3]);
 
   // ── Tier selection handler ───────────────────────────────────
 
@@ -1182,7 +1201,28 @@ export default function VisualAssessmentPage() {
           )}
 
           {/* ── Primary category sliders ───────────────────────── */}
-          {step === 'sliders' && demographics && pathConfig && (
+          {step === 'sliders' && demographics && pathConfig && v3.transition && (
+            <motion.div
+              key={`transition-${categories[categoryIndex]}`}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.3 }}
+              className="flex-1 min-h-0 flex flex-col"
+            >
+              <GroupTransition
+                model={v3.transition}
+                progress={v3.progress}
+                gender={introGender}
+                fillPercent={v3.fillPercent}
+                onNext={v3.leaveTransition}
+                onBack={() => { handleStepBack(); }}
+              />
+            </motion.div>
+          )}
+
+          {step === 'sliders' && demographics && pathConfig && !v3.transition && (
             <motion.div
               key={`slider-${categories[categoryIndex]}`}
               variants={slideVariants}
@@ -1212,6 +1252,7 @@ export default function VisualAssessmentPage() {
                 mode="simple"
                 v2={v2}
                 quizHintV2={quizHintV2}
+                quizV3={v3.sliderProps}
               />
             </motion.div>
           )}
