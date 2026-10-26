@@ -109,15 +109,15 @@ describe('planLocationSwap', () => {
     expect(plan2.entries[0].exercise.id).toBe('easier');
   });
 
-  it('warm-up and cool-down count: unresolved ones lower the ratio and are omitted (collapse-guard restores a lone one)', async () => {
+  it('unresolved warm-up and cool-down never block the switch; they are omitted (collapse-guard restores a lone one)', async () => {
     const warm = entry('w', { exerciseRole: 'warmup' });
     const cool = entry('c', { exerciseRole: 'cooldown' });
     const mains = ['a', 'b', 'c2', 'd'].map((id) => entry(id));
     const home = Object.fromEntries(['a', 'b', 'c2', 'd'].map((id) => [id, { location: 'home', ...VIDEO }]));
     const plan = await planLocationSwap([warm, ...mains, cool], 'home', deps({ homeMethod: home }));
     expect(plan.slots.filter((s) => s.kind !== 'main' && !s.resolved)).toHaveLength(2);
-    expect(plan.coverage.ratio).toBeCloseTo(4 / 6);
-    expect(plan.coverage).toMatchObject({ allowed: false, reason: 'notEnoughContent' });
+    expect(plan.coverage.ratio).toBe(1);
+    expect(plan.coverage).toMatchObject({ allowed: true, reason: null });
     // collapse guard: each role block still has its (restored) exercise
     expect(plan.entries.filter((e) => e.exerciseRole === 'warmup')).toHaveLength(1);
     expect(plan.entries.filter((e) => e.exerciseRole === 'cooldown')).toHaveLength(1);
@@ -125,7 +125,7 @@ describe('planLocationSwap', () => {
 
   it('a follow-along guide that does not cover the location is re-picked from the pool, with media', async () => {
     const guide = exercise('g', { isFollowAlong: true, execution_methods: [{ location: 'park', ...VIDEO }] });
-    const homeGuide = exercise('hg', { isFollowAlong: true, execution_methods: [{ location: 'home', ...VIDEO }] });
+    const homeGuide = exercise('hg', { isFollowAlong: true, exerciseRole: 'warmup', execution_methods: [{ location: 'home', ...VIDEO }] });
     const plan = await planLocationSwap([entry('g', { exerciseRole: 'warmup' }, { isFollowAlong: true })], 'home', deps({
       pool: [homeGuide],
       homeMethod: { hg: { location: 'home', ...VIDEO } },
@@ -133,6 +133,40 @@ describe('planLocationSwap', () => {
     expect(plan.entries[0].exercise.id).toBe('hg');
     expect(plan.slots[0].resolved).toBe(true);
     void guide;
+  });
+
+  it('a follow-along re-pick never takes a guide of another role (recovery session) or a test doc', async () => {
+    const recovery = exercise('rec', { isFollowAlong: true, exerciseRole: 'recovery', execution_methods: [{ location: 'home', ...VIDEO }] });
+    const testDoc = exercise('t', { name: { he: 'חימום לבדיקה' }, isFollowAlong: true, exerciseRole: 'warmup', execution_methods: [{ location: 'home', ...VIDEO }] });
+    const plan = await planLocationSwap([entry('g', { exerciseRole: 'warmup' }, { isFollowAlong: true })], 'home', deps({
+      pool: [recovery, testDoc],
+      homeMethod: { rec: { location: 'home', ...VIDEO }, t: { location: 'home', ...VIDEO } },
+    }));
+    expect(plan.entries[0].exercise.id).toBe('g'); // kept as-is
+  });
+
+  it('home -> park: the cool-down stretches become the park cool-down video (one slot), switch allowed', async () => {
+    const video = exercise('cv', {
+      name: { he: 'שחרור פלג גוף עליון' }, isFollowAlong: true, exerciseRole: 'cooldown', type: 'time',
+      execution_methods: [{ location: 'park', locationMapping: ['park', 'street'], media: { mainVideoUrl: 'https://youtu.be/x', videoDurationSeconds: 210 } }],
+    });
+    const stretch = (id: string) => entry(id, { exerciseRole: 'cooldown', isTimeBased: true, reps: 30 }, { type: 'time' });
+    const mains = ['a', 'b', 'c'].map((id) => entry(id));
+    const park = Object.fromEntries(['a', 'b', 'c'].map((id) => [id, { location: 'park', ...VIDEO }]));
+    const plan = await planLocationSwap([...mains, stretch('s1'), stretch('s2'), stretch('s3')], 'park', deps({ homeMethod: park, pool: [video] }));
+    const cool = plan.entries.filter((e) => e.exerciseRole === 'cooldown');
+    expect(cool).toHaveLength(1);
+    expect(cool[0].exercise.id).toBe('cv');
+    expect(plan.coverage.allowed).toBe(true);
+  });
+
+  it('no cool-down video at the location: stretches go through the normal ladder', async () => {
+    const parkOnly = exercise('cv', { isFollowAlong: true, exerciseRole: 'cooldown', execution_methods: [{ location: 'park', ...VIDEO }] });
+    const plan = await planLocationSwap([entry('a'), entry('s1', { exerciseRole: 'cooldown' })], 'home', deps({
+      homeMethod: { a: { location: 'home', ...VIDEO }, s1: { location: 'home', ...VIDEO } },
+      pool: [parkOnly],
+    }));
+    expect(plan.entries.map((e) => e.exercise.id)).toEqual(['a', 's1']);
   });
 
   it('pyramids are out of scope: kept, marked, not counted in coverage', async () => {

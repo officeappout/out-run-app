@@ -10,7 +10,7 @@
  * park -> home switches are allowed, the rest are disabled (skill programs, push/pull L13+).
  */
 export interface LocationGateConfig {
-  /** Share of counted slots (mains + warm-up + cool-down) that must resolve. 0.8 = 80%. */
+  /** Share of counted slots that must resolve; warm-up / cool-down always count as resolved. 0.8 = 80%. */
   minCoverageRatio: number;
   /** Most main slots that may stay uncovered. */
   maxUncoveredMains: number;

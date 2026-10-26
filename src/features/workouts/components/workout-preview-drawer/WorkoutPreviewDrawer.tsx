@@ -718,7 +718,7 @@ export default function WorkoutPreviewDrawer({
               isSwapping={isSwapping}
               blockedNotice={
                 locationGateOn && swapResult?.blockedLocation
-                  ? t('preview.location.unavailable.notice', { location: swapResult.blockedLocation })
+                  ? t('preview.location.unavailable.explained', { location: swapResult.blockedLocation, reason: swapResult.blocked ?? 'notEnoughContent' })
                   : null
               }
               parks={where.parks}
@@ -743,6 +743,7 @@ export default function WorkoutPreviewDrawer({
                     availability={locationGateOn ? locationAvailability : undefined}
                     onOpen={locationGateOn ? handleLocationSwitcherOpen : undefined}
                     blockedLocation={locationGateOn ? swapResult?.blockedLocation ?? null : null}
+                    blockedReason={swapResult?.blocked ?? null}
                   />
                 )}
                 {isRecomputing ? (

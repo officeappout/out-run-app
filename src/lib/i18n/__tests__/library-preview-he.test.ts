@@ -60,7 +60,7 @@ describe('library preview.* — plain strings', () => {
   });
 
   it('covers every preview.* key (count per prefix)', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('preview.')).length).toBe(84); // 74 + the 3 preview.location.unavailable.* keys (enable_location_gate_v1) + the 7 preview.where.* keys (enable_where_to_train_v1, where-to-train-he.test.ts)
+    expect(Object.keys(he).filter((k) => k.startsWith('preview.')).length).toBe(85); // 74 + the 4 preview.location.unavailable.* keys (enable_location_gate_v1) + the 7 preview.where.* keys (enable_where_to_train_v1, where-to-train-he.test.ts)
   });
 });
 
@@ -159,5 +159,16 @@ describe('library preview.location.unavailable.* (enable_location_gate_v1)', () 
     expect(t('preview.location.unavailable.notice', { location: 'park' })).toBe('המעבר לפארק לא זמין באימון הזה');
     expect(t('preview.location.unavailable.notice', { location: 'service' })).toBe('המעבר לשירות לא זמין באימון הזה');
     expect(t('preview.location.unavailable.notice', { location: 'gym' })).toBe('המעבר למיקום הזה לא זמין באימון הזה');
+  });
+  it('explained: the notice plus the reason in plain words', () => {
+    expect(t('preview.location.unavailable.explained', { location: 'park', reason: 'notEnoughContent' })).toBe(
+      'המעבר לפארק לא זמין באימון הזה: חלק מהתרגילים עוד לא מוכנים למקום הזה או צריכים מתקן שאין שם',
+    );
+    expect(t('preview.location.unavailable.explained', { location: 'home', reason: 'pinnedUncovered' })).toBe(
+      'המעבר לבית לא זמין באימון הזה: לתרגיל המיומנות עוד אין גרסה למקום הזה',
+    );
+    expect(t('preview.location.unavailable.explained', { location: 'park', reason: 'tooFewMains' })).toBe(
+      'המעבר לפארק לא זמין באימון הזה: רוב התרגילים עוד לא מוכנים למקום הזה',
+    );
   });
 });
