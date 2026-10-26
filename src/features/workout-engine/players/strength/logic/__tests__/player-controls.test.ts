@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
+import { makeT } from '@/lib/i18n/t';
+import { player } from '@/messages/ns/player';
 import {
   extendRestSeconds, REST_EXTEND_SECONDS, restBeepForSecond, setCounterLabel,
 } from '../player-controls.utils';
@@ -100,11 +102,14 @@ describe('skip rest during tabata', () => {
 
   it('pause overlay end button: "סיים את התחנה" inside a hybrid station, "סיום אימון" everywhere else', () => {
     const overlay = read('../../components/PauseOverlay.tsx');
-    expect(overlay).toContain("endLabel = 'סיום אימון'"); // default for standalone workouts
-    expect(overlay).toContain('{endLabel}');
+    expect(overlay).toContain("{endLabel ?? t('strengthPlayer.pause.end')}"); // default for standalone workouts
+    const t = makeT('he', player);
+    expect(t('strengthPlayer.pause.end')).toBe('סיום אימון');
     const runner = read('../../StrengthRunner.tsx');
-    // only the hybrid-station mount (embedded) overrides it, via the shared gendered-text helper
-    expect(runner).toContain("endLabel={embedded ? g(userGender, 'סיים את התחנה', 'סיימי את התחנה') : undefined}");
+    // only the hybrid-station mount (embedded) overrides it, with the gendered catalog message
+    expect(runner).toContain("endLabel={embedded ? t('strengthPlayer.pause.endStation', { gender: userGender }) : undefined}");
+    expect(t('strengthPlayer.pause.endStation', { gender: 'male' })).toBe('סיים את התחנה');
+    expect(t('strengthPlayer.pause.endStation', { gender: 'female' })).toBe('סיימי את התחנה');
   });
 
   it('the work timer card freezes on the player-level pause (this is what makes tabata pausable)', () => {

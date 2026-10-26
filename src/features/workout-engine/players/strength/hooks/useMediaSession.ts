@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface MediaSessionConfig {
   workoutState: 'PREPARING' | 'ACTIVE' | 'INPUT' | 'RESTING' | 'PAUSED';
@@ -28,6 +30,7 @@ interface MediaSessionConfig {
  * on mobile browsers that require active media playback.
  */
 export function useMediaSession(config: MediaSessionConfig) {
+  const t = useT(player);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const configRef = useRef(config);
   configRef.current = config;
@@ -108,7 +111,7 @@ export function useMediaSession(config: MediaSessionConfig) {
 
     const isResting = config.workoutState === 'RESTING';
     const title = isResting
-      ? `מנוחה: ${config.nextExerciseName}`
+      ? t('strengthPlayer.mediaSession.rest', { name: config.nextExerciseName })
       : config.exerciseName;
 
     const artwork: MediaImage[] = [];
@@ -135,6 +138,7 @@ export function useMediaSession(config: MediaSessionConfig) {
     config.workoutName,
     config.exerciseImageUrl,
     config.isPaused,
+    t,
   ]);
 
   // Wire action handlers

@@ -18,6 +18,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThumbsUp, ThumbsDown, Minus, CheckCircle, X, EyeOff } from 'lucide-react';
 import { shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
+import { useT } from '@/hooks/useT';
+import { makeT } from '@/lib/i18n/t';
+import { player, type PlayerKey, type PlayerT } from '@/messages/ns/player';
 
 // ============================================================================
 // TYPES
@@ -66,9 +69,13 @@ export interface FeedbackResult {
 /** Local storage key for opt-out preference */
 const SURVEY_OPT_OUT_KEY = 'outrun_survey_opted_out';
 
+/** Hebrew translator for callers outside React (processFeedback's default). */
+let heT: PlayerT | undefined;
+const defaultT = (): PlayerT => (heT ??= makeT('he', player));
+
 const FEEDBACK_OPTIONS: {
   id: WorkoutFeedback;
-  label: string;
+  labelKey: PlayerKey;
   icon: React.ReactNode;
   color: string;
   bgColor: string;
@@ -76,7 +83,7 @@ const FEEDBACK_OPTIONS: {
 }[] = [
   {
     id: 'too_easy',
-    label: 'קל מדי',
+    labelKey: 'survey.easy',
     icon: <ThumbsUp className="w-6 h-6" />,
     color: 'text-green-600',
     bgColor: 'bg-green-50',
@@ -84,7 +91,7 @@ const FEEDBACK_OPTIONS: {
   },
   {
     id: 'just_right',
-    label: 'בדיוק',
+    labelKey: 'survey.right',
     icon: <Minus className="w-6 h-6" />,
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
@@ -92,7 +99,7 @@ const FEEDBACK_OPTIONS: {
   },
   {
     id: 'too_hard',
-    label: 'קשה מדי',
+    labelKey: 'survey.hard',
     icon: <ThumbsDown className="w-6 h-6" />,
     color: 'text-red-600',
     bgColor: 'bg-red-50',
@@ -141,15 +148,15 @@ export function setSurveyOptOut(optOut: boolean): void {
  * Process feedback → the thank-you line. Record-only: no progress bonus, no
  * level adjustment, for any rating.
  */
-export function processFeedback(feedback: WorkoutFeedback): FeedbackResult {
+export function processFeedback(feedback: WorkoutFeedback, t: PlayerT = defaultT()): FeedbackResult {
   switch (feedback) {
     case 'too_easy':
-      return { feedback, message: 'תודה! נשתמש בזה כדי להתאים את האימונים הבאים.' };
+      return { feedback, message: t('survey.thanksEasy') };
     case 'too_hard':
-      return { feedback, message: 'תודה על הכנות! נשתמש בזה כדי להתאים את האימונים הבאים.' };
+      return { feedback, message: t('survey.thanksHard') };
     case 'just_right':
     default:
-      return { feedback, message: 'מעולה, תודה!' };
+      return { feedback, message: t('survey.thanksRight') };
   }
 }
 
@@ -165,6 +172,7 @@ export default function PostWorkoutSurvey({
   isOptedOut = false,
   isVisible = true,
 }: PostWorkoutSurveyProps) {
+  const t = useT(player);
   const [selectedFeedback, setSelectedFeedback] = useState<WorkoutFeedback | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [result, setResult] = useState<FeedbackResult | null>(null);
@@ -187,7 +195,7 @@ export default function PostWorkoutSurvey({
   const handleSubmit = () => {
     if (!selectedFeedback) return;
     
-    const feedbackResult = processFeedback(selectedFeedback);
+    const feedbackResult = processFeedback(selectedFeedback, t);
     setResult(feedbackResult);
     setIsSubmitted(true);
     onSubmit(selectedFeedback);
@@ -215,16 +223,16 @@ export default function PostWorkoutSurvey({
         <div className="bg-gradient-to-l from-cyan-500 to-blue-600 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-bold text-white">איך היה האימון? 🎯</h3>
+              <h3 className="text-xl font-bold text-white">{t('survey.title')}</h3>
               <p className="text-cyan-100 text-sm mt-1">
-                לא חובה — זה עוזר לנו להתאים את האימונים
+                {t('survey.subtitle')}
               </p>
             </div>
             {onDismiss && (
               <button 
                 onClick={onDismiss}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                aria-label="סגור"
+                aria-label={t('survey.close')}
               >
                 <X className="w-5 h-5 text-white" />
               </button>
@@ -255,7 +263,7 @@ export default function PostWorkoutSurvey({
                       {option.icon}
                     </div>
                     <span className={`text-sm font-semibold ${selectedFeedback === option.id ? option.color : 'text-gray-600 dark:text-gray-300'}`}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </span>
                   </button>
                 ))}
@@ -274,7 +282,7 @@ export default function PostWorkoutSurvey({
                   }
                 `}
               >
-                שלח משוב
+                {t('survey.submit')}
               </button>
               
               {/* Action links */}
@@ -284,7 +292,7 @@ export default function PostWorkoutSurvey({
                     onClick={onDismiss}
                     className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                   >
-                    דלג הפעם
+                    {t('survey.skipOnce')}
                   </button>
                 )}
                 
@@ -294,7 +302,7 @@ export default function PostWorkoutSurvey({
                   className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-400 flex items-center gap-1"
                 >
                   <EyeOff className="w-3 h-3" />
-                  תמיד דלג
+                  {t('survey.skipAlways')}
                 </button>
               </div>
             </>
@@ -336,6 +344,7 @@ export function PostWorkoutSurveyCompact({
   onSubmit: (feedback: WorkoutFeedback) => void;
   onAlwaysSkip?: () => void;
 }) {
+  const t = useT(player);
   // Check if should show
   if (!shouldShowPostWorkoutSurvey(sessionCount)) {
     return null;
@@ -348,14 +357,14 @@ export function PostWorkoutSurveyCompact({
   
   return (
     <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl p-3" dir="rtl">
-      <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">איך היה?</span>
+      <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">{t('survey.compactTitle')}</span>
       <div className="flex gap-2">
         {FEEDBACK_OPTIONS.map((option) => (
           <button
             key={option.id}
             onClick={() => onSubmit(option.id)}
             className={`p-2 rounded-lg ${option.bgColor} ${option.color} ${option.hoverColor} transition-colors`}
-            title={option.label}
+            title={t(option.labelKey)}
           >
             {option.icon}
           </button>
@@ -364,7 +373,7 @@ export function PostWorkoutSurveyCompact({
       <button
         onClick={handleAlwaysSkip}
         className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-        title="תמיד דלג"
+        title={t('survey.skipAlways')}
       >
         <EyeOff className="w-4 h-4" />
       </button>

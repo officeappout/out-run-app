@@ -22,6 +22,8 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { pyramidLabel } from '@/features/workout-engine/logic/protocols/pyramid.processor';
 import type { BlockStatus, ExerciseEntry } from './types';
 import { buildPills, findFirstIncompleteSet } from './utils/set-status.utils';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 // Backward-compatible re-exports for any importers still doing
 //   `import { ExerciseEntry, BlockStatus } from './WorkoutBlockCard'`
@@ -61,6 +63,7 @@ export default function WorkoutBlockCard({
   onSkipRest,
   noHeader = false,
 }: WorkoutBlockCardProps) {
+  const t = useT(player);
   const isActive = cardStatus === 'active';
   const isCompleted = cardStatus === 'completed';
   const [expanded, setExpanded] = useState(isActive);
@@ -91,20 +94,20 @@ export default function WorkoutBlockCard({
     if (exercises.length <= 1) return;
     if (activeExerciseIndex < 0 || activeExerciseIndex === prevActiveExIdx.current) return;
     prevActiveExIdx.current = activeExerciseIndex;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       exerciseRowRefs.current.get(activeExerciseIndex)?.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       });
     }, 520);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [activeExerciseIndex, exercises.length]);
 
   // Fallback timeout — clear pulse even if onAnimationEnd doesn't fire
   useEffect(() => {
     if (!guidePulse) return;
-    const t = setTimeout(() => setGuidePulse(null), 1200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setGuidePulse(null), 1200);
+    return () => clearTimeout(timer);
   }, [guidePulse]);
 
   // ── Localized confetti on exercise completion ───────────────────────────
@@ -206,12 +209,12 @@ export default function WorkoutBlockCard({
 
   // ── Derived values ──────────────────────────────────────────────────────
   const isWarmup = exerciseRole === 'warmup'
-    || segmentTitle?.includes('חימום')
+    || segmentTitle?.includes('חימום') // i18n-allow-hebrew: matches the stored segment title
     || segmentTitle?.toLowerCase().includes('warmup');
 
   const isCooldown = exerciseRole === 'cooldown'
-    || segmentTitle?.includes('שחרור')
-    || segmentTitle?.includes('קירור')
+    || segmentTitle?.includes('שחרור') // i18n-allow-hebrew: matches the stored segment title
+    || segmentTitle?.includes('קירור') // i18n-allow-hebrew: matches the stored segment title
     || segmentTitle?.toLowerCase().includes('cooldown');
 
   const isGrouped = exercises.length > 1;
@@ -223,11 +226,11 @@ export default function WorkoutBlockCard({
     : -1;
 
   const headerLabel = useMemo(() => {
-    if (isWarmup) return 'חימום';
-    if (isCooldown) return 'שחרור';
+    if (isWarmup) return t('strengthPlayer.blockCard.warmup');
+    if (isCooldown) return t('strengthPlayer.blockCard.cooldown');
     if (expanded) {
-      if (isSuperSet) return `סופר סט (${exercises.length} תרגילים)`;
-      if (isGrouped) return segmentTitle || `${exercises.length} תרגילים`;
+      if (isSuperSet) return t('strengthPlayer.blockCard.superset', { n: String(exercises.length) });
+      if (isGrouped) return segmentTitle || t('strengthPlayer.blockCard.exercises', { n: String(exercises.length) });
       // Single-exercise card: pyramid block gets its own descriptive label
       // instead of the generic "תרגיל בודד".  WorkoutPlaylist passes the
       // groupTitle via the `segmentTitle` prop for multi-exercise pyramid groups;
@@ -236,27 +239,27 @@ export default function WorkoutBlockCard({
       if (singleEx?.pyramidSequence && singleEx.pyramidSequence.length > 0) {
         return pyramidLabel(singleEx.pyramidSequence);
       }
-      return 'תרגיל בודד';
+      return t('strengthPlayer.blockCard.single');
     }
     if (isGrouped && exercises.length >= 2) {
       return `${exercises[0].exerciseName} + ${exercises[1].exerciseName}`;
     }
     return exercises[0]?.exerciseName ?? '';
-  }, [isWarmup, isCooldown, expanded, isSuperSet, isGrouped, exercises, segmentTitle]);
+  }, [isWarmup, isCooldown, expanded, isSuperSet, isGrouped, exercises, segmentTitle, t]);
 
   const roundLabel = useMemo(() => {
-    if (isGrouped) return `${exercises.length} תרגילים`;
+    if (isGrouped) return t('strengthPlayer.blockCard.exercises', { n: String(exercises.length) });
     const ex = exercises[0];
-    if (!ex) return 'סבב 1';
+    if (!ex) return t('strengthPlayer.blockCard.oneRound');
     // Pyramid: surface the structure instead of generic "Nx סבבים".
     // Phase 3.4 — label resolves dynamically per shape ("סט שיא" for peak
     // ramps, "פירמידה עולה-יורדת" for symmetric waves).
     const isPyramid =
       (ex.pyramidSequence && ex.pyramidSequence.length > 0) ||
       (ex.repsSequence && ex.repsSequence.length > 0);
-    if (isPyramid) return `${pyramidLabel(ex.pyramidSequence)} (${ex.sets} שלבים)`;
-    return ex.sets > 1 ? `${ex.sets}x סבבים` : 'סבב 1';
-  }, [isGrouped, exercises]);
+    if (isPyramid) return t('strengthPlayer.blockCard.pyramid', { label: pyramidLabel(ex.pyramidSequence), n: String(ex.sets) });
+    return ex.sets > 1 ? t('strengthPlayer.blockCard.rounds', { n: String(ex.sets) }) : t('strengthPlayer.blockCard.oneRound');
+  }, [isGrouped, exercises, t]);
 
   const isOnline = useOnlineStatus();
 
@@ -430,7 +433,7 @@ export default function WorkoutBlockCard({
                     (isEntryCompleted || allLoggedDone) ? (
                       <div className="flex items-center gap-1.5 text-[#00BAF7]" style={{ fontFamily: 'var(--font-simpler)' }}>
                         <Check size={14} strokeWidth={3} />
-                        <span className="text-xs font-bold">בוצע</span>
+                        <span className="text-xs font-bold">{t('strengthPlayer.blockCard.done')}</span>
                       </div>
                     ) : (isEntryActive && isTurnActive) ? (
                       <button
@@ -442,7 +445,7 @@ export default function WorkoutBlockCard({
                         }}
                       >
                         <Check size={12} strokeWidth={3} />
-                        סמן כבוצע
+                        {t('strengthPlayer.blockCard.markDone')}
                       </button>
                     ) : null
                   ) : (
@@ -499,7 +502,7 @@ export default function WorkoutBlockCard({
                     className="text-xs text-slate-500"
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
-                    מנוחה
+                    {t('strengthPlayer.blockCard.rest')}
                   </span>
                 </div>
                 <button
@@ -510,7 +513,7 @@ export default function WorkoutBlockCard({
                     className="text-[11px] font-bold text-slate-700"
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
-                    דלג
+                    {t('strengthPlayer.blockCard.skip')}
                   </span>
                   <SkipForward size={13} className="text-slate-700" strokeWidth={2.5} />
                 </button>

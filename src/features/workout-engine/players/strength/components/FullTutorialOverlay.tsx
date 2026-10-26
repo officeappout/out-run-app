@@ -12,6 +12,8 @@ import React from 'react';
 import { X } from 'lucide-react';
 import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface FullTutorialOverlayProps {
   video: ExternalVideo;
@@ -20,6 +22,7 @@ export interface FullTutorialOverlayProps {
 }
 
 export default function FullTutorialOverlay({ video, exerciseName, onClose }: FullTutorialOverlayProps) {
+  const t = useT(player);
   return (
     <div
       className="fixed inset-0 z-[100] bg-black flex flex-col"
@@ -33,7 +36,7 @@ export default function FullTutorialOverlay({ video, exerciseName, onClose }: Fu
         <button
           onClick={onClose}
           className="flex items-center justify-center w-10 h-10 min-w-[44px] min-h-[44px] bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20 shrink-0"
-          aria-label="סגור"
+          aria-label={t('strengthPlayer.tutorial.close')}
         >
           <X size={20} />
         </button>

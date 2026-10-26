@@ -9,10 +9,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { AmrapState } from '@/features/workout-engine/engines/timed/timed.types';
 import { amrapRoundLine } from '../logic/timed-labels';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const SHOW_MS = 2600;
 
 export default function TimedRoundToast({ state }: { state: AmrapState }) {
+  const t = useT(player);
   const rounds = state.data.rounds.length;
   const prev = useRef(rounds);
   const [shown, setShown] = useState<{ index: number; line: string | null } | null>(null);
@@ -27,8 +30,8 @@ export default function TimedRoundToast({ state }: { state: AmrapState }) {
 
   useEffect(() => {
     if (!shown) return;
-    const t = setTimeout(() => setShown(null), SHOW_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShown(null), SHOW_MS);
+    return () => clearTimeout(timer);
   }, [shown]);
 
   return (
@@ -45,9 +48,9 @@ export default function TimedRoundToast({ state }: { state: AmrapState }) {
           style={{ fontFamily: 'var(--font-simpler)' }}
           role="status"
         >
-          <span className="whitespace-nowrap text-[20px] font-black !tracking-[-0.02em] text-v2-ink">סבב {shown.index + 1} הושלם</span>
+          <span className="whitespace-nowrap text-[20px] font-black !tracking-[-0.02em] text-v2-ink">{t('strengthPlayer.timed.roundToast.done', { n: String(shown.index + 1) })}</span>
           {shown.line && <span className="whitespace-nowrap text-[13px] font-bold tabular-nums text-v2-muted">{shown.line}</span>}
-          <span className="mt-0.5 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">מתחילים סבב {shown.index + 2}</span>
+          <span className="mt-0.5 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('strengthPlayer.timed.roundToast.next', { n: String(shown.index + 2) })}</span>
         </motion.div>
       )}
     </AnimatePresence>

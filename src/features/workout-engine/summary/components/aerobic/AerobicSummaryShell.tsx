@@ -17,6 +17,8 @@ import { togetherFromGroupCtx } from '@/features/social/share-v2/together';
 import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
 import type { AerobicSummaryV2Data } from './AerobicSummaryView';
 import { readLiveFlag } from '@/lib/feature-flag-live';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface Props {
   variant: 'group' | 'solo' | 'pair';
@@ -47,6 +49,7 @@ interface Props {
  */
 export default function AerobicSummaryShell(props: Props) {
   const { workout, currentUid, isReadOnly = false } = props;
+  const t = useT(summary);
 
   // Home v2 (enable_home_v2): offer this run's pending feed share here too.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
@@ -70,9 +73,9 @@ export default function AerobicSummaryShell(props: Props) {
         weekBars: isReadOnly
           ? undefined
           : [
-              { label: 'אימוני אירובי השבוע', value: weeklySummary?.categorySessions?.cardio ?? 0 },
+              { label: t('shell.weeklyAerobic'), value: weeklySummary?.categorySessions?.cardio ?? 0 },
               {
-                label: 'דקות פעילות',
+                label: t('shell.activeMinutes'),
                 value: (weeklySummary?.categoryTotals?.strength ?? 0) + (weeklySummary?.categoryTotals?.cardio ?? 0),
                 max: WHO_COMPLIANCE_BASELINE.weeklyAerobicMinutes,
               },

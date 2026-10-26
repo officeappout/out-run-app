@@ -5,6 +5,8 @@ import { X } from 'lucide-react';
 import { DraggableSheet, IconButton } from '@/components/ui/v2';
 import { useSafeAreaTop } from '@/lib/safe-area/useSafeAreaTop';
 import { summarySheetSnaps, SUMMARY_COLLAPSED_PX, type SummarySnap } from './summary-sheet.util';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 /** Height of the optional history top bar row (36px button + bottom pad). */
 const TOP_BAR_PX = 40;
@@ -61,6 +63,7 @@ export default function SummaryDrawerShell({
   topBar,
   children,
 }: SummaryDrawerShellProps) {
+  const t = useT(summary);
   const safeTop = useSafeAreaTop();
   const [vh, setVh] = useState(800);
   useEffect(() => {
@@ -83,7 +86,7 @@ export default function SummaryDrawerShell({
     <div className="flex items-center justify-between gap-2 px-4 pb-1">
       <span className="truncate text-[15px] font-extrabold text-v2-ink">{topBar.title}</span>
       <IconButton
-        aria-label="סגירה"
+        aria-label={t('drawer.close')}
         tone="surface"
         size={36}
         // Keep the tap from starting a sheet drag (the header is the drag zone).
@@ -132,7 +135,7 @@ export default function SummaryDrawerShell({
         snapPoints={snapPoints}
         initialSnap={initialIndex}
         zIndex={100}
-        ariaLabel="סיכום אימון"
+        ariaLabel={t('drawer.aria')}
         header={
           <>
             {topBarRow}

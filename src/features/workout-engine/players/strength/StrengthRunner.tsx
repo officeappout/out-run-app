@@ -68,7 +68,8 @@ import { useWideLayout } from '../shared/v2/useWideLayout';
 import { useWideKeys } from '../shared/v2/useWideKeys';
 import { useWidePlayerV1 } from './hooks/useWidePlayerV1';
 import { resolveWideAction } from './logic/wide-key-actions';
-import { g } from '@/lib/utils/gendered-text';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import { guidanceLine } from '@/features/workout-engine/hybrid/guided-station';
 import DemoGateOverlay from './components/DemoGateOverlay';
 import FindEquipmentOverlay from './components/FindEquipmentOverlay';
@@ -379,9 +380,9 @@ export default function StrengthRunner({
   const isUnilateral = sm.activeExercise?.symmetry === 'unilateral';
 
   const segTitle = sm.currentSegment?.title || '';
-  const isWarmupSegment = segTitle.includes('חימום') || segTitle.toLowerCase().includes('warmup')
+  const isWarmupSegment = segTitle.includes('חימום') /* i18n-allow-hebrew: matches the stored segment title */ || segTitle.toLowerCase().includes('warmup')
     || sm.activeExercise?.exerciseRole === 'warmup';
-  const isCooldownSegment = segTitle.includes('שחרור') || segTitle.includes('קירור')
+  const isCooldownSegment = segTitle.includes('שחרור') /* i18n-allow-hebrew: matches the stored segment title */ || segTitle.includes('קירור')
     || segTitle.toLowerCase().includes('cooldown')
     || sm.activeExercise?.exerciseRole === 'cooldown';
 
@@ -468,6 +469,7 @@ export default function StrengthRunner({
 
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const userGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
+  const t = useT(player);
   const profileId = useUserStore((s) => s.profile?.id);
 
   // ── PR-B2 demo gate (guided only) ───────────────────────────────────────
@@ -540,7 +542,7 @@ export default function StrengthRunner({
     if (!findScreen) return;
     idsToMarkFound(findScreen).forEach((id) => findEquipment?.add(id));
     setGatePassedKey(gateActiveKey);
-    setGateTick((t) => t + 1);
+    setGateTick((n) => n + 1);
     // Next: the demo gate if this exercise's demo wasn't watched yet (stay held), else the set.
     const gateNext = shouldGateExercise({ ...gateInput, workoutState: 'ACTIVE' });
     if (!gateNext && sm.isPaused) sm.togglePause();
@@ -562,7 +564,7 @@ export default function StrengthRunner({
       : [sm.activeExercise?.id].filter(Boolean);
     ids.forEach((id) => demoGate?.add(id as string));
     setGatePassedKey(gateActiveKey);
-    setGateTick((t) => t + 1);
+    setGateTick((n) => n + 1);
     if (sm.isPaused) sm.togglePause(); // release the hold → the timer / rep set starts now
   }, [isTabataBlock, workout.segments, sm, demoGate, gateActiveKey]);
 
@@ -962,7 +964,7 @@ export default function StrengthRunner({
               <DemoGateOverlay
                 exerciseName={sm.exerciseName}
                 cue={sm.executionSteps?.[0] ?? null}
-                ctaLabel={g(userGender, 'צפיתי, התחל', 'צפיתי, התחילי')}
+                ctaLabel={t('strengthPlayer.demoGate.cta', { gender: userGender })}
                 onStart={handleGateStart}
               />
             )}
@@ -1019,7 +1021,7 @@ export default function StrengthRunner({
             onOpenExitModal={() => setShowExitConfirmModal(true)}
             // Inside a hybrid station (embedded) this ends only the STATION (→ the station-complete
             // screen), not the workout. Copy only; the action is unchanged.
-            endLabel={embedded ? g(userGender, 'סיים את התחנה', 'סיימי את התחנה') : undefined}
+            endLabel={embedded ? t('strengthPlayer.pause.endStation', { gender: userGender }) : undefined}
           />
         )}
       </AnimatePresence>

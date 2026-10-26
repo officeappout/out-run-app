@@ -5,6 +5,8 @@ import { Target, Dumbbell, PersonStanding } from 'lucide-react';
 import { getMuscleGroupLabel, resolveEquipmentLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 
@@ -82,6 +84,7 @@ export default function ExerciseDetailContent({
   hideTitle = false,
   compact = false,
 }: ExerciseDetailContentProps) {
+  const t = useT(player);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ytLoaded, setYtLoaded] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
@@ -186,7 +189,7 @@ export default function ExerciseDetailContent({
         {ytId && (
           <section style={{ marginBottom: 16 }}>
             <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
-              סרטון טכניקה מפורט
+              {t('strengthPlayer.detail.technique')}
             </h3>
             <div className="relative w-full rounded-lg overflow-hidden bg-black" style={{ aspectRatio: '16 / 9' }}>
               {ytLoaded ? (
@@ -227,7 +230,7 @@ export default function ExerciseDetailContent({
               {hasPrograms && (
                 <div className="flex flex-col gap-1.5" style={{ minWidth: 100 }}>
                   <h4 className="text-right text-[16px] font-semibold text-gray-900 dark:text-white" style={SECTION_FONT}>
-                    {resolvedPrograms.length > 1 ? 'תוכניות' : 'תוכנית'}
+                    {resolvedPrograms.length > 1 ? t('strengthPlayer.detail.programs') : t('strengthPlayer.detail.program')}
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {resolvedPrograms.map((p, idx) => (
@@ -239,7 +242,7 @@ export default function ExerciseDetailContent({
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src="/icons/programs/full_body.svg" alt="" width={16} height={16} className="flex-shrink-0 opacity-60" />
                         <span className="text-xs font-normal text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                          {p.name} · רמה {p.level}
+                          {t('strengthPlayer.detail.programLevel', { name: p.name, level: String(p.level) })}
                         </span>
                       </div>
                     ))}
@@ -250,7 +253,7 @@ export default function ExerciseDetailContent({
               {/* ציוד (Equipment) — hidden when empty */}
               {hasEquipment && (
                 <div className="flex flex-col gap-1.5" style={{ minWidth: 80 }}>
-                  <h4 className="text-right text-[16px] font-semibold text-gray-900 dark:text-white" style={SECTION_FONT}>ציוד</h4>
+                  <h4 className="text-right text-[16px] font-semibold text-gray-900 dark:text-white" style={SECTION_FONT}>{t('strengthPlayer.detail.equipment')}</h4>
                   <div className="flex flex-wrap gap-2">
                     {equipment!.map((eqId) => {
                       const label = resolveEquipmentLabel(eqId);
@@ -297,7 +300,7 @@ export default function ExerciseDetailContent({
             {resolvedPrimary && (
               <div style={{ marginBottom: resolvedSecondary.length > 0 ? 12 : 0 }}>
                 <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
-                  שריר ראשי
+                  {t('strengthPlayer.detail.primaryMuscle')}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {(() => {
@@ -319,7 +322,7 @@ export default function ExerciseDetailContent({
             {resolvedSecondary.length > 0 && (
               <div>
                 <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
-                  שרירים משניים
+                  {t('strengthPlayer.detail.secondaryMuscles')}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {resolvedSecondary.map((m) => {
@@ -343,7 +346,7 @@ export default function ExerciseDetailContent({
         {description && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
-              תיאור
+              {t('strengthPlayer.detail.description')}
             </h3>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed" style={SECTION_FONT}>
               {description}
@@ -355,7 +358,7 @@ export default function ExerciseDetailContent({
         {goal && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
-              מטרות
+              {t('strengthPlayer.detail.goal')}
             </h3>
             <div className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4" style={{ border: PILL_BORDER }}>
               <Target size={18} className="flex-shrink-0 mt-0.5 text-cyan-600" />
@@ -370,7 +373,7 @@ export default function ExerciseDetailContent({
         {instructions && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
-              הוראות ביצוע
+              {t('strengthPlayer.detail.instructions')}
             </h3>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line" style={SECTION_FONT}>
               {instructions}
@@ -382,7 +385,7 @@ export default function ExerciseDetailContent({
         {hasCues && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
-              דגשים
+              {t('strengthPlayer.detail.cues')}
             </h3>
             <ol className="space-y-2.5">
               {cues!.map((cue, i) => (
@@ -403,7 +406,7 @@ export default function ExerciseDetailContent({
         {hasNotes && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
-              טיפים
+              {t('strengthPlayer.detail.notes')}
             </h3>
             <ul className="space-y-2">
               {notes!.map((note, i) => (

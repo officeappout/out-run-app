@@ -11,6 +11,8 @@ import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { usePlayerAudioMute } from '../logic/player-audio-mute';
 import { REST_EXTEND_SECONDS } from '../logic/player-controls.utils';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import { useWidePlayer } from '../../shared/v2/WidePlayerContext';
 import WideKeyHints from '../../shared/v2/WideKeyHints';
 
@@ -108,14 +110,15 @@ export default function RestScreen({
   logDrawerNode,
   isLogDrawerOpen = false,
 }: RestScreenProps) {
+  const t = useT(player);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(autoExpandPreview);
   // Guided: expand on every new rest (videoKey changes per next exercise), collapse after ~4s.
   // A user tap in between still toggles freely; the timer only ever collapses.
   useEffect(() => {
     if (!autoExpandPreview) return;
     setIsPreviewExpanded(true);
-    const t = setTimeout(() => setIsPreviewExpanded(false), REST_PREVIEW_AUTO_COLLAPSE_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setIsPreviewExpanded(false), REST_PREVIEW_AUTO_COLLAPSE_MS);
+    return () => clearTimeout(timer);
   }, [autoExpandPreview, videoKey]);
   const [posterFailed, setPosterFailed] = useState(false);
   // enable_home_v2 — styling only (provided once by StrengthRunner).
@@ -183,7 +186,7 @@ export default function RestScreen({
               className={v2 ? 'text-[12px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-[11px] font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              התרגיל הבא
+              {t('strengthPlayer.rest.next')}
             </p>
             <button
               onClick={() => setIsPreviewExpanded((v) => !v)}
@@ -191,7 +194,7 @@ export default function RestScreen({
                 ? 'relative w-full rounded-[18px] overflow-hidden bg-v2-tint shadow-v2-card transition-all duration-300 ease-v2 active:scale-[0.97]'
                 : 'relative w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-700 bg-slate-900 transition-all duration-300'}
               style={{ aspectRatio: '9 / 16' }}
-              aria-label={isPreviewExpanded ? 'כווץ תצוגה מקדימה' : 'הרחב תצוגה מקדימה'}
+              aria-label={isPreviewExpanded ? t('strengthPlayer.rest.collapsePreview') : t('strengthPlayer.rest.expandPreview')}
             >
               {isPreviewExpanded ? (
                 <ExerciseVideoPlayer
@@ -238,7 +241,7 @@ export default function RestScreen({
               className={v2 ? 'text-[13px] font-extrabold text-v2-deep whitespace-nowrap mb-2' : 'text-xs text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              מנוחה
+              {t('strengthPlayer.rest.title')}
             </p>
             <div
               className={v2 ? 'text-7xl font-black text-v2-ink !tracking-[-0.03em] tabular-nums mb-4' : 'text-7xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums mb-4'}
@@ -285,7 +288,7 @@ export default function RestScreen({
               ) : (
                 <span aria-hidden>{audioMuted ? '🔇' : '🔊'}</span>
               )}
-              {audioMuted ? 'מושתק' : 'השתקה'}
+              {audioMuted ? t('strengthPlayer.rest.muted') : t('strengthPlayer.rest.mute')}
             </button>
             {onExtend && (
               <button
@@ -295,7 +298,7 @@ export default function RestScreen({
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
                 {v2 ? <Timer size={16} strokeWidth={2.5} aria-hidden /> : <span aria-hidden>⏱️</span>}
-                <bdi dir="ltr">+{REST_EXTEND_SECONDS}</bdi> שנ׳
+                {t.rich('strengthPlayer.rest.extend', { seconds: String(REST_EXTEND_SECONDS), bdi: (chunks) => <bdi dir="ltr">{chunks}</bdi> })}
               </button>
             )}
           </div>
@@ -311,7 +314,7 @@ export default function RestScreen({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/icons/ui/skip.svg" className={v2 ? 'w-4 h-4' : 'w-4 h-4 dark:invert'} alt="Skip" />
-              דלגו על המנוחה
+              {t('strengthPlayer.rest.skip')}
             </button>
           )}
         </>

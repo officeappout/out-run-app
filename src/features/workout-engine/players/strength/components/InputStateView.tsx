@@ -5,6 +5,8 @@ import HorizontalPicker from './HorizontalPicker';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import { Hand } from 'lucide-react';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * InputStateView — Big-Screen INPUT phase.
@@ -88,6 +90,7 @@ export default function InputStateView({
 }: InputStateViewProps) {
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
+  const t = useT(player);
   const { targetValue, unitType, max } = pickerConfig;
   const pickerMin = unitType === 'time' ? 0 : 1;
 
@@ -127,8 +130,8 @@ export default function InputStateView({
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           {unitType === 'time'
-            ? isUnilateralForInput ? 'כמה שניות לכל צד?' : 'כמה שניות החזקת?'
-            : isUnilateralForInput ? 'כמה חזרות לכל צד?' : 'כמה חזרות הצלחת?'}
+            ? isUnilateralForInput ? t('strengthPlayer.inputState.prompt.timeSide') : t('strengthPlayer.inputState.prompt.time')
+            : isUnilateralForInput ? t('strengthPlayer.inputState.prompt.repsSide') : t('strengthPlayer.inputState.prompt.reps')}
         </h2>
 
         {/* Horizontal ruler picker(s) */}
@@ -138,7 +141,7 @@ export default function InputStateView({
             <div>
               <div className="flex items-center gap-1.5 justify-center mb-0.5">
                 {v2 ? <Hand size={16} strokeWidth={2.5} className="text-v2-accent" aria-hidden /> : <span className="text-sm">✋</span>}
-                <p className={v2 ? 'text-sm font-extrabold text-v2-ink-2 whitespace-nowrap' : 'text-sm font-bold text-slate-700 dark:text-zinc-300'} style={{ fontFamily: 'var(--font-simpler)' }}>ימין</p>
+                <p className={v2 ? 'text-sm font-extrabold text-v2-ink-2 whitespace-nowrap' : 'text-sm font-bold text-slate-700 dark:text-zinc-300'} style={{ fontFamily: 'var(--font-simpler)' }}>{t('strengthPlayer.inputState.right')}</p>
                 <span className={v2 ? 'text-[13px] font-extrabold text-v2-deep tabular-nums' : 'text-xs font-semibold text-[#00B4FF]'}>
                   {inputRepsRight}{unitType === 'time' ? '"' : ''}
                 </span>
@@ -159,7 +162,7 @@ export default function InputStateView({
             <div>
               <div className="flex items-center gap-1.5 justify-center mb-0.5">
                 {v2 ? <Hand size={16} strokeWidth={2.5} className="text-v2-accent" style={{ transform: 'scaleX(-1)' }} aria-hidden /> : <span className="text-sm" style={{ transform: 'scaleX(-1)' }}>✋</span>}
-                <p className={v2 ? 'text-sm font-extrabold text-v2-ink-2 whitespace-nowrap' : 'text-sm font-bold text-slate-700 dark:text-zinc-300'} style={{ fontFamily: 'var(--font-simpler)' }}>שמאל</p>
+                <p className={v2 ? 'text-sm font-extrabold text-v2-ink-2 whitespace-nowrap' : 'text-sm font-bold text-slate-700 dark:text-zinc-300'} style={{ fontFamily: 'var(--font-simpler)' }}>{t('strengthPlayer.inputState.left')}</p>
                 <span className={v2 ? 'text-[13px] font-extrabold text-v2-deep tabular-nums' : 'text-xs font-semibold text-[#00B4FF]'}>
                   {inputRepsLeft}{unitType === 'time' ? '"' : ''}
                 </span>
@@ -197,7 +200,7 @@ export default function InputStateView({
             fontFamily: 'var(--font-simpler)',
           }}
         >
-          שמירה
+          {t('strengthPlayer.inputState.save')}
         </button>
       </div>
     </div>

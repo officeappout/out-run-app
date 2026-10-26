@@ -39,6 +39,10 @@ import LapPaceChart from '../shared/LapPaceChart';
 import { XP_REWARDS } from '@/types/contribution.types';
 import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
 import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
+import { useT } from '@/hooks/useT';
+import { summary, type SummaryT } from '@/messages/ns/summary';
+import { common } from '@/messages/ns/common';
+import { unitLabel, withUnit } from '@/lib/i18n/units';
 
 /**
  * AerobicSummaryView — the hook-free presentational half of the aerobic
@@ -109,12 +113,7 @@ export interface AerobicSummaryV2Data {
 
 type TabId = 'overview' | 'stats' | 'segments' | 'map';
 
-const TABS: DrawerTab[] = [
-  { id: 'overview', label: 'סקירה' },
-  { id: 'stats', label: 'סטטיסטיקה' },
-  { id: 'segments', label: 'מקטעים' },
-  { id: 'map', label: 'מפה' },
-];
+const TAB_IDS = ['overview', 'stats', 'segments', 'map'] as const;
 
 function formatDate(d: Date): string {
   try {
@@ -147,6 +146,9 @@ export default function AerobicSummaryView({
   feedShareSlot,
   v2,
 }: AerobicSummaryViewProps) {
+  const t = useT(summary);
+  const tc = useT(common);
+  const tabs: DrawerTab[] = TAB_IDS.map((id) => ({ id, label: t(`aerobic.tab.${id}`) }));
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [expandedMap, setExpandedMap] = useState(false);
   const [routeQuality, setRouteQuality] = useState(0);
@@ -196,7 +198,7 @@ export default function AerobicSummaryView({
             value={distanceKm}
             decimals={2}
             format={distanceKm > 0 ? undefined : () => '--'}
-            unit="ק״מ"
+            unit={unitLabel('km', tc)}
             size="lg"
             className="mt-1"
           />
@@ -222,7 +224,7 @@ export default function AerobicSummaryView({
       <button
         type="button"
         onClick={() => setExpandedMap(true)}
-        aria-label="הגדל מפה"
+        aria-label={t('aerobic.expandMap')}
         className="absolute top-2.5 left-2.5 rounded-[12px] shadow-v2-ring active:scale-[0.97] transition-transform duration-200 ease-v2"
       >
         <IconTile icon={Maximize2} tone="neutral" size="sm" className="!bg-white" />
@@ -256,7 +258,7 @@ export default function AerobicSummaryView({
       {/* Proximity line — pair only */}
       {effectiveVariant === 'pair' && groupCtx && (
         <div className="text-center text-[13px] font-semibold text-v2-ink-2">
-          {`רצתם ${groupCtx.collectiveDistanceKm.toFixed(1)} ק״מ יחד`}
+          {t('aerobic.pairTogether', { distance: withUnit('km', groupCtx.collectiveDistanceKm.toFixed(1), tc) })}
         </div>
       )}
 
@@ -309,11 +311,11 @@ export default function AerobicSummaryView({
             >
               <IconTile icon={Activity} tone="run" size="sm" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14.5px] font-black text-v2-ink">קצב בכל חזרה</span>
-                <span className="block truncate text-[12px] font-bold text-v2-muted">לפירוט בלשונית מקטעים</span>
+                <span className="block truncate text-[14.5px] font-black text-v2-ink">{t('aerobic.repPace.title')}</span>
+                <span className="block truncate text-[12px] font-bold text-v2-muted">{t('aerobic.openSegments')}</span>
               </span>
               <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-[#ecfdf5] px-3 text-[12px] font-extrabold tabular-nums text-[#047857]">
-                {repTable.shortLabel ?? `${repTable.reps} חזרות`}
+                {repTable.shortLabel ?? t('aerobic.repsChip', { reps: String(repTable.reps) })}
               </span>
               <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted" aria-hidden />
             </button>
@@ -325,11 +327,11 @@ export default function AerobicSummaryView({
             >
               <IconTile icon={ActivityIcon} tone="run" size="sm" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14.5px] font-black text-v2-ink">{isRide ? 'מהירות בכל הקפה' : 'קצב בכל הקפה'}</span>
-                <span className="block truncate text-[12px] font-bold text-v2-muted">לפירוט בלשונית מקטעים</span>
+                <span className="block truncate text-[14.5px] font-black text-v2-ink">{isRide ? t('aerobic.lapSpeed.title') : t('aerobic.lapPace.title')}</span>
+                <span className="block truncate text-[12px] font-bold text-v2-muted">{t('aerobic.openSegments')}</span>
               </span>
               <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-v2-tint px-3 text-[12px] font-extrabold tabular-nums text-v2-deep">
-                {workout.laps.length} הקפות
+                {t('aerobic.lapsChip', { count: String(workout.laps.length) })}
               </span>
               <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted" aria-hidden />
             </button>
@@ -357,7 +359,7 @@ export default function AerobicSummaryView({
         <Card padding="md">
           <div className="mb-2 flex items-center gap-2">
             <IconTile icon={Users} tone="accent" size="sm" />
-            <span className="text-[14px] font-extrabold text-v2-ink">משתתפים</span>
+            <span className="text-[14px] font-extrabold text-v2-ink">{t('aerobic.participants')}</span>
           </div>
           <ParticipantsBlock
             participants={groupCtx.participants}
@@ -373,13 +375,13 @@ export default function AerobicSummaryView({
         <Card padding="md" dir="rtl">
           {ratingSubmitted ? (
             <div className="text-center text-[14px] font-extrabold text-v2-deep">
-              {v2 ? 'תודה על הדירוג!' : `תודה על הדירוג! +${XP_REWARDS.review} XP`}
+              {v2 ? t('aerobic.rating.thanks') : t('aerobic.rating.thanksXp', { xp: String(XP_REWARDS.review) })}
             </div>
           ) : (
             <>
               <div className="flex items-center gap-2">
                 <IconTile icon={Star} tone="accent" size="sm" />
-                <span className="text-[14px] font-extrabold text-v2-ink">דרגו את המסלול</span>
+                <span className="text-[14px] font-extrabold text-v2-ink">{t('aerobic.rating.title')}</span>
               </div>
               <div className="my-3 flex justify-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -387,7 +389,7 @@ export default function AerobicSummaryView({
                     key={star}
                     type="button"
                     onClick={() => setRouteQuality(star)}
-                    aria-label={`${star} כוכבים`}
+                    aria-label={t('aerobic.rating.star', { star: String(star) })}
                     className="p-1 active:scale-[0.97] transition-transform duration-200 ease-v2"
                   >
                     <svg
@@ -417,7 +419,7 @@ export default function AerobicSummaryView({
                     }
                   }}
                 >
-                  שלח דירוג
+                  {t('aerobic.rating.submit')}
                 </Button>
               )}
             </>
@@ -444,7 +446,7 @@ export default function AerobicSummaryView({
               onClick={() => setExpandedDeleteModalOpen(true)}
               className="px-2 py-1 text-[13px] font-semibold text-v2-muted underline underline-offset-2"
             >
-              בטל / מחק אימון
+              {t('aerobic.delete.link')}
             </button>
           </div>
         ) : (
@@ -456,18 +458,18 @@ export default function AerobicSummaryView({
                 onClick={() => setDeleteConfirm(true)}
                 className="px-2 py-1 text-[13px] font-semibold text-v2-muted underline underline-offset-2"
               >
-                בטל / מחק אימון
+                {t('aerobic.delete.link')}
               </button>
             </div>
           ) : (
             <Card padding="md" className="text-center">
-              <div className="mb-1.5 text-[15px] font-extrabold text-v2-down">למחוק את האימון?</div>
+              <div className="mb-1.5 text-[15px] font-extrabold text-v2-down">{t('aerobic.delete.title')}</div>
               <div className="mb-3.5 text-[13px] text-v2-ink-2">
-                האימון יימחק, ה-XP והרצף יוחזרו לאחור.
+                {t('aerobic.delete.text')}
               </div>
               <div className="flex gap-2">
                 <Button variant="ghost" size="md" className="flex-1" onClick={() => setDeleteConfirm(false)}>
-                  בטל
+                  {t('aerobic.delete.cancel')}
                 </Button>
                 <Button
                   variant="dark"
@@ -484,7 +486,7 @@ export default function AerobicSummaryView({
                     }
                   }}
                 >
-                  {deleting ? 'מוחק...' : 'מחק אימון'}
+                  {deleting ? t('aerobic.delete.deleting') : t('aerobic.delete.confirm')}
                 </Button>
               </div>
             </Card>
@@ -539,7 +541,7 @@ export default function AerobicSummaryView({
         </>
       ) : repTable || typedSegments ? null : (
         <div className="py-8 text-center text-[14px] font-semibold text-v2-muted">
-          אין הקפות מוגדרות לאימון זה
+          {t('aerobic.noLaps')}
         </div>
       )}
     </div>
@@ -560,7 +562,7 @@ export default function AerobicSummaryView({
       {/* Full participants list — group only (3+) */}
       {effectiveVariant === 'group' && groupCtx && groupCtx.participants.length > 0 && (
         <div className="mb-4">
-          <div className="mb-2 text-[14px] font-extrabold text-v2-ink">כל המשתתפים</div>
+          <div className="mb-2 text-[14px] font-extrabold text-v2-ink">{t('aerobic.allParticipants')}</div>
           <ParticipantsBlock
             participants={groupCtx.participants}
             currentUid={currentUid}
@@ -569,16 +571,16 @@ export default function AerobicSummaryView({
         </div>
       )}
       <div className="grid grid-cols-2 gap-2">
-        <StatTile label="מרחק" value={`${distanceKm.toFixed(2)} ק״מ`} />
-        <StatTile label="זמן" value={formatDuration(workout.duration ?? 0)} />
+        <StatTile label={t('aerobic.stat.distance')} value={withUnit('km', distanceKm.toFixed(2), tc)} />
+        <StatTile label={t('aerobic.stat.time')} value={formatDuration(workout.duration ?? 0)} />
         {isRide ? (
-          <StatTile label="מהירות ממוצעת" value={`${fmtSpeed(speedKmh(distanceKm, workout.duration ?? 0))} קמ״ש`} />
+          <StatTile label={t('aerobic.stat.speed')} value={`${fmtSpeed(speedKmh(distanceKm, workout.duration ?? 0))} ${unitLabel('kmh', tc)}`} />
         ) : (
-          <StatTile label="קצב ממוצע" value={formatPaceLocal(workout.pace ?? 0)} />
+          <StatTile label={t('aerobic.stat.pace')} value={formatPaceLocal(workout.pace ?? 0, t)} />
         )}
-        <StatTile label="קלוריות" value={`${Math.round(workout.calories ?? 0)} קק״ל`} />
+        <StatTile label={t('aerobic.stat.calories')} value={t('aerobic.kcal', { n: String(Math.round(workout.calories ?? 0)) })} />
         {(workout.elevationGain ?? 0) > 0 && (
-          <StatTile label="עלייה מצטברת" value={`${workout.elevationGain} מ׳`} />
+          <StatTile label={t('aerobic.stat.climb')} value={withUnit('m', workout.elevationGain ?? 0, tc)} />
         )}
       </div>
     </div>
@@ -602,7 +604,7 @@ export default function AerobicSummaryView({
           <button
             type="button"
             onClick={() => setExpandedMap(false)}
-            aria-label="סגור מפה"
+            aria-label={t('aerobic.closeMap')}
             className="absolute right-4 rounded-[12px] shadow-v2-float active:scale-[0.97] transition-transform duration-200 ease-v2"
             style={{ top: 'calc(16px + env(safe-area-inset-top, 0px))' }}
           >
@@ -614,13 +616,13 @@ export default function AerobicSummaryView({
       {/* v2 draggable drawer — live Mapbox map shows behind (and through the
           peek when collapsed). Dragging never exits; finishing is the footer. */}
       <SummaryDrawerShell
-        tabs={TABS}
+        tabs={tabs}
         activeTab={activeTab}
         onTabChange={(id) => setActiveTab(id as TabId)}
         header={hero}
         peekHeight={peekHeight}
         initialSnap={initialSnap}
-        topBar={isReadOnly ? { title: 'סיכום אימון', onClose } : undefined}
+        topBar={isReadOnly ? { title: t('aerobic.topBar.title'), onClose } : undefined}
         footer={
           isReadOnly ? (
             // History: optional delete (caller-owned confirm) + close. No save.
@@ -630,20 +632,20 @@ export default function AerobicSummaryView({
                   variant="ghost"
                   size="lg"
                   onClick={onDelete}
-                  aria-label="מחק אימון"
+                  aria-label={t('aerobic.delete.aria')}
                   className="!px-4 !text-v2-down"
                 >
                   <Trash2 size={18} strokeWidth={2.4} aria-hidden />
                 </Button>
               )}
               <Button variant="primary" size="lg" onClick={onClose} className="flex-1">
-                סגור
+                {t('aerobic.footer.close')}
               </Button>
             </div>
           ) : (
             <div className="px-4 py-3">
               <Button variant="primary" size="lg" block onClick={onSave}>
-                {savedWorkoutId !== null ? 'סיום ושמור' : 'סיום'}
+                {savedWorkoutId !== null ? t('aerobic.footer.finishSaved') : t('aerobic.footer.finish')}
               </Button>
             </div>
           )
@@ -668,11 +670,11 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatPaceLocal(minPerKm: number): string {
+function formatPaceLocal(minPerKm: number, t: SummaryT): string {
   if (!minPerKm || !isFinite(minPerKm) || minPerKm <= 0) return '--';
   const mins = Math.floor(minPerKm);
   const secs = Math.round((minPerKm - mins) * 60);
-  return `${mins}:${secs.toString().padStart(2, '0')} ד׳/ק״מ`;
+  return t('aerobic.paceValue', { value: `${mins}:${secs.toString().padStart(2, '0')}` });
 }
 
 function formatDuration(seconds: number): string {

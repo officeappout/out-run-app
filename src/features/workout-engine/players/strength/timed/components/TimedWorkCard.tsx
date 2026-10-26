@@ -17,6 +17,10 @@ import TimedNextRow from './TimedNextRow';
 import PlayerDrawerCompact from '../../../shared/v2/PlayerDrawerCompact';
 import type { SnapDrawerState } from '../../../shared/v2/useSnapDrawer';
 import { useWidePlayer } from '../../../shared/v2/WidePlayerContext';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
+import { common } from '@/messages/ns/common';
+import { unitLabel, withUnit } from '@/lib/i18n/units';
 
 export interface TimedWorkCardProps {
   eyebrow: string;
@@ -35,6 +39,7 @@ export interface TimedWorkCardProps {
 }
 
 function MinuteRing({ clock, fraction, warn }: { clock: string; fraction: number; warn: boolean }) {
+  const t = useT(player);
   const r = 26;
   const c = 2 * Math.PI * r;
   const color = warn ? '#ea580c' : '#00baf7';
@@ -58,13 +63,15 @@ function MinuteRing({ clock, fraction, warn }: { clock: string; fraction: number
       </svg>
       <div className="flex flex-col leading-none">
         <span className={`text-[28px] font-black tabular-nums ${warn ? 'text-[#ea580c]' : 'text-v2-ink'}`}>{clock}</span>
-        <span className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">נותרו בדקה</span>
+        <span className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">{t('strengthPlayer.timed.work.minuteLeft')}</span>
       </div>
     </div>
   );
 }
 
 export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, hint, minute, runDistanceM = 0, onDone, drawer = null }: TimedWorkCardProps) {
+  const t = useT(player);
+  const tc = useT(common);
   const isRun = item.kind === 'aerobic_leg';
   const { wide } = useWidePlayer();
   const heroStyle = wide ? { fontSize: 80, lineHeight: 1 } : undefined;
@@ -76,11 +83,11 @@ export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, 
       title={item.name}
       caption={minute ? `${eyebrow} · ${minute.clock}` : eyebrow}
       value={left != null ? String(left) : target ? String(target.value) : null}
-      unit={left != null ? 'מ׳' : target?.unit ?? null}
+      unit={left != null ? unitLabel('m', tc) : target?.unit ?? null}
       warn={warn}
       action={
         <Button variant="cta" size="md" onClick={() => { hapticTap('impact'); onDone(); }}>
-          סיימתי
+          {t('strengthPlayer.timed.work.done')}
           <Check size={18} strokeWidth={2.75} aria-hidden />
         </Button>
       }
@@ -92,7 +99,7 @@ export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, 
       {left != null ? (
         <div className="mb-0.5 flex items-baseline justify-center gap-2">
           <span className="text-[36px] font-black leading-10 tabular-nums !tracking-[-0.02em] text-v2-ink" style={heroStyle}>{left}</span>
-          <span className="whitespace-nowrap text-[13px] font-extrabold text-[#65a30d]">מ׳ נותרו</span>
+          <span className="whitespace-nowrap text-[13px] font-extrabold text-[#65a30d]">{t('strengthPlayer.timed.work.metersLeft', { unit: unitLabel('m', tc) })}</span>
         </div>
       ) : (
         target && (
@@ -108,11 +115,11 @@ export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, 
       )}
       {isRun && item.distanceM ? (
         <p className="mb-2 truncate whitespace-nowrap text-center text-[12.5px] font-bold text-v2-muted">
-          ב-{item.distanceM} מ׳ ה-GPS מעביר אוטומטית לבא
+          {t('strengthPlayer.timed.work.gps', { distance: withUnit('m', item.distanceM, tc) })}
         </p>
       ) : null}
       <Button variant="cta" size="lg" block onClick={() => { hapticTap('impact'); onDone(); }} className="mb-2">
-        סיימתי
+        {t('strengthPlayer.timed.work.done')}
         <Check size={22} strokeWidth={2.75} aria-hidden />
       </Button>
       <TimedNextRow caption={nextCaption} item={next} />

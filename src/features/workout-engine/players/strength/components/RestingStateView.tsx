@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Dumbbell, Flame, X } from 'lucide-react';
 import RestScreen from './RestScreen';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * RestingStateView — RESTING phase orchestrator.
@@ -93,6 +95,7 @@ export default function RestingStateView({
   const showCoachHint = coachHint && !isLogDrawerOpen && currentRound < totalRounds;
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
+  const t = useT(player);
 
   return (
     <div
@@ -137,12 +140,12 @@ export default function RestingStateView({
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-black leading-tight text-v2-ink whitespace-nowrap truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  {coachHint === 'fail' ? 'קשה מדי?' : 'קל מדי?'}
+                  {coachHint === 'fail' ? t('strengthPlayer.coachHint.fail.title') : t('strengthPlayer.coachHint.over.title')}
                 </p>
                 <p className="text-[12px] font-bold leading-tight mt-0.5 text-v2-muted" style={{ fontFamily: 'var(--font-simpler)' }}>
                   {coachHint === 'fail'
-                    ? 'תוכל/י להחליף לגרסה קלה יותר'
-                    : 'כל הכבוד! נתאים את האימון הבא'}
+                    ? t('strengthPlayer.coachHint.fail.text')
+                    : t('strengthPlayer.coachHint.over.text')}
                 </p>
               </div>
               {onSwap && coachHint === 'fail' && (
@@ -153,14 +156,14 @@ export default function RestingStateView({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/assets/icons/ui/swap.svg" className="w-3.5 h-3.5" alt="" />
                   <span className="text-[12px] font-extrabold text-v2-ink-2 whitespace-nowrap" style={{ fontFamily: 'var(--font-simpler)' }}>
-                    החלפה
+                    {t('strengthPlayer.coachHint.swap')}
                   </span>
                 </button>
               )}
               <button
                 onClick={onDismissHint}
                 className="flex-shrink-0 grid h-7 w-7 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline text-v2-muted active:scale-[0.97] transition-transform duration-150 ease-v2"
-                aria-label="סגור"
+                aria-label={t('strengthPlayer.coachHint.close')}
               >
                 <X size={14} strokeWidth={2.5} />
               </button>
@@ -174,12 +177,12 @@ export default function RestingStateView({
               <span className="text-base flex-shrink-0">{coachHint === 'fail' ? '💪' : '🔥'}</span>
               <div className="flex-1 min-w-0">
                 <p className={`text-xs font-bold leading-tight ${coachHint === 'fail' ? 'text-orange-700 dark:text-orange-300' : 'text-emerald-700 dark:text-emerald-300'}`} style={{ fontFamily: 'var(--font-simpler)' }}>
-                  {coachHint === 'fail' ? 'קשה מדי?' : 'קל מדי?'}
+                  {coachHint === 'fail' ? t('strengthPlayer.coachHint.fail.title') : t('strengthPlayer.coachHint.over.title')}
                 </p>
                 <p className={`text-[11px] leading-tight mt-0.5 ${coachHint === 'fail' ? 'text-orange-600/80 dark:text-orange-400/80' : 'text-emerald-600/80 dark:text-emerald-400/80'}`} style={{ fontFamily: 'var(--font-simpler)' }}>
                   {coachHint === 'fail'
-                    ? 'תוכל/י להחליף לגרסה קלה יותר'
-                    : 'כל הכבוד! נתאים את האימון הבא'}
+                    ? t('strengthPlayer.coachHint.fail.text')
+                    : t('strengthPlayer.coachHint.over.text')}
                 </p>
               </div>
               {onSwap && coachHint === 'fail' && (
@@ -190,14 +193,14 @@ export default function RestingStateView({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/assets/icons/ui/swap.svg" className="w-3.5 h-3.5 dark:invert" alt="" />
                   <span className="text-[11px] font-bold text-orange-700 dark:text-orange-300 whitespace-nowrap" style={{ fontFamily: 'var(--font-simpler)' }}>
-                    החלפה
+                    {t('strengthPlayer.coachHint.swap')}
                   </span>
                 </button>
               )}
               <button
                 onClick={onDismissHint}
                 className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-slate-400/70 hover:text-slate-600 dark:hover:text-slate-300"
-                aria-label="סגור"
+                aria-label={t('strengthPlayer.coachHint.close')}
               >
                 <span className="text-sm leading-none">×</span>
               </button>

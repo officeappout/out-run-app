@@ -14,6 +14,8 @@
 
 import React from 'react';
 import { Check } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerT } from '@/messages/ns/player';
 
 export interface SetPillData {
   setIndex: number;
@@ -32,12 +34,12 @@ interface SetPillsGridProps {
   onPulseComplete?: () => void;
 }
 
-function fmtReps(n: number) {
-  return n === 1 ? 'חזרה אחת' : `${n} חזרות`;
+function fmtReps(n: number, t: PlayerT) {
+  return t('strengthPlayer.pills.reps', { n });
 }
 
-function fmtSecs(n: number) {
-  return n === 1 ? 'שנייה אחת' : `${n} שניות`;
+function fmtSecs(n: number, t: PlayerT) {
+  return t('strengthPlayer.pills.seconds', { isOne: n === 1 ? 'yes' : 'no', n: String(n) });
 }
 
 const GUIDE_PULSE_KEYFRAMES = `
@@ -73,6 +75,7 @@ export default function SetPillsGrid({
   pulseSetIndex,
   onPulseComplete,
 }: SetPillsGridProps) {
+  const t = useT(player);
   const hasPulse = pulseSetIndex != null;
 
   return (
@@ -94,9 +97,9 @@ export default function SetPillsGrid({
           : pill.targetReps;
         const repsLabel = hasUnilateralData
           ? pill.isTimeBased
-            ? `${pill.loggedRepsRight}"י׳ | ${pill.loggedRepsLeft}"ש׳`
-            : `${pill.loggedRepsRight}י׳ | ${pill.loggedRepsLeft}ש׳`
-          : pill.isTimeBased ? fmtSecs(displayVal) : fmtReps(displayVal);
+            ? t('strengthPlayer.pills.sideTime', { right: String(pill.loggedRepsRight), left: String(pill.loggedRepsLeft) })
+            : t('strengthPlayer.pills.sideReps', { right: String(pill.loggedRepsRight), left: String(pill.loggedRepsLeft) })
+          : pill.isTimeBased ? fmtSecs(displayVal, t) : fmtReps(displayVal, t);
 
         const pillStyle: React.CSSProperties = {
           fontFamily: 'var(--font-simpler)',
@@ -133,7 +136,7 @@ export default function SetPillsGrid({
             style={pillStyle}
           >
             {isCompleted && <Check size={12} strokeWidth={3} />}
-            {isActive ? repsLabel : isCompleted ? repsLabel : `סט ${pill.setIndex + 1}`}
+            {isActive ? repsLabel : isCompleted ? repsLabel : t('strengthPlayer.pills.set', { n: String(pill.setIndex + 1) })}
           </button>
         );
       })}

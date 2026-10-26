@@ -176,7 +176,7 @@ export default function IsometricTimerCard({
   // enable_wide_player_v1: the same card as the wide side panel (hero clock, no sheet chrome).
   const { wide } = useWidePlayer();
   const t = useT(player);
-  const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
+  const sideLabel = side === 'right' ? t('strengthPlayer.isometric.sideRight') : side === 'left' ? t('strengthPlayer.isometric.sideLeft') : null;
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [prepCountdown, setPrepCountdown] = useState(prepSeconds);
@@ -375,7 +375,7 @@ export default function IsometricTimerCard({
       <PlayerDrawerCompact
         drawer={drawer}
         title={exerciseName}
-        caption={[isTabata ? 'טבטה' : 'זמן החזקה', sideLabel].filter(Boolean).join(' · ')}
+        caption={[isTabata ? t('strengthPlayer.isometric.tabata') : t('strengthPlayer.isometric.hold'), sideLabel].filter(Boolean).join(' · ')}
         value={phase === 'preparing' ? String(prepCountdown) : phase === 'idle' ? formatTime(duration) : formatTime(elapsed)}
         warn={phase === 'counting' && remaining <= 5}
         action={
@@ -386,7 +386,7 @@ export default function IsometricTimerCard({
               style={{ fontFamily: 'var(--font-simpler)', background: 'linear-gradient(to left, #00C9F2, #00AEEF)' }}
             >
               <Timer size={16} />
-              <span>{sideLabel ? `התחל ${sideLabel}` : 'התחלה'}</span>
+              <span>{sideLabel ? t('strengthPlayer.isometric.startSide', { side: sideLabel }) : t('strengthPlayer.isometric.start')}</span>
             </button>
           ) : isActive && !isTabata ? (
             <button
@@ -395,7 +395,7 @@ export default function IsometricTimerCard({
               style={{ fontFamily: 'var(--font-simpler)', background: 'linear-gradient(to left, #00C9F2, #00AEEF)' }}
             >
               <Check size={16} />
-              <span>סיימתי</span>
+              <span>{t('strengthPlayer.isometric.done')}</span>
             </button>
           ) : null
         }
@@ -425,7 +425,7 @@ export default function IsometricTimerCard({
               className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              זמן החזקה
+              {t('strengthPlayer.isometric.hold')}
             </p>
           )}
           {isTabata && (
@@ -433,7 +433,7 @@ export default function IsometricTimerCard({
               className="text-[10px] font-bold px-2 py-0.5 rounded-full"
               style={{ fontFamily: 'var(--font-simpler)', background: '#00BAF7', color: 'white' }}
             >
-              טבטה
+              {t('strengthPlayer.isometric.tabata')}
             </span>
           )}
           {isTabata && machineTabataLabel && (
@@ -441,7 +441,7 @@ export default function IsometricTimerCard({
               className="text-[10px] font-bold text-[#00BAF7] uppercase tracking-wider tabular-nums"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              מתקן {machineTabataLabel.machine}/{machineTabataLabel.machineCount} · סבב {machineTabataLabel.round}/{machineTabataLabel.roundsPerMember}
+              {t('strengthPlayer.isometric.machine', { machine: String(machineTabataLabel.machine), count: String(machineTabataLabel.machineCount), round: String(machineTabataLabel.round), rounds: String(machineTabataLabel.roundsPerMember) })}
             </span>
           )}
           {sideLabel && (
@@ -540,7 +540,7 @@ export default function IsometricTimerCard({
                       className="text-lg font-bold text-[#00B4FF]"
                       style={{ fontFamily: 'var(--font-simpler)' }}
                     >
-                      {sideLabel ? `התחל ${sideLabel}` : 'התחלה'}
+                      {sideLabel ? t('strengthPlayer.isometric.startSide', { side: sideLabel }) : t('strengthPlayer.isometric.start')}
                     </span>
                   </motion.div>
                 )}
@@ -609,7 +609,7 @@ export default function IsometricTimerCard({
                   className="text-sm font-bold text-slate-600 dark:text-white/70"
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  מושהה
+                  {t('strengthPlayer.isometric.paused')}
                 </span>
               </div>
             )}
@@ -653,7 +653,7 @@ export default function IsometricTimerCard({
               className="h-10 px-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-sm"
             >
               <RotateCcw size={16} className="text-slate-500" />
-              <span className="text-sm font-bold text-slate-600 dark:text-slate-300" style={{ fontFamily: 'var(--font-simpler)' }}>איפוס</span>
+              <span className="text-sm font-bold text-slate-600 dark:text-slate-300" style={{ fontFamily: 'var(--font-simpler)' }}>{t('strengthPlayer.isometric.reset')}</span>
             </button>
             <button
               onClick={() => setIsPaused(p => !p)}
@@ -664,7 +664,7 @@ export default function IsometricTimerCard({
                 : <Pause size={16} className="text-slate-500" />
               }
               <span className="text-sm font-bold text-slate-600 dark:text-slate-300" style={{ fontFamily: 'var(--font-simpler)' }}>
-                {isPaused ? 'המשך' : 'השהייה'}
+                {isPaused ? t('strengthPlayer.isometric.resume') : t('strengthPlayer.isometric.pause')}
               </span>
             </button>
           </div>
@@ -679,7 +679,7 @@ export default function IsometricTimerCard({
             style={{ fontFamily: 'var(--font-simpler)', background: 'linear-gradient(to left, #00C9F2, #00AEEF)' }}
           >
             <Check size={18} />
-            <span>סיימתי</span>
+            <span>{t('strengthPlayer.isometric.done')}</span>
           </button>
         )}
         {!wide && extras}

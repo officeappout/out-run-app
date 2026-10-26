@@ -17,6 +17,8 @@
 import React from 'react';
 import StrengthExerciseCard from './StrengthExerciseCard';
 import RestProgressBar from './RestProgressBar';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import type { ExerciseEntry, BlockStatus } from '../types';
 
 export interface TabataBlockGroupProps {
@@ -48,6 +50,7 @@ export default function TabataBlockGroup({
   formatTime,
   onSaveSet,
 }: TabataBlockGroupProps) {
+  const t = useT(player);
   const isActive = cardStatus === 'active';
   const isCompleted = cardStatus === 'completed';
 
@@ -85,7 +88,7 @@ export default function TabataBlockGroup({
           className="text-xs font-medium text-slate-500 dark:text-slate-400"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          {exercises.length} תרגילים
+          {t('strengthPlayer.groups.count', { n: String(exercises.length) })}
         </span>
       </div>
 

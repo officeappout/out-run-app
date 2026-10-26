@@ -12,7 +12,6 @@ import { home } from '@/messages/ns/home';
 import { onboarding } from '@/messages/ns/onboarding';
 import { makeT } from '../t';
 import { pickGendered, type GenderedText } from '../gender-copy';
-import { SUMMARY_COPY } from '@/features/workout-engine/summary/summary-gender-copy';
 import { FREE_RUN_COPY } from '@/features/parks/core/components/free-run/free-run-gender-copy';
 import { LEAGUE_COPY } from '@/features/arena/components/league-gender-copy';
 import { ARENA_CREATE_COPY } from '@/app/arena/create/arena-create-copy';
@@ -143,7 +142,7 @@ describe('gender batch 2 — catalog keys, three outputs', () => {
 
 describe('gender batch 2 — code copy modules: every entry', () => {
   const modules: Record<string, Record<string, GenderedText>> = {
-    SUMMARY_COPY, FREE_RUN_COPY, LEAGUE_COPY, ARENA_CREATE_COPY,
+    FREE_RUN_COPY, LEAGUE_COPY, ARENA_CREATE_COPY,
   };
   for (const [mod, entries] of Object.entries(modules)) {
     for (const [id, text] of Object.entries(entries)) {
@@ -155,9 +154,7 @@ describe('gender batch 2 — code copy modules: every entry', () => {
     }
   }
 
-  it('pins: summary, free run, league, arena create', () => {
-    expectThree('keepGoing', SUMMARY_COPY.keepGoing, 'כל הכבוד! המשך כך!', 'כל הכבוד! המשיכי כך!', 'כל הכבוד! ככה ממשיכים!');
-    expectThree('claimBonus', SUMMARY_COPY.claimBonus, 'השלם פרופיל וקבל בונוס', 'השלימי פרופיל וקבלי בונוס', 'משלימים פרופיל ומקבלים בונוס');
+  it('pins: free run, league, arena create', () => {
     expectThree('startFree', FREE_RUN_COPY.startFree, 'התחל חופשי', 'התחילי חופשי', 'בלי מסלול');
     expectThree('startToAddress', FREE_RUN_COPY.startToAddress, 'התחל לכתובת הזו', 'התחילי לכתובת הזו', 'יוצאים לכתובת הזו');
     expectThree('compileError', FREE_RUN_COPY.compileError, 'משהו השתבש בהרכבת המסלול. נסה שוב.', 'משהו השתבש בהרכבת המסלול. נסי שוב.', 'משהו השתבש בהרכבת המסלול. נסו שוב.');

@@ -15,6 +15,8 @@ import type { CartRingItem } from '@/components/ui/v2';
 import type { SegmentBars } from '../logic/timed-header';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface TimedHeaderProps {
   bars: SegmentBars;
@@ -33,6 +35,7 @@ export interface TimedHeaderProps {
 
 export default function TimedHeader(p: TimedHeaderProps) {
   const gender = useUiGender();
+  const t = useT(player);
   return (
     <div
       dir="rtl"
@@ -62,7 +65,7 @@ export default function TimedHeader(p: TimedHeaderProps) {
               type="button"
               onClick={p.onInfo}
               className="mb-[3px] inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-extrabold text-v2-deep"
-              aria-label="מה זה הפורמט"
+              aria-label={t('strengthPlayer.timed.header.formatAria')}
             >
               {p.caption}
               <Info size={12} strokeWidth={2.6} aria-hidden />
@@ -88,7 +91,7 @@ export default function TimedHeader(p: TimedHeaderProps) {
                   <rect x="14" y="4" width="4" height="16" rx="1" />
                 </svg>
               )}
-              <span className="text-[12px] font-extrabold text-v2-ink">{p.isPaused ? 'המשך' : 'השהייה'}</span>
+              <span className="text-[12px] font-extrabold text-v2-ink">{p.isPaused ? t('strengthPlayer.timed.header.resume') : t('strengthPlayer.timed.header.pause')}</span>
             </button>
           </div>
         </div>

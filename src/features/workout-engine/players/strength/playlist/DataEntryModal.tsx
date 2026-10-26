@@ -14,6 +14,10 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, RotateCcw, Pause, Play } from 'lucide-react';
 import VerticalWheelPicker from './VerticalWheelPicker';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
+import { common } from '@/messages/ns/common';
+import { unitLabel } from '@/lib/i18n/units';
 
 export interface DataEntryModalProps {
   isOpen: boolean;
@@ -43,6 +47,8 @@ export default function DataEntryModal({
   handleRepetitionSave,
   isUnilateral = false,
 }: DataEntryModalProps) {
+  const t = useT(player);
+  const tc = useT(common);
   // ── Reps state ──────────────────────────────────────────────────────────
   const initialReps = lastSavedReps ?? targetReps ?? 10;
   const [repsValue, setRepsValue] = useState(initialReps);
@@ -117,10 +123,10 @@ export default function DataEntryModal({
   }, [exerciseType, repsValue, repsRight, repsLeft, isUnilateral, minutes, seconds, handleRepetitionSave, onClose]);
 
   const isTime = exerciseType === 'time';
-  const title = isTime ? 'כמה זמן עשית?' : 'כמה חזרות עשית?';
+  const title = isTime ? t('strengthPlayer.dataEntry.title.time') : t('strengthPlayer.dataEntry.title.reps');
   const subtitle = isTime
-    ? 'הכניסו כאן או שעברו לסטופר ונספור עבורכם!'
-    : 'הכניסו כאן את כמות החזרות שביצעת';
+    ? t('strengthPlayer.dataEntry.subtitle.time')
+    : t('strengthPlayer.dataEntry.subtitle.reps');
 
   return (
     <AnimatePresence>
@@ -190,13 +196,13 @@ export default function DataEntryModal({
                     values={SECONDS_RANGE}
                     selectedValue={seconds}
                     onChange={setSeconds}
-                    label="שנ'"
+                    label={t('strengthPlayer.dataEntry.seconds')}
                   />
                   <VerticalWheelPicker
                     values={MINUTES_RANGE}
                     selectedValue={minutes}
                     onChange={setMinutes}
-                    label="דק'"
+                    label={unitLabel('minAscii', tc)}
                   />
                 </div>
               ) : isUnilateral ? (
@@ -206,13 +212,13 @@ export default function DataEntryModal({
                     values={REPS_RANGE}
                     selectedValue={repsLeft}
                     onChange={setRepsLeft}
-                    label="שמאל"
+                    label={t('strengthPlayer.dataEntry.left')}
                   />
                   <VerticalWheelPicker
                     values={REPS_RANGE}
                     selectedValue={repsRight}
                     onChange={setRepsRight}
-                    label="ימין"
+                    label={t('strengthPlayer.dataEntry.right')}
                   />
                 </div>
               ) : (
@@ -248,7 +254,7 @@ export default function DataEntryModal({
                   fontFamily: 'var(--font-simpler)',
                 }}
               >
-                שמירה
+                {t('strengthPlayer.dataEntry.save')}
               </button>
             </div>
           </motion.div>

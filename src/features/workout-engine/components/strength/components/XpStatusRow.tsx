@@ -7,6 +7,8 @@ import { Zap } from 'lucide-react';
 import type { XpStatus } from '../hooks/useXpAward';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * XpStatusRow — Dopamine Chain Step 2 render: elastic XP pulse + shimmer flare.
@@ -39,6 +41,7 @@ export default function XpStatusRow({
   onRetry,
 }: XpStatusRowProps) {
   const uiGender = useUiGender();
+  const t = useT(player);
   return (
     <motion.div
       animate={xpControls}
@@ -56,10 +59,10 @@ export default function XpStatusRow({
         />
         <span className="text-sm text-slate-700 dark:text-slate-200">
           {xpStatus === 'awarded'
-            ? 'XP הושלם'
+            ? t('xpStatus.awarded')
             : xpStatus === 'failed'
-              ? 'שמירת XP נכשלה'
-              : 'מחשב XP...'}
+              ? t('xpStatus.failed')
+              : t('xpStatus.pending')}
         </span>
       </div>
 

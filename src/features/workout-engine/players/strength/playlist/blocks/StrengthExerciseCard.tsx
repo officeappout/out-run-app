@@ -33,6 +33,8 @@ import RestProgressBar from './RestProgressBar';
 import { buildPills, findFirstIncompleteSet } from '../utils/set-status.utils';
 import type { ExerciseEntry } from '../types';
 import ExerciseRowDetails from '../../components/ExerciseRowDetails';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 
@@ -88,6 +90,7 @@ export default function StrengthExerciseCard({
   formatTime,
   onSkipRest,
 }: StrengthExerciseCardProps) {
+  const t = useT(player);
   const isCompleted = entry.status === 'completed';
   const isActive = entry.status === 'active';
 
@@ -125,8 +128,8 @@ export default function StrengthExerciseCard({
   // never fires (e.g. row unmounts mid-animation during a cursor swap).
   useEffect(() => {
     if (pulseSetIdx == null) return;
-    const t = setTimeout(() => setPulseSetIdx(null), 1200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setPulseSetIdx(null), 1200);
+    return () => clearTimeout(timer);
   }, [pulseSetIdx]);
 
   const onAttemptOpen = useCallback(
@@ -345,7 +348,7 @@ export default function StrengthExerciseCard({
                       if (!pill) return null;
 
                       const stepTarget = step.targetHold ?? step.targetReps;
-                      const unit = step.targetHold != null ? 'שניות' : 'חזרות';
+                      const stepUnit = step.targetHold != null ? 'seconds' : 'reps';
                       const stepThumb = step.imageUrl ?? entry.imageUrl ?? null;
 
                       const isPast =
@@ -437,7 +440,7 @@ export default function StrengthExerciseCard({
                                   ].join(' ')}
                                   style={{ fontFamily: 'var(--font-simpler)' }}
                                 >
-                                  {stepTarget != null ? `${stepTarget} ${unit}` : ''}
+                                  {stepTarget != null ? t('strengthPlayer.card.stepTarget', { n: String(stepTarget), unit: stepUnit }) : ''}
                                 </span>
                               </div>
 

@@ -16,6 +16,8 @@
 
 import React from 'react';
 import { SkipForward } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface RestProgressBarProps {
   /** Seconds left in the current rest interval (undefined → bar full). */
@@ -41,6 +43,7 @@ export default function RestProgressBar({
   onSkip,
   className,
 }: RestProgressBarProps) {
+  const t = useT(player);
   const isEnding = restTimeLeft !== undefined && restTimeLeft <= 10;
   const progress =
     restTimeLeft !== undefined
@@ -85,7 +88,7 @@ export default function RestProgressBar({
             className="text-xs text-slate-500"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            מנוחה
+            {t('strengthPlayer.restBar.title')}
           </span>
         </div>
         {onSkip && (
@@ -98,7 +101,7 @@ export default function RestProgressBar({
               className="text-[11px] font-bold text-slate-700"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              דלג
+              {t('strengthPlayer.restBar.skip')}
             </span>
             <SkipForward
               size={13}

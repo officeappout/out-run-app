@@ -19,6 +19,8 @@ import type { ExternalVideo } from '@/features/content/exercises/core/exercise.t
 import { FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED } from '@/config/feature-flags';
 import { extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 import BunnyVideoPlayer from '@/lib/bunny/BunnyVideoPlayer';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -89,6 +91,7 @@ export default function ExerciseVideoPlayer({
   onLoadingChange,
   onVideoElement,
 }: ExerciseVideoPlayerProps) {
+  const t = useT(player);
   const [videoLoading, setVideoLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -322,7 +325,7 @@ export default function ExerciseVideoPlayer({
                 <button
                   onClick={handleRefreshYouTube}
                   className="flex items-center justify-center w-10 h-10 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"
-                  title="רענן סרטון"
+                  title={t('strengthPlayer.video.refresh')}
                 >
                   <RefreshCw size={18} />
                 </button>
@@ -347,12 +350,12 @@ export default function ExerciseVideoPlayer({
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 max-w-sm text-center border border-white/20">
                 <AlertCircle size={48} className="text-yellow-400 mx-auto mb-4" />
                 <h3 className="text-white font-bold text-lg mb-2" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  {iframeError ? 'הסרטון לא נטען' : 'לא הצלחנו לזהות את הסרטון'}
+                  {iframeError ? t('strengthPlayer.video.errorLoad') : t('strengthPlayer.video.errorDetect')}
                 </h3>
                 <p className="text-white/70 text-sm mb-4" style={{ fontFamily: 'var(--font-simpler)' }}>
                   {iframeError 
-                    ? `סרטון YouTube עם ID: ${youtubeVideoId || 'לא ידוע'}`
-                    : `קישור YouTube: ${effectiveVideoUrl.substring(0, 50)}...`
+                    ? t('strengthPlayer.video.idLine', { id: youtubeVideoId || t('strengthPlayer.video.unknownId') })
+                    : t('strengthPlayer.video.linkLine', { url: effectiveVideoUrl.substring(0, 50) })
                   }
                 </p>
                 <div className="flex flex-col gap-2">
@@ -365,7 +368,7 @@ export default function ExerciseVideoPlayer({
                       style={{ fontFamily: 'var(--font-simpler)' }}
                     >
                       <ExternalLink size={18} />
-                      צפה ב-YouTube
+                      {t('strengthPlayer.video.watchYoutube')}
                     </a>
                   )}
                   <button
@@ -374,7 +377,7 @@ export default function ExerciseVideoPlayer({
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
                     <RefreshCw size={18} />
-                    נסה שוב
+                    {t('strengthPlayer.video.retry')}
                   </button>
                 </div>
               </div>
@@ -481,7 +484,7 @@ export default function ExerciseVideoPlayer({
           dir="rtl"
         >
           <GraduationCap size={16} />
-          <span className="text-[13px] font-bold">צפה בהסבר המלא</span>
+          <span className="text-[13px] font-bold">{t('strengthPlayer.video.fullTutorial')}</span>
         </button>
       )}
 
@@ -526,8 +529,8 @@ export default function ExerciseVideoPlayer({
           <button
             onClick={enterFullscreen}
             className="absolute bottom-[236px] left-4 z-[46] inline-flex items-center justify-center w-10 h-10 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"
-            aria-label="מסך מלא"
-            title="מסך מלא"
+            aria-label={t('strengthPlayer.video.fullscreen')}
+            title={t('strengthPlayer.video.fullscreen')}
           >
             <Maximize size={18} />
           </button>
@@ -546,7 +549,7 @@ export default function ExerciseVideoPlayer({
                 size={16}
                 style={{ animation: 'outRotateHint 1.8s ease-in-out infinite' }}
               />
-              <span className="text-[13px] font-bold">סובב לצפייה מלאה</span>
+              <span className="text-[13px] font-bold">{t('strengthPlayer.video.rotateHint')}</span>
             </div>
           </div>
 

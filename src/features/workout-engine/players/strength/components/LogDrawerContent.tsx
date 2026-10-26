@@ -2,6 +2,8 @@
 
 import React from 'react';
 import HorizontalPicker from './HorizontalPicker';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import { deriveCoachHint } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
 /**
@@ -84,6 +86,7 @@ export default function LogDrawerContent({
   onSetCoachHint,
   onSwap,
 }: LogDrawerContentProps) {
+  const t = useT(player);
   const { targetValue, unitType, max, initialValue } = pickerConfig;
   const pickerMin = unitType === 'time' ? 0 : 1;
 
@@ -122,8 +125,8 @@ export default function LogDrawerContent({
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
         {unitType === 'time'
-          ? isUnilateral ? 'כמה שניות לכל צד?' : 'כמה שניות החזקת?'
-          : isUnilateral ? 'כמה חזרות לכל צד?' : 'כמה חזרות הצלחת מהתרגיל הקודם?'}
+          ? isUnilateral ? t('strengthPlayer.logDrawer.prompt.timeSide') : t('strengthPlayer.logDrawer.prompt.time')
+          : isUnilateral ? t('strengthPlayer.logDrawer.prompt.repsSide') : t('strengthPlayer.logDrawer.prompt.reps')}
       </h2>
 
       {!isDrawerStable ? (
@@ -136,7 +139,7 @@ export default function LogDrawerContent({
           <div>
             <div className="flex items-center gap-1.5 justify-center mb-0.5">
               <span className="text-sm">✋</span>
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-simpler)' }}>ימין</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-simpler)' }}>{t('strengthPlayer.logDrawer.right')}</p>
               <span className="text-xs font-semibold text-[#00B4FF]">{repsRight}{unitType === 'time' ? '"' : ''}</span>
             </div>
             <HorizontalPicker
@@ -156,7 +159,7 @@ export default function LogDrawerContent({
           <div>
             <div className="flex items-center gap-1.5 justify-center mb-0.5">
               <span className="text-sm" style={{ transform: 'scaleX(-1)' }}>✋</span>
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-simpler)' }}>שמאל</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-simpler)' }}>{t('strengthPlayer.logDrawer.left')}</p>
               <span className="text-xs font-semibold text-[#00B4FF]">{repsLeft}{unitType === 'time' ? '"' : ''}</span>
             </div>
             <HorizontalPicker
@@ -198,7 +201,7 @@ export default function LogDrawerContent({
           fontFamily: 'var(--font-simpler)',
         }}
       >
-        שמירה ומעבר למנוחה
+        {t('strengthPlayer.logDrawer.save')}
       </button>
 
       {/* Swap button — consistent with Active screen */}
@@ -212,7 +215,7 @@ export default function LogDrawerContent({
             className="text-sm font-bold text-slate-600 dark:text-slate-300"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            החלפת תרגיל
+            {t('strengthPlayer.logDrawer.swap')}
           </span>
         </button>
       )}

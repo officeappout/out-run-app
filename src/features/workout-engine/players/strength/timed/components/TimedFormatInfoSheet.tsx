@@ -8,8 +8,11 @@ import React from 'react';
 import { Sheet, SHEET_Z } from '@/components/ui/v2';
 import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/timed.types';
 import { formatInfo } from '../logic/timed-labels';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export default function TimedFormatInfoSheet({ spec, open, onClose }: { spec: TimedBlockSpec; open: boolean; onClose: () => void }) {
+  const t = useT(player);
   const info = formatInfo(spec);
   return (
     <Sheet
@@ -25,7 +28,7 @@ export default function TimedFormatInfoSheet({ spec, open, onClose }: { spec: Ti
           onClick={onClose}
           className="h-12 w-full whitespace-nowrap rounded-full bg-white text-[16px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
-          הבנתי
+          {t('strengthPlayer.timed.info.gotIt')}
         </button>
       }
     >
