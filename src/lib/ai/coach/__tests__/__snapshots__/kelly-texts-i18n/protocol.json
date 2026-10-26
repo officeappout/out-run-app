@@ -1,0 +1,166 @@
+{
+  "{\"offline\":true}.male": {
+    "title": "אין חיבור",
+    "body": "קלי AI צריך אינטרנט. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"offline\":true}.female": {
+    "title": "אין חיבור",
+    "body": "קלי AI צריך אינטרנט. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"offline\":true}.other": {
+    "title": "אין חיבור",
+    "body": "קלי AI צריך אינטרנט. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"status\":429,\"retryAfterSec\":900}.male": {
+    "title": "הגענו למכסה",
+    "body": "דיברנו המון בשעה האחרונה. אני חוזר לענות בסביבות 13:25. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"status\":429,\"retryAfterSec\":900}.female": {
+    "title": "הגענו למכסה",
+    "body": "דיברנו המון בשעה האחרונה. אני חוזר לענות בסביבות 13:25. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"status\":429,\"retryAfterSec\":900}.other": {
+    "title": "הגענו למכסה",
+    "body": "דיברנו המון בשעה האחרונה. אני חוזר לענות בסביבות 13:25. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"code\":\"rate_limited\"}.male": {
+    "title": "הגענו למכסה",
+    "body": "דיברנו המון היום. אני חוזר לענות בהמשך. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"code\":\"rate_limited\"}.female": {
+    "title": "הגענו למכסה",
+    "body": "דיברנו המון היום. אני חוזר לענות בהמשך. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"code\":\"rate_limited\"}.other": {
+    "title": "הגענו למכסה",
+    "body": "דיברנו המון היום. אני חוזר לענות בהמשך. בינתיים אפשר לבנות אימון בבונה האימונים.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"status\":503}.male": {
+    "title": "קלי AI לא זמין כרגע",
+    "body": "אפשר לבנות אימון בבונה האימונים הרגיל, ולחזור אליי מאוחר יותר.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"status\":503}.female": {
+    "title": "קלי AI לא זמין כרגע",
+    "body": "אפשר לבנות אימון בבונה האימונים הרגיל, ולחזור אליי מאוחר יותר.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"status\":503}.other": {
+    "title": "קלי AI לא זמין כרגע",
+    "body": "אפשר לבנות אימון בבונה האימונים הרגיל, ולחזור אליי מאוחר יותר.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"code\":\"over_budget\"}.male": {
+    "title": "קלי AI לא זמין כרגע",
+    "body": "אפשר לבנות אימון בבונה האימונים הרגיל, ולחזור אליי מאוחר יותר.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"code\":\"over_budget\"}.female": {
+    "title": "קלי AI לא זמין כרגע",
+    "body": "אפשר לבנות אימון בבונה האימונים הרגיל, ולחזור אליי מאוחר יותר.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"code\":\"over_budget\"}.other": {
+    "title": "קלי AI לא זמין כרגע",
+    "body": "אפשר לבנות אימון בבונה האימונים הרגיל, ולחזור אליי מאוחר יותר.",
+    "offerBuilder": true,
+    "retryable": true
+  },
+  "{\"status\":403}.male": {
+    "title": "קלי AI עוד לא פתוח כאן",
+    "body": "הגישה לקלי AI עדיין לא פתוחה לחשבון הזה.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"status\":403}.female": {
+    "title": "קלי AI עוד לא פתוח כאן",
+    "body": "הגישה לקלי AI עדיין לא פתוחה לחשבון הזה.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"status\":403}.other": {
+    "title": "קלי AI עוד לא פתוח כאן",
+    "body": "הגישה לקלי AI עדיין לא פתוחה לחשבון הזה.",
+    "offerBuilder": true,
+    "retryable": false
+  },
+  "{\"status\":401}.male": {
+    "title": "צריך להתחבר מחדש",
+    "body": "החיבור לחשבון פג. אחרי התחברות נמשיך מאותה נקודה.",
+    "offerBuilder": false,
+    "retryable": false
+  },
+  "{\"status\":401}.female": {
+    "title": "צריך להתחבר מחדש",
+    "body": "החיבור לחשבון פג. אחרי התחברות נמשיך מאותה נקודה.",
+    "offerBuilder": false,
+    "retryable": false
+  },
+  "{\"status\":401}.other": {
+    "title": "צריך להתחבר מחדש",
+    "body": "החיבור לחשבון פג. אחרי התחברות נמשיך מאותה נקודה.",
+    "offerBuilder": false,
+    "retryable": false
+  },
+  "{\"status\":500}.male": {
+    "title": "משהו השתבש",
+    "body": "נסה שוב בעוד רגע.",
+    "offerBuilder": false,
+    "retryable": true
+  },
+  "{\"status\":500}.female": {
+    "title": "משהו השתבש",
+    "body": "נסי שוב בעוד רגע.",
+    "offerBuilder": false,
+    "retryable": true
+  },
+  "{\"status\":500}.other": {
+    "title": "משהו השתבש",
+    "body": "אפשר לנסות שוב בעוד רגע.",
+    "offerBuilder": false,
+    "retryable": true
+  },
+  "{}.male": {
+    "title": "משהו השתבש",
+    "body": "נסה שוב בעוד רגע.",
+    "offerBuilder": false,
+    "retryable": true
+  },
+  "{}.female": {
+    "title": "משהו השתבש",
+    "body": "נסי שוב בעוד רגע.",
+    "offerBuilder": false,
+    "retryable": true
+  },
+  "{}.other": {
+    "title": "משהו השתבש",
+    "body": "אפשר לנסות שוב בעוד רגע.",
+    "offerBuilder": false,
+    "retryable": true
+  },
+  "cardLabel1": "אימון בטן · 25 דק׳ · תרגיל אחד",
+  "cardLabel6": "אימון בטן · 25 דק׳ · 6 תרגילים"
+}

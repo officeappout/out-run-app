@@ -1,0 +1,110 @@
+{
+  "buildToday": {
+    "id": "build_today",
+    "label": "תבנה לי את האימון של היום"
+  },
+  "shortHome": {
+    "id": "short_home",
+    "label": "תבנה לי אימון קצר בבית"
+  },
+  "quick15": {
+    "id": "quick_15",
+    "label": "תבנה לי אימון של 15 דק׳"
+  },
+  "firstWorkout": {
+    "id": "first_workout",
+    "label": "תבנה לי אימון ראשון קצר"
+  },
+  "howAppWorks": {
+    "id": "how_app_works",
+    "label": "איך האפליקציה עובדת?"
+  },
+  "week": {
+    "id": "week",
+    "label": "מה בתוכנית השבוע?"
+  },
+  "tomorrow": {
+    "id": "tomorrow",
+    "label": "מה מחכה לי מחר?"
+  },
+  "returnLight": {
+    "id": "return_light",
+    "label": "תבנה לי אימון חזרה קל"
+  },
+  "returnWhere": {
+    "id": "return_where",
+    "label": "חזרתי אחרי הפסקה, מאיפה מתחילים?"
+  },
+  "moveDay": {
+    "id": "move_day",
+    "label": "אפשר להזיז אימון ליום אחר?"
+  },
+  "team": {
+    "id": "team",
+    "label": "לדבר עם הצוות",
+    "message": "אני רוצה לדבר עם מישהו מהצוות"
+  },
+  "progress.male": {
+    "id": "progress",
+    "label": "איך אני מתקדם?"
+  },
+  "progress.female": {
+    "id": "progress",
+    "label": "איך אני מתקדמת?"
+  },
+  "progress.other": {
+    "id": "progress",
+    "label": "איך ההתקדמות שלי?"
+  },
+  "tiredSkip.male": {
+    "id": "tired_skip",
+    "label": "אני עייף, כדאי לדלג היום?"
+  },
+  "tiredSkip.female": {
+    "id": "tired_skip",
+    "label": "אני עייפה, כדאי לדלג היום?"
+  },
+  "tiredSkip.other": {
+    "id": "tired_skip",
+    "label": "אין לי כוח היום, כדאי לדלג?"
+  },
+  "levelCheck": {
+    "id": "level_check",
+    "label": "מה זה בדיקת רמה בליבה?"
+  },
+  "rain": {
+    "id": "weather_rain",
+    "label": "יורד גשם, תבנה לי אימון בבית"
+  },
+  "heat": {
+    "id": "weather_heat",
+    "label": "חם בחוץ, תבנה לי אימון קצר בבית"
+  },
+  "cold": {
+    "id": "weather_cold",
+    "label": "קר בחוץ, תבנה לי אימון בבית"
+  },
+  "start": {
+    "id": "start",
+    "label": "להתחיל",
+    "openCard": true
+  },
+  "shorter": {
+    "id": "shorter",
+    "label": "קצר יותר",
+    "message": "תבנה אותו קצר יותר"
+  },
+  "noBar": {
+    "id": "no_bar",
+    "label": "בלי מתח",
+    "message": "תבנה אותו בלי מתח"
+  },
+  "easier": {
+    "id": "easier",
+    "label": "קל יותר",
+    "message": "תבנה אותו קל יותר"
+  },
+  "tryPrefix.male": "נסה: ",
+  "tryPrefix.female": "נסי: ",
+  "tryPrefix.other": "אפשר לנסות: "
+}
