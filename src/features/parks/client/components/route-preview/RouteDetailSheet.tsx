@@ -14,7 +14,6 @@ import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
 import { routeDataCredits } from '@/features/parks/core/services/route-attribution';
 import {
   useCommunityEnrichment,
-  matchesDayFilter,
   type DayFilter,
   type SessionEnrichment,
 } from '@/features/parks/core/hooks/useCommunityEnrichment';
@@ -48,6 +47,11 @@ import dynamic from 'next/dynamic';
 import { usePlaceWorkoutsFlag } from '../place-workouts/hooks/usePlaceWorkoutsFlag';
 import ParkPulseSection from '../park-detail/sections/ParkPulseSection';
 import ArrivalPublishPanel from '../park-detail/sections/ArrivalPublishPanel';
+import { usePartnerPlaceShares } from '../park-detail/hooks/usePartnerParkShares';
+import { useCancelOwnArrival } from '../park-detail/hooks/useCancelOwnArrival';
+import { filterVisibleParkEvents } from '../park-detail/utils/park-detail-logic';
+import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
+import { mergeRouteSessions } from './route-sessions';
 
 // enable_place_workouts_v1 — loaded only when the flag is on (flag off: nothing imported, nothing read).
 const RoutePlaceChips = dynamic(() => import('../place-workouts/RoutePlaceChips'), { ssr: false });
@@ -286,37 +290,25 @@ export default function RouteDetailSheet({
     return enrichRoutes([route])[0] ?? null;
   }, [route, enrichRoutes]);
 
+  // enable_where_to_train_v1 (with the park page's "מתאמנים כאן", enable_place_workouts_v1): mutual
+  // partners' shares for this route join the list; my own row gets its workout title + ביטול.
+  const whereToTrainOn = useWhereToTrainV1();
+  const partnerRowsOn = isOpen && placeOn && whereToTrainOn;
+  const partnerShares = usePartnerPlaceShares(partnerRowsOn, 'route', route?.id);
+  const ownCancel = useCancelOwnArrival();
+
+  // Live → linked prop → optimistic → partners; duplicates (same id, or same user + start) dropped.
   const allSessions = useMemo(() => {
     if (!route) return [];
-    const fromMap = allSessionsMap.get(route.id) ?? [];
-    const fromProp = route.linkedSessions?.eventId
-      ? [route.linkedSessions as SessionEnrichment]
-      : [];
-    const merged = [...fromMap];
-    for (const s of fromProp) {
-      if (!merged.some((m) => m.eventId === s.eventId)) merged.push(s);
-    }
-    // Merge optimistic locally-published sessions; skip if Firestore already returned them.
-    for (const s of localSessions) {
-      if (!merged.some((m) => m.eventId === s.eventId)) merged.push(s);
-    }
-    merged.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
-    return merged;
-  }, [route, allSessionsMap, localSessions]);
+    const fromProp = route.linkedSessions?.eventId ? [route.linkedSessions as SessionEnrichment] : [];
+    const merged = mergeRouteSessions(allSessionsMap.get(route.id) ?? [], fromProp, localSessions, partnerShares);
+    return ownCancel.cancelledIds.size ? merged.filter((s) => !ownCancel.cancelledIds.has(s.eventId)) : merged;
+  }, [route, allSessionsMap, localSessions, partnerShares, ownCancel.cancelledIds]);
 
+  // Squad-only arrivals don't belong on a public route page — except my own and a partner's
+  // server-vetted share (same rule as the park page).
   const filteredSessions = useMemo(
-    () => allSessions.filter((s) => {
-      if (!matchesDayFilter(s.nextStartTime, dayFilter)) return false;
-      // Squad-only arrivals don't belong on a public route page — but the
-      // publisher must still see their own, or a publish would look like
-      // it silently vanished. Organized events/groups have no privacy
-      // concept and are unaffected (isPersonalArrival is unset for them).
-      if (s.isPersonalArrival) {
-        const isOwn = s.avatars?.[0]?.uid === auth.currentUser?.uid;
-        return s.privacyMode === 'verified_global' || isOwn;
-      }
-      return true;
-    }),
+    () => filterVisibleParkEvents(allSessions, dayFilter, auth.currentUser?.uid),
     [allSessions, dayFilter],
   );
 
@@ -631,6 +623,7 @@ export default function RouteDetailSheet({
                       isUserRegistered={isUserRegistered}
                       onJoin={handleJoinEvent}
                       onOpenProfile={setProfileUser}
+                      ownArrivalActions={partnerRowsOn ? { onCancel: ownCancel.cancel, cancellingId: ownCancel.cancellingId } : undefined}
                       publishPanel={
                         <ArrivalPublishPanel
                           v2
