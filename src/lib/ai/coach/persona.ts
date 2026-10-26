@@ -142,7 +142,7 @@ export interface SessionContextInput {
  * prompt as before; it overrides the stable prompt's "can't build Tabata / EMOM" lines for these two.
  */
 export const WORKOUT_FORMAT_NOTE =
-  "- Set schemes: generate_workout now takes an optional format. EMOM: pass format 'emom' when the user asks for EMOM (any area). Tabata: pass format 'tabata' ONLY when the user asks for Tabata for the abs / core (domains [\"core\"]). A full-body or any other Tabata does not exist yet: say so in one short sentence and offer an abs Tabata or a regular short workout. AMRAP, a pyramid and other schemes still can't be requested. After building, say what the card really is (read the result); if the notes say the format was not built, say that plainly.";
+  "- Set schemes (this supersedes any earlier line that says EMOM or Tabata can't be requested): generate_workout now takes an optional format. EMOM: pass format 'emom' when the user asks for EMOM (any area). Tabata: pass format 'tabata' ONLY when the user asks for Tabata for the abs / core (domains [\"core\"]). A full-body or any other Tabata does not exist yet: say so in one short sentence and offer an abs Tabata or a regular short workout. AMRAP, a pyramid and other schemes still can't be requested. After building, say what the card really is (read the result); if the notes say the format was not built, say that plainly.";
 
 /**
  * Session note while ai_coach_request_fidelity is on (owner chat review 18-23.10.2026). After the

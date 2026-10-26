@@ -7,6 +7,13 @@ import { FLAG_DEFS } from '@/hooks/feature-flag-defs';
 
 const SUPER_ADMIN_VALUE = FLAG_DEFS.find((d) => d.key === 'aiCoachWorkoutFormat')?.superAdminValue === true;
 
+/** Flag off: a `format` the model sent anyway never reaches the device or the engine. */
+export function stripFormatUnlessOn<T extends { format?: unknown }>(input: T, on: boolean): T {
+  if (on || !('format' in input)) return input;
+  const { format: _format, ...rest } = input;
+  return rest as T;
+}
+
 export function workoutFormatFor(flags: { aiCoachWorkoutFormat?: boolean } | null | undefined, isSuperAdmin: boolean | null | undefined): boolean {
   if (isSuperAdmin === true) return SUPER_ADMIN_VALUE;
   return flags?.aiCoachWorkoutFormat === true;

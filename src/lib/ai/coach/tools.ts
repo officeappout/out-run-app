@@ -451,6 +451,9 @@ export const WorkoutToolResultSchema = z.object({
   levelCeiling: z.boolean().optional(),
   /** Fewer main exercises than the short-session minimum were available. */
   shortOfMinimum: z.boolean().optional(),
+  /** ai_coach_workout_format: the scheme the model asked the engine for, and whether it was really built. */
+  formatRequested: z.enum(['emom', 'tabata']).optional(),
+  formatBuilt: z.boolean().optional(),
   /** Budget light mode: the strength set budget is spent (this week / today), so the engine made it lighter. */
   budgetLight: z.enum(['weekly_spent', 'daily_spent']).optional(),
   decisionRecord: DecisionRecordLoose.optional(),

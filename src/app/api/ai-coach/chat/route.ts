@@ -20,7 +20,7 @@
  * the fixed safety reply. Without unified Kelly the denial is returned as before (the screen
  * shows its error card).
  */
-import { workoutFormatFor } from '@/lib/ai/coach/workout-format-gate';
+import { stripFormatUnlessOn, workoutFormatFor } from '@/lib/ai/coach/workout-format-gate';
 import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import type { AiDenial } from '@/lib/ai/verify-ai-request.server';
@@ -476,7 +476,7 @@ export async function POST(request: Request) {
               // location, minutes, intensity), then gear the user doesn't own is dropped.
               const { input: intended, changes } = applyUserIntent(GenerateWorkoutInput.parse(input), turnUserText(turnState));
               if (changes.length) turnState.log?.guards.push({ type: 'intent_mapping', action: changes.join('; ') });
-              return sanitizeWorkoutEquipment(intended, profile.equipment);
+              return sanitizeWorkoutEquipment(stripFormatUnlessOn(intended, workoutFormat), profile.equipment);
             },
           },
         );

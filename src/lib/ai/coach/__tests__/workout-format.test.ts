@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { coachToolDefinitions, validateToolInput } from '../tools';
-import { workoutFormatFor } from '../workout-format-gate';
+import { stripFormatUnlessOn, workoutFormatFor } from '../workout-format-gate';
+import { clientOutcomeToToolResult } from '../turn-engine';
 import { buildSessionContext, WORKOUT_FORMAT_NOTE } from '../persona';
 import { FLAG_DEFS } from '@/hooks/feature-flag-defs';
 import { buildGenerateOptions, compactWorkout, effectiveFormat } from '@/features/ai-coach/services/workout-tool.pure';
@@ -79,5 +80,35 @@ describe('result + prompt', () => {
     const i = { sheet: null, typoHints: [], scheduleAdvisor: false } as never;
     expect(buildSessionContext(i)).not.toContain(WORKOUT_FORMAT_NOTE);
     expect(buildSessionContext({ ...(i as object), workoutFormat: true } as never)).toContain(WORKOUT_FORMAT_NOTE);
+  });
+});
+
+describe('flag off: a stray format never reaches the engine', () => {
+  it('strips format when off, keeps it when on, never mutates', () => {
+    const input = { ...base, format: 'emom' };
+    expect(stripFormatUnlessOn(input, false)).not.toHaveProperty('format');
+    expect(input).toHaveProperty('format', 'emom');
+    expect(stripFormatUnlessOn(input, true)).toBe(input);
+    const plain = { ...base };
+    expect(stripFormatUnlessOn(plain, false)).toBe(plain);
+  });
+});
+
+describe('honesty when the scheme was not built', () => {
+  const outcome = (extra: object) => ({ ok: true as const, result: { workoutId: 'w', title: 't', minutes: 10, location: 'home', exercises: [], ...extra } });
+  const notes = (extra: object) => JSON.parse(String(clientOutcomeToToolResult('id', outcome(extra) as never).content)).notesForCoach as string[] | undefined;
+  it('requested but not built → a plain note; built or no format → none', () => {
+    expect(notes({ formatRequested: 'tabata', formatBuilt: false })?.join(' ')).toMatch(/core Tabata.*could not build.*never call this workout Tabata/);
+    expect(notes({ formatRequested: 'emom', formatBuilt: false })?.join(' ')).toMatch(/EMOM/);
+    expect(notes({ formatRequested: 'emom', formatBuilt: true })).toBeUndefined();
+    expect(notes({})).toBeUndefined();
+  });
+  it('compactWorkout flags built / not built', () => {
+    const dd = { methodName: () => '', gearLabels: () => [], area: () => null, requestedMinutes: 10, domains: ['core'], difficulty: 3 };
+    const w = (o: object) => ({ title: 't', estimatedDuration: 12, structure: 'standard', exercises: [], ...o }) as never;
+    expect(compactWorkout('i', 'home', w({ tabataBlock: {} }), () => 'x', { ...dd, format: 'tabata' })).toMatchObject({ formatRequested: 'tabata', formatBuilt: true });
+    expect(compactWorkout('i', 'home', w({}), () => 'x', { ...dd, format: 'tabata' })).toMatchObject({ formatBuilt: false });
+    expect(compactWorkout('i', 'home', w({ structure: 'emom' }), () => 'x', { ...dd, format: 'emom' })).toMatchObject({ formatBuilt: true });
+    expect(compactWorkout('i', 'home', w({}), () => 'x', { ...dd })).not.toHaveProperty('formatRequested');
   });
 });

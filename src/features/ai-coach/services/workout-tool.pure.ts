@@ -148,6 +148,11 @@ export function compactWorkout(
     out.structure = String(workout.structure ?? 'standard').slice(0, 20);
     // Only while the format flag is on: a core Tabata block is reported as the scheme that was built.
     if (details.format && workout.tabataBlock) out.structure = 'tabata';
+    if (details.format) {
+      const protocol = (workout.decisionRecord as { expect?: { protocol?: unknown } } | undefined)?.expect?.protocol;
+      out.formatRequested = details.format;
+      out.formatBuilt = details.format === 'tabata' ? !!workout.tabataBlock : out.structure === 'emom' || protocol === 'emom';
+    }
     out.warmupCount = workout.exercises.filter((e) => e.exerciseRole === 'warmup').length;
     out.cooldownCount = workout.exercises.filter((e) => e.exerciseRole === 'cooldown').length;
     out.levelCeiling = hasLevelCeiling(workout);
