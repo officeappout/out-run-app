@@ -26,15 +26,11 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 
 /**
  * Explicit blocklist for test docs whose name may get "fixed" before their content is.
- * ETMVVSpt0lIpeF3mkEn6 — "מתיחות פלג גוף עליון לבדיקה" (the only cooldown-role doc).
- * k10Af7WEV0qDqx8PY7xQ — "חימום פלג גוף עליון לבדיקה" (the only warmup-role doc;
- *   draft description/goal copy — see warmup.service's former KNOWN_PLACEHOLDER_EXERCISE_IDS).
  * Remove an id only once its doc has real copy AND a non-test name.
+ * (26.10.2026: the warm-up k10Af7WEV0qDqx8PY7xQ and cool-down ETMVVSpt0lIpeF3mkEn6 videos were
+ * renamed by the owner and came off this list.)
  */
-export const KNOWN_TEST_EXERCISE_IDS: ReadonlySet<string> = new Set([
-  'ETMVVSpt0lIpeF3mkEn6',
-  'k10Af7WEV0qDqx8PY7xQ',
-]);
+export const KNOWN_TEST_EXERCISE_IDS: ReadonlySet<string> = new Set<string>([]);
 
 const TEST_NAME_RE = /לבדיקה|בדיקה|טסט|\btest\b|copy of|העתק/i;
 

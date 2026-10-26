@@ -15,9 +15,9 @@ import type { GeneratedWorkout, WorkoutExercise } from '../logic/workout-generat
 const ex = (id: string, he: string, extra: Record<string, unknown> = {}) => ({ id, name: { he, en: '' }, ...extra }) as any;
 
 describe('H5 — isTestOrPlaceholderExercise', () => {
-  it('flags the two known test docs by id, whatever their name', () => {
-    expect(isTestOrPlaceholderExercise(ex('ETMVVSpt0lIpeF3mkEn6', 'מתיחות'))).toBe(true);
-    expect(isTestOrPlaceholderExercise(ex('k10Af7WEV0qDqx8PY7xQ', 'חימום'))).toBe(true);
+  it('lets the renamed warm-up / cool-down videos through (owner fixed their names 26.10)', () => {
+    expect(isTestOrPlaceholderExercise(ex('ETMVVSpt0lIpeF3mkEn6', 'מתיחות פלג גוף עליון'))).toBe(false);
+    expect(isTestOrPlaceholderExercise(ex('k10Af7WEV0qDqx8PY7xQ', 'חימום פלג גוף עליון'))).toBe(false);
   });
   it('flags test / copy markers in the display name', () => {
     for (const he of ['מתיחות פלג גוף עליון לבדיקה', 'סרטון בדיקה', 'טסט', 'push test', 'Copy of מתח', 'העתק של מתח']) {
