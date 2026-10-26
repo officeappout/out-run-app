@@ -53,6 +53,7 @@ function fakeDb(opts: { flag?: boolean; sessions?: Record<string, Record<string,
   const sessions = opts.sessions ?? {};
   const markers = new Map<string, { data: Record<string, unknown>; v: number }>();
   const reads = { sessions: 0 };
+  const ctl = { failUpdates: false, allowUpdates: Infinity };
   let clock = 0;
   const markerRef = (id: string) => ({
     id,
@@ -62,6 +63,8 @@ function fakeDb(opts: { flag?: boolean; sessions?: Record<string, Record<string,
       markers.set(id, { data: { ...data }, v: ++clock });
     },
     update: async (patch: Record<string, unknown>, pre?: { lastUpdateTime?: number }) => {
+      if (ctl.allowUpdates-- <= 0) ctl.failUpdates = true;
+      if (ctl.failUpdates) throw Object.assign(new Error('unavailable'), { code: 14 });
       const m = markers.get(id);
       if (!m) throw Object.assign(new Error('missing'), { code: 5 });
       if (pre?.lastUpdateTime !== undefined && pre.lastUpdateTime !== m.v) throw Object.assign(new Error('pre'), { code: 9 });
@@ -114,7 +117,7 @@ function fakeDb(opts: { flag?: boolean; sessions?: Record<string, Record<string,
       };
     },
   };
-  return { db: db as never, sessions, markers, reads };
+  return { db: db as never, sessions, markers, reads, ctl };
 }
 
 beforeEach(() => {
@@ -138,6 +141,8 @@ describe('pure helpers', () => {
     expect(deferredVerdict(m, session({ startTime: ts(START + 60 * MIN) }), START - 5 * MIN, false))
       .toMatchObject({ action: 'drop', reason: 'time_changed' });
     expect(deferredVerdict(m, undefined, START - 5 * MIN, false)).toMatchObject({ action: 'drop', reason: 'session_gone' });
+    expect(deferredVerdict(m, session(), START - 3 * MIN, false)).toEqual({ action: 'send' });
+    expect(deferredVerdict(m, session(), START - 3 * MIN + 1, false)).toMatchObject({ action: 'drop', reason: 'too_late' });
   });
   it('partner: future + planned + still shared with partners + still a mutual partner', () => {
     const p = { ...m, kind: 'partner' as const, uid: 'a' };
@@ -196,6 +201,44 @@ describe('owner reminder: quiet hours → deferred → retried', () => {
     expect(await runTrainingHereDeferredPass(db, START - 7 * MIN)).toBe(0);
     expect(sendPush).toHaveBeenCalledTimes(1);
     expect(markers.get(marker)!.data.droppedReason).toBe('not_planned');
+  });
+
+  it('retried with < 3 minutes left → dropped as too late, no push', async () => {
+    const { db, markers } = fakeDb({ sessions: { s1: session() } });
+    nextResult = QUIET;
+    await runTrainingHereReminderPass(db, START - 7 * MIN); // deferred until START - 2
+    nextResult = DELIVERED;
+    expect(await runTrainingHereDeferredPass(db, START - 2 * MIN)).toBe(0);
+    expect(sendPush).toHaveBeenCalledTimes(1);
+    expect(markers.get(marker)!.data.droppedReason).toBe('too_late');
+  });
+
+  it('settled before the send: a write failing after a successful send never re-sends', async () => {
+    const { db, markers, ctl } = fakeDb({ sessions: { s1: session() } });
+    nextResult = QUIET;
+    await runTrainingHereReminderPass(db, START - 12 * MIN);
+    nextResult = DELIVERED;
+    sendPush.mockImplementationOnce(async () => {
+      expect(markers.get(marker)!.data.deferredUntil).toBeUndefined(); // no longer deferred while sending
+      ctl.failUpdates = true; // every write from here on fails
+      return DELIVERED;
+    });
+    expect(await runTrainingHereDeferredPass(db, START - 7 * MIN)).toBe(1);
+    ctl.failUpdates = false;
+    expect(await runTrainingHereDeferredPass(db, START - 4 * MIN)).toBe(0);
+    expect(await runTrainingHereDeferredPass(db, START + 30 * MIN)).toBe(0);
+    expect(sendPush).toHaveBeenCalledTimes(2);
+  });
+
+  it('settle failing before the send: nothing is sent (a lost push, never a duplicate)', async () => {
+    const { db, ctl } = fakeDb({ sessions: { s1: session() } });
+    nextResult = QUIET;
+    await runTrainingHereReminderPass(db, START - 12 * MIN);
+    sendPush.mockClear();
+    nextResult = DELIVERED;
+    ctl.allowUpdates = 1; // the lease succeeds, the settle write fails
+    expect(await runTrainingHereDeferredPass(db, START - 7 * MIN)).toBe(0);
+    expect(sendPush).not.toHaveBeenCalled();
   });
 
   it('a lease taken by another tick is not sent twice', async () => {

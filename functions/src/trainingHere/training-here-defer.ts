@@ -20,6 +20,8 @@ export type TrainingHereMarkerKind = 'reminder' | 'partner';
  * the start, so it re-tries every tick (5 min); a partner notice can wait out a whole night, so less often.
  */
 export const TH_DEFER_RETRY_MIN: Record<TrainingHereMarkerKind, number> = { reminder: 5, partner: 15 };
+/** A retried owner reminder with less than this left before the start is dropped (too late to help). */
+export const TH_DEFER_REMINDER_FLOOR_MIN = 3;
 /** Deferred markers read per scheduler tick. */
 export const TH_DEFER_BATCH = 50;
 
@@ -62,7 +64,8 @@ export type DeferredVerdict = { action: 'send' } | { action: 'drop'; reason: str
 
 /**
  * Is a deferred push still worth sending, against the session AS IT IS NOW?
- *   - owner reminder: still planned, same owner, same start time, and not started yet.
+ *   - owner reminder: still planned, same owner, same start time, and at least
+ *     TH_DEFER_REMINDER_FLOOR_MIN minutes before the start.
  *   - partner notice: still planned, still in the future, still shared with partners / public, and
  *     the recipient is still a mutual partner (`stillPartner`, ignored for reminders).
  */
@@ -79,6 +82,7 @@ export function deferredVerdict(
   if (m.kind === 'reminder') {
     if (String(s.userId ?? '') !== m.uid) return { action: 'drop', reason: 'owner_changed' };
     if (start !== m.startMs) return { action: 'drop', reason: 'time_changed' };
+    if (start - nowMs < TH_DEFER_REMINDER_FLOOR_MIN * MIN_MS) return { action: 'drop', reason: 'too_late' };
     return { action: 'send' };
   }
   if (!audienceReachesPartners(s.privacyMode)) return { action: 'drop', reason: 'audience' };

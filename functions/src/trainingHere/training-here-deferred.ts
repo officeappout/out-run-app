@@ -20,6 +20,7 @@ import {
   suppressedByWindow,
   type TrainingHereMarkerMeta,
 } from './training-here-defer';
+import { deferMarker } from './training-here-markers';
 import { deliverOwnerReminder, deliverPartnerNotice, trainingHereEnabled } from './send-training-here-push';
 
 type MarkerDoc = admin.firestore.QueryDocumentSnapshot;
@@ -37,7 +38,7 @@ async function lease(doc: MarkerDoc, m: TrainingHereMarkerMeta, nowMs: number): 
   }
 }
 
-/** Done (sent or dropped): the marker stays (still the once-only guard), just no longer deferred. */
+/** Done (sending now, or dropped): the marker stays (still the once-only guard), just no longer deferred. */
 async function settle(doc: MarkerDoc, outcome: Record<string, unknown>): Promise<void> {
   await doc.ref.update({ deferredUntil: admin.firestore.FieldValue.delete(), ...outcome });
 }
@@ -57,16 +58,21 @@ async function retryOne(db: admin.firestore.Firestore, doc: MarkerDoc, m: Traini
     await settle(doc, { droppedReason: verdict.reason });
     return false;
   }
+  // Settle BEFORE sending: if anything fails after this point the push is lost, never sent twice.
+  await settle(doc, { retriedAt: admin.firestore.FieldValue.serverTimestamp() });
   const session = s as PlannedSessionLike;
   const result = m.kind === 'reminder'
     ? await deliverOwnerReminder(m.sessionId, session)
     : await deliverPartnerNotice(m.sessionId, session, m.uid, await loadPushSubjectGender(owner));
   if (!result) {
-    await settle(doc, { droppedReason: 'no_copy' });
+    await doc.ref.update({ droppedReason: 'no_copy' }).catch(() => undefined);
     return false;
   }
-  if (suppressedByWindow(result)) return false; // still quiet / Shabbat: the lease already moved deferredUntil
-  await settle(doc, { retriedAt: admin.firestore.FieldValue.serverTimestamp() });
+  const held = suppressedByWindow(result);
+  if (held) {
+    await deferMarker(db, doc.id, m.kind, held, nowMs); // still quiet / Shabbat: try again later
+    return false;
+  }
   return true;
 }
 
