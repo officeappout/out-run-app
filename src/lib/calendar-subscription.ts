@@ -3,7 +3,8 @@
 /**
  * Calendar subscription (SEC-04 token feed) — the "סנכרון ליומן" action,
  * shared by the home schedule (classic) and Settings (home v2 moved it there,
- * owner's review 17.10.2026). Extracted from SmartWeeklySchedule unchanged.
+ * owner's review 17.10.2026), and the signup schedule switches (pilot P17).
+ * Extracted from SmartWeeklySchedule; lives in lib because onboarding uses it too.
  *
  * The token path is fetched once per user up front so the tap handler stays
  * synchronous — an await before window.open / location.href loses the user
@@ -53,17 +54,37 @@ export function useCalendarFeedPath(userId: string | null | undefined): string |
   return path;
 }
 
+export type CalendarPlatform = 'ios' | 'android' | 'web';
+
+/**
+ * Where the subscription opens: iOS takes webcal:// natively, Android has no webcal
+ * handler (Google Calendar's subscribe URL instead), the web navigates to webcal://.
+ */
+export function calendarSubscriptionUrl(platform: CalendarPlatform, feedHost: string, feedPath: string): string {
+  const webcalUrl = `webcal://${feedHost}${feedPath}`;
+  return platform === 'android'
+    ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}`
+    : webcalUrl;
+}
+
 /** Open the subscription in the platform's calendar (synchronous — keep it in the tap). */
 export function openCalendarSubscription(feedPath: string): void {
   const w = window as unknown as { Capacitor?: { getPlatform?: () => string } };
-  const platform = w.Capacitor?.getPlatform?.() ?? 'web';
+  const raw = w.Capacitor?.getPlatform?.() ?? 'web';
+  const platform: CalendarPlatform = raw === 'ios' || raw === 'android' ? raw : 'web';
   const feedHost = platform !== 'web' ? APP_CONFIG_LINKS.WEB_BASE_URL.replace('https://', '') : window.location.host;
-  const webcalUrl = `webcal://${feedHost}${feedPath}`;
-  if (platform === 'android') {
-    window.open(`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}`, '_system');
-  } else if (platform === 'ios') {
-    window.open(webcalUrl, '_system');
-  } else {
-    window.location.href = webcalUrl;
-  }
+  const url = calendarSubscriptionUrl(platform, feedHost, feedPath);
+  if (platform === 'web') window.location.href = url;
+  else window.open(url, '_system');
+}
+
+/**
+ * A "sync to calendar" switch (pilot P17): turning it ON opens the subscription right in
+ * the tap, so the switch does what it says instead of only saving a preference. Returns
+ * whether it opened (false while the feed path is still loading, or when turning OFF).
+ */
+export function openCalendarOnSwitchOn(nextOn: boolean, feedPath: string | null, open: (path: string) => void = openCalendarSubscription): boolean {
+  if (!nextOn || !feedPath) return false;
+  open(feedPath);
+  return true;
 }
