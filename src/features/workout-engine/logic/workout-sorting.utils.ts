@@ -226,6 +226,8 @@ export function applyDomainPrioritySort(exercises: WorkoutExercise[]): WorkoutEx
       const ga = a.we.isGeneralWarmup === true;
       const gb = b.we.isGeneralWarmup === true;
       if (ga !== gb) return ga ? -1 : 1;
+      // Two guide videos (full-body workout: upper/general, then lower) keep their order.
+      if (ga && gb) return a.i - b.i;
 
       // ── SUPREME PROTOCOL GATE — pyramid absolute precedence ─────────────
       // Within the main block, an exercise stamped with a pyramid protocol

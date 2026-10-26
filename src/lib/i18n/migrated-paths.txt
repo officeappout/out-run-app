@@ -284,6 +284,8 @@ src/features/user/onboarding/components/walking-v2/
 src/features/user/onboarding/components/add-track/
 src/features/user/onboarding/components/entry-whatnow/
 src/features/user/onboarding/components/program-path/
+# strength questionnaire v3 (enable_strength_quiz_v3, keys quizV3.*): the new screens folder.
+src/features/user/onboarding/components/strength-quiz-v3/
 # wave 2 batch t (namespace onboarding, keys bridge.* / welcome.* / healthConnect.* / resultLoading.* / jit.* /
 # health.* / identity.* / lifestyle.* / result.* / dynamic.* / wizard.* / layout.* / personaDrawer.* /
 # hierarchy.* / signaturePad.*) — the remaining live onboarding screens, one file each (the folder still holds

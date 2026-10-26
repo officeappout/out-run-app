@@ -71,32 +71,20 @@ import {
 import { genderArg } from '@/lib/i18n/core/i18n-core';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
-import { clearStaleMiniAssessmentState } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { resetStaleStrengthEntryState } from '@/features/user/onboarding/utils/strength-entry-reset';
+import { persistProgramPathSelection } from '@/features/user/onboarding/utils/program-path-persist';
+import StrengthQuizV3Gate from '@/features/user/onboarding/components/strength-quiz-v3/StrengthQuizV3Gate';
 
 
 /**
- * Persists the ordered card selection + each card's sub-selection.
- * `onboarding_program_path` is now a JSON array (priority = array order) —
- * assessment-path-config.service.ts's getProgramPathListFromStorage() reads
- * this shape, with a back-compat guard for the legacy bare-string shape
- * still written by mini-domain-assessment.ts's single-domain top-up flow.
+ * enable_strength_quiz_v3 (off = this page is the legacy screen, unchanged): the strength signup skips
+ * the goal screen and opens the questionnaire's intro screens instead (StrengthQuizV3Gate).
  */
-function persistToStorage(
-  cardOrder: ProgramCardId[],
-  muscleIds: string[],
-  skillIds: string[],
-  wishlist: ExerciseWishlistEntry[],
-) {
-  if (typeof window === 'undefined') return;
-  if (cardOrder.length > 0) {
-    sessionStorage.setItem('onboarding_program_path', JSON.stringify(cardOrder));
-  }
-  sessionStorage.setItem('onboarding_muscle_focus', JSON.stringify(muscleIds));
-  sessionStorage.setItem('onboarding_skill_focus', JSON.stringify(skillIds));
-  sessionStorage.setItem('onboarding_exercise_wishlist', JSON.stringify(wishlist));
+export default function ProgramPathPage() {
+  return <StrengthQuizV3Gate legacy={LegacyProgramPathPage} />;
 }
 
-export default function ProgramPathPage() {
+function LegacyProgramPathPage() {
   const router = useRouter();
   const t = useT(onboarding);
   // enable_home_v2 — v2 view below reuses every state/handler of this page.
@@ -118,25 +106,7 @@ export default function ProgramPathPage() {
       router.replace('/onboarding-new/dynamic');
       return;
     }
-    // A running-questionnaire attempt earlier in this same tab (abandoned,
-    // or a track switch) can leave real answers in
-    // onboarding_running_answers — that key is never cleared anywhere else
-    // (confirmed 04.09.2026 investigation) and only needs goalPath +
-    // targetDistance to read as "completed" (isRunningBranchCompleted).
-    // Left alone, a later strength completion in this tab would silently
-    // also run the running bridge and flip primaryTrack/dashboardMode to
-    // 'run'. This is the one place every strength-track visitor passes
-    // through before any strength content renders — clear it here so a
-    // stale attempt can't leak into an unrelated completion.
-    if (sessionStorage.getItem('onboarding_running_answers')) {
-      sessionStorage.removeItem('onboarding_running_answers');
-      console.log('[ProgramPath] Cleared stale onboarding_running_answers — entering the strength path.');
-    }
-    // Pilot B1 / Q4: the full questionnaire starts here, so an abandoned mini top-up
-    // must not turn this run into a single-domain (push) write.
-    if (clearStaleMiniAssessmentState()) {
-      console.log('[ProgramPath] Cleared stale mini assessment flags — entering the full strength questionnaire.');
-    }
+    resetStaleStrengthEntryState();
     const g = sessionStorage.getItem('onboarding_personal_gender') as 'male' | 'female' | 'other' | null;
     setGender(g);
     setDobDay(sessionStorage.getItem('onboarding_personal_dob'));
@@ -520,7 +490,7 @@ export default function ProgramPathPage() {
     }
 
     const toPersist = toPersistedMuscleFocus(selectedMuscles);
-    persistToStorage(selectedCards, toPersist, selectedSkills, wishlist);
+    persistProgramPathSelection(selectedCards, toPersist, selectedSkills, wishlist);
     if (v2) persistGoalNote();
     // enable_onboarding_step_funnel (off = no-op): the goal choice — journey's PERSONA ('בחירת מטרה').
     logOnboardingFunnelStep('PERSONA');
