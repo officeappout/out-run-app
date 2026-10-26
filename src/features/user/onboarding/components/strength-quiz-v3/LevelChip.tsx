@@ -1,50 +1,43 @@
 'use client';
 
 import clsx from 'clsx';
+import LevelCompareIcon, { LEVEL_COMPARE_ICONS, type LevelComparison } from '@/components/ui/v2/LevelCompareIcon';
 
 export type LevelChipKind = 'easier' | 'harder' | 'mine';
 
 /**
- * Board Slider: bolt chips. easier = green bolt + down arrow, harder = amber bolt + up arrow,
- * the selected card = blue bolt + "הרמה שלי". (The swap modal's level_up / level_down icons carry
- * the opposite colours baked into the SVG, so the board's inline glyphs are used here.)
+ * The slider's level chips speak the in-workout swap's language (owner 26.10.2026): the same
+ * LevelCompareIcon marks and colours as ExerciseReplacementModal. Harder = level_up (green),
+ * easier = level_down (orange), the selected card = level_same (brand blue) + "הרמה שלי".
  */
-const TONE: Record<LevelChipKind, { chip: string; bolt: string; arrow: string }> = {
-  easier: { chip: 'bg-[#e3f7ec] text-[#0b6b45]', bolt: '#0b6b45', arrow: '#0b6b45' },
-  harder: { chip: 'bg-[#fff1db] text-[#8a4b00]', bolt: '#b45f06', arrow: '#8a4b00' },
-  mine: { chip: 'bg-white text-v2-deep shadow-v2-ring', bolt: '#0284c7', arrow: '#0284c7' },
+export const CHIP_LEVEL: Record<LevelChipKind, LevelComparison> = {
+  easier: 'lower',
+  harder: 'higher',
+  mine: 'same',
 };
 
-function Bolt({ color }: { color: string }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill={color} aria-hidden>
-      <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
-    </svg>
-  );
-}
-
-function Arrow({ up, color }: { up: boolean; color: string }) {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={up ? 'M12 19V5M6 11l6-6 6 6' : 'M12 5v14M6 13l6 6 6-6'} />
-    </svg>
-  );
-}
+const CHIP_BG: Record<LevelChipKind, string> = {
+  easier: 'bg-orange-50',
+  harder: 'bg-emerald-50',
+  mine: 'bg-white shadow-v2-ring',
+};
 
 export default function LevelChip({ kind, label, className }: { kind: LevelChipKind; label?: string; className?: string }) {
-  const tone = TONE[kind];
+  const level = CHIP_LEVEL[kind];
   return (
     <span
       data-level-chip={kind}
+      data-level-icon={level}
       className={clsx(
-        'inline-flex items-center gap-[3px] whitespace-nowrap rounded-full text-[12px]',
-        kind === 'mine' ? 'gap-1 px-[9px] py-1 font-black' : 'px-2 py-1 font-extrabold',
-        tone.chip,
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full text-[12px]',
+        kind === 'mine' ? 'px-[9px] py-1 font-black' : 'px-2 py-1 font-extrabold',
+        CHIP_BG[kind],
+        LEVEL_COMPARE_ICONS[level].color,
         className,
       )}
     >
-      <Bolt color={tone.bolt} />
-      {kind === 'mine' ? label : <Arrow up={kind === 'harder'} color={tone.arrow} />}
+      <LevelCompareIcon level={level} size={14} />
+      {kind === 'mine' && label}
     </span>
   );
 }

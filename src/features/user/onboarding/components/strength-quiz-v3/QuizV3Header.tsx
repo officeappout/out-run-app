@@ -8,13 +8,16 @@ import { onboarding } from '@/messages/ns/onboarding';
 
 interface QuizV3HeaderProps {
   onBack?: () => void;
-  /** 0 to 100 inside the assessment phase. */
+  /** 0 to 100 inside the phase. */
   fillPercent: number;
+  /** Story-bar phase: the assessment (default) or the summary (after it, part C). */
+  phase?: 'assessment' | 'summary';
 }
 
 /** Back button + the strength story bars (phase 3 "מבדק רמה"), same row as the v2 slider header. */
-export default function QuizV3Header({ onBack, fillPercent }: QuizV3HeaderProps) {
+export default function QuizV3Header({ onBack, fillPercent, phase = 'assessment' }: QuizV3HeaderProps) {
   const t = useT(onboarding);
+  const current = phase === 'summary' ? STRENGTH_PHASES.RESULT : STRENGTH_PHASES.ASSESSMENT;
   return (
     <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
       {onBack ? (
@@ -32,9 +35,9 @@ export default function QuizV3Header({ onBack, fillPercent }: QuizV3HeaderProps)
       <div className="flex min-h-[40px] flex-1 flex-col justify-center">
         <OnboardingStoryBar
           totalPhases={STRENGTH_PHASES.TOTAL}
-          currentPhase={STRENGTH_PHASES.ASSESSMENT}
+          currentPhase={current}
           phaseFillPercent={fillPercent}
-          phaseLabel={t(STRENGTH_LABEL_KEYS[STRENGTH_PHASES.ASSESSMENT])}
+          phaseLabel={t(STRENGTH_LABEL_KEYS[current])}
           noPadding
         />
       </div>

@@ -95,6 +95,14 @@ describe('VisualSlider + quizV3 (board Slider)', () => {
     expect(q('[data-side-card="easier"] [data-level-chip="easier"]')).not.toBeNull();
     expect(q('[data-side-card="harder"] [data-level-chip="harder"]')).not.toBeNull();
     expect(q('[data-level-chip="mine"]')?.textContent).toBe('הרמה שלי');
+    // Same marks and colours as the in-workout swap (LevelCompareIcon): harder up green, easier down orange.
+    expect(q('[data-level-chip="harder"]')?.getAttribute('data-level-icon')).toBe('higher');
+    expect(q('[data-level-chip="harder"] img')?.getAttribute('src')).toBe('/assets/icons/ui/level_up.svg');
+    expect(q('[data-level-chip="harder"]')?.className).toContain('text-emerald-500');
+    expect(q('[data-level-chip="easier"]')?.getAttribute('data-level-icon')).toBe('lower');
+    expect(q('[data-level-chip="easier"] img')?.getAttribute('src')).toBe('/assets/icons/ui/level_down.svg');
+    expect(q('[data-level-chip="easier"]')?.className).toContain('text-orange-500');
+    expect(q('[data-level-chip="mine"] img')?.getAttribute('src')).toBe('/assets/icons/ui/level_same.svg');
     expect(text()).toContain('ex-7'); // middle of 6 steps = index 2 = level 7
     expect(text()).toContain('רמה 7 · מקסימום: 12 חזרות');
     expect(text()).toContain('מה התרגיל הכי קשה שבטוח תצליח?');

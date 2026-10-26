@@ -70,3 +70,76 @@ describe('onboarding · quizV3 assessment keys (he)', () => {
     expect(t('quizV3.progress.item', { name: 'דחיפה', state: 'done' })).toBe('דחיפה: הושלם');
   });
 });
+
+// ── Part C: after the assessment (boards SkillUnlock / Done / Explain1..3) ──────────────
+
+describe('onboarding · quizV3 after the assessment (he)', () => {
+  const g = (key: Parameters<typeof t>[0], values: Record<string, unknown> = {}) =>
+    GENDERS.map((gender) => t(key, { gender, ...values }));
+
+  it('skills screen (board SkillUnlock) x gender', () => {
+    expect(g('quizV3.skills.title')).toEqual([
+      'וואו, זיהינו שאתה מוכן למיומנויות מיוחדות',
+      'וואו, זיהינו שאת מוכנה למיומנויות מיוחדות',
+      'וואו, זיהינו מוכנות למיומנויות מיוחדות',
+    ]);
+    expect(t('quizV3.skills.body', { gender: 'male', count: 2 })).toBe(
+      'לפי הרמה שלך בדחיפה ובמשיכה, נפתחו לך סקילים. אם תוסיף, האימונים יכללו חלק קבוע לסקיל, לצד הבסיס.',
+    );
+    expect(t('quizV3.skills.body', { gender: 'female', count: 1 })).toBe(
+      'לפי הרמה שלך בדחיפה ובמשיכה, נפתח לך סקיל. אם תוסיפי, האימונים יכללו חלק קבוע לסקיל, לצד הבסיס.',
+    );
+    expect(g('quizV3.skills.here')).toEqual(['אתה כאן', 'את כאן', 'השלב הנוכחי']);
+    expect(t('quizV3.skills.estimate', { level: 5, source: 'push' })).toBe('רמה משוערת 5 · לפי הדחיפה שלך');
+    expect(t('quizV3.skills.estimate', { level: 6, source: 'pull' })).toBe('רמה משוערת 6 · לפי המשיכה שלך');
+    expect(t('quizV3.skills.name', { skill: 'planche' })).toBe('פלאנץ׳');
+    expect(t('quizV3.skills.goalName', { skill: 'front_lever' })).toBe('פרונט לבר מלא');
+    expect(t('quizV3.skills.refine')).toBe('לדייק את הרמה בשאלון קצר');
+    expect(t('quizV3.skills.add')).toBe('להוסיף לתוכנית שלי');
+    expect(t('quizV3.skills.later')).toBe('אולי אחר כך');
+  });
+
+  it('summary (board Done)', () => {
+    expect(t('quizV3.done.title')).toBe('התוכנית שלך מוכנה');
+    expect(t('quizV3.done.level', { level: 6 })).toBe('רמה 6');
+    expect(t('quizV3.done.masterNote', { count: 4 })).toBe('ממוצע של 4 קבוצות השרירים');
+    expect(t('quizV3.done.percent', { percent: 5 })).toBe('5%');
+    expect(t('quizV3.done.cta')).toBe('מה זה אומר?');
+    expect(t('quizV3.done.fact', { gender: 'male', group: 'push', percentile: 70 })).toBe('בדחיפה אתה ברמה גבוהה מ-70% מהגברים בגילך.');
+    expect(t('quizV3.done.fact', { gender: 'female', group: 'pull', percentile: 40 })).toBe('במשיכה את ברמה גבוהה מ-40% מהנשים בגילך.');
+  });
+
+  it('explainers x gender (boards Explain1..3)', () => {
+    expect(t('quizV3.explain1.bubble', { level: 6, group: 'push' })).toBe('רגע, אבל מה זה אומר "רמה 6 בדחיפה"?');
+    expect(t('quizV3.explain1.body', { group: 'push' })).toBe('כל רמה היא קבוצת תרגילים באותו קושי. ככה נראית מפת הדחיפה שלך:');
+    expect(g('quizV3.explain1.here', { level: 6 })).toEqual(['רמה 6 · אתה כאן', 'רמה 6 · את כאן', 'רמה 6 · השלב הנוכחי']);
+    expect(g('quizV3.explain1.footer')).toEqual([
+      'את המפה המלאה של כל קבוצה תמצא בטאב ההתקדמות.',
+      'את המפה המלאה של כל קבוצה תמצאי בטאב ההתקדמות.',
+      'את המפה המלאה של כל קבוצה אפשר למצוא בטאב ההתקדמות.',
+    ]);
+    expect(t('quizV3.explain2.title')).toBe('כל אימון ממלא את הטבעת');
+    expect(g('quizV3.explain2.bullet1')[0]).toBe('כל אימון מוסיף אחוזים לפי מה שביצעת בפועל.');
+    expect(t('quizV3.explain2.bullet2')).toBe('ב־100% עולים רמה ומקבלים תרגילים מתקדמים יותר.');
+    expect(g('quizV3.explain2.bullet3')[0]).toBe('המערכת לומדת אותך, אז תמיד יש אתגר, לא קל מדי ולא קשה מדי.');
+    expect(t('quizV3.explain3.title')).toBe('האימונים יתאימו ללו״ז שלך');
+    expect(g('quizV3.explain3.body')[0]).toBe('בדף הבית ממלאים מתי נוח לך להתאמן, והמערכת משלבת את האימונים לפי הרמה וההתקדמות שלך.');
+    expect(g('quizV3.explain3.lemur')).toEqual([
+      'ואני אעקוב אחריך. כשתהיה מוכן, אציע לך מתי להוסיף תוכנית נוספת.',
+      'ואני אעקוב אחרייך. כשתהיי מוכנה, אציע לך מתי להוסיף תוכנית נוספת.',
+      'ואני אעקוב אחרי ההתקדמות. כשיגיע הזמן, אציע מתי להוסיף תוכנית נוספת.',
+    ]);
+    expect(t('quizV3.explain3.cta')).toBe('להצהרת הבריאות');
+    expect(t('quizV3.explain3.ctaWeek')).toBe('ממשיכים לשבוע שלי');
+    expect(t('quizV3.explain.skip')).toBe('דלג');
+  });
+
+  it('every gendered part C key has three distinct-or-neutral branches, none empty', () => {
+    const keys = Object.keys(he).filter((k) => /^quizV3\.(skills|done|explain)/.test(k));
+    for (const k of keys) {
+      for (const gender of GENDERS) {
+        expect(t(k as Parameters<typeof t>[0], { gender, group: 'push', skill: 'planche', source: 'push', level: 3, count: 2, percent: 5, percentile: 50, name: 'x', current: 1, total: 3 }), k).not.toBe('');
+      }
+    }
+  });
+});
