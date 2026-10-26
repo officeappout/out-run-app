@@ -3,6 +3,9 @@
  *
  * Appends 1-3 cooldown (static stretch) exercises to a generated workout.
  * Tiers (test / placeholder docs are excluded from ALL of them — H5):
+ *   0. a follow-along cool-down VIDEO filmed for this location (cooldown-guide.utils) → it IS
+ *      the whole cool-down, one slot (owner 26.10: the park cool-down is the filmed video, not
+ *      the home-filmed stretches)
  *   1. exerciseRole 'cooldown', bodyweight method at this location
  *   2. exerciseRole 'cooldown', any method at this location
  *   3. bodyweight stretch fallback: flexibility-tagged / movementGroup 'flexibility'
@@ -23,6 +26,7 @@ import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 import { isTestOrPlaceholderExercise } from '../shared/utils/test-exercise.utils';
+import { cooldownGuideSeconds, pickCooldownGuide } from './cooldown-guide.utils';
 
 // ============================================================================
 // COOLDOWN APPEND
@@ -51,10 +55,34 @@ export function appendCooldownExercises(
 
   const workoutIds = new Set(workout.exercises.map(e => e.exercise.id));
 
+  // Tier 0 — the follow-along cool-down video for this location replaces the stretches.
+  const guide = pickCooldownGuide(allExercises, location, workoutIds);
+  if (guide) {
+    const seconds = cooldownGuideSeconds(guide.method);
+    workout.exercises.push({
+      exercise: guide.exercise,
+      method: guide.method,
+      mechanicalType: (guide.exercise.mechanicalType || 'none') as any,
+      sets: 1,
+      reps: seconds,
+      isTimeBased: true,
+      restSeconds: 0,
+      priority: 'isolation' as const,
+      score: 0,
+      reasoning: ['cooldown: follow-along video for this location'],
+      exerciseRole: 'cooldown' as const,
+    });
+    console.log(`[Cooldown] Follow-along cool-down video "${guide.exercise.id}" (${seconds}s) for ${location}`);
+    return;
+  }
+
   // Step 1: Find ALL real exercises with exerciseRole === 'cooldown'.
   // The live catalog's ONLY cooldown doc is a test item ("…לבדיקה", 05-BENCHMARK
   // §6.4 #1) — it is excluded here and in every tier below.
-  const allCooldowns = allExercises.filter(ex => ex.exerciseRole === 'cooldown' && !isTestOrPlaceholderExercise(ex));
+  // Follow-along cool-down videos are tier 0 only (strict location): a park-filmed video must
+  // never reach a home session through the looser tiers below.
+  const allCooldowns = allExercises.filter(ex =>
+    ex.exerciseRole === 'cooldown' && ex.isFollowAlong !== true && !isTestOrPlaceholderExercise(ex));
 
   // Step 2: Filter by location OR fallback to home
   const withLocation = allCooldowns.filter(ex => {
