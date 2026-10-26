@@ -41,6 +41,9 @@
  * both derive everything they need from this array.
  */
 export const FLAG_DEFS = [
+  // enable_running_programs also freezes WALKING plan signup (pilot 26.10, owner C1): off = no running
+  // or walking questionnaire, start card, "add running" card, try-running nudge or locked run row for
+  // regular users (useAerobicProgramsOpen). Existing plans and the map's run / walk chips stay.
   { key: 'enableRunningPrograms', firestoreKey: 'enable_running_programs', defaultValue: false, superAdminValue: true },
   { key: 'enableCommunityFeed', firestoreKey: 'enable_community_feed', defaultValue: false, superAdminValue: true },
   { key: 'enableLeagues', firestoreKey: 'enable_leagues', defaultValue: false, superAdminValue: true },

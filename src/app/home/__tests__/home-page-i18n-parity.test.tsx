@@ -53,7 +53,7 @@ const profileOf = (gender: Gender, withProgram: boolean, workoutCount?: number) 
 });
 
 const setCase = (opts: { v2: boolean; hydrated?: boolean; profile?: unknown; gender?: Gender }) => {
-  h.flags = { enableHomeV2: opts.v2 };
+  h.flags = { enableHomeV2: opts.v2, enableRunningPrograms: true };
   Object.assign(useUserStore.getInitialState(), { _hasHydrated: opts.hydrated ?? true, profile: opts.profile ?? null });
   Object.assign(useLocaleStore.getInitialState(), { gender: opts.gender ?? 'other' });
 };

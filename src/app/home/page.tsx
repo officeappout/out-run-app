@@ -1774,7 +1774,8 @@ export default function HomePage() {
   // enable_home_two_cards_v1: the start cards read "כוח" + "הליכה וריצה", and a walker with 4+ walk
   // weeks in a row gets the dismissible "מוכן לנסות לרוץ?" card (canvas WR-1b / WR-6).
   const twoCardsOn = featureFlags.enableHomeV2 && !flagsLoading && featureFlags.enableHomeTwoCardsV1;
-  const tryRunning = useTryRunningNudge(profile?.id, twoCardsOn, walkOnlyUser);
+  // Running frozen for regular users (pilot 26.10, C1): no "try running" nudge.
+  const tryRunning = useTryRunningNudge(profile?.id, twoCardsOn && featureFlags.enableRunningPrograms, walkOnlyUser);
   const WALK_CARD_ID = 'walk-card';
   const isWalkCarouselItem = (
     item: Suggestion | { id: string },
@@ -1897,7 +1898,7 @@ export default function HomePage() {
   // equal start cards (strength + running), or, with one track, the other track's
   // "רוצה להוסיף …?" card. Replaces the strength-invite sentinel under the flag; flag
   // off → plan 'none' and both carousels keep the strength invite exactly as before.
-  const programSlide = useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2);
+  const programSlide = useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2, featureFlags.enableRunningPrograms);
   const PROGRAM_SLIDE_ID = 'program-slide';
   const isProgramSlideCarouselItem = (
     item: Suggestion | { id: string },

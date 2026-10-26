@@ -82,7 +82,7 @@ describe('home/page.tsx — v2 run card wiring', () => {
   });
 
   it('v2 program slide (start pair / add card) replaces the strength invite only under the flag', () => {
-    expect(pageSrc).toContain('useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2)');
+    expect(pageSrc).toContain('useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2, featureFlags.enableRunningPrograms)');
     expect(pageSrc).toContain('!hasStrengthProgram && !featureFlags.enableHomeV2');
     // The walker's walk card (enable_home_v2) is placed between the run card and the program slide.
     // Owner 20.10.2026: each start card is its own slide (placeProgramSlides), in both carousels.

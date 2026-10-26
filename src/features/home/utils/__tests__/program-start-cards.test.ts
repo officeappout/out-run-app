@@ -143,3 +143,16 @@ describe('placeProgramSlides (owner 20.10.2026: one card per slide)', () => {
     expect(programStartTrackOf('program-slide')).toBeNull();
   });
 });
+
+describe('resolveProgramSlide — running frozen (enable_running_programs off, pilot 26.10 C1)', () => {
+  const base = { enabled: true, runningIntent: true, runningOpen: false } as const;
+  it('a new user gets the strength start card alone, even with a running intent', () => {
+    expect(resolveProgramSlide({ ...base, hasStrength: false, hasRunning: false })).toEqual({ mode: 'start', order: ['strength'] });
+  });
+  it('nobody is offered "add running"', () => {
+    expect(resolveProgramSlide({ ...base, hasStrength: true, hasRunning: false })).toEqual({ mode: 'none' });
+  });
+  it('a runner without strength still gets "add strength"', () => {
+    expect(resolveProgramSlide({ ...base, hasStrength: false, hasRunning: true })).toEqual({ mode: 'add', track: 'strength' });
+  });
+});
