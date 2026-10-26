@@ -69,3 +69,23 @@ describe('map trainingHere.*', () => {
     expect(tm('trainingHere.place.line', { name: 'גינת הירקון', distance: '650 מ׳' })).toBe('גינת הירקון · 650 מ׳');
   });
 });
+
+describe('training partners (mutual follow) — community trainingShares.*, profile profile.partners.*', () => {
+  it('feed lines (author gender), join (viewer gender), titles', async () => {
+    const { community } = await import('@/messages/ns/community');
+    const { profile } = await import('@/messages/ns/profile');
+    const tc = makeT('he', community);
+    const tp = makeT('he', profile);
+    const v = { name: 'נועה', place: 'גינת הירקון', time: '18:00' };
+    expect((['female', 'male', 'other'] as const).map((gender) => tc('trainingShares.now', { ...v, gender }))).toEqual([
+      'נועה מתאמנת עכשיו בגינת הירקון', 'נועה מתאמן עכשיו בגינת הירקון', 'נועה · אימון עכשיו בגינת הירקון',
+    ]);
+    expect((['female', 'male', 'other'] as const).map((gender) => tc('trainingShares.later', { ...v, gender }))).toEqual([
+      'נועה מגיעה ב-18:00 לגינת הירקון', 'נועה מגיע ב-18:00 לגינת הירקון', 'נועה · ב-18:00 בגינת הירקון',
+    ]);
+    expect((['female', 'male', 'other'] as const).map((gender) => tc('trainingShares.join', { gender }))).toEqual(['מצטרפת', 'מצטרף', 'הצטרפות']);
+    expect(tc('trainingShares.title')).toBe('השותפים שלך מתאמנים');
+    expect(tp('profile.partners.title')).toBe('שותפי אימון');
+    expect(tp('profile.partners.empty')).toBe('עוד אין שותפי אימון. שותף = עוקבים אחד אחרי השני.');
+  });
+});

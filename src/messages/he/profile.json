@@ -458,5 +458,7 @@
   "hubV2.strength.weekly.thisWeek": "השבוע: {sets} סטים · {count, plural, =0 {אין אימונים} one {אימון אחד} other {# אימונים}} · {time} שע׳",
   "hubV2.strength.exercises.title": "התרגילים שלך",
   "hubV2.strength.exercises.lastBest": "הסט הטוב באימון האחרון: {best}",
-  "hubV2.strength.exercises.trend": "{trend, select, up {במגמת עלייה} down {במגמת ירידה} other {יציב}}"
+  "hubV2.strength.exercises.trend": "{trend, select, up {במגמת עלייה} down {במגמת ירידה} other {יציב}}",
+  "profile.partners.title": "שותפי אימון",
+  "profile.partners.empty": "עוד אין שותפי אימון. שותף = עוקבים אחד אחרי השני."
 }

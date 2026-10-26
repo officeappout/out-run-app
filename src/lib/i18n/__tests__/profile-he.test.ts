@@ -523,7 +523,7 @@ describe('profile (he) — profile.* / widgets.* byte-identical to the pre-extra
 
   it('no profile.* / widgets.* key is left untested', () => {
     // Counted per prefix: other batches add keys to profile.json.
-    expect(Object.keys(he).filter((k) => k.startsWith('profile.')).length).toBe(42);
+    expect(Object.keys(he).filter((k) => k.startsWith('profile.')).length).toBe(44); // + profile.partners.title / .empty (enable_where_to_train_v1, where-to-train-he.test.ts)
     expect(Object.keys(he).filter((k) => k.startsWith('widgets.')).length).toBe(11);
   });
 });

@@ -15,8 +15,7 @@ import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useChatStore } from '@/features/social/store/useChatStore';
 import { getUserPosts, type FeedPost } from '@/features/social/services/feed.service';
-import { getMutualPartners } from '@/features/social/services/mutual-partners.service';
-import type { UserSearchResult } from '@/features/social/services/user-search.service';
+import { useMutualPartners } from '@/features/profile/hooks/useMutualPartners';
 import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
 import ProfileHeader from '@/features/profile/components/ProfileHeader';
 import PartnersHighlightsRow from '@/features/profile/components/PartnersHighlightsRow';
@@ -81,8 +80,7 @@ export default function PublicProfilePage() {
   // Real mutual-follow partners (connections/{targetUid}, readable by any
   // authenticated user — see mutual-partners.service.ts) — independent
   // loading state so the grid above it doesn't wait on this round trip.
-  const [partners, setPartners] = useState<UserSearchResult[]>([]);
-  const [partnersLoading, setPartnersLoading] = useState(true);
+  const { partners, loading: partnersLoading } = useMutualPartners(targetUid, myUid, myProfile?.core?.ageGroup);
 
   // Guest-account UX fix (03.10.2026 investigation): follow and DM both
   // hit firestore.rules' deliberate !isAnonymous() gate for a guest who
@@ -210,36 +208,6 @@ export default function PublicProfilePage() {
     load();
     return () => { cancelled = true; };
   }, [targetUid, isSelf]);
-
-  // Fetch the target user's real mutual-follow partners, separately from
-  // the profile+posts load above — needs the viewer's own ageGroup
-  // (getUsersByUids' required age-scoping, see that function's own
-  // comment), which may hydrate slightly after myUid itself.
-  useEffect(() => {
-    if (!targetUid || !myUid) {
-      setPartnersLoading(false);
-      return;
-    }
-    const callerAgeGroup = myProfile?.core?.ageGroup;
-    if (callerAgeGroup !== 'minor' && callerAgeGroup !== 'adult') {
-      setPartnersLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setPartnersLoading(true);
-    getMutualPartners(targetUid, callerAgeGroup, myUid)
-      .then((result) => {
-        if (!cancelled) setPartners(result);
-      })
-      .catch((err) => {
-        console.error('[PublicProfile] getMutualPartners failed:', err);
-      })
-      .finally(() => {
-        if (!cancelled) setPartnersLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [targetUid, myUid, myProfile?.core?.ageGroup]);
 
   const handleToggleFollow = useCallback(() => {
     if (!myUid || isSelf) return;

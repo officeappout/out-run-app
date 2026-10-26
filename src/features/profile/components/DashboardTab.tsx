@@ -24,6 +24,8 @@ import EditProfileModal from './EditProfileModal';
 import WorkoutGrid from './WorkoutGrid';
 import ProfileHeader from './ProfileHeader';
 import PartnersHighlightsRow from './PartnersHighlightsRow';
+import TrainingPartnersRow from './partners/TrainingPartnersRow';
+import { useMutualPartners } from '@/features/profile/hooks/useMutualPartners';
 import ProgressLinkRow from './ProgressLinkRow';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import StreakFlame from '@/components/ui/v2/StreakFlame';
@@ -79,6 +81,9 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   // Home v2 (enable_home_v2) — the profile is part of the same look.
   const { flags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = flags.enableHomeV2;
+  // enable_where_to_train_v1: my training partners (mutual follows) — the public profile's slice.
+  const partnersOn = flags.enableWhereToTrainV1;
+  const myPartners = useMutualPartners(userId, userId, profile?.core?.ageGroup, partnersOn);
   // enable_home_v2: "/profile?tab=badges#records" (the progress tab's "שיא חדש") opens on the records card.
   useEffect(() => {
     if (!v2 || typeof window === 'undefined') return;
@@ -314,10 +319,19 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             extraction. Routes to /search?tab=people (existing
             people-discovery tab, "גלה" sub-mode by default). */}
         <div className="mt-5">
+          {partnersOn ? (
+            <TrainingPartnersRow
+              partners={myPartners.partners.map((p) => ({ uid: p.uid, name: p.name, photoURL: p.photoURL }))}
+              loading={myPartners.loading}
+              onPartnerClick={(uid) => router.push(`/profile/${uid}`)}
+              onAddClick={() => router.push('/search?tab=people')}
+            />
+          ) : (
           <PartnersHighlightsRow
             partners={[]}
             onAddClick={() => router.push('/search?tab=people')}
           />
+          )}
         </div>
 
         {v2 && (

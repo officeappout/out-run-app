@@ -28,6 +28,7 @@ import { useTrainingHerePublish } from './useTrainingHerePublish';
 import {
   laterTimeOptions,
   nextOccurrence,
+  prefillWhen,
   resolveStartTime,
   type TrainingHereActivity,
   type TrainingHerePlace,
@@ -48,6 +49,8 @@ export interface TrainingHereSheetProps {
   alternatives?: readonly TrainingHerePlace[];
   /** Start the workout right away (the "now" CTA). Without it the "now" CTA only shares. */
   onStartNow?: () => void;
+  /** Prefill מתי from this start (joining a partner's share). Omitted = now. */
+  initialStart?: Date | null;
   /** "רק לבחור את הגינה, בלי לשתף" — hidden when omitted. */
   onPickOnly?: (place: TrainingHerePlace) => void;
   /** A planned_sessions arrival was written. */
@@ -57,7 +60,7 @@ export interface TrainingHereSheetProps {
 const OTHER_KEY = 'other';
 
 export default function TrainingHereSheet({
-  open, onClose, activity, workoutLabel, workoutTitle, place, alternatives, onStartNow, onPickOnly, onPublished,
+  open, onClose, activity, workoutLabel, workoutTitle, place, initialStart, alternatives, onStartNow, onPickOnly, onPublished,
 }: TrainingHereSheetProps) {
   const t = useT(map);
   const tc = useT(common);
@@ -70,7 +73,7 @@ export default function TrainingHereSheet({
   const [chipKey, setChipKey] = useState<string>('0');
   const [otherTime, setOtherTime] = useState('18:00');
   const [share, setShare] = useState(true);
-  const [visibility, setVisibility] = useState<TrainingHereVisibility>('verified_global');
+  const [visibility, setVisibility] = useState<TrainingHereVisibility>('everyone');
   const [openedAt, setOpenedAt] = useState(() => new Date());
 
   // Every open starts from the caller's prefill.
@@ -80,14 +83,16 @@ export default function TrainingHereSheet({
     setOpenedAt(now);
     setCurrent(place);
     setChanging(false);
-    setWhen('now');
-    setChipKey('0');
-    setOtherTime(`${String(laterTimeOptions(now, 1)[0].getHours()).padStart(2, '0')}:00`);
+    // Joining someone's share (the feed's "מצטרף/ת") prefills their time; otherwise now.
+    const pre = initialStart ? prefillWhen(initialStart, now) : null;
+    setWhen(pre?.when ?? 'now');
+    setChipKey(pre?.chipKey ?? '0');
+    setOtherTime(pre?.otherTime ?? `${String(laterTimeOptions(now, 1)[0].getHours()).padStart(2, '0')}:00`);
     setShare(true);
-    setVisibility('verified_global');
+    setVisibility('everyone');
     resetFailed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, place.id]);
+  }, [open, place.id, initialStart?.getTime()]);
 
   const chips = useMemo(() => laterTimeOptions(openedAt), [openedAt]);
   const pickedLater = chipKey === OTHER_KEY ? nextOccurrence(otherTime, openedAt) : chips[Number(chipKey)] ?? null;
@@ -205,8 +210,8 @@ export default function TrainingHereSheet({
             <ChoicePills
               ariaLabel={t('trainingHere.visibility.label')}
               options={[
-                { key: 'verified_global', label: t('trainingHere.visibility.everyone') },
-                { key: 'squad', label: t('trainingHere.visibility.partners') },
+                { key: 'everyone', label: t('trainingHere.visibility.everyone') },
+                { key: 'partners', label: t('trainingHere.visibility.partners') },
               ]}
               value={visibility}
               onChange={setVisibility}

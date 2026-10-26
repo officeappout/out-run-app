@@ -18,6 +18,7 @@ import type { PendingShareState } from '../../_hooks/usePendingShare';
 import { FeedEmptyState } from './FeedEmptyState';
 import { FeedFilterBar } from './FeedFilterBar';
 import { FeedShareBlock } from './FeedShareBlock';
+import PartnerTrainingShares from '@/features/social/components/training-shares/PartnerTrainingShares';
 
 type Profile = {
   core?: { neighborhoodId?: string | null } | null;
@@ -87,6 +88,8 @@ export function FeedTab({
       fetchPosts={fetchPosts}
     />
   ) : null;
+  // enable_where_to_train_v1: partners' (mutual follows) training-here shares as activity items.
+  const partnerShares = featureFlags.enableWhereToTrainV1 && userId ? <PartnerTrainingShares userId={userId} /> : null;
   const myHood = profile?.core?.neighborhoodId ?? null;
   const myGroups = new Set(profile?.social?.groupIds ?? []);
   const shown = filterFeedPosts(posts, { v2, filter: feedFilter, isPartner, myHood, myGroups });
@@ -116,6 +119,7 @@ export function FeedTab({
       <div className="space-y-4 -mx-4">
         {circles}
         {shareBlock}
+        {partnerShares}
         <FeedEmptyState v2={featureFlags.enableHomeV2} onFindPartners={() => router.push('/search?tab=people')} />
       </div>
     );
@@ -125,6 +129,7 @@ export function FeedTab({
     <div className="space-y-3 -mx-4">
       {circles}
       {shareBlock}
+      {partnerShares}
       <div className="px-4 space-y-3">
         <div className="flex items-center justify-between px-1 pt-2" dir="rtl">
           <span className="text-[11px] text-gray-500">

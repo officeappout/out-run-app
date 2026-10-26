@@ -9,7 +9,8 @@ import type { ActivityType } from '@/features/parks/core/types/route.types';
 
 export type TrainingHereActivity = 'workout' | 'running' | 'walking';
 export type TrainingHereWhen = 'now' | 'later';
-export type TrainingHereVisibility = Extract<PrivacyMode, 'verified_global' | 'squad'>;
+/** כולם = public; שותפי אימון = mutual follows (owner 26.10), the feed's 'partners' audience. */
+export type TrainingHereVisibility = 'everyone' | 'partners';
 
 export interface TrainingHerePlace {
   kind: 'park' | 'route';
@@ -57,6 +58,40 @@ export function reminderTimeFor(start: Date, now: Date, leadMin = REMINDER_LEAD_
   return new Date(Math.max(start.getTime() - leadMin * 60_000, now.getTime()));
 }
 
+/**
+ * כולם → readable by every signed-in user (privacyMode 'verified_global', the park lists' public slice).
+ * שותפי אימון → audience 'partners' + privacyMode 'ghost': no client listener can read it (rules: owner
+ * or verified_global), only /api/training-here/partners after canSeePost (mutual follow). No squad / groupId.
+ */
+export function visibilityFields(v: TrainingHereVisibility): { privacyMode: PrivacyMode; audience: 'public' | 'partners' } {
+  return v === 'partners'
+    ? { privacyMode: 'ghost', audience: 'partners' }
+    : { privacyMode: 'verified_global', audience: 'public' };
+}
+
+/** "Now" while the share's window is open (start ≤ now + grace). */
+export const NOW_GRACE_MIN = 10;
+
+/**
+ * Prefill of מתי from someone else's share (the feed's "מצטרף/ת"): now when it starts within
+ * NOW_GRACE_MIN, else the matching hour chip, else אחר with its HH:MM.
+ */
+export function prefillWhen(
+  start: Date,
+  now: Date,
+  chips: readonly Date[] = laterTimeOptions(now),
+): { when: TrainingHereWhen; chipKey: string; otherTime: string } {
+  const hhmm = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+  if (start.getTime() <= now.getTime() + NOW_GRACE_MIN * 60_000) return { when: 'now', chipKey: '0', otherTime: hhmm };
+  const i = chips.findIndex((c) => c.getTime() === start.getTime());
+  return i >= 0 ? { when: 'later', chipKey: String(i), otherTime: hhmm } : { when: 'later', chipKey: 'other', otherTime: hhmm };
+}
+
+/** planned_sessions activityType → the sheet's activity. */
+export function activityFromType(type: string | null | undefined): TrainingHereActivity {
+  return type === 'running' ? 'running' : type === 'walking' ? 'walking' : 'workout';
+}
+
 const ACTIVITY_TYPE: Record<TrainingHereActivity, ActivityType> = {
   workout: 'workout',
   running: 'running',
@@ -89,6 +124,6 @@ export function buildArrivalInput(args: {
     ...(workoutTitle ? { workoutTitle } : {}),
     activityType: ACTIVITY_TYPE[args.activity],
     startTime: args.startTime,
-    privacyMode: args.visibility,
+    ...visibilityFields(args.visibility),
   };
 }
