@@ -605,6 +605,11 @@ src/features/workouts/components/where-to-train/
 src/features/parks/client/components/training-here/
 src/features/parks/client/components/park-preview/park-card-meta.ts
 src/hooks/useWhereToTrainV1.ts
+# Workouts that fit a place (enable_place_workouts_v1, namespace map, keys placeWorkouts.*) — translation-ready from the
+# first commit; key parity: place-workouts/__tests__/place-workouts-ui.test.tsx. The engine (place-fit) returns keys, no text.
+src/features/parks/client/components/place-workouts/
+src/features/workout-engine/place-fit/
+src/components/ui/v2/WorkoutMiniCard.tsx
 # Training partners = mutual follow (enable_where_to_train_v1, owner 26.10): feed activity items (community trainingShares.*)
 # and the own profile's partners row / list (profile profile.partners.*).
 src/features/social/components/training-shares/
@@ -616,8 +621,3 @@ src/app/api/training-here/
 src/features/parks/client/components/park-detail/hooks/usePartnerParkShares.ts
 src/features/parks/client/components/park-detail/hooks/useCancelOwnArrival.ts
 src/features/parks/client/components/park-detail/utils/partner-park-shares.ts
-# Workouts that fit a place (enable_place_workouts_v1, namespace map, keys placeWorkouts.*) — translation-ready from the
-# first commit; key parity: place-workouts/__tests__/place-workouts-ui.test.tsx. The engine (place-fit) returns keys, no text.
-src/features/parks/client/components/place-workouts/
-src/features/workout-engine/place-fit/
-src/components/ui/v2/WorkoutMiniCard.tsx
