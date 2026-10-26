@@ -11,6 +11,7 @@
  * At most one handoff per turn.
  */
 import 'server-only';
+import { scheduleFailureReason } from './schedule-diagnostic';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { getIsraelDateKey, getIsraelDayOfWeek } from '@/lib/israelTime';
 import { KELLY_NAME, KELLY_UID } from '@/features/social/services/kelly-welcome-bot.service';
@@ -135,7 +136,7 @@ async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<{ 
         out.push({ date, type: e.type, programIds: e.programIds, startTime: e.startTime, completed: e.completed, title: e.title, scheduledCategories: e.scheduledCategories, plannedRun: e.plannedRun });
       }
     }
-    return { entries: out, partial: true, reason: `${err instanceof Error ? err.name : 'Error'}: ${err instanceof Error ? err.message : String(err)}`.replace(/\s+/g, ' ').slice(0, 160) };
+    return { entries: out, partial: true, reason: scheduleFailureReason(err) };
   }
 }
 
