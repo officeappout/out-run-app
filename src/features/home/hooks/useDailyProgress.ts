@@ -23,6 +23,8 @@ export interface DailyProgress {
   dailyStrengthCompletedSets?: number;
   dailyStrengthPct?: number;
   strengthGoalMet?: boolean;
+  /** enable_flame_tiers_v1: the day's recorded run / walk minutes (aerobic goal of flame levels 2/3). */
+  aerobicWorkoutMinutes?: number;
   /**
    * True when this completion was recovery-only content (rest-day video trio
    * OR the "Budget Floor" cooldown/mobility fallback) rather than a bonus
@@ -34,7 +36,8 @@ export interface DailyProgress {
   updatedAt?: any;
 }
 
-export function useDailyProgress(date?: string): DailyProgress | null {
+/** `enabled` false → no read / listener, null (default true = unchanged). */
+export function useDailyProgress(date?: string, enabled = true): DailyProgress | null {
   const { profile } = useUserStore();
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   
@@ -42,7 +45,7 @@ export function useDailyProgress(date?: string): DailyProgress | null {
   const userId = profile?.id;
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !enabled) {
       setDailyProgress(null);
       return;
     }
@@ -77,7 +80,7 @@ export function useDailyProgress(date?: string): DailyProgress | null {
     );
 
     return () => unsubscribe();
-  }, [userId, targetDate]);
+  }, [userId, targetDate, enabled]);
 
   return dailyProgress;
 }

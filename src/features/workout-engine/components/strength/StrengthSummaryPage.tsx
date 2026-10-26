@@ -26,6 +26,7 @@ import { buildPhaseSummary, sessionTotals, type PlanSegment } from './utils/phas
 import { timedResultsFor } from '@/features/workout-engine/players/strength/timed/state/timed-results';
 import { toTimedBlockRecord, type TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
 import { useSummaryStreakWeek } from '@/features/workout-engine/summary/hooks/useSummaryStreakWeek';
+import { countLoggedStrengthSets } from './utils/logged-sets';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import SummaryFeedShare from '@/features/social/components/SummaryFeedShare';
 import { shareTotalsFromPhases } from '@/features/social/share-v2/summary-totals';
@@ -367,7 +368,18 @@ export default function StrengthSummaryPage({
   // ── Home v2 data (display-only; flag OFF ⇒ undefined ⇒ today's view) ──
   // Streak dots: read-only activity-store read. Today counts as trained in
   // the live flow (this session's activity write runs later, at Finish).
-  const streakWeek = useSummaryStreakWeek({ todayDone: !isReadOnly });
+  // enable_flame_tiers_v1: today's real level — this session's minutes / sets join today's
+  // activity (its own write lands at Finish); a history view adds nothing.
+  const pendingFlame = useMemo(
+    () => (isReadOnly ? null : trainingType === 'cardio'
+      ? { cardioMinutes: analytics.durationMinutes }
+      : {
+          strengthMinutes: analytics.durationMinutes,
+          strengthSets: isRecovery ? 0 : countLoggedStrengthSets(rawExerciseLog, completedExercises),
+        }),
+    [isReadOnly, trainingType, analytics.durationMinutes, isRecovery, rawExerciseLog, completedExercises],
+  );
+  const streakWeek = useSummaryStreakWeek({ todayDone: !isReadOnly, pending: pendingFlame });
   const v2Phases = useMemo(
     () =>
       homeV2

@@ -11,7 +11,7 @@ import { awardCoins as awardCoinsToFirestore } from '../services/coin-calculator
 import type { UnlockedAchievementsMap, UnlockedAchievementEntry } from '../types/achievement.types';
 import { calculateStrengthWorkoutXP, calculateRunningWorkoutXP, calculateCommuteXP, calculateLevelFromXP } from '../services/xp.service';
 import type { StrengthWorkoutXPParams, RunningWorkoutXPParams, CommuteWorkoutXPParams } from '../services/xp.service';
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot, increment, type Unsubscribe } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getUserProgression } from '@/lib/firestore.service';
 import { HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
@@ -109,6 +109,8 @@ interface ProgressionState {
     type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid',
     isRecovery?: boolean,
     strengthCompletion?: StrengthCompletionInput,
+    /** enable_flame_tiers_v1: run / walk minutes recorded by this workout (adds to aerobicWorkoutMinutes). */
+    aerobicMinutes?: number,
   ) => Promise<void>;
   setLastActivityType: (type: ActivityType) => void;
   recordDailyGoalProgress: (steps: number, floors: number) => void;
@@ -849,6 +851,7 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
     type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid',
     isRecovery?: boolean,
     strengthCompletion?: StrengthCompletionInput,
+    aerobicMinutes?: number,
   ) => {
     try {
       if (typeof window === 'undefined') return;
@@ -888,8 +891,15 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       // workoutCompleted stays the legacy unconditional `true` — byte-identical
       // to pre-flag behaviour. Only a real strength completion snapshot with
       // the flag ON gates it on the ⅔-of-daily-target `met` result.
-      const workoutCompleted = HOME_DAILY_GOAL_V1 && strengthCompletion
-        ? strengthCompletion.met
+      //
+      // enable_flame_tiers_v1 (owner 26.10.2026): the snapshot is computed with the
+      // stricter 'tiers' gate (useActivitySync) and gates workoutCompleted the same way —
+      // but a day already marked done (an earlier qualifying session, a run) never drops back.
+      const { flameTiersEnabledNow } = await import('@/features/activity/lib/flame-tiers-flag');
+      const flameTiers = flameTiersEnabledNow();
+      const gateDone = (HOME_DAILY_GOAL_V1 || flameTiers) && strengthCompletion;
+      const workoutCompleted = gateDone
+        ? strengthCompletion.met || (flameTiers && existingData.workoutCompleted === true)
         : true;
 
       // Update with workout completion
@@ -905,16 +915,22 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         // ever passes a real `true` when the flag is on; otherwise this is
         // always `false`. See feature-flags.ts.
         isRecovery: !!isRecovery,
+        // enable_flame_tiers_v1 — additive: the day's RECORDED run / walk minutes (never passive
+        // health minutes), the aerobic goal behind flame levels 2/3. Absent while the flag is off.
+        ...(flameTiers && (Number(aerobicMinutes) || 0) > 0
+          ? { aerobicWorkoutMinutes: increment(Math.round(Number(aerobicMinutes))) }
+          : {}),
         // HOME_DAILY_GOAL_V1 — additive sibling fields, same choke point as
         // isRecovery above. Conditionally spread (never set to `undefined`,
         // which the Firestore SDK rejects) — absent entirely while the flag
         // is off or strengthCompletion wasn't computed for this session.
-        ...(HOME_DAILY_GOAL_V1 && strengthCompletion
+        ...(gateDone
           ? {
               dailyStrengthTargetSets: strengthCompletion.targetSets,
               dailyStrengthCompletedSets: strengthCompletion.completedSets,
               dailyStrengthPct: strengthCompletion.pct,
-              strengthGoalMet: strengthCompletion.met,
+              // enable_flame_tiers_v1: once met today (any device), it stays met.
+              strengthGoalMet: strengthCompletion.met || (flameTiers && existingData.strengthGoalMet === true),
             }
           : {}),
         // NOT spreading ...existingData here (adversarial review, 17.08.2026):

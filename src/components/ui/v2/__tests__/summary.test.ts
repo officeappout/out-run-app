@@ -86,6 +86,24 @@ describe('buildWeekDots', () => {
     expect(buildWeekDots({}, today)[3].state).toBe('rest');
   });
 
+  it('flameOf (enable_flame_tiers_v1): the level decides, today is never forced, sessions alone do not light', () => {
+    const levels: Record<string, { level: 0 | 1 | 2 | 3; started: boolean }> = {
+      '2026-10-11': { level: 3, started: false },
+      '2026-10-12': { level: 0, started: true },
+      '2026-10-13': { level: 1, started: false },
+      '2026-10-14': { level: 0, started: true },
+    };
+    const dots = buildWeekDots(
+      { '2026-10-12': day(4, 1), '2026-10-14': day(5, 1) },
+      today,
+      { todayDone: true, flameOf: (d) => levels[d] ?? { level: 0, started: false } },
+    );
+    expect(dots.map((d) => d.state)).toEqual(['done', 'rest', 'done', 'rest', 'future', 'future', 'future']);
+    expect(dots.map((d) => d.level).slice(0, 4)).toEqual([3, 0, 1, 0]);
+    expect(dots.map((d) => d.started).slice(0, 4)).toEqual([false, true, false, true]);
+    expect(dots[4].level).toBe(0);
+  });
+
   it('isTrainingDay: a session or ≥10 minutes', () => {
     expect(isTrainingDay(day(0, 1))).toBe(true);
     expect(isTrainingDay(day(10))).toBe(true);

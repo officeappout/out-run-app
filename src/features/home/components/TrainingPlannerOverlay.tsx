@@ -73,6 +73,8 @@ function getWeekDateRange(sundayISO: string, locale: Locale): string {
 // ── Props ──────────────────────────────────────────────────────────────────
 
 interface TrainingPlannerOverlayProps {
+  /** enable_flame_tiers_v1 (resolved by the host): the grid's flames from flameLevelForDay. */
+  flameTiers?: boolean;
   isOpen: boolean;
   /** Open the schedule-builder drawer on top as soon as the planner opens (Kelly's "בנה לי שבוע" chip). */
   openScheduleBuilder?: boolean;
@@ -115,6 +117,7 @@ export default function TrainingPlannerOverlay({
   onEntryTap,
   onCommunityTap,
   onOpenBuilder,
+  flameTiers = false,
 }: TrainingPlannerOverlayProps) {
   const [showAddModal, setShowAddModal]           = useState(false);
   // Temporary entry point (schedule-drawer-screen-spec.md, ת6's real entry
@@ -491,6 +494,7 @@ export default function TrainingPlannerOverlay({
 
                   <DayCellV2Context.Provider value={v2}>
                   <MonthlyCalendarGrid
+                    flameTiers={flameTiers}
                     selectedDate={selectedDate}
                     onDaySelect={handleDaySelect}
                     onEntryTap={onEntryTap}

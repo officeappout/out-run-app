@@ -730,6 +730,13 @@ export const FLAG_DEFS = [
   // "מתאמנים כאן" section. Reads only (the park's first workout is generated on open). Fail-closed; super admins
   // preview it. Off = both pages byte-identical to today.
   { key: 'enablePlaceWorkoutsV1', firestoreKey: 'enable_place_workouts_v1', defaultValue: false, superAdminValue: true },
+  // Done-today gate + flame tiers (26.10.2026, owner decisions). Strength "done for today" = completed sets
+  // ≥ ceil(⅔ × daily target) AND ≥ 4 (no budget / rest day: ≥ 4) — below that home keeps the workout
+  // section and the top-up card. Every flame / day dot (weekly strip, v2 capsules, summary week dots) comes
+  // from ONE helper, flameLevelForDay (activity/lib/flame-level.ts): 0 none (a small "started" mark when a
+  // workout happened below the bar), 1 streak day, 2 + one domain goal (strength or aerobic), 3 both.
+  // The streak count is unchanged. Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableFlameTiersV1', firestoreKey: 'enable_flame_tiers_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

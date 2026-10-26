@@ -17,11 +17,14 @@ import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { toISODate, HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
 import { getScheduleEntries, getScheduleEntriesForDates, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import { useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
+import { useFlameDays, type FlameDayGetter } from '@/features/activity/hooks/useFlameDays';
+import { withFlameTier } from '@/features/home/utils/flame-tier-props';
 import type { UserScheduleEntry, RecurringTemplate } from '@/features/user/scheduling/types/schedule.types';
 import {
   DayIconCell,
   resolveDayDisplayProps,
   type DayDisplayInput,
+  type DayDisplayProps,
 } from '@/features/home/utils/day-display.utils';
 import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import { useTrackRingColors } from '@/features/home/hooks/useTrackRingColors';
@@ -40,6 +43,8 @@ export type GridViewMode =
   | 'maintenance_only';
 
 interface MonthlyCalendarGridProps {
+  /** enable_flame_tiers_v1 (resolved by the host): flames from flameLevelForDay, as on the week strip. */
+  flameTiers?: boolean;
   selectedDate: string;
   onDaySelect: (iso: string) => void;
   /** Called when a cell with a training entry is tapped — opens WorkoutPreviewDrawer. */
@@ -210,9 +215,27 @@ function buildCellProps(
   };
 }
 
+// ── enable_flame_tiers_v1 ─────────────────────────────────────────────────
+/** The level decides the flame (not the schedule entry / workout flag); null = flag off, input as is. */
+function withLit(input: DayDisplayInput, lit: boolean | null): DayDisplayInput {
+  if (lit === null) return input;
+  return { ...input, isCompleted: lit, isMissed: input.state === 'past' && !input.isRest && !lit };
+}
+
+function tierCell(
+  cell: MonthCell,
+  flameDayOf: FlameDayGetter | null,
+  build: (lit: boolean | null) => DayDisplayProps,
+): DayDisplayProps {
+  if (!flameDayOf || (!cell.isPast && !cell.isToday)) return build(null);
+  const flame = flameDayOf(cell.iso);
+  return withFlameTier(build(flame.level >= 1), flame);
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export default function MonthlyCalendarGrid({
+  flameTiers = false,
   selectedDate,
   onDaySelect,
   onEntryTap,
@@ -278,7 +301,9 @@ export default function MonthlyCalendarGrid({
     () => cells.filter((c) => c.isPast && c.isCurrentMonth).map((c) => c.iso),
     [cells],
   );
-  const { completedMap: pastProgressMap, recoveryMap: pastRecoveryMap } = usePastWorkoutCompleted(userId, pastIsos);
+  const { completedMap: pastProgressMap, recoveryMap: pastRecoveryMap, goalsMap: pastGoalsMap } = usePastWorkoutCompleted(userId, pastIsos);
+  // enable_flame_tiers_v1: same flame rule as the week strip (null while off — no reads).
+  const flameDayOf = useFlameDays(flameTiers, null, pastGoalsMap);
 
   // When collapsing, snap back to today's month so the week strip
   // always shows the current week and not some navigated-away month.
@@ -481,23 +506,26 @@ export default function MonthlyCalendarGrid({
                         ? { sizePx: 40, radiusPx: 12, innerSlotPx: 24, imgIconPx: 24 }
                         : undefined
                     }
-                    props={resolveDayDisplayProps(
-                      buildCellProps(
-                        cell, dayEntries, scheduleDays, programIconKey, isSelected,
-                        // Today: use useDayStatus for the unified Completion Bridge
-                        // (≥10 min logged OR workoutCompleted flag).
-                        cell.isToday ? getDayStatus(cell.iso).workoutDone : undefined,
-                        // Past: dailyProgress.workoutCompleted from the Firestore
-                        // pastProgressMap — keeps the flame alive after a day
-                        // transitions from "today" to "past".
-                        cell.isPast ? (pastProgressMap.get(cell.iso) ?? false) : undefined,
-                        // Today/Past recovery-completion bridge (RECOVERY_DAY_BADGE_FIX_ENABLED)
-                        // — mirrors the two params above; suppresses Beast Mode downstream.
-                        cell.isToday ? getDayStatus(cell.iso).isRecoveryCompletion : undefined,
-                        cell.isPast ? (pastRecoveryMap.get(cell.iso) ?? false) : undefined,
+                    props={tierCell(cell, flameDayOf, (lit) => resolveDayDisplayProps(
+                      withLit(
+                        buildCellProps(
+                          cell, dayEntries, scheduleDays, programIconKey, isSelected,
+                          // Today: use useDayStatus for the unified Completion Bridge
+                          // (≥10 min logged OR workoutCompleted flag).
+                          cell.isToday ? getDayStatus(cell.iso).workoutDone : undefined,
+                          // Past: dailyProgress.workoutCompleted from the Firestore
+                          // pastProgressMap — keeps the flame alive after a day
+                          // transitions from "today" to "past".
+                          cell.isPast ? (pastProgressMap.get(cell.iso) ?? false) : undefined,
+                          // Today/Past recovery-completion bridge (RECOVERY_DAY_BADGE_FIX_ENABLED)
+                          // — mirrors the two params above; suppresses Beast Mode downstream.
+                          cell.isToday ? getDayStatus(cell.iso).isRecoveryCompletion : undefined,
+                          cell.isPast ? (pastRecoveryMap.get(cell.iso) ?? false) : undefined,
+                        ),
+                        lit,
                       ),
                       t,
-                    )}
+                    ))}
                   />
                   {/* Community-mix dot — teal badge when day has both personal + community */}
                   {showCommunityMixDot && (

@@ -73,7 +73,8 @@ import { useNextRecommendation } from '@/features/home/hooks/useNextRecommendati
 import PlannedDayPreview from '@/features/home/components/day-preview/PlannedDayPreview';
 import ProgramStartSlide from '@/features/home/components/start-cards/ProgramStartSlide';
 import { programSignupNavigate } from '@/features/home/components/start-cards/program-signup-gate';
-import { applyStrengthTopUp, resolveStrengthTopUp, topUpTitleHe } from '@/features/home/utils/strength-top-up';
+import { applyStrengthTopUp, resolveStrengthTopUp, topUpTitleHe, TOP_UP_GENERATOR_ID } from '@/features/home/utils/strength-top-up';
+import { strengthDoneThreshold } from '@/features/home/utils/strength-day-gate';
 import { useWeeklyRunCount } from '@/features/activity';
 import { resolveNewUserHome } from '@/features/home/utils/new-user-home';
 import { dayTimingOf, type PlanKind } from '@/features/home/utils/day-plan';
@@ -609,6 +610,8 @@ export default function HomePage() {
   const [postWorkoutData, setPostWorkoutData] = useState<{
     workoutType: string; durationMinutes: number; completedAt: string;
     workoutTitle?: string; streak?: number; thumbnailUrl?: string; programId?: string;
+    /** HOME_DAILY_GOAL_V1 / enable_flame_tiers_v1: did this strength session reach the day's bar. */
+    strengthGoalMet?: boolean;
   } | null>(null);
   // Persistent completion gate — reads Firestore `dailyProgress/{uid}_{today}`.
   // Survives page refreshes / re-mounts and elapsed time within the same
@@ -1067,7 +1070,20 @@ export default function HomePage() {
   // previously declared locally) so the widgets/continue-activity reorder decision can use
   // the exact same value — not a second copy of the same expression that could silently
   // drift from this one.
-  const isTodayWorkoutDone = !!postWorkoutData || todayWorkoutDone;
+  // enable_flame_tiers_v1 (owner 26.10.2026): a strength session below the day's bar
+  // (⅔ of the daily target AND ≥ 4 sets) is not "done for today" — the just-finished payload
+  // says so (strengthGoalMet false); the workout section stays and the post-workout carousel
+  // (with the "נשארו X סטים להיום" top-up card) keeps running. Flag off: postWorkoutDone ===
+  // !!postWorkoutData and strengthStartedNotDone is false — identical to today.
+  const flameTiers = !!featureFlags.enableFlameTiersV1;
+  const postWorkoutDone = !!postWorkoutData && !(flameTiers && postWorkoutData.strengthGoalMet === false);
+  const strengthStartedNotDone = flameTiers && isSelectedDateToday && !todayWorkoutDone && !postWorkoutDone
+    && doneKindsOf(todaysWorkouts).includes('strength');
+  const isTodayWorkoutDone = postWorkoutDone || todayWorkoutDone;
+  // Below the bar (just finished, or a strength session earlier today): the top-up card leads
+  // the slot on its own, the workout section stays under it, no post-workout carousel.
+  const strengthBelowBar = flameTiers && isSelectedDateToday && !isTodayWorkoutDone
+    && (strengthStartedNotDone || !!postWorkoutData);
 
   // F2.3 (19.08.2026, "unified workout summary" plan): tapping a
   // TodayActivityCard opens the real workout it represents.
@@ -1244,7 +1260,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!postWorkoutCarouselEnabled) return;
-    if (!(postWorkoutData || todayWorkoutDone) || !profile) return;
+    if (!(postWorkoutData || todayWorkoutDone || strengthStartedNotDone) || !profile) return;
     let cancelled = false;
     // Fix (31.08.2026, Section E — "no real route/walking suggestion post-workout"):
     // location used to be hardcoded null here because none of the post_workout generators
@@ -1286,7 +1302,7 @@ export default function HomePage() {
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postWorkoutData, todayWorkoutDone, profile?.id]);
+  }, [postWorkoutData, todayWorkoutDone, strengthStartedNotDone, profile?.id]);
 
   // ── pre-workout suggestion carousel (17.8 build-plan, Section 1, commit 4/4) ──
   // Mirrors the post_workout effect above, one surface over, PLUS the Tier-1/Tier-2 split
@@ -1827,10 +1843,12 @@ export default function HomePage() {
   // "אימון משלים" (the engine's partial-completion card, titled with the sets left); goal
   // reached → no more strength today. Weekly runs = runs only (not walks).
   const strengthTopUp = resolveStrengthTopUp({
-    strengthDoneToday: featureFlags.enableHomeV2 && hasStrengthProgram && isSelectedDateToday
+    strengthDoneToday: (featureFlags.enableHomeV2 || flameTiers) && hasStrengthProgram && isSelectedDateToday
       && doneKindsOf(todaysWorkouts).includes('strength'),
     targetSets: dailyStrengthTarget.targetSets,
     completedSets: todayStrengthVolume.setsCompleted,
+    // enable_flame_tiers_v1: below the day's bar it is always a top-up (at least up to the bar).
+    ...(flameTiers ? { minDoneSets: strengthDoneThreshold(dailyStrengthTarget.targetSets) } : {}),
   });
   strengthTopUpSetsRef.current = strengthTopUp.mode === 'top-up' ? strengthTopUp.remainingSets : 0;
   const weekRunsV2 = useWeeklyRunCount(
@@ -3244,7 +3262,7 @@ export default function HomePage() {
             toISODate(new Date()), never selectedDate) — without this it kept showing while
             scrolling to a past or future day, clashing with Section 2's own past-day summary
             rendered further down this same page for that other date. */}
-        {isSelectedDateToday && (postWorkoutData || todayWorkoutDone || todayStepGoalMet) && (todayActivityCards.length > 0 || todayStepGoalCard) && (
+        {isSelectedDateToday && (postWorkoutDone || todayWorkoutDone || todayStepGoalMet) && (todayActivityCards.length > 0 || todayStepGoalCard) && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -3281,6 +3299,7 @@ export default function HomePage() {
           >
             <SmartWeeklySchedule
               v2={featureFlags.enableHomeV2}
+              flameTiers={flameTiers}
               schedule={realSchedule}
               currentTrack={strip.currentTrack}
               scheduleDays={strip.scheduleDays}
@@ -3548,9 +3567,10 @@ export default function HomePage() {
                   plan: programSlide.plan,
                   isViewingToday,
                   preCarousel: readyPreWorkoutSuggestions ? 'ready' : preWorkoutSuggestionsLoading ? 'loading' : 'none',
-                  postCarousel: !isSelectedDateToday ? 'none'
+                  // enable_flame_tiers_v1: below the bar there is no post-workout carousel to host it.
+                  postCarousel: !isSelectedDateToday || strengthBelowBar ? 'none'
                     : postWorkoutHasCards ? 'ready'
-                    : postWorkoutCarouselEnabled && (postWorkoutData || todayWorkoutDone) && postWorkoutSuggestions === null ? 'loading'
+                    : postWorkoutCarouselEnabled && (postWorkoutData || todayWorkoutDone || strengthStartedNotDone) && postWorkoutSuggestions === null ? 'loading'
                     : 'none',
                 });
                 // A start plan on its own = the two start cards as their own carousel (one card
@@ -3866,7 +3886,7 @@ export default function HomePage() {
                     onWorkoutGenerated={handleWorkoutGenerated}
                     selectedDate={selectedDate}
                     hasCompletedAssessment={hasStrengthProgram}
-                    hideWorkoutSection={!!postWorkoutData || todayWorkoutDone}
+                    hideWorkoutSection={postWorkoutDone || todayWorkoutDone}
                     enableRunningPrograms={featureFlags.enableRunningPrograms}
                     scheduleVersion={scheduleVersion}
                     onBuildCustom={handleBuildCustom}
@@ -3954,7 +3974,7 @@ export default function HomePage() {
           const postWorkoutCarouselLoading =
             isSelectedDateToday
             && postWorkoutCarouselEnabled
-            && (postWorkoutData || todayWorkoutDone)
+            && (postWorkoutData || todayWorkoutDone || strengthStartedNotDone)
             && postWorkoutSuggestions === null;
 
           const continueActivityBlock = isSelectedDateToday && postWorkoutCarouselLoading ? (
@@ -4049,12 +4069,31 @@ export default function HomePage() {
           // relative order based on isTodayWorkoutDone (hoisted near todayActivityCards,
           // above) — a completed day shows "המשך הפעילות של היום" before these widgets,
           // instead of always-widgets-first.
+          // enable_flame_tiers_v1 (owner 26.10.2026): below the day's bar, only the
+          // "נשארו X סטים להיום" card (the engine's partial-completion suggestion) leads the
+          // slot, the workout section (widgetsBlock) follows — no second carousel.
+          const topUpSuggestion = strengthBelowBar && strengthTopUp.mode === 'top-up'
+            ? postWorkoutSuggestions?.find((sg) => sg.generatorId === TOP_UP_GENERATOR_ID)
+            : undefined;
+          const leadBlock = !strengthBelowBar ? continueActivityBlock : topUpSuggestion && strengthTopUp.mode === 'top-up' ? (
+            <div data-top-up-card style={{ height: 330 }}>
+              <PostWorkoutCardRenderer
+                suggestion={topUpSuggestion}
+                titleOverride={topUpTitleHe(strengthTopUp.remainingSets, tHome)}
+                onStart={() => handlePostWorkoutSuggestionStart(topUpSuggestion)}
+                isStarting={startingSuggestionId === topUpSuggestion.id}
+                userGender={profile?.core?.gender}
+                healthConnected={healthConnected}
+                onConnectSteps={triggerHealthPermission}
+              />
+            </div>
+          ) : null;
           return (
             <>
               {anchorBlock}
-              {isTodayWorkoutDone ? (
+              {isTodayWorkoutDone || strengthBelowBar ? (
                 <>
-                  {continueActivityBlock}
+                  {leadBlock}
                   {widgetsBlock}
                 </>
               ) : (
@@ -4220,6 +4259,7 @@ export default function HomePage() {
 
       {/* ── Training Planner Full-Screen Overlay ── */}
       <TrainingPlannerOverlay
+        flameTiers={flameTiers}
         isOpen={showPlanner}
         openScheduleBuilder={openBuilderInPlanner}
         onClose={() => { setShowPlanner(false); setOpenBuilderInPlanner(false); }}

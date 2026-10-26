@@ -17,6 +17,16 @@ describe('resolveStrengthTopUp', () => {
   });
   it('a rest day (target 0) never asks for more strength', () => {
     expect(resolveStrengthTopUp({ strengthDoneToday: true, targetSets: 0, completedSets: 4 })).toEqual({ mode: 'goal-met' });
+  });  it('enable_flame_tiers_v1 (minDoneSets): below the bar it is always a top-up', () => {
+    // 2 sets of a 12-set day, bar 8 → 10 left (up to the full target)
+    expect(resolveStrengthTopUp({ strengthDoneToday: true, targetSets: 12, completedSets: 2, minDoneSets: 8 })).toEqual({ mode: 'top-up', remainingSets: 10 });
+    // rest day: up to the 4-set floor
+    expect(resolveStrengthTopUp({ strengthDoneToday: true, targetSets: 0, completedSets: 2, minDoneSets: 4 })).toEqual({ mode: 'top-up', remainingSets: 2 });
+    // target 3 (bar 4): 3 done is still one short
+    expect(resolveStrengthTopUp({ strengthDoneToday: true, targetSets: 3, completedSets: 3, minDoneSets: 4 })).toEqual({ mode: 'top-up', remainingSets: 1 });
+    // at / over the bar → today's rule
+    expect(resolveStrengthTopUp({ strengthDoneToday: true, targetSets: 12, completedSets: 8, minDoneSets: 8 })).toEqual({ mode: 'top-up', remainingSets: 4 });
+    expect(resolveStrengthTopUp({ strengthDoneToday: true, targetSets: 0, completedSets: 4, minDoneSets: 4 })).toEqual({ mode: 'goal-met' });
   });
 });
 

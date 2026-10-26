@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode, Tv, MoreHorizontal, Mountain,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, Flame, QrCode, Tv, MoreHorizontal, Mountain,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -132,6 +132,7 @@ interface FlagState {
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
+  enable_flame_tiers_v1: boolean;
 }
 
 // ============================================================================
@@ -1094,6 +1095,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'אימונים שמתאימים למקום: דף פארק ודף מסלול',
     description: 'בדף הפארק: "מתאים לך כאן" מתחת לכותרת, עד 3 כרטיסי אימון (האימון מהתוכנית ראשון, אחריו חלופות שמתאימות לתוכנית ולמתקנים, ומשולב רק כשיש מסלול עד 400 מ׳ מהפארק). המתקנים מוצגים כאריחים כהים (6 ועוד N), והכפתור הקבוע למטה מתחיל את הכרטיס הראשון. בדף המסלול: הצללה ותאורה בשורת הנתונים (כשידוע), "אימונים על המסלול הזה" (אימון עליות רק כשיש עלייה מתאימה), "פירוט" סגור עם גובה, מה יש בדרך, קלוריות ושימושים, ו"מתאמנים כאן" כמו בדף הפארק. קריאה בלבד. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = שני הדפים כמו היום.',
     parentKey: 'enable_home_v2',
+  },
+  // Done-today gate + flame tiers (26.10.2026, owner decisions).
+  {
+    key: 'enable_flame_tiers_v1',
+    icon: Flame,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-500',
+    title: '"סיימתי להיום" אמיתי ולהבות בשלוש דרגות',
+    description: 'אימון כוח נחשב "סיימתי להיום" רק מ-⅔ מיעד הסטים היומי ולפחות 4 סטים (ביום מנוחה / בלי תקציב: 4 סטים). מתחת לזה הבית לא מציג "סיימת", אזור האימון נשאר וכרטיס "נשארו X סטים להיום" מופיע. אימוני "לדוגמה" נספרים כמו כל אימון. כל הלהבות (רצועת השבוע, הקפסולות בבית v2, נקודות השבוע במסכי הסיכום) מחושבות מאותו כלל: להבה קטנה = יום שנספר לרצף (10 דקות פעילות או יעד צעדים), בינונית = גם יעד יומי אחד (כוח או אירובי), גדולה ובולטת = גם כוח וגם אירובי. אימון מתחת לרף מקבל סימן "התחיל" קטן, לא להבה. מסך הסיכום כבר לא מסמן את היום כ"בוצע" אוטומטית. מונה הרצף לא משתנה. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
 ];
 

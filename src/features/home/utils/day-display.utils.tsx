@@ -20,6 +20,9 @@ import { FLAME_TONES, sortTones, toneFromFlameKey, type FlameTone } from '@/comp
 import { useT } from '@/hooks/useT';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { home, type HomeKey } from '@/messages/ns/home';
+import { common } from '@/messages/ns/common';
+import { flameTierSize, type FlameTier } from '@/components/ui/v2/tokens';
+import { FlameTierWrap } from '../components/FlameTierWrap';
 
 /** The `home` translator a caller passes to the pure label helpers below (useT(home) / makeT('he', home)). */
 export type DayDisplayT = (key: HomeKey, values?: MessageValues) => string;
@@ -394,6 +397,13 @@ export interface DayDisplayProps {
    * all other dots stay at 30 %.
    */
   dots: { color: string }[];
+  /**
+   * enable_flame_tiers_v1 only (set by the weekly strip from flameLevelForDay): the day's
+   * flame level (1–3 sizes the flame, 3 the two-tone glow) and the neutral "started" mark.
+   * Absent → today's rendering, unchanged.
+   */
+  flameLevel?: 0 | FlameTier;
+  flameStarted?: boolean;
 }
 
 // ============================================================================
@@ -1090,11 +1100,16 @@ export function earnedTones(props: DayDisplayProps): FlameTone[] {
 
 function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: number }) {
   const t = useT(home);
+  const tc = useT(common);
   const isToday = props.state === 'today';
-  const tones = earnedTones(props);
+  const tier: FlameTier | undefined = props.flameLevel ? props.flameLevel : undefined;
+  const earned = earnedTones(props);
+  // enable_flame_tiers_v1 level 3: one two-tone (strength + cardio) blended flame.
+  const tones = tier === 3 && earned.length ? sortTones([...earned, 'strength', 'cardio'] as FlameTone[]).slice(0, 3) : earned;
+  const flamePx = flameTierSize(Math.round(sizePx * 1.05), tier);
   const [i, setI] = useState(0);
   // Only today's multi-activity flame moves; past days show their main colour.
-  const cycling = isToday && tones.length > 1;
+  const cycling = isToday && tones.length > 1 && tier !== 3;
   useEffect(() => {
     setI(0);
     if (!cycling) return;
@@ -1105,7 +1120,12 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
   if (tones.length) {
     const current = cycling ? tones[i % tones.length] : tones[0];
     return (
-      <div className="relative flex items-center justify-center" dir="rtl" style={{ width: sizePx, height: sizePx }}>
+      <div
+        className="relative flex items-center justify-center"
+        dir="rtl"
+        style={{ width: sizePx, height: sizePx }}
+        {...(tier ? { role: 'img', 'aria-label': tc(`flame.level.${tier}`) } : {})}
+      >
         {cycling ? (
           <AnimatePresence initial={false}>
             <motion.span
@@ -1116,11 +1136,11 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
               exit={{ opacity: 0, scale: 1.08 }}
               transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
             >
-              <StreakFlame tones={[current]} size={Math.round(sizePx * 1.05)} live />
+              <StreakFlame tones={[current]} size={flamePx} live tier={tier} />
             </motion.span>
           </AnimatePresence>
         ) : (
-          <StreakFlame tones={[current]} size={Math.round(sizePx * 1.05)} live={isToday} />
+          <StreakFlame tones={tier === 3 ? tones : [current]} size={flamePx} live={isToday} tier={tier} />
         )}
         {tones.length > 1 && (
           <span className="absolute -bottom-1.5 flex items-center gap-[3px]" aria-label={tones.map((tone) => FLAME_TONES[tone].label).join(' + ')}>
@@ -1180,8 +1200,12 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
 
 export function DayIconCell({ props, hideDots = false, sizeOverride, activityRing, ringSizePx }: DayIconCellProps) {
   const v2 = useContext(DayCellV2Context);
-  if (v2 && !activityRing) return <DayIconCellV2 props={props} sizePx={sizeOverride?.sizePx ?? 38} />;
-  return <DayIconCellV1 props={props} hideDots={hideDots} sizeOverride={sizeOverride} activityRing={activityRing} ringSizePx={ringSizePx} />;
+  const cell = v2 && !activityRing
+    ? <DayIconCellV2 props={props} sizePx={sizeOverride?.sizePx ?? 38} />
+    : <DayIconCellV1 props={props} hideDots={hideDots} sizeOverride={sizeOverride} activityRing={activityRing} ringSizePx={ringSizePx} />;
+  // enable_flame_tiers_v1 only (fields absent otherwise → the cell as is).
+  if (props.flameLevel === undefined && !props.flameStarted) return cell;
+  return <FlameTierWrap level={props.flameLevel} started={!!props.flameStarted} scaleV1Flame={!(v2 && !activityRing) && props.icon.type === 'img'}>{cell}</FlameTierWrap>;
 }
 
 function DayIconCellV1({ props, hideDots = false, sizeOverride, activityRing, ringSizePx }: DayIconCellProps) {
