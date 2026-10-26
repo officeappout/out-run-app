@@ -9,6 +9,7 @@ export interface SkillSplit {
 
 export function isSkillUnlocked(id: SkillId, levels: GroupLevels, handstandChestToWall = false): boolean {
   const r = SKILL_RULES[id];
+  if (r.pendingOwner) return false;
   if (levels[r.group] < r.minLevel) return false;
   return r.needs === 'handstand_chest_to_wall' ? handstandChestToWall : true;
 }
@@ -29,6 +30,10 @@ export function splitSkills(input: Pick<StructureInput, 'skills' | 'levels' | 'h
     }
     locked.push(s);
     const r = SKILL_RULES[s.id];
+    if (r.pendingOwner) {
+      notes.push({ code: 'skill_pending_owner', skill: s.id });
+      continue;
+    }
     const levelOk = input.levels[r.group] >= r.minLevel;
     notes.push({
       code: 'skill_locked',

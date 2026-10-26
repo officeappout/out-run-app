@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planStructure, toStrengthPrograms, weekBandOf, weekLevelOf, isSkillUnlocked } from '..';
+import { MOVEMENT_COUNTS_TOWARD_SET_TARGETS, planStructure, toStrengthPrograms, weekBandOf, weekLevelOf, isSkillUnlocked } from '..';
 import type { GroupLevels, StrengthDay, StructureInput } from '..';
 
 const L = (n: number): GroupLevels => ({ push: n, pull: n, legs: n });
@@ -82,9 +82,17 @@ describe('skills', () => {
     expect(isSkillUnlocked('front_lever', { push: 1, pull: 14, legs: 1 })).toBe(true);
     expect(isSkillUnlocked('planche', { push: 15, pull: 1, legs: 1 })).toBe(false);
     expect(isSkillUnlocked('planche', { push: 16, pull: 1, legs: 1 })).toBe(true);
-    expect(isSkillUnlocked('one_arm_pullup', { push: 1, pull: 15, legs: 1 })).toBe(true);
-    expect(isSkillUnlocked('hspu', { push: 16, pull: 1, legs: 1 })).toBe(false);
-    expect(isSkillUnlocked('hspu', { push: 16, pull: 1, legs: 1 }, true)).toBe(true);
+  });
+  it('pending-owner skills never unlock and are reported with a clear code', () => {
+    const hi = { push: 25, pull: 25, legs: 25 };
+    for (const id of ['one_arm_pullup', 'handstand', 'hspu', 'muscle_up'] as const) expect(isSkillUnlocked(id, hi, true)).toBe(false);
+    const p = planStructure({ days: 4, levels: hi, skills: [{ id: 'handstand' }, { id: 'muscle_up' }] });
+    expect(p.lockedSkills).toEqual(['handstand', 'muscle_up']);
+    expect(p.notes.filter((n) => n.code === 'skill_pending_owner')).toHaveLength(2);
+    expect(strengthOf(p).some((d) => d.skill)).toBe(false);
+  });
+  it('movement days do not count toward set targets', () => {
+    expect(MOVEMENT_COUNTS_TOWARD_SET_TARGETS).toBe(false);
   });
   it('a locked skill is reported, never scheduled', () => {
     const p = planStructure({ days: 4, levels: { push: 15, pull: 13, legs: 10 }, skills: [{ id: 'front_lever' }, { id: 'planche' }] });
@@ -125,12 +133,6 @@ describe('skills', () => {
       expect(d.skill!.leadMinutes).toBeLessThanOrEqual(15);
     }
     expect(p.notes.map((n) => n.code)).toContain('skill_hint_add_day_or_pick_focus');
-  });
-  it('two skills of the same family: one leads, the other gets a small part', () => {
-    const p = planStructure({ days: 6, levels: L(18), skills: [{ id: 'front_lever' }, { id: 'one_arm_pullup' }] });
-    const pulls = strengthOf(p).filter((d) => d.kind === 'pull');
-    expect(pulls.map((d) => d.skill!.lead)).toEqual(['front_lever', 'one_arm_pullup']);
-    for (const d of pulls) expect(d.skill!.minorShare!).toBeLessThan(d.skill!.leadShare);
   });
   it('edge case: an unlocked chosen skill leads although the average gives a lower band', () => {
     const p = planStructure({ days: 4, levels: { push: 1, pull: 14, legs: 1 }, skills: [{ id: 'front_lever' }] });

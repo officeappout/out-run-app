@@ -29,17 +29,26 @@ export interface SkillRule {
   minLevel: number;
   /** Extra prerequisite flag, besides the level. */
   needs?: 'handstand_chest_to_wall';
+  /** Owner has not approved an unlock yet: never scheduled, reported as pending. */
+  pendingOwner?: true;
 }
 
-/** Unlocks by base level. one_arm_pullup 15 is the owner-delegated recommendation; handstand ~8-10; muscle_up is not in the decisions (kept at pull 10, open). */
+/**
+ * Unlocks by base level. Owner-approved (26.10): front_lever pull 14, planche push 16 only.
+ * TODO(owner): one_arm_pullup (not in decisions), handstand, hspu (later), muscle_up (workouts not
+ * designed yet) stay pendingOwner = never scheduled until the owner approves a threshold.
+ */
 export const SKILL_RULES: Readonly<Record<SkillId, SkillRule>> = {
   front_lever: { family: 'pull', group: 'pull', minLevel: 14 },
   planche: { family: 'push', group: 'push', minLevel: 16 },
-  one_arm_pullup: { family: 'pull', group: 'pull', minLevel: 15 },
-  handstand: { family: 'push', group: 'push', minLevel: 8 },
-  hspu: { family: 'push', group: 'push', minLevel: 16, needs: 'handstand_chest_to_wall' },
-  muscle_up: { family: 'pull', group: 'pull', minLevel: 10 },
+  one_arm_pullup: { family: 'pull', group: 'pull', minLevel: 15, pendingOwner: true },
+  handstand: { family: 'push', group: 'push', minLevel: 8, pendingOwner: true },
+  hspu: { family: 'push', group: 'push', minLevel: 16, needs: 'handstand_chest_to_wall', pendingOwner: true },
+  muscle_up: { family: 'pull', group: 'pull', minLevel: 10, pendingOwner: true },
 };
+
+/** Movement days (walk / mobility / short core) do NOT count toward the weekly strength set targets (owner 26.10). */
+export const MOVEMENT_COUNTS_TOWARD_SET_TARGETS = false;
 
 /** Advanced style priority. */
 export const STYLE_LITTLE_TIME_MINUTES = 30;

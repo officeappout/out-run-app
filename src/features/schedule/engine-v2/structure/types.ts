@@ -71,6 +71,7 @@ export type StructureNoteCode =
   | 'seventh_day_movement'
   | 'single_day_covers_each_muscle_once'
   | 'skill_locked'
+  | 'skill_pending_owner'
   | 'skill_leads_despite_week_band'
   | 'skill_hint_add_day_or_pick_focus'
   | 'second_skill_small_part'
