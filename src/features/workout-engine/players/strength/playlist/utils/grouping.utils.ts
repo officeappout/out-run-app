@@ -17,7 +17,6 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { resolveBlockProtocol } from '../../protocols/block-protocol';
 import { tabataMemberCosts, tabataRoundsPerMember } from '../../protocols/tabata.advance';
 import type { FlatExercise, SubGroup } from '../types';
-import { parseDurationSeconds } from '../../logic/duration-target';
 
 /**
  * Returns the segment's exercise array under whichever field name the
@@ -96,8 +95,12 @@ export function parseTargetReps(ex: WorkoutExercise): number {
 
   const isTime = ex.exerciseType === 'time' || ex.isTimeBased === true;
   if (isTime) {
-    // Pilot S4: skip the "3×" set prefix (it was read as a 3 second hold).
-    return parseDurationSeconds(ex.duration) ?? 30;
+    const durationStr = ex.duration;
+    if (durationStr) {
+      const match = durationStr.match(/(\d+)/);
+      if (match) return parseInt(match[1], 10);
+    }
+    return 30;
   }
 
   const repsStr = ex.reps ?? '';

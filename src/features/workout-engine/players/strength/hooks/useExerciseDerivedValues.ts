@@ -9,7 +9,6 @@ import type { ExternalVideo } from '@/features/content/exercises/core/exercise.t
 import type { BlockProtocolInfo } from '../protocols/block-protocol';
 import { toCueList, resolveGenderedText } from '@/features/content/exercises/utils/cue-text.utils';
 import { tabataIntervalInfo, tabataMemberCosts, tabataRoundsPerMember } from '../protocols/tabata.advance';
-import { parseDurationSeconds } from '../logic/duration-target';
 
 /**
  * useExerciseDerivedValues — all 20+ display-value memos in one isolated hook
@@ -189,8 +188,12 @@ export function useExerciseDerivedValues({
     }
     if (exerciseType === 'time' || exerciseType === 'follow-along') {
       if ((currentSegment as any)?.target?.type === 'time') return (currentSegment as any).target.value;
-      // Pilot S4: skip the "3×" set prefix (it was read as a 3 second hold).
-      return parseDurationSeconds(activeExercise?.duration) ?? 30;
+      const durationStr = activeExercise?.duration;
+      if (durationStr) {
+        const match = durationStr.match(/(\d+)/);
+        return match ? parseInt(match[1], 10) : 30;
+      }
+      return 30;
     }
     return 0;
   }, [exerciseType, currentSegment, activeExercise, pyramidStep]);

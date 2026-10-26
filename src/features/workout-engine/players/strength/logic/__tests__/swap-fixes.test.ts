@@ -14,7 +14,6 @@ import { applyCheckpointSwaps, clearCheckpointSwaps, saveSwapToCheckpoint } from
 import { swapPyramidStep } from '../pyramid-step-swap';
 import { withSwappedTag } from '@/features/workout-engine/components/strength/utils/summary-v2.mapping';
 import { deriveRunnerSwapVolume, runnerSwapVolumeFor } from '@/app/workouts/[id]/active/runner-swap-volume';
-import { parseDurationSeconds } from '../duration-target';
 
 describe('collectWorkoutExerciseIds', () => {
   it('every slot (generated + runner shapes) and every pyramid step, deduped', () => {
@@ -154,11 +153,8 @@ describe('pilot S4: push-ups (4-6 reps) swapped for a 90 degree hold', () => {
     expect(runnerSwapVolumeFor(pushups, false, 5, false, false)).toBeNull();
   });
 
-  it('the hold target is read past the set prefix, not as the set count', () => {
+  it('flag on: unchanged (reps to hold resets, range also on the entry)', () => {
     const v = runnerSwapVolumeFor(pushups, true, 3, false, true)!;
-    expect(v.duration).toBe('3×20-45 שניות');
-    expect(parseDurationSeconds(v.duration)).toBe(20);
-    expect(parseDurationSeconds('30 שניות')).toBe(30);
-    expect(parseDurationSeconds('')).toBeNull();
+    expect(v).toMatchObject({ exerciseType: 'time', repsRange: { min: 20, max: 45 }, duration: '3×20-45 שניות' });
   });
 });
