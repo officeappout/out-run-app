@@ -93,9 +93,32 @@ describe('buildPhaseSummary — live flow (plan segments)', () => {
   it('unlogged cooldown is "skipped", and session totals add up', () => {
     expect(phases[2].blocks[0].exercises[0].status).toBe('skipped');
     const t = sessionTotals(phases);
-    expect(t.setsDone).toBe(5);
-    expect(t.setsPlanned).toBe(7);
-    expect(t.completionPercent).toBe(71);
+    // Warm-up excluded (pilot S6): main 4/5 + cooldown 0/1.
+    expect(t.setsDone).toBe(4);
+    expect(t.setsPlanned).toBe(6);
+    expect(t.completionPercent).toBe(67);
+  });
+
+  it('pilot S6: a full warm-up plus ONE main set does not inflate the completion percent', () => {
+    const warmup: PlanSegment = {
+      id: 'seg-warmup',
+      title: 'חימום',
+      exercises: Array.from({ length: 8 }, (_, i) => ({ id: `w${i}`, name: `w${i}`, duration: '30', exerciseType: 'time' as const, sets: 1 })),
+    };
+    const main: PlanSegment = {
+      id: 'seg-main',
+      title: 'בלוק 1',
+      exercises: Array.from({ length: 5 }, (_, i) => ({ id: `m${i}`, name: `m${i}`, reps: '10', sets: 5 })),
+    };
+    const p = buildPhaseSummary({
+      completedExercises: [],
+      rawLog: [...warmup.exercises!.map((e) => log(e.id, 'seg-warmup', [30])), log('m0', 'seg-main', [10], 10)],
+      segments: [warmup, main],
+    });
+    const t = sessionTotals(p);
+    expect(t.setsDone).toBe(1);
+    expect(t.setsPlanned).toBe(25);
+    expect(t.completionPercent).toBe(4);
   });
 
   it('swapped-in exercise lands in its segment with unknown plan', () => {

@@ -55,6 +55,8 @@ import { needsWeekBuilder, shapeOfWeek } from '@/features/schedule/week-builder'
 import { walkRules, walkWeekToWb, type WalkWbContext } from '@/features/schedule/week-builder/adapters/walk';
 import { defaultTrainingDays, saturdayMarked } from '@/features/schedule/engine-v2';
 import { existingRunDays, existingStrengthDays } from '@/features/schedule/add-track/addTrackProfile';
+import { mergePlannedStrengthDays } from '@/features/schedule/add-track/plannedStrengthDays';
+import { useWeekPlannedStrength } from './useWeekPlannedStrength';
 import type { WeaverInputProfile } from '@/features/schedule/engine/weaverInput';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import NotAloneCard from '@/features/schedule/walking/components/NotAloneCard';
@@ -116,16 +118,18 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
 
   // enable_week_builder_v1: 5+ walks, or walks next to the user's strength / run week → the
   // week builder (the other track shown locked, read from the saved profile only).
+  // Pilot P11: the strength days the schedule shows (day docs too, not the template only).
+  const plannedStrength = useWeekPlannedStrength(auth.currentUser?.uid, profile, weekBuilderOn && hasStrengthTrack(profile));
   const builderCtx = useMemo<WalkWbContext | null>(() => {
     if (!weekBuilderOn) return null;
     const p = profile as unknown as WeaverInputProfile | null;
     return {
       openDays: defaultTrainingDays(saturdayMarked(days)),
       windows,
-      otherStrength: hasStrengthTrack(profile) ? existingStrengthDays(p, resolveToSlug) : [],
+      otherStrength: hasStrengthTrack(profile) ? mergePlannedStrengthDays(plannedStrength, existingStrengthDays(p, resolveToSlug)) : [],
       otherRuns: hasRunningTrack(profile) ? existingRunDays(p, new Date()) : [],
     };
-  }, [weekBuilderOn, profile, days, windows]);
+  }, [weekBuilderOn, profile, days, windows, plannedStrength]);
   const complexWeek = useMemo(
     () => !!builderCtx && !!plan.weeks[0] && needsWeekBuilder(shapeOfWeek(walkWeekToWb(plan.weeks[0], builderCtx, walkRules(builderCtx)))),
     [builderCtx, plan],

@@ -42,6 +42,8 @@
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { setOnboardingPref, getOnboardingPref, removeOnboardingPref } from '@/lib/onboardingPrefs';
 import type { PrimaryCategory } from './single-domain-assessment.service';
+import type { UserFullProfile } from '@/features/user/core/types/user.types';
+import { resolveOnboardingEntryHref } from '../utils/onboarding-entry';
 
 export const MINI_ASSESSMENT_ACTIVE_KEY = 'mini_assessment_active';
 export const MINI_ASSESSMENT_DOMAIN_KEY = 'mini_assessment_domain';
@@ -177,6 +179,44 @@ export function resolveBaseCategoryForProgramId(
     if (slugs.includes(slug) || slugs.includes(id)) return category;
   }
   return slug;
+}
+
+/**
+ * Pilot B1 / Q4: drops a STALE mini top-up (launched, then abandoned) when the user
+ * enters the FULL strength questionnaire at program-path. Without this, the mini flag
+ * survives in sessionStorage and assessment-visual's accept handler takes the mini
+ * branch for the full questionnaire: a "full body" result is saved as a single push
+ * track. Only the mini_* keys are cleared; program-path re-seeds its own scoping keys
+ * and the durable map-return pref stays for the detoured case.
+ * Returns true when a stale mini state was cleared.
+ */
+export function clearStaleMiniAssessmentState(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const wasActive = sessionStorage.getItem(MINI_ASSESSMENT_ACTIVE_KEY) === '1';
+    sessionStorage.removeItem(MINI_ASSESSMENT_ACTIVE_KEY);
+    sessionStorage.removeItem(MINI_ASSESSMENT_DOMAIN_KEY);
+    sessionStorage.removeItem(MINI_ASSESSMENT_RETURN_TO_KEY);
+    return wasActive;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pilot Q4: a user with NO strength program yet (the map's assessment prompt card) gets
+ * the FULL strength questionnaire, starting at the program-choice screen, instead of a
+ * push-only mini top-up. `returnTo` is kept as the durable map-return target that
+ * health-connect reads at the end of the full flow.
+ */
+export function startFullStrengthQuestionnaire(
+  router: MiniAssessmentRouter,
+  profile: UserFullProfile | null | undefined,
+  returnTo?: string,
+): void {
+  clearStaleMiniAssessmentState();
+  if (returnTo) setOnboardingPref(MAP_RETURN_TARGET_PREF_KEY, returnTo);
+  router.push(resolveOnboardingEntryHref(profile, 'STRENGTH', { deferIdentity: true }));
 }
 
 /** Reads + clears the mini-assessment flags. Call once, after persisting the result. */

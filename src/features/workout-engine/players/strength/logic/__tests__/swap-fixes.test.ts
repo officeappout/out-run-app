@@ -13,7 +13,7 @@ import {
 import { applyCheckpointSwaps, clearCheckpointSwaps, saveSwapToCheckpoint } from '../../hooks/swap-checkpoint';
 import { swapPyramidStep } from '../pyramid-step-swap';
 import { withSwappedTag } from '@/features/workout-engine/components/strength/utils/summary-v2.mapping';
-import { deriveRunnerSwapVolume } from '@/app/workouts/[id]/active/runner-swap-volume';
+import { deriveRunnerSwapVolume, runnerSwapVolumeFor } from '@/app/workouts/[id]/active/runner-swap-volume';
 
 describe('collectWorkoutExerciseIds', () => {
   it('every slot (generated + runner shapes) and every pyramid step, deduped', () => {
@@ -138,5 +138,23 @@ describe('deriveRunnerSwapVolume (active player, like the preview)', () => {
       reps: '12 חזרות',
       duration: undefined,
     });
+  });
+});
+
+describe('pilot S4: push-ups (4-6 reps) swapped for a 90 degree hold', () => {
+  const pushups = { exerciseType: 'reps', sets: 3, reps: '3×4-6 חזרות', repsRange: { min: 4, max: 6 }, exerciseLevel: 3 };
+
+  it('flag off: a reps to hold swap still resets to the hold default (no 4-6 carry-over)', () => {
+    const v = runnerSwapVolumeFor(pushups, true, 3, false, false);
+    expect(v).toMatchObject({ exerciseType: 'time', repsRange: { min: 20, max: 45 }, reps: undefined });
+  });
+
+  it('flag off: same metric keeps the old numbers (unchanged behaviour)', () => {
+    expect(runnerSwapVolumeFor(pushups, false, 5, false, false)).toBeNull();
+  });
+
+  it('flag on: unchanged (reps to hold resets, range also on the entry)', () => {
+    const v = runnerSwapVolumeFor(pushups, true, 3, false, true)!;
+    expect(v).toMatchObject({ exerciseType: 'time', repsRange: { min: 20, max: 45 }, duration: '3×20-45 שניות' });
   });
 });

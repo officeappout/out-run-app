@@ -75,7 +75,7 @@ import { useSwapFixesV1 } from '@/features/workout-engine/players/strength/hooks
 import { applyCheckpointSwaps, saveSwapToCheckpoint } from '@/features/workout-engine/players/strength/hooks/swap-checkpoint';
 import { collectWorkoutExerciseIds, swapWindowLevel } from '@/features/workout-engine/players/strength/logic/swap-fixes';
 import { isTimeBasedExercise } from '@/features/workout-engine/logic/workout-budgeting.utils';
-import { deriveRunnerSwapVolume } from './runner-swap-volume';
+import { runnerSwapVolumeFor } from './runner-swap-volume';
 import { domainOfMovementGroup } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import type { ReplacementMeta, SwapOpenContext, WorkoutFeedbackRecord } from '@/features/workout-engine/adaptation/adaptation.types';
 import { bumpStrengthSummaryCount, shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
@@ -1788,14 +1788,14 @@ export default function ActiveWorkoutPage() {
       );
 
       // enable_swap_fixes_v1: re-derive reps↔hold + level-delta volume like the preview does.
-      const derived = swapFixesOn && oldExercise
-        ? deriveRunnerSwapVolume(
-            { ...(oldExercise as any), exerciseLevel: oldExercise.exerciseLevel ?? meta?.fromLevel },
-            isTimeBasedExercise(newExercise),
-            meta?.toLevel,
-            (newExercise as any).symmetry === 'unilateral',
-          )
-        : null;
+      // Pilot S4: a reps to hold swap re-derives even with the flag off (no carry-over).
+      const derived = runnerSwapVolumeFor(
+        oldExercise ? { ...(oldExercise as any), exerciseLevel: oldExercise.exerciseLevel ?? meta?.fromLevel } : null,
+        isTimeBasedExercise(newExercise),
+        meta?.toLevel,
+        (newExercise as any).symmetry === 'unilateral',
+        swapFixesOn,
+      );
 
       // ── Step 2: Overlay preserved volume + superset binding ─────────────
       const newWorkoutExercise = {
