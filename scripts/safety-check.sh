@@ -497,6 +497,48 @@ ${MATCHED}
   fi
 done <<< "$NEW_UI_FILES"
 
+# ── Check 7 (ADVISORY): newly ADDED UI files are written direction-agnostic ────
+# Source: docs/i18n/HOW-TO.md §12 (i18n wave 4). English is LTR, so new screens must
+# use LOGICAL layout: ms/me/ps/pe/start/end/text-start/text-end/rounded-s/rounded-e,
+# and no hard-coded dir="rtl" (the <html dir> is the single source). Under dir=rtl the
+# pixel-identical Hebrew layout of the old physical class is: ml→me, mr→ms, pl→pe, pr→ps,
+# left→end, right→start, text-left→text-end, text-right→text-start. WARNING only for now
+# (never blocks); promote to a violation once the wave-4 rollout is done.
+# Scope: files ADDED in this diff under src/app/** or src/features/** (.tsx), not admin,
+# not tests. Skips left-1/2 / right-1/2 (centering pattern, correct in both directions).
+# Escape hatches: line 1 `// dir-exempt: <reason>` for the file, or `dir-allow: <reason>`
+# on a line (e.g. a canvas, a map, a code/phone input that stays LTR).
+WARNINGS=""
+NEW_TSX_FILES=$(git diff --cached --name-only --diff-filter=A 2>/dev/null \
+  | grep -E '^src/(app|features)/.*\.tsx$' || true)
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  case "$file" in
+    */admin/*|*/__tests__/*|*.test.tsx|*.spec.tsx) continue ;;
+  esac
+  if git show ":$file" 2>/dev/null | head -1 | grep -qE '^\s*(//|/\*|\{/\*)\s*dir-exempt:\s*\S'; then
+    continue
+  fi
+  DIR_LINES=$(git show ":$file" 2>/dev/null \
+    | grep -vE '^\s*(//|\*|/\*|\{/\*)' \
+    | grep -v 'dir-allow' \
+    | grep -E 'dir=("rtl"|\{"rtl"\})|(^|[^a-zA-Z0-9_-])(-?(ml|mr|pl|pr)-(\[|[0-9]|px|auto)|(left|right)-(0|[2-9]|1[0-9]|px|full|\[)|text-(left|right)([^a-zA-Z0-9_-]|$)|rounded-(l|r|tl|tr|bl|br)(-|[^a-zA-Z0-9_-]|$)|border-(l|r)([^a-zA-Z0-9]|$)|float-(left|right))' \
+    || true)
+  if [ -n "$DIR_LINES" ]; then
+    COUNT=$(echo "$DIR_LINES" | wc -l | tr -d ' ')
+    SAMPLE=$(echo "$DIR_LINES" | head -2 | sed 's/^[[:space:]]*/   + /' | cut -c1-140)
+    WARNINGS="${WARNINGS}
+⚠️  WARNING — new UI file uses physical layout / hard-coded dir=\"rtl\" ($COUNT line(s))
+   file: $file
+${SAMPLE}
+   Write it for BOTH directions (English is LTR): ms/me/ps/pe/start/end/text-start/text-end/
+   rounded-s/e, and no dir=\"rtl\" (inherit from <html>). Hebrew-identical mapping:
+   ml→me mr→ms pl→pe pr→ps left→end right→start text-left→text-end text-right→text-start.
+   Genuine exception (canvas, map, phone/email field)? line 1: // dir-exempt: <reason>,
+   or put dir-allow: <reason> on that line. Recipe: docs/i18n/HOW-TO.md §12."
+  fi
+done <<< "$NEW_TSX_FILES"
+
 # ── Result ────────────────────────────────────────────────────────────────────
 if [ -n "$VIOLATIONS" ]; then
   printf "\n🚫 safety-check FAILED — commit blocked%s\n" "$VIOLATIONS"
@@ -504,5 +546,6 @@ if [ -n "$VIOLATIONS" ]; then
   exit 1
 fi
 
-printf "✅ safety-check passed (6 static checks)\n"
+if [ -n "$WARNINGS" ]; then printf "\n%s\n" "$WARNINGS"; fi
+printf "✅ safety-check passed (7 static checks; Check 7 is advisory)\n"
 exit 0

@@ -474,3 +474,34 @@ Escape hatch for a genuine data/content file (seed lists, city names, content th
 
 A reason is required (`// i18n-exempt:` alone does not count). For one data line inside a UI file use the
 per-line `i18n-allow-hebrew: <reason>` marker from §8.
+
+## 12. New screens are direction-agnostic (Check 7, advisory)
+
+English is LTR. Every new screen is written for **both directions from the start**, so wave 4 (the RTL → logical
+migration) never has to touch it again.
+
+Use LOGICAL layout: `ms-* me-* ps-* pe-*`, `start-* end-*`, `text-start text-end`, `rounded-s rounded-e`
+(`rounded-ss/se/es/ee` for corners), `border-s border-e`, `float-start/end`. Do **not** hard-code `dir="rtl"` —
+`<html lang dir>` (`src/app/layout.tsx`) is the single source; the element inherits it.
+
+Mapping when you are porting a physical class and want Hebrew to look **identical** (Tailwind 3.4, under `dir="rtl"`):
+
+| physical | logical | | physical | logical |
+|---|---|---|---|---|
+| `ml-*` | `me-*` | | `text-left` | `text-end` |
+| `mr-*` | `ms-*` | | `text-right` | `text-start` |
+| `pl-*` | `pe-*` | | `rounded-l/r` | `rounded-e/s` |
+| `pr-*` | `ps-*` | | `border-l/r` | `border-e/s` |
+| `left-*` | `end-*` | | `float-left/right` | `float-end/start` |
+| `right-*` | `start-*` | | | |
+
+A naive `ml → ms` FLIPS the Hebrew layout. Writing new code, think "start / end" and you never need the table.
+
+Stays as is: `left-1/2 -translate-x-1/2` centering, `space-x`/`divide-x` (until wave 4 covers them), and anything that is
+genuinely direction-fixed — canvas / signature pad, maps, phone / email / code / numeric inputs (`dir="ltr"`), media
+controls. Direction-sensitive icons (chevrons, arrows) need `ltr:-scale-x-100` (no effect in Hebrew).
+A `dir="ltr"` ancestor in ANOTHER file changes what `ms/me` mean inside it — check the parent.
+
+`scripts/safety-check.sh` **Check 7** warns (does not block yet) when a file ADDED in the diff under `src/app/**` or
+`src/features/**` (`.tsx`, not admin, not tests) uses physical classes or `dir="rtl"`. Exceptions: line 1
+`// dir-exempt: <reason>`, or `dir-allow: <reason>` on one line.

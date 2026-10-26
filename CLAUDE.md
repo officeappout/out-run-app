@@ -120,3 +120,4 @@ These govern the daily automated CRM scan (see `.claude/agents/crm-agent.md` for
 - No top-level `googleapis` / `google-auth-library` imports anywhere in the codebase
 - iCloud Drive is active — never delete `.next/` or `node_modules/` without checking iCloud status
 - Do not modify the `next.config.mjs` webpack cache settings (caused startup hangs previously)
+- New UI (src/app, src/features, not admin) is written for BOTH directions — English is LTR: logical Tailwind (`ms/me/ps/pe/start/end/text-start/text-end/rounded-s/e`), no hard-coded `dir="rtl"`, new copy via `t()`. A physical-to-logical port that keeps Hebrew identical is `ml→me mr→ms pl→pe pr→ps left→end right→start`. Details + exceptions: docs/i18n/HOW-TO.md §12 (safety-check Check 7 warns).
