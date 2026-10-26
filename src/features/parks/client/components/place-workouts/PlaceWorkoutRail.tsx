@@ -5,17 +5,25 @@
  * subtitle, at most one banner, then the real workouts that fit (at most 3,
  * often fewer) as MediaWorkoutCards — home's daily card treatment: the
  * generated workout's exercise media, else the place's photo, under a dark
- * gradient. The plan's card gets the tinted eyebrow. Render-only: the caller
+ * gradient — for the strength card; run / walk / hybrid cards draw the
+ * workout's intensity graph instead (place-card-visual, owner 26.10). The
+ * plan's card gets the tinted eyebrow. Render-only: the caller
  * ranks (suggestWorkoutsForPlace) and starts.
  */
 
 import { Info } from 'lucide-react';
-import { HScroller, MediaWorkoutCard } from '@/components/ui/v2';
+import { HScroller, MediaWorkoutCard, ProfileStrip } from '@/components/ui/v2';
+import type { RunBlock } from '@/features/workout-engine/players/running/types/run-block.type';
+import type { RunPaceContext } from '@/features/workout-engine/players/running/utils/run-preview/run-estimates';
 import type { PlaceBanner, PlaceWorkoutSuggestion } from '@/features/workout-engine/place-fit';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { placeWorkoutCopy, type GeneratedLead } from './place-workout-copy';
 import { placeCardMedia } from './place-card-media';
+import { placeCardVisual } from './place-card-visual';
+
+const NO_PACE: RunPaceContext = { basePace: 0, zones: null };
+const GRAPH_H = 96;
 
 const BANNER_KEY = {
   unlit_after_dark: 'placeWorkouts.banner.unlitAfterDark',
@@ -34,11 +42,14 @@ export interface PlaceWorkoutRailProps {
   leadId?: string | null;
   /** The place's own photo, for cards with no generated workout. */
   placePhoto?: string | null;
+  /** Today's planned run blocks (its card's real intensity graph). */
+  planRunBlocks?: readonly RunBlock[] | null;
+  paceCtx?: RunPaceContext;
   onStart: (s: PlaceWorkoutSuggestion) => void;
 }
 
 export default function PlaceWorkoutRail({
-  title, subtitle, suggestions, banner, lead = null, leadId, placePhoto = null, onStart,
+  title, subtitle, suggestions, banner, lead = null, leadId, placePhoto = null, planRunBlocks = null, paceCtx = NO_PACE, onStart,
 }: PlaceWorkoutRailProps) {
   const t = useT(map);
   if (suggestions.length === 0) return null;
@@ -58,10 +69,12 @@ export default function PlaceWorkoutRail({
         {suggestions.map((s, i) => {
           const isLead = s.id === (leadId ?? suggestions[0]?.id);
           const copy = placeWorkoutCopy(s, t, isLead ? lead : null);
+          const visual = placeCardVisual(s, { planRunBlocks, paceCtx });
           return (
             <MediaWorkoutCard
               key={s.id}
               media={placeCardMedia(s, isLead ? lead : null, placePhoto)}
+              art={visual.kind === 'graph' ? <ProfileStrip segments={visual.segments} height={GRAPH_H} /> : undefined}
               highlight={s.isFromPlan}
               eyebrow={copy.eyebrow}
               title={copy.title}

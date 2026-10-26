@@ -18,6 +18,7 @@ import { useTodayPlannedRun, type TodayPlannedRun } from '@/features/workout-eng
 import { useRunPaceContext } from '@/features/workout-engine/players/running/components/overview-v2/useRunOverviewModel';
 import { buildWorkoutRouteNeeds, isRunAfterDark } from '@/features/workout-engine/players/running/lib/route-fit';
 import type { PlacePersona, PlaceUserContext } from '@/features/workout-engine/place-fit';
+import type { RunPaceContext } from '@/features/workout-engine/players/running/utils/run-preview/run-estimates';
 
 const PERSONA: Record<string, PlacePersona> = { health: 'walk', strength: 'strength', run: 'run', hybrid: 'hybrid' };
 
@@ -25,6 +26,8 @@ export interface PlaceUserContextResult {
   ctx: PlaceUserContext | null;
   /** Today's materialized run (to start it on a route). */
   todayRun: TodayPlannedRun | null;
+  /** The runner's pace context (the cards' intensity graphs). */
+  paceCtx: RunPaceContext;
 }
 
 export function usePlaceUserContext(enabled: boolean, origin: { lat: number; lng: number } | null): PlaceUserContextResult {
@@ -76,5 +79,5 @@ export function usePlaceUserContext(enabled: boolean, origin: { lat: number; lng
     };
   }, [enabled, profile, loading, plan, todayRun, pace.ctx, lat, lng, hasStrengthPlan, weeklyBudget, totalSetsCompleted]);
 
-  return { ctx, todayRun };
+  return { ctx, todayRun, paceCtx: pace.ctx };
 }

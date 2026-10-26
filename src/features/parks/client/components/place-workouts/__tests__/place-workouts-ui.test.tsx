@@ -4,8 +4,9 @@
  *    and every placeWorkouts.* catalog key is used (no orphans), with no hard-coded Hebrew left;
  *  - the card copy (eyebrow / title / meta) and the sticky label, numbers through Intl;
  *  - "מה יש בדרך": start → points → climb → finish, with gaps; nothing known → no axis;
- *  - the rail renders media cards (home's treatment: generated workout media → place photo → gradient),
- *    one start button each, and at most one banner;
+ *  - the card visual: strength → media (generated workout media → place photo → gradient);
+ *    run / walk / hybrid → the intensity graph (home run card's ProfileStrip + buildIntensityStrip);
+ *  - the rail renders the cards, *    one start button each, and at most one banner;
  *  - the hybrid card's intent is the map composer's own shape.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -18,6 +19,9 @@ import { map } from '@/messages/ns/map';
 import type { PlaceWorkoutSuggestion } from '@/features/workout-engine/place-fit';
 import { placeWorkoutCopy, type MapT } from '../place-workout-copy';
 import { NO_MEDIA, placeCardMedia, placePhotoOf } from '../place-card-media';
+import { placeCardVisual, HYBRID_STATIONS } from '../place-card-visual';
+import { TRACK_COLORS } from '@/components/ui/v2/track-colors';
+import type { RunBlock } from '@/features/workout-engine/players/running/types/run-block.type';
 import { routeAxisNodes } from '../route-axis';
 import { hybridIntentFor } from '../place-hybrid-intent';
 import PlaceWorkoutRail from '../PlaceWorkoutRail';
@@ -136,6 +140,39 @@ describe('placeCardMedia', () => {
   });
 });
 
+describe('placeCardVisual', () => {
+  const pace = { basePace: 360, zones: null };
+  const opts = { planRunBlocks: null, paceCtx: pace };
+  it('strength → the exercise media', () => {
+    expect(placeCardVisual(sug({}), opts)).toEqual({ kind: 'media' });
+  });
+  it("today's planned run → its own blocks' intensity graph", () => {
+    const blocks = [
+      { id: 'w', type: 'warmup', label: 'w', durationSeconds: 600, colorHex: '' },
+      { id: 'i', type: 'interval', label: 'i', zoneType: 'interval_short', durationSeconds: 120, colorHex: '' },
+      { id: 'c', type: 'cooldown', label: 'c', durationSeconds: 300, colorHex: '' },
+    ] as RunBlock[];
+    const v = placeCardVisual(sug({ style: 'run_quality', isFromPlan: true, start: { kind: 'planned_run', workoutId: 'w1', week: 1, day: 1 } }), { planRunBlocks: blocks, paceCtx: pace });
+    expect(v.kind).toBe('graph');
+    if (v.kind !== 'graph') return;
+    expect(v.segments.map((x) => [x.key, x.height, x.flex])).toEqual([['w', 40, 10], ['i', 100, 2], ['c', 40, 5]]);
+  });
+  it('free run / walk on the route → one steady bar; the walk in the walking colour', () => {
+    const run = placeCardVisual(sug({ style: 'run_easy', durationMin: 30, start: { kind: 'route_activity', routeId: 'r', activity: 'running' } }), opts);
+    expect(run).toMatchObject({ kind: 'graph', segments: [{ height: 55, flex: 30 }] });
+    const walk = placeCardVisual(sug({ style: 'walk', durationMin: 40, start: { kind: 'route_activity', routeId: 'r', activity: 'walking' } }), opts);
+    expect(walk).toMatchObject({ kind: 'graph', segments: [{ height: 30, color: TRACK_COLORS.walk }] });
+  });
+  it('hybrid → aerobic legs with strength stations between them', () => {
+    const v = placeCardVisual(sug({ style: 'hybrid', start: { kind: 'hybrid', aerobicKind: 'running', minutes: 40, parkId: 'p' } }), opts);
+    expect(v.kind).toBe('graph');
+    if (v.kind !== 'graph') return;
+    expect(v.segments.length).toBe(HYBRID_STATIONS * 2 + 1);
+    expect(v.segments.filter((x) => x.color === TRACK_COLORS.strength).length).toBe(HYBRID_STATIONS);
+    expect(v.segments[0].color).not.toBe(TRACK_COLORS.strength);
+  });
+});
+
 describe('PlaceWorkoutRail', () => {
   it('renders media cards, one start button each, one banner — no filler card', () => {
     const html = renderToStaticMarkup(
@@ -158,10 +195,11 @@ describe('PlaceWorkoutRail', () => {
     expect(html).toContain('35 דק׳ · 6 תרגילים');
     expect(html.match(/<button/g)?.length).toBe(2);
     expect(html).toContain('התחל אימון');
-    // The plan card: the workout's exercise still + video loop; the hybrid: the park photo.
+    // The plan's strength card: the workout's exercise still + video loop; the hybrid: its intensity graph.
     expect(html).toContain('src="https://x/squat.jpg"');
     expect(html).toContain('src="https://x/squat.mp4"');
-    expect(html).toContain('src="https://p/park.jpg"');
+    expect(html).not.toContain('src="https://p/park.jpg"');
+    expect(html.match(/data-card-art/g)?.length).toBe(1);
     expect(html).toContain('rgba(14,20,25,0.94)');
     expect(html).not.toContain('placeWorkouts.');
   });
