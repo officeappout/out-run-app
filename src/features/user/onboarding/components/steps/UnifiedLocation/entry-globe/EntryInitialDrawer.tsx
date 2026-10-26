@@ -26,7 +26,7 @@ export function EntryInitialDrawer({
 
       {locationError && (
         <div className="rounded-2xl bg-[#b4232a]/[0.06] px-3.5 py-2.5" role="alert">
-          <p className="text-right text-[12.5px] font-bold text-[#b4232a]">{locationError}</p>
+          <p className="text-start text-[12.5px] font-bold text-[#b4232a]">{locationError}</p>
         </div>
       )}
 

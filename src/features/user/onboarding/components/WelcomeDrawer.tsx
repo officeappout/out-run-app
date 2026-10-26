@@ -71,7 +71,7 @@ export default function WelcomeDrawer({
     const card =
       'flex w-full items-center gap-3.5 rounded-[20px] bg-white p-4 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]';
     return (
-      <div className="fixed inset-0 z-[101] flex items-end justify-center" dir="rtl">
+      <div className="fixed inset-0 z-[101] flex items-end justify-center">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -118,7 +118,7 @@ export default function WelcomeDrawer({
                 <span className="block truncate text-[16px] font-black text-v2-ink">{t('welcome.strength.title')}</span>
                 <span className="mt-0.5 block text-[13px] font-bold leading-snug text-v2-muted">{t('welcome.strength.subtitle')}</span>
               </span>
-              <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted" aria-hidden />
+              <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
             </button>
 
             <button type="button" onClick={onSecondaryOption} className={card}>
@@ -129,7 +129,7 @@ export default function WelcomeDrawer({
                 <span className="block truncate text-[16px] font-black text-v2-ink">{t(secondary.title)}</span>
                 <span className="mt-0.5 block text-[13px] font-bold leading-snug text-v2-muted">{t(secondary.subtitle)}</span>
               </span>
-              <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted" aria-hidden />
+              <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
             </button>
           </div>
 
@@ -148,7 +148,7 @@ export default function WelcomeDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-[101] flex items-end justify-center" dir="rtl">
+    <div className="fixed inset-0 z-[101] flex items-end justify-center">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -167,7 +167,7 @@ export default function WelcomeDrawer({
         <button
           onClick={onSkipToMap}
           aria-label={t('welcome.skipToMap')}
-          className="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
+          className="absolute end-4 top-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
         >
           <X size={16} />
         </button>
@@ -189,7 +189,7 @@ export default function WelcomeDrawer({
             <span className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
               <Dumbbell size={22} />
             </span>
-            <span className="text-right flex-1">
+            <span className="text-start flex-1">
               <span className="block font-bold text-base leading-tight">{t('welcome.strength.title')}</span>
               <span className="block text-sm opacity-90">{t('welcome.strength.subtitle')}</span>
             </span>
@@ -202,7 +202,7 @@ export default function WelcomeDrawer({
             <span className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm">
               <MapPin size={22} className="text-[#3BA4D8]" />
             </span>
-            <span className="text-right flex-1">
+            <span className="text-start flex-1">
               <span className="block font-bold text-base leading-tight text-slate-900">{t(secondary.title)}</span>
               <span className="block text-sm text-slate-500">{t(secondary.subtitle)}</span>
             </span>

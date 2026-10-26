@@ -61,7 +61,7 @@ function ResultSection({
             key={row.id}
             type="button"
             onClick={() => onSelect(row)}
-            className="block w-full px-3.5 py-3 text-right active:bg-v2-tint transition-colors"
+            className="block w-full px-3.5 py-3 text-start active:bg-v2-tint transition-colors"
           >
             <span className="block truncate text-[15px] font-semibold text-[#334155]">
               <Highlighted text={row.name} query={query} />
@@ -110,7 +110,6 @@ export function EntrySearchOverlay({
       transition={{ duration: 0.2 }}
       className="kb-fit absolute inset-0 z-30 flex flex-col bg-[#f8fafc]"
       style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
-      dir="rtl"
     >
       <div className="flex flex-shrink-0 flex-col gap-3 px-4 pb-2.5 pt-2">
         <div className="flex items-center gap-2">
@@ -123,8 +122,7 @@ export function EntrySearchOverlay({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={t('location.entry.search.placeholder')}
-              className="min-w-0 flex-1 bg-transparent text-right text-[16px] font-bold text-v2-ink outline-none placeholder:font-semibold placeholder:text-v2-muted [&::-webkit-search-cancel-button]:hidden"
-              dir="rtl"
+              className="min-w-0 flex-1 bg-transparent text-start text-[16px] font-bold text-v2-ink outline-none placeholder:font-semibold placeholder:text-v2-muted [&::-webkit-search-cancel-button]:hidden"
             />
             {searchQuery && (
               <button

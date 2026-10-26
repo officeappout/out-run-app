@@ -141,7 +141,7 @@ export default function VideoPlayer({
         {/* Bottom gradient — sits above all tier nodes on z-20 */}
         {whiteGradient && (
           <div
-            className="absolute bottom-[-2px] left-0 right-0 pointer-events-none z-20"
+            className="absolute bottom-[-2px] end-0 start-0 pointer-events-none z-20"
             style={{
               height: 'clamp(56px, 20%, 110px)',
               background: 'linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.85), rgba(255,255,255,0.5), rgba(255,255,255,0))',

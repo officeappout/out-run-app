@@ -32,7 +32,6 @@ export function DivePill({ onSearchManually }: { onSearchManually?: () => void }
       transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
       className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-6"
       style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 40px)' }}
-      dir="rtl"
       role="status"
     >
       <AnimatePresence>

@@ -140,7 +140,7 @@ export default function BlurredWhyStep({
   // (the legacy max(inset,16px) doubled the bottom gap).
   if (v2) {
     return (
-      <div className="relative flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink" dir="rtl">
+      <div className="relative flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink">
         <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
           {onBack ? (
             <button
@@ -149,7 +149,7 @@ export default function BlurredWhyStep({
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
               aria-label={t('quiz.why.back')}
             >
-              <ChevronRight size={20} className="text-v2-ink" />
+              <ChevronRight size={20} className="text-v2-ink ltr:-scale-x-100" />
             </button>
           ) : (
             <div className="w-10 flex-shrink-0" aria-hidden />
@@ -203,13 +203,13 @@ export default function BlurredWhyStep({
             >
               {!imgFailed && (
                 <div
-                  className="pointer-events-none absolute -top-[9px] right-7 z-10 h-[18px] w-[18px] rotate-45 rounded-[4px] bg-white"
+                  className="pointer-events-none absolute -top-[9px] start-7 z-10 h-[18px] w-[18px] rotate-45 rounded-[4px] bg-white"
                   aria-hidden
                 />
               )}
               <div className="w-full space-y-3 rounded-v2-card bg-white p-5 shadow-v2-card">
                 {sentences.map((sentence, i) => (
-                  <p key={i} className="text-right text-[16px] font-medium leading-relaxed text-v2-ink-2">
+                  <p key={i} className="text-start text-[16px] font-medium leading-relaxed text-v2-ink-2">
                     {sentence}
                   </p>
                 ))}
@@ -237,13 +237,13 @@ export default function BlurredWhyStep({
   }
 
   return (
-    <div className="relative flex flex-col h-full bg-slate-50" dir="rtl">
+    <div className="relative flex flex-col h-full bg-slate-50">
 
       {/* ── Layer 1: Decorative ambient blobs ───────────────────────── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-        <div className="absolute -top-16 -left-16 w-64 h-64 rounded-full bg-cyan-300/30 blur-3xl" />
-        <div className="absolute top-[40%] -right-20 w-56 h-56 rounded-full bg-violet-300/20 blur-3xl" />
-        <div className="absolute bottom-[8%] left-[10%] w-52 h-52 rounded-full bg-sky-200/25 blur-3xl" />
+        <div className="absolute -top-16 -end-16 w-64 h-64 rounded-full bg-cyan-300/30 blur-3xl" />
+        <div className="absolute top-[40%] -start-20 w-56 h-56 rounded-full bg-violet-300/20 blur-3xl" />
+        <div className="absolute bottom-[8%] end-[10%] w-52 h-52 rounded-full bg-sky-200/25 blur-3xl" />
       </div>
 
       {/* ── Layer 2: Frosted glass — fades in first (delay 0ms) ──────── */}
@@ -266,7 +266,7 @@ export default function BlurredWhyStep({
               className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-white/60 active:bg-white/80 transition-colors touch-manipulation backdrop-blur-sm"
               aria-label="חזרה" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
             >
-              <ChevronRight size={22} className="text-slate-600" />
+              <ChevronRight size={22} className="text-slate-600 ltr:-scale-x-100" />
             </button>
           ) : (
             <div className="flex-shrink-0 w-9" aria-hidden />
@@ -340,7 +340,7 @@ export default function BlurredWhyStep({
                 `right-8` = 32px from the physical right edge.
               */}
               <div
-                className="absolute -top-3 right-8 z-10 pointer-events-none"
+                className="absolute -top-3 start-8 z-10 pointer-events-none"
                 style={{
                   width: 0,
                   height: 0,
@@ -366,7 +366,7 @@ export default function BlurredWhyStep({
                   {sentences.map((sentence, i) => (
                     <p
                       key={i}
-                      className="text-lg font-normal text-slate-700 text-right leading-relaxed tracking-wide"
+                      className="text-lg font-normal text-slate-700 text-start leading-relaxed tracking-wide"
                     >
                       {sentence}
                     </p>

@@ -21,7 +21,7 @@ interface ChoiceStepProps {
 export default function ChoiceStep({ config, value, onSelect, v2 = false }: ChoiceStepProps) {
   if (v2) {
     return (
-      <div className="px-5 py-4" dir="rtl">
+      <div className="px-5 py-4">
         <h3 className="mb-1 text-[17px] font-black !tracking-[-0.01em] text-v2-ink">{config.label}</h3>
         {config.helperText && <p className="mb-3 text-[12.5px] font-bold text-v2-muted">{config.helperText}</p>}
         <div className="mt-3 flex flex-col gap-2.5 p-0.5">
@@ -33,7 +33,7 @@ export default function ChoiceStep({ config, value, onSelect, v2 = false }: Choi
                 type="button"
                 onClick={() => onSelect(option.value)}
                 aria-pressed={selected}
-                className={`flex h-14 min-w-0 items-center justify-between gap-3 rounded-[18px] bg-white px-4 text-right transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                className={`flex h-14 min-w-0 items-center justify-between gap-3 rounded-[18px] bg-white px-4 text-start transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
                   selected ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
                 }`}
               >
@@ -53,7 +53,7 @@ export default function ChoiceStep({ config, value, onSelect, v2 = false }: Choi
     );
   }
   return (
-    <div className="px-5 py-4" dir="rtl">
+    <div className="px-5 py-4">
       <h3 className="text-base font-bold text-slate-900 mb-1">{config.label}</h3>
       {config.helperText && <p className="text-xs text-slate-400 mb-3">{config.helperText}</p>}
       <div className="flex flex-col gap-2 mt-3">
@@ -64,7 +64,7 @@ export default function ChoiceStep({ config, value, onSelect, v2 = false }: Choi
               key={option.value}
               type="button"
               onClick={() => onSelect(option.value)}
-              className={`flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-right transition-all ${
+              className={`flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-start transition-all ${
                 selected
                   ? 'border-[#00E5FF] bg-cyan-50 text-slate-900'
                   : 'border-slate-200 text-slate-700 active:scale-[0.98]'

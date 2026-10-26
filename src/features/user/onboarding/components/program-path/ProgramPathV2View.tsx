@@ -174,7 +174,7 @@ function HeroOverlay({
           aria-label={t('programPath.back')}
           className="pointer-events-auto grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70 shadow-v2-ring backdrop-blur-[14px] transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
-          <ChevronRight size={18} strokeWidth={2.4} className="text-v2-ink" />
+          <ChevronRight size={18} strokeWidth={2.4} className="text-v2-ink ltr:-scale-x-100" />
         </button>
         <div className="flex flex-1 gap-[5px]" aria-hidden>
           {Array.from({ length: totalSegments }, (_, i) => (
@@ -188,7 +188,7 @@ function HeroOverlay({
 
       {/* What the level test will be */}
       <div
-        className="absolute bottom-[26px] right-4 flex items-center gap-2 rounded-full bg-white/75 py-2 pl-3 pr-3.5 shadow-v2-ring backdrop-blur-[14px] transition-opacity duration-300 ease-v2"
+        className="absolute bottom-[26px] start-4 flex items-center gap-2 rounded-full bg-white/75 py-2 pe-3 ps-3.5 shadow-v2-ring backdrop-blur-[14px] transition-opacity duration-300 ease-v2"
         style={{ opacity: selectedGoal ? 1 : 0 }}
         aria-live="polite"
       >
@@ -222,7 +222,7 @@ function CoachNote({ text }: { text: string }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.22 }}
-      className="mb-2 flex items-start gap-2 rounded-[14px] bg-amber-50 px-3 py-2 text-right ring-1 ring-inset ring-amber-300/70"
+      className="mb-2 flex items-start gap-2 rounded-[14px] bg-amber-50 px-3 py-2 text-start ring-1 ring-inset ring-amber-300/70"
       role="status"
       aria-live="polite"
     >
@@ -255,7 +255,7 @@ function GoalCard({
         role="radio"
         aria-checked={selected}
         onClick={onSelect}
-        className="flex w-full items-center gap-3 py-2.5 pl-2.5 pr-3.5 text-right text-v2-ink transition-transform duration-150 ease-v2 active:scale-[0.97] [@media(max-height:720px)]:py-2"
+        className="flex w-full items-center gap-3 py-2.5 pe-2.5 ps-3.5 text-start text-v2-ink transition-transform duration-150 ease-v2 active:scale-[0.97] [@media(max-height:720px)]:py-2"
       >
         <span className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-2xl bg-v2-tint [@media(max-height:720px)]:h-11 [@media(max-height:720px)]:w-11">
           {image.src ? (
@@ -363,7 +363,6 @@ function GoalNoteField({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           className="block w-full resize-none rounded-2xl border-0 bg-white px-3.5 py-2.5 text-[16px] font-medium leading-[1.4] text-v2-ink shadow-v2-ring outline-none focus:ring-2 focus:ring-inset focus:ring-v2-accent/60"
-          dir="rtl"
           enterKeyHint="done"
         />
         {!value && example && (
@@ -389,7 +388,6 @@ export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
 
   return (
     <div
-      dir="rtl"
       className="relative flex flex-col overflow-hidden bg-v2-surface text-v2-ink"
       style={{
         // Bleed under the notch and the home indicator: <main> already pads

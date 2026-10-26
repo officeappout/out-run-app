@@ -230,7 +230,7 @@ export default function DynamicQuestionRenderer({
                 />
 
                 {IS_COIN_SYSTEM_ENABLED && coinReward > 0 && (
-                  <div className="absolute left-3 top-3 z-20 flex items-center gap-1 rounded-full bg-white px-2 py-1 shadow-v2-ring">
+                  <div className="absolute end-3 top-3 z-20 flex items-center gap-1 rounded-full bg-white px-2 py-1 shadow-v2-ring">
                     <Coins size={12} className="text-v2-amber" strokeWidth={2.5} />
                     <span className="text-[11px] font-extrabold text-v2-ink">+{coinReward}</span>
                   </div>
@@ -351,7 +351,7 @@ export default function DynamicQuestionRenderer({
                   />
                   
                   {IS_COIN_SYSTEM_ENABLED && coinReward > 0 && (
-                    <div className="absolute top-3 left-3 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
+                    <div className="absolute top-3 end-3 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
                       <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
                       <span className="text-xs font-bold font-simpler">+{coinReward}</span>
                     </div>
@@ -432,7 +432,7 @@ export default function DynamicQuestionRenderer({
                   
                   {/* Coin Reward Badge - Top Left (absolute positioned) - COIN_SYSTEM_PAUSED: Re-enable in April */}
                   {IS_COIN_SYSTEM_ENABLED && coinReward > 0 && (
-                    <div className="absolute top-2 left-2 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
+                    <div className="absolute top-2 end-2 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
                       <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
                       <span className="text-xs font-bold font-simpler">+{coinReward}</span>
                     </div>
@@ -617,7 +617,7 @@ function WheelColumn({
                 }}
               >
                 {String(v).padStart(2, '0')}
-                <span className="text-[10px] font-semibold ml-0.5 opacity-60">{suffix}</span>
+                <span className="text-[10px] font-semibold me-0.5 opacity-60">{suffix}</span>
               </span>
             </div>
           );
@@ -671,7 +671,7 @@ function PaceTimeInput({
   if (v2) {
     const canSubmit = isValid && !isElite;
     return (
-      <div className="w-full font-simpler text-v2-ink" dir="rtl">
+      <div className="w-full font-simpler text-v2-ink">
         <style>{`.wheel-hide-sb::-webkit-scrollbar{display:none}`}</style>
 
         <div className="mb-4 px-1">
@@ -737,7 +737,7 @@ function PaceTimeInput({
   }
 
   return (
-    <div className="w-full font-simpler" dir="rtl">
+    <div className="w-full font-simpler">
       <style>{`.wheel-hide-sb::-webkit-scrollbar{display:none}`}</style>
 
       {/* ── Header ─────────────────────────────────────────────── */}

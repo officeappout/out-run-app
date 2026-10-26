@@ -278,7 +278,6 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
         className={v2
           ? `kb-cap relative flex max-h-[92vh] flex-col overflow-hidden rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] font-simpler text-v2-ink shadow-v2-sheet ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`
           : `kb-cap relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`}
-        dir="rtl"
       >
         {v2 && (
           <div className="flex justify-center pb-1 pt-2.5">
@@ -299,7 +298,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
         </div>
 
         {saveFailed ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 pb-8 text-center" dir="rtl">
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 pb-8 text-center">
             <p className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-bold text-slate-800'}>
               {t('personaDrawer.saveFailed.title')}
             </p>
@@ -317,7 +316,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
           </div>
         ) : (
           <>
-            <p className={v2 ? 'px-5 pb-3 text-[12.5px] font-bold text-v2-muted' : 'px-5 pb-3 text-xs text-slate-400'} dir="rtl">{t('personaDrawer.privacy')}</p>
+            <p className={v2 ? 'px-5 pb-3 text-[12.5px] font-bold text-v2-muted' : 'px-5 pb-3 text-xs text-slate-400'}>{t('personaDrawer.privacy')}</p>
 
             <div className="flex items-center justify-center gap-2 pb-4">
               {questions.map((q, i) => (
@@ -335,7 +334,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
             </div>
 
             {showStaleUnitNotice && (
-              <div className={v2 ? 'mx-5 mb-3 rounded-[14px] bg-[#fff7e6] px-4 py-2.5 ring-1 ring-inset ring-v2-amber/30' : 'mx-5 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200'} dir="rtl">
+              <div className={v2 ? 'mx-5 mb-3 rounded-[14px] bg-[#fff7e6] px-4 py-2.5 ring-1 ring-inset ring-v2-amber/30' : 'mx-5 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200'}>
                 <p className={v2 ? 'text-[12.5px] font-bold text-v2-on-gold' : 'text-xs font-semibold text-amber-700'}>{t('personaDrawer.staleUnit')}</p>
               </div>
             )}

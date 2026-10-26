@@ -38,18 +38,17 @@ export function InitialCard({ gender, locationError, onFindLocation, onSearchMan
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 50 }}
         transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-        className="absolute bottom-0 left-0 right-0 z-20"
-        dir="rtl"
+        className="absolute bottom-0 end-0 start-0 z-20"
       >
         <div
           className="rounded-t-[28px] bg-white shadow-v2-sheet px-5 pt-3"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
         >
           <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-v2-pill-border" />
-          <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-right mb-2">
+          <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-start mb-2">
             {headline}
           </h2>
-          <p className="text-[14.5px] leading-relaxed text-v2-ink-2 text-right mb-4">
+          <p className="text-[14.5px] leading-relaxed text-v2-ink-2 text-start mb-4">
             {subtitle}
           </p>
 
@@ -59,7 +58,7 @@ export function InitialCard({ gender, locationError, onFindLocation, onSearchMan
               animate={{ opacity: 1, height: 'auto' }}
               className="rounded-2xl bg-[#b4232a]/[0.06] px-3.5 py-2.5 mb-4"
             >
-              <p className="text-[12.5px] font-bold text-[#b4232a] text-right">
+              <p className="text-[12.5px] font-bold text-[#b4232a] text-start">
                 {locationError}
               </p>
             </motion.div>
@@ -92,8 +91,7 @@ export function InitialCard({ gender, locationError, onFindLocation, onSearchMan
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 50 }}
       transition={{ duration: 0.3 }}
-      className="absolute bottom-0 left-0 right-0 z-20"
-      dir="rtl"
+      className="absolute bottom-0 end-0 start-0 z-20"
     >
       <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-12 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-6 pb-8 border-t border-slate-100/40">

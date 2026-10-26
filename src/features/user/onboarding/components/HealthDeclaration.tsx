@@ -53,7 +53,7 @@ export default function HealthDeclaration({
   };
 
   return (
-    <div className="flex flex-col h-full w-full relative" dir="rtl">
+    <div className="flex flex-col h-full w-full relative">
       
       <div className="flex-1 overflow-y-auto px-1 pb-4 space-y-8 scroll-smooth">
         

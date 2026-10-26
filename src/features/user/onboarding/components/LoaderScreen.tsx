@@ -38,7 +38,7 @@ export default function LoaderScreen({ onComplete }: LoaderScreenProps) {
   }, [currentStep, onComplete]);
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6" dir="rtl">
+    <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6">
 
       {/* --- Official logo with breathing pulse --- */}
       <div className="mb-12 relative flex items-center justify-center">

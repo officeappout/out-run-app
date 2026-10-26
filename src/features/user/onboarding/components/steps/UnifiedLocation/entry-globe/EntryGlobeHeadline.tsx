@@ -23,7 +23,7 @@ export function EntryGlobeHeadline({ logoSlot = false }: { logoSlot?: boolean })
   }, [reduce, goals.length]);
 
   return (
-    <div className="pointer-events-none absolute inset-0" dir="rtl">
+    <div className="pointer-events-none absolute inset-0">
       <div
         aria-hidden
         className="absolute inset-x-0 top-0 h-[70%] opacity-70"

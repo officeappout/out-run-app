@@ -22,7 +22,6 @@ export interface EarlyPushSoftAskScreenProps {
 export default function EarlyPushSoftAskScreen({ busy, onAccept, onDefer }: EarlyPushSoftAskScreenProps) {
   return (
     <div
-      dir="rtl"
       className="mx-auto flex min-h-[calc(100dvh-env(safe-area-inset-top,0px))] w-full max-w-md flex-col bg-v2-surface font-simpler text-v2-ink"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >

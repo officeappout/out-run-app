@@ -31,7 +31,6 @@ export function IntroShell({ cta, onCta, onSkip, children }: IntroShellProps) {
   return (
     <div
       className="fixed inset-0 isolate overflow-hidden overscroll-none bg-white text-v2-ink"
-      dir="rtl"
       style={{ ['--intro-bar' as string]: INTRO_BAR_CSS }}
     >
       <div
@@ -44,7 +43,7 @@ export function IntroShell({ cta, onCta, onSkip, children }: IntroShellProps) {
         <button
           type="button"
           onClick={onSkip}
-          className="absolute left-3 z-20 rounded-full px-3 py-1.5 text-[13px] font-semibold text-v2-muted active:opacity-60"
+          className="absolute end-3 z-20 rounded-full px-3 py-1.5 text-[13px] font-semibold text-v2-muted active:opacity-60"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 6px)' }}
         >
           {ui.skip}

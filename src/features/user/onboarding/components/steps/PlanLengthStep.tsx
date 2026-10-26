@@ -356,7 +356,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
     } as const;
 
     return (
-      <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
         <div className="px-4 pb-2 pt-1">
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 px-1">
             <h1 className="text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('steps.planLength.title')}</h1>
@@ -376,7 +376,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                   role="radio"
                   aria-checked={on}
                   onClick={() => handlePresetSelect(weeks)}
-                  className={`${cardCls(on)} w-full p-3.5 text-right transition-transform duration-150 ease-v2 active:scale-[0.97]`}
+                  className={`${cardCls(on)} w-full p-3.5 text-start transition-transform duration-150 ease-v2 active:scale-[0.97]`}
                 >
                   <span className="flex items-center gap-3">
                     {iconTile(<WeeksCalendarIcon weeks={weeks} />)}
@@ -414,7 +414,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                 role="radio"
                 aria-checked={mode === 'calendar'}
                 onClick={() => setMode('calendar')}
-                className="flex w-full items-center gap-3 p-3.5 text-right"
+                className="flex w-full items-center gap-3 p-3.5 text-start"
               >
                 {iconTile(<RaceBibIcon />)}
                 <span className="min-w-0 flex-1">
@@ -445,7 +445,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                 role="radio"
                 aria-checked={mode === 'slider'}
                 onClick={() => setMode('slider')}
-                className="flex w-full items-center gap-3 p-3.5 text-right"
+                className="flex w-full items-center gap-3 p-3.5 text-start"
               >
                 {iconTile(<CustomLengthIcon />)}
                 <span className="min-w-0 flex-1">
@@ -505,7 +505,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
   }
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative font-simpler">
+    <div className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative font-simpler">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -532,7 +532,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
               whileTap={{ scale: 0.98 }}
               onClick={() => handlePresetSelect(weeks)}
               className={`
-                relative flex flex-col gap-1 p-4 rounded-xl text-right transition-all duration-200
+                relative flex flex-col gap-1 p-4 rounded-xl text-start transition-all duration-200
                 ${isSelected
                   ? 'border-2 shadow-md'
                   : 'border border-slate-200 bg-white'
@@ -542,7 +542,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
             >
               {isRecommended && (
                 <span
-                  className="absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full text-white"
+                  className="absolute top-3 end-3 text-[10px] font-bold px-2.5 py-1 rounded-full text-white"
                   style={{ background: '#0AC2B6' }}
                 >
                   {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מומלץ
@@ -575,7 +575,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
       {/* Custom Slider Card */}
       <motion.div
         className={`
-          flex flex-col gap-3 p-4 rounded-xl text-right transition-all duration-200 mb-3
+          flex flex-col gap-3 p-4 rounded-xl text-start transition-all duration-200 mb-3
           ${mode === 'slider'
             ? 'border-2 shadow-md cursor-default'
             : 'border border-slate-200 bg-white cursor-pointer'
@@ -640,7 +640,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
       {/* Custom End Date Card */}
       <motion.div
         className={`
-          flex flex-col gap-3 p-4 rounded-xl text-right transition-all duration-200 mb-4
+          flex flex-col gap-3 p-4 rounded-xl text-start transition-all duration-200 mb-4
           ${mode === 'calendar'
             ? 'border-2 shadow-md cursor-default'
             : 'border border-slate-200 bg-white cursor-pointer'

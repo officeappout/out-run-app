@@ -17,7 +17,7 @@ export default function BlurryBridgeOverlay({
 }: BlurryBridgeOverlayProps) {
   const t = useT(onboarding);
   return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center p-4" dir="rtl">
+    <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
       {/* Semi-transparent backdrop with blur */}
       <motion.div
         initial={{ opacity: 0 }}

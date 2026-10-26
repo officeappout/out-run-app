@@ -208,9 +208,8 @@ export function JITSetupModal({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-            className="w-full max-w-md rounded-t-[28px] bg-white px-5 pt-2.5 text-right text-v2-ink shadow-v2-sheet"
+            className="w-full max-w-md rounded-t-[28px] bg-white px-5 pt-2.5 text-start text-v2-ink shadow-v2-sheet"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
-            dir="rtl"
             role="dialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
@@ -301,7 +300,6 @@ export function JITSetupModal({
           exit={{ scale: 0.85, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 22, stiffness: 300 }}
           className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
-          dir="rtl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Icon ring — mirrors StopWorkoutModal */}
@@ -328,7 +326,7 @@ export function JITSetupModal({
               {requirements.map((req) => (
                 <div
                   key={req.id}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-700/50 text-right"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-700/50 text-start"
                 >
                   <div className="flex-shrink-0">
                     {REQUIREMENT_ICONS[req.id] || <Shield className="w-5 h-5 text-slate-400" />}
@@ -336,7 +334,7 @@ export function JITSetupModal({
                   <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200">
                     {req.label}
                     {req.isHardBlock && (
-                      <span className="mr-1.5 text-[11px] text-red-500 font-bold">{t('jit.required')}</span>
+                      <span className="ms-1.5 text-[11px] text-red-500 font-bold">{t('jit.required')}</span>
                     )}
                   </span>
                 </div>

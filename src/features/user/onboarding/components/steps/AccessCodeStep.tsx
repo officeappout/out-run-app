@@ -78,7 +78,6 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
     if (successResult) {
       return (
         <motion.div
-          dir="rtl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -103,7 +102,6 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
     const disabled = loading || !code.trim();
     return (
       <motion.div
-        dir="rtl"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -165,7 +163,6 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
   if (successResult) {
     return (
       <motion.div
-        dir="rtl"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -187,7 +184,6 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
 
   return (
     <motion.div
-      dir="rtl"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}

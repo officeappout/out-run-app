@@ -52,7 +52,7 @@ const chipCls = (on: boolean) =>
 export default function StrengthCountStep(p: StrengthCountStepProps) {
   const t = useT(onboarding);
   return (
-    <div dir="rtl" className="relative mx-auto flex min-h-full w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+    <div className="relative mx-auto flex min-h-full w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
         <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('signup.strength.count.title')}</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{t('signup.strength.count.subtitle')}</p>

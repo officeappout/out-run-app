@@ -690,7 +690,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                 className="w-full max-w-sm"
               >
                 {codeSuccessResult ? (
-                  <div className="rounded-v2-card bg-white p-6 text-center shadow-v2-float" dir="rtl">
+                  <div className="rounded-v2-card bg-white p-6 text-center shadow-v2-float">
                     <h3 className="mb-4 text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('steps.persona.code.verified')}</h3>
                     <div className="mb-5 flex justify-center">
                       <UnitJoinSuccessBanner result={codeSuccessResult} />
@@ -709,7 +709,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                       <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring">
                         <PendingIcon size={26} strokeWidth={2.2} />
                       </span>
-                      <h3 className="mt-3 text-[20px] font-black !tracking-[-0.02em] text-white" dir="rtl">
+                      <h3 className="mt-3 text-[20px] font-black !tracking-[-0.02em] text-white">
                         {isHebrew ? t('steps.persona.code.title') : 'Got an access code?'}
                       </h3>
                     </div>
@@ -860,7 +860,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                   <span className="text-xl flex-shrink-0">{getPersonaEmoji(option)}</span>
                   
                   {/* Label */}
-                  <span className={`text-sm font-bold flex-1 text-right ${
+                  <span className={`text-sm font-bold flex-1 text-start ${
                     isSelected ? 'text-slate-900' : 'text-slate-600'
                   }`}>
                     {getPersonaLabel(option)}
@@ -991,7 +991,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               className="w-full max-w-sm"
             >
               {codeSuccessResult ? (
-                <div className="bg-white rounded-2xl p-6 text-center" dir="rtl">
+                <div className="bg-white rounded-2xl p-6 text-center">
                   <h3 className="text-lg font-black text-gray-900 mb-4">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הקוד אומת!</h3>
                   <div className="flex justify-center mb-4">
                     <UnitJoinSuccessBanner result={codeSuccessResult} />
@@ -1007,7 +1007,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                 <>
                   <div className="text-center mb-4">
                     <span className="text-4xl">{getPersonaEmoji(pendingPersona)}</span>
-                    <h3 className="text-lg font-black text-white mt-2" dir="rtl">
+                    <h3 className="text-lg font-black text-white mt-2">
                       {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'יש לך קוד גישה מהארגון?' : 'Got an access code?'}
                     </h3>
                   </div>

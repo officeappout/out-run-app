@@ -477,8 +477,7 @@ export default function VisualSlider({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
           transition={{ duration: 0.4, delay: 0.12, ease: 'easeOut' }}
-          className="absolute bottom-full left-0 right-0 mb-3 z-50 pointer-events-none"
-          dir="rtl"
+          className="absolute bottom-full end-0 start-0 mb-3 z-50 pointer-events-none"
         >
           {/* Bubble card */}
           <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-6 border border-slate-100 shadow-xl">
@@ -554,7 +553,7 @@ export default function VisualSlider({
     // both coverflow branches. `onInteract` — the strip hint's "real interaction" signal
     // (enable_strength_quiz_hint_v2); absent = today's handlers, unchanged.
     const renderStepper = (onInteract?: () => void) => (
-      <div className="flex items-center gap-2 px-5 pt-1" dir="rtl">
+      <div className="flex items-center gap-2 px-5 pt-1">
         <button
           type="button"
           onClick={() => {
@@ -588,7 +587,7 @@ export default function VisualSlider({
       </div>
     );
     return (
-      <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-white" dir="rtl">
+      <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
         <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
           {onBack ? (
             <button
@@ -597,7 +596,7 @@ export default function VisualSlider({
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring touch-manipulation"
               aria-label={t('quiz.slider.back')}
             >
-              <ChevronRight size={20} className="text-v2-ink" />
+              <ChevronRight size={20} className="text-v2-ink ltr:-scale-x-100" />
             </button>
           ) : (
             <div className="w-10 flex-shrink-0" aria-hidden />
@@ -623,7 +622,7 @@ export default function VisualSlider({
             <VideoPlayer tiers={mountedTiers} activeTierId={activeTierId} className="h-full w-full" whiteGradient />
           </div>
           <div
-            className="pointer-events-none absolute left-0 right-0 top-[-6px] z-10"
+            className="pointer-events-none absolute end-0 start-0 top-[-6px] z-10"
             style={{
               height: 'clamp(40px, 16%, 90px)',
               background: 'linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0.6), rgba(255,255,255,0))',
@@ -642,7 +641,7 @@ export default function VisualSlider({
               transition={{ duration: 0.2 }}
               className="flex h-[58px] items-center gap-3 rounded-[20px] bg-white px-4 shadow-v2-ring"
             >
-              <div className="min-w-0 flex-1 text-right">
+              <div className="min-w-0 flex-1 text-start">
                 <p className="truncate whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">
                   {exerciseLabel ?? t('quiz.slider.category', { category: category.toLowerCase(), name: meta.he })}
                 </p>
@@ -829,7 +828,7 @@ export default function VisualSlider({
             className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation"
             aria-label="חזרה" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           >
-            <ChevronRight size={22} className="text-slate-600" />
+            <ChevronRight size={22} className="text-slate-600 ltr:-scale-x-100" />
           </button>
         ) : (
           <div className="flex-shrink-0 w-9" aria-hidden />
@@ -859,7 +858,7 @@ export default function VisualSlider({
         </div>
         {/* Top gradient — sibling of clip box, escapes overflow-hidden, bleeds into header */}
         <div
-          className="absolute top-[-6px] left-0 right-0 pointer-events-none z-10"
+          className="absolute top-[-6px] end-0 start-0 pointer-events-none z-10"
           style={{
             height: 'clamp(56px, 20%, 110px)',
             background: 'linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0.85), rgba(255,255,255,0.5), rgba(255,255,255,0))',
@@ -992,7 +991,7 @@ export default function VisualSlider({
                 the RIGHT and "+" (harder) on the LEFT — the same harder-left/
                 easier-right arrangement the strip above already uses (see
                 CoverflowStrip.tsx's displaySteps reversal comment). */}
-            <div className="px-6 pt-2 flex items-center justify-between gap-2" dir="rtl">
+            <div className="px-6 pt-2 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => {

@@ -82,7 +82,7 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
   ].filter(Boolean) as Array<{ id: string; node: ReactNode }>;
 
   return (
-    <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+    <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <MediaHeroFade
         media={{ kind: 'image', src: '/images/gateway/card-running.png', alt: t('signup.runSummary.heroAlt'), position: '50% 100%', zoom: 2 }}
         height="clamp(200px,34vh,300px)"
@@ -132,7 +132,7 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
           aria-label={t('signup.runSummary.back')}
           className="fixed start-4 top-[max(16px,env(safe-area-inset-top))] z-[2] grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
-          <ChevronRight className="h-5 w-5 text-v2-ink" aria-hidden />
+          <ChevronRight className="h-5 w-5 text-v2-ink ltr:-scale-x-100" aria-hidden />
         </button>
       )}
       {view && <div className="h-[max(24px,env(safe-area-inset-bottom))]" />}

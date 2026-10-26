@@ -83,7 +83,7 @@ export default function HealthConnectOptInStep({ onContinue }: HealthConnectOptI
       ? sessionStorage.getItem('onboarding_personal_gender')
       : null);
     return (
-      <div className="flex flex-col flex-1 h-full w-full min-h-0 bg-v2-surface px-4" dir="rtl">
+      <div className="flex flex-col flex-1 h-full w-full min-h-0 bg-v2-surface px-4">
         <div className="flex-1 flex flex-col items-center justify-center text-center gap-5 py-6">
           <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
@@ -128,7 +128,7 @@ export default function HealthConnectOptInStep({ onContinue }: HealthConnectOptI
             className="w-full h-11 whitespace-nowrap text-v2-deep font-extrabold text-[14px] flex items-center justify-center gap-1 active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:opacity-60"
           >
             <span>{t('healthConnect.later')}</span>
-            <ChevronLeft size={14} />
+            <ChevronLeft className="ltr:-scale-x-100" size={14} />
           </button>
         </div>
 
@@ -138,7 +138,7 @@ export default function HealthConnectOptInStep({ onContinue }: HealthConnectOptI
   }
 
   return (
-    <div className="flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4" dir="rtl">
+    <div className="flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4">
       <div className="flex-1 flex flex-col items-center justify-center text-center gap-5 pb-24">
         <motion.div
           initial={{ opacity: 0, scale: 0.85 }}
@@ -166,7 +166,7 @@ export default function HealthConnectOptInStep({ onContinue }: HealthConnectOptI
       </div>
 
       <div
-        className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-4 pt-4 z-30"
+        className="fixed bottom-0 end-0 start-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-4 pt-4 z-30"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
         <button
@@ -190,7 +190,7 @@ export default function HealthConnectOptInStep({ onContinue }: HealthConnectOptI
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           <span>{t('healthConnect.later')}</span>
-          <ChevronLeft size={14} />
+          <ChevronLeft className="ltr:-scale-x-100" size={14} />
         </button>
       </div>
 

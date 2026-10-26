@@ -47,7 +47,7 @@ export interface WalkGoalStepProps {
 export default function WalkGoalStep(p: WalkGoalStepProps) {
   const t = useT(onboarding);
   return (
-    <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+    <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
         <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('signup.walk.goal.title')}</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{t('signup.walk.goal.subtitle')}</p>
@@ -64,7 +64,7 @@ export default function WalkGoalStep(p: WalkGoalStepProps) {
                 role="radio"
                 aria-checked={on}
                 onClick={() => p.onGoal(goal)}
-                className={`flex w-full items-center gap-3 rounded-[22px] bg-white p-3 text-right transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                className={`flex w-full items-center gap-3 rounded-[22px] bg-white p-3 text-start transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
                   on ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
                 }`}
               >
@@ -93,7 +93,7 @@ export default function WalkGoalStep(p: WalkGoalStepProps) {
             role="switch"
             aria-checked={p.addOnOn}
             onClick={() => p.onAddOn(!p.addOnOn)}
-            className="mt-4 flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            className="mt-4 flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate whitespace-nowrap text-[15px] font-black">{t('signup.walk.goal.addOn.title')}</span>

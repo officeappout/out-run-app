@@ -30,7 +30,7 @@ export default function SaveProgressStep({
         const isFemale = typeof window !== 'undefined'
             && sessionStorage.getItem('onboarding_personal_gender') === 'female';
         return (
-            <div className="w-full py-8 text-center text-v2-ink" dir="rtl">
+            <div className="w-full py-8 text-center text-v2-ink">
                 <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-v2-tint text-v2-deep" aria-hidden>
                     <ShieldCheck size={38} strokeWidth={2} />
                 </div>

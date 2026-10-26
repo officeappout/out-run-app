@@ -86,7 +86,7 @@ export default function TierSelectionCard({
   if (v2) {
     // The quiz's gender comes from the onboarding answers (a prop), not the profile.
     return (
-      <div className="flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink" dir="rtl">
+      <div className="flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink">
         <div className="px-5 pb-1 pt-6">
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
             <h1 className="text-[26px] font-black leading-[1.15] !tracking-[-0.02em]">{t('quiz.tier.title')}</h1>
@@ -107,7 +107,7 @@ export default function TierSelectionCard({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + idx * 0.08, duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
                 onClick={() => onSelect(tier.id, clampTierLevel(tier.initialLevel))}
-                className="flex w-full items-center gap-3 rounded-[22px] bg-white py-3.5 pl-3.5 pr-3.5 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                className="flex w-full items-center gap-3 rounded-[22px] bg-white py-3.5 pe-3.5 ps-3.5 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
               >
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-v2-tint" aria-hidden>
                   <Icon size={22} strokeWidth={2} className="text-v2-deep" />
@@ -169,7 +169,7 @@ export default function TierSelectionCard({
             className={`
               w-full p-5 rounded-2xl border-2 ${tier.borderColor}
               bg-gradient-to-br ${tier.gradient}
-              text-right transition-all active:scale-[0.97]
+              text-start transition-all active:scale-[0.97]
               hover:shadow-lg hover:shadow-slate-200/60
               group
             `}

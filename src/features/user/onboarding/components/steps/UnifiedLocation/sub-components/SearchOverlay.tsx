@@ -33,7 +33,6 @@ export function SearchOverlay({
         transition={{ duration: 0.2 }}
         className="absolute inset-0 z-30 flex flex-col bg-v2-surface"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
-        dir="rtl"
       >
         <div className="flex-shrink-0 px-4 pb-3">
           <div className="flex items-center gap-2.5">
@@ -43,13 +42,13 @@ export function SearchOverlay({
               aria-label={t('location.search.back')}
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
             >
-              <ChevronRight size={20} className="text-v2-ink" />
+              <ChevronRight size={20} className="text-v2-ink ltr:-scale-x-100" />
             </button>
 
             <div className="relative flex-1 min-w-0">
               <Search
                 size={18}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-v2-muted pointer-events-none z-10"
+                className="absolute start-4 top-1/2 -translate-y-1/2 text-v2-muted pointer-events-none z-10"
               />
               <input
                 ref={searchInputRef}
@@ -57,13 +56,12 @@ export function SearchOverlay({
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={t('location.search.placeholder')}
-                className="w-full h-[52px] rounded-2xl bg-white border-0 pr-11 pl-11 text-[16px] font-semibold text-v2-ink shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none placeholder:text-v2-muted text-right"
-                dir="rtl"
+                className="w-full h-[52px] rounded-2xl bg-white border-0 ps-11 pe-11 text-[16px] font-semibold text-v2-ink shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none placeholder:text-v2-muted text-start"
               />
               {searchQuery && (
                 <button
                   onClick={() => onSearchChange('')}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 grid h-7 w-7 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline z-10"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 grid h-7 w-7 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline z-10"
                   type="button"
                   aria-label={t('location.search.clear')}
                 >
@@ -76,7 +74,7 @@ export function SearchOverlay({
 
         <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
           {filteredCities.length > 0 ? (
-            <div className="w-full rounded-[20px] bg-white shadow-v2-ring overflow-hidden divide-y divide-v2-hairline text-right">
+            <div className="w-full rounded-[20px] bg-white shadow-v2-ring overflow-hidden divide-y divide-v2-hairline text-start">
               {filteredCities.map((city, index) => (
                 <motion.button
                   key={city.id}
@@ -90,7 +88,7 @@ export function SearchOverlay({
                   <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-v2-tint">
                     <MapPin size={17} className="text-v2-deep" />
                   </span>
-                  <span className="flex-1 min-w-0 text-right">
+                  <span className="flex-1 min-w-0 text-start">
                     <span className="block truncate text-[15px] font-extrabold text-v2-ink">
                       {city.name}
                     </span>
@@ -100,7 +98,7 @@ export function SearchOverlay({
                       </span>
                     )}
                   </span>
-                  <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted" />
+                  <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted ltr:-scale-x-100" />
                 </motion.button>
               ))}
             </div>
@@ -138,13 +136,13 @@ export function SearchOverlay({
               onClick={onBack}
               className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
             >
-              <ChevronLeft size={20} className="text-gray-700" />
+              <ChevronLeft size={20} className="text-gray-700 ltr:-scale-x-100" />
             </button>
             
             <div className="flex-1 relative">
               <Search 
                 size={18} 
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none z-10" 
+                className="absolute start-4 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none z-10" 
               />
               <input
                 ref={searchInputRef}
@@ -152,18 +150,17 @@ export function SearchOverlay({
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="חפשו עיר או שכונה" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
-                className="w-full bg-gray-100 rounded-xl px-4 py-3 pr-11 text-gray-900 placeholder-gray-500 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#5BC2F2] focus:border-transparent focus:bg-white transition-all"
+                className="w-full bg-gray-100 rounded-xl px-4 py-3 ps-11 text-gray-900 placeholder-gray-500 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#5BC2F2] focus:border-transparent focus:bg-white transition-all"
                 style={{ 
                   fontFamily: 'var(--font-simpler)',
                   direction: 'rtl',
                   textAlign: 'right'
                 }}
-                dir="rtl"
               />
               {searchQuery && (
                 <button
                   onClick={() => onSearchChange('')}
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 hover:bg-gray-200 rounded-full p-1 transition-colors z-10"
+                  className="absolute end-4 top-1/2 transform -translate-y-1/2 hover:bg-gray-200 rounded-full p-1 transition-colors z-10"
                   type="button"
                   aria-label="נקה חיפוש" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 >
@@ -176,10 +173,10 @@ export function SearchOverlay({
       </div>
 
       {/* Scrollable Results List */}
-      <div className="flex-1 overflow-y-auto bg-gray-50" dir="rtl">
-        <div className="p-4 pr-4">
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        <div className="p-4 ps-4">
           {filteredCities.length > 0 ? (
-            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-right">
+            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-start">
               {filteredCities.map((city, index) => (
                 <motion.button
                   key={city.id}
@@ -187,19 +184,19 @@ export function SearchOverlay({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(index, 20) * 0.02 }}
                   onClick={() => onCitySelect(city)}
-                  className="w-full pr-5 pl-4 py-4 flex flex-row items-center gap-3 border-b border-gray-100 last:border-b-0 hover:bg-[#5BC2F2]/5 active:bg-[#5BC2F2]/10 transition-colors"
+                  className="w-full ps-5 pe-4 py-4 flex flex-row items-center gap-3 border-b border-gray-100 last:border-b-0 hover:bg-[#5BC2F2]/5 active:bg-[#5BC2F2]/10 transition-colors"
                 >
                   <MapPin size={18} className="text-[#5BC2F2] flex-shrink-0" />
-                  <div className="flex-1 text-right">
+                  <div className="flex-1 text-start">
                     <p 
-                      className="font-bold text-gray-900 text-base text-right"
+                      className="font-bold text-gray-900 text-base text-start"
                       style={{ fontFamily: 'var(--font-simpler)' }}
                     >
                       {city.name}
                     </p>
                     {city.parentName && (
                       <p 
-                        className="text-sm text-gray-500 mt-0.5 text-right"
+                        className="text-sm text-gray-500 mt-0.5 text-start"
                         style={{ fontFamily: 'var(--font-simpler)' }}
                       >
                         {city.parentName}

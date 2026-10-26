@@ -171,8 +171,7 @@ export function ConfirmationCard({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 50 }}
         transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-        className="absolute bottom-0 left-0 right-0 z-20"
-        dir="rtl"
+        className="absolute bottom-0 end-0 start-0 z-20"
       >
         <div
           className="rounded-t-[28px] bg-white shadow-v2-sheet px-5 pt-3"
@@ -182,7 +181,7 @@ export function ConfirmationCard({
 
           {/* Greeting — Pain → Solution */}
           {!isUpdatingLocation && userName && (
-            <div className="mb-4 pb-4 border-b border-v2-hairline text-right">
+            <div className="mb-4 pb-4 border-b border-v2-hairline text-start">
               <p className="text-[17px] leading-snug mb-1.5">
                 {t.rich('location.confirm.greeting', {
                   name: userName,
@@ -206,10 +205,10 @@ export function ConfirmationCard({
 
           {isExplorer && !isUpdatingLocation && (
             <>
-              <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-right mb-1.5">
+              <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-start mb-1.5">
                 {t('location.confirm.explorer.title', { place: detectedNeighborhood || detectedCity || locationText })}
               </h2>
-              <p className="text-[14px] leading-relaxed text-v2-ink-2 text-right mb-3">
+              <p className="text-[14px] leading-relaxed text-v2-ink-2 text-start mb-3">
                 {t('location.confirm.explorer.body')}
               </p>
             </>
@@ -217,10 +216,10 @@ export function ConfirmationCard({
 
           {!isExplorer && !isUpdatingLocation && !userName && (
             <>
-              <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-right mb-1.5">
+              <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-start mb-1.5">
                 {t('location.confirm.nearest.title', { place: locationText })}
               </h2>
-              <p className="text-[14px] leading-relaxed text-v2-ink-2 text-right mb-3">
+              <p className="text-[14px] leading-relaxed text-v2-ink-2 text-start mb-3">
                 {t('location.confirm.nearest.body')}
               </p>
             </>
@@ -272,7 +271,7 @@ export function ConfirmationCard({
               className="mb-4 flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-v2-ring"
             >
               {renderAvatar(bestMatch, 'lg')}
-              <div className="min-w-0 flex-1 text-right">
+              <div className="min-w-0 flex-1 text-start">
                 <span className="block truncate text-[15px] font-extrabold text-v2-ink">
                   {bestMatch.name}
                 </span>
@@ -296,7 +295,7 @@ export function ConfirmationCard({
                 <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-v2-tint">
                   <Flag size={18} className="text-v2-deep" />
                 </div>
-                <div className="min-w-0 flex-1 text-right">
+                <div className="min-w-0 flex-1 text-start">
                   <p className="text-[14px] font-extrabold leading-relaxed text-v2-ink">
                     {stripEmoji(pioneer.pioneerMessage)}
                   </p>
@@ -319,7 +318,7 @@ export function ConfirmationCard({
                   </span>
                   <div className="flex items-center gap-3">
                     {renderAvatar(pioneer.fallbackAsset, 'sm')}
-                    <div className="min-w-0 flex-1 text-right">
+                    <div className="min-w-0 flex-1 text-start">
                       <span className="block truncate text-[14px] font-extrabold text-v2-ink">
                         {pioneer.fallbackAsset.name}
                       </span>
@@ -364,8 +363,7 @@ export function ConfirmationCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 50 }}
       transition={{ duration: 0.3 }}
-      className="absolute bottom-0 left-0 right-0 z-20"
-      dir="rtl"
+      className="absolute bottom-0 end-0 start-0 z-20"
     >
       <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-5 border-t border-slate-100/40">
@@ -461,7 +459,7 @@ export function ConfirmationCard({
           </div>
 
           {/* Smart City Prestige Badges — Sport-Aware */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap" dir="rtl">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             {(isLoadingParks || isLoadingCurated) && (
               <Loader2 size={14} className="animate-spin text-[#5BC2F2]" />
             )}
@@ -488,7 +486,6 @@ export function ConfirmationCard({
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
               className="bg-gradient-to-br from-slate-50 to-sky-50/40 rounded-2xl p-4 mb-4 border border-sky-100/60"
-              dir="rtl"
             >
               {bestMatch.kind === 'park' ? (() => {
                 const catKey = resolveCategoryKey(bestMatch);
@@ -576,7 +573,6 @@ export function ConfirmationCard({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
               className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/60 rounded-2xl p-4 mb-4"
-              dir="rtl"
             >
               {/* Part A: Pioneer Message — The "Goal" */}
               <div className="flex items-start gap-3 mb-3">
@@ -597,7 +593,7 @@ export function ConfirmationCard({
               {pioneer.fallbackAsset && (
                 <>
                   <p 
-                    className="text-xs text-amber-700/80 leading-relaxed mb-3 pr-13"
+                    className="text-xs text-amber-700/80 leading-relaxed mb-3 ps-13"
                     style={{ fontFamily: 'var(--font-simpler)', paddingRight: '52px' }}
                   >
                     {pioneer.planBBridge}
@@ -680,7 +676,7 @@ export function ConfirmationCard({
               {/* No fallback at all — pure Pioneer (unmapped area) */}
               {!pioneer.fallbackAsset && (
                 <p 
-                  className="text-xs text-amber-700/70 leading-relaxed pr-13 mt-1"
+                  className="text-xs text-amber-700/70 leading-relaxed ps-13 mt-1"
                   style={{ fontFamily: 'var(--font-simpler)', paddingRight: '52px' }}
                 >
                   {isFemale 

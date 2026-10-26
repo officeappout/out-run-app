@@ -96,7 +96,7 @@ export default function SummaryReveal({
   };
 
   return (
-    <div className="w-full space-y-6" style={{ animation: 'fadeInUp 0.5s ease-out' }} dir="rtl">
+    <div className="w-full space-y-6" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
       {/* כותרת */}
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold text-slate-900">{title}</h1>
@@ -149,7 +149,7 @@ export default function SummaryReveal({
           <div className="bg-white rounded-3xl p-6 shadow-xl border-4 border-slate-900 relative">
             {/* Speech Bubble Tail (pointing DOWN to Lemur, positioned on LEFT) */}
             <div
-              className="absolute bottom-0 left-10 transform translate-y-full"
+              className="absolute bottom-0 end-10 transform translate-y-full"
               style={{
                 width: 0,
                 height: 0,
@@ -159,7 +159,7 @@ export default function SummaryReveal({
               }}
             />
             <div
-              className="absolute bottom-0 left-10 transform translate-y-full -mt-1"
+              className="absolute bottom-0 end-10 transform translate-y-full -mt-1"
               style={{
                 width: 0,
                 height: 0,
