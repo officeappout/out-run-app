@@ -34,16 +34,29 @@ export interface QuizV3Outro {
 export function useQuizV3Outro(
   levels: Partial<Record<string, number>>,
   onFinish: (chosen: ChosenSkill[]) => void,
-  /** Reopened after a failed save: straight to the last explainer (the page kept the chosen skills). */
-  resume = false,
+  opts: {
+    /** Reopened after the hand-off (failed save, no user): straight to the last explainer. */
+    resume?: boolean;
+    /** The choice made before the hand-off, kept so a resumed outro saves it again. */
+    initialChosen?: ChosenSkill[];
+    /** Caps each estimate at the skill program's top questionnaire level. */
+    maxLevels?: Partial<Record<QuizV3SkillId, number>>;
+  } = {},
 ): QuizV3Outro {
-  const skills = useMemo(() => unlockedSkills({ push: levels.push, pull: levels.pull }), [levels.push, levels.pull]);
+  const { resume = false, initialChosen = [], maxLevels } = opts;
+  const planche = maxLevels?.planche;
+  const frontLever = maxLevels?.front_lever;
+  const skills = useMemo(
+    () => unlockedSkills({ push: levels.push, pull: levels.pull }, { planche, front_lever: frontLever }),
+    [levels.push, levels.pull, planche, frontLever],
+  );
   const hasSkills = skills.length > 0;
   const [screen, setScreen] = useState<OutroScreen>(() => (resume ? skipExplainers() : firstOutroScreen(hasSkills)));
   // Board SkillUnlock: the first card comes selected.
-  const [selected, setSelected] = useState<Set<QuizV3SkillId>>(() => new Set(skills.slice(0, 1).map((s) => s.skillId)));
+  const [selected, setSelected] = useState<Set<QuizV3SkillId>>(() =>
+    new Set(resume ? initialChosen.map((c) => c.skillId) : skills.slice(0, 1).map((s) => s.skillId)));
   const [skillLevels, setSkillLevels] = useState<Partial<Record<QuizV3SkillId, number>>>({});
-  const [chosen, setChosen] = useState<ChosenSkill[]>([]);
+  const [chosen, setChosen] = useState<ChosenSkill[]>(initialChosen);
 
   const levelOf = useCallback(
     (id: QuizV3SkillId) => skillLevels[id] ?? skills.find((s) => s.skillId === id)?.estimatedLevel ?? 1,

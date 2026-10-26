@@ -44,11 +44,23 @@ export interface QuizV3OutroProps {
   /** The save failed: open on the last explainer, show the error and (when given) the skip escape. */
   saveError?: string | null;
   onSkipSave?: () => void;
+  initialChosen?: ChosenSkill[];
+  /** Back after a hand-off (failed save, no user): open on the last explainer. */
+  resume?: boolean;
+  /** false = the save leads to the add-track week (declaration already signed), not the declaration. */
+  finishesAtHealth?: boolean;
+  /** false (no demographics yet): "לדייק" is hidden, the estimate is used as is. */
+  skillSliderAvailable?: boolean;
+  /** The skill programs' top questionnaire levels (caps the estimate). */
+  maxSkillLevels?: Partial<Record<QuizV3SkillId, number>>;
 }
 
-export default function QuizV3Outro({ levels, masterLevel, gender, demographics, onFinish, onExitBack, renderSkillSlider, saveError, onSkipSave }: QuizV3OutroProps) {
+export default function QuizV3Outro({
+  levels, masterLevel, gender, demographics, onFinish, onExitBack, renderSkillSlider, saveError, onSkipSave,
+  initialChosen, resume = false, finishesAtHealth = true, skillSliderAvailable = true, maxSkillLevels,
+}: QuizV3OutroProps) {
   const t = useT(onboarding);
-  const o = useQuizV3Outro(levels, onFinish, !!saveError);
+  const o = useQuizV3Outro(levels, onFinish, { resume: resume || !!saveError, initialChosen, maxLevels: maxSkillLevels });
   const summary = useMemo(() => buildProgramSummary(tracksFromLevels(levels), masterLevel), [levels, masterLevel]);
   const explained = useMemo(() => explainGroup(levels), [levels]);
   const days = useMemo(() => weekPreview(levels), [levels]);
@@ -64,7 +76,7 @@ export default function QuizV3Outro({ levels, masterLevel, gender, demographics,
         gender={gender}
         demographics={demographics}
         onToggle={o.toggle}
-        onRefine={o.refine}
+        onRefine={skillSliderAvailable ? o.refine : undefined}
         onAdd={o.add}
         onLater={o.later}
         onBack={back}
@@ -95,7 +107,7 @@ export default function QuizV3Outro({ levels, masterLevel, gender, demographics,
       onNext={o.next}
       onSkip={last ? undefined : o.skip}
       onBack={back}
-      ctaLabel={last ? t('quizV3.explain3.cta') : t('quizV3.explain.next')}
+      ctaLabel={last ? t(finishesAtHealth ? 'quizV3.explain3.cta' : 'quizV3.explain3.ctaWeek') : t('quizV3.explain.next')}
       ctaVariant={last ? 'cta' : 'dark'}
     >
       {s.index === 1 && explained && (

@@ -1,8 +1,13 @@
 'use client';
 
 import clsx from 'clsx';
-import { LEVEL_COMPARE_ICONS } from '@/components/ui/v2/LevelCompareIcon';
-import LevelChip, { CHIP_LEVEL } from './LevelChip';
+import LevelChip from './LevelChip';
+
+/**
+ * Label text in the swap marks' hue family (orange = easier, emerald = harder), darkened so 12px
+ * text on the grey card passes 4.5:1 (orange-800 / emerald-800 on #e6edf2 are about 6:1).
+ */
+const LABEL_TONE = { easier: 'text-orange-800', harder: 'text-emerald-800' } as const;
 
 interface SliderSideCardProps {
   kind: 'easier' | 'harder';
@@ -30,7 +35,7 @@ export default function SliderSideCard({ kind, label, ariaLabel, hidden, onPress
         <span
           className={clsx(
             'line-clamp-2 text-center text-[12px] font-extrabold',
-            LEVEL_COMPARE_ICONS[CHIP_LEVEL[kind]].color,
+            LABEL_TONE[kind],
           )}
         >
           {label}

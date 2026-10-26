@@ -831,5 +831,6 @@
   "quizV3.explain3.schedule": "הלו״ז שלי",
   "quizV3.explain3.lemurAlt": "קלי",
   "quizV3.explain3.lemur": "{gender, select, female {ואני אעקוב אחרייך. כשתהיי מוכנה, אציע לך מתי להוסיף תוכנית נוספת.} male {ואני אעקוב אחריך. כשתהיה מוכן, אציע לך מתי להוסיף תוכנית נוספת.} other {ואני אעקוב אחרי ההתקדמות. כשיגיע הזמן, אציע מתי להוסיף תוכנית נוספת.}}",
-  "quizV3.explain3.cta": "להצהרת הבריאות"
+  "quizV3.explain3.cta": "להצהרת הבריאות",
+  "quizV3.explain3.ctaWeek": "ממשיכים לשבוע שלי"
 }

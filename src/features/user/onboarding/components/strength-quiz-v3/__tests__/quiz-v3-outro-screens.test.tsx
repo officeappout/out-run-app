@@ -139,6 +139,32 @@ describe('QuizV3Outro', () => {
   });
 });
 
+describe('QuizV3Outro (review fixes)', () => {
+  it('last CTA follows the real next route: the add-track week when the declaration is signed', async () => {
+    await mount(createElement(QuizV3Outro, props({ resume: true, finishesAtHealth: false })));
+    expect(buttonByText('ממשיכים לשבוע שלי')).toBeDefined();
+    expect(buttonByText('להצהרת הבריאות')).toBeUndefined();
+  });
+
+  it('resume keeps the earlier choice', async () => {
+    const p = props({ resume: true, initialChosen: [{ skillId: 'front_lever', level: 5 }] });
+    await mount(createElement(QuizV3Outro, p));
+    await click(buttonByText('להצהרת הבריאות'));
+    expect(p.onFinish).toHaveBeenCalledWith([{ skillId: 'front_lever', level: 5 }]);
+  });
+
+  it('caps the estimate at the skill program top level', async () => {
+    await mount(createElement(QuizV3Outro, props({ levels: { push: 25, pull: 3 }, maxSkillLevels: { planche: 10 } })));
+    expect(text()).toContain('רמה משוערת 10 · לפי הדחיפה שלך');
+  });
+
+  it('no demographics: no "לדייק" link (no blank 5b), the estimate is used', async () => {
+    await mount(createElement(QuizV3Outro, props({ skillSliderAvailable: false })));
+    expect(buttonByText('לדייק את הרמה בשאלון קצר')).toBeUndefined();
+    expect(buttonByText('להוסיף לתוכנית שלי')).toBeDefined();
+  });
+});
+
 describe('ProgramSummaryScreen "הידעת?"', () => {
   const summary = buildProgramSummary({ push: { currentLevel: 6, percent: 5 } });
   it('hidden without a fact, shown with a real one', async () => {

@@ -23,9 +23,15 @@ export interface QuizV3ResultStepProps {
   /** The save failed: reopen on the last explainer with the error and the legacy "skip" escape. */
   saveError?: string | null;
   onSkipSave?: () => void;
+  /** The skills chosen before (kept across a failed save). */
+  initialChosen?: ChosenSkill[];
+  /** Reopen on the last explainer (the outro already handed off to the save once). */
+  resume?: boolean;
+  /** The save goes on to the health declaration (else the add-track week, J4). Picks the last CTA label. */
+  finishesAtHealth?: boolean;
 }
 
-export default function QuizV3ResultStep({ levels, average, gender, demographics, pathConfig, v2, onFinish, onExitBack, saveError, onSkipSave }: QuizV3ResultStepProps) {
+export default function QuizV3ResultStep({ levels, average, gender, demographics, pathConfig, v2, onFinish, onExitBack, saveError, onSkipSave, initialChosen, resume, finishesAtHealth = true }: QuizV3ResultStepProps) {
   return (
     <QuizV3Outro
       levels={levels}
@@ -36,6 +42,14 @@ export default function QuizV3ResultStep({ levels, average, gender, demographics
       onExitBack={onExitBack}
       saveError={saveError}
       onSkipSave={onSkipSave}
+      initialChosen={initialChosen}
+      resume={resume}
+      finishesAtHealth={finishesAtHealth}
+      skillSliderAvailable={!!demographics}
+      maxSkillLevels={{
+        planche: getFollowUpMaxLevel(pathConfig, 'planche'),
+        front_lever: getFollowUpMaxLevel(pathConfig, 'front_lever'),
+      }}
       renderSkillSlider={(slot) =>
         demographics ? (
           <VisualSlider

@@ -130,6 +130,7 @@ describe('onboarding · quizV3 after the assessment (he)', () => {
       'ואני אעקוב אחרי ההתקדמות. כשיגיע הזמן, אציע מתי להוסיף תוכנית נוספת.',
     ]);
     expect(t('quizV3.explain3.cta')).toBe('להצהרת הבריאות');
+    expect(t('quizV3.explain3.ctaWeek')).toBe('ממשיכים לשבוע שלי');
     expect(t('quizV3.explain.skip')).toBe('דלג');
   });
 

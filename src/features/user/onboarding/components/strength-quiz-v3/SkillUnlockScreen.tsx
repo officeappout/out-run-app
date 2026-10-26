@@ -19,7 +19,8 @@ export interface SkillUnlockScreenProps {
   gender: Gender;
   demographics: UserDemographics | null;
   onToggle: (id: QuizV3SkillId) => void;
-  onRefine: (id: QuizV3SkillId) => void;
+  /** Absent: no short questionnaire (demographics missing), the link is hidden. */
+  onRefine?: (id: QuizV3SkillId) => void;
   onAdd: () => void;
   onLater: () => void;
   onBack?: () => void;
@@ -52,7 +53,7 @@ export default function SkillUnlockScreen({
             gender={gender}
             demographics={demographics}
             onToggle={() => onToggle(s.skillId)}
-            onRefine={() => onRefine(s.skillId)}
+            onRefine={onRefine ? () => onRefine(s.skillId) : undefined}
           />
         ))}
         {onOpenSkillsMap && (

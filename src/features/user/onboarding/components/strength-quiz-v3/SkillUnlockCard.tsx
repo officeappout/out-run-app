@@ -18,7 +18,7 @@ interface SkillUnlockCardProps {
   gender: Gender;
   demographics: UserDemographics | null;
   onToggle: () => void;
-  onRefine: () => void;
+  onRefine?: () => void;
 }
 
 function MapStep({ dot, title, line, tone }: { dot: string; title: string; line: string; tone: 'here' | 'next' | 'goal' }) {
@@ -116,9 +116,11 @@ export default function SkillUnlockCard({ skill, level, selected, gender, demogr
       {selected && (
         <>
           <MiniMap skill={skill} level={level} gender={gender} demographics={demographics} />
-          <button type="button" onClick={onRefine} className="self-start text-[13px] font-extrabold text-v2-deep">
-            {t('quizV3.skills.refine')}
-          </button>
+          {onRefine && (
+            <button type="button" onClick={onRefine} className="self-start text-[13px] font-extrabold text-v2-deep">
+              {t('quizV3.skills.refine')}
+            </button>
+          )}
         </>
       )}
     </div>

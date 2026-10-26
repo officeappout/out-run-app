@@ -107,9 +107,10 @@ vi.mock('@/features/user/onboarding/components/ProgramResult', () => ({
   ),
 }));
 vi.mock('@/features/user/onboarding/components/strength-quiz-v3/QuizV3ResultStep', () => ({
-  default: (p: { onFinish: (c: unknown[]) => void; onExitBack: () => void }) => (
-    <div data-stub="v3-outro">
+  default: (p: { onFinish: (c: unknown[]) => void; onExitBack: () => void; resume?: boolean; initialChosen?: unknown[] }) => (
+    <div data-stub="v3-outro" data-resume={String(!!p.resume)} data-initial={JSON.stringify(p.initialChosen ?? [])}>
       <button data-stub="v3-finish" onClick={() => p.onFinish([{ skillId: 'planche', level: 7 }])} />
+      <button data-stub="v3-finish-fl" onClick={() => p.onFinish([{ skillId: 'front_lever', level: 5 }])} />
     </div>
   ),
 }));
@@ -416,5 +417,68 @@ describe('assessment page, enable_strength_quiz_v3 on: after the sliders (part C
     await flush();
     const { assignedResults } = S.syncCalls[0] as { assignedResults: Array<{ programId: string }> };
     expect(assignedResults.map((r) => r.programId)).toEqual(['full_body']);
+  });
+});
+
+describe('assessment page, enable_strength_quiz_v3 on: outro edge cases (part C review)', () => {
+  async function toV3Outro() {
+    S.v2 = true;
+    S.quizV3 = true;
+    await mount();
+    const cta = Array.from(host!.querySelectorAll('button')).find((b) => b.textContent === 'בואו נבדוק');
+    await act(async () => { cta!.click(); });
+    await flush();
+    await click('slider');
+    await act(async () => { S.evaluate.resolve(null); });
+    await flush();
+    await act(async () => {
+      S.mapping.resolve({ programId: 'full_body', levelMode: 'auto', levelId: '', displayName: { he: 'גוף מלא' } });
+    });
+    await flush();
+  }
+  const outro = () => host!.querySelector('[data-stub="v3-outro"]') as HTMLElement;
+
+  it('mini top-up keeps the legacy result screen (no outro) and its single-domain save', async () => {
+    S.miniActive = true;
+    S.v2 = true;
+    S.quizV3 = true;
+    await mount();
+    const cta = Array.from(host!.querySelectorAll('button')).find((b) => b.textContent === 'בואו נבדוק');
+    await act(async () => { cta!.click(); });
+    await flush();
+    await click('slider');
+    await act(async () => { S.evaluate.resolve(null); });
+    await flush();
+    await act(async () => {
+      S.mapping.resolve({ programId: 'full_body', levelMode: 'auto', levelId: '', displayName: { he: 'גוף מלא' } });
+    });
+    await flush();
+    expect(outro()).toBeNull();
+    await click('result-loading');
+    expect(host!.querySelector('[data-stub="result"]')).not.toBeNull();
+  });
+
+  it('after a failed save the outro resumes with the earlier choice, and a changed choice is the one saved', async () => {
+    await toV3Outro();
+    expect(outro().getAttribute('data-resume')).toBe('false');
+    await click('v3-finish');
+    await act(async () => { S.save.reject(new Error('boom')); });
+    await flush();
+    expect(outro().getAttribute('data-resume')).toBe('true');
+    expect(JSON.parse(outro().getAttribute('data-initial')!)).toEqual([{ skillId: 'planche', level: 7 }]);
+    S.save = deferred();
+    await click('v3-finish-fl');
+    await act(async () => { S.save.resolve(undefined); });
+    await flush();
+    const { assignedResults } = S.syncCalls[0] as { assignedResults: Array<{ programId: string }> };
+    expect(assignedResults.map((r) => r.programId)).toEqual(['full_body', 'front_lever']);
+  });
+
+  it('no signed-in user: alert, then the outro resumes on its last screen', async () => {
+    S.currentUser = null;
+    await toV3Outro();
+    await click('v3-finish');
+    expect(alerts).toHaveLength(1);
+    expect(outro().getAttribute('data-resume')).toBe('true');
   });
 });
