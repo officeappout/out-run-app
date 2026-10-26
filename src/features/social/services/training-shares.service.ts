@@ -6,11 +6,14 @@
 import { auth } from '@/lib/firebase';
 import type { TrainingShareJson } from './training-share-visibility';
 
-export async function fetchPartnerTrainingShares(): Promise<TrainingShareJson[]> {
+export async function fetchPartnerTrainingShares(place?: { parkId?: string; routeId?: string }): Promise<TrainingShareJson[]> {
   try {
     const idToken = await auth.currentUser?.getIdToken().catch(() => null);
     if (!idToken) return [];
-    const res = await fetch('/api/training-here/partners', { headers: { Authorization: `Bearer ${idToken}` } });
+    const qs = new URLSearchParams();
+    if (place?.parkId) qs.set('parkId', place.parkId);
+    if (place?.routeId) qs.set('routeId', place.routeId);
+    const res = await fetch(`/api/training-here/partners${qs.toString() ? `?${qs}` : ''}`, { headers: { Authorization: `Bearer ${idToken}` } });
     if (!res.ok) throw new Error(`training-here/partners ${res.status}`);
     const body = (await res.json()) as { shares?: TrainingShareJson[] };
     return body.shares ?? [];

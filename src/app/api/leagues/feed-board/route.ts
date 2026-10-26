@@ -17,7 +17,7 @@ import { adminFeedBoardReader } from './admin-reader';
 export const dynamic = 'force-dynamic';
 
 const MAX_SINCE_AGE_MS = 40 * 24 * 3_600_000;
-const WINDOWED: ReadonlySet<FeedBoardKind> = new Set(['credit', 'distance', 'league', 'groupCompetition', 'scopeCompetition']);
+const WINDOWED: ReadonlySet<FeedBoardKind> = new Set<FeedBoardKind>(['credit', 'distance', 'league', 'groupCompetition', 'scopeCompetition']);
 const oneOf = <T extends string>(v: string | null, allowed: readonly T[]): T | undefined =>
   v != null && (allowed as readonly string[]).includes(v) ? (v as T) : undefined;
 const id = (v: string | null) => (v && v.length <= 200 ? v : null);

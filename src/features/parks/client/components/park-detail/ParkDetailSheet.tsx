@@ -26,6 +26,9 @@ import { averageReviewRating, buildParkPhotoGallery } from './utils/park-detail-
 import { useParkSheetMotion, useParkScrollProgressSync } from './hooks/useParkSheetMotion';
 import { usePointFetchedPark, useParkReviews, useParkEquipment } from './hooks/useParkDetailData';
 import { useParkSessions } from './hooks/useParkSessions';
+import { usePartnerParkShares } from './hooks/usePartnerParkShares';
+import { useCancelOwnArrival } from './hooks/useCancelOwnArrival';
+import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
 import { useParkArrivalPublish, useJoinParkEvent, useParkRating } from './hooks/useParkActions';
 import ParkStickyHeader from './sections/ParkStickyHeader';
 import ParkHero from './sections/ParkHero';
@@ -76,13 +79,25 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
   const park = usePointFetchedPark(isOpen, selectedPark);
 
   const myGroupIds = profile?.social?.groupIds ?? [];
-  const { parkEvents, eventsLoading, filteredParkEvents, currentUid, isUserRegistered } = useParkSessions({
+  // enable_where_to_train_v1: mutual partners' shares for this park join the list; my row gets ביטול.
+  const whereToTrainOn = useWhereToTrainV1();
+  const partnerShares = usePartnerParkShares(isOpen && whereToTrainOn, park?.id);
+  const ownCancel = useCancelOwnArrival();
+  const localArrivals = useMemo(
+    () => (partnerShares.length ? [...arrival.localArrivals, ...partnerShares] : arrival.localArrivals),
+    [arrival.localArrivals, partnerShares],
+  );
+  const { parkEvents, eventsLoading, filteredParkEvents: listed, currentUid, isUserRegistered } = useParkSessions({
     isOpen,
     park,
     myGroupIds,
     dayFilter,
-    localArrivals: arrival.localArrivals,
+    localArrivals,
   });
+  const filteredParkEvents = useMemo(
+    () => (ownCancel.cancelledIds.size ? listed.filter((ev) => !ownCancel.cancelledIds.has(ev.eventId)) : listed),
+    [listed, ownCancel.cancelledIds],
+  );
   const { joiningEventId, handleJoinEvent } = useJoinParkEvent();
 
   const { reviews, setReviews, reviewerNames, reviewsExpanded, setReviewsExpanded } = useParkReviews(isOpen, park?.id);
@@ -179,6 +194,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
               isUserRegistered={isUserRegistered}
               onJoin={handleJoinEvent}
               onOpenProfile={setProfileUser}
+              ownArrivalActions={whereToTrainOn ? { onCancel: ownCancel.cancel, cancellingId: ownCancel.cancellingId } : undefined}
               publishPanel={
                 <ArrivalPublishPanel
                   v2={v2}
