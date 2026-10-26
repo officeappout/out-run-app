@@ -60,7 +60,7 @@ describe('library preview.* — plain strings', () => {
   });
 
   it('covers every preview.* key (count per prefix)', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('preview.')).length).toBe(77); // 74 + the 3 preview.location.unavailable.* keys (enable_location_gate_v1)
+    expect(Object.keys(he).filter((k) => k.startsWith('preview.')).length).toBe(84); // 74 + the 3 preview.location.unavailable.* keys (enable_location_gate_v1) + the 7 preview.where.* keys (enable_where_to_train_v1, where-to-train-he.test.ts)
   });
 });
 

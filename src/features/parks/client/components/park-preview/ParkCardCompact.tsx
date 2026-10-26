@@ -7,6 +7,10 @@
  * amenity chips (no white body band; owner 23.10.2026). The
  * shelter strip moved to the park page (ParkShelterTag). 24px side insets,
  * v2 tokens. Tap → the park page (the caller's onOpen). Render-only.
+ *
+ * layout="inline" (enable_where_to_train_v1) is the same card as a carousel item: fixed width, in
+ * flow (no floating position / slide-in), optional selected ring; the close / navigate buttons
+ * render only when their handlers are passed.
  */
 
 import { Navigation, X } from 'lucide-react';
@@ -21,6 +25,8 @@ export const COMPACT_CARD_PX = 148;
 /** Bottom-up scrim so white text reads on any photo; the top stays clear. */
 export const COMPACT_GRADIENT = 'linear-gradient(to top, rgba(9,20,30,0.86) 0%, rgba(9,20,30,0.55) 42%, rgba(9,20,30,0) 78%)';
 export const COMPACT_MAX_CHIPS = 3;
+/** Carousel item width (layout="inline"). */
+export const COMPACT_INLINE_WIDTH_PX = 280;
 
 export interface ParkCardCompactProps {
   name: string;
@@ -31,18 +37,30 @@ export interface ParkCardCompactProps {
   metaParts: string[];
   amenityTags: ParkFeatureTag[];
   onOpen: () => void;
-  onClose: () => void;
-  onNavigate: () => void;
+  /** Omitted → no close button (carousel items). */
+  onClose?: () => void;
+  /** Omitted → no navigate button. */
+  onNavigate?: () => void;
+  /** 'floating' (default) = the map's card over the map; 'inline' = a carousel item. */
+  layout?: 'floating' | 'inline';
+  /** inline only: accent ring (the picked / best-match park). */
+  selected?: boolean;
 }
+
+const FLOATING_WRAPPER = 'absolute bottom-[100px] left-6 right-6 z-30 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer';
+const INLINE_WRAPPER = 'relative shrink-0 cursor-pointer snap-start';
 
 export default function ParkCardCompact({
   name, heroSrc, objectPosition, rating, metaParts, amenityTags, onOpen, onClose, onNavigate,
+  layout = 'floating', selected = false,
 }: ParkCardCompactProps) {
   const t = useT(map);
   const chips = amenityTags.slice(0, COMPACT_MAX_CHIPS);
+  const inline = layout === 'inline';
   return (
     <div
-      className="absolute bottom-[100px] left-6 right-6 z-30 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer"
+      className={inline ? INLINE_WRAPPER : FLOATING_WRAPPER}
+      style={inline ? { width: COMPACT_INLINE_WIDTH_PX } : undefined}
       onClick={onOpen}
       role="button"
       tabIndex={0}
@@ -55,7 +73,7 @@ export default function ParkCardCompact({
           The dark base colour means a sub-pixel gap at the rounded edge never reads
           as a white line, and isolation + translateZ makes WebKit (iOS) clip the
           photo to the radius during the slide-in animation. */}
-      <div className="relative overflow-hidden rounded-v2-card shadow-v2-float" dir="rtl"
+      <div className={`relative overflow-hidden rounded-v2-card ${inline ? (selected ? 'shadow-v2-ring ring-2 ring-v2-accent' : 'shadow-v2-ring') : 'shadow-v2-float'}`} dir="rtl"
         style={{ height: COMPACT_CARD_PX, background: '#0e1419', isolation: 'isolate', transform: 'translateZ(0)' }}>
         {heroSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -67,16 +85,20 @@ export default function ParkCardCompact({
           </div>
         )}
         <div className="pointer-events-none absolute inset-0" style={{ background: COMPACT_GRADIENT }} aria-hidden />
+        {onClose && (
         <button type="button" aria-label={t('parkCard.close')}
           onClick={(e) => { e.stopPropagation(); onClose(); }}
           className="absolute left-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-v2-ring backdrop-blur-sm transition-transform duration-150 ease-v2 active:scale-[0.96]">
           <X size={15} className="text-v2-ink" />
         </button>
+        )}
+        {onNavigate && (
         <button type="button" aria-label={t('parkCard.navigate')}
           onClick={(e) => { e.stopPropagation(); onNavigate(); }}
           className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-v2-accent text-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.96]">
           <Navigation size={14} fill="currentColor" />
         </button>
+        )}
 
         <div className="absolute inset-x-0 bottom-0 z-[1] px-3.5 pb-3">
           <h3 className="truncate text-[16px] font-black leading-snug !tracking-[-0.02em] text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.35)]">{name}</h3>

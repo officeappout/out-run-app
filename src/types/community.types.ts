@@ -471,6 +471,11 @@ export interface PlannedSession {
    */
   programName?: string;
   programLevel?: number;
+  /**
+   * Optional display title of the workout the publisher is heading to do (enable_where_to_train_v1 —
+   * the "I'm training here" sheet). Absent on older docs and on flows that don't know the workout.
+   */
+  workoutTitle?: string;
   activityType: ActivityType;
   /**
    * Optional as of the unified-compose Phase 1 build: strength sessions
