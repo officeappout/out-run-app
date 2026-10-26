@@ -298,7 +298,7 @@ export default function RestScreen({
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
                 {v2 ? <Timer size={16} strokeWidth={2.5} aria-hidden /> : <span aria-hidden>⏱️</span>}
-                {t.rich('strengthPlayer.rest.extend', { seconds: String(REST_EXTEND_SECONDS), bdi: (chunks) => <bdi dir="ltr">{chunks}</bdi> })}
+                {t.rich('strengthPlayer.rest.extend', { seconds: String(REST_EXTEND_SECONDS), bdi: (chunks: React.ReactNode) => <bdi dir="ltr">{chunks}</bdi> })}
               </button>
             )}
           </div>

@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { ReactElement } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: { currentUser: null }, app: {} }));
 vi.mock('../hooks/useStrengthDrawerV1', () => ({ useStrengthDrawerV1: () => false }));
@@ -228,8 +228,8 @@ describe('playlist cards', () => {
       html(<SupersetBlockGroup exercises={two} cardStatus="active" activeExerciseIndex={0} isResting restTimeLeft={5} formatTime={fmt} onSkipRest={noop} onSaveSet={noop} />),
       html(<TabataBlockGroup exercises={two} title="טבטה" cardStatus="active" activeExerciseIndex={1} isResting restTimeLeft={5} formatTime={fmt} onSaveSet={noop} />),
       html(<TabataBlockGroup exercises={two} title="גמר" cardStatus="upcoming" activeExerciseIndex={-1} isResting={false} onSaveSet={noop} />),
-      html(<StrengthExerciseCard entry={entry('a', { pyramidSequence: seq, sets: 2, loggedReps: [null, null], currentSetIndex: 0 }) as never} cardStatus="active" isTurnActive isResting={false} onSaveSet={noop} onTapOutOfTurn={noop} />),
-      html(<StrengthExerciseCard entry={entry('a') as never} cardStatus="active" isTurnActive isResting={false} onSaveSet={noop} onTapOutOfTurn={noop} />),
+      html(<StrengthExerciseCard entry={entry('a', { pyramidSequence: seq, sets: 2, loggedReps: [null, null], currentSetIndex: 0 }) as never} isTurnActive isResting={false} onSaveSet={noop} />),
+      html(<StrengthExerciseCard entry={entry('a') as never} isTurnActive isResting={false} onSaveSet={noop} />),
     ].join('\n\n');
     await expect(out).toMatchFileSnapshot(snap('block-groups'));
   });
@@ -251,24 +251,25 @@ describe('playlist cards', () => {
 });
 
 describe('active exercise and timer card', () => {
+  type ActiveProps = ComponentProps<typeof ActiveExerciseView>;
   const view = (over: Record<string, unknown> = {}) => ({
     activeKey: 'k', fadeIn: true, isPaused: false, safeVideoUrl: null, cachedNextVideoUrl: null, exerciseId: 'e1', exerciseName: 'מתח', exerciseType: 'reps',
     isTimeExercise: false, exerciseDuration: 30, currentSide: null, repsOrDurationText: '10 חזרות', targetValue: 10, isUnilateral: false, isPyramidActive: false,
     currentRound: 2, totalRounds: 3, upcomingPyramidSteps: [], isSupersetActive: false, supersetPartnerName: null, autoCompleteTime: 30, executionSteps: [],
     muscleGroups: { primary: [], secondary: [] }, exerciseGoal: null, scrollRef: { current: null }, onComplete: noop, ...over,
-  });
+  }) as unknown as ActiveProps;
   const steps = [{ name: 'שלב א', targetReps: 12 }, { name: 'שלב ב', targetHold: 20 }, { name: 'שלב ג', targetReps: 8 }];
   it.each([false, true])('ActiveExerciseView, v2=%s', async (v2) => {
     const out: string[] = [];
     for (const gender of GENDERS) {
       setGender(gender);
-      out.push(html(withV2(v2, <ActiveExerciseView {...(view() as never)} onSwap={noop} />)));
+      out.push(html(withV2(v2, <ActiveExerciseView {...view()} onSwap={noop} />)));
     }
-    out.push(html(withV2(v2, <ActiveExerciseView {...(view({ isUnilateral: true }) as never)} />)));
-    out.push(html(withV2(v2, <ActiveExerciseView {...(view({ isPyramidActive: true, upcomingPyramidSteps: steps }) as never)} />)));
-    out.push(html(withV2(v2, <ActiveExerciseView {...(view({ isSupersetActive: true, supersetPartnerName: 'מקבילים' }) as never)} />)));
-    out.push(html(withV2(v2, <ActiveExerciseView {...(view({ isSupersetActive: true, totalRounds: 1, isFollowAlong: true, targetValue: 0 }) as never)} />)));
-    out.push(html(withV2(v2, <ActiveExerciseView {...(view({ isTimeExercise: true, currentSide: 'right', exerciseType: 'time', repsOrDurationText: '30 שניות' }) as never)} />)));
+    out.push(html(withV2(v2, <ActiveExerciseView {...view({ isUnilateral: true })} />)));
+    out.push(html(withV2(v2, <ActiveExerciseView {...view({ isPyramidActive: true, upcomingPyramidSteps: steps })} />)));
+    out.push(html(withV2(v2, <ActiveExerciseView {...view({ isSupersetActive: true, supersetPartnerName: 'מקבילים' })} />)));
+    out.push(html(withV2(v2, <ActiveExerciseView {...view({ isSupersetActive: true, totalRounds: 1, isFollowAlong: true, targetValue: 0 })} />)));
+    out.push(html(withV2(v2, <ActiveExerciseView {...view({ isTimeExercise: true, currentSide: 'right', exerciseType: 'time', repsOrDurationText: '30 שניות' })} />)));
     await expect(out.join('\n\n')).toMatchFileSnapshot(snap(`active-exercise-v${v2 ? 2 : 1}`));
   });
   it('IsometricTimerCard', async () => {
