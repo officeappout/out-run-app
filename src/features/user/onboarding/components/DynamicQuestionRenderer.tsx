@@ -617,7 +617,7 @@ function WheelColumn({
                 }}
               >
                 {String(v).padStart(2, '0')}
-                <span className="text-[10px] font-semibold me-0.5 opacity-60">{suffix}</span>
+                <span className="text-[10px] font-semibold ml-0.5 opacity-60">{suffix}</span>
               </span>
             </div>
           );

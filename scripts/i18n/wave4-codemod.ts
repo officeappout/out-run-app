@@ -182,19 +182,20 @@ export function transform(file: string, src: string): { out: string; report: Fil
   leftover(sf);
 
   // Apply edits back-to-front (dedupe identical ranges).
-  const uniq = [...new Map(edits.map((e) => [`${e.start}:${e.end}`, e])).values()].sort((a, b) => b.start - a.start);
+  const uniq = Array.from(new Map(edits.map((e) => [`${e.start}:${e.end}`, e] as const)).values()).sort((a, b) => b.start - a.start);
   let out = src;
   for (const e of uniq) out = out.slice(0, e.start) + e.text + out.slice(e.end);
   return { out, report };
 }
 
-function* walkFiles(p: string): Generator<string> {
+function walkFiles(p: string, out: string[] = []): string[] {
   const st = fs.statSync(p);
-  if (st.isFile()) { if (/\.tsx$/.test(p)) yield p; return; }
+  if (st.isFile()) { if (/\.tsx$/.test(p)) out.push(p); return out; }
   for (const f of fs.readdirSync(p)) {
     if (f === 'node_modules' || f === '__snapshots__') continue;
-    yield* walkFiles(path.join(p, f));
+    walkFiles(path.join(p, f), out);
   }
+  return out;
 }
 
 if (require.main === module || process.argv[1]?.endsWith('wave4-codemod.ts')) {
@@ -213,7 +214,7 @@ if (require.main === module || process.argv[1]?.endsWith('wave4-codemod.ts')) {
       totals.skipped += report.skipped.length;
       if (out !== src) { totals.touched++; if (write) fs.writeFileSync(f, out); }
       for (const s of report.skipped) console.log(`SKIP   ${f}: ${s}`);
-      for (const s of [...new Set(report.manual)]) console.log(`MANUAL ${f}: ${s}`);
+      for (const s of Array.from(new Set(report.manual))) console.log(`MANUAL ${f}: ${s}`);
     }
   }
   console.log(JSON.stringify(totals));

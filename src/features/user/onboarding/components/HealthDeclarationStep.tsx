@@ -699,7 +699,7 @@ export default function HealthDeclarationStep({
             />
             {/* Placeholder hint — hidden once the user starts drawing */}
             {!hasSigned && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none" dir="rtl">
                 <span className={v2 ? 'text-v2-muted text-[14px] font-bold' : 'text-slate-300 text-sm'}>{t('health.signature.placeholder')}</span>
               </div>
             )}
