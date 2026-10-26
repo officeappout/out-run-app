@@ -5,6 +5,7 @@ import { Maximize2 } from 'lucide-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import FillingButton from './FillingButton';
 import IsometricTimerCard from './IsometricTimerCard';
+import TimerCardExtras from './TimerCardExtras';
 import ExerciseDetailContent from './ExerciseDetailContent';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
@@ -268,6 +269,18 @@ export default function ActiveExerciseView({
           drawer={drawer}
           nextUp={split ? nextUp : undefined}
           onClockState={onClockState}
+          extras={
+            <TimerCardExtras
+              exerciseName={exerciseName}
+              onSwap={onSwap}
+              primaryMuscle={muscleGroups.primary[0] || null}
+              secondaryMuscles={muscleGroups.secondary.length > 0 ? muscleGroups.secondary : undefined}
+              cues={executionSteps.length > 0 ? executionSteps : undefined}
+              goal={exerciseGoal}
+              equipment={equipment}
+              workoutLocation={workoutLocation}
+            />
+          }
         />
   ) : null;
   const videoEl = (

@@ -95,6 +95,8 @@ interface IsometricTimerCardProps {
    * moment, so a connected TV can show the same clock. Absent (flag off / no TV) = nothing runs.
    */
   onClockState?: (r: CardClockReport | null) => void;
+  /** Pilot S5: swap + exercise details under the timer (like the reps card). Not in the wide panel. */
+  extras?: React.ReactNode;
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -169,6 +171,7 @@ export default function IsometricTimerCard({
   drawer = null,
   nextUp,
   onClockState,
+  extras,
 }: IsometricTimerCardProps) {
   // enable_wide_player_v1: the same card as the wide side panel (hero clock, no sheet chrome).
   const { wide } = useWidePlayer();
@@ -679,6 +682,7 @@ export default function IsometricTimerCard({
             <span>סיימתי</span>
           </button>
         )}
+        {!wide && extras}
         {wide && nextUp && <WideNextUp {...nextUp} />}
         {wide && <WideKeyHints />}
         </PlayerDrawerBody>
