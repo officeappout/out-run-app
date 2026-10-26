@@ -56,6 +56,13 @@ import { useExerciseSwap } from './hooks/useExerciseSwap';
 import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
+import { common } from '@/messages/ns/common';
+import { withUnit } from '@/lib/i18n/units';
+import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
+import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
+import WhereToTrainSection from '../where-to-train/WhereToTrainSection';
+import { useWhereToTrain } from '../where-to-train/useWhereToTrain';
+import TrainingHereSheet from '@/features/parks/client/components/training-here/TrainingHereSheet';
 
 const DRAWER_HEIGHT = '95vh';
 const CLOSE_THRESHOLD = 120; // px dragged DOWN to dismiss
@@ -361,6 +368,13 @@ export default function WorkoutPreviewDrawer({
     [generatedWorkout, detailExercise, onGeneratedWorkoutUpdate],
   );
 
+  // ── enable_where_to_train_v1: "איפה מתאמנים?" under the intensity selector + the shared sheet ──
+  const whereOn = useWhereToTrainV1();
+  const where = useWhereToTrain(whereOn && isOpen && !!generatedWorkout, generatedWorkout?.exercises);
+  const tc = useT(common);
+  // Military persona keeps its "service" location (as in WorkoutLocationSwitcher) — a third segment.
+  const whereShowService = profile ? hasPersona(profile, 'military') : false;
+
   const handleOpenLivePartners = useCallback(() => {
     usePartnerFilters.getState().setLiveActivity('strength');
     useMapStore.getState().setPendingPartnerOverlay({ tab: 'live' });
@@ -423,6 +437,17 @@ export default function WorkoutPreviewDrawer({
   // shows stale dynamicContent.
   const displayTitle =
     generatedWorkout?.title || dynamicContent?.title || workout?.title || '';
+
+  // enable_where_to_train_v1: "אימון עליון · 45 דק׳" for the shared sheet.
+  const whereWorkoutLabel = whereOn && displayTitle
+    ? (generatedWorkout?.estimatedDuration
+        ? t('preview.where.workoutLine', { title: displayTitle, duration: withUnit('min', String(Math.round(generatedWorkout.estimatedDuration)), tc) })
+        : displayTitle)
+    : null;
+  const whereFooterShare = React.useMemo(
+    () => (whereOn ? { place: where.selectedPlace, alternatives: where.places, workoutLabel: whereWorkoutLabel } : undefined),
+    [whereOn, where.selectedPlace, where.places, whereWorkoutLabel],
+  );
 
   // Body-scroll lock while the drawer is open.
   useEffect(() => {
@@ -685,13 +710,32 @@ export default function WorkoutPreviewDrawer({
             </div>
           )}
 
+          {whereOn && generatedWorkout && (
+            <WhereToTrainSection
+              location={resolvedSwapLocation === 'home' || resolvedSwapLocation === 'service' ? resolvedSwapLocation : 'park'}
+              showService={whereShowService || resolvedSwapLocation === 'service'}
+              onSelectLocation={(loc) => { void swapAll('location', loc); }}
+              isSwapping={isSwapping}
+              blockedNotice={
+                locationGateOn && swapResult?.blockedLocation
+                  ? t('preview.location.unavailable.notice', { location: swapResult.blockedLocation })
+                  : null
+              }
+              parks={where.parks}
+              loading={where.loading}
+              selectedParkId={where.selectedParkId}
+              onOpenPark={where.openPark}
+              homeGearLabels={where.homeGearLabels}
+            />
+          )}
+
           <div className="bg-white dark:bg-slate-900 relative z-10 px-4 pt-4 pb-8">
             {/* Priority: skeleton while loading → generated list → legacy overview */}
             {isGeneratingWorkout && !generatedWorkout ? (
               <WorkoutLoadingSkeleton />
             ) : generatedWorkout ? (
               <>
-                {SWAP_ALL_ENABLED && (
+                {SWAP_ALL_ENABLED && !whereOn && (
                   <WorkoutLocationSwitcher
                     currentLocation={resolvedSwapLocation}
                     isSwapping={isSwapping}
@@ -771,7 +815,7 @@ export default function WorkoutPreviewDrawer({
             )}
 
             {/* "Where to Train" — nearest parks carousel */}
-            {nearbyParks.length > 0 && (
+            {!whereOn && nearbyParks.length > 0 && (
               <section className="mt-6 mb-2">
                 <h3 className="text-right font-bold text-lg text-slate-900 dark:text-white mb-3">
                   {t('preview.parks.title')}
@@ -828,8 +872,25 @@ export default function WorkoutPreviewDrawer({
           isAudioEnabled={isAudioEnabled}
           onToggleAudio={toggleAudio}
           measureRef={homeV2 ? footerRef : undefined}
+          shareTrainingHere={whereFooterShare}
         />
       </HeroSheetFrame>
+
+      {/* enable_where_to_train_v1: a park card → the ONE "I'm training here" sheet. */}
+      {whereOn && where.sheetPlace && (
+        <TrainingHereSheet
+          open={where.sheetOpen}
+          onClose={where.closeSheet}
+          activity="workout"
+          workoutLabel={whereWorkoutLabel}
+          workoutTitle={displayTitle || null}
+          place={where.sheetPlace}
+          alternatives={where.places}
+          onStartNow={() => handleStartWorkout()}
+          onPickOnly={where.pickOnly}
+          onPublished={(_id, place) => where.pickOnly(place)}
+        />
+      )}
 
       {/* Exercise detail hero drawer (memoised + lazy) — regular exercises only;
           machine pseudo-exercises are routed to EquipmentDetailDrawer below. */}

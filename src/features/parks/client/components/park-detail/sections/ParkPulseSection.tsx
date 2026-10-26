@@ -8,7 +8,7 @@ import { DAY_FILTERS } from '../utils/park-detail-format';
 import { useT } from '@/hooks/useT';
 import { map as mapNs } from '@/messages/ns/map';
 import { totalParkAttendees } from '../utils/park-detail-logic';
-import ParkSessionRow from './ParkSessionRow';
+import ParkSessionRow, { type OwnArrivalActions } from './ParkSessionRow';
 
 interface ParkPulseSectionProps {
   v2: boolean;
@@ -26,6 +26,8 @@ interface ParkPulseSectionProps {
   onOpenProfile: (user: ProfileUser) => void;
   /** The "אני מגיע…" publish panel, rendered between the header and the list. */
   publishPanel: ReactNode;
+  /** enable_where_to_train_v1: workout titles + "ביטול" on my own row. Omitted = today's rows. */
+  ownArrivalActions?: OwnArrivalActions;
 }
 
 /**
@@ -45,6 +47,7 @@ export default function ParkPulseSection({
   onJoin,
   onOpenProfile,
   publishPanel,
+  ownArrivalActions,
 }: ParkPulseSectionProps) {
   const t = useT(mapNs);
   return (
@@ -101,6 +104,7 @@ export default function ParkPulseSection({
               isOwnArrival={!!(ev.isPersonalArrival && ev.avatars?.[0]?.uid === currentUid)}
               onJoin={onJoin}
               onOpenProfile={onOpenProfile}
+              ownArrivalActions={ownArrivalActions}
             />
           ))}
         </div>

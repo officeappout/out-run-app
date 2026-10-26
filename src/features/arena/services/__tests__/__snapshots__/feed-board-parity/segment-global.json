@@ -1,0 +1,55 @@
+{
+ "entries": [
+  {
+   "rank": 1,
+   "uid": "u4",
+   "name": "???",
+   "totalCredit": 200,
+   "workoutCount": 200,
+   "isCurrentUser": false
+  },
+  {
+   "rank": 2,
+   "uid": "u2",
+   "name": "יוסי",
+   "totalCredit": 300,
+   "workoutCount": 300,
+   "isCurrentUser": false
+  },
+  {
+   "rank": 3,
+   "uid": "u3",
+   "name": "???",
+   "totalCredit": 310,
+   "workoutCount": 310,
+   "isCurrentUser": false
+  },
+  {
+   "rank": 4,
+   "uid": "u1",
+   "name": "דנה",
+   "totalCredit": 330,
+   "workoutCount": 330,
+   "isCurrentUser": false
+  },
+  {
+   "rank": 5,
+   "uid": "me",
+   "name": "אני עצמי",
+   "totalCredit": 360,
+   "workoutCount": 360,
+   "isCurrentUser": true
+  }
+ ],
+ "myEntry": {
+  "rank": 5,
+  "uid": "me",
+  "name": "אני עצמי",
+  "totalCredit": 360,
+  "workoutCount": 360,
+  "isCurrentUser": true
+ },
+ "totalParticipants": 5,
+ "window": "weekly",
+ "generatedAt": "X"
+}

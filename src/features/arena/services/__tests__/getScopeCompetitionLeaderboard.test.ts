@@ -57,6 +57,17 @@ vi.mock('firebase/firestore', () => {
   };
 });
 
+// Rules-prep (26.10): the boards run on the server engine (feed-board.core); drive it here through
+// this file's own client-SDK fakes, so every assertion below still pins the same behaviour.
+vi.mock('../feed-board.client', async () => {
+  const core = await import('../feed-board.core');
+  const { clientSdkReader } = await import('./helpers/client-sdk-feed-reader');
+  return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fetchFeedBoard: async (req: any) => core.runFeedBoard(req, clientSdkReader(), req.currentUid ?? ''),
+  };
+});
+
 import { getScopeCompetitionLeaderboard } from '../ranking.service';
 
 beforeEach(() => {

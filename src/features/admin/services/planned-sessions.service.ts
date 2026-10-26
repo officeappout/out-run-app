@@ -80,6 +80,10 @@ function normalizeSession(docId: string, data: any): PlannedSession {
     ...(typeof data.programLevel === 'number'
       ? { programLevel: data.programLevel }
       : {}),
+    ...(typeof data.workoutTitle === 'string' && data.workoutTitle.length > 0
+      ? { workoutTitle: data.workoutTitle }
+      : {}),
+    ...(data.audience === 'public' || data.audience === 'partners' ? { audience: data.audience } : {}),
     activityType: data.activityType ?? 'running',
     // No fallback to 'beginner' — a missing level means "not applicable"
     // (running/walking today), not "unknown beginner". See the field's
@@ -125,6 +129,14 @@ export interface CreatePlannedSessionInput {
   programName?: string;
   /** Active program level captured at publish time. */
   programLevel?: number;
+  /** Optional display title of the workout the user is heading to do ("אימון עליון"). Written only when set. */
+  workoutTitle?: string;
+  /**
+   * Feed-style audience (enable_where_to_train_v1). 'partners' = mutual follows only, read through
+   * /api/training-here/partners (Admin SDK + canSeePost) — pair it with privacyMode 'ghost' so no
+   * client listener (public / squad slices) can read it. Written only when set.
+   */
+  audience?: 'public' | 'partners';
   activityType: ActivityType;
   /** Omit for running/walking (no level system yet) — never pass a guessed default. */
   level?: FitnessLevel;
@@ -187,6 +199,8 @@ export async function createPlannedSession(
     ...(typeof input.programLevel === 'number'
       ? { programLevel: input.programLevel }
       : {}),
+    ...(input.workoutTitle ? { workoutTitle: input.workoutTitle } : {}),
+    ...(input.audience ? { audience: input.audience } : {}),
     activityType: input.activityType,
     // Omit entirely when not supplied — never write a guessed default.
     // Callers decide per-activity-type whether a level applies (see

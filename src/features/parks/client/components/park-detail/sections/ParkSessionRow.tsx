@@ -16,6 +16,13 @@ interface ParkSessionRowProps {
   isOwnArrival: boolean;
   onJoin: (ev: SessionEnrichment) => void;
   onOpenProfile: (user: ProfileUser) => void;
+  /** enable_where_to_train_v1 (phone 7): show workout titles and "ביטול" on my own row. Omitted = today's row. */
+  ownArrivalActions?: OwnArrivalActions;
+}
+
+export interface OwnArrivalActions {
+  onCancel: (ev: SessionEnrichment) => void;
+  cancellingId: string | null;
 }
 
 /**
@@ -24,7 +31,7 @@ interface ParkSessionRowProps {
  * publisher sees a "פרסמת" badge confirming their own arrival (also the
  * read-on-mount confirmation that survives refresh).
  */
-export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwnArrival, onJoin, onOpenProfile }: ParkSessionRowProps) {
+export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwnArrival, onJoin, onOpenProfile, ownArrivalActions }: ParkSessionRowProps) {
   const t = useT(mapNs);
   const timeLabel = sessionRowTimeLabel(ev.nextStartTime);
   const count = Math.max(1, ev.currentRegistrations ?? 0);
@@ -35,7 +42,11 @@ export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwn
     >
       <span className={v2 ? 'min-w-[48px] text-[13px] font-extrabold tabular-nums text-v2-muted' : 'text-[11px] font-black text-emerald-700 min-w-[40px] text-center'} dir="ltr">{timeLabel}</span>
       <span className={v2 ? 'flex-1 truncate text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-xs font-bold text-emerald-800 truncate'}>
-        {ev.isRecurring ? t('parkDetail.session.group') : ev.eventLabel}
+        {ev.isRecurring
+          ? t('parkDetail.session.group')
+          : ownArrivalActions && ev.workoutTitle
+            ? t('parkDetail.session.withWorkout', { name: ev.eventLabel, workout: ev.workoutTitle })
+            : ev.eventLabel}
       </span>
       {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
       {!ev.isPersonalArrival && (
@@ -50,7 +61,16 @@ export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwn
         ))}
       </div>
       {ev.isPersonalArrival ? (
-        isOwnArrival ? (
+        isOwnArrival && ownArrivalActions ? (
+          <button
+            type="button"
+            onClick={() => ownArrivalActions.onCancel(ev)}
+            disabled={ownArrivalActions.cancellingId === ev.eventId}
+            className="flex-shrink-0 rounded-md border border-slate-300 px-2.5 py-1 text-[10px] font-bold text-slate-600 disabled:opacity-50"
+          >
+            {ownArrivalActions.cancellingId === ev.eventId ? '...' : t('parkDetail.session.cancel')}
+          </button>
+        ) : isOwnArrival ? (
           <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
             <Check size={10} />
             {t('parkDetail.session.published')}

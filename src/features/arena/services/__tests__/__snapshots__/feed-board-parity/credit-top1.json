@@ -1,0 +1,23 @@
+{
+ "entries": [
+  {
+   "rank": 1,
+   "uid": "demo_tlv01",
+   "name": "???",
+   "totalCredit": 500,
+   "workoutCount": 1,
+   "isCurrentUser": false
+  }
+ ],
+ "myEntry": {
+  "rank": 5,
+  "uid": "me",
+  "name": "אני עצמי",
+  "totalCredit": 7,
+  "workoutCount": 1,
+  "isCurrentUser": true
+ },
+ "totalParticipants": 5,
+ "window": "monthly",
+ "generatedAt": "X"
+}

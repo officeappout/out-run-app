@@ -47,6 +47,13 @@ export interface SessionEnrichment {
    * events/groups have no privacy concept and never set this field.
    */
   privacyMode?: PrivacyMode;
+  /** planned_sessions.workoutTitle, when the publisher shared one (enable_where_to_train_v1). */
+  workoutTitle?: string;
+  /**
+   * A mutual partner's share fetched through /api/training-here/partners — the server already
+   * decided this viewer may see it (canSeePost), so the park list shows it whatever privacyMode says.
+   */
+  partnerShare?: boolean;
 }
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -868,6 +875,7 @@ export function useParkEvents(parkId: string | null | undefined, myGroupIds: str
           }],
           isPersonalArrival: true,
           privacyMode: data.privacyMode as PrivacyMode | undefined,
+          ...(typeof data.workoutTitle === 'string' && data.workoutTitle ? { workoutTitle: data.workoutTitle } : {}),
         });
       });
       results.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));

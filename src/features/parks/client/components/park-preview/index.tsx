@@ -10,7 +10,8 @@ import ParkDetailSheet from '../park-detail/ParkDetailSheet';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
 import { bunnyImg } from '@/lib/bunny-image';
 import IconChip from '../park-detail/IconChip';
-import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from '../park-detail/amenity-icons';
+import { AMENITY_ICON_MAP } from '../park-detail/amenity-icons';
+import { deriveAmenityTags } from './park-card-meta';
 import type { Park, ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import { getPark } from '@/features/parks/core/services/parks.service';
 import { parkTarget, useMapPolishV1, useNavigateTo } from '@/features/parks/core/map-polish';
@@ -75,16 +76,10 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   // (the compact card, enable_map_polish_v1, shows up to 3).
   // Uses the same AMENITY_ICON_MAP + AMENITY_DISPLAY_ORDER as ParkDetailSheet's
   // "פירוט על הפארק" section so the map popup and the park page agree visually.
-  const amenityTags = useMemo(() => {
-    if (!park) return [];
-    const tags = new Set<ParkFeatureTag>(park.featureTags ?? []);
-    if (park.isShaded || park.hasNaturalShade || park.amenities?.hasShadow) tags.add('shaded');
-    if (park.hasWaterFountain || park.amenities?.hasWater) tags.add('water_fountain');
-    if (park.hasLights || park.amenities?.hasLighting) tags.add('night_lighting');
-    if (park.amenities?.hasToilets) tags.add('has_toilets');
-    if (park.hasDogPark) tags.add('dog_friendly');
-    return AMENITY_DISPLAY_ORDER.filter(t => tags.has(t)).slice(0, polish ? 3 : 2);
-  }, [park, polish]);
+  const amenityTags = useMemo<ParkFeatureTag[]>(
+    () => (park ? deriveAmenityTags(park, polish ? 3 : 2) : []),
+    [park, polish],
+  );
 
   if (!selectedPark || !park) return null;
 
