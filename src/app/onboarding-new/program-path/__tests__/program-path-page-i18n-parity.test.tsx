@@ -11,7 +11,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const S = vi.hoisted(() => ({ v2: false }));
+const S = vi.hoisted(() => ({ v2: false, quizV3: false }));
 
 vi.mock('framer-motion', async () => (await import('@/features/user/onboarding/components/steps/__tests__/i18n-dom-harness')).motionStub);
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {}, replace: () => {}, back: () => {} }) }));
@@ -25,6 +25,10 @@ vi.mock('firebase/firestore', () => ({
 }));
 vi.mock('@/features/content/exercises/core/exercise.service', () => ({ getExercise: async () => null }));
 vi.mock('@/features/user/onboarding/hooks/useOnboardingV2', () => ({ useOnboardingV2: () => S.v2 }));
+// enable_strength_quiz_v3: every snapshot below is the flag OFF (the legacy screen, byte-identical).
+vi.mock('@/features/user/onboarding/components/strength-quiz-v3/useStrengthQuizV3', () => ({
+  useStrengthQuizV3Entry: () => S.quizV3,
+}));
 vi.mock('@/features/user/onboarding/services/visual-content-resolver.service', () => ({
   getOnboardingLevelsForCategory: async (id: string) => (id === 'front_lever' ? [] : [1, 2]),
 }));
@@ -85,8 +89,9 @@ import { useLocaleStore } from '@/store/useLocaleStore';
 const snap = (name: string) => `./__snapshots__/program-path-page-i18n/${name}.html`;
 let m: Mounted | null = null;
 
-async function open(gender: 'male' | 'female' | null, v2 = false) {
+async function open(gender: 'male' | 'female' | null, v2 = false, quizV3 = false) {
   S.v2 = v2;
+  S.quizV3 = quizV3;
   sessionStorage.clear();
   if (gender) sessionStorage.setItem('onboarding_personal_gender', gender);
   // LocaleSync (not mounted here) copies the onboarding gender into the store that useT() reads.
@@ -179,5 +184,19 @@ describe('v2 continue labels handed to the stubs', () => {
     await m!.click('[data-stub="skills-continue"]');
     const second = q('[data-stub="v2skills"]').getAttribute('data-continue');
     await expect(`${first}\n${second}\n`).toMatchFileSnapshot(snap(`v2-skills-labels-${g}`));
+  });
+});
+
+describe('enable_strength_quiz_v3', () => {
+  it('flag on: the v3 intro replaces the goal screen', async () => {
+    await open('male', false, true);
+    expect(q('[data-quiz-v3="welcome"]')).not.toBeNull();
+    expect(m!.html()).not.toContain('בריאות, כוח ואנרגיה');
+  });
+
+  it('flag off: the legacy goal screen', async () => {
+    await open('male');
+    expect(q('[data-quiz-v3="welcome"]')).toBeNull();
+    expect(m!.html()).toContain('בריאות, כוח ואנרגיה');
   });
 });
