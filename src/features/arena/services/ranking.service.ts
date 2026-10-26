@@ -15,95 +15,34 @@ import {
   getDocs,
   getDoc,
   doc,
-  Timestamp,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { GroupBoard } from './league-scope-keys';
-import { RESERVE_SCOPE_FIELD } from '@/lib/military-reserve-league';
-import { isDemoDoc, isDemoTenantId, isDemoUid } from '@/lib/demo';
+import { isDemoTenantId, isDemoUid } from '@/lib/demo';
+import {
+  scopeToField, getWindowStart,
+  type LeaderboardScope, type LeaderboardCategory, type LeaderboardTimeWindow, type LeaderboardGenderFilter,
+} from './leaderboard-scope';
+import type {
+  LeaderboardEntry, LeaderboardResult, GroupCompetitionResult, ScopeCompetitionEntry, ScopeCompetitionResult,
+} from './feed-board.core';
+import { fetchFeedBoard } from './feed-board.client';
 
 // ── Types ──────────────────────────────────────────────────────────────
+// Shared vocabulary + result shapes now live in pure modules (leaderboard-scope, feed-board.core)
+// so the server engine uses the exact same ones; re-exported here so callers don't change.
 
-export type LeaderboardScope = 'city' | 'school' | 'park' | 'neighborhood' | 'global' | 'league' | 'tenant' | 'reserve';
-export type LeaderboardCategory = 'overall' | 'cardio' | 'strength';
-export type LeaderboardTimeWindow = 'daily' | 'weekly' | 'monthly';
-export type LeaderboardGenderFilter = 'all' | 'male' | 'female';
-
-export interface LeaderboardEntry {
-  rank: number;
-  uid: string;
-  name: string;
-  totalCredit: number;
-  workoutCount: number;
-  isCurrentUser: boolean;
-}
-
-export interface LeaderboardResult {
-  entries: LeaderboardEntry[];
-  myEntry: LeaderboardEntry | null;
-  totalParticipants: number;
-  window: LeaderboardTimeWindow;
-  generatedAt: Date;
-}
-
-// ── Scope → Firestore field mapping ──────────────────────────────────────
-
-/**
- * Maps a leaderboard scope to the Firestore field that narrows a query to
- * it. Single source of truth for all scoped queries below — every function
- * that filters by scope goes through this instead of its own inline
- * ternary, so adding a new scope (or fixing one) only happens once.
- *
- * 'global' and 'league' span all authorities (no narrowing field); 'tenant'
- * is handled entirely by getTenantLeaderboard (leaderboard_shards, not
- * feed_posts/streaks/dailyActivity) and never reaches a query built here.
- */
-export function scopeToField(scope: LeaderboardScope): string | null {
-  switch (scope) {
-    case 'city': return 'authorityId';
-    case 'school': return 'schoolId';
-    case 'park': return 'parkId';
-    case 'neighborhood': return 'neighborhoodId';
-    // Phase 6a reservist league — status-only ('reserve'), not org/unit
-    // scoped. Stamped on streaks/dailyActivity by useActivityStore.syncToServer
-    // the same way authorityId/neighborhoodId already are; not sensitive
-    // (David, 6a scope decision) so no rules change accompanies this.
-    case 'reserve': return RESERVE_SCOPE_FIELD;
-    case 'global':
-    case 'league':
-    case 'tenant':
-      return null;
-  }
-}
-
-// ── Time helpers ───────────────────────────────────────────────────────
-
-function getDayStart(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-}
-
-function getWeekStart(): Date {
-  const now = new Date();
-  const day = now.getDay(); // 0 = Sunday
-  const diff = day === 0 ? 6 : day - 1; // distance to Monday
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
-}
-
-function getMonthStart(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-}
-
-export function getWindowStart(window: LeaderboardTimeWindow): Date {
-  if (window === 'daily') return getDayStart();
-  return window === 'weekly' ? getWeekStart() : getMonthStart();
-}
+export { scopeToField, getWindowStart } from './leaderboard-scope';
+export type { LeaderboardScope, LeaderboardCategory, LeaderboardTimeWindow, LeaderboardGenderFilter } from './leaderboard-scope';
+export type {
+  LeaderboardEntry, LeaderboardResult, GroupCompetitionEntry, GroupCompetitionResult,
+  ScopeCompetitionEntry, ScopeCompetitionResult,
+} from './feed-board.core';
 
 // ── Core query ─────────────────────────────────────────────────────────
+// The six feed_posts boards below run on the server (/api/leagues/feed-board, Admin SDK +
+// feed-board.core — the same query and aggregation as before, parity-tested), so feed_posts never
+// has to be client-listable. The client still computes the window start in its own time zone.
 
 export async function getLeaderboard(params: {
   scope: LeaderboardScope;
@@ -117,92 +56,7 @@ export async function getLeaderboard(params: {
   currentName?: string;
   maxEntries?: number;
 }): Promise<LeaderboardResult> {
-  const { scope, scopeId, category, timeWindow, ageGroup, genderFilter = 'all', programId, currentUid, currentName, maxEntries = 50 } = params;
-  const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
-
-  const constraints = [
-    where('ageGroup', '==', ageGroup),
-    where('createdAt', '>=', windowStart),
-  ];
-
-  // Global and league scopes span all authorities; other scopes narrow by
-  // their respective FK column (see scopeToField).
-  const scopeField = scopeToField(scope);
-  if (scopeField && scopeId) {
-    constraints.push(where(scopeField, '==', scopeId));
-  }
-
-  if (category !== 'overall') {
-    constraints.push(where('activityCategory', '==', category));
-  }
-
-  if (genderFilter !== 'all') {
-    constraints.push(where('gender', '==', genderFilter));
-  }
-
-  if (programId) {
-    constraints.push(where('programId', '==', programId));
-  }
-
-  const q = query(collection(db, 'feed_posts'), ...constraints);
-  const snap = await getDocs(q);
-
-  // Aggregate credit + workout count per user
-  const creditMap = new Map<string, { name: string; total: number; count: number }>();
-
-  snap.forEach((d) => {
-    const data = d.data();
-    const uid = data.authorUid as string;
-    const credit = (data.activityCredit as number) || 0;
-    const name = (data.authorName as string) || '???';
-
-    const existing = creditMap.get(uid);
-    if (existing) {
-      existing.total += credit;
-      existing.count += 1;
-    } else {
-      creditMap.set(uid, { name, total: credit, count: 1 });
-    }
-  });
-
-  // Sort descending by total credit
-  const allSorted = Array.from(creditMap.entries())
-    .sort(([, a], [, b]) => b.total - a.total);
-
-  const totalParticipants = allSorted.length;
-
-  const sorted = allSorted.slice(0, maxEntries);
-
-  const entries: LeaderboardEntry[] = sorted.map(([uid, { name, total, count }], idx) => ({
-    rank: idx + 1,
-    uid,
-    name,
-    totalCredit: total,
-    workoutCount: count,
-    isCurrentUser: uid === currentUid,
-  }));
-
-  let myEntry = entries.find((e) => e.isCurrentUser) ?? null;
-
-  // If the current user isn't in the top N, add them with their real rank
-  if (!myEntry && currentUid) {
-    const myIdx = allSorted.findIndex(([uid]) => uid === currentUid);
-    if (myIdx >= 0) {
-      const [, { name, total, count }] = allSorted[myIdx];
-      myEntry = { rank: myIdx + 1, uid: currentUid, name, totalCredit: total, workoutCount: count, isCurrentUser: true };
-    } else {
-      myEntry = {
-        rank: totalParticipants + 1,
-        uid: currentUid,
-        name: currentName ?? 'אני',
-        totalCredit: 0,
-        workoutCount: 0,
-        isCurrentUser: true,
-      };
-    }
-  }
-
-  return { entries, myEntry, totalParticipants, window: timeWindow, generatedAt: new Date() };
+  return fetchFeedBoard<LeaderboardResult>({ kind: 'credit', ...params, since: getWindowStart(params.timeWindow).toISOString() });
 }
 
 // ── Distance leaderboard ───────────────────────────────────────────────────
@@ -228,85 +82,7 @@ export async function getDistanceLeaderboard(params: {
   currentName?: string;
   maxEntries?: number;
 }): Promise<LeaderboardResult> {
-  const { scope, scopeId, timeWindow, ageGroup, genderFilter = 'all', currentUid, currentName, maxEntries = 50 } = params;
-  const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
-
-  const constraints = [
-    where('ageGroup', '==', ageGroup),
-    where('createdAt', '>=', windowStart),
-    where('activityCategory', '==', 'cardio'),
-  ];
-
-  const scopeField = scopeToField(scope);
-  if (scopeField && scopeId) {
-    constraints.push(where(scopeField, '==', scopeId));
-  }
-
-  if (genderFilter !== 'all') {
-    constraints.push(where('gender', '==', genderFilter));
-  }
-
-  const q = query(collection(db, 'feed_posts'), ...constraints);
-  const snap = await getDocs(q);
-
-  // Aggregate distance + workout count per user
-  const distMap = new Map<string, { name: string; total: number; count: number }>();
-
-  snap.forEach((d) => {
-    const data = d.data();
-    const uid = data.authorUid as string;
-    const dist = (data.distanceKm as number) || 0;
-    if (dist <= 0) return; // no real distance on this post — skip, don't count as a zero
-    const name = (data.authorName as string) || '???';
-
-    const existing = distMap.get(uid);
-    if (existing) {
-      existing.total += dist;
-      existing.count += 1;
-    } else {
-      distMap.set(uid, { name, total: dist, count: 1 });
-    }
-  });
-
-  // Round to 1 decimal (matches FeedPostCard's distanceKm.toFixed(1) display) to avoid float noise.
-  const round1 = (n: number) => Math.round(n * 10) / 10;
-
-  const allSorted = Array.from(distMap.entries())
-    .map(([uid, v]) => [uid, { ...v, total: round1(v.total) }] as const)
-    .sort(([, a], [, b]) => b.total - a.total);
-
-  const totalParticipants = allSorted.length;
-  const sorted = allSorted.slice(0, maxEntries);
-
-  const entries: LeaderboardEntry[] = sorted.map(([uid, { name, total, count }], idx) => ({
-    rank: idx + 1,
-    uid,
-    name,
-    totalCredit: total,
-    workoutCount: count,
-    isCurrentUser: uid === currentUid,
-  }));
-
-  let myEntry = entries.find((e) => e.isCurrentUser) ?? null;
-
-  if (!myEntry && currentUid) {
-    const myIdx = allSorted.findIndex(([uid]) => uid === currentUid);
-    if (myIdx >= 0) {
-      const [, { name, total, count }] = allSorted[myIdx];
-      myEntry = { rank: myIdx + 1, uid: currentUid, name, totalCredit: total, workoutCount: count, isCurrentUser: true };
-    } else {
-      myEntry = {
-        rank: totalParticipants + 1,
-        uid: currentUid,
-        name: currentName ?? 'אני',
-        totalCredit: 0,
-        workoutCount: 0,
-        isCurrentUser: true,
-      };
-    }
-  }
-
-  return { entries, myEntry, totalParticipants, window: timeWindow, generatedAt: new Date() };
+  return fetchFeedBoard<LeaderboardResult>({ kind: 'distance', ...params, since: getWindowStart(params.timeWindow).toISOString() });
 }
 
 // ── Segment (3k/5k/10k) leaderboard ───────────────────────────────────────
@@ -337,80 +113,8 @@ export async function getSegmentLeaderboard(params: {
   currentName?: string;
   maxEntries?: number;
 }): Promise<LeaderboardResult> {
-  const {
-    scope, scopeId, runSegment,
-    ageGroup = 'adult', genderFilter = 'all',
-    currentUid, currentName, maxEntries = 50,
-  } = params;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const constraints: any[] = [
-    where('ageGroup', '==', ageGroup),
-    where('runSegment', '==', runSegment),
-  ];
-
-  const segmentScopeField = scopeToField(scope);
-  if (segmentScopeField && scopeId) {
-    constraints.push(where(segmentScopeField, '==', scopeId));
-  }
-
-  if (genderFilter !== 'all') {
-    constraints.push(where('gender', '==', genderFilter));
-  }
-
-  // Fetch recent runs first; 500 is plenty to find per-user PBs
-  constraints.push(orderBy('createdAt', 'desc'));
-  constraints.push(limit(500));
-
-  const q = query(collection(db, 'feed_posts'), ...constraints);
-  const snap = await getDocs(q);
-
-  // Find each user's best (minimum) paceSecPerKm
-  const bestMap = new Map<string, { name: string; bestPace: number }>();
-
-  snap.forEach((d) => {
-    const data = d.data();
-    const uid = data.authorUid as string | undefined;
-    const pace = data.paceSecPerKm as number | undefined;
-    const name = (data.authorName as string) || (uid === currentUid ? currentName : undefined) || '???';
-
-    if (!uid || !pace || pace <= 0) return;
-
-    const existing = bestMap.get(uid);
-    if (!existing || pace < existing.bestPace) {
-      bestMap.set(uid, { name, bestPace: pace });
-    }
-  });
-
-  // Sort ascending — lower pace = faster = rank 1
-  const allSorted = Array.from(bestMap.entries())
-    .sort(([, a], [, b]) => a.bestPace - b.bestPace);
-
-  const totalParticipants = allSorted.length;
-  const topRows = allSorted.slice(0, maxEntries);
-
-  const entries: LeaderboardEntry[] = topRows.map(([uid, { name, bestPace }], idx) => ({
-    rank: idx + 1,
-    uid,
-    name,
-    totalCredit: bestPace,
-    workoutCount: bestPace,
-    isCurrentUser: uid === currentUid,
-  }));
-
-  let myEntry = entries.find((e) => e.isCurrentUser) ?? null;
-
-  if (!myEntry && currentUid) {
-    const myIdx = allSorted.findIndex(([uid]) => uid === currentUid);
-    if (myIdx >= 0) {
-      const [, { name, bestPace }] = allSorted[myIdx];
-      myEntry = { rank: myIdx + 1, uid: currentUid, name, totalCredit: bestPace, workoutCount: bestPace, isCurrentUser: true };
-    } else {
-      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'אני', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
-    }
-  }
-
-  return { entries, myEntry, totalParticipants, window: 'weekly', generatedAt: new Date() };
+  // All-time (no window) — the newest 500 matching runs, as before.
+  return fetchFeedBoard<LeaderboardResult>({ kind: 'segment', ...params });
 }
 
 // ── Streak leaderboard ─────────────────────────────────────────────────────
@@ -684,79 +388,7 @@ export async function getLeagueLeaderboard(params: {
   currentName?: string;
   maxEntries?: number;
 }): Promise<LeaderboardResult> {
-  const {
-    groupId, category, timeWindow,
-    genderFilter = 'all', currentUid, currentName, maxEntries = 50,
-  } = params;
-  const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const constraints: any[] = [
-    where('groupIds', 'array-contains', groupId),
-    where('createdAt', '>=', windowStart),
-  ];
-
-  if (category !== 'overall') {
-    constraints.push(where('activityCategory', '==', category));
-  }
-  if (genderFilter !== 'all') {
-    constraints.push(where('gender', '==', genderFilter));
-  }
-
-  const q = query(collection(db, 'feed_posts'), ...constraints);
-  const snap = await getDocs(q);
-
-  const creditMap = new Map<string, { name: string; total: number; count: number }>();
-
-  snap.forEach((d) => {
-    const data = d.data();
-    const uid = data.authorUid as string;
-    const credit = (data.activityCredit as number) || 0;
-    const name = (data.authorName as string) || '???';
-    const existing = creditMap.get(uid);
-    if (existing) {
-      existing.total += credit;
-      existing.count += 1;
-    } else {
-      creditMap.set(uid, { name, total: credit, count: 1 });
-    }
-  });
-
-  const allSorted = Array.from(creditMap.entries())
-    .sort(([, a], [, b]) => b.total - a.total);
-
-  const totalParticipants = allSorted.length;
-  const sorted = allSorted.slice(0, maxEntries);
-
-  const entries: LeaderboardEntry[] = sorted.map(([uid, { name, total, count }], idx) => ({
-    rank: idx + 1,
-    uid,
-    name,
-    totalCredit: total,
-    workoutCount: count,
-    isCurrentUser: uid === currentUid,
-  }));
-
-  let myEntry = entries.find((e) => e.isCurrentUser) ?? null;
-
-  if (!myEntry && currentUid) {
-    const myIdx = allSorted.findIndex(([uid]) => uid === currentUid);
-    if (myIdx >= 0) {
-      const [, { name, total, count }] = allSorted[myIdx];
-      myEntry = { rank: myIdx + 1, uid: currentUid, name, totalCredit: total, workoutCount: count, isCurrentUser: true };
-    } else {
-      myEntry = {
-        rank: totalParticipants + 1,
-        uid: currentUid,
-        name: currentName ?? 'אני',
-        totalCredit: 0,
-        workoutCount: 0,
-        isCurrentUser: true,
-      };
-    }
-  }
-
-  return { entries, myEntry, totalParticipants, window: timeWindow, generatedAt: new Date() };
+  return fetchFeedBoard<LeaderboardResult>({ kind: 'league', ...params, since: getWindowStart(params.timeWindow).toISOString() });
 }
 
 // ── Tenant / community leaderboard — ACTIVE DAYS (feed-independent) ─────────
@@ -910,21 +542,6 @@ export async function getTenantLeaderboard(params: {
  * aggregation to keep the query count low.
  */
 
-export interface GroupCompetitionEntry {
-  rank: number;
-  groupId: string;
-  groupName: string;
-  totalScore: number;
-  /** Rounded average credit per active member in the window. */
-  avgScore: number;
-  activeMemberCount: number;
-}
-
-export interface GroupCompetitionResult {
-  entries: GroupCompetitionEntry[];
-  generatedAt: Date;
-}
-
 export async function getGroupCompetitionLeaderboard(params: {
   scope: 'city' | 'school' | 'global';
   scopeId: string | null;
@@ -933,108 +550,7 @@ export async function getGroupCompetitionLeaderboard(params: {
   genderFilter?: LeaderboardGenderFilter;
   maxEntries?: number;
 }): Promise<GroupCompetitionResult> {
-  const { scope, scopeId, timeWindow, genderFilter = 'all', maxEntries = 20 } = params;
-  const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
-
-  // For 'global', omit the scope constraint to scan all groups country-wide.
-  // For 'city'/'school', filter to the specific authority or school.
-  // Explicit orderBy('createdAt', 'desc') — required to match the deployed
-  // composite indexes (17.08.2026 index-mismatch fix): a bare `where(...,
-  // '>=', ...)` range filter with no orderBy makes Firestore's query planner
-  // require an ASCENDING index on that field by default; every feed_posts
-  // index in this codebase (including the ones just added for this
-  // function) is DESCENDING, matching this file's house style. The explicit
-  // orderBy has zero effect on the aggregation below (order-independent
-  // Map sum) — it exists purely to pin which index direction is required.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const constraints: any[] = [where('createdAt', '>=', windowStart)];
-  if (scope !== 'global' && scopeId) {
-    constraints.push(where(scope === 'city' ? 'authorityId' : 'schoolId', '==', scopeId));
-  }
-  if (genderFilter !== 'all') {
-    constraints.push(where('gender', '==', genderFilter));
-  }
-  constraints.push(orderBy('createdAt', 'desc'));
-  const q = query(collection(db, 'feed_posts'), ...constraints);
-  const snap = await getDocs(q);
-
-  // groupId → { totalScore, active member UIDs, placeholder name }
-  const groupMap = new Map<string, { totalScore: number; members: Set<string> }>();
-  // Demo world guard (21.10.2026): this client scan is unscoped on 'global', and demo
-  // posts ('partners', readable) carry demo groupIds — they ranked demo groups on the
-  // real national board. Only a demo scope's own board keeps them.
-  const keepDemo = scope !== 'global' && isDemoTenantId(scopeId);
-
-  snap.forEach((d) => {
-    const data = d.data();
-    if (!keepDemo && isDemoDoc(data, d.id)) return;
-    const gids = (data.groupIds as string[] | undefined)?.filter((g) => keepDemo || !isDemoTenantId(g));
-    if (!Array.isArray(gids) || gids.length === 0) return;
-
-    const credit = (data.activityCredit as number) || 0;
-    const uid = data.authorUid as string;
-
-    for (const gid of gids) {
-      const existing = groupMap.get(gid);
-      if (existing) {
-        existing.totalScore += credit;
-        existing.members.add(uid);
-      } else {
-        groupMap.set(gid, { totalScore: credit, members: new Set([uid]) });
-      }
-    }
-  });
-
-  if (groupMap.size === 0) {
-    return { entries: [], generatedAt: new Date() };
-  }
-
-  // Batch-fetch group name + type from community_groups. Ephemeral groups
-  // (single-session run/walk invites, e.g. "ריצה מתוזמנת" — created by
-  // api/invite/run-session/route.ts with type: 'ephemeral', whose own
-  // comment says they're meant to stay out of any group discovery/
-  // management list) are excluded here — this leaderboard never filtered
-  // on `type` before, so a one-off invite session could leak in ranked
-  // alongside real persistent groups.
-  const groupIds = Array.from(groupMap.keys());
-  const groupMeta = new Map<string, { name: string; type?: string }>();
-
-  await Promise.all(
-    groupIds.map(async (id) => {
-      try {
-        const d = await getDoc(doc(db, 'community_groups', id));
-        const data = d.data();
-        groupMeta.set(id, {
-          name: d.exists() ? (data?.name as string) ?? id : id,
-          type: data?.type as string | undefined,
-        });
-      } catch {
-        groupMeta.set(id, { name: id, type: undefined });
-      }
-    }),
-  );
-
-  const eligibleGroupIds = groupIds.filter((gid) => groupMeta.get(gid)?.type !== 'ephemeral');
-
-  // Compute average and sort descending
-  const allSorted = eligibleGroupIds
-    .map((gid) => {
-      const { totalScore, members } = groupMap.get(gid)!;
-      return {
-        groupId: gid,
-        groupName: groupMeta.get(gid)?.name ?? gid,
-        totalScore,
-        avgScore: Math.round(totalScore / Math.max(members.size, 1)),
-        activeMemberCount: members.size,
-      };
-    })
-    .sort((a, b) => b.avgScore - a.avgScore);
-
-  const entries: GroupCompetitionEntry[] = allSorted
-    .slice(0, maxEntries)
-    .map((row, idx) => ({ rank: idx + 1, ...row }));
-
-  return { entries, generatedAt: new Date() };
+  return fetchFeedBoard<GroupCompetitionResult>({ kind: 'groupCompetition', ...params, since: getWindowStart(params.timeWindow).toISOString() });
 }
 
 // ── Scope-vs-scope competition leaderboard ─────────────────────────────────
@@ -1071,22 +587,6 @@ export async function getGroupCompetitionLeaderboard(params: {
  * leaderboard as a Be'er Sheva one. `cityAuthorityId` is ignored for
  * `granularity: 'city'` (cities always compete nationwide).
  */
-
-export interface ScopeCompetitionEntry {
-  rank: number;
-  scopeId: string;
-  scopeName: string;
-  totalScore: number;
-  activeMemberCount: number;
-  /** km this period (server aggregates, unfiltered boards only) — shown, never points. */
-  totalKm?: number;
-  kmPerMember?: number;
-}
-
-export interface ScopeCompetitionResult {
-  entries: ScopeCompetitionEntry[];
-  generatedAt: Date;
-}
 
 /**
  * The board from the server-side aggregates, via /api/leagues/scope-stats
@@ -1272,87 +772,9 @@ export async function getScopeCompetitionLeaderboard(params: {
     }
   }
 
-  const groupField = scopeToField(granularity) as string; // 'authorityId' | 'neighborhoodId' — always non-null for these two
-  const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const constraints: any[] = [where('createdAt', '>=', windowStart)];
-  if (granularity === 'neighborhood' && cityAuthorityId) {
-    constraints.push(where('authorityId', '==', cityAuthorityId));
-  }
-  if (category !== 'overall') {
-    constraints.push(where('activityCategory', '==', category));
-  }
-  if (genderFilter !== 'all') {
-    constraints.push(where('gender', '==', genderFilter));
-  }
-  // Explicit orderBy — same 17.08.2026 index-mismatch fix as
-  // getGroupCompetitionLeaderboard above (see that function's comment for
-  // the full explanation). Zero effect on the aggregation below.
-  constraints.push(orderBy('createdAt', 'desc'));
-
-  const q = query(collection(db, 'feed_posts'), ...constraints);
-  const snap = await getDocs(q);
-
-  // scopeId → { totalScore, active member UIDs }
-  const scopeMap = new Map<string, { totalScore: number; members: Set<string> }>();
-  // Demo world guard (21.10.2026): the national scan (no city) would rank demo cities /
-  // neighbourhoods among real ones. Only a demo city's own neighbourhood board keeps them.
-  const keepDemo = granularity === 'neighborhood' && isDemoTenantId(cityAuthorityId);
-
-  snap.forEach((d) => {
-    const data = d.data();
-    if (!keepDemo && isDemoDoc(data, d.id)) return;
-    const scopeId = data[groupField] as string | undefined;
-    if (!scopeId) return;
-
-    const credit = (data.activityCredit as number) || 0;
-    const uid = data.authorUid as string;
-
-    const existing = scopeMap.get(scopeId);
-    if (existing) {
-      existing.totalScore += credit;
-      existing.members.add(uid);
-    } else {
-      scopeMap.set(scopeId, { totalScore: credit, members: new Set([uid]) });
-    }
+  // Legacy path: the feed_posts scan, on the server (feed-board.core).
+  return fetchFeedBoard<ScopeCompetitionResult>({
+    kind: 'scopeCompetition', granularity, timeWindow, cityAuthorityId, category, genderFilter, maxEntries,
+    since: getWindowStart(timeWindow).toISOString(),
   });
-
-  if (scopeMap.size === 0) {
-    return { entries: [], generatedAt: new Date() };
-  }
-
-  // Batch-fetch scope names from `authorities`
-  const scopeIds = Array.from(scopeMap.keys());
-  const nameLookup = new Map<string, string>();
-
-  await Promise.all(
-    scopeIds.map(async (id) => {
-      try {
-        const d = await getDoc(doc(db, 'authorities', id));
-        nameLookup.set(id, d.exists() ? (d.data()?.name as string) ?? id : id);
-      } catch {
-        nameLookup.set(id, id);
-      }
-    }),
-  );
-
-  // Sort descending by TOTAL score
-  const allSorted = scopeIds
-    .map((id) => {
-      const { totalScore, members } = scopeMap.get(id)!;
-      return {
-        scopeId: id,
-        scopeName: nameLookup.get(id) ?? id,
-        totalScore,
-        activeMemberCount: members.size,
-      };
-    })
-    .sort((a, b) => b.totalScore - a.totalScore);
-
-  const entries: ScopeCompetitionEntry[] = allSorted
-    .slice(0, maxEntries)
-    .map((row, idx) => ({ rank: idx + 1, ...row }));
-
-  return { entries, generatedAt: new Date() };
 }

@@ -9,6 +9,7 @@
  * cardio distance, run segment, groupIds, demo docs, ephemeral groups, authority names).
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextRequest } from 'next/server';
 import { makeFakeAdminDb } from '@/lib/__tests__/helpers/fake-admin-db';
 
 const st = vi.hoisted(() => ({ db: null as any }));
@@ -49,6 +50,8 @@ import {
   getScopeCompetitionLeaderboard,
   getSegmentLeaderboard,
 } from '../ranking.service';
+import { GET } from '@/app/api/leagues/feed-board/route';
+import { __resetFeedBoardCacheForTests } from '@/app/api/leagues/feed-board/admin-reader';
 
 const NOW = new Date('2026-10-21T12:00:00'); // Wednesday
 const d = (iso: string) => new Date(iso);
@@ -79,9 +82,16 @@ const stable = (r: any) => JSON.parse(JSON.stringify({ ...r, generatedAt: 'X' })
 const snap = (name: string) => `./__snapshots__/feed-board-parity/${name}.json`;
 const me = { currentUid: 'me', currentName: 'אני' };
 
-beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NOW); });
-afterAll(() => { vi.useRealTimers(); });
-beforeEach(() => { st.db = seed(); });
+const fetchSpy = vi.fn(async (url: string, init?: { headers?: Record<string, string> }) =>
+  GET(new NextRequest(`http://localhost${url}`, { headers: init?.headers })));
+// After the move: the client functions call /api/leagues/feed-board — routed to the real handler.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOW);
+  vi.stubGlobal('fetch', fetchSpy);
+});
+afterAll(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+beforeEach(() => { st.db = seed(); __resetFeedBoardCacheForTests(); });
 
 describe('credit leaderboard (getLeaderboard)', () => {
   it.each([
@@ -124,5 +134,14 @@ describe('group-vs-group and scope-vs-scope', () => {
     await expect(JSON.stringify(stable(await getScopeCompetitionLeaderboard({ granularity: 'city', timeWindow: 'monthly' })), null, 1)).toMatchFileSnapshot(snap('scopes-city'));
     await expect(JSON.stringify(stable(await getScopeCompetitionLeaderboard({ granularity: 'neighborhood', cityAuthorityId: 'tlv', timeWindow: 'weekly', category: 'cardio' })), null, 1)).toMatchFileSnapshot(snap('scopes-neighborhood-tlv'));
     await expect(JSON.stringify(stable(await getScopeCompetitionLeaderboard({ granularity: 'neighborhood', timeWindow: 'weekly' })), null, 1)).toMatchFileSnapshot(snap('scopes-gate'));
+  });
+});
+
+describe('transport', () => {
+  it('every board above went through /api/leagues/feed-board, none through the client SDK', async () => {
+    fetchSpy.mockClear();
+    await getLeaderboard({ scope: 'global', scopeId: null, category: 'overall', timeWindow: 'weekly', ageGroup: 'adult', ...me });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0][0])).toMatch(/^\/api\/leagues\/feed-board\?kind=credit/);
   });
 });
