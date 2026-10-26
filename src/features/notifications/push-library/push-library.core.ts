@@ -1121,6 +1121,67 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: T('session_waitlist_promoted.2.title'), body: T('session_waitlist_promoted.2.body'), gender: 'female', pair: 'friendly', audience: CASUAL_AGES },
     ],
   },
+  // ── "I'm training here later" (26.10.2026). Senders: functions/src/trainingHere/*, behind
+  //    app_config/feature_flags.enableTrainingHereReminders. Server-side so partners, devices, cancel
+  //    and edit stay in sync. ──
+  {
+    pushType: 'training_here_reminder',
+    label: 'תזכורת: "מתאמן כאן" בעוד רבע שעה',
+    lever: 'routine',
+    channel: 'training_reminder',
+    sender: 'sessionReminderScheduler',
+    description: 'המשתמש שיתף "אני מתאמן כאן" לשעה מאוחרת יותר. התזכורת יוצאת רבע שעה לפני.',
+    whenSent:
+      'סריקה כל 5 דקות. נשלח 15 דקות לפני השעה שנבחרה, פעם אחת לכל מועד. אימון שבוטל לא מקבל תזכורת, ושינוי שעה מזיז אותה. כפוף לשעות שקט ולמדיניות הפושים. רק כשהדגל enableTrainingHereReminders דולק.',
+    pending: 'השולח נכתב ועוד לא נפרס',
+    vars: ['@שם', '@אימון', '@שעה', '@מקום'],
+    conditions: [
+      {
+        key: 'place',
+        label: 'סוג המקום',
+        options: [
+          { value: 'park', label: 'גינה' },
+          { value: 'route', label: 'מסלול' },
+        ],
+      },
+    ],
+    deepLinks: ['map_place', 'map'],
+    defaults: [
+      { title: T('training_here_reminder.0.title'), body: T('training_here_reminder.0.body'), conditions: { place: ['park'] } },
+      { title: T('training_here_reminder.1.title'), body: T('training_here_reminder.1.body'), gender: 'male', pair: 'park', conditions: { place: ['park'] } },
+      { title: T('training_here_reminder.2.title'), body: T('training_here_reminder.2.body'), gender: 'female', pair: 'park', conditions: { place: ['park'] } },
+      { title: T('training_here_reminder.3.title'), body: T('training_here_reminder.3.body'), fallbackOnly: true, conditions: { place: ['park'] } },
+      { title: T('training_here_reminder.4.title'), body: T('training_here_reminder.4.body'), conditions: { place: ['route'] } },
+      { title: T('training_here_reminder.5.title'), body: T('training_here_reminder.5.body'), gender: 'male', pair: 'route', conditions: { place: ['route'] } },
+      { title: T('training_here_reminder.6.title'), body: T('training_here_reminder.6.body'), gender: 'female', pair: 'route', conditions: { place: ['route'] } },
+      { title: T('training_here_reminder.7.title'), body: T('training_here_reminder.7.body'), fallbackOnly: true, conditions: { place: ['route'] } },
+      { title: T('training_here_reminder.8.title'), body: T('training_here_reminder.8.body'), fallbackOnly: true },
+    ],
+  },
+  {
+    pushType: 'training_here_partner',
+    label: 'שותף מגיע לגינה מאוחר יותר',
+    lever: 'social',
+    channel: 'community',
+    sender: 'onTrainingHereShared',
+    description: 'שותף (עוקבים זה אחרי זה) שיתף "אני מתאמן כאן" לשעה מאוחרת יותר, לשותפים או לכולם.',
+    whenSent:
+      'מיד כשהשיתוף נוצר, רק לשותפים הדדיים, לכל היותר פעם אחת לכל שותף לכל אימון. כפוף להעדפת "קהילה", לשעות שקט ולתקרה היומית. רק כשהדגל enableTrainingHereReminders דולק.',
+    pending: 'השולח נכתב ועוד לא נפרס',
+    vars: ['@שם', '@שולח', '@מקום', '@שעה'],
+    subject: { label: 'מי שמגיע להתאמן', var: '@שולח' },
+    dualGender: true,
+    deepLinks: ['map_place', 'map'],
+    defaults: [
+      { title: T('training_here_partner.0.title'), body: T('training_here_partner.0.body') },
+      { title: T('training_here_partner.1.title'), body: T('training_here_partner.1.body'), gender: 'male', subjectGender: 'male', pair: 'join_m' },
+      { title: T('training_here_partner.2.title'), body: T('training_here_partner.2.body'), gender: 'male', subjectGender: 'female', pair: 'join_m' },
+      { title: T('training_here_partner.3.title'), body: T('training_here_partner.3.body'), gender: 'female', subjectGender: 'male', pair: 'join_f' },
+      { title: T('training_here_partner.4.title'), body: T('training_here_partner.4.body'), gender: 'female', subjectGender: 'female', pair: 'join_f' },
+      { title: T('training_here_partner.5.title'), body: T('training_here_partner.5.body'), subjectGender: 'male', pair: 'join_n' },
+      { title: T('training_here_partner.6.title'), body: T('training_here_partner.6.body'), subjectGender: 'female', pair: 'join_n' },
+    ],
+  },
   {
     pushType: 'friend_joined',
     label: 'חבר הצטרף',

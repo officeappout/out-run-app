@@ -70,7 +70,9 @@ describe('DiscoverLayer — wires onAssessmentLink to startMiniDomainAssessment'
   });
 
   it('imports startMiniDomainAssessment and PRIMARY_CATEGORIES from the canonical onboarding services', () => {
-    expect(discoverLayerSrc).toContain("import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment'");
+    // Pilot Q4 (26.10): the same import also brings startFullStrengthQuestionnaire (the map's
+    // "fill the strength questionnaire" card opens the full questionnaire).
+    expect(discoverLayerSrc).toContain("import { startMiniDomainAssessment, startFullStrengthQuestionnaire } from '@/features/user/onboarding/services/mini-domain-assessment'");
     expect(discoverLayerSrc).toContain("import { PRIMARY_CATEGORIES } from '@/features/user/onboarding/services/single-domain-assessment.service'");
   });
 });

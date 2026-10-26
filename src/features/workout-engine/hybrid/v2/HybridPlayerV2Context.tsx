@@ -23,7 +23,7 @@ import type { SequencerState } from '../../engines/hybrid/sequencer.types';
 import type { StripModel } from '../../engines/strip-item';
 import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
 import { hybridRunSnapshot, setHybridFinalizeOverride, useHybridRun } from '../useHybridRun';
-import { needsLegacyArrive, needsSequencerStart, stationCloseEvents } from './hybrid-v2-sync';
+import { needsLegacyArrive, needsSequencerStart, runLegSkipEvents, stationCloseEvents } from './hybrid-v2-sync';
 
 export interface HybridPlayerV2Api {
   enabled: boolean;
@@ -38,7 +38,7 @@ export interface HybridPlayerV2Api {
   transitionSec: number;
   /** "הגעתי" (works with or without GPS). */
   arriveNow: () => void;
-  /** Skip the station the current leg leads to (before arriving). */
+  /** "דילוג לבא" on the run card: end the current leg and go on to the station. */
   skipUpcoming: () => void;
   /** "דלג" on the transition card. */
   skipStation: () => void;
@@ -132,11 +132,9 @@ export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean
   }, [enabled, phase]);
 
   const arriveNow = useCallback(() => dispatch({ type: 'ARRIVE_MANUAL' }), [dispatch]);
+  // Pilot M8: skip the current leg (→ the station), never the station itself.
   const skipUpcoming = useCallback(() => {
-    // Through the station (0 s of transition) so the leg closes where the runner is now.
-    dispatch({ type: 'ARRIVE_MANUAL' });
-    dispatch({ type: 'SKIP_STATION' });
-    useHybridRun.getState().skipStation();
+    for (const ev of runLegSkipEvents()) dispatch(ev);
   }, [dispatch]);
   const skipStation = useCallback(() => {
     dispatch({ type: 'SKIP_STATION' });

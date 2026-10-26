@@ -78,6 +78,8 @@ import { israelHHMM, type PushCopyContext, type PushGender } from './shared/push
 import { isDemoUid, restrictToDemoWorld } from './lib/demo';
 import { isConfirmedAdult } from './lib/age-guard';
 import { loadDemoViewerUids } from './lib/demo-world';
+import { partnerNoticeRecipients } from './trainingHere/send-training-here-push';
+import type { PlannedSessionLike } from './trainingHere/training-here-time';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -289,6 +291,16 @@ export const onPlannedActivityCreated = onDocumentCreated(
       typeof session.lng === 'number'
     ) {
       nearbyUids = await findNearbyUserIds(session.lat, session.lng, creatorUid);
+    }
+
+    // "I'm training here later" (onTrainingHereShared) owns the mutual partners of a later share
+    // while enableTrainingHereReminders is on: leave them out here so nobody gets two pushes.
+    if (flagsData.enableTrainingHereReminders === true) {
+      const handled = new Set(await partnerNoticeRecipients(db, session as PlannedSessionLike, Date.now()));
+      if (handled.size > 0) {
+        partnerUids = partnerUids.filter((u) => !handled.has(u));
+        nearbyUids = nearbyUids.filter((u) => !handled.has(u));
+      }
     }
 
     // ── Merge + dedupe, exclude creator. A Set is the entire "precedence"

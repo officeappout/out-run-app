@@ -58,6 +58,19 @@ export function isNearParkOrRoute(ctx: WhatNowContext): boolean {
   return ctx.route != null && d <= WHATNOW_ROUTE_REACH_M;
 }
 
+/** How long the drawer waits for the map's route suggestion once a park is within reach. */
+export const WHATNOW_ROUTE_WAIT_MS = 4000;
+
+/**
+ * A park is within reach but the map's route suggestion has not arrived yet (pilot L4). The
+ * route card would still join, ABOVE the plan card, so the drawer holds until it lands (or
+ * WHATNOW_ROUTE_WAIT_MS passes) instead of opening and then jumping.
+ */
+export function isWhatNowRoutePending(ctx: WhatNowContext): boolean {
+  const d = ctx.nearestPark?.distanceM;
+  return ctx.route == null && d != null && Number.isFinite(d) && d <= WHATNOW_ROUTE_REACH_M;
+}
+
 /** Which cards, in which order. A route card needs a real suggestion to show. */
 export function chooseWhatNowCards(ctx: WhatNowContext): WhatNowLayout {
   const near = isNearParkOrRoute(ctx) && ctx.route != null && ctx.route.minutes > 0;

@@ -45,6 +45,8 @@ export const PUSH_TYPE_IDS = {
   sessionReminder: 'SessionReminder',
   sessionCancelled: 'SessionCancelled',
   sessionWaitlistPromoted: 'SessionWaitlistPromoted',
+  trainingHereReminder: 'TrainingHereReminder',
+  trainingHerePartner: 'TrainingHerePartner',
 } as const;
 
 /** The measurement a type-only sender gets when the flag is on. */

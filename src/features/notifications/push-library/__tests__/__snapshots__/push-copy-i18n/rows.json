@@ -3638,6 +3638,266 @@
       "active": true
     }
   ],
+  "training_here_reminder": [
+    {
+      "id": "default:training_here_reminder:0",
+      "pushType": "training_here_reminder",
+      "title": "הגינה מחכה · @אימון ב-@שעה",
+      "body": "עוד רבע שעה ב@מקום. נתראה שם?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "place": [
+          "park"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:training_here_reminder:1",
+      "pushType": "training_here_reminder",
+      "title": "הגינה מחכה · @אימון ב-@שעה",
+      "body": "עוד רבע שעה ב@מקום. אתה בדרך?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "place": [
+          "park"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:training_here_reminder:park",
+      "active": true
+    },
+    {
+      "id": "default:training_here_reminder:2",
+      "pushType": "training_here_reminder",
+      "title": "הגינה מחכה · @אימון ב-@שעה",
+      "body": "עוד רבע שעה ב@מקום. את בדרך?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "place": [
+          "park"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:training_here_reminder:park",
+      "active": true
+    },
+    {
+      "id": "default:training_here_reminder:3",
+      "pushType": "training_here_reminder",
+      "title": "הגינה מחכה · ב-@שעה",
+      "body": "עוד רבע שעה ב@מקום. נתראה שם?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "place": [
+          "park"
+        ]
+      },
+      "fallbackOnly": true,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:training_here_reminder:4",
+      "pushType": "training_here_reminder",
+      "title": "המסלול מחכה · @אימון ב-@שעה",
+      "body": "עוד רבע שעה ב@מקום. נתראה שם?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "place": [
+          "route"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:training_here_reminder:5",
+      "pushType": "training_here_reminder",
+      "title": "המסלול מחכה · @אימון ב-@שעה",
+      "body": "עוד רבע שעה ב@מקום. אתה בדרך?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "place": [
+          "route"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "any",
+      "pairId": "default:training_here_reminder:route",
+      "active": true
+    },
+    {
+      "id": "default:training_here_reminder:6",
+      "pushType": "training_here_reminder",
+      "title": "המסלול מחכה · @אימון ב-@שעה",
+      "body": "עוד רבע שעה ב@מקום. את בדרך?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "place": [
+          "route"
+        ]
+      },
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "any",
+      "pairId": "default:training_here_reminder:route",
+      "active": true
+    },
+    {
+      "id": "default:training_here_reminder:7",
+      "pushType": "training_here_reminder",
+      "title": "המסלול מחכה · ב-@שעה",
+      "body": "עוד רבע שעה ב@מקום. נתראה שם?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": {
+        "place": [
+          "route"
+        ]
+      },
+      "fallbackOnly": true,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:training_here_reminder:8",
+      "pushType": "training_here_reminder",
+      "title": "עוד רבע שעה, ב-@שעה",
+      "body": "האימון שקבעת מתחיל בקרוב. נתראה שם?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": true,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
+  "training_here_partner": [
+    {
+      "id": "default:training_here_partner:0",
+      "pushType": "training_here_partner",
+      "title": "אימון של @שולח ב-@שעה",
+      "body": "ב@מקום. מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:training_here_partner:1",
+      "pushType": "training_here_partner",
+      "title": "@שולח מגיע ב-@שעה ל@מקום",
+      "body": "מצטרף?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "male",
+      "pairId": "default:training_here_partner:join_m",
+      "active": true
+    },
+    {
+      "id": "default:training_here_partner:2",
+      "pushType": "training_here_partner",
+      "title": "@שולח מגיעה ב-@שעה ל@מקום",
+      "body": "מצטרף?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "male",
+      "subjectGender": "female",
+      "pairId": "default:training_here_partner:join_m",
+      "active": true
+    },
+    {
+      "id": "default:training_here_partner:3",
+      "pushType": "training_here_partner",
+      "title": "@שולח מגיע ב-@שעה ל@מקום",
+      "body": "מצטרפת?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "male",
+      "pairId": "default:training_here_partner:join_f",
+      "active": true
+    },
+    {
+      "id": "default:training_here_partner:4",
+      "pushType": "training_here_partner",
+      "title": "@שולח מגיעה ב-@שעה ל@מקום",
+      "body": "מצטרפת?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "female",
+      "subjectGender": "female",
+      "pairId": "default:training_here_partner:join_f",
+      "active": true
+    },
+    {
+      "id": "default:training_here_partner:5",
+      "pushType": "training_here_partner",
+      "title": "@שולח מגיע ב-@שעה ל@מקום",
+      "body": "מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "male",
+      "pairId": "default:training_here_partner:join_n",
+      "active": true
+    },
+    {
+      "id": "default:training_here_partner:6",
+      "pushType": "training_here_partner",
+      "title": "@שולח מגיעה ב-@שעה ל@מקום",
+      "body": "מצטרפים?",
+      "deepLink": "map_place",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "female",
+      "pairId": "default:training_here_partner:join_n",
+      "active": true
+    }
+  ],
   "friend_joined": [
     {
       "id": "default:friend_joined:0",

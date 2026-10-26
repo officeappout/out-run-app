@@ -87,3 +87,15 @@ export function consumeIntroArrival(storage: KeyValueStorage | null | undefined)
   }
   return arriving;
 }
+
+/**
+ * Keep the branded splash over the landing (pilot L2): until auth resolves to a guest,
+ * AND while the enable_entry_intro_v1 flag is still unknown on a first-ever launch.
+ * Without the second half the old carousel landing (the handstand photo) painted for a
+ * moment before the flag arrived and swapped in the new one. The flag hook caps its
+ * loading (useFeatureFlags LOADING_CAP_MS), so this never holds forever.
+ */
+export function shouldHoldLandingSplash(input: { isGuest: boolean; introFlagLoading: boolean; introPreview: boolean }): boolean {
+  if (!input.isGuest) return true;
+  return input.introFlagLoading && !input.introPreview;
+}

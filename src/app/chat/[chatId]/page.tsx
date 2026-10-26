@@ -34,6 +34,8 @@ import { useChatStore } from '@/features/social/store/useChatStore';
 import type { ChatThread } from '@/features/social/types/chat.types';
 import { KELLY_UID } from '@/features/social/services/kelly-welcome-bot.service';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
+import { useT } from '@/hooks/useT';
+import { social } from '@/messages/ns/social';
 
 type PageStatus = 'loading' | 'ready' | 'not-found' | 'error';
 
@@ -51,6 +53,7 @@ export default function ChatDeepLinkPage({
   const router = useRouter();
   const chatId = params?.chatId ?? '';
   const [status, setStatus] = useState<PageStatus>('loading');
+  const t = useT(social);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,7 +125,7 @@ export default function ChatDeepLinkPage({
           <>
             <Loader2 className="h-8 w-8 animate-spin text-slate-400" aria-hidden />
             <p className="text-sm font-medium text-slate-600">
-              פותח את הצ׳אט שלך…
+              {t('chatPage.opening')}
             </p>
           </>
         )}
@@ -131,7 +134,7 @@ export default function ChatDeepLinkPage({
           <>
             <MessageCircle className="h-8 w-8 text-emerald-500" aria-hidden />
             <p className="text-sm font-medium text-slate-700">
-              מעביר אותך לשיחה…
+              {t('chatPage.redirecting')}
             </p>
           </>
         )}
@@ -141,15 +144,15 @@ export default function ChatDeepLinkPage({
             <AlertTriangle className="h-8 w-8 text-amber-500" aria-hidden />
             <p className="text-sm font-semibold text-slate-700">
               {status === 'not-found'
-                ? 'השיחה לא נמצאה'
-                : 'תקלה זמנית בטעינת השיחה'}
+                ? t('chatPage.notFound')
+                : t('chatPage.error')}
             </p>
             <button
               type="button"
               onClick={() => router.replace('/home')}
               className="mt-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
             >
-              חזרה לדף הבית
+              {t('chatPage.home')}
             </button>
           </>
         )}
