@@ -67,3 +67,27 @@ describe('useQuizV3Assessment', () => {
     expect(r).toBe('exit');
   });
 });
+
+/** The page swaps a skill for its foundation group at the same index ("not yet" escape). */
+let swapApi: (QuizV3Assessment & { swap: () => void }) | null = null;
+function SwapProbe() {
+  const [cats, setCats] = useState<string[]>(['planche', 'pull']);
+  const v3 = useQuizV3Assessment(true, cats, 0);
+  swapApi = { ...v3, swap: () => setCats(['push', 'pull']) };
+  return null;
+}
+
+describe('useQuizV3Assessment: skill "not yet" swap', () => {
+  it('the swapped-in muscle group opens on its transition', () => {
+    const host = document.createElement('div');
+    root = createRoot(host);
+    act(() => root!.render(<SwapProbe />));
+    // On the skill slider (no transition), with the transition flag cleared as after a back step.
+    expect(swapApi!.transition).toBeNull();
+    act(() => swapApi!.leaveTransition());
+    expect(swapApi!.transition).toBeNull();
+    act(() => swapApi!.swap());
+    expect(swapApi!.transition?.group).toBe('push');
+    expect(swapApi!.transition?.groupNumber).toBe(1);
+  });
+});

@@ -78,6 +78,8 @@ import type { OnboardingT } from '@/features/user/onboarding/utils/assessment-ti
 import { genderArg } from '@/lib/i18n/core/i18n-core';
 import { useQuizV3Assessment } from '@/features/user/onboarding/components/strength-quiz-v3/useQuizV3Assessment';
 import GroupTransition from '@/features/user/onboarding/components/strength-quiz-v3/GroupTransition';
+import QuizV3ResultStep from '@/features/user/onboarding/components/strength-quiz-v3/QuizV3ResultStep';
+import { withChosenSkills, type ChosenSkill } from '@/features/user/onboarding/components/strength-quiz-v3/skill-unlock';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -292,6 +294,8 @@ export default function VisualAssessmentPage() {
   const [initialTierLevel, setInitialTierLevel] = useState(5);
   // enable_strength_quiz_v3 (off = transition null, sliderProps undefined: nothing changes).
   const v3 = useQuizV3Assessment(quizV3, pathConfig?.categories ?? PRIMARY_CATEGORIES, categoryIndex);
+  // enable_strength_quiz_v3 (part C): the skills chosen on the outro's skills screen, saved with the result.
+  const v3SkillsRef = useRef<ChosenSkill[]>([]);
 
   // Follow-up state
   const [followUpCategories, setFollowUpCategories] = useState<string[]>([]);
@@ -426,6 +430,8 @@ export default function VisualAssessmentPage() {
   // opens straight on the first group's transition. Flag off: never fires.
   useEffect(() => {
     if (quizV3 && step === 'why') setStep('sliders');
+    // Part C: no result-loading animation under the flag, the outro screens follow the last slider.
+    if (quizV3 && step === 'resultLoading') setStep('result');
   }, [quizV3, step]);
 
   // ── Diagnostic: log categories fed to sliders ───────────────
@@ -984,7 +990,7 @@ export default function VisualAssessmentPage() {
             : (result.levels.core ?? 0),
       };
 
-      const assignedResults =
+      const legacyAssignedResults =
         result.skillLevels && Object.keys(result.skillLevels).length > 0
           ? Object.entries(result.skillLevels).map(([skillId, level]) => ({
               programId: skillId,
@@ -1000,6 +1006,8 @@ export default function VisualAssessmentPage() {
                 masterProgramSubLevels: masterSubLevels,
               },
             ];
+      // enable_strength_quiz_v3: skills added on the outro ride after the full-body entry (flag off: unchanged).
+      const assignedResults = quizV3 ? withChosenSkills(legacyAssignedResults, v3SkillsRef.current) : legacyAssignedResults;
 
       console.log('[Assessment] Persisting results:', {
         programId: result.programId,
@@ -1092,7 +1100,7 @@ export default function VisualAssessmentPage() {
       setSaveError(describeSaveError(err, t));
       setStep('result');
     }
-  }, [result, authUser, matchedRule, router, selectedTier, pathConfig, categories, v2, t]);
+  }, [result, authUser, matchedRule, router, selectedTier, pathConfig, categories, v2, t, quizV3]);
 
   // ── Slide animation variants ─────────────────────────────────
 
@@ -1336,7 +1344,7 @@ export default function VisualAssessmentPage() {
 
           {/* ── Result loading animation ─── */}
           {/* ResultLoading renders its own fixed-inset overlay with the unified story bar */}
-          {step === 'resultLoading' && result && (
+          {step === 'resultLoading' && result && !quizV3 && (
             <motion.div
               key="resultLoading"
               initial={{ opacity: 0 }}
@@ -1355,7 +1363,24 @@ export default function VisualAssessmentPage() {
 
           {/* ── Result screen — Phase 4 active ── */}
           {/* ProgramResult renders its own fixed-inset overlay with the unified story bar */}
-          {step === 'result' && result && (
+          {step === 'result' && result && quizV3 && (
+            <motion.div key="result-v3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 min-h-0 flex flex-col">
+              <QuizV3ResultStep
+                levels={result.levels as Record<string, number>}
+                average={result.average}
+                gender={introGender}
+                demographics={demographics}
+                pathConfig={pathConfig}
+                v2={v2}
+                onFinish={(chosen) => { if (!saveError) v3SkillsRef.current = chosen; void handleAcceptResult(); }}
+                onExitBack={() => { v3.leaveTransition(); setStep('sliders'); }}
+                saveError={saveError}
+                onSkipSave={saveAttempts > 0 ? handleSkipSave : undefined}
+              />
+            </motion.div>
+          )}
+
+          {step === 'result' && result && !quizV3 && (
             <motion.div
               key="result"
               initial={{ opacity: 0 }}

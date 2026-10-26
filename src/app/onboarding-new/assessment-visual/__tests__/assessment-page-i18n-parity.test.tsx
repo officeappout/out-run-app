@@ -37,6 +37,7 @@ const S = {
   mapping: deferred<unknown>(),
   save: deferred<unknown>(),
   miniWrite: deferred<unknown>(),
+  syncCalls: [] as unknown[],
 };
 
 const PATH_CONFIG = {
@@ -105,6 +106,13 @@ vi.mock('@/features/user/onboarding/components/ProgramResult', () => ({
     </div>
   ),
 }));
+vi.mock('@/features/user/onboarding/components/strength-quiz-v3/QuizV3ResultStep', () => ({
+  default: (p: { onFinish: (c: unknown[]) => void; onExitBack: () => void }) => (
+    <div data-stub="v3-outro">
+      <button data-stub="v3-finish" onClick={() => p.onFinish([{ skillId: 'planche', level: 7 }])} />
+    </div>
+  ),
+}));
 vi.mock('@/features/user/onboarding/components/ResultLoading', () => ({
   default: (p: { onComplete: () => void }) => <button data-stub="result-loading" onClick={p.onComplete} />,
 }));
@@ -127,7 +135,7 @@ vi.mock('@/features/user/onboarding/services/visual-content-resolver.service', (
   prefetchCategoryVideos: async () => {},
 }));
 vi.mock('@/features/user/onboarding/services/onboarding-sync.service', () => ({
-  syncOnboardingToFirestore: async () => true,
+  syncOnboardingToFirestore: async (_status: unknown, data: unknown) => { S.syncCalls.push(data); return true; },
 }));
 vi.mock('@/lib/reportSignupFailure', () => ({ reportSignupFailure: () => {}, extractErrorCode: () => 'x' }));
 vi.mock('@/features/user/onboarding/services/branching-logic.service', () => ({
@@ -232,6 +240,7 @@ beforeEach(() => {
   S.mapping = deferred();
   S.save = deferred();
   S.miniWrite = deferred();
+  S.syncCalls = [];
   alerts = [];
   vi.spyOn(window, 'alert').mockImplementation((m?: unknown) => { alerts.push(String(m)); });
   vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -369,5 +378,43 @@ describe('assessment page, enable_strength_quiz_v3 on', () => {
     await mount();
     expect(host!.querySelector('[data-stub="why"]')).not.toBeNull();
     expect(host!.querySelector('[data-quiz-v3-transition]')).toBeNull();
+  });
+});
+
+describe('assessment page, enable_strength_quiz_v3 on: after the sliders (part C)', () => {
+  it('no result animation, the outro replaces ProgramResult; chosen skills ride after the full-body entry', async () => {
+    S.v2 = true;
+    S.quizV3 = true;
+    await mount();
+    const cta = Array.from(host!.querySelectorAll('button')).find((b) => b.textContent === 'בואו נבדוק');
+    await act(async () => { cta!.click(); });
+    await flush();
+    await click('slider');
+    await act(async () => { S.evaluate.resolve(null); });
+    await flush();
+    await act(async () => {
+      S.mapping.resolve({ programId: 'full_body', levelMode: 'auto', levelId: '', displayName: { he: 'גוף מלא' } });
+    });
+    await flush();
+    expect(host!.querySelector('[data-stub="result-loading"]')).toBeNull();
+    expect(host!.querySelector('[data-stub="result"]')).toBeNull();
+    await click('v3-finish');
+    await act(async () => { S.save.resolve(undefined); });
+    await flush();
+    expect(S.syncCalls).toHaveLength(1);
+    const { assignedResults } = S.syncCalls[0] as { assignedResults: Array<{ programId: string; levelId: string; masterProgramSubLevels?: unknown }> };
+    expect(assignedResults.map((r) => r.programId)).toEqual(['full_body', 'planche']);
+    expect(assignedResults[1]).toEqual({ programId: 'planche', levelMode: 'manual', levelId: 'planche_level_7' });
+  });
+
+  it('flag off: the legacy result screen, the payload has no skill entry', async () => {
+    await toResult();
+    expect(host!.querySelector('[data-stub="result"]')).not.toBeNull();
+    expect(host!.querySelector('[data-stub="v3-outro"]')).toBeNull();
+    await click('accept');
+    await act(async () => { S.save.resolve(undefined); });
+    await flush();
+    const { assignedResults } = S.syncCalls[0] as { assignedResults: Array<{ programId: string }> };
+    expect(assignedResults.map((r) => r.programId)).toEqual(['full_body']);
   });
 });

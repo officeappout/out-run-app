@@ -1,7 +1,8 @@
 'use client';
 
 import clsx from 'clsx';
-import LevelChip from './LevelChip';
+import { LEVEL_COMPARE_ICONS } from '@/components/ui/v2/LevelCompareIcon';
+import LevelChip, { CHIP_LEVEL } from './LevelChip';
 
 interface SliderSideCardProps {
   kind: 'easier' | 'harder';
@@ -29,7 +30,7 @@ export default function SliderSideCard({ kind, label, ariaLabel, hidden, onPress
         <span
           className={clsx(
             'line-clamp-2 text-center text-[12px] font-extrabold',
-            kind === 'easier' ? 'text-[#0b6b45]' : 'text-[#8a4b00]',
+            LEVEL_COMPARE_ICONS[CHIP_LEVEL[kind]].color,
           )}
         >
           {label}

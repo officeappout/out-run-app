@@ -35,6 +35,14 @@ export function useQuizV3Assessment(
   const [saved, setSaved] = useState<Partial<Record<QuizV3Group, SavedGroup>>>({});
   const category = categories[categoryIndex] ?? '';
 
+  // A skill's "not yet" escape swaps a muscle group into the SAME index (page handleSliderEscape).
+  // That group opens on its transition too, like every other group (derived state, no effect).
+  const [shown, setShown] = useState({ index: categoryIndex, category });
+  if (shown.index !== categoryIndex || shown.category !== category) {
+    setShown({ index: categoryIndex, category });
+    if (shown.index === categoryIndex && isQuizV3Group(category)) setInTransition(true);
+  }
+
   const onChosen = useCallback((level: number, exerciseName: string | null) => {
     if (isQuizV3Group(category)) setSaved((prev) => ({ ...prev, [category]: { group: category, level, exerciseName } }));
     // The next category opens on its transition (skills have none, see transitionModel).
