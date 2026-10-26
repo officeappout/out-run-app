@@ -86,3 +86,26 @@ describe('flattenWorkoutToExercises — tabata sets override (19.09.2026 list-ca
     expect(flat[0].sets).toBe(1);
   });
 });
+
+describe('flattenWorkoutToExercises — list target (pilot M20)', () => {
+  it('a hybrid-station duration "1×20 שניות" targets 20 s, not 1 s', () => {
+    const seg = { id: 'hybrid-station', title: 'תחנה', exercises: [ex('hold', { reps: undefined, duration: '1×20 שניות' })] };
+    expect(flattenWorkoutToExercises(plan([seg]))[0].targetReps).toBe(20);
+  });
+
+  it('a "3×45 שניות" hold targets 45 s', () => {
+    const seg = { id: 's', title: 't', exercises: [ex('plank', { reps: undefined, duration: '3×45 שניות' })] };
+    expect(flattenWorkoutToExercises(plan([seg]))[0].targetReps).toBe(45);
+  });
+
+  it('a tabata member targets the block workSec', () => {
+    const seg = {
+      id: 'seg-tabata',
+      title: 'טבטה',
+      protocol: 'tabata',
+      protocolConfig: { workSec: 30, restSec: 15, rounds: 4 },
+      exercises: [ex('machine-a', { duration: '1×30 שניות' }), ex('machine-b', { duration: '1×30 שניות' })],
+    };
+    expect(flattenWorkoutToExercises(plan([seg])).map((fe) => fe.targetReps)).toEqual([30, 30]);
+  });
+});

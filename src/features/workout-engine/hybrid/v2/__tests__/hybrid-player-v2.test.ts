@@ -4,7 +4,7 @@ import { initSequencer, reduceSequencerAll } from '../../../engines/hybrid/hybri
 import { legResults, sequencerView } from '../../../engines/hybrid/sequencer.selectors';
 import type { SequencerEvent } from '../../../engines/hybrid/sequencer.types';
 import type { SequencerEventInput } from '../../../engines/hooks/useHybridSequencer';
-import { needsLegacyArrive, needsSequencerStart, stationCloseEvents } from '../hybrid-v2-sync';
+import { needsLegacyArrive, needsSequencerStart, runLegSkipEvents, stationCloseEvents } from '../hybrid-v2-sync';
 import { headerView, legLabel, legZone, miniView, nextBlockView, transitionView } from '../hybrid-v2-view';
 import { hybridListSections, listTotals, stationListRows } from '../hybrid-v2-list';
 
@@ -159,5 +159,15 @@ describe('hybrid v2 session list', () => {
     // Cool-down of 300 m: no pace in its row.
     expect(secs[2].rows[0].subtitle).not.toMatch(/לק״מ/);
     expect(listTotals(secs, 1360, 2.2)).toBe('22:40 · 2.20 ק״מ · 3/5 סטים');
+  });
+});
+
+describe('pilot M8: "דילוג לבא" on a run leg', () => {
+  it('moves on to the station (transition), it does not skip the station', () => {
+    const start = run([{ type: 'START', t: 0 }]);
+    const s = reduceSequencerAll(start, runLegSkipEvents().map((e) => ({ ...e, atMs: T0 + 60_000 }) as SequencerEvent));
+    expect(s.phase).toBe('transition');
+    expect(s.inner.cursor).toBe(1);
+    expect(s.inner.actuals[1]?.skipped).toBeUndefined();
   });
 });

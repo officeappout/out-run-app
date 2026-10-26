@@ -25,6 +25,7 @@ describe('social defaults', () => {
       }
     }
     expect(n).toBe(33);
-    expect(Object.keys(he)).toHaveLength(66);
+    // Count this prefix only (other batches add keys to social.json, e.g. chatPage.* in batch am).
+    expect(Object.keys(he).filter((k) => k.startsWith('defaults.'))).toHaveLength(66);
   });
 });

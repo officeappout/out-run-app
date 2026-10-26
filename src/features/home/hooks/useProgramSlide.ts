@@ -9,9 +9,9 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
-import { hasRunningTrack } from '@/lib/track-ownership';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import {
+  hasAerobicTrack,
   hasRunningIntent,
   isAddDismissActive,
   resolveProgramSlide,
@@ -55,7 +55,8 @@ export function useProgramSlide(
     setDismissVersion((v) => v + 1);
   }, [uid]);
 
-  const hasRunning = hasRunningTrack(profile);
+  // A saved walking plan owns the aerobic track too (pilot O5).
+  const hasRunning = hasAerobicTrack(profile);
   const lifestyle = profile?.lifestyle as { primaryTrack?: unknown; dashboardMode?: unknown } | undefined;
   const primaryTrack = lifestyle?.primaryTrack;
   const dashboardMode = lifestyle?.dashboardMode;
