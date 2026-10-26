@@ -1371,7 +1371,7 @@ export class WorkoutGenerator {
       const estimatedDurationSoFar = calculateEstimatedDuration(workoutExercises);
       const formsChosenThisTrio = context.coreFormsChosenThisTrio ?? [];
 
-      coreForm = chooseCoreForm({
+      coreForm = context.forcedCoreForm ?? chooseCoreForm({
         formsChosenThisTrio,
         recentCoreForms: context.recentCoreForms,
         availableTime: context.availableTime,

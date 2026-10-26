@@ -1242,7 +1242,8 @@ async function generateHomeWorkoutTrioCore(
     // it still picks the most appropriate elite compound exercise.
     //
     // Applies to training days only — rest-day configs have no "intense" slot.
-    if (i === 2 && !isRestDay && !weatherCapped && !pyramidOff) {
+    // A scheme Kelly asked for (EMOM / core tabata) is never replaced by the forced pyramid.
+    if (i === 2 && !isRestDay && !weatherCapped && !pyramidOff && !options.forcedProtocol && !options.forcedCoreForm) {
       optionContext.preferredProtocols  = ['pyramid'];
       optionContext.protocolProbability = 1.0;
       console.log('[WorkoutTrio] Option 3 (Bolt3 — intense): pyramid protocol forced (p=1.0)');
@@ -2037,6 +2038,8 @@ async function _buildSharedPipeline(
     maxIntenseWorkoutsPerWeek,
     protocolProbability,
     preferredProtocols,
+    forcedProtocol,
+    forcedCoreForm,
     straightArmRatio,
     weeklySASets,
     levelDefaultRestSeconds,
@@ -3313,7 +3316,8 @@ async function _buildSharedPipeline(
     periodizationWeek: sessionPolicy.periodizationWeek,
     // Scale admin protocol probability by the policy multiplier (Peak ×1.5, Deload ×0).
     protocolProbability: (() => {
-      const baseProb = adminProtocolProbability ?? protocolProbability ?? 0;
+      // Kelly asked for EMOM: certain (the periodization multiplier below still applies, a Deload kills it).
+      const baseProb = forcedProtocol ? 1 : (adminProtocolProbability ?? protocolProbability ?? 0);
       const scaled = Math.min(1.0, baseProb * sessionPolicy.protocolMultiplier);
       if (sessionPolicy.protocolMultiplier === 0) {
         console.log(
@@ -3355,8 +3359,9 @@ async function _buildSharedPipeline(
     })(),
     // Tabata is stripped here — it never competes in the main lottery (it rides
     // context.tabataProbability + the generator's separate roll).
-    preferredProtocols: ((adminPreferredProtocols ?? preferredProtocols) as string[] | undefined)
-      ?.filter((p) => p !== 'tabata') as any,
+    preferredProtocols: (forcedProtocol ? [forcedProtocol] : ((adminPreferredProtocols ?? preferredProtocols) as string[] | undefined)
+      ?.filter((p) => p !== 'tabata')) as any,
+    ...(forcedCoreForm ? { forcedCoreForm } : {}),
     // Dedicated tabata conditioning pool — ALL hiit_friendly exercises (incl.
     // program-less gems that never enter the scored strength pool). Filtered
     // from the already-loaded allExercises, so no extra Firestore read.

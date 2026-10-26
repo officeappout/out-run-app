@@ -105,6 +105,10 @@ export interface HomeWorkoutOptions {
   protocolProbability?: number;
   /** preferredProtocols from ProgramLevelSettings (program-specific) */
   preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset' | 'tabata')[];
+  /** Kelly (ai_coach_workout_format): force the main protocol to EMOM for this generation. Absent = lottery as before. */
+  forcedProtocol?: 'emom';
+  /** Kelly (ai_coach_workout_format): make the core block a tabata block (core-only requests). Absent = chooseCoreForm as before. */
+  forcedCoreForm?: 'tabata';
   /** straightArmRatio from ProgramLevelSettings (SA/BA tendonitis guard) */
   straightArmRatio?: number;
   /** Straight-arm sets completed this week (from WeeklyVolumeStore) */

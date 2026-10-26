@@ -467,7 +467,13 @@ export function clientOutcomeToToolResult(
     if (opts.round4 && (result.levelCeiling || result.shortOfMinimum)) notes.push(ROUND4_GAP_NOTE);
     // ai_coach_request_fidelity: the user named a set scheme the engine doesn't take as input
     // (owner thread: "טבטה" → pyramid sets). Say what was really built, never call it the scheme.
-    if (opts.requestedFormat) {
+    // ai_coach_workout_format: the scheme the MODEL asked the engine for did not come out (EMOM on an
+    // easy session / a Deload week, a core Tabata that could not be composed). Never call it that.
+    if (result.formatRequested && result.formatBuilt === false) {
+      notes.push(
+        `You asked the engine for ${result.formatRequested === 'emom' ? 'EMOM' : 'a core Tabata'} but it could not build that scheme this time and built a regular workout instead. Say so plainly in one short sentence, never call this workout ${result.formatRequested === 'emom' ? 'EMOM' : 'Tabata'}, and offer a shorter or different request.`,
+      );
+    } else if (opts.requestedFormat) {
       const built = builtFormatOf(outcome.result);
       if (!(FORMAT_MATCHES[opts.requestedFormat] ?? []).includes(built)) {
         notes.push(

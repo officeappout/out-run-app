@@ -133,7 +133,16 @@ export interface SessionContextInput {
   round4Note?: string | null;
   /** ai_coach_request_fidelity on: REQUEST_FIDELITY_NOTE. Absent = today's prompt. */
   requestFidelity?: boolean;
+  /** ai_coach_workout_format on: WORKOUT_FORMAT_NOTE. Absent = today's prompt. */
+  workoutFormat?: boolean;
 }
+
+/**
+ * Session note while ai_coach_workout_format is on. After the cache breakpoint, so off = the exact
+ * prompt as before; it overrides the stable prompt's "can't build Tabata / EMOM" lines for these two.
+ */
+export const WORKOUT_FORMAT_NOTE =
+  "- Set schemes (this supersedes any earlier line that says EMOM or Tabata can't be requested): generate_workout now takes an optional format. EMOM: pass format 'emom' when the user asks for EMOM (any area). Tabata: pass format 'tabata' ONLY when the user asks for Tabata for the abs / core (domains [\"core\"]). A full-body or any other Tabata does not exist yet: say so in one short sentence and offer an abs Tabata or a regular short workout. AMRAP, a pyramid and other schemes still can't be requested. After building, say what the card really is (read the result); if the notes say the format was not built, say that plainly.";
 
 /**
  * Session note while ai_coach_request_fidelity is on (owner chat review 18-23.10.2026). After the
@@ -177,6 +186,7 @@ export function buildSessionContext(i: SessionContextInput): string {
   if (i.phase2) lines.push(PHASE2_NOTE);
   if (i.round4Note) lines.push(i.round4Note);
   if (i.requestFidelity) lines.push(REQUEST_FIDELITY_NOTE);
+  if (i.workoutFormat) lines.push(WORKOUT_FORMAT_NOTE);
   if (i.memory) lines.push('', i.memory);
   const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false) : null;
   if (gapNote) lines.push(gapNote);
