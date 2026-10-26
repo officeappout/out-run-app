@@ -128,8 +128,12 @@ describe('placeCardMedia', () => {
   it('the generated park workout → its own hero media (home card treatment)', () => {
     expect(placeCardMedia(sug({}), { durationMin: 20, exerciseCount: 5, media }, 'https://p/park.jpg')).toEqual(media);
   });
+  it('the park workout still generating → the gradient, never the park photo (owner 26.10)', () => {
+    expect(placeCardMedia(sug({}), 'loading', 'https://p/park.jpg')).toEqual(NO_MEDIA);
+  });
   it('no generated media → the place photo; nothing → the gradient (no stock photo)', () => {
-    expect(placeCardMedia(sug({}), 'loading', 'https://p/park.jpg')).toEqual({ thumbnailUrl: 'https://p/park.jpg', videoUrl: '' });
+    expect(placeCardMedia(sug({}), { durationMin: 20, exerciseCount: 5, media: NO_MEDIA }, 'https://p/park.jpg')).toEqual({ thumbnailUrl: 'https://p/park.jpg', videoUrl: '' });
+    expect(placeCardMedia(sug({}), null, 'https://p/park.jpg')).toEqual({ thumbnailUrl: 'https://p/park.jpg', videoUrl: '' });
     const run = sug({ style: 'run_easy', start: { kind: 'route_activity', routeId: 'r', activity: 'running' } });
     expect(placeCardMedia(run, { durationMin: 20, exerciseCount: 5, media }, 'https://p/route.jpg').videoUrl).toBe('');
     expect(placeCardMedia(run, null, null)).toEqual(NO_MEDIA);

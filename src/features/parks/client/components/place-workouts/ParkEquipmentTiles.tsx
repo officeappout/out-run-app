@@ -2,7 +2,7 @@
 
 /**
  * The park's equipment as dark tiles (enable_place_workouts_v1, board RP-13
- * phone 1): the equipment's picture + name + brand (ParkEquipmentTile), 2 columns, the first SHOWN_TILES and
+ * phone 1): the equipment's picture + muscle icon + name (ParkEquipmentTile), 2 columns, the first SHOWN_TILES and
  * "עוד N מתקנים ›" to show the rest. A tile opens the equipment drawer, as
  * the classic grid does.
  */

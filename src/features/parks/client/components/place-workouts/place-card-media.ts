@@ -1,9 +1,12 @@
 /**
  * Which media a place workout card shows (pure). Same rule as home's daily
  * card — the workout's own exercise media when the workout is generated
- * (pickHeroExercise + resolveHeroMedia, see useLeadWorkout) — else the
- * place's own photo (where this run / walk / hybrid happens), else nothing
- * and HeroMediaBackground draws the brand gradient. Never a stock photo.
+ * (workout-card-media, see useLeadWorkout) — else the place's own photo, else
+ * nothing and HeroMediaBackground draws the brand gradient. Never a stock
+ * photo. The park workout's card waits on the brand gradient while its
+ * workout generates (owner 26.10: the park photo there read as "the card
+ * shows the park, not the workout"); the photo only when generation is done
+ * and the workout has no exercise media, or it could not be generated.
  */
 
 import { bunnyImg } from '@/lib/bunny-image';
@@ -27,6 +30,7 @@ export function placeCardMedia(
   lead: GeneratedLead | 'loading' | null,
   placePhoto: string | null,
 ): MediaWorkoutCardMedia {
+  if (s.start.kind === 'park_strength' && lead === 'loading') return NO_MEDIA;
   const generated = s.start.kind === 'park_strength' && lead && lead !== 'loading' ? lead.media : undefined;
   if (generated && (generated.thumbnailUrl || generated.videoUrl)) return generated;
   if (placePhoto) return { thumbnailUrl: bunnyImg(placePhoto, PHOTO_W), videoUrl: '' };
