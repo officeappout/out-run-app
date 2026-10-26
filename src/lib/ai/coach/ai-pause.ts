@@ -20,6 +20,11 @@
  * filter it.
  */
 import type { CoachGender } from './persona';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
+
+// Hebrew-only server copy (bundled catalog, sync read).
+const t = makeT('he', coach);
 
 /** Gate denials the chat route answers itself (stores the message + a paused reply). */
 export const AI_PAUSE_CODES = ['rate_limited', 'kill_switch', 'over_budget', 'unavailable'] as const;
@@ -111,17 +116,8 @@ export function reopenPhrase(retryAfterSec: number, now: Date): string {
   const today = israelDateKey(now);
   const tomorrow = israelDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
   const day = israelDateKey(at);
-  const prefix = day === today ? '' : day === tomorrow ? 'מחר ' : 'בעוד יום ';
-  return `${prefix}בסביבות ${israelClock(at)}`;
+  return t('pause.reopen', { day: day === today ? 'today' : day === tomorrow ? 'tomorrow' : 'later', time: israelClock(at) });
 }
-
-const WRITE_URGENT: Record<CoachGender, string> = {
-  male: 'אם זה דחוף, תכתוב לי שזה דחוף והצוות שלנו יענה לך כאן.',
-  female: 'אם זה דחוף, תכתבי לי שזה דחוף והצוות שלנו יענה לך כאן.',
-  other: 'אם זה דחוף, אפשר לכתוב לי שזה דחוף והצוות שלנו יענה כאן.',
-};
-
-const TEAM_SEES = 'הצוות שלנו רואה את ההודעה שלך ויענה כאן בהקדם.';
 
 /**
  * The paused reply, in Kelly's voice rules (persona.ts: no emoji, dashes, slashes or English).
@@ -137,14 +133,14 @@ export function aiPauseReply(
   const team = opts.teamChannel !== false;
   if (code === 'rate_limited') {
     const sec = opts.retryAfterSec ?? 0;
-    const opener = sec > 0 && sec <= 3600 ? 'דיברנו המון בשעה האחרונה.' : 'דיברנו המון היום.';
-    const back = sec > 0 ? `אני חוזר לענות ${reopenPhrase(sec, now)}.` : 'אני חוזר לענות בהמשך.';
-    return [opener, back, team ? WRITE_URGENT[gender] : ''].filter(Boolean).join(' ');
+    const opener = t(sec > 0 && sec <= 3600 ? 'pause.rate.openerHour' : 'pause.rate.openerDay');
+    const back = sec > 0 ? t('pause.rate.backAt', { when: reopenPhrase(sec, now) }) : t('pause.rate.backLater');
+    return [opener, back, team ? t('pause.writeUrgent', { gender }) : ''].filter(Boolean).join(' ');
   }
   if (code === 'over_budget') {
-    return ['אני לא זמין יותר היום, חוזר לענות מחר.', team ? TEAM_SEES : ''].filter(Boolean).join(' ');
+    return [t('pause.overBudget'), team ? t('pause.teamSees') : ''].filter(Boolean).join(' ');
   }
-  return ['אני לא זמין כרגע.', team ? TEAM_SEES : 'כדאי לנסות שוב מאוחר יותר.'].filter(Boolean).join(' ');
+  return [t('pause.unavailable'), team ? t('pause.teamSees') : t('pause.tryLater')].filter(Boolean).join(' ');
 }
 
 // ── Client: what the chat screen does with a refused send ────────────────────

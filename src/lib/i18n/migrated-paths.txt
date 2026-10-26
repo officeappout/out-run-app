@@ -638,3 +638,12 @@ src/features/home/utils/flame-tier-props.ts
 # Park start: home background trio held while a park workout is open (owner 26.10) — no text.
 src/features/home/hooks/background-workout-hold.ts
 src/features/home/hooks/useBackgroundWorkoutHold.ts
+
+# wave 2 batch an (namespace coach; keys fixed.* / safety.* / pause.* / uiError.* / action.* / quick.* / hint.* / proactive.*) —
+# Kelly's user-facing copy in src/lib/ai/coach. Listed per file: the files below contain no Hebrew outside comments.
+# The rest of the folder is model-facing (prompts, notes), Hebrew detection (intent / guards / safety regexes) or admin labels — manual list in the PR.
+src/lib/ai/coach/action-chips.ts
+src/lib/ai/coach/protocol.ts
+src/lib/ai/coach/suggestions/copy.ts
+src/lib/ai/coach/suggestions/placeholders.ts
+src/lib/ai/coach/proactive/templates.ts

@@ -34,16 +34,21 @@ import { checkReply, correctionNote, dropHebrewlessSentences, factsFromEvidence,
 import { masculinizeSelfReferences } from './gender-voice';
 import type { CoachGender } from './persona';
 import { ROUND4_GAP_NOTE } from './round4/prompt';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
 
-export const REFUSAL_TEXT = 'על זה אני לא יכול לעזור. אפשר לשאול אותי על אימונים, התקדמות ותוכנית השבוע.';
-export const EMPTY_TEXT = 'לא הצלחתי לנסח תשובה הפעם. אפשר לנסות שוב במילים אחרות.';
-export const TRUNCATED_TOOL_TEXT = 'משהו נקטע באמצע. אפשר לבקש שוב?';
+// Hebrew-only server copy: the Hebrew catalog is bundled, read synchronously (the user's locale reaches Kelly in a later wave).
+const t = makeT('he', coach);
+
+export const REFUSAL_TEXT = t('fixed.refusal');
+export const EMPTY_TEXT = t('fixed.empty');
+export const TRUNCATED_TOOL_TEXT = t('fixed.truncatedTool');
 /**
  * Stored when a turn throws after the user's message was saved (model / tool / Firestore
  * error): without it the thread keeps the user's message with no reply at all, and on reopen
  * nothing shows that it failed. Kept out of the model history (StoredMessage.failed).
  */
-export const TURN_FAILED_TEXT = 'משהו השתבש אצלי ולא הצלחתי לענות על ההודעה הזו. אפשר לשלוח אותה שוב?';
+export const TURN_FAILED_TEXT = t('fixed.turnFailed');
 
 /** Short chat replies: thinking off (allowed on Haiku at effort ≤ high), effort low. */
 export const COACH_THINKING: Anthropic.ThinkingConfigParam = { type: 'disabled' };

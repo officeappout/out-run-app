@@ -5,19 +5,24 @@
  */
 import { tryPrefix } from './copy';
 import { RETURN_AFTER_DAYS, type ChipSituation } from './types';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
+
+// Hebrew-only copy (bundled catalog, sync read).
+const t = makeT('he', coach);
 
 export const PLACEHOLDER_ROTATE_MS = 4500;
 
 export function placeholderHints(s: ChipSituation): string[] {
   const hints: string[] = [];
-  if (s.daysAway !== null && s.daysAway >= RETURN_AFTER_DAYS) hints.push('תבנה לי אימון חזרה קל');
-  if (s.weather === 'rain' || s.weather === 'cold') hints.push('תבנה לי אימון בבית בלי ציוד');
-  if (s.weather === 'heat') hints.push('תבנה לי אימון קצר בבית');
-  if (s.buildableToday && !s.doneToday) hints.push('תבנה לי את האימון של היום');
-  hints.push('תבנה לי אימון בטן של 15 דק׳');
-  if (s.trainingDayToday !== null) hints.push('תזיז את האימון של מחר ליום אחר');
-  hints.push('מה מחכה לי השבוע?');
-  hints.push('איך מחברים את הצעדים?');
+  if (s.daysAway !== null && s.daysAway >= RETURN_AFTER_DAYS) hints.push(t('hint.returnLight'));
+  if (s.weather === 'rain' || s.weather === 'cold') hints.push(t('hint.homeNoGear'));
+  if (s.weather === 'heat') hints.push(t('hint.shortHome'));
+  if (s.buildableToday && !s.doneToday) hints.push(t('hint.buildToday'));
+  hints.push(t('hint.abs15'));
+  if (s.trainingDayToday !== null) hints.push(t('hint.moveTomorrow'));
+  hints.push(t('hint.weekAhead'));
+  hints.push(t('hint.steps'));
   const prefix = tryPrefix(s.gender);
   return Array.from(new Set(hints)).slice(0, 4).map((h) => `${prefix}${h}`);
 }
