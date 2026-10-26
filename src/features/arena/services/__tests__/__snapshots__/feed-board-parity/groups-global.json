@@ -1,0 +1,21 @@
+{
+ "entries": [
+  {
+   "rank": 1,
+   "groupId": "g1",
+   "groupName": "הרצים",
+   "totalScore": 125,
+   "avgScore": 42,
+   "activeMemberCount": 3
+  },
+  {
+   "rank": 2,
+   "groupId": "g2",
+   "groupName": "שכונה",
+   "totalScore": 37,
+   "avgScore": 19,
+   "activeMemberCount": 2
+  }
+ ],
+ "generatedAt": "X"
+}

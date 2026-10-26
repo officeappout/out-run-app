@@ -1,0 +1,19 @@
+{
+ "entries": [
+  {
+   "rank": 1,
+   "scopeId": "tlv",
+   "scopeName": "תל אביב",
+   "totalScore": 136,
+   "activeMemberCount": 4
+  },
+  {
+   "rank": 2,
+   "scopeId": "jlm",
+   "scopeName": "jlm",
+   "totalScore": 23,
+   "activeMemberCount": 1
+  }
+ ],
+ "generatedAt": "X"
+}
