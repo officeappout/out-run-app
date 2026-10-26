@@ -54,6 +54,8 @@ describe('get_schedule when the planned-week layering throws', () => {
     expect(out.partial).toBe(true);
     expect(out.note).toMatch(/UNKNOWN, not empty/);
     expect(out.note).toMatch(/Never say nothing is planned/);
+    expect(typeof out.diagnostic).toBe('string');
+    expect(out.diagnostic.length).toBeLessThanOrEqual(160);
   });
 
   it('the sheet treats a partial week as unknown (weekUnavailable), never as the whole week', async () => {
