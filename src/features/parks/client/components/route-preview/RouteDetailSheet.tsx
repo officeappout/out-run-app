@@ -44,6 +44,15 @@ import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import dynamic from 'next/dynamic';
+import { usePlaceWorkoutsFlag } from '../place-workouts/hooks/usePlaceWorkoutsFlag';
+import ParkPulseSection from '../park-detail/sections/ParkPulseSection';
+import ArrivalPublishPanel from '../park-detail/sections/ArrivalPublishPanel';
+
+// enable_place_workouts_v1 — loaded only when the flag is on (flag off: nothing imported, nothing read).
+const RoutePlaceChips = dynamic(() => import('../place-workouts/RoutePlaceChips'), { ssr: false });
+const RoutePlaceWorkouts = dynamic(() => import('../place-workouts/RoutePlaceWorkouts'), { ssr: false });
+const RoutePlaceDetails = dynamic(() => import('../place-workouts/RoutePlaceDetails'), { ssr: false });
 
 /** The `map` namespace's t() — passed into the module-level formatters below. */
 type MapT = (key: NamespaceKey<typeof map>, values?: MessageValues) => string;
@@ -153,6 +162,10 @@ export default function RouteDetailSheet({
   const [showTimePicker, setShowTimePicker] = useState(false);
   // enable_map_polish_v1: the arrive button opens the wheel sheet instead of the slider.
   const arrivalWheel = useMapPolishV1();
+  // enable_place_workouts_v1: chips, "אימונים על המסלול הזה", "פירוט", and the park page's "מתאמנים כאן".
+  const placeOn = usePlaceWorkoutsFlag();
+  // ArrivalPublishPanel's date field (unused here: the route publishes through the wheel's explicit window).
+  const [placePickedDate, setPlacePickedDate] = useState('');
   // Arrival-window range in minutes-from-midnight. Default 17:00-19:00
   // mirrors the ParkDetailSheet default so the UX is consistent across
   // both publish surfaces.
@@ -602,7 +615,43 @@ export default function RouteDetailSheet({
                   {/* Secondary inline stats — calories + monthly popularity.
                       Smaller, no pill chrome, so the eye separates them
                       from the primary headline pills above. */}
-                  {(route.calories > 0 || (route.analytics?.usageCount ?? 0) > 0) && (
+                  {placeOn && <RoutePlaceChips route={route} />}
+                  {placeOn && <RoutePlaceWorkouts route={route} userLocation={userLocation ?? null} onClose={onClose} />}
+                  {placeOn && <RoutePlaceDetails route={route} />}
+                  {placeOn && (
+                    <ParkPulseSection
+                      v2
+                      parkEvents={allSessions}
+                      sessions={filteredSessions}
+                      loading={false}
+                      dayFilter={dayFilter}
+                      onDayFilterChange={setDayFilter}
+                      currentUid={currentUid}
+                      joiningEventId={joiningEventId}
+                      isUserRegistered={isUserRegistered}
+                      onJoin={handleJoinEvent}
+                      onOpenProfile={setProfileUser}
+                      publishPanel={
+                        <ArrivalPublishPanel
+                          v2
+                          hasSessions={filteredSessions.length > 0}
+                          dayFilter={dayFilter}
+                          showTimePicker={showTimePicker}
+                          onToggleTimePicker={() => setShowTimePicker((v) => !v)}
+                          pickedDate={placePickedDate}
+                          onPickDate={setPlacePickedDate}
+                          timeRangeMinutes={timeRangeMinutes}
+                          onTimeRangeChange={setTimeRangeMinutes}
+                          publishing={publishingSession}
+                          onPublish={handlePublishArrival}
+                          wheel
+                          onPublishAt={handlePublishArrivalAt}
+                        />
+                      }
+                    />
+                  )}
+
+                  {!placeOn && (route.calories > 0 || (route.analytics?.usageCount ?? 0) > 0) && (
                     <div className="flex items-center gap-3 flex-wrap text-[12px] font-bold text-gray-500 mb-4">
                       {route.calories > 0 && (
                         <span className="inline-flex items-center gap-1">
@@ -623,6 +672,7 @@ export default function RouteDetailSheet({
                   )}
 
                   {/* ── Compact Community Section ──────── */}
+                  {!placeOn && (
                   <section className="mb-6">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-[15px] font-bold flex items-center gap-1.5">
@@ -775,6 +825,7 @@ export default function RouteDetailSheet({
                       )}
                     </AnimatePresence>
                   </section>
+                  )}
 
                   {/* ── Vertical timeline accordion ─────────────────────
                       Two stacked rows that mirror the journey bar above:
@@ -785,7 +836,7 @@ export default function RouteDetailSheet({
                       open/close with a smooth height animation. The dashed
                       vertical connector on the right (RTL = visual right)
                       visually links the two rows like a subway map. */}
-                  {(() => {
+                  {!placeOn && (() => {
                     const path = route.path;
                     const isRouteCircular = path && path.length >= 2
                       ? haversineKm(path[0][1], path[0][0], path[path.length - 1][1], path[path.length - 1][0]) * 1000 < 100
@@ -1050,7 +1101,7 @@ export default function RouteDetailSheet({
                   )}
 
                   {/* enable_route_shade_tag: shade % · by hour · lit at night (nothing without the flag / data) */}
-                  <RouteShadeRow route={route} variant="legacy" />
+                  {!placeOn && <RouteShadeRow route={route} variant="legacy" />}
 
                   {/* Features + amenity tags — merged into one section.
                       surface/environment/lit come from route.features;

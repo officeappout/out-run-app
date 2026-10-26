@@ -590,3 +590,8 @@ src/features/home/utils/progress-slot.ts
 src/features/home/hooks/useWeekActivitySummary.ts
 src/components/ui/v2/PagedCarousel.tsx
 src/components/ui/v2/paged-carousel.ts
+# Workouts that fit a place (enable_place_workouts_v1, namespace map, keys placeWorkouts.*) — translation-ready from the
+# first commit; key parity: place-workouts/__tests__/place-workouts-ui.test.tsx. The engine (place-fit) returns keys, no text.
+src/features/parks/client/components/place-workouts/
+src/features/workout-engine/place-fit/
+src/components/ui/v2/WorkoutMiniCard.tsx
