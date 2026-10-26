@@ -8,7 +8,9 @@
  *
  * Copy: push library (push-copy.service). Delivery: sendPush, so push prefs (settings.pushEnabled,
  * notificationPrefs.{channel}), Shabbat, quiet hours, the daily cap and push policy v2 all apply there.
- * Idempotency: a marker doc in training_here_push_fired is create()d BEFORE each send.
+ * Idempotency: a marker doc in training_here_push_fired is create()d BEFORE each send. When sendPush
+ * drops the push for quiet hours / Shabbat, the marker is marked deferred and the scheduler tick
+ * re-tries it once the window ends, if still relevant (training-here-deferred.ts).
  * Cancel / edit safety: the reminder re-reads the session right before sending and checks its status
  * and start time; the marker id carries the start time, so an edited time gets its own reminder and
  * the old one can never fire (the doc no longer has that time).
@@ -17,14 +19,13 @@
  */
 import * as admin from 'firebase-admin';
 import { logger } from 'firebase-functions';
-import { sendPush } from '../services/push.service';
+import { sendPush, type SendPushResult } from '../services/push.service';
 import { resolvePushCopy, pushCopyData, loadPushRecipient, loadPushSubjectGender } from '../services/push-copy.service';
 import { PUSH_TYPE_IDS } from '../services/push-measure-all';
 import { isDemoUid } from '../lib/demo';
 import { israelHHMM } from '../shared/push-library.core';
 import {
   TRAINING_HERE_FLAG,
-  TRAINING_HERE_MARKERS,
   mutualPartners,
   ownerReminderDue,
   ownerReminderMarkerId,
@@ -37,6 +38,8 @@ import {
   workoutTitle,
   type PlannedSessionLike,
 } from './training-here-time';
+import { suppressedByWindow } from './training-here-defer';
+import { claimMarker, deferMarker, markerExists } from './training-here-markers';
 
 const COLLECTION = 'planned_sessions';
 
@@ -47,18 +50,6 @@ export async function trainingHereEnabled(db: admin.firestore.Firestore): Promis
     return snap.exists && (snap.data() as Record<string, unknown>)[TRAINING_HERE_FLAG] === true;
   } catch (err) {
     logger.error('[training-here] feature_flags read failed, treating as off', err);
-    return false;
-  }
-}
-
-async function claim(db: admin.firestore.Firestore, id: string): Promise<boolean> {
-  try {
-    await db.collection(TRAINING_HERE_MARKERS).doc(id).create({ at: admin.firestore.FieldValue.serverTimestamp() });
-    return true;
-  } catch (err) {
-    const code = (err as { code?: number | string })?.code;
-    if (code === 6 || code === 'already-exists') return false; // already sent
-    logger.error(`[training-here] claim ${id} failed, skipping`, err);
     return false;
   }
 }
@@ -75,6 +66,39 @@ function linkParams(s: PlannedSessionLike): Record<string, string | undefined> {
   };
 }
 
+/** Copy + sendPush for the owner reminder. null = no copy fits. Shared with the deferred retry. */
+export async function deliverOwnerReminder(sessionId: string, s: PlannedSessionLike): Promise<SendPushResult | null> {
+  const uid = String(s.userId);
+  const recipient = await loadPushRecipient(uid);
+  const kind = placeKind(s);
+  const copy = await resolvePushCopy('training_here_reminder', {
+    uid,
+    audience: recipient.audience,
+    vars: { '@שם': recipient.firstName, '@אימון': workoutTitle(s), '@שעה': hhmm(s), '@מקום': placeName(s) || undefined },
+    conditions: kind ? { place: kind } : undefined,
+    params: linkParams(s),
+  });
+  if (!copy) {
+    logger.info(`[training-here] no reminder copy fits uid=${uid} session=${sessionId}`);
+    return null;
+  }
+  const result = await sendPush({
+    toUids: [uid],
+    channel: 'training_reminder',
+    measurementTypeId: PUSH_TYPE_IDS.trainingHereReminder,
+    title: copy.title,
+    body: copy.body,
+    deepLink: copy.deepLink,
+    data: { triggerType: 'TrainingHereReminder', sessionId, ...pushCopyData(copy) },
+    // The marker is the once-per-session guard; the channel's 24h cap would drop a second plan the same day.
+    rateCapHours: 0,
+    policyKind: 'requested', // the user asked for it by planning
+    skipQuietHours: false,
+  });
+  logger.info(`[training-here] reminder uid=${uid} session=${sessionId} result=${JSON.stringify(result)}`);
+  return result;
+}
+
 /** Sends the owner reminder for one session if it is (still) due. Returns true when handed to sendPush. */
 export async function sendOwnerReminder(
   db: admin.firestore.Firestore,
@@ -89,36 +113,14 @@ export async function sendOwnerReminder(
   const uid = String(s.userId);
   if (isDemoUid(uid)) return false;
   const startMs = toMs(s.startTime) as number;
-  if (!(await claim(db, ownerReminderMarkerId(sessionId, startMs)))) return false;
+  const markerId = ownerReminderMarkerId(sessionId, startMs);
+  if (!(await claimMarker(db, markerId, { kind: 'reminder', sessionId, uid, startMs }))) return false;
 
   try {
-    const recipient = await loadPushRecipient(uid);
-    const kind = placeKind(s);
-    const copy = await resolvePushCopy('training_here_reminder', {
-      uid,
-      audience: recipient.audience,
-      vars: { '@שם': recipient.firstName, '@אימון': workoutTitle(s), '@שעה': hhmm(s), '@מקום': placeName(s) || undefined },
-      conditions: kind ? { place: kind } : undefined,
-      params: linkParams(s),
-    });
-    if (!copy) {
-      logger.info(`[training-here] no reminder copy fits uid=${uid} session=${sessionId}`);
-      return false;
-    }
-    const result = await sendPush({
-      toUids: [uid],
-      channel: 'training_reminder',
-      measurementTypeId: PUSH_TYPE_IDS.trainingHereReminder,
-      title: copy.title,
-      body: copy.body,
-      deepLink: copy.deepLink,
-      data: { triggerType: 'TrainingHereReminder', sessionId, ...pushCopyData(copy) },
-      // The marker is the once-per-session guard; the channel's 24h cap would drop a second plan the same day.
-      rateCapHours: 0,
-      policyKind: 'requested', // the user asked for it by planning
-      skipQuietHours: false,
-    });
-    logger.info(`[training-here] reminder uid=${uid} session=${sessionId} result=${JSON.stringify(result)}`);
+    const result = await deliverOwnerReminder(sessionId, s);
+    if (!result) return false;
+    const held = suppressedByWindow(result);
+    if (held) await deferMarker(db, markerId, 'reminder', held, nowMs);
     return true;
   } catch (err) {
     logger.error(`[training-here] reminder send failed uid=${uid} session=${sessionId}`, err);
@@ -138,7 +140,10 @@ export async function runTrainingHereReminderPass(db: admin.firestore.Firestore,
     .get();
   let sent = 0;
   for (const doc of snap.docs) {
-    if (!ownerReminderDue(doc.data() as PlannedSessionLike, nowMs)) continue;
+    const s = doc.data() as PlannedSessionLike;
+    if (!ownerReminderDue(s, nowMs)) continue;
+    // A doc stays in the window for two ticks: skip the session re-read when the marker is already there.
+    if (await markerExists(db, ownerReminderMarkerId(doc.id, toMs(s.startTime) as number))) continue;
     if (await sendOwnerReminder(db, doc.id, nowMs)) sent += 1;
   }
   logger.info(`[training-here] reminder scanned=${snap.size} sent=${sent}`);
@@ -167,6 +172,42 @@ export async function partnerNoticeRecipients(
   }
 }
 
+/** Copy + sendPush for one partner notice. null = no copy fits. Shared with the deferred retry. */
+export async function deliverPartnerNotice(
+  sessionId: string,
+  s: PlannedSessionLike,
+  uid: string,
+  ownerGender: Awaited<ReturnType<typeof loadPushSubjectGender>>,
+): Promise<SendPushResult | null> {
+  const ownerFirst = (typeof s.displayName === 'string' ? s.displayName : '').trim().split(/\s+/)[0] ?? '';
+  const recipient = await loadPushRecipient(uid);
+  const copy = await resolvePushCopy('training_here_partner', {
+    uid,
+    audience: recipient.audience,
+    vars: { '@שם': recipient.firstName, '@שולח': ownerFirst, '@מקום': placeName(s) || undefined, '@שעה': hhmm(s) },
+    params: linkParams(s),
+    subjectGender: ownerGender,
+  });
+  if (!copy) {
+    logger.info(`[training-here] no partner copy fits uid=${uid} session=${sessionId}`);
+    return null;
+  }
+  const result = await sendPush({
+    toUids: [uid],
+    channel: 'community', // notificationPrefs.community is the opt-in
+    measurementTypeId: PUSH_TYPE_IDS.trainingHerePartner,
+    title: copy.title,
+    body: copy.body,
+    deepLink: copy.deepLink,
+    data: { triggerType: 'TrainingHerePartner', sessionId, ...pushCopyData(copy) },
+    rateCapHours: 0, // the marker already limits it to one per partner per session
+    policyKind: 'proactive', // the partner did not ask: daily cap + quiet hours apply
+    skipQuietHours: false,
+  });
+  logger.info(`[training-here] partner uid=${uid} session=${sessionId} result=${JSON.stringify(result)}`);
+  return result;
+}
+
 /** Partner notices for a freshly created session. Returns how many were handed to sendPush. */
 export async function sendPartnerNotices(
   db: admin.firestore.Firestore,
@@ -177,38 +218,18 @@ export async function sendPartnerNotices(
   const partners = await partnerNoticeRecipients(db, s, nowMs);
   if (partners.length === 0) return 0;
   const owner = String(s.userId);
-  const ownerFirst = (typeof s.displayName === 'string' ? s.displayName : '').trim().split(/\s+/)[0] ?? '';
   const ownerGender = await loadPushSubjectGender(owner);
+  const startMs = toMs(s.startTime) as number; // partnerNoticeRecipients checked it
   let sent = 0;
   for (const uid of partners) {
-    if (!(await claim(db, partnerNoticeMarkerId(sessionId, uid)))) continue;
+    const markerId = partnerNoticeMarkerId(sessionId, uid);
+    if (!(await claimMarker(db, markerId, { kind: 'partner', sessionId, uid, startMs }))) continue;
     try {
-      const recipient = await loadPushRecipient(uid);
-      const copy = await resolvePushCopy('training_here_partner', {
-        uid,
-        audience: recipient.audience,
-        vars: { '@שם': recipient.firstName, '@שולח': ownerFirst, '@מקום': placeName(s) || undefined, '@שעה': hhmm(s) },
-        params: linkParams(s),
-        subjectGender: ownerGender,
-      });
-      if (!copy) {
-        logger.info(`[training-here] no partner copy fits uid=${uid} session=${sessionId}`);
-        continue;
-      }
-      const result = await sendPush({
-        toUids: [uid],
-        channel: 'community', // notificationPrefs.community is the opt-in
-        measurementTypeId: PUSH_TYPE_IDS.trainingHerePartner,
-        title: copy.title,
-        body: copy.body,
-        deepLink: copy.deepLink,
-        data: { triggerType: 'TrainingHerePartner', sessionId, ...pushCopyData(copy) },
-        rateCapHours: 0, // the marker already limits it to one per partner per session
-        policyKind: 'proactive', // the partner did not ask: daily cap + quiet hours apply
-        skipQuietHours: false,
-      });
+      const result = await deliverPartnerNotice(sessionId, s, uid, ownerGender);
+      if (!result) continue;
       sent += 1;
-      logger.info(`[training-here] partner uid=${uid} session=${sessionId} result=${JSON.stringify(result)}`);
+      const held = suppressedByWindow(result);
+      if (held) await deferMarker(db, markerId, 'partner', held, nowMs);
     } catch (err) {
       logger.error(`[training-here] partner send failed uid=${uid} session=${sessionId}`, err);
     }
