@@ -618,3 +618,6 @@ src/features/social/services/training-shares.service.ts
 src/features/profile/components/partners/
 src/features/profile/hooks/useMutualPartners.ts
 src/app/api/training-here/
+src/features/parks/client/components/park-detail/hooks/usePartnerParkShares.ts
+src/features/parks/client/components/park-detail/hooks/useCancelOwnArrival.ts
+src/features/parks/client/components/park-detail/utils/partner-park-shares.ts

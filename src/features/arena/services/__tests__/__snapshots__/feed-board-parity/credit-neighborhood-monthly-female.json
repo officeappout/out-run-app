@@ -1,0 +1,23 @@
+{
+ "entries": [
+  {
+   "rank": 1,
+   "uid": "u1",
+   "name": "דנה",
+   "totalCredit": 35,
+   "workoutCount": 2,
+   "isCurrentUser": false
+  }
+ ],
+ "myEntry": {
+  "rank": 2,
+  "uid": "me",
+  "name": "אני",
+  "totalCredit": 0,
+  "workoutCount": 0,
+  "isCurrentUser": true
+ },
+ "totalParticipants": 1,
+ "window": "monthly",
+ "generatedAt": "X"
+}

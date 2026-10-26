@@ -373,6 +373,8 @@
   "parkDetail.session.published": "פרסמת",
   "parkDetail.session.joined": "נרשמת",
   "parkDetail.session.join": "הצטרף",
+  "parkDetail.session.withWorkout": "{name} · {workout}",
+  "parkDetail.session.cancel": "ביטול",
   "parkDetail.arrival.empty": "אף אחד עוד לא פרסם שהוא מגיע...",
   "parkDetail.arrival.prompt": "גם אתה מתכנן להגיע?",
   "parkDetail.arrival.cta": "אני מגיע…",

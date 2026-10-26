@@ -53,6 +53,13 @@ describe('/api/training-here/partners', () => {
   it('only mutual follows are scanned — a one-way follow (dan) never appears', async () => {
     expect((await shares('me')).some((s: any) => s.userId === 'dan')).toBe(false);
   });
+  it('?parkId= keeps only that park (the park page list)', async () => {
+    st.db.collection('planned_sessions'); // same seed
+    const res = await GET(new NextRequest('http://localhost/api/training-here/partners?parkId=yarkon', { headers: { authorization: 'Bearer me' } }));
+    expect((await res.json()).shares.map((s: any) => s.id)).toEqual(['p1', 'pub']);
+    const none = await GET(new NextRequest('http://localhost/api/training-here/partners?parkId=other', { headers: { authorization: 'Bearer me' } }));
+    expect((await none.json()).shares).toEqual([]);
+  });
   it('401 without a token', async () => {
     const res = await GET(new NextRequest('http://localhost/api/training-here/partners'));
     expect(res.status).toBe(401);

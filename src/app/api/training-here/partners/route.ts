@@ -7,6 +7,8 @@
  * AUTHOR's connections doc): public → yes, partners → only a mutual follow, private / squad / ghost
  * without an audience → no. 'partners' shares are written with privacyMode 'ghost', so no client
  * listener can read them; this route is the only reader besides the author.
+ * Optional `?parkId=` / `?routeId=`: only shares for that place (the park page's "מתאמנים כאן");
+ * filtered after the read, so no new index is needed.
  * Auth: Firebase ID token in Authorization: Bearer <token>.
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -35,6 +37,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
 
+  const place = req.nextUrl.searchParams;
+  const parkId = place.get('parkId');
+  const routeId = place.get('routeId');
   const db = getAdminDb();
   const mine = (await db.collection('connections').doc(viewer).get()).data() as AuthorConnections | undefined;
   const partners = mutualPartnerUids(mine, viewer).slice(0, MAX_PARTNERS);
@@ -67,6 +72,7 @@ export async function GET(req: NextRequest) {
     genders.set(s.id, (s.data() as { core?: { gender?: unknown } } | undefined)?.core?.gender));
 
   const shares = docs
+    .filter((d) => (!parkId || d.data.parkId === parkId) && (!routeId || d.data.routeId === routeId))
     .filter((d) => canSeeTrainingShare({ ...d.data, userId: String(d.data.userId) }, viewer, conns.get(String(d.data.userId))))
     .map((d) => trainingShareJson(d.id, d.data, genders.get(String(d.data.userId))))
     .filter((s): s is TrainingShareJson => s !== null)

@@ -42,6 +42,16 @@ vi.mock('firebase/firestore', () => {
   };
 });
 
+// Rules-prep (26.10): getLeaderboard runs on the server engine; drive it through this file's fakes.
+vi.mock('../feed-board.client', async () => {
+  const core = await import('../feed-board.core');
+  const { clientSdkReader } = await import('./helpers/client-sdk-feed-reader');
+  return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fetchFeedBoard: async (req: any) => core.runFeedBoard(req, clientSdkReader(), req.currentUid ?? ''),
+  };
+});
+
 import { getWindowStart, getLeaderboard } from '../ranking.service';
 
 beforeEach(() => {
@@ -92,8 +102,11 @@ describe('getLeaderboard — daily time window actually reaches the query', () =
 
     const createdAtClause = state.whereClauses.find((w) => w.field === 'createdAt');
     expect(createdAtClause).toBeDefined();
-    expect((createdAtClause!.value as { ms: number }).ms).toBe(getWindowStart('daily').getTime());
-    expect((createdAtClause!.value as { ms: number }).ms).not.toBe(getWindowStart('weekly').getTime());
-    expect((createdAtClause!.value as { ms: number }).ms).not.toBe(getWindowStart('monthly').getTime());
+    // The window start now travels as the client's ISO `since` and reaches the query as a Date.
+    const v = createdAtClause!.value as Date | { ms: number };
+    const ms = v instanceof Date ? v.getTime() : v.ms;
+    expect(ms).toBe(getWindowStart('daily').getTime());
+    expect(ms).not.toBe(getWindowStart('weekly').getTime());
+    expect(ms).not.toBe(getWindowStart('monthly').getTime());
   });
 });

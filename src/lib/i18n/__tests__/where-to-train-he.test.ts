@@ -89,3 +89,10 @@ describe('training partners (mutual follow) — community trainingShares.*, prof
     expect(tp('profile.partners.empty')).toBe('עוד אין שותפי אימון. שותף = עוקבים אחד אחרי השני.');
   });
 });
+
+describe('park list own row (phone 7) — map parkDetail.session.*', () => {
+  it('workout line + cancel', () => {
+    expect(tm('parkDetail.session.withWorkout', { name: 'דנה', workout: 'אימון עליון' })).toBe('דנה · אימון עליון');
+    expect(tm('parkDetail.session.cancel')).toBe('ביטול');
+  });
+});

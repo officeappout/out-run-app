@@ -80,10 +80,16 @@ export function filterVisibleParkEvents(
     if (!matchesDayFilter(ev.nextStartTime, dayFilter)) return false;
     if (ev.isPersonalArrival) {
       const isOwn = ev.avatars?.[0]?.uid === currentUid;
-      return ev.privacyMode === 'verified_global' || isOwn;
+      // partnerShare: a mutual partner's share the server already vetted (enable_where_to_train_v1).
+      return ev.privacyMode === 'verified_global' || isOwn || ev.partnerShare === true;
     }
     return true;
   });
+}
+
+/** planned_sessions doc id of a personal arrival row (`arrival_<id>`); null for other rows. */
+export function arrivalSessionId(ev: Pick<SessionEnrichment, 'eventId' | 'isPersonalArrival'>): string | null {
+  return ev.isPersonalArrival && ev.eventId.startsWith('arrival_') ? ev.eventId.slice('arrival_'.length) : null;
 }
 
 /**
