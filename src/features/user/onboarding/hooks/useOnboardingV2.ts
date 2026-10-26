@@ -13,7 +13,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
  * would otherwise paint the legacy look and swap to v2 a moment later
  * (the questionnaire flicker) hold their content until it's true.
  */
-export function useOnboardingV2State(): { v2: boolean; ready: boolean; quizHintV2: boolean } {
+export function useOnboardingV2State(): { v2: boolean; ready: boolean; quizHintV2: boolean; quizV3: boolean } {
   const isSuperAdmin = useUserStore(
     (st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin,
   );
@@ -23,6 +23,8 @@ export function useOnboardingV2State(): { v2: boolean; ready: boolean; quizHintV
     ready: !loading,
     // enable_strength_quiz_hint_v2 — the strength quiz's self-demoing strip (VisualSlider, v2 only).
     quizHintV2: flags.enableStrengthQuizHintV2,
+    // enable_strength_quiz_v3: the strength questionnaire v3 (strength-quiz-v3/), fail-closed.
+    quizV3: !!flags.enableStrengthQuizV3,
   };
 }
 
