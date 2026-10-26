@@ -1,5 +1,6 @@
 /** A dailyProgress doc → the fields flameLevelForDay reads (enable_flame_tiers_v1). PURE. */
 import type { SavedDayGoals } from './flame-day-input';
+import { isLegacyStrengthDone } from './today-done-gate';
 
 export type { SavedDayGoals };
 
@@ -10,5 +11,6 @@ export function savedDayGoalsOf(data: Record<string, unknown> | null | undefined
   if (typeof data.aerobicWorkoutMinutes === 'number') out.aerobicWorkoutMinutes = data.aerobicWorkoutMinutes;
   if (data.workoutCompleted === true) out.workoutCompleted = true;
   if (data.stepGoalMet === true) out.stepGoalMet = true;
+  if (isLegacyStrengthDone(data as Parameters<typeof isLegacyStrengthDone>[0])) out.legacyStrengthDone = true;
   return out;
 }

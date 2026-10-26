@@ -75,6 +75,7 @@ import ProgramStartSlide from '@/features/home/components/start-cards/ProgramSta
 import { programSignupNavigate } from '@/features/home/components/start-cards/program-signup-gate';
 import { applyStrengthTopUp, resolveStrengthTopUp, topUpTitleHe, TOP_UP_GENERATOR_ID } from '@/features/home/utils/strength-top-up';
 import { strengthDoneThreshold } from '@/features/home/utils/strength-day-gate';
+import { todayWorkoutDoneUnderGate } from '@/features/activity/lib/today-done-gate';
 import { useWeeklyRunCount } from '@/features/activity';
 import { resolveNewUserHome } from '@/features/home/utils/new-user-home';
 import { dayTimingOf, type PlanKind } from '@/features/home/utils/day-plan';
@@ -618,7 +619,8 @@ export default function HomePage() {
   // calendar day, so the workout generator stays hidden until midnight once
   // the user has logged a session.
   const todayProgress = useDailyProgress();
-  const todayWorkoutDone = !!todayProgress?.workoutCompleted;
+  // Raw saved flag: today has a logged workout (used to open today's completed workout).
+  const todaySavedDone = !!todayProgress?.workoutCompleted;
 
   // F2.2 (19.08.2026, "unified workout summary" plan): resolves a tapped
   // schedule day to its real completed workout doc (if any) and navigates
@@ -637,7 +639,7 @@ export default function HomePage() {
   // session-picker" principle already used for the home entry point.
   //
   // Cost-aware: future dates are skipped outright (can never have a real
-  // workout). For TODAY specifically, also skipped unless todayWorkoutDone
+  // workout). For TODAY specifically, also skipped unless todaySavedDone
   // is already true (declared just above — an existing, zero-cost signal)
   // — the common "tap today's not-yet-done workout" path stays exactly as
   // fast as before this diff, no added network round-trip. Past dates
@@ -657,7 +659,7 @@ export default function HomePage() {
   const tryOpenCompletedWorkout = useCallback(async (dateISO: string): Promise<boolean> => {
     const todayISO = toISODate(new Date());
     if (dateISO > todayISO) return false;
-    if (dateISO === todayISO && !todayWorkoutDone) return false;
+    if (dateISO === todayISO && !todaySavedDone) return false;
     if (!profile?.id) return false;
     if (isResolvingCompletedTapRef.current) return false;
     isResolvingCompletedTapRef.current = true;
@@ -681,7 +683,7 @@ export default function HomePage() {
     } finally {
       isResolvingCompletedTapRef.current = false;
     }
-  }, [profile?.id, router, todayWorkoutDone]);
+  }, [profile?.id, router, todaySavedDone]);
 
   // Open WorkoutPreviewDrawer from a MonthlyCalendarGrid cell tap (via TrainingPlannerOverlay)
   const handleCalendarEntryTap = useCallback(async (entry: UserScheduleEntry) => {
@@ -796,6 +798,17 @@ export default function HomePage() {
   // Firestore read fires while STRENGTH_RING_ENABLED is off (byte-identical).
   const todayStrengthVolume = useTodayStrengthVolume();
   const dailyStrengthTarget = useDailyStrengthTarget(STRENGTH_RING_ENABLED);
+  const [todaysWorkouts, setTodaysWorkouts] = useState<WorkoutHistoryEntry[] | null>(null);
+  // Persistent "done for today". enable_flame_tiers_v1: a legacy (pre-flag) strength
+  // workoutCompleted on TODAY's doc is re-checked against the new gate from today's logged sets
+  // (today-done-gate.ts). Flag off → exactly the saved workoutCompleted, as before.
+  const todayWorkoutDone = todayWorkoutDoneUnderGate({
+    flameTiers: !!featureFlags.enableFlameTiersV1,
+    saved: todayProgress,
+    loggedSets: todayStrengthVolume.setsCompleted,
+    targetSets: dailyStrengthTarget.targetSets,
+    nonStrengthDoneToday: doneKindsOf(todaysWorkouts).some((k) => k !== 'strength'),
+  });
   const postWorkoutMsg = useSmartMessage('post_workout');
   const { celebrate } = useGoalCelebration();
   // 07.09.2026: previously mounted only in community/page.tsx — a user who
@@ -942,7 +955,7 @@ export default function HomePage() {
   // empty, same as an unresolved rest day) until it resolves, or forever
   // on a genuine query failure — logged, not thrown, so one failed refetch
   // doesn't crash the home screen.
-  const [todaysWorkouts, setTodaysWorkouts] = useState<WorkoutHistoryEntry[] | null>(null);
+  // (todaysWorkouts state is declared above, next to todayWorkoutDone, which reads it.)
   useEffect(() => {
     if (!profile?.id) return;
     let cancelled = false;
