@@ -25,10 +25,12 @@ import { formatTime } from '@/lib/i18n/core/fmt';
 import { shortDistanceLabel } from '../park-preview/park-card-meta';
 import { ChoicePills, InfoRow, SECTION_LABEL, ShareSwitch } from './TrainingHereParts';
 import { useTrainingHerePublish } from './useTrainingHerePublish';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
   laterTimeOptions,
   nextOccurrence,
   prefillWhen,
+  reminderTimeFor,
   resolveStartTime,
   type TrainingHereActivity,
   type TrainingHerePlace,
@@ -66,6 +68,8 @@ export default function TrainingHereSheet({
   const tc = useT(common);
   const locale = useLocaleStore((s) => s.locale);
   const { publish, saving, failed, resetFailed } = useTrainingHerePublish();
+  // Server reminders (#827, functions/sessionReminderScheduler) — only promise one when the server sends it.
+  const remindersOn = useFeatureFlags().flags.enableTrainingHereReminders;
 
   const [current, setCurrent] = useState<TrainingHerePlace>(place);
   const [changing, setChanging] = useState(false);
@@ -109,8 +113,11 @@ export default function TrainingHereSheet({
   const ctaLabel = saving
     ? t('trainingHere.cta.saving')
     : when === 'later'
-      // No one-off reminder exists yet (reminder.port.ts) — the CTA never promises one.
-      ? (share && pickedLater ? t('trainingHere.cta.save') : t('trainingHere.cta.done'))
+      ? (share && pickedLater
+        ? (remindersOn
+          ? t('trainingHere.cta.saveRemind', { time: fmt(reminderTimeFor(pickedLater, openedAt)) })
+          : t('trainingHere.cta.save'))
+        : t('trainingHere.cta.done'))
       : onStartNow
         ? t('trainingHere.cta.startNow')
         : share ? t('trainingHere.cta.shareNow') : t('trainingHere.cta.done');
