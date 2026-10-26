@@ -14,11 +14,12 @@ vi.mock('framer-motion', () => {
   const motion = new Proxy({}, {
     get: (_t, tag: string) => {
       if (!cache.has(tag)) {
-        cache.set(tag, forwardRef<unknown, Record<string, unknown>>((props, ref) => {
+        const Motion = forwardRef<unknown, Record<string, unknown>>(function MotionStub(props, ref) {
           const rest: Record<string, unknown> = {};
           for (const [k, v] of Object.entries(props)) if (!MOTION_PROPS.has(k)) rest[k] = v;
           return createElement(tag, { ...rest, ref });
-        }));
+        });
+        cache.set(tag, Motion);
       }
       return cache.get(tag);
     },

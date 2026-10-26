@@ -324,7 +324,8 @@ export default function VisualAssessmentPage() {
         if (v3.sliderProps) {
           const r = v3.back();
           if (r === 'toPrevSlider') setCategoryIndex((prev) => prev - 1);
-          else if (r === 'exit') setStep('why');
+          // The first transition goes back to the questionnaire's intro (part A), not the legacy why step.
+          else if (r === 'exit') router.back();
           return true;
         }
         if (categoryIndex > 0) {
@@ -344,7 +345,7 @@ export default function VisualAssessmentPage() {
         // 'loading' | 'why' | 'evaluating' | 'resultLoading' | 'result' | 'saving'
         return false;
     }
-  }, [step, categoryIndex, followUpIndex, pathConfig, v3]);
+  }, [step, categoryIndex, followUpIndex, pathConfig, v3, router]);
 
   // Map the Android hardware/gesture back button to the same state rollback.
   useAndroidBack(handleStepBack);
@@ -420,6 +421,12 @@ export default function VisualAssessmentPage() {
     }
     setStep('why');
   }, [authReady, isHydrated, demographics, pathConfig, router, flagsReady, v2, runAfterIdentity]);
+
+  // enable_strength_quiz_v3: the intro screens (part A) replace the why step, so the assessment
+  // opens straight on the first group's transition. Flag off: never fires.
+  useEffect(() => {
+    if (quizV3 && step === 'why') setStep('sliders');
+  }, [quizV3, step]);
 
   // ── Diagnostic: log categories fed to sliders ───────────────
   useEffect(() => {

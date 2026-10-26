@@ -92,8 +92,8 @@ export default function SliderV3View(props: SliderV3ViewProps) {
   };
 
   const levelLine = repsLabel
-    ? t('quiz.v3.slider.levelWithMax', { level, max: repsLabel })
-    : t('quiz.v3.slider.levelLine', { level });
+    ? t('quizV3.slider.levelWithMax', { level, max: repsLabel })
+    : t('quizV3.slider.levelLine', { level });
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-v2-surface" data-quiz-v3-slider={category}>
@@ -104,10 +104,10 @@ export default function SliderV3View(props: SliderV3ViewProps) {
           : <QuizProgressRow items={[]} single={{ icon: skillIcon(category), label: skillName }} />}
         <div className="flex flex-col gap-1">
           <h1 className="text-[24px] font-black leading-[30px] tracking-v2-tight text-v2-ink">
-            {isGroup ? t('quiz.v3.slider.title', { gender }) : t('quiz.v3.skill.title', { gender, skill: skillName })}
+            {isGroup ? t('quizV3.slider.title', { gender }) : t('quizV3.skill.title', { gender, skill: skillName })}
           </h1>
           <p className="text-[14px] leading-[21px] text-v2-ink-2">
-            {isGroup ? t('quiz.v3.slider.subtitle', { group: category }) : t('quiz.v3.skill.subtitle', { gender })}
+            {isGroup ? t('quizV3.slider.subtitle', { group: category }) : t('quizV3.skill.subtitle', { gender })}
           </p>
         </div>
       </div>
@@ -122,8 +122,8 @@ export default function SliderV3View(props: SliderV3ViewProps) {
         <SliderSideCard
           kind="easier"
           hidden={!cards.easier}
-          label={cards.easier === 'notYet' ? t('quiz.v3.skill.notYet', { gender }) : t('quiz.slider.easier')}
-          ariaLabel={t('quiz.v3.slider.cardAria', { kind: 'easier' })}
+          label={cards.easier === 'notYet' ? t('quizV3.skill.notYet', { gender }) : t('quiz.slider.easier')}
+          ariaLabel={t('quizV3.slider.cardAria', { kind: 'easier' })}
           onPress={() => pressSide(-1)}
         />
 
@@ -138,10 +138,10 @@ export default function SliderV3View(props: SliderV3ViewProps) {
                 <img src={skillIcon(category)} alt="" className="w-16" />
               </span>
               <span className="text-[18px] font-black leading-6 text-v2-ink">
-                {t('quiz.v3.skill.notYet', { gender })}
+                {t('quizV3.skill.notYet', { gender })}
                 {firstExercise && <><br />{firstExercise}</>}
               </span>
-              <span className="text-[13px] leading-[19px] text-v2-ink-2">{t('quiz.v3.skill.notYetBody')}</span>
+              <span className="text-[13px] leading-[19px] text-v2-ink-2">{t('quizV3.skill.notYetBody')}</span>
             </div>
           ) : (
             <>
@@ -163,17 +163,17 @@ export default function SliderV3View(props: SliderV3ViewProps) {
           kind="harder"
           hidden={!cards.harder}
           label={cards.center === 'notYet' ? firstExercise : t('quiz.slider.harder')}
-          ariaLabel={t('quiz.v3.slider.cardAria', { kind: 'harder' })}
+          ariaLabel={t('quizV3.slider.cardAria', { kind: 'harder' })}
           onPress={() => pressSide(1)}
         />
 
         {hintVisible && (
           <div
-            className="pointer-events-none absolute bottom-[12%] left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-[rgba(14,20,25,0.86)] px-3.5 py-2.5 text-white"
+            className="pointer-events-none absolute inset-x-0 bottom-[12%] mx-auto flex w-fit items-center gap-2 whitespace-nowrap rounded-full bg-[rgba(14,20,25,0.86)] px-3.5 py-2.5 text-white"
             data-swipe-hint
           >
             <Pointer size={22} strokeWidth={2} aria-hidden />
-            <span className="text-[14px] font-extrabold">{t('quiz.v3.slider.swipeHint', { gender })}</span>
+            <span className="text-[14px] font-extrabold">{t('quizV3.slider.swipeHint', { gender })}</span>
           </div>
         )}
       </div>
@@ -186,13 +186,13 @@ export default function SliderV3View(props: SliderV3ViewProps) {
 
       {isGroup && (
         <p className="mx-5 flex-shrink-0 rounded-2xl bg-v2-tint px-3.5 py-2.5 text-[13px] leading-5 text-v2-ink">
-          {t('quiz.v3.slider.notSure', { gender })}
+          {t('quizV3.slider.notSure', { gender })}
         </p>
       )}
 
       <div className="flex flex-shrink-0 flex-col gap-1 px-5 pb-3 pt-3">
         <Button variant="cta" size="lg" block onClick={notYet && onNotYet ? onNotYet : onConfirm}>
-          {hasNotYet ? t('quiz.v3.skill.cta') : t('quiz.slider.cta.myLevel')}
+          {hasNotYet ? t('quizV3.skill.cta') : t('quiz.slider.cta.myLevel')}
         </Button>
         <button
           type="button"
@@ -203,7 +203,7 @@ export default function SliderV3View(props: SliderV3ViewProps) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <circle cx="12" cy="12" r="10" /><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" /><path d="M12 17h.01" />
           </svg>
-          {t('quiz.v3.slider.help', { gender })}
+          {t('quizV3.slider.help', { gender })}
         </button>
       </div>
 
@@ -216,7 +216,7 @@ export default function SliderV3View(props: SliderV3ViewProps) {
             <p className="text-[13px] font-normal text-v2-muted">{t('quiz.slider.tutorial.notSure', { gender })}</p>
           </div>
           <Button variant="dark" size="md" block className="mt-4" onClick={() => setHelpOpen(false)}>
-            {t('quiz.v3.slider.helpClose')}
+            {t('quizV3.slider.helpClose')}
           </Button>
         </div>
       )}

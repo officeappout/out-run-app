@@ -32,7 +32,7 @@ export default function QuizProgressRow({ items, size = 'lg', single }: QuizProg
 
   if (single) {
     return (
-      <div className="flex justify-center" role="img" aria-label={t('quiz.v3.progress.item', { name: single.label, state: 'current' })}>
+      <div className="flex justify-center" role="img" aria-label={t('quizV3.progress.item', { name: single.label, state: 'current' })}>
         <span className={clsx('grid place-items-center rounded-full bg-white shadow-[0_0_0_2.5px_#00baf7]', circle)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={single.icon} alt="" className="w-[26px]" />
@@ -42,15 +42,15 @@ export default function QuizProgressRow({ items, size = 'lg', single }: QuizProg
   }
 
   return (
-    <ol className="flex justify-center gap-3.5" aria-label={t('quiz.v3.progress.aria')} data-quiz-v3-progress>
+    <ol className="flex justify-center gap-3.5" aria-label={t('quizV3.progress.aria')} data-quiz-v3-progress>
       {items.map((item) => {
-        const name = t('quiz.v3.group.name', { group: item.group });
+        const name = t('quizV3.group.name', { group: item.group });
         return (
           <li
             key={item.group}
             className="flex flex-col items-center gap-1"
             data-state={item.state}
-            aria-label={t('quiz.v3.progress.item', { name, state: item.state })}
+            aria-label={t('quizV3.progress.item', { name, state: item.state })}
             aria-current={item.state === 'current' ? 'step' : undefined}
           >
             <span
