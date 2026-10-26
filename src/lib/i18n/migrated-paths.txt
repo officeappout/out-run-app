@@ -621,3 +621,13 @@ src/app/api/training-here/
 src/features/parks/client/components/park-detail/hooks/usePartnerParkShares.ts
 src/features/parks/client/components/park-detail/hooks/useCancelOwnArrival.ts
 src/features/parks/client/components/park-detail/utils/partner-park-shares.ts
+# Done-today gate + flame tiers (enable_flame_tiers_v1, namespace common, keys flame.*) — translation-ready
+# from the first commit (aria labels from the catalog; the files carry no Hebrew).
+src/components/ui/v2/FlameStartedMark.tsx
+src/features/home/components/FlameTierWrap.tsx
+src/features/activity/lib/flame-level.ts
+src/features/activity/lib/flame-day-input.ts
+src/features/activity/lib/flame-tiers-flag.ts
+src/features/activity/hooks/useFlameDays.ts
+src/features/activity/hooks/useFlameTiersFlag.ts
+src/features/home/utils/strength-day-gate.ts

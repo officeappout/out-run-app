@@ -72,6 +72,16 @@ export interface WeekDot {
   isToday: boolean;
   /** True when this day and the next one (in week order) are both training days. */
   chainToNext: boolean;
+  /** enable_flame_tiers_v1: the day's flame level (flameLevelForDay); absent while off. */
+  level?: 0 | 1 | 2 | 3;
+  /** enable_flame_tiers_v1: a workout below the bar — the neutral "started" mark. */
+  started?: boolean;
+}
+
+/** The parts of flameLevelForDay's result a week dot needs. */
+export interface WeekDotFlame {
+  level: 0 | 1 | 2 | 3;
+  started: boolean;
 }
 
 /** Minimal shape of the activity store's weekActivities entries. */
@@ -106,7 +116,18 @@ export function isTrainingDay(day: WeekActivityLike | undefined): boolean {
 export function buildWeekDots(
   activities: Record<string, WeekActivityLike | undefined>,
   today: Date,
-  { todayDone = false }: { todayDone?: boolean } = {},
+  {
+    todayDone = false,
+    flameOf,
+  }: {
+    todayDone?: boolean;
+    /**
+     * enable_flame_tiers_v1: each past/today day's level from flameLevelForDay. When given,
+     * a dot is 'done' iff level ≥ 1 — today is never forced done and the `sessions > 0`
+     * shortcut of isTrainingDay is not used.
+     */
+    flameOf?: (isoDate: string) => WeekDotFlame;
+  } = {},
 ): WeekDot[] {
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
   const todayKey = localDateKey(today);
@@ -116,6 +137,20 @@ export function buildWeekDots(
     const key = localDateKey(d);
     const isToday = key === todayKey;
     const future = i > today.getDay();
+    if (flameOf) {
+      const f = future ? null : flameOf(key);
+      const lit = !!f && f.level >= 1;
+      dots.push({
+        date: key,
+        label: DAY_LABELS[i],
+        state: future ? 'future' : lit ? 'done' : 'rest',
+        isToday,
+        chainToNext: false,
+        level: f?.level ?? 0,
+        started: !!f?.started,
+      });
+      continue;
+    }
     const done = !future && (isTrainingDay(activities[key]) || (isToday && todayDone));
     dots.push({ date: key, label: DAY_LABELS[i], state: future ? 'future' : done ? 'done' : 'rest', isToday, chainToNext: false });
   }

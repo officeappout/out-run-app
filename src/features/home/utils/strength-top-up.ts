@@ -32,12 +32,21 @@ export interface StrengthTopUpInput {
   targetSets: number;
   /** Today's completed sets. */
   completedSets: number;
+  /**
+   * enable_flame_tiers_v1: the "done for today" bar (strength-day-gate.ts). Below it the day is
+   * never 'goal-met' — the top-up asks for at least the sets up to the bar (also on a rest day).
+   * Absent → today's rule.
+   */
+  minDoneSets?: number;
 }
 
-export function resolveStrengthTopUp({ strengthDoneToday, targetSets, completedSets }: StrengthTopUpInput): StrengthTopUp {
+export function resolveStrengthTopUp({ strengthDoneToday, targetSets, completedSets, minDoneSets }: StrengthTopUpInput): StrengthTopUp {
   if (!strengthDoneToday) return { mode: 'none' };
   const target = Math.max(0, Math.round(Number(targetSets) || 0));
   const done = Math.max(0, Math.round(Number(completedSets) || 0));
+  if (minDoneSets !== undefined && done < minDoneSets) {
+    return { mode: 'top-up', remainingSets: Math.max(target, minDoneSets) - done };
+  }
   const remaining = target - done;
   if (target <= 0 || remaining < MIN_TOP_UP_SETS) return { mode: 'goal-met' };
   return { mode: 'top-up', remainingSets: remaining };

@@ -16,6 +16,8 @@ import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import { Bed, Check, ChevronDown, CalendarDays, Footprints } from 'lucide-react';
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
+import { useFlameDays } from '@/features/activity/hooks/useFlameDays';
+import type { FlameLevel } from '@/features/activity/lib/flame-level';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
@@ -109,6 +111,8 @@ interface SmartWeeklyScheduleProps {
   hideMonthToggle?: boolean;
   /** Home v2 (enable_home_v2): streak flames, the connected capsule, the day bubble. */
   v2?: boolean;
+  /** enable_flame_tiers_v1 (resolved by the host): flames from flameLevelForDay. */
+  flameTiers?: boolean;
   /** Phase 5 — swipe-down on the week strip triggers this callback (e.g. open planner) */
   onSwipeDown?: () => void;
   /** Tapping "שינוי לוז" triggers this callback (e.g. open the full planner overlay).
@@ -178,6 +182,9 @@ interface SmartWeeklyScheduleProps {
 interface DayActivityData {
   hasActivity: boolean;
   isCompleted: boolean;
+  /** enable_flame_tiers_v1: flameLevelForDay's level / "started" mark (absent while off). */
+  flameLevel?: FlameLevel;
+  flameStarted?: boolean;
   /** S8-only: completed an OUT workout (drives the FLAME). Split from the blended isCompleted. */
   workoutDone?: boolean;
   /**
@@ -801,6 +808,7 @@ export default function SmartWeeklySchedule({
   expandedGridConfig,
   hideMonthToggle = false,
   v2 = false,
+  flameTiers = false,
   onSwipeDown,
   onOpenPlanner,
   hasCompletedAssessment = false,
@@ -935,6 +943,8 @@ export default function SmartWeeklySchedule({
   // icon-priority logic. Returns a stable getter to use inside useMemo.
   const getDayStatus = useDayStatus();
   const ringColors = useTrackRingColors();
+  // enable_flame_tiers_v1: every flame comes from flameLevelForDay (null while off — no reads).
+  const flameDayOf = useFlameDays(flameTiers);
 
   // Subscribe to the global midnight clock so the weekly strip's "today"
   // index advances at 00:00 without a hard refresh.
@@ -1170,11 +1180,15 @@ export default function SmartWeeklySchedule({
           pastProgressMap.get(isoDate) ?? false,
           pastRecoveryMap.get(isoDate) ?? false,
         );
+        // enable_flame_tiers_v1: the flame axis is the day's level (≥1 = a flame), not the
+        // bare "workout finished" flag; a workout below the bar gets the "started" mark.
+        const flame = flameDayOf ? flameDayOf(isoDate) : null;
         dayData = {
           ...dayData,
           hasActivity: status.hasActivity,
           isCompleted: status.isCompleted,
-          workoutDone: status.workoutDone,
+          workoutDone: flame ? flame.level >= 1 : status.workoutDone,
+          ...(flame ? { flameLevel: flame.level, flameStarted: flame.started } : {}),
           isRecoveryCompletion: status.isRecoveryCompletion,
           totalMinutes: status.totalMinutes,
           categories: status.categories,
@@ -1192,7 +1206,7 @@ export default function SmartWeeklySchedule({
         };
         // Mark missed: past training day with no activity and not completed.
         // Prefer the manual entry override; fall back to scheduleDay / scheduleDays.
-        if (!isToday && !status.isCompleted && !dayData.walkDone) {
+        if (!isToday && !status.isCompleted && !dayData.walkDone && !(flame && flame.level >= 1)) {
           const isTraining = hasManualRest
             ? false
             : hasManualTraining
@@ -1266,7 +1280,7 @@ export default function SmartWeeklySchedule({
     }
 
     return map;
-  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runOverlay, runningEntriesByDayIndex, runningProgramId, scheduleVersion, weekScheduleEntries, pastProgressMap, v2]);
+  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runOverlay, runningEntriesByDayIndex, runningProgramId, scheduleVersion, weekScheduleEntries, pastProgressMap, v2, flameDayOf]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
@@ -1403,7 +1417,8 @@ export default function SmartWeeklySchedule({
         isSelected: isCellSelected,
         isRest: dayData.isRest,
         isMissed: dayData.isMissed,
-        isCompleted: (dayData.workoutDone ?? false) || !!dayData.walkDone,
+        // enable_flame_tiers_v1: only the level lights a flame (a planned walk adds minutes anyway).
+        isCompleted: dayData.flameLevel !== undefined ? dayData.flameLevel >= 1 : (dayData.workoutDone ?? false) || !!dayData.walkDone,
         debtCleared: dayData.debtCleared,
         // Flame colour comes from the SCHEDULED WORKOUT type (S7), never activity:
         // leave dominantCategory null so resolveCategory / resolveFlameSrc fall to
@@ -1433,7 +1448,9 @@ export default function SmartWeeklySchedule({
         isRecoveryCompletion: dayData.isRecoveryCompletion,
       }, t);
 
-      return displayProps;
+      return dayData.flameLevel !== undefined
+        ? { ...displayProps, flameLevel: dayData.flameLevel, flameStarted: dayData.flameStarted }
+        : displayProps;
     }
 
     return null;

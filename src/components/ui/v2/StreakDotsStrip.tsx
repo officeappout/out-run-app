@@ -2,6 +2,10 @@
 
 import { Flame, Trophy } from 'lucide-react';
 import type { WeekDot } from './summary';
+import FlameStartedMark from './FlameStartedMark';
+import { FLAME_TIER, flameTierSize } from './tokens';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 /**
  * Streak card for the v2 summaries: a flame badge with "N אימונים ברצף",
@@ -46,7 +50,42 @@ function Connector({ side, on }: { side: 'start' | 'end'; on: boolean }) {
   );
 }
 
+/** enable_flame_tiers_v1: a lit day sized / coloured by its level (level 3 two-tone + glow). */
+function TierDot({ day, tier }: { day: WeekDot; tier: 1 | 2 | 3 }) {
+  const t = useT(common);
+  const size = flameTierSize(day.isToday ? 34 : 30, tier);
+  const fill = FLAME_TIER.dotFill[tier];
+  return (
+    <span
+      role="img"
+      aria-label={t(`flame.level.${tier}`)}
+      className="relative grid place-items-center rounded-full"
+      style={{
+        width: size,
+        height: size,
+        marginTop: (30 - size) / 2,
+        background: fill,
+        boxShadow: [
+          day.isToday ? '0 0 0 3px #fff, 0 0 0 5.5px #fdba74' : '',
+          tier === 3 ? '0 0 14px 2px rgba(249,115,22,0.55)' : '0 6px 12px -6px rgba(249,115,22,0.7)',
+        ].filter(Boolean).join(', '),
+      }}
+    >
+      <Flame size={flameTierSize(day.isToday ? 18 : 15, tier)} strokeWidth={2.4} color="#fff" aria-hidden />
+    </span>
+  );
+}
+
 function Dot({ day }: { day: WeekDot }) {
+  const t = useT(common);
+  if (day.state === 'done' && day.level) return <TierDot day={day} tier={day.level} />;
+  if (day.state === 'rest' && day.started) {
+    return (
+      <span className="relative grid h-[30px] w-[30px] place-items-center">
+        <FlameStartedMark label={t('flame.started')} size={12} />
+      </span>
+    );
+  }
   if (day.state === 'done') {
     const size = day.isToday ? 34 : 30;
     return (

@@ -18,6 +18,9 @@ import {
 } from '@/features/home/utils/dailyStrengthTarget';
 import { summarizeTodayStrengthVolume } from '@/features/home/utils/todayStrengthVolume';
 import { RECOVERY_DAY_BADGE_FIX_ENABLED, HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
+import { strengthCompletionSnapshot } from '@/features/home/utils/strength-day-gate';
+import { flameTiersEnabledNow } from '@/features/activity/lib/flame-tiers-flag';
+import { countLoggedStrengthSets } from '../utils/logged-sets';
 
 import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
 
@@ -121,11 +124,7 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
 
   // Hoisted from step 3 below — needed here too (HOME_DAILY_GOAL_V1's
   // strengthCompletion snapshot) so it's computed once, not duplicated.
-  const actualSetsCompleted = rawExerciseLog && rawExerciseLog.length > 0
-    ? rawExerciseLog.reduce((sum, entry) => sum + entry.confirmedReps.length, 0)
-    : completedExercises
-        .filter((ex) => ex.category === 'main' || ex.category === 'superset')
-        .reduce((sum, ex) => sum + ex.sets.length, 0);
+  const actualSetsCompleted = countLoggedStrengthSets(rawExerciseLog, completedExercises);
 
   // HOME_DAILY_GOAL_V1: ⅔-of-daily-target strength completion snapshot —
   // strength sessions only, never recovery (recovery has no volume-budget
@@ -136,8 +135,12 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
   // computed above) is added on top, avoiding a double-count of this session.
   // While the flag is off this whole block is skipped — zero extra Firestore
   // reads, byte-identical to today.
+  //
+  // enable_flame_tiers_v1 (owner 26.10.2026) runs the same block with the stricter
+  // 'tiers' rule (⅔ of the target AND ≥ 4 sets; no target → ≥ 4) — strength-day-gate.ts.
+  const flameTiers = flameTiersEnabledNow();
   let strengthCompletion: StrengthCompletionSnapshot | undefined;
-  if (HOME_DAILY_GOAL_V1 && trainingType !== 'cardio' && !isRecovery) {
+  if ((HOME_DAILY_GOAL_V1 || flameTiers) && trainingType !== 'cardio' && !isRecovery) {
     const profile = useUserStore.getState().profile;
     if (profile) {
       try {
@@ -163,14 +166,13 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
           useWeeklyVolumeStore.getState().sessionLogs,
         ).setsCompleted;
         const completedSets = priorSetsToday + actualSetsCompleted;
-        const targetSets = dailyTarget.targetSets;
-        // Rest day / no resolvable budget (targetSets <= 0) → always met, per
-        // the ⅔-threshold design's explicit decision (a day with no strength
-        // target can't fail one).
-        const met = targetSets <= 0 || completedSets >= Math.ceil((targetSets * 2) / 3);
-        const pct = targetSets <= 0 ? 1 : Math.max(0, Math.min(1, completedSets / targetSets));
-
-        strengthCompletion = { targetSets, completedSets, pct, met };
+        // legacy: rest day / no resolvable budget (targetSets <= 0) → always met, per
+        // the ⅔-threshold design's explicit decision. tiers: ≥ 4 sets there too.
+        strengthCompletion = strengthCompletionSnapshot(
+          dailyTarget.targetSets,
+          completedSets,
+          flameTiers ? 'tiers' : 'legacy',
+        );
       } catch (e) {
         // Never blocks completion — degrades to the legacy unconditional-true
         // write below (strengthCompletion stays undefined).

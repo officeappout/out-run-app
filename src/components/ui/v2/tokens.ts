@@ -144,3 +144,26 @@ export type SheetZIndex = (typeof SHEET_Z)[keyof typeof SHEET_Z];
 
 /** The v2 sheet spring (stiffness 340, damping 34) shared by the home/map sheets. */
 export const SPRING_SHEET = { type: 'spring', stiffness: 340, damping: 34 } as const;
+
+/**
+ * Flame tiers (enable_flame_tiers_v1) — one flame, scaled by the day's level
+ * (flameLevelForDay: 1 streak day, 2 + one domain goal, 3 both goals). Level 3 also
+ * gets the two-tone blend and a warm glow (static — fine under reduced motion).
+ */
+export const FLAME_TIER = {
+  scale: { 1: 0.78, 2: 1, 3: 1.16 } as const,
+  glow: 'drop-shadow(0 0 5px rgba(251,146,60,0.8)) saturate(1.25) brightness(1.06)',
+  /** Summary week dot fill per level (level 3: a two-tone gradient). */
+  dotFill: { 1: '#fdba74', 2: '#f97316', 3: 'linear-gradient(135deg, #f97316 0%, #ef4444 55%, #f59e0b 100%)' } as const,
+  /** The neutral "started" mark (a workout below the bar). */
+  startedPx: 8,
+  startedColor: V2_COLORS.muted,
+} as const;
+
+export type FlameTier = 1 | 2 | 3;
+
+/** Flame px for a level (no level → the base size, unchanged). */
+export function flameTierSize(base: number, level?: number | null): number {
+  if (level !== 1 && level !== 2 && level !== 3) return base;
+  return Math.round(base * FLAME_TIER.scale[level]);
+}

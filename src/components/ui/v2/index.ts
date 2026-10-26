@@ -64,6 +64,7 @@ export type { LineChartProps } from './LineChart';
 export * from './tokens';
 export { default as StreakFlame } from './StreakFlame';
 export type { StreakFlameProps } from './StreakFlame';
+export { default as FlameStartedMark } from './FlameStartedMark';
 export * from './streak';
 export * from './track-colors';
 // Post-workout summary (home v2) building blocks.

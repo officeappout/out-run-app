@@ -226,6 +226,10 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
         thumbnailUrl: payload.thumbnailUrl,
         streak,
         programId: payload.programId,
+        // HOME_DAILY_GOAL_V1 / enable_flame_tiers_v1: whether this strength session reached the
+        // day's bar. Absent (dropped by JSON.stringify) whenever no snapshot was computed —
+        // flags off, aerobic / hybrid / recovery — so the payload is unchanged then.
+        strengthGoalMet: payload.strengthCompletion?.met,
       }),
     );
     window.dispatchEvent(new CustomEvent('post-workout-completed'));
