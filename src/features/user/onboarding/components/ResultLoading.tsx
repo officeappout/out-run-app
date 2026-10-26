@@ -91,7 +91,7 @@ export default function ResultLoading({ targetLevel, onComplete, language = 'he'
       dir={direction}
     >
       {/* Unified 5-phase story bar — Phase 4 filling as analysis progresses */}
-      <div className="absolute top-0 left-0 right-0 z-20" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <div className="absolute top-0 end-0 start-0 z-20" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <OnboardingStoryBar
           totalPhases={TOTAL_PHASES}
           currentPhase={STRENGTH_PHASES.RESULT}

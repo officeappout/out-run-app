@@ -33,7 +33,7 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
     tween({ opacity: 0, y: 12 }, { opacity: 1, y: 0 }, { duration: 0.7, ease: EASE_CSS, delay }, reduce);
 
   return (
-    <div className="fixed inset-0 overflow-hidden overscroll-none bg-white text-v2-ink" dir="rtl">
+    <div className="fixed inset-0 overflow-hidden overscroll-none bg-white text-v2-ink">
       <motion.div
         className="absolute inset-0"
         initial={reduce ? false : { opacity: 0 }}

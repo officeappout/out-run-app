@@ -650,7 +650,7 @@ export default function ProgramPathPage() {
               alt=""
               className="w-[88px] h-[88px] object-contain shrink-0"
             />
-            <div className="flex-1 text-right">
+            <div className="flex-1 text-start">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
                   {t('programPath.page.health.badge')}
@@ -699,7 +699,7 @@ export default function ProgramPathPage() {
                 style={{ overflow: 'hidden' }}
               >
                 <div className="px-5 pb-6">
-                  <p className="text-[13px] text-slate-500 text-right mb-3 leading-relaxed">
+                  <p className="text-[13px] text-slate-500 text-start mb-3 leading-relaxed">
                     {t('programPath.page.health.intro')}
                   </p>
                   <ul className="space-y-2">
@@ -708,13 +708,13 @@ export default function ProgramPathPage() {
                       t('programPath.page.health.item2'),
                       t('programPath.page.health.item3'),
                     ].map((item) => (
-                      <li key={item} className="flex items-start gap-2.5 text-right">
+                      <li key={item} className="flex items-start gap-2.5 text-start">
                         <CheckCircle2
                           size={16}
                           className="text-[#5BC2F2] shrink-0 mt-0.5"
                           strokeWidth={2.5}
                         />
-                        <span className="text-[13px] font-medium text-slate-700 leading-snug flex-1 text-right">
+                        <span className="text-[13px] font-medium text-slate-700 leading-snug flex-1 text-start">
                           {item}
                         </span>
                       </li>
@@ -748,7 +748,7 @@ export default function ProgramPathPage() {
               alt=""
               className="w-[88px] h-[88px] object-contain shrink-0"
             />
-            <div className="flex-1 text-right">
+            <div className="flex-1 text-start">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
                   {t('programPath.page.body.badge')}
@@ -796,7 +796,7 @@ export default function ProgramPathPage() {
                 style={{ overflow: 'hidden' }}
               >
                 <div className="px-5 pb-8">
-                  <p className="text-[13px] text-slate-500 text-right mb-3">
+                  <p className="text-[13px] text-slate-500 text-start mb-3">
                     {t('programPath.page.body.pick')}
                   </p>
 
@@ -809,7 +809,7 @@ export default function ProgramPathPage() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.98 }}
                         transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="mb-3 rounded-2xl border bg-amber-50 border-amber-300 text-amber-900 px-3.5 py-3 text-right shadow-sm"
+                        className="mb-3 rounded-2xl border bg-amber-50 border-amber-300 text-amber-900 px-3.5 py-3 text-start shadow-sm"
                         role="status"
                         aria-live="polite"
                       >
@@ -820,12 +820,12 @@ export default function ProgramPathPage() {
                     )}
                   </AnimatePresence>
 
-                  <div className="w-full space-y-2" dir="rtl">
+                  <div className="w-full space-y-2">
                     {/* "כל הגוף" — full-width anchor, unchanged */}
                     <motion.button
                       whileTap={{ scale: 0.97 }}
                       onClick={() => toggleMuscle(FULL_BODY_ID)}
-                      className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
+                      className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-start cursor-pointer ${
                         isFullBodySelected
                           ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
                           : 'bg-white border-[#E0E9FF] font-medium'
@@ -892,7 +892,7 @@ export default function ProgramPathPage() {
                                   key={id}
                                   whileTap={{ scale: 0.97 }}
                                   onClick={() => toggleMuscle(id)}
-                                  className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
+                                  className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-start cursor-pointer ${
                                     isSelected
                                       ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
                                       : isRecommended
@@ -925,7 +925,7 @@ export default function ProgramPathPage() {
                               <button
                                 type="button"
                                 onClick={() => toggleWishlistDrawer(pkg.key)}
-                                className="w-full flex items-center justify-between text-right"
+                                className="w-full flex items-center justify-between text-start"
                               >
                                 <ChevronDown
                                   size={16}
@@ -946,7 +946,7 @@ export default function ProgramPathPage() {
                                     transition={{ duration: 0.22 }}
                                     style={{ overflow: 'hidden' }}
                                   >
-                                    <div className="flex flex-wrap gap-2 pt-3" dir="rtl">
+                                    <div className="flex flex-wrap gap-2 pt-3">
                                       {foundationExercises[pkg.key].map((exerciseId) => {
                                         const isStarred = wishlist.some(
                                           (e) => e.exerciseId === exerciseId && e.packageKey === pkg.key
@@ -958,7 +958,7 @@ export default function ProgramPathPage() {
                                             key={exerciseId}
                                             type="button"
                                             onClick={() => toggleWishlistExercise(pkg.key, exerciseId)}
-                                            className={`flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border text-[13px] transition-all ${
+                                            className={`flex items-center gap-1.5 pe-3 ps-1.5 py-1.5 rounded-full border text-[13px] transition-all ${
                                               isStarred
                                                 ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold'
                                                 : 'bg-white border-[#E0E9FF] text-slate-600'
@@ -1019,7 +1019,7 @@ export default function ProgramPathPage() {
               alt=""
               className="w-[88px] h-[88px] object-contain shrink-0"
             />
-            <div className="flex-1 text-right">
+            <div className="flex-1 text-start">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
                   {t('programPath.page.skills.badge')}
@@ -1070,7 +1070,7 @@ export default function ProgramPathPage() {
                 style={{ overflow: 'hidden' }}
               >
                 <div className="px-5 pb-8">
-                  <p className="text-[13px] text-slate-500 text-right mb-3">
+                  <p className="text-[13px] text-slate-500 text-start mb-3">
                     {t('programPath.page.skills.pick')}
                   </p>
 
@@ -1083,7 +1083,7 @@ export default function ProgramPathPage() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.98 }}
                         transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="mb-3 rounded-2xl border bg-amber-50 border-amber-300 text-amber-900 px-3.5 py-3 text-right shadow-sm"
+                        className="mb-3 rounded-2xl border bg-amber-50 border-amber-300 text-amber-900 px-3.5 py-3 text-start shadow-sm"
                         role="status"
                         aria-live="polite"
                       >
@@ -1094,7 +1094,7 @@ export default function ProgramPathPage() {
                     )}
                   </AnimatePresence>
 
-                  <div className="grid grid-cols-2 gap-3 w-full" dir="rtl">
+                  <div className="grid grid-cols-2 gap-3 w-full">
                     {SKILL_PROGRAMS.map((skill) => {
                       const isMaster = skill.id === SKILL_MASTER_ID;
                       const isSelected = selectedSkills.includes(skill.id);
@@ -1122,7 +1122,7 @@ export default function ProgramPathPage() {
                           onClick={() => { if (!isNotReady) toggleSkill(skill.id); }}
                           disabled={isNotReady}
                           aria-disabled={isNotReady}
-                          className={`${isMaster ? 'col-span-2' : ''} relative flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right ${
+                          className={`${isMaster ? 'col-span-2' : ''} relative flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-start ${
                             isNotReady
                               ? 'bg-slate-50 border-[#E0E9FF] cursor-not-allowed'
                               : 'cursor-pointer'
@@ -1161,7 +1161,7 @@ export default function ProgramPathPage() {
                             )}
                           </div>
                           {isNotReady && (
-                            <span className="absolute top-1 right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                            <span className="absolute top-1 start-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500">
                               {t('programPath.page.skills.soon')}
                             </span>
                           )}

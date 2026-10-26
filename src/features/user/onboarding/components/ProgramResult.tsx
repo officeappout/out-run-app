@@ -527,7 +527,7 @@ export default function ProgramResult({
           transparent background the cards scrolled up underneath it into
           the status-bar / notch area, so their top edges looked cut off. */}
       <div
-        className={v2 ? 'sticky top-0 left-0 right-0 z-20 bg-v2-surface/90 backdrop-blur-xl' : 'sticky top-0 left-0 right-0 z-20'}
+        className={v2 ? 'sticky top-0 end-0 start-0 z-20 bg-v2-surface/90 backdrop-blur-xl' : 'sticky top-0 end-0 start-0 z-20'}
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <OnboardingStoryBar
@@ -587,7 +587,7 @@ export default function ProgramResult({
                 </motion.div>
               ))}
             </div>
-            <div className="text-center" dir="rtl">
+            <div className="text-center">
               <motion.p
                 className={v2 ? 'text-[20px] font-black text-v2-ink' : 'text-xl font-black text-slate-700'}
                 animate={{ opacity: [0.6, 1, 0.6] }}
@@ -697,7 +697,7 @@ export default function ProgramResult({
                 style={v2 ? undefined : { boxShadow: '0 20px 50px rgba(91,194,242,0.22), 0 6px 18px rgba(0,0,0,0.07)' }}
               >
                 {/* Program name */}
-                <h2 className={v2 ? 'text-[20px] font-black !tracking-[-0.02em] text-v2-ink mb-4' : 'text-xl font-black text-slate-800 mb-5'} dir="rtl">
+                <h2 className={v2 ? 'text-[20px] font-black !tracking-[-0.02em] text-v2-ink mb-4' : 'text-xl font-black text-slate-800 mb-5'}>
                   {getProgramName()}
                 </h2>
 
@@ -715,7 +715,7 @@ export default function ProgramResult({
                 </div>
 
                 {/* Achievement / social-proof text */}
-                <p className={v2 ? 'text-[13.5px] font-bold text-v2-muted leading-relaxed px-1' : 'text-sm text-slate-500 leading-relaxed px-2'} dir="rtl">
+                <p className={v2 ? 'text-[13.5px] font-bold text-v2-muted leading-relaxed px-1' : 'text-sm text-slate-500 leading-relaxed px-2'}>
                   {achievementText}
                 </p>
               </div>
@@ -737,7 +737,6 @@ export default function ProgramResult({
                 className={v2
                   ? 'text-center text-[15px] font-bold text-v2-ink-2 leading-relaxed px-2'
                   : 'text-center text-base text-slate-500 leading-relaxed px-2 font-medium'}
-                dir="rtl"
               >
                 {`${t('result.journey', { gender: copyGender })}${v2 ? '' : ' 🚀'}`}
               </p>
@@ -746,7 +745,6 @@ export default function ProgramResult({
               {saveError && (
                 <div
                   className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-3 text-sm text-amber-800"
-                  dir="rtl"
                   role="alert"
                 >
                   <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
@@ -759,7 +757,6 @@ export default function ProgramResult({
                   type="button"
                   onClick={handleContinueClick}
                   className="w-full h-12 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap transition-transform duration-150 ease-v2 active:scale-[0.97]"
-                  dir="rtl"
                 >
                   {saveError ? pickGendered(uiGender, GENDERED_COPY.retry) : continueLabel}
                 </button>
@@ -769,7 +766,6 @@ export default function ProgramResult({
                 className="w-full text-white font-black text-lg py-4 rounded-2xl
                            shadow-lg transition-all duration-200 active:scale-95"
                 style={{ background: BRAND_GRADIENT, boxShadow: '0 8px 24px rgba(0,186,247,0.35)' }}
-                dir="rtl"
               >
                 {saveError ? pickGendered(uiGender, GENDERED_COPY.retry) : continueLabel}
               </button>
@@ -781,7 +777,6 @@ export default function ProgramResult({
                 <button
                   onClick={onSkip}
                   className="w-full text-slate-500 font-bold text-sm py-2 underline underline-offset-2 active:opacity-60 transition-opacity"
-                  dir="rtl"
                 >
                   {t('result.skipSave')}
                 </button>

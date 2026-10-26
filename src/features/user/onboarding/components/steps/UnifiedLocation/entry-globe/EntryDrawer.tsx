@@ -24,8 +24,7 @@ export function EntryDrawer({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 40 }}
       transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1], delay }}
-      className="absolute bottom-0 left-0 right-0 z-30"
-      dir="rtl"
+      className="absolute bottom-0 end-0 start-0 z-30"
     >
       <div
         className={`${SHEET_SURFACE_CLASS} flex flex-col gap-3 px-5 pt-3`}

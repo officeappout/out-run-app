@@ -17,7 +17,6 @@ export function DragHintChip() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
       className="flex h-[34px] items-center gap-2 rounded-full bg-[rgba(14,20,25,0.82)] px-3.5 text-[13px] font-bold text-white shadow-v2-float whitespace-nowrap"
-      dir="rtl"
     >
       <motion.span
         className="inline-flex"

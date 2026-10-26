@@ -1023,7 +1023,6 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
 
   return (
     <div
-      dir="rtl"
       className={
         v2 || entryGlobe
           // v2: no h-screen — 100vh is taller than the visible viewport on iOS
@@ -1305,7 +1304,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="absolute -bottom-1 -right-1 bg-white rounded-full p-1.5 shadow-lg z-10"
+                    className="absolute -bottom-1 -start-1 bg-white rounded-full p-1.5 shadow-lg z-10"
                   >
                     <Loader2 size={16} className="text-[#5BC2F2] animate-spin" />
                   </motion.div>

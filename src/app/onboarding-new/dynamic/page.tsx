@@ -665,7 +665,7 @@ export default function DynamicOnboardingPage() {
   const screen = questionnaireScreen({ engineLoading: loading, flagsReady, error });
   if (screen === 'loading' && v2) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 bg-v2-surface" dir="rtl">
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-v2-surface">
         <Loader2 size={32} className="animate-spin text-v2-accent" aria-hidden />
         <p className="text-[13px] font-bold text-v2-muted">טוען שאלון...</p>
       </div>
@@ -682,7 +682,7 @@ export default function DynamicOnboardingPage() {
   // Error state
   if (screen === 'error' && v2) {
     return (
-      <div className="flex h-full items-center justify-center bg-v2-surface px-6" dir="rtl">
+      <div className="flex h-full items-center justify-center bg-v2-surface px-6">
         <div className="w-full max-w-sm rounded-v2-card bg-white p-6 text-center shadow-v2-card">
           <p className="text-[20px] font-black !tracking-[-0.02em] text-v2-ink">שגיאה</p>
           <p className="mt-1 text-[14px] font-medium text-v2-ink-2">{error}</p>
@@ -810,7 +810,7 @@ export default function DynamicOnboardingPage() {
   // This should not happen, but provide a fallback
   if (v2) {
     return (
-      <div className="flex h-full items-center justify-center bg-v2-surface" dir="rtl">
+      <div className="flex h-full items-center justify-center bg-v2-surface">
         <p className="text-[13px] font-bold text-v2-muted">טוען תוצאות...</p>
         {identityOverlay}
       </div>

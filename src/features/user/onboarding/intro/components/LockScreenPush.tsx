@@ -53,7 +53,7 @@ export function LockScreenPush({ clock, push, tracks, reduce, delay }: LockScree
       <span className="text-[58px] font-semibold leading-[64px] text-white" dir="ltr">{clock}</span>
       <motion.div className="mt-[22px] w-[216px]" {...t(tracks.push)}>
         <div
-          className="flex gap-2.5 rounded-[18px] border border-white/90 bg-white/[0.88] px-[13px] py-[11px] text-right backdrop-blur-[14px] backdrop-saturate-[1.8]"
+          className="flex gap-2.5 rounded-[18px] border border-white/90 bg-white/[0.88] px-[13px] py-[11px] text-start backdrop-blur-[14px] backdrop-saturate-[1.8]"
           style={{ boxShadow: '0 16px 36px -14px rgba(9,20,50,0.4), 0 0 0 1px rgba(14,27,42,0.05)' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}

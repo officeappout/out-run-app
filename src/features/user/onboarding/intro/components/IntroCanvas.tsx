@@ -43,7 +43,7 @@ export function IntroCanvas({ children }: { children: React.ReactNode }) {
     >
       <div
         data-intro-canvas=""
-        className="absolute left-1/2 top-0"
+        className="absolute end-1/2 top-0"
         style={{
           width: CANVAS_W,
           height: CANVAS_H,

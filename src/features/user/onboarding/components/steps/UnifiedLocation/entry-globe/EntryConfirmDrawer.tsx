@@ -80,7 +80,7 @@ export function EntryConfirmDrawer({
               <Trees size={22} className="text-v2-deep" aria-hidden />
             </span>
           )}
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-right">
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-start">
             <span className="text-[11px] font-bold text-v2-deep">{t('location.entry.confirm.nearestPark')}</span>
             <span className="truncate text-[14.5px] font-bold text-v2-ink">{park.name}</span>
             <span className="truncate text-[12px] text-v2-muted">{nearestParkMetaParts(park, t).join(' · ')}</span>
@@ -93,7 +93,7 @@ export function EntryConfirmDrawer({
           <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-v2-tint">
             <Flag size={18} className="text-v2-deep" aria-hidden />
           </div>
-          <div className="min-w-0 flex-1 text-right">
+          <div className="min-w-0 flex-1 text-start">
             {pioneer.pioneerMessage && (
               <p className="text-[14px] font-extrabold leading-relaxed text-v2-ink">
                 {stripEmoji(pioneer.pioneerMessage)}

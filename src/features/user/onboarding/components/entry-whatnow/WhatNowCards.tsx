@@ -27,7 +27,7 @@ export function WhatNowRouteCard({
     <button
       type="button"
       onClick={() => { hapticLight(); onClick(); }}
-      className="flex w-full flex-col overflow-hidden rounded-[22px] text-right text-v2-ink shadow-[0_12px_28px_rgba(0,186,247,0.18)] active:scale-[0.99] transition-transform duration-150 ease-v2"
+      className="flex w-full flex-col overflow-hidden rounded-[22px] text-start text-v2-ink shadow-[0_12px_28px_rgba(0,186,247,0.18)] active:scale-[0.99] transition-transform duration-150 ease-v2"
       style={{
         border: '2px solid transparent',
         background: `linear-gradient(#fff,#fff) padding-box, ${BRAND_GRADIENT} border-box`,
@@ -59,10 +59,10 @@ export function WhatNowPlanCard({ tagged, onClick }: { tagged: boolean; onClick:
     <button
       type="button"
       onClick={() => { hapticLight(); onClick(); }}
-      className="relative flex w-full flex-col gap-1.5 overflow-hidden rounded-[22px] p-4 text-right text-white shadow-[0_14px_30px_rgba(32,198,214,0.35)] active:scale-[0.99] transition-transform duration-150 ease-v2"
+      className="relative flex w-full flex-col gap-1.5 overflow-hidden rounded-[22px] p-4 text-start text-white shadow-[0_14px_30px_rgba(32,198,214,0.35)] active:scale-[0.99] transition-transform duration-150 ease-v2"
       style={{ background: PLAN_TILE_GRADIENT }}
     >
-      <div className="pointer-events-none absolute -bottom-1.5 -left-1.5 flex ps-3.5" aria-hidden>
+      <div className="pointer-events-none absolute -bottom-1.5 -end-1.5 flex ps-3.5" aria-hidden>
         {PLAN_PERSONAS.map((src) => (
           // eslint-disable-next-line @next/next/no-img-element -- small static decorative tiles
           <img
@@ -80,7 +80,7 @@ export function WhatNowPlanCard({ tagged, onClick }: { tagged: boolean; onClick:
       <span className="max-w-[200px] text-[19px] font-bold">{t('whatNow.plan.title')}</span>
       <span className="max-w-[190px] text-[13px] leading-[18px] opacity-95">{t('whatNow.plan.sub')}</span>
       <span className="mt-1 flex h-[30px] items-center gap-1 self-start rounded-full bg-white px-3 text-[12.5px] font-bold text-[#04222b]">
-        {t('whatNow.plan.cta')}<ChevronLeft size={14} aria-hidden />
+        {t('whatNow.plan.cta')}<ChevronLeft className="ltr:-scale-x-100" size={14} aria-hidden />
       </span>
     </button>
   );
@@ -92,7 +92,7 @@ export function WhatNowKellyCard({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={() => { hapticLight(); onClick(); }}
-      className="flex w-full items-center gap-3 rounded-[20px] bg-white px-3.5 py-[13px] text-right text-v2-ink shadow-[0_0_0_1px_#eef2f6] active:scale-[0.99] transition-transform duration-150 ease-v2"
+      className="flex w-full items-center gap-3 rounded-[20px] bg-white px-3.5 py-[13px] text-start text-v2-ink shadow-[0_0_0_1px_#eef2f6] active:scale-[0.99] transition-transform duration-150 ease-v2"
     >
       <span
         className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-[18px] font-bold text-[#04222b]"
@@ -105,7 +105,7 @@ export function WhatNowKellyCard({ onClick }: { onClick: () => void }) {
         <span className="text-[15px] font-bold">{t('whatNow.kelly.title')}</span>
         <span className="text-[12.5px] text-v2-muted">{t('whatNow.kelly.sub')}</span>
       </span>
-      <ChevronLeft size={16} className="shrink-0 text-[#94a3b8]" aria-hidden />
+      <ChevronLeft size={16} className="shrink-0 text-[#94a3b8] ltr:-scale-x-100" aria-hidden />
     </button>
   );
 }

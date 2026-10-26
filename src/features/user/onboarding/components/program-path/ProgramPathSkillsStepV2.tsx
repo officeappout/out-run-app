@@ -61,7 +61,6 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
 
   return (
     <div
-      dir="rtl"
       className="relative flex flex-col overflow-hidden bg-v2-surface text-v2-ink"
       style={{
         marginTop: `calc(-1 * ${SAFE_TOP})`,
@@ -81,7 +80,7 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
             aria-label={t('programPath.back')}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
-            <ChevronRight size={18} strokeWidth={2.4} className="text-v2-ink" />
+            <ChevronRight size={18} strokeWidth={2.4} className="text-v2-ink ltr:-scale-x-100" />
           </button>
           <div className="flex flex-1 gap-[5px]" aria-hidden>
             {Array.from({ length: p.totalSegments }, (_, i) => (
@@ -108,7 +107,7 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
           type="button"
           aria-pressed={masterOn}
           onClick={() => tap(SKILL_MASTER_ID)}
-          className={`flex w-full items-center gap-3 rounded-[22px] bg-white px-3 py-2.5 text-right transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+          className={`flex w-full items-center gap-3 rounded-[22px] bg-white px-3 py-2.5 text-start transition-transform duration-150 ease-v2 active:scale-[0.97] ${
             masterOn ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
           }`}
         >
@@ -179,12 +178,12 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
                       {it.label}
                     </span>
                     {notReady && (
-                      <span className="absolute right-2 top-2 rounded-full bg-v2-hairline px-1.5 py-px text-[11px] font-extrabold text-v2-muted">
+                      <span className="absolute start-2 top-2 rounded-full bg-v2-hairline px-1.5 py-px text-[11px] font-extrabold text-v2-muted">
                         {t('programPath.skills.soon')}
                       </span>
                     )}
                     {on && order !== null && (
-                      <span className="absolute left-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-v2-cta text-[13px] font-black tabular-nums text-v2-on-cta">
+                      <span className="absolute end-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-v2-cta text-[13px] font-black tabular-nums text-v2-on-cta">
                         {order}
                       </span>
                     )}

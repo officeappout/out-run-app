@@ -340,7 +340,6 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
     return (
       <div
         className="fixed inset-0 z-50 flex flex-col bg-v2-surface text-v2-ink"
-        dir="rtl"
         style={{
           paddingTop: 'env(safe-area-inset-top, 0px)',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -355,7 +354,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
               aria-label="Back"
             >
-              <ChevronRight size={20} className="text-v2-ink" />
+              <ChevronRight size={20} className="text-v2-ink ltr:-scale-x-100" />
             </button>
           ) : (
             <div className="w-10 flex-shrink-0" aria-hidden />
@@ -547,7 +546,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col" dir="rtl">
+    <div className="fixed inset-0 z-50 bg-white flex flex-col">
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 pb-4 border-b"
@@ -582,7 +581,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
             className="p-2 hover:bg-slate-100 rounded-full transition-colors"
             aria-label="Back"
           >
-            <ChevronRight size={24} className="text-slate-600" />
+            <ChevronRight size={24} className="text-slate-600 ltr:-scale-x-100" />
           </button>
         )}
         {stepIndex === 0 && <div className="w-10" />}

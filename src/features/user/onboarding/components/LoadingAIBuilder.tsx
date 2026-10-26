@@ -136,7 +136,7 @@ export default function LoadingAIBuilder({ language, onComplete }: LoadingAIBuil
             <div className="w-2 h-2 rounded-full bg-[#5BC2F2]" />
             {/* Connecting line */}
             <motion.div
-              className="absolute top-1/2 left-1/2 w-20 h-0.5 bg-gradient-to-r from-[#5BC2F2] to-transparent origin-left"
+              className="absolute top-1/2 end-1/2 w-20 h-0.5 bg-gradient-to-r from-[#5BC2F2] to-transparent origin-left"
               style={{
                 transformOrigin: 'left center',
                 transform: `rotate(${Math.atan2((50 - dot.y), (50 - dot.x)) * (180 / Math.PI)}deg)`,

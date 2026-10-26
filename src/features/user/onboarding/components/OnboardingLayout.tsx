@@ -215,7 +215,7 @@ export default function OnboardingLayout({
                 {/* Checkmark bubble — absolutely positioned above the track, outside overflow-hidden */}
                 {isCompleted && (
                   <motion.div
-                    className="absolute left-1/2 -top-[7px]"
+                    className="absolute end-1/2 -top-[7px]"
                     style={{ marginLeft: '-10px' }}
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -361,7 +361,7 @@ export default function OnboardingLayout({
             }`}
           >
             <span className="truncate">{label}</span>
-            <ChevronLeft size={18} className="shrink-0" />
+            <ChevronLeft size={18} className="shrink-0 ltr:-scale-x-100" />
           </button>
         </div>
       );
@@ -390,7 +390,7 @@ export default function OnboardingLayout({
           aria-disabled={!canContinue}
         >
           <span>{label}</span>
-          <ChevronLeft size={20} />
+          <ChevronLeft className="ltr:-scale-x-100" size={20} />
         </motion.button>
       </div>
     );

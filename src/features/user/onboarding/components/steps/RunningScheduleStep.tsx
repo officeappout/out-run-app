@@ -406,7 +406,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
     const daysDone = selectedDays.length === frequency;
 
     return (
-      <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
         <div className="px-4 pb-2 pt-1">
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 px-1">
@@ -425,7 +425,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
               >
                 <div className="flex items-start gap-2.5 rounded-[18px] bg-white px-3.5 py-3 shadow-v2-ring">
                   <Dumbbell size={16} className="mt-0.5 shrink-0 text-[#00baf7]" strokeWidth={2.4} aria-hidden />
-                  <p className="text-right text-[12.5px] font-bold leading-relaxed text-v2-ink-2">
+                  <p className="text-start text-[12.5px] font-bold leading-relaxed text-v2-ink-2">
                     {t('steps.runSchedule.hybridNotice', { days: strengthDays.join(', ') })}
                   </p>
                 </div>
@@ -444,7 +444,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
               >
                 <div className="flex items-start gap-2.5 rounded-[18px] bg-white px-3.5 py-3 shadow-v2-ring">
                   <AlertCircle size={16} className="mt-0.5 shrink-0 text-v2-amber" strokeWidth={2.4} />
-                  <p className="text-right text-[12.5px] font-bold leading-relaxed text-v2-ink-2">
+                  <p className="text-start text-[12.5px] font-bold leading-relaxed text-v2-ink-2">
                     {t('steps.runSchedule.loadNotice.line1')}
                     <br />
                     {t('steps.runSchedule.loadNotice.line2')}
@@ -455,7 +455,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
           </AnimatePresence>
 
           {/* Section 1: Frequency */}
-          <section className="mb-5 text-right">
+          <section className="mb-5 text-start">
             <h2 className="mb-2.5 whitespace-nowrap px-1 text-[15px] font-black">{t('steps.runSchedule.frequency.title')}</h2>
             <div className="flex gap-2">
               {Array.from(
@@ -492,7 +492,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                 animate={{ opacity: 1, height: 'auto', y: 0, scale: daysPulse ? [1, 1.02, 1] : 1 }}
                 exit={{ opacity: 0, height: 0, y: -10 }}
                 transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                className="mb-5 overflow-hidden px-0.5 pb-1 pt-1 text-right"
+                className="mb-5 overflow-hidden px-0.5 pb-1 pt-1 text-start"
               >
                 <div className="mb-2.5 flex items-baseline justify-between px-1">
                   <h2 className="whitespace-nowrap text-[15px] font-black">{t('steps.runSchedule.days.title')}</h2>
@@ -548,7 +548,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                 animate={{ opacity: 1, height: 'auto', y: 0 }}
                 exit={{ opacity: 0, height: 0, y: -10 }}
                 transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-right"
+                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-start"
               >
                 <h2 className="mb-2.5 whitespace-nowrap px-1 text-[15px] font-black">{t('steps.runSchedule.time.title')}</h2>
                 <div className="flex gap-1.5">
@@ -650,7 +650,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
   }
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative">
+    <div className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <motion.div
@@ -664,7 +664,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
           </div>
           <h2 className="text-xl font-black text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מתי נרוץ?</h2>
         </div>
-        <p className="text-sm text-slate-500 mr-[52px]">
+        <p className="text-sm text-slate-500 ms-[52px]">
           {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נבנה תוכנית ריצה שמתאימה לסדר היום שלך
         </p>
       </motion.div>
@@ -678,7 +678,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             exit={{ opacity: 0, height: 0 }}
             className="mb-4 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-xl"
           >
-            <p className="text-xs text-blue-700 font-medium text-right leading-relaxed">
+            <p className="text-xs text-blue-700 font-medium text-start leading-relaxed">
               {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}ימי הכוח שלך ({strengthDays.join(', ')}) מסומנים בכחול.
               אפשר לבחור בהם גם ריצה — שני האימונים יופיעו באותו יום בלוז.{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
             </p>
@@ -707,7 +707,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             className="mb-4 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2"
           >
             <AlertCircle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700 font-medium text-right leading-relaxed">
+            <p className="text-xs text-amber-700 font-medium text-start leading-relaxed">
               {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בחרת יותר ימים מהתוכנית הנוכחית שלך.
               <br />
               {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נעדכן אותה בהתאם — ההתקדמות שלך תישמר.
@@ -717,7 +717,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
       </AnimatePresence>
 
       {/* ── Section 1: Frequency (1–4 only) ─────────────────────────────── */}
-      <section className="mb-5 text-right">
+      <section className="mb-5 text-start">
         <h3 className="text-base font-bold text-slate-900 mb-3">
           {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}כמה אימוני ריצה בשבוע?
         </h3>
@@ -784,7 +784,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             }}
             exit={{ opacity: 0, height: 0, y: -10 }}
             transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-            className="mb-5 text-right overflow-hidden"
+            className="mb-5 text-start overflow-hidden"
           >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base font-bold text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}באילו ימים?</h3>
@@ -868,7 +868,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                         color; the running color always wins the button, this dot
                         is the separate strength marker next to it). */}
                     {isStrength && (
-                      <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#5BC2F2] flex items-center justify-center pointer-events-none">
+                      <div className="absolute -top-1 -start-1 w-3.5 h-3.5 rounded-full bg-[#5BC2F2] flex items-center justify-center pointer-events-none">
                         <span className="text-[7px] text-on-brand font-bold leading-none">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}כ</span>
                       </div>
                     )}
@@ -903,7 +903,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             animate={{ opacity: 1, height: 'auto', y: 0 }}
             exit={{ opacity: 0, height: 0, y: -10 }}
             transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-            className="mb-5 text-right overflow-hidden"
+            className="mb-5 text-start overflow-hidden"
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">

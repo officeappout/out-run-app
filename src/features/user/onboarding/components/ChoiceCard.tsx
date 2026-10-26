@@ -41,7 +41,7 @@ export default function ChoiceCard({
     if (coinReward === 0) return null;
     
     return (
-      <div className="absolute top-3 left-3 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
+      <div className="absolute top-3 end-3 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
         <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
         <span className="text-xs font-bold font-simpler">+{coinReward}</span>
       </div>
@@ -100,7 +100,7 @@ export default function ChoiceCard({
         />
 
         {/* Text Content - Positioned at Bottom (RTL) */}
-        <div className="absolute inset-0 p-5 flex flex-col justify-end text-right">
+        <div className="absolute inset-0 p-5 flex flex-col justify-end text-start">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
             {text}
           </h3>
@@ -133,7 +133,7 @@ export default function ChoiceCard({
       {/* Card Container - Flex Row */}
       {/* Coin Reward Badge - Top Left (absolute positioned) - COIN_SYSTEM_PAUSED: Hidden when disabled */}
       {IS_COIN_SYSTEM_ENABLED && coinReward > 0 && (
-        <div className="absolute top-2 left-2 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
+        <div className="absolute top-2 end-2 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
           <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
           <span className="text-xs font-bold font-simpler">+{coinReward}</span>
         </div>
@@ -167,7 +167,7 @@ export default function ChoiceCard({
         </div>
 
         {/* Title on Left Side (RTL) - Flexible */}
-        <span className="text-sm font-medium px-5 flex-grow text-gray-800 dark:text-gray-100 text-right">
+        <span className="text-sm font-medium px-5 flex-grow text-gray-800 dark:text-gray-100 text-start">
           {text}
         </span>
       </div>

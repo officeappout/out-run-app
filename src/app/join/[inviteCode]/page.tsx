@@ -150,7 +150,7 @@ export default function JoinPage() {
 
   if (notFound || !group || isBlockedByLeaguesFlag) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] px-6 text-center" dir="rtl">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] px-6 text-center">
         <AlertCircle className="w-14 h-14 text-gray-300 mb-4" />
         <h1 className="text-xl font-black text-gray-900 mb-2">{t('join.invalid.title')}</h1>
         <p className="text-sm text-gray-500 mb-6 max-w-xs">
@@ -186,7 +186,7 @@ export default function JoinPage() {
   const coverImage = group.images?.[0];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col" dir="rtl">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
       {/* Hero */}
       <div className="relative h-56 flex-shrink-0 overflow-hidden">
         {coverImage ? (
@@ -205,7 +205,7 @@ export default function JoinPage() {
         </div>
 
         {/* Category chip */}
-        <div className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1.5 rounded-full">
+        <div className="absolute bottom-4 start-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1.5 rounded-full">
           <span>{cat.icon}</span>
           <span>{categoryLabel}</span>
         </div>

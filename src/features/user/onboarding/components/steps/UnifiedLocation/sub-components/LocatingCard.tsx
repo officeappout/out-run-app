@@ -29,8 +29,7 @@ export function LocatingCard({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 50 }}
         transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-        className="absolute bottom-0 left-0 right-0 z-20"
-        dir="rtl"
+        className="absolute bottom-0 end-0 start-0 z-20"
       >
         <div
           className="rounded-t-[28px] bg-white shadow-v2-sheet px-5 pt-3"
@@ -74,7 +73,7 @@ export function LocatingCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 50 }}
       transition={{ duration: 0.3 }}
-      className="absolute bottom-0 left-0 right-0 z-20"
+      className="absolute bottom-0 end-0 start-0 z-20"
     >
       <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-12 pb-4">
         <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-8 border-t border-slate-100/40">

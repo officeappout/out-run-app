@@ -520,10 +520,10 @@ export default function IdentityProfileScreen({
           >
             {v2 ? (
               <span className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 group-active:scale-[0.97]">
-                <ChevronRight size={20} className="text-v2-ink" />
+                <ChevronRight size={20} className="text-v2-ink ltr:-scale-x-100" />
               </span>
             ) : (
-              <ChevronRight size={22} className="text-slate-600" />
+              <ChevronRight size={22} className="text-slate-600 ltr:-scale-x-100" />
             )}
           </button>
 
@@ -571,9 +571,9 @@ export default function IdentityProfileScreen({
               />
             </motion.div>
             {v2 ? (
-              <h2 className="whitespace-nowrap text-[26px] font-black !tracking-[-0.02em] text-v2-ink text-right">{t('identity.heading')}</h2>
+              <h2 className="whitespace-nowrap text-[26px] font-black !tracking-[-0.02em] text-v2-ink text-start">{t('identity.heading')}</h2>
             ) : (
-              <h2 className="text-2xl font-black text-slate-900 text-right">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נעים להכיר! 👋</h2>
+              <h2 className="text-2xl font-black text-slate-900 text-start">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נעים להכיר! 👋</h2>
             )}
           </div>
 
@@ -617,7 +617,7 @@ export default function IdentityProfileScreen({
 
             {isJoinContext ? (
               /* Join-context two-line layout — group name prominent, no word animation */
-              <div className="text-right" dir="rtl">
+              <div className="text-start">
                 <p className={v2 ? 'text-[15px] font-black text-v2-ink mb-1' : 'text-base font-black text-slate-900 mb-1'}>
                   {t('identity.join.title', { group: pendingGroupName ?? '' })}
                 </p>
@@ -628,8 +628,7 @@ export default function IdentityProfileScreen({
             ) : (
               /* Word-by-word mist-in animation for non-join contexts */
               <motion.p
-                className={v2 ? 'text-[14px] font-medium text-v2-ink-2 leading-relaxed text-right' : 'text-sm font-medium text-slate-600 leading-relaxed text-right'}
-                dir="rtl"
+                className={v2 ? 'text-[14px] font-medium text-v2-ink-2 leading-relaxed text-start' : 'text-sm font-medium text-slate-600 leading-relaxed text-start'}
                 variants={{
                   hidden: {},
                   show: { transition: { delayChildren: 0.35, staggerChildren: 0.05 } },
@@ -669,10 +668,10 @@ export default function IdentityProfileScreen({
           {/* No keyboard opens on mount — user taps a gender button first.     */}
           {/* Tapping auto-advances focus to the Day field (Step 2).            */}
           <div className="space-y-2">
-            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
+            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-start' : 'block text-slate-900 font-black text-lg text-start ps-1'}>
               {t('identity.gender.label')}
             </label>
-            <p className={v2 ? 'text-[12.5px] font-bold leading-snug text-v2-muted text-right' : 'text-sm text-gray-400 text-right pr-1'}>
+            <p className={v2 ? 'text-[12.5px] font-bold leading-snug text-v2-muted text-start' : 'text-sm text-gray-400 text-start ps-1'}>
               {isJoinContext
                 ? t('identity.gender.hintJoin')
                 : v2
@@ -719,10 +718,10 @@ export default function IdentityProfileScreen({
           {/* Day→Month→Year auto-tab on 2/2/4 digits.                         */}
           {/* Year complete → auto-advance focus to the Name field (Step 3).   */}
           <div className="space-y-2">
-            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
+            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-start' : 'block text-slate-900 font-black text-lg text-start ps-1'}>
               {v2 ? t('identity.birthday.label') : /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */ 'מתי חוגגים לך יום הולדת? 🎂'}
             </label>
-            <p className={v2 ? 'text-[12.5px] font-bold leading-snug text-v2-muted text-right' : 'text-sm text-gray-400 text-right pr-1'}>
+            <p className={v2 ? 'text-[12.5px] font-bold leading-snug text-v2-muted text-start' : 'text-sm text-gray-400 text-start ps-1'}>
               {isJoinContext ? t('identity.birthday.hintJoin') : t('identity.birthday.hint')}
             </p>
 
@@ -830,12 +829,12 @@ export default function IdentityProfileScreen({
             </div>
 
             {isUnder14 && (
-              <p className={v2 ? 'text-[#b4232a] text-[12.5px] font-bold text-right' : 'text-red-500 text-sm font-medium text-right'}>
+              <p className={v2 ? 'text-[#b4232a] text-[12.5px] font-bold text-start' : 'text-red-500 text-sm font-medium text-start'}>
                 {t('identity.birthday.under14')}
               </p>
             )}
             {isDobInvalid && (
-              <p className={v2 ? 'text-[#b4232a] text-[12.5px] font-bold text-right' : 'text-red-500 text-sm font-medium text-right'}>
+              <p className={v2 ? 'text-[#b4232a] text-[12.5px] font-bold text-start' : 'text-red-500 text-sm font-medium text-start'}>
                 {t('identity.birthday.invalid')}
               </p>
             )}
@@ -845,7 +844,7 @@ export default function IdentityProfileScreen({
           {/* No autoFocus — keyboard arrives only after Year is filled.        */}
           {/* Enter key submits the form if all fields are complete.            */}
           <div className="space-y-2">
-            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
+            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-start' : 'block text-slate-900 font-black text-lg text-start ps-1'}>
               {t('identity.name.label')}
             </label>
             <input
@@ -867,8 +866,8 @@ export default function IdentityProfileScreen({
                 }, 150);
               }}
               className={v2
-                ? 'w-full h-[52px] bg-white text-v2-ink placeholder:text-v2-muted rounded-2xl border-0 px-4 text-[16px] font-semibold shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none transition-shadow font-simpler text-right'
-                : 'w-full bg-white text-black placeholder-slate-400 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-right'}
+                ? 'w-full h-[52px] bg-white text-v2-ink placeholder:text-v2-muted rounded-2xl border-0 px-4 text-[16px] font-semibold shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none transition-shadow font-simpler text-start'
+                : 'w-full bg-white text-black placeholder-slate-400 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-start'}
               placeholder={t('identity.name.placeholder')}
             />
           </div>
@@ -901,7 +900,7 @@ export default function IdentityProfileScreen({
                 <span className="truncate">
                   {isProfileOnly ? t('identity.cta.profileOnly') : t('identity.cta.continue', { gender: formData.gender })}
                 </span>
-                <ChevronLeft size={18} className="shrink-0" />
+                <ChevronLeft size={18} className="shrink-0 ltr:-scale-x-100" />
               </>
             )}
           </button>
@@ -926,12 +925,12 @@ export default function IdentityProfileScreen({
           ) : isProfileOnly ? (
             <>
               <span>{t('identity.cta.profileOnly')}</span>
-              <ChevronLeft size={20} />
+              <ChevronLeft className="ltr:-scale-x-100" size={20} />
             </>
           ) : (
             <>
               <span>{t('identity.cta.continue', { gender: formData.gender })}</span>
-              <ChevronLeft size={20} />
+              <ChevronLeft className="ltr:-scale-x-100" size={20} />
             </>
           )}
         </motion.button>

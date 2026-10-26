@@ -42,7 +42,7 @@ export default function WhatNowDrawer({ open, layout, routeCopy, routeMapUrl, sh
       ariaLabel={t('whatNow.aria')}
       className="max-h-[85vh]"
     >
-      <div className="flex flex-col gap-3 px-[18px] pb-2 pt-1" dir="rtl">
+      <div className="flex flex-col gap-3 px-[18px] pb-2 pt-1">
         <StepBar current={2} />
         <h2 className="text-[22px] font-bold text-v2-ink">{layout.title}</h2>
         {layout.cards.map((card) => {

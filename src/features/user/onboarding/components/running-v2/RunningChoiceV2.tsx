@@ -122,7 +122,7 @@ function ContinueBar({ disabled, onPress }: { disabled: boolean; onPress: () => 
 
 function Header({ title, description }: { title: string; description?: string }) {
   return (
-    <div className="mb-4 px-1 text-right">
+    <div className="mb-4 px-1 text-start">
       <h2 className="text-[24px] font-black leading-[1.2] !tracking-[-0.02em] text-v2-ink">{title}</h2>
       {description && <p className="mt-1 text-[14px] font-medium leading-snug text-v2-ink-2">{description}</p>}
     </div>
@@ -192,7 +192,7 @@ export function RunningGoalPickerV2({
   const activeIdx = picked ? answers.findIndex((a) => a.id === picked) : Math.max(0, firstPhoto);
 
   return (
-    <div className="flex w-full flex-1 flex-col font-simpler text-v2-ink" dir="rtl">
+    <div className="flex w-full flex-1 flex-col font-simpler text-v2-ink">
       {/* Hero — crossfades to the picked goal */}
       {/* Height yields on short phones so the first question fits one screen (fit-screen.ts). */}
       <div className="relative mb-4 shrink-0 overflow-hidden rounded-v2-card bg-v2-tint shadow-v2-card" style={{ height: GOAL_HERO_HEIGHT }}>
@@ -230,7 +230,7 @@ export function RunningGoalPickerV2({
               role="radio"
               aria-checked={on}
               onClick={() => setPicked(a.id)}
-              className={`flex w-full items-center gap-3 rounded-[22px] bg-white py-2.5 pl-3 pr-2.5 text-right transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+              className={`flex w-full items-center gap-3 rounded-[22px] bg-white py-2.5 pe-3 ps-2.5 text-start transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
                 on ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
               }`}
             >
@@ -280,7 +280,7 @@ export function RunningAbilityPickerV2({
   const t = useT(onboarding);
   const title = t('signup.runChoice.ability.title');
   return (
-    <div className="flex w-full flex-1 flex-col font-simpler text-v2-ink" dir="rtl">
+    <div className="flex w-full flex-1 flex-col font-simpler text-v2-ink">
       <Header title={title} description={t('signup.runChoice.ability.description')} />
 
       <div role="radiogroup" aria-label={title} className="flex flex-col gap-2.5">
@@ -297,7 +297,7 @@ export function RunningAbilityPickerV2({
               role="radio"
               aria-checked={on}
               onClick={() => setPicked(a.id)}
-              className={`flex w-full items-center gap-3 rounded-[22px] bg-white p-3.5 text-right transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+              className={`flex w-full items-center gap-3 rounded-[22px] bg-white p-3.5 text-start transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
                 on ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
               }`}
             >

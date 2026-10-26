@@ -323,7 +323,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
   }, [addName, entries, submitAsNew]);
 
   return (
-    <div className="px-5 py-4 flex flex-col h-full" dir="rtl">
+    <div className="px-5 py-4 flex flex-col h-full">
       <h3 className={v2 ? 'mb-1 text-[17px] font-black !tracking-[-0.01em] text-v2-ink' : 'text-base font-bold text-slate-900 mb-1'}>{config.label}</h3>
       {config.helperText && <p className={v2 ? 'mb-3 text-[12.5px] font-bold text-v2-muted' : 'text-xs text-slate-400 mb-3'}>{config.helperText}</p>}
       {breadcrumb.length > 0 && (
@@ -332,14 +332,14 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
           onClick={goBackOneLevel}
           className={v2 ? 'mb-3 flex min-w-0 max-w-full items-center gap-1 self-start whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'flex items-center gap-1 text-sm text-slate-500 mb-3 self-start'}
         >
-          <ChevronRight size={16} />
+          <ChevronRight className="ltr:-scale-x-100" size={16} />
           <span className={v2 ? 'truncate' : undefined}>{breadcrumb.map((b) => b.name).join(' / ')}</span>
         </button>
       )}
 
       {!loading && entries.length > 0 && (
         <div className="relative mb-3">
-          <Search size={16} className={v2 ? 'absolute right-4 top-1/2 -translate-y-1/2 text-v2-muted' : 'absolute right-3 top-1/2 -translate-y-1/2 text-slate-400'} />
+          <Search size={16} className={v2 ? 'absolute start-4 top-1/2 -translate-y-1/2 text-v2-muted' : 'absolute start-3 top-1/2 -translate-y-1/2 text-slate-400'} />
           <input
             type="text"
             value={searchQuery}
@@ -347,8 +347,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             onFocus={() => onNeedsExpandedHeight?.(true)}
             onBlur={() => onNeedsExpandedHeight?.(false)}
             placeholder={t('hierarchy.searchPlaceholder')}
-            className={v2 ? 'h-[52px] w-full rounded-2xl border-0 bg-white pl-4 pr-10 text-[16px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-inset focus:ring-v2-accent/60' : 'w-full pr-9 pl-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none'}
-            dir="rtl"
+            className={v2 ? 'h-[52px] w-full rounded-2xl border-0 bg-white pe-4 ps-10 text-[16px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-inset focus:ring-v2-accent/60' : 'w-full ps-9 pe-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none'}
           />
         </div>
       )}
@@ -375,10 +374,10 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
                 type="button"
                 onClick={() => selectEntry(entry)}
                 className={v2
-                  ? `flex min-w-0 items-center justify-between gap-3 rounded-[18px] bg-white px-4 py-3 text-right transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                  ? `flex min-w-0 items-center justify-between gap-3 rounded-[18px] bg-white px-4 py-3 text-start transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
                       selected ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
                     }`
-                  : `flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-right transition-all ${
+                  : `flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-start transition-all ${
                   selected ? 'border-[#00E5FF] bg-cyan-50' : 'border-slate-200 active:scale-[0.98]'
                 }`}
               >
@@ -419,7 +418,6 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             placeholder={t('hierarchy.add.namePlaceholder')}
             autoFocus
             className={v2 ? 'h-[52px] w-full rounded-2xl border-0 bg-white px-4 text-[16px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-inset focus:ring-v2-accent/60' : 'w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none'}
-            dir="rtl"
           />
           {addError && <p className={v2 ? 'text-center text-[12.5px] font-bold text-[#b4232a]' : 'text-xs text-red-600 text-center'}>{addError}</p>}
           <div className="flex gap-2">
@@ -474,7 +472,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
       {hasSelection && (
         <div className="pt-3 flex-shrink-0">
           {declareState === 'error' && declareErrorMessage && (
-            <p className={v2 ? 'mb-2 text-center text-[12.5px] font-bold text-[#b4232a]' : 'text-xs text-red-600 text-center mb-2'} dir="rtl">{declareErrorMessage}</p>
+            <p className={v2 ? 'mb-2 text-center text-[12.5px] font-bold text-[#b4232a]' : 'text-xs text-red-600 text-center mb-2'}>{declareErrorMessage}</p>
           )}
           <button
             type="button"

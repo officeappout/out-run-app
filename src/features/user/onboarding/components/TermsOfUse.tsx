@@ -29,7 +29,7 @@ export default function TermsOfUse({ onApprove, onBack, currentStep = 0, totalSt
   const progressPercentage = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
 
   return (
-    <div className="h-full flex flex-col bg-[#F3F4F6]" dir="rtl">
+    <div className="h-full flex flex-col bg-[#F3F4F6]">
       {/* Progress Bar עליון */}
       <div className="w-full h-1 bg-gray-200 flex-shrink-0">
         <div

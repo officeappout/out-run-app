@@ -137,7 +137,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
     : 'male';
 
   return (
-    <div className={v2 ? 'mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center bg-v2-surface px-5 py-8 font-simpler text-v2-ink' : 'flex flex-col items-center justify-center min-h-[70vh] px-6 py-8'} dir="rtl">
+    <div className={v2 ? 'mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center bg-v2-surface px-5 py-8 font-simpler text-v2-ink' : 'flex flex-col items-center justify-center min-h-[70vh] px-6 py-8'}>
       {/* Icon */}
       <motion.div
         initial={{ scale: 0 }}
@@ -264,13 +264,12 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
               className={v2 ? 'relative w-full rounded-t-[28px] bg-white px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] font-simpler text-v2-ink shadow-v2-sheet sm:max-w-md sm:rounded-v2-card-lg sm:pb-6' : 'relative bg-[#1A1A2E] rounded-t-3xl sm:rounded-2xl p-6 pb-8 sm:pb-6 w-full sm:max-w-md border border-white/10 shadow-[0_0_60px_rgba(0,0,0,0.6)]'}
-              dir="rtl"
             >
               {v2 && <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-v2-pill-border" aria-hidden />}
               {/* Close Button */}
               <button
                 onClick={() => setShowWarningModal(false)}
-                className={v2 ? 'absolute top-4 left-4 grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'absolute top-4 left-4 text-gray-500 hover:text-white transition-colors'}
+                className={v2 ? 'absolute top-4 end-4 grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'absolute top-4 end-4 text-gray-500 hover:text-white transition-colors'}
               >
                 <X className={v2 ? 'h-[18px] w-[18px] text-v2-ink-2' : 'w-5 h-5'} />
               </button>

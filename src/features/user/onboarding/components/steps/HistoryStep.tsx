@@ -170,7 +170,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
       }`;
 
     return (
-      <div dir="rtl" className="mx-auto flex h-full w-full max-w-md flex-1 flex-col font-simpler text-v2-ink">
+      <div className="mx-auto flex h-full w-full max-w-md flex-1 flex-col font-simpler text-v2-ink">
         <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pb-6 pt-2">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -248,7 +248,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
                         <Icon size={18} strokeWidth={2.2} />
                       </span>
                       <span
-                        className={`min-w-0 flex-1 truncate whitespace-nowrap text-right text-[15px] ${
+                        className={`min-w-0 flex-1 truncate whitespace-nowrap text-start text-[15px] ${
                           isSelected ? 'font-black text-v2-ink' : 'font-extrabold text-v2-ink-2'
                         }`}
                       >
@@ -351,7 +351,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
   }
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto flex flex-col min-h-[100dvh] bg-slate-50/50">
+    <div className="w-full max-w-md mx-auto flex flex-col min-h-[100dvh] bg-slate-50/50">
       {/* Scrollable content region */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 pb-6">
       {/* Main Premium Card Container */}
@@ -443,7 +443,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
                   </div>
                   
                   {/* Label */}
-                  <span className={`text-sm flex-1 text-right ${
+                  <span className={`text-sm flex-1 text-start ${
                     isSelected ? 'font-bold text-slate-900' : 'font-medium text-slate-600'
                   }`}>
                     {option.label}

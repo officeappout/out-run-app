@@ -550,7 +550,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
     const popoverDay = openPopoverDay !== -1 ? scheduleGrid[openPopoverDay] : null;
 
     return (
-      <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
         <AnimatePresence>
           {flyingCoin && (
             <CoinFly
@@ -633,7 +633,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
           <motion.section
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-5 space-y-4 rounded-v2-card bg-white p-4 text-right shadow-v2-card"
+            className="mb-5 space-y-4 rounded-v2-card bg-white p-4 text-start shadow-v2-card"
           >
             <div className="space-y-2.5">
               <h2 className="text-[15px] font-black">
@@ -657,7 +657,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                       <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${sel ? 'bg-white' : 'bg-v2-surface'}`}>
                         <Icon size={16} className={sel ? 'text-v2-deep' : 'text-v2-muted'} strokeWidth={2.2} />
                       </span>
-                      <span className={`min-w-0 flex-1 truncate whitespace-nowrap text-right text-[14px] ${sel ? 'font-extrabold text-v2-deep' : 'font-bold text-v2-ink-2'}`}>
+                      <span className={`min-w-0 flex-1 truncate whitespace-nowrap text-start text-[14px] ${sel ? 'font-extrabold text-v2-deep' : 'font-bold text-v2-ink-2'}`}>
                         {opt.label}
                       </span>
                       <span
@@ -723,7 +723,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
           </motion.section>
 
           {/* Section 1: Frequency */}
-          <section className="mb-5 text-right">
+          <section className="mb-5 text-start">
             <div className="mb-2.5 flex items-center gap-2">
               {IS_COIN_SYSTEM_ENABLED && (
                 <div className="relative" ref={frequencyBadgeRef}>
@@ -774,7 +774,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                 animate={{ opacity: 1, height: 'auto', y: 0, scale: daysPulse ? [1, 1.02, 1] : 1 }}
                 exit={{ opacity: 0, height: 0, y: -10 }}
                 transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-right"
+                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-start"
               >
                 <div className="mb-1.5 flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
@@ -867,7 +867,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                           </span>
                         )}
                         {hasWarningOnDay && !isPopoverOpen && (
-                          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-v2-amber" />
+                          <span className="absolute start-1 top-1 h-1.5 w-1.5 rounded-full bg-v2-amber" />
                         )}
                       </button>
                     );
@@ -923,7 +923,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                                   />
                                 )}
                               </span>
-                              <span className={`min-w-0 flex-1 truncate whitespace-nowrap text-right text-[14px] ${isPicked ? 'font-extrabold text-v2-deep' : 'font-bold text-v2-ink-2'}`}>
+                              <span className={`min-w-0 flex-1 truncate whitespace-nowrap text-start text-[14px] ${isPicked ? 'font-extrabold text-v2-deep' : 'font-bold text-v2-ink-2'}`}>
                                 {isHebrew ? opt.labelHe : opt.labelEn}
                               </span>
                               <span
@@ -948,7 +948,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-v2-surface">
                             <Moon size={16} className="text-v2-muted" />
                           </span>
-                          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right text-[14px] font-bold text-v2-ink-2">
+                          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-start text-[14px] font-bold text-v2-ink-2">
                             {isHebrew ? t('steps.schedule.popover.rest') : 'Rest day'}
                           </span>
                         </button>
@@ -1021,7 +1021,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                 animate={{ opacity: 1, height: 'auto', y: 0 }}
                 exit={{ opacity: 0, height: 0, y: -10 }}
                 transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-right"
+                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-start"
               >
                 <div className="mb-2.5 flex items-center gap-2">
                   {IS_COIN_SYSTEM_ENABLED && (
@@ -1066,7 +1066,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   }
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative">
+    <div className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative">
       {/* Coin Fly Animation */}
       <AnimatePresence>
         {flyingCoin && (
@@ -1093,7 +1093,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
             {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'מתי נתאמן?' : 'When do we train?'}
           </h2>
         </div>
-        <p className="text-sm text-slate-500 mr-[52px]">
+        <p className="text-sm text-slate-500 ms-[52px]">
           {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'נתאים את התוכנית לזמינות שלך' : "We'll adapt to your availability"}
         </p>
       </motion.div>
@@ -1161,7 +1161,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
       <motion.section
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm text-right space-y-4"
+        className="mb-5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm text-start space-y-4"
       >
         {/* Q1: Frequency */}
         <div className="space-y-2">
@@ -1184,7 +1184,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                   <div className={`p-1.5 rounded-lg ${sel ? 'bg-[#00C9F2]/15' : opt.bg}`}>
                     <Icon size={16} className={sel ? 'text-[#00C9F2]' : opt.color} strokeWidth={2} />
                   </div>
-                  <span className={`text-sm flex-1 text-right ${sel ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
+                  <span className={`text-sm flex-1 text-start ${sel ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
                     {opt.label}
                   </span>
                   <div className={`w-4 h-4 rounded-full flex items-center justify-center ${sel ? 'bg-[#00C9F2]' : 'bg-slate-100'}`}>
@@ -1261,7 +1261,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
       </motion.section>
 
       {/* Section 1: Frequency */}
-      <section className="mb-5 text-right">
+      <section className="mb-5 text-start">
         <div className="flex items-center justify-start gap-2 mb-2">
           {IS_COIN_SYSTEM_ENABLED && (
             <div className="relative" ref={frequencyBadgeRef}>
@@ -1307,7 +1307,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
         }}
         exit={{ opacity: 0, height: 0, y: -10 }}
         transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-        className="mb-5 text-right overflow-hidden"
+        className="mb-5 text-start overflow-hidden"
       >
         <div className="flex items-center justify-between mb-2">
           {/* Right side: Title with coin badge */}
@@ -1398,7 +1398,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
             animate={{ opacity: 1, height: 'auto', y: 0 }}
             exit={{ opacity: 0, height: 0, y: -10 }}
             transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-            className="mb-5 text-right overflow-hidden"
+            className="mb-5 text-start overflow-hidden"
           >
             <div className="flex items-center gap-2 mb-3">
               {IS_COIN_SYSTEM_ENABLED && (

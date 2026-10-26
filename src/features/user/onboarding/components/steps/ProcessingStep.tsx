@@ -88,7 +88,6 @@ export default function ProcessingStep({ onNext }: ProcessingStepProps) {
     return (
       <div
         className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-v2-surface font-simpler text-v2-ink pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
-        dir="rtl"
       >
         <motion.div
           initial={{ scale: 0.5, opacity: 0 }}
@@ -150,11 +149,11 @@ export default function ProcessingStep({ onNext }: ProcessingStepProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0F172A] overflow-hidden" dir="rtl">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0F172A] overflow-hidden">
       {/* Ambient glow layers */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#00F0FF]/5 rounded-full blur-[120px]" />
-        <div className="absolute top-1/3 left-1/3 w-[300px] h-[300px] bg-[#0047FF]/8 rounded-full blur-[100px] animate-pulse" />
+        <div className="absolute top-1/3 end-1/3 w-[300px] h-[300px] bg-[#0047FF]/8 rounded-full blur-[100px] animate-pulse" />
       </div>
 
       {/* Central data-viz animation */}

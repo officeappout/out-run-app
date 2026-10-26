@@ -141,7 +141,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="absolute bottom-16 right-4 flex items-center gap-2 rounded-full px-3 py-1.5 shadow-lg"
+          className="absolute bottom-16 start-4 flex items-center gap-2 rounded-full px-3 py-1.5 shadow-lg"
           style={{ background: '#00BAF7' }}
         >
           <Footprints size={16} className="text-on-brand" />
@@ -153,9 +153,9 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="absolute bottom-4 right-4"
+          className="absolute bottom-4 start-4"
         >
-          <h1 className="text-white text-3xl font-black tracking-tight" dir="rtl">
+          <h1 className="text-white text-3xl font-black tracking-tight">
             {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}תוכנית ל-{summary.distLabel}
           </h1>
         </motion.div>
@@ -167,7 +167,6 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
         className="px-4 py-2 space-y-1"
-        dir="rtl"
       >
         <div className="flex items-center gap-4 py-3 border-b border-white/5">
           <div
@@ -212,7 +211,6 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
         className="px-4 pt-6 pb-28"
-        dir="rtl"
       >
         <h3 className="text-slate-400 text-sm font-medium mb-4">
           {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}התוכנית שלך מותאמת על בסיס הפרטים הבאים
@@ -263,7 +261,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
 
       {/* Generate Button */}
       <div
-        className="fixed bottom-0 left-0 right-0 px-4 pt-4 bg-gradient-to-t from-[#12201e] via-[#12201e] to-transparent max-w-md mx-auto"
+        className="fixed bottom-0 end-0 start-0 px-4 pt-4 bg-gradient-to-t from-[#12201e] via-[#12201e] to-transparent max-w-md mx-auto"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
         <motion.button

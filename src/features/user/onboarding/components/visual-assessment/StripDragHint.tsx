@@ -48,7 +48,6 @@ export default function StripDragHint({
           <motion.div
             key="strip-end-labels"
             className="pointer-events-none absolute inset-x-4 top-0 z-30 flex justify-between text-[11px] font-extrabold text-v2-muted"
-            dir="rtl"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -79,7 +78,7 @@ export default function StripDragHint({
       {/* Reduced motion: a still finger on the selected tile. */}
       {showStaticFinger && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center" aria-hidden>
-          <span className="ml-8 mt-12 inline-block">{fingerNode}</span>
+          <span className="me-8 mt-12 inline-block">{fingerNode}</span>
         </div>
       )}
     </>
@@ -107,7 +106,6 @@ function CoachPillBubble({ pill, gender, pulse }: { pill: CoachPill; gender: Gen
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 4 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
-          dir="rtl"
           role="status"
         >
           <motion.div
@@ -123,7 +121,7 @@ function CoachPillBubble({ pill, gender, pulse }: { pill: CoachPill; gender: Gen
             <span className="text-[12.5px] font-bold leading-tight opacity-75">{t(coachCopy(pill).sub, { gender })}</span>
             <span
               className={clsx(
-                'absolute -bottom-[7px] left-1/2 -ml-2 h-4 w-4 rotate-45 rounded-[3px]',
+                'absolute -bottom-[7px] end-1/2 -me-2 h-4 w-4 rotate-45 rounded-[3px]',
                 pill === 'intro' ? 'bg-v2-ink' : 'bg-white',
               )}
               aria-hidden

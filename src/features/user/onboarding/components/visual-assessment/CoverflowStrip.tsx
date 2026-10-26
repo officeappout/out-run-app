@@ -247,11 +247,11 @@ export default function CoverflowStrip({
       style={{ height: STRIP_HEIGHT }}
     >
       <div
-        className="absolute inset-y-0 left-0 w-6 z-20 pointer-events-none bg-gradient-to-r from-white to-transparent"
+        className="absolute inset-y-0 end-0 w-6 z-20 pointer-events-none bg-gradient-to-r from-white to-transparent"
         aria-hidden
       />
       <div
-        className="absolute inset-y-0 right-0 w-6 z-20 pointer-events-none bg-gradient-to-l from-white to-transparent"
+        className="absolute inset-y-0 start-0 w-6 z-20 pointer-events-none bg-gradient-to-l from-white to-transparent"
         aria-hidden
       />
       <div

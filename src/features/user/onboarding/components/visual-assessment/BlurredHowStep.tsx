@@ -94,7 +94,7 @@ export default function BlurredHowStep({
   // already pads the safe-area insets, so the CTA only adds its own 12px.
   if (v2) {
     return (
-      <div className="relative flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink" dir="rtl">
+      <div className="relative flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink">
         <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
           <button
             type="button"
@@ -102,7 +102,7 @@ export default function BlurredHowStep({
             className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
             aria-label="חזרה"
           >
-            <ChevronRight size={20} className="text-v2-ink" />
+            <ChevronRight size={20} className="text-v2-ink ltr:-scale-x-100" />
           </button>
           <div className="flex min-h-[40px] flex-1 flex-col justify-center">
             <OnboardingStoryBar
@@ -161,7 +161,7 @@ export default function BlurredHowStep({
               className="relative mt-2 w-full"
             >
               <div
-                className="pointer-events-none absolute -top-[9px] right-7 z-10 h-[18px] w-[18px] rotate-45 rounded-[4px] bg-white"
+                className="pointer-events-none absolute -top-[9px] start-7 z-10 h-[18px] w-[18px] rotate-45 rounded-[4px] bg-white"
                 aria-hidden
               />
               <div className="w-full rounded-v2-card bg-white px-5 py-2 shadow-v2-card">
@@ -181,7 +181,7 @@ export default function BlurredHowStep({
                       >
                         <Icon size={18} strokeWidth={2.25} />
                       </span>
-                      <div className="min-w-0 space-y-1 text-right">
+                      <div className="min-w-0 space-y-1 text-start">
                         <p className="text-[15px] font-black leading-snug text-v2-ink">
                           {bullet.label[g]}
                         </p>
@@ -218,13 +218,13 @@ export default function BlurredHowStep({
   }
 
   return (
-    <div className="relative flex flex-col h-full bg-slate-50" dir="rtl">
+    <div className="relative flex flex-col h-full bg-slate-50">
 
       {/* ── Layer 1: Decorative ambient blobs ───────────────────────── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-cyan-300/30 blur-3xl" />
-        <div className="absolute top-[40%] -left-20 w-56 h-56 rounded-full bg-violet-300/20 blur-3xl" />
-        <div className="absolute bottom-[8%] right-[10%] w-52 h-52 rounded-full bg-sky-200/25 blur-3xl" />
+        <div className="absolute -top-16 -start-16 w-64 h-64 rounded-full bg-cyan-300/30 blur-3xl" />
+        <div className="absolute top-[40%] -end-20 w-56 h-56 rounded-full bg-violet-300/20 blur-3xl" />
+        <div className="absolute bottom-[8%] start-[10%] w-52 h-52 rounded-full bg-sky-200/25 blur-3xl" />
       </div>
 
       {/* ── Layer 2: Frosted glass — fades in first (delay 0ms) ──────── */}
@@ -246,7 +246,7 @@ export default function BlurredHowStep({
             className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-white/60 active:bg-white/80 transition-colors touch-manipulation backdrop-blur-sm"
             aria-label="חזרה"
           >
-            <ChevronRight size={22} className="text-slate-600" />
+            <ChevronRight size={22} className="text-slate-600 ltr:-scale-x-100" />
           </button>
           <div className="flex-1 min-h-[36px] flex flex-col justify-center">
             <OnboardingStoryBar
@@ -318,7 +318,7 @@ export default function BlurredHowStep({
                 aligned to the right where Kelly stands.
               */}
               <div
-                className="absolute -top-3 right-8 z-10 pointer-events-none"
+                className="absolute -top-3 start-8 z-10 pointer-events-none"
                 style={{
                   width: 0,
                   height: 0,
@@ -351,7 +351,7 @@ export default function BlurredHowStep({
                       <span className="text-2xl flex-shrink-0 mt-0.5 select-none" aria-hidden>
                         {bullet.emoji}
                       </span>
-                      <div className="space-y-1.5 text-right">
+                      <div className="space-y-1.5 text-start">
                         <p className="text-base font-semibold text-slate-900 leading-snug">
                           {bullet.label[g]}
                         </p>

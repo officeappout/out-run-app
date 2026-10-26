@@ -379,7 +379,7 @@ export default function HealthDeclarationStep({
   }
 
   return (
-    <div className={v2 ? 'flex flex-col h-full w-full flex-1 min-h-0 bg-v2-surface' : 'flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50'} dir="rtl">
+    <div className={v2 ? 'flex flex-col h-full w-full flex-1 min-h-0 bg-v2-surface' : 'flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50'}>
       {/* ── Scrollable content ── */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pb-36 scroll-smooth">
         {/* ── PHASE 1 + 2: Header — Lemur pops in → Bubble pops in → Words mist in ── */}
@@ -618,7 +618,7 @@ export default function HealthDeclarationStep({
                   >
                     {t('health.answer.no')}
                     {isAutoFilled && (
-                      <span className={v2 ? 'absolute top-1 right-2 w-2 h-2 bg-v2-accent rounded-full' : 'absolute -top-1 -right-1 w-2 h-2 bg-sky-400 rounded-full'} title="Fast-Track" />
+                      <span className={v2 ? 'absolute top-1 start-2 w-2 h-2 bg-v2-accent rounded-full' : 'absolute -top-1 -start-1 w-2 h-2 bg-sky-400 rounded-full'} title="Fast-Track" />
                     )}
                   </button>
 
@@ -670,7 +670,7 @@ export default function HealthDeclarationStep({
         <div ref={signatureRef} className={v2 ? 'mt-6 rounded-v2-card bg-white shadow-v2-card p-4 space-y-4' : 'mt-8 pt-6 border-t border-slate-100 space-y-4'} style={{ fontFamily: 'var(--font-simpler)' }}>
 
           {/* Title + gender-responsive subtitle */}
-          <div className="space-y-1" dir="rtl">
+          <div className="space-y-1">
             <h3 className={v2 ? 'font-black text-v2-ink text-[17px] !tracking-[-0.02em]' : 'font-black text-slate-900 text-lg'}>{t('health.signature.title')}</h3>
             <p className={v2 ? 'text-[14px] text-v2-ink-2 leading-relaxed' : 'text-sm text-slate-500 leading-relaxed'}>
               {t('health.signature.subtitle', { gender: copyGender })}
@@ -682,7 +682,6 @@ export default function HealthDeclarationStep({
             className={v2
               ? 'max-h-40 overflow-y-auto bg-v2-surface p-4 rounded-2xl ring-1 ring-inset ring-v2-hairline text-[14px] text-v2-ink-2 leading-relaxed'
               : 'max-h-40 overflow-y-auto bg-slate-50 p-4 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed'}
-            dir="rtl"
           >
             {LEGAL_TEXT}
           </div>
@@ -749,7 +748,7 @@ export default function HealthDeclarationStep({
                   </svg>
                 </div>
               </div>
-              <p className={v2 ? 'text-[14px] text-v2-ink leading-relaxed flex-1' : 'text-sm text-slate-700 leading-relaxed flex-1'} dir="rtl">
+              <p className={v2 ? 'text-[14px] text-v2-ink leading-relaxed flex-1' : 'text-sm text-slate-700 leading-relaxed flex-1'}>
                 {t.rich('health.terms', {
                   gender: copyGender,
                   terms: (chunks: React.ReactNode) => (
@@ -784,8 +783,8 @@ export default function HealthDeclarationStep({
       {/* ── Fixed bottom CTA ── */}
       <div
         className={v2
-          ? 'fixed bottom-0 left-0 right-0 bg-v2-surface/90 backdrop-blur-xl px-4 pt-3 z-30'
-          : 'fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-4 pt-4 z-30'}
+          ? 'fixed bottom-0 end-0 start-0 bg-v2-surface/90 backdrop-blur-xl px-4 pt-3 z-30'
+          : 'fixed bottom-0 end-0 start-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-4 pt-4 z-30'}
         style={{ paddingBottom: v2 ? 'max(env(safe-area-inset-bottom, 0px), 12px)' : 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
         {/* Medical blocking warning */}
@@ -891,7 +890,6 @@ export default function HealthDeclarationStep({
               transition={{ type: 'spring', stiffness: 320, damping: 28 }}
               onClick={(e) => e.stopPropagation()}
               className={v2 ? 'bg-white rounded-[28px] shadow-v2-sheet w-full max-w-lg overflow-hidden' : 'bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden'}
-              dir="rtl"
             >
               <div className={v2 ? 'flex items-center justify-between px-5 pt-5 pb-2' : 'flex items-center justify-between px-5 py-4 border-b border-slate-100'}>
                 <div className="flex items-center gap-2">
