@@ -141,6 +141,7 @@ function WeekBar({ bar }: { bar: StreakWeekBar }) {
 }
 
 export default function StreakDotsStrip({ streak, best, days, bars }: StreakDotsStripProps) {
+  const t = useT(common);
   return (
     <div className="rounded-v2-card bg-white px-3.5 pb-3.5 pt-3.5 shadow-v2-card">
       <div className="flex items-center gap-2.5">
@@ -153,20 +154,20 @@ export default function StreakDotsStrip({ streak, best, days, bars }: StreakDots
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5">
             <span className="text-[26px] font-black leading-none tabular-nums tracking-[-0.03em] text-v2-ink">{streak}</span>
-            <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">אימונים ברצף</span>
+            <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{t('ui.streak.label')}</span>
           </div>
-          <div className="mt-0.5 truncate text-[12px] font-bold text-v2-muted">להבה בכל יום אימון</div>
+          <div className="mt-0.5 truncate text-[12px] font-bold text-v2-muted">{t('ui.streak.sub')}</div>
         </div>
         {!!best && best > 0 && (
           <span className="inline-flex h-[26px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#fff7ed] px-2.5 text-[11.5px] font-extrabold text-[#c2410c]">
             <Trophy size={12} strokeWidth={2.6} color="#ea580c" aria-hidden />
-            השיא: {best}
+            {t('ui.streak.best', { best: String(best) })}
           </span>
         )}
       </div>
 
       {days.length === 7 && (
-        <div className="mt-3 flex" role="list" aria-label="השבוע">
+        <div className="mt-3 flex" role="list" aria-label={t('ui.streak.week')}>
           {days.map((d, i) => (
             <div key={d.date} role="listitem" className="relative flex flex-1 flex-col items-center gap-1">
               {i > 0 && <Connector side="start" on={days[i - 1].chainToNext} />}
@@ -175,7 +176,7 @@ export default function StreakDotsStrip({ streak, best, days, bars }: StreakDots
               <span
                 className={`whitespace-nowrap text-[11px] font-bold ${d.isToday ? 'font-black text-[#ea580c]' : 'text-v2-muted'}`}
               >
-                {d.isToday ? 'היום' : d.label}
+                {d.isToday ? t('ui.streak.today') : d.label}
               </span>
             </div>
           ))}

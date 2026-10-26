@@ -33,6 +33,8 @@ import { useUserStore } from '@/features/user';
 import Sheet, { SHEET_TITLE_CLASS } from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 interface HealthConnectDisclosureModalProps {
   isOpen: boolean;
@@ -46,16 +48,18 @@ interface HealthConnectDisclosureModalProps {
 
 const DATA_ITEMS = [
   {
+    id: 'steps',
     icon: <Footprints size={18} className="text-[#5BC2F2]" aria-hidden="true" />,
-    label: 'צעדים יומיים',
-    purpose: 'מעקב אחר יעד הצעדים היומי שלך',
-    access: 'קריאה',
+    labelKey: 'ui.health.steps.label',
+    purposeKey: 'ui.health.steps.purpose',
+    accessKey: 'ui.health.steps.access',
   },
   {
+    id: 'exercise',
     icon: <Timer size={18} className="text-emerald-500" aria-hidden="true" />,
-    label: 'דקות פעילות (Exercise Time)',
-    purpose: 'מעקב אחר עמידה ביעד 150 דקות WHO',
-    access: 'קריאה + כתיבה',
+    labelKey: 'ui.health.exercise.label',
+    purposeKey: 'ui.health.exercise.purpose',
+    accessKey: 'ui.health.exercise.access',
   },
 ] as const;
 
@@ -65,6 +69,7 @@ export default function HealthConnectDisclosureModal({
   onDismiss,
   platformLabel = 'HealthKit / Health Connect',
 }: HealthConnectDisclosureModalProps) {
+  const t = useT(common);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   // enable_home_v2: the shared <Sheet> shell only — the disclosure text, both
   // buttons, their order and every dismissal path are the same in both branches.
@@ -75,28 +80,26 @@ export default function HealthConnectDisclosureModal({
     <div className="px-5 pb-6 space-y-5">
       {/* ── Platform label ── */}
       <p className="text-xs text-slate-500 leading-relaxed">
-        OUT מבקשת גישה ל
-        <span className="font-semibold text-slate-700"> {platformLabel} </span>
-        כדי להציג לך נתוני פעילות אישיים. להלן פירוט מדויק של מה שנקרא ולמה:
+        {t.rich('ui.health.intro', { platform: platformLabel, b: (chunks: React.ReactNode) => <span className="font-semibold text-slate-700">{chunks}</span> })}
       </p>
 
       {/* ── Data items table ── */}
       <div className="space-y-2.5">
         {DATA_ITEMS.map((item) => (
           <div
-            key={item.label}
+            key={item.id}
             className="flex items-start gap-3 bg-slate-50 rounded-xl px-3.5 py-3"
           >
             <div className="mt-0.5 flex-shrink-0">{item.icon}</div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-800 leading-snug">
-                {item.label}
+                {t(item.labelKey)}
                 <span className="mr-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  ({item.access})
+                  ({t(item.accessKey)})
                 </span>
               </p>
               <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                {item.purpose}
+                {t(item.purposeKey)}
               </p>
             </div>
           </div>
@@ -106,15 +109,15 @@ export default function HealthConnectDisclosureModal({
       {/* ── Commitment box ── */}
       <div className="bg-emerald-50 border border-emerald-200/70 rounded-xl px-4 py-3.5 space-y-1.5">
         <p className="text-xs font-bold text-emerald-800">
-          ההתחייבויות שלנו:
+          {t('ui.health.commitments')}
         </p>
         <ul className="space-y-1 text-xs text-emerald-700 leading-relaxed list-none">
-          <li>✓ נתוני הבריאות משמשים אך ורק להצגה אישית עבורך</li>
-          <li>✓ לא מועברים לצדדים שלישיים, ספקי פרסום או חברות ביטוח</li>
-          <li>✓ ערכי הדאטה לא נשמרים בשרתי OUT — מוצגים ישירות מהמכשיר</li>
-          <li>✓ נשמרים רק סכומי פעילות מצטברים, כדי להציג לך התקדמות</li>
-          <li>✓ הכל נמחק עם מחיקת החשבון</li>
-          <li>✓ ניתן לבטל גישה בכל עת דרך הגדרות הטלפון</li>
+          <li>{t('ui.health.commit.1')}</li>
+          <li>{t('ui.health.commit.2')}</li>
+          <li>{t('ui.health.commit.3')}</li>
+          <li>{t('ui.health.commit.4')}</li>
+          <li>{t('ui.health.commit.5')}</li>
+          <li>{t('ui.health.commit.6')}</li>
         </ul>
       </div>
 
@@ -125,7 +128,7 @@ export default function HealthConnectDisclosureModal({
         className="flex items-center gap-1.5 text-xs text-[#5BC2F2] hover:text-[#4AADE3] transition-colors"
       >
         <ExternalLink size={12} />
-        <span>קרא/י את מדיניות הפרטיות המלאה (סעיף 2)</span>
+        <span>{t('ui.health.privacyLink')}</span>
       </button>
 
       {/* ── CTAs ── */}
@@ -135,14 +138,14 @@ export default function HealthConnectDisclosureModal({
           onClick={onConfirm}
           className="w-full bg-brand-cta hover:brightness-105 active:scale-[0.98] text-on-brand font-bold py-3.5 rounded-2xl shadow-md shadow-[#5BC2F2]/20 transition-all text-sm"
         >
-          אפשר גישה
+          {t('ui.health.allow')}
         </button>
         <button
           type="button"
           onClick={onDismiss}
           className="w-full text-slate-500 font-medium py-2.5 rounded-2xl hover:bg-slate-50 transition-colors text-sm"
         >
-          לא עכשיו
+          {t('ui.health.notNow')}
         </button>
       </div>
     </div>
@@ -177,14 +180,14 @@ export default function HealthConnectDisclosureModal({
           safeArea="env(safe-area-inset-bottom)"
           grabber={false}
           transition={{ type: 'spring', damping: 32, stiffness: 300 }}
-          ariaLabel="גישה לנתוני בריאות"
+          ariaLabel={t('ui.health.title')}
           header={
             <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-5">
               <div className="flex min-w-0 items-center gap-2.5">
                 <ShieldCheck className="h-5 w-5 shrink-0 text-v2-deep" aria-hidden="true" />
-                <h2 className={`${SHEET_TITLE_CLASS} truncate`}>גישה לנתוני בריאות</h2>
+                <h2 className={`${SHEET_TITLE_CLASS} truncate`}>{t('ui.health.title')}</h2>
               </div>
-              <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onDismiss}>
+              <IconButton aria-label={t('ui.health.close')} tone="surface" size={36} className="shrink-0" onClick={onDismiss}>
                 <X className="h-4 w-4" />
               </IconButton>
             </div>
@@ -225,13 +228,13 @@ export default function HealthConnectDisclosureModal({
                 <div className="flex items-center gap-2.5">
                   <ShieldCheck size={22} className="text-[#5BC2F2] flex-shrink-0" />
                   <h2 className="text-base font-black text-slate-900">
-                    גישה לנתוני בריאות
+                    {t('ui.health.title')}
                   </h2>
                 </div>
                 <button
                   type="button"
                   onClick={onDismiss}
-                  aria-label="סגור"
+                  aria-label={t('ui.health.close')}
                   className="p-1.5 rounded-full hover:bg-slate-100 transition-colors"
                 >
                   <X size={18} className="text-slate-500" />

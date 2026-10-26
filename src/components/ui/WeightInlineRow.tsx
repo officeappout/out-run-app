@@ -18,6 +18,9 @@ import { useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { unitLabel } from '@/lib/i18n/units';
 
 const ACCENT = '#00ADEF';
 
@@ -58,6 +61,7 @@ export function useWeightNudge() {
  * successful save. Presentational + its own persistence — no external wiring.
  */
 export default function WeightInlineRow({ onSaved }: { onSaved?: () => void }) {
+  const t = useT(common);
   const { genderDefault, saveWeight } = useWeightNudge();
   const [value, setValue] = useState(genderDefault);
   const [saving, setSaving] = useState(false);
@@ -85,9 +89,9 @@ export default function WeightInlineRow({ onSaved }: { onSaved?: () => void }) {
       className="mt-3 rounded-2xl px-4 py-3.5"
       style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD' }}
     >
-      <p className="text-[12px] font-black text-gray-700 mb-0.5">⚖️ משקלך לחישוב מדויק</p>
+      <p className="text-[12px] font-black text-gray-700 mb-0.5">{t('ui.weight.title')}</p>
       <p className="text-[11px] text-gray-400 leading-tight mb-2.5">
-        עדיין לא הזנת משקל — הערך הנוכחי הוא ברירת מחדל. כדי שחישוב הקלוריות יהיה מדויק, שווה לעדכן.
+        {t('ui.weight.body')}
       </p>
       <div className="flex items-center gap-2">
         <button
@@ -95,7 +99,7 @@ export default function WeightInlineRow({ onSaved }: { onSaved?: () => void }) {
           onClick={() => adjust(-1)}
           className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-gray-700 text-lg font-bold active:scale-90 transition-transform"
           style={{ border: '1px solid #E2E8F0' }}
-          aria-label="הפחת ק״ג"
+          aria-label={t('ui.weight.decrease')}
         >
           −
         </button>
@@ -110,9 +114,9 @@ export default function WeightInlineRow({ onSaved }: { onSaved?: () => void }) {
               if (!isNaN(v) && v >= 30 && v <= 200) setValue(v);
             }}
             className="text-[18px] font-black text-gray-900 text-center bg-transparent border-none outline-none w-full"
-            aria-label="משקל בקילוגרם"
+            aria-label={t('ui.weight.inputLabel')}
           />
-          <span className="text-[11px] text-gray-400 leading-none">ק״ג</span>
+          <span className="text-[11px] text-gray-400 leading-none">{unitLabel('kg', t)}</span>
         </div>
 
         <button
@@ -120,7 +124,7 @@ export default function WeightInlineRow({ onSaved }: { onSaved?: () => void }) {
           onClick={() => adjust(1)}
           className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-gray-700 text-lg font-bold active:scale-90 transition-transform"
           style={{ border: '1px solid #E2E8F0' }}
-          aria-label="הוסף ק״ג"
+          aria-label={t('ui.weight.increase')}
         >
           +
         </button>
@@ -132,10 +136,10 @@ export default function WeightInlineRow({ onSaved }: { onSaved?: () => void }) {
           className="px-3.5 h-9 rounded-xl text-[13px] font-black text-white active:scale-95 transition-transform disabled:opacity-50"
           style={{ backgroundColor: ACCENT, minWidth: 52 }}
         >
-          {saving ? '...' : 'שמור'}
+          {saving ? '...' : t('ui.weight.save')}
         </button>
       </div>
-      <p className="text-[10px] text-gray-400 mt-1.5">אפשר לדלג — יישמר לפרופיל אם תבחר</p>
+      <p className="text-[10px] text-gray-400 mt-1.5">{t('ui.weight.hint')}</p>
     </div>
   );
 }

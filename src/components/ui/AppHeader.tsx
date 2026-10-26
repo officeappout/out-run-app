@@ -42,6 +42,8 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useKellyThreadMeta } from '@/features/ai-coach/hooks/useKellyThread';
 import { KELLY_UID } from '@/features/social/services/kelly-welcome-bot.service';
 import { unifiedChatBadge } from '@/lib/ai/coach/unified-thread';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 interface AppHeaderProps {
   /**
@@ -70,6 +72,7 @@ interface AppHeaderProps {
 
 export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2: v2Prop }: AppHeaderProps) {
   const router = useRouter();
+  const t = useT(common);
   const profile = useUserStore((s) => s.profile);
   // Pages that don't pass `v2` (community, search, progression, map) follow
   // enable_home_v2 themselves — the header used to stay classic there.
@@ -80,7 +83,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
   const v2 = v2Prop ?? flagV2;
   const userId = profile?.id ?? null;
   const photoURL = profile?.core?.photoURL;
-  const userName = profile?.core?.name ?? 'משתמש';
+  const userName = profile?.core?.name ?? t('ui.header.userFallback');
   const verified = isUserVerified(profile);
 
   const { todayActivity, streak, isLoading: activityLoading } = useDailyActivity();
@@ -150,7 +153,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
         }}
         // -m-0.5 p-0.5: a 44px hit box around the 40px avatar, same look and spacing.
         className="-m-0.5 p-0.5 active:scale-95 transition-transform cursor-pointer"
-        aria-label={streak > 0 ? `פרופיל · ${streak} ימים ברצף` : 'פרופיל'}
+        aria-label={streak > 0 ? t('ui.header.profileStreak', { streak: String(streak) }) : t('ui.header.profile')}
       >
         <div className="relative">
         <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-white" style={{ boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' }}>
@@ -172,7 +175,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); openActivity(); }}
-            aria-label={`התראות — ${activityUnread > 99 ? '99+' : activityUnread} חדשות`}
+            aria-label={t('ui.header.notifications', { count: String(activityUnread > 99 ? '99+' : activityUnread) })}
             className="absolute -top-0.5 -left-0.5 w-3 h-3 rounded-full bg-v2-accent border-2 border-white"
           />
         )}
@@ -196,7 +199,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
           if (e.key === 'Enter' || e.key === ' ') { hapticSuccess(); router.push('/profile'); }
         }}
         className="flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
-        aria-label="פרופיל"
+        aria-label={t('ui.header.profile')}
       >
         <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
           {photoURL ? (
@@ -222,7 +225,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); openActivity(); }}
-              aria-label={`התראות${activityUnread > 0 ? ` — ${activityUnread > 99 ? '99+' : activityUnread} חדשות` : ''}`}
+              aria-label={t('ui.header.notifications', { count: String(activityUnread > 99 ? '99+' : activityUnread) })}
               className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-white"
             />
           )}
@@ -267,7 +270,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
             type="button"
             onClick={openChat}
             className="grid h-11 w-11 place-items-center rounded-full active:scale-95 transition-transform"
-            aria-label="הודעות"
+            aria-label={t('ui.header.messages')}
           >
             <span className="relative grid h-10 w-10 place-items-center rounded-full bg-white" style={{ boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' }}>
               <MessageCircle className="w-5 h-5 text-gray-600" />
@@ -281,7 +284,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
           <Link
             href="/search"
             className="grid h-11 w-11 place-items-center rounded-full active:scale-95 transition-transform"
-            aria-label="חיפוש"
+            aria-label={t('ui.header.search')}
           >
             <span className="grid h-10 w-10 place-items-center rounded-full bg-white" style={{ boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' }}>
               <Search className="w-5 h-5 text-gray-600" />
@@ -294,7 +297,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
           type="button"
           onClick={openChat}
           className="relative p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
-          aria-label="הודעות"
+          aria-label={t('ui.header.messages')}
         >
           <MessageCircle className="w-5 h-5 text-gray-600" />
           {chatUnread > 0 && (
@@ -307,7 +310,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
         <Link
           href="/search"
           className="p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
-          aria-label="חיפוש"
+          aria-label={t('ui.header.search')}
         >
           <Search className="w-5 h-5 text-gray-600" />
         </Link>

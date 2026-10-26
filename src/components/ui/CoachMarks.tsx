@@ -18,6 +18,8 @@ import { IconTile, type IconTileTone } from '@/components/ui/v2';
 import EntryCoachBubble from './coach-marks/EntryCoachBubble';
 import { clipCoachBox, coachSkipVisible, placeCoachBubble } from './coach-marks/coach-placement';
 import { occluderBottomFor, scrollCoachTargetIntoView } from './coach-marks/coach-occluder';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface CoachMarkStep {
   /** `data-coach` value of the element to point at. Missing → the bubble is centered. */
@@ -55,8 +57,12 @@ interface Box { top: number; left: number; width: number; height: number }
 const PAD = 6;
 
 export default function CoachMarks({
-  steps, onFinish, skipLabel = 'דלג', nextLabel = 'הבא', doneLabel = 'הבנתי', variant = 'light', counterLabel,
+  steps, onFinish, skipLabel: skipProp, nextLabel: nextProp, doneLabel: doneProp, variant = 'light', counterLabel,
 }: Props) {
+  const t = useT(common);
+  const skipLabel = skipProp ?? t('ui.coach.skip');
+  const nextLabel = nextProp ?? t('ui.coach.next');
+  const doneLabel = doneProp ?? t('ui.coach.done');
   const entry = variant === 'entry';
   const rootRef = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(0);
@@ -89,14 +95,14 @@ export default function CoachMarks({
   useEffect(() => {
     window.addEventListener('resize', measure);
     // The host may still be animating in — re-measure once it settles.
-    const t = setTimeout(measure, 300);
+    const settleTimer = setTimeout(measure, 300);
     // Entry tours point at cards that are still sliding in (carousels, sheets): follow the
     // target for the first moments of each step so the spotlight never sits on empty map.
     const follow = entry ? setInterval(measure, 120) : undefined;
     const stop = entry ? setTimeout(() => clearInterval(follow), 1600) : undefined;
     return () => {
       window.removeEventListener('resize', measure);
-      clearTimeout(t);
+      clearTimeout(settleTimer);
       if (follow) clearInterval(follow);
       if (stop) clearTimeout(stop);
     };

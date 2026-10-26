@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Loader2 } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 /**
  * DeleteWorkoutConfirmModal — shared MEDIUM-weight delete confirmation for
@@ -75,6 +77,7 @@ export default function DeleteWorkoutConfirmModal({
   onConfirm,
   onCancel,
 }: DeleteWorkoutConfirmModalProps) {
+  const t = useT(common);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleConfirm = async () => {
@@ -120,15 +123,15 @@ export default function DeleteWorkoutConfirmModal({
               className="text-xl font-black text-slate-900 dark:text-white mb-2"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              למחוק את האימון?
+              {t('ui.deleteWorkout.title')}
             </h2>
             <p
               className="text-sm text-slate-500 dark:text-slate-400 mb-7"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               {xpToReverse > 0
-                ? `${activityLabel} מ-${dateLabel} יימחק לצמיתות, וה-${xpToReverse} XP שצברת בזכותו יוחזרו בחזרה.`
-                : `${activityLabel} מ-${dateLabel} יימחק לצמיתות. אי אפשר לשחזר אותו.`}
+                ? t('ui.deleteWorkout.bodyXp', { activity: activityLabel, date: dateLabel, xp: String(xpToReverse) })
+                : t('ui.deleteWorkout.body', { activity: activityLabel, date: dateLabel })}
             </p>
 
             <div className="flex gap-3">
@@ -138,7 +141,7 @@ export default function DeleteWorkoutConfirmModal({
                 className="flex-1 h-14 rounded-2xl font-bold text-slate-600 dark:text-slate-300 text-base bg-slate-100 dark:bg-slate-700 active:scale-[0.98] transition-transform disabled:opacity-60"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                ביטול
+                {t('actions.cancel')}
               </button>
 
               <button
@@ -150,12 +153,12 @@ export default function DeleteWorkoutConfirmModal({
                 {isDeleting ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    <span>מוחק...</span>
+                    <span>{t('ui.deleteWorkout.deleting')}</span>
                   </>
                 ) : (
                   <>
                     <Trash2 size={18} />
-                    <span>מחק אימון</span>
+                    <span>{t('ui.deleteWorkout.confirm')}</span>
                   </>
                 )}
               </button>

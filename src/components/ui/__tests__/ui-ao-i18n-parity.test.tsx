@@ -118,12 +118,12 @@ describe('DeleteWorkoutConfirmModal', () => {
     ['xp', 120],
   ] as const)('%s', async (name, xp) => {
     await expect(
-      html(<DeleteWorkoutConfirmModal isOpen activityLabel="ריצה" dateLabel="12.08.2026" xpToReverse={xp} onConfirm={noop} onClose={noop} />),
+      html(<DeleteWorkoutConfirmModal isOpen activityLabel="ריצה" dateLabel="12.08.2026" xpToReverse={xp} onConfirm={noop} onCancel={noop} />),
     ).toMatchFileSnapshot(snap(`delete-workout-${name}`));
   });
   it('closed', async () => {
     await expect(
-      html(<DeleteWorkoutConfirmModal isOpen={false} activityLabel="ריצה" dateLabel="היום" onConfirm={noop} onClose={noop} />),
+      html(<DeleteWorkoutConfirmModal isOpen={false} activityLabel="ריצה" dateLabel="היום" onConfirm={noop} onCancel={noop} />),
     ).toMatchFileSnapshot(snap('delete-workout-closed'));
   });
 });

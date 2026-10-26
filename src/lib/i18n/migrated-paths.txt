@@ -638,3 +638,21 @@ src/features/home/utils/flame-tier-props.ts
 # Park start: home background trio held while a park workout is open (owner 26.10) — no text.
 src/features/home/hooks/background-workout-hold.ts
 src/features/home/hooks/useBackgroundWorkoutHold.ts
+# wave 2 batch ao (namespace home settings.*, namespace common ui.*) — SettingsModal and the small shared UI under
+# src/components/ui. Listed per file. Marked i18n-allow-hebrew: SettingsModal's DELETE_CONFIRM_WORD (the word the user
+# types, compared with the input). Left (not extracted): v1-only profile widgets, dead files, ui/v2/{summary,streak,
+# step-bar,Sheet,DoneRow,ImprovementCard,WeekDayRow}, root src/components/* (see the PR's manual list).
+src/features/home/components/SettingsModal.tsx
+src/components/ui/HealthConnectDisclosureModal.tsx
+src/components/ui/AccessCodeGate.tsx
+src/components/ui/WeightInlineRow.tsx
+src/components/ui/DeleteWorkoutConfirmModal.tsx
+src/components/ui/ProfilePhotoUploader.tsx
+src/components/ui/AppHeader.tsx
+src/components/ui/OfflineBanner.tsx
+src/components/ui/CoachMarks.tsx
+src/components/ui/v2/StreakDotsStrip.tsx
+src/components/ui/v2/ExerciseSetsTable.tsx
+src/components/ui/v2/ProgramProgressRing.tsx
+src/components/ui/v2/RecommendationCard.tsx
+src/components/ui/v2/RepPaceTable.tsx
