@@ -23,6 +23,11 @@ import type { UserContextSheet } from './context-sheet';
 import type { ReplayableTour } from '@/features/user/onboarding/services/tour-replay';
 import { inferProgressQuestion, inferScheduleQuestion } from './intent';
 import { ASSESSABLE_SLUGS, ASSESS_CATEGORY_SLUGS, gapForWorkout, isAssessableSlug, type AssessableSlug } from './assessment-gaps';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
+
+// Hebrew-only copy (bundled catalog, sync read; the chip specs are built once at module load).
+const t = makeT('he', coach);
 
 export type CheckLevelActionId = `check_level_${AssessableSlug}`;
 /** Kelly phase 3 (ai_coach_proactive): "איך היה?" answers under a post-workout message. */
@@ -136,7 +141,7 @@ export function isCheckLevelActionId(id: string): id is CheckLevelActionId {
 
 /** "בדוק רמה בליבה" (the chip talks like the other chips: "פתח את הלו״ז"). */
 export function checkLevelLabel(slug: AssessableSlug): string {
-  return `בדוק רמה ב${PROGRAM_NAME_HE[slug] ?? slug}`;
+  return t('action.checkLevel.label', { program: PROGRAM_NAME_HE[slug] ?? slug });
 }
 
 const CHECK_LEVEL_ACTIONS = Object.fromEntries(
@@ -155,32 +160,32 @@ const CHECK_LEVEL_ACTIONS = Object.fromEntries(
 ) as Record<CheckLevelActionId, CoachActionSpec>;
 
 export const COACH_ACTIONS: Record<CoachActionId, CoachActionSpec> = {
-  open_schedule: { label: 'פתח את הלו״ז', href: SCHEDULE_DEEP_LINK },
-  build_today: { label: 'בנה את האימון של היום', message: 'תבנה לי את האימון של היום' },
-  open_builder: { label: 'סדר לי את השבוע', href: SCHEDULE_BUILDER_DEEP_LINK },
+  open_schedule: { label: t('action.openSchedule.label'), href: SCHEDULE_DEEP_LINK },
+  build_today: { label: t('action.buildToday.label'), message: t('action.buildToday.message') },
+  open_builder: { label: t('action.openBuilder.label'), href: SCHEDULE_BUILDER_DEEP_LINK },
   // Kelly phase 3 — only proactive messages carry these (nothing else writes them).
-  build_home: { label: 'בנה אימון בבית', message: 'תבנה לי אימון בבית להיום' },
-  rate_easy: { label: 'קל', rating: 'easy' },
-  rate_right: { label: 'בדיוק', rating: 'right' },
-  rate_hard: { label: 'קשה', rating: 'hard' },
+  build_home: { label: t('action.buildHome.label'), message: t('action.buildHome.message') },
+  rate_easy: { label: t('action.rateEasy.label'), rating: 'easy' },
+  rate_right: { label: t('action.rateRight.label'), rating: 'right' },
+  rate_hard: { label: t('action.rateHard.label'), rating: 'hard' },
   ...CHECK_LEVEL_ACTIONS,
   // Kelly round 4 — only round 4 turns carry these (round4/turn-extras.ts).
-  running_questionnaire: { label: 'שאלון ריצה קצר', onboarding: 'RUNNING' },
-  pick_route_run: { label: 'בחר מסלול ריצה במפה', aerobicMap: 'running' },
-  pick_route_walk: { label: 'בחר מסלול הליכה במפה', aerobicMap: 'walking' },
-  tour_map: { label: 'תראה לי במפה', tour: { id: 'map', step: 0 } },
-  tour_workouts: { label: 'תראה לי במסך הבית', tour: { id: 'home', step: 0 } },
-  tour_schedule: { label: 'תראה לי את הלו״ז', tour: { id: 'home', step: 2 } },
+  running_questionnaire: { label: t('action.runningQuestionnaire.label'), onboarding: 'RUNNING' },
+  pick_route_run: { label: t('action.pickRouteRun.label'), aerobicMap: 'running' },
+  pick_route_walk: { label: t('action.pickRouteWalk.label'), aerobicMap: 'walking' },
+  tour_map: { label: t('action.tourMap.label'), tour: { id: 'map', step: 0 } },
+  tour_workouts: { label: t('action.tourWorkouts.label'), tour: { id: 'home', step: 0 } },
+  tour_schedule: { label: t('action.tourSchedule.label'), tour: { id: 'home', step: 2 } },
   // Every other app tour (tour-catalog.ts) — in-workout ones replay as a preview, never a workout.
-  tour_plan: { label: 'תראה לי איך בוחרים תוכנית', tour: { id: 'plan', step: 0 } },
-  tour_route: { label: 'תראה לי מסלול עם עצירות', tour: { id: 'route', step: 0 } },
-  tour_route_player: { label: 'תראה לי איך מסיימים מסלול', tour: { id: 'route-player', step: 0 } },
-  tour_player: { label: 'תראה לי את נגן האימון', tour: { id: 'player', step: 0 } },
-  tour_station: { label: 'תראה לי תחנת כוח', tour: { id: 'station', step: 0 } },
-  tour_community: { label: 'תראה לי את הליגה', tour: { id: 'community', step: 0 } },
-  open_help: { label: 'איך משתמשים ושאלות נפוצות', href: HELP_HUB_PATH },
-  show_how: { label: 'תראה לי איך משתמשים', message: 'תראה לי איך משתמשים' },
-  find_parks: { label: 'גינות כושר קרובות', message: 'איפה יש גינת כושר קרובה?' },
+  tour_plan: { label: t('action.tourPlan.label'), tour: { id: 'plan', step: 0 } },
+  tour_route: { label: t('action.tourRoute.label'), tour: { id: 'route', step: 0 } },
+  tour_route_player: { label: t('action.tourRoutePlayer.label'), tour: { id: 'route-player', step: 0 } },
+  tour_player: { label: t('action.tourPlayer.label'), tour: { id: 'player', step: 0 } },
+  tour_station: { label: t('action.tourStation.label'), tour: { id: 'station', step: 0 } },
+  tour_community: { label: t('action.tourCommunity.label'), tour: { id: 'community', step: 0 } },
+  open_help: { label: t('action.openHelp.label'), href: HELP_HUB_PATH },
+  show_how: { label: t('action.showHow.label'), message: t('action.showHow.message') },
+  find_parks: { label: t('action.findParks.label'), message: t('action.findParks.message') },
 };
 
 /** Every in-app link a chip can open (checked against src/app by a test). */
@@ -219,7 +224,7 @@ export interface ChipInput {
 }
 
 /** The reply points at the schedule button under it ("אפשר לפתוח את הלו״ז בכפתור למטה"). */
-const REPLY_SCHEDULE_BUTTON = /(?:לו["״׳']?ז|לוח\s+(?:ה)?זמנים|התוכנית\s+שלך)[^.!?\n]{0,40}(?:כפתור|בכפתור|בלחיצה)|(?:כפתור|בכפתור)[^.!?\n]{0,40}(?:לו["״׳']?ז|לוח\s+(?:ה)?זמנים)/;
+const REPLY_SCHEDULE_BUTTON = /(?:לו["״׳']?ז|לוח\s+(?:ה)?זמנים|התוכנית\s+שלך)[^.!?\n]{0,40}(?:כפתור|בכפתור|בלחיצה)|(?:כפתור|בכפתור)[^.!?\n]{0,40}(?:לו["״׳']?ז|לוח\s+(?:ה)?זמנים)/; // i18n-allow-hebrew: detection regex (matches Kelly reply text), not copy
 
 export function replyPointsAtScheduleButton(text: string | null | undefined): boolean {
   return REPLY_SCHEDULE_BUTTON.test((text ?? '').normalize('NFC'));

@@ -171,3 +171,32 @@ describe('coach (Kelly) — he', () => {
     expect(t('parks.line', { km: String(bare.distanceKm) })).toBe(oldLine(bare));
   });
 });
+
+describe('batch an — Kelly user-facing texts (lib/ai/coach)', () => {
+  const t = makeT('he', coach);
+  it('plain strings equal the old literals', () => {
+    const cases: Array<[keyof typeof he, string]> = [
+      ['fixed.refusal', 'על זה אני לא יכול לעזור. אפשר לשאול אותי על אימונים, התקדמות ותוכנית השבוע.'],
+      ['fixed.empty', 'לא הצלחתי לנסח תשובה הפעם. אפשר לנסות שוב במילים אחרות.'],
+      ['fixed.truncatedTool', 'משהו נקטע באמצע. אפשר לבקש שוב?'],
+      ['fixed.turnFailed', 'משהו השתבש אצלי ולא הצלחתי לענות על ההודעה הזו. אפשר לשלוח אותה שוב?'],
+      ['pause.teamSees', 'הצוות שלנו רואה את ההודעה שלך ויענה כאן בהקדם.'],
+      ['action.openSchedule.label', 'פתח את הלו״ז'],
+      ['quick.quick15.label', 'תבנה לי אימון של 15 דק׳'],
+      ['proactive.praise.few', 'כל אימון נספר, יפה מאוד.'],
+    ];
+    for (const [key, old] of cases) expect(t(key)).toBe(old);
+  });
+  it('gender branches keep the old words (female / male / unknown)', () => {
+    const exp = { female: 'נסי: ', male: 'נסה: ', other: 'אפשר לנסות: ' } as const;
+    for (const gender of ['female', 'male', 'other'] as const) expect(t('quick.tryPrefix', { gender })).toBe(exp[gender]);
+    expect(t('safety.call', { gender: 'female' })).toBe('התקשרי מיד למד״א בטלפון 101');
+    expect(t('safety.call', { gender: 'male' })).toBe('התקשר מיד למד״א בטלפון 101');
+    expect(t('safety.call', { gender: 'other' })).toBe('צריך להתקשר מיד למד״א בטלפון 101');
+  });
+  it('counts of 1000 and more keep the old format (no thousands separator)', () => {
+    expect(t('proactive.stats.steps', { steps: String(12000) })).toBe(`ממוצע של ${12000} צעדים ביום`);
+    expect(t('proactive.stats.minutes', { minutes: String(1500) })).toBe(`${1500} דקות בסך הכול`);
+    expect(t('uiError.cardLabel', { title: 'א', minutes: String(1500), exerciseCount: 1 })).toBe('א · 1500 דק׳ · תרגיל אחד');
+  });
+});

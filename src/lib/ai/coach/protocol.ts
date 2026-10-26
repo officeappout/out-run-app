@@ -25,6 +25,11 @@ import { ClientToolOutcomeSchema, type CoachLocation } from './tools';
 import { BuilderContextSchema } from './schedule-proposal/builder-context';
 import type { CoachGender } from './persona';
 import { aiPauseReply } from './ai-pause';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
+
+// Hebrew-only server/client copy (bundled catalog, sync read).
+const t = makeT('he', coach);
 import type { CoachActionId } from './action-chips';
 import type { SuggestionChip } from './suggestions/types';
 import type { ProposalView } from './schedule-proposal/types';
@@ -100,8 +105,7 @@ export function createSseParser(): (chunk: string) => CoachStreamEvent[] {
 
 /** "אימון בטן ורגליים בבית · 25 דק׳ · 6 תרגילים" */
 export function workoutCardLabel(card: Pick<WorkoutCard, 'title' | 'minutes' | 'exerciseCount'>): string {
-  const ex = card.exerciseCount === 1 ? 'תרגיל אחד' : `${card.exerciseCount} תרגילים`;
-  return `${card.title} · ${card.minutes} דק׳ · ${ex}`;
+  return t('uiError.cardLabel', { title: card.title, minutes: String(card.minutes), exerciseCount: card.exerciseCount });
 }
 
 // ─── Errors → friendly Hebrew (UI) ───────────────────────────────────────────
@@ -122,18 +126,12 @@ export interface CoachErrorInput {
   retryAfterSec?: number;
 }
 
-const tryAgain: Record<CoachGender, string> = {
-  male: 'נסה שוב בעוד רגע.',
-  female: 'נסי שוב בעוד רגע.',
-  other: 'אפשר לנסות שוב בעוד רגע.',
-};
-
 /** Maps a failed request (or no network) to what the chat screen shows. Never English. */
 export function describeCoachError(e: CoachErrorInput, gender: CoachGender): CoachUiError {
   if (e.offline) {
     return {
-      title: 'אין חיבור',
-      body: 'קלי AI צריך אינטרנט. בינתיים אפשר לבנות אימון בבונה האימונים.',
+      title: t('uiError.offline.title'),
+      body: t('uiError.offline.body'),
       offerBuilder: true,
       retryable: true,
     };
@@ -141,30 +139,30 @@ export function describeCoachError(e: CoachErrorInput, gender: CoachGender): Coa
   if (e.status === 429 || e.code === 'rate_limited') {
     // Same words as the paused reply in the unified thread (ai-pause.ts), with the reopen time.
     return {
-      title: 'הגענו למכסה',
-      body: `${aiPauseReply('rate_limited', gender, { retryAfterSec: e.retryAfterSec, teamChannel: false })} בינתיים אפשר לבנות אימון בבונה האימונים.`,
+      title: t('uiError.quota.title'),
+      body: t('uiError.quota.body', { reply: aiPauseReply('rate_limited', gender, { retryAfterSec: e.retryAfterSec, teamChannel: false }) }),
       offerBuilder: true,
       retryable: false,
     };
   }
   if (e.status === 503 || e.code === 'kill_switch' || e.code === 'over_budget' || e.code === 'unavailable' || e.code === 'overloaded') {
     return {
-      title: 'קלי AI לא זמין כרגע',
-      body: 'אפשר לבנות אימון בבונה האימונים הרגיל, ולחזור אליי מאוחר יותר.',
+      title: t('uiError.unavailable.title'),
+      body: t('uiError.unavailable.body'),
       offerBuilder: true,
       retryable: true,
     };
   }
   if (e.status === 403) {
     return {
-      title: 'קלי AI עוד לא פתוח כאן',
-      body: 'הגישה לקלי AI עדיין לא פתוחה לחשבון הזה.',
+      title: t('uiError.forbidden.title'),
+      body: t('uiError.forbidden.body'),
       offerBuilder: true,
       retryable: false,
     };
   }
   if (e.status === 401) {
-    return { title: 'צריך להתחבר מחדש', body: 'החיבור לחשבון פג. אחרי התחברות נמשיך מאותה נקודה.', offerBuilder: false, retryable: false };
+    return { title: t('uiError.signedOut.title'), body: t('uiError.signedOut.body'), offerBuilder: false, retryable: false };
   }
-  return { title: 'משהו השתבש', body: tryAgain[gender], offerBuilder: false, retryable: true };
+  return { title: t('uiError.generic.title'), body: t('uiError.tryAgain', { gender }), offerBuilder: false, retryable: true };
 }

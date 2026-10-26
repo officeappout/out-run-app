@@ -1,0 +1,145 @@
+{
+  "open_schedule": {
+    "label": "פתח את הלו״ז",
+    "message": null
+  },
+  "build_today": {
+    "label": "בנה את האימון של היום",
+    "message": "תבנה לי את האימון של היום"
+  },
+  "open_builder": {
+    "label": "סדר לי את השבוע",
+    "message": null
+  },
+  "build_home": {
+    "label": "בנה אימון בבית",
+    "message": "תבנה לי אימון בבית להיום"
+  },
+  "rate_easy": {
+    "label": "קל",
+    "message": null
+  },
+  "rate_right": {
+    "label": "בדיוק",
+    "message": null
+  },
+  "rate_hard": {
+    "label": "קשה",
+    "message": null
+  },
+  "check_level_push": {
+    "label": "בדוק רמה בדחיפה",
+    "message": null
+  },
+  "check_level_pull": {
+    "label": "בדוק רמה במשיכה",
+    "message": null
+  },
+  "check_level_legs": {
+    "label": "בדוק רמה ברגליים",
+    "message": null
+  },
+  "check_level_core": {
+    "label": "בדוק רמה בליבה",
+    "message": null
+  },
+  "check_level_planche": {
+    "label": "בדוק רמה בפלאנץ׳",
+    "message": null
+  },
+  "check_level_front_lever": {
+    "label": "בדוק רמה בפרונט לבר",
+    "message": null
+  },
+  "check_level_back_lever": {
+    "label": "בדוק רמה בבק לבר",
+    "message": null
+  },
+  "check_level_handstand": {
+    "label": "בדוק רמה בעמידת ידיים",
+    "message": null
+  },
+  "check_level_hspu": {
+    "label": "בדוק רמה בשכיבות סמיכה בעמידת ידיים",
+    "message": null
+  },
+  "check_level_muscle_up": {
+    "label": "בדוק רמה בעליית כוח",
+    "message": null
+  },
+  "check_level_one_arm_pullup": {
+    "label": "בדוק רמה במתח ביד אחת",
+    "message": null
+  },
+  "running_questionnaire": {
+    "label": "שאלון ריצה קצר",
+    "message": null
+  },
+  "pick_route_run": {
+    "label": "בחר מסלול ריצה במפה",
+    "message": null
+  },
+  "pick_route_walk": {
+    "label": "בחר מסלול הליכה במפה",
+    "message": null
+  },
+  "tour_map": {
+    "label": "תראה לי במפה",
+    "message": null
+  },
+  "tour_workouts": {
+    "label": "תראה לי במסך הבית",
+    "message": null
+  },
+  "tour_schedule": {
+    "label": "תראה לי את הלו״ז",
+    "message": null
+  },
+  "tour_plan": {
+    "label": "תראה לי איך בוחרים תוכנית",
+    "message": null
+  },
+  "tour_route": {
+    "label": "תראה לי מסלול עם עצירות",
+    "message": null
+  },
+  "tour_route_player": {
+    "label": "תראה לי איך מסיימים מסלול",
+    "message": null
+  },
+  "tour_player": {
+    "label": "תראה לי את נגן האימון",
+    "message": null
+  },
+  "tour_station": {
+    "label": "תראה לי תחנת כוח",
+    "message": null
+  },
+  "tour_community": {
+    "label": "תראה לי את הליגה",
+    "message": null
+  },
+  "open_help": {
+    "label": "איך משתמשים ושאלות נפוצות",
+    "message": null
+  },
+  "show_how": {
+    "label": "תראה לי איך משתמשים",
+    "message": "תראה לי איך משתמשים"
+  },
+  "find_parks": {
+    "label": "גינות כושר קרובות",
+    "message": "איפה יש גינת כושר קרובה?"
+  },
+  "checkLevelLabel.push": "בדוק רמה בדחיפה",
+  "checkLevelLabel.pull": "בדוק רמה במשיכה",
+  "checkLevelLabel.legs": "בדוק רמה ברגליים",
+  "checkLevelLabel.core": "בדוק רמה בליבה",
+  "checkLevelLabel.planche": "בדוק רמה בפלאנץ׳",
+  "checkLevelLabel.front_lever": "בדוק רמה בפרונט לבר",
+  "checkLevelLabel.back_lever": "בדוק רמה בבק לבר",
+  "checkLevelLabel.handstand": "בדוק רמה בעמידת ידיים",
+  "checkLevelLabel.hspu": "בדוק רמה בשכיבות סמיכה בעמידת ידיים",
+  "checkLevelLabel.muscle_up": "בדוק רמה בעליית כוח",
+  "checkLevelLabel.one_arm_pullup": "בדוק רמה במתח ביד אחת"
+}

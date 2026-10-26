@@ -19,6 +19,11 @@
  * persists.
  */
 import type { CoachGender } from './persona';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
+
+// Hebrew-only server copy (bundled catalog, sync read).
+const t = makeT('he', coach);
 
 export type SafetyTrigger = 'chest' | 'breath' | 'dizziness' | 'pregnancy' | 'injury';
 
@@ -79,28 +84,11 @@ export function detectSafetyTrigger(text: string): SafetyTrigger | null {
   return null;
 }
 
-const CALL: Record<CoachGender, string> = {
-  male: 'התקשר מיד למד״א בטלפון 101',
-  female: 'התקשרי מיד למד״א בטלפון 101',
-  other: 'צריך להתקשר מיד למד״א בטלפון 101',
-};
-
-const STOP: Record<CoachGender, string> = {
-  male: 'כדאי לעצור את האימון ולהתייעץ עם רופא לפני שממשיכים.',
-  female: 'כדאי לעצור את האימון ולהתייעץ עם רופאה או רופא לפני שממשיכים.',
-  other: 'כדאי לעצור את האימון ולהתייעץ עם רופא לפני שממשיכים.',
-};
-
 /**
  * The fixed reply. No emoji, no dashes, no English, the user addressed by core.gender.
  * Kelly speaks in masculine first person (product decision 18.10.2026).
  */
 export function safetyReply(trigger: SafetyTrigger, gender: CoachGender): string {
-  const opener =
-    trigger === 'pregnancy'
-      ? 'בהריון מתאמנים רק לפי הנחיה של רופא, ואני לא יכול לבנות אימון במצב הזה.'
-      : trigger === 'injury'
-        ? 'אני עוצר כאן רגע. אני לא רופא, ופציעה או כאב חד הם סיבה לעצור ולא לאמן את האזור הזה.'
-        : 'אני עוצר כאן רגע. אני לא רופא, ולחץ או כאב בחזה, סחרחורת, עילפון או קוצר נשימה הם סיבה לעצור.';
-  return `${opener} ${STOP[gender]} אם יש עכשיו כאב או לחץ בחזה, קוצר נשימה או סחרחורת חזקה, ${CALL[gender]}.`;
+  const opener = t(trigger === 'pregnancy' ? 'safety.opener.pregnancy' : trigger === 'injury' ? 'safety.opener.injury' : 'safety.opener.chest');
+  return t('safety.reply', { opener, stop: t('safety.stop', { gender }), call: t('safety.call', { gender }), gender });
 }

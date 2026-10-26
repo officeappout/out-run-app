@@ -12,6 +12,11 @@ import type { CoachGender } from '../persona';
 import { checkLevelActionId, type CoachActionId } from '../action-chips';
 import { isAssessableSlug } from '../assessment-gaps';
 import type { TemplateKey, TemplateVars } from './types';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
+
+// Hebrew-only copy (bundled catalog, sync read); the message is rendered by the server for a stored thread / push.
+const t = makeT('he', coach);
 
 export interface RenderInput {
   templateKey: TemplateKey;
@@ -31,32 +36,30 @@ export interface RenderedMessage {
   flexHint: string | null;
 }
 
-type G<T = string> = Record<CoachGender, T>;
-const byGender = (g: CoachGender, v: G): string => v[g] ?? v.other;
-
 const num = (v: TemplateVars[string]): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const text = (v: TemplateVars[string]): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
-function hello(firstName: string, word: 'בוקר טוב' | 'היי'): string {
-  return firstName ? `${word} ${firstName}.` : `${word}.`;
+function hello(firstName: string, word: 'morning' | 'hi'): string {
+  return firstName ? t(`proactive.hello.${word}`, { name: firstName }) : t(`proactive.hello.${word}NoName`);
 }
 
 function sessionLine(gender: CoachGender, vars: TemplateVars): string {
-  const label = text(vars.label) ?? 'אימון';
+  const label = text(vars.label) ?? t('proactive.defaultLabel');
   const minutes = num(vars.minutes);
   const time = text(vars.time);
-  const detail = `${label}${minutes ? ` של ${minutes} דקות` : ''}${time ? ` ב-${time}` : ''}`;
-  return gender === 'other' ? `היום מתוכנן ${detail}.` : `היום יש לך ${detail}.`;
+  const detail = t('proactive.session.detail', {
+    label,
+    hasMinutes: minutes ? 'yes' : 'no',
+    minutes: String(minutes ?? ''),
+    hasTime: time ? 'yes' : 'no',
+    time: time ?? '',
+  });
+  return t('proactive.session.line', { gender, detail });
 }
 
 function join(...parts: Array<string | null | undefined>): string {
   return parts.filter((p): p is string => !!p && !!p.trim()).join(' ').replace(/\s+/g, ' ').trim();
 }
-
-const WEEKLY_PRAISE: { many: G; few: string } = {
-  many: { male: 'אתה בונה שגרה אמיתית, כל הכבוד.', female: 'את בונה שגרה אמיתית, כל הכבוד.', other: 'זו כבר שגרה אמיתית, כל הכבוד.' },
-  few: 'כל אימון נספר, יפה מאוד.',
-};
 
 function weeklyStats(vars: TemplateVars): string {
   const workouts = num(vars.workouts) ?? 0;
@@ -64,18 +67,18 @@ function weeklyStats(vars: TemplateVars): string {
   const minutes = num(vars.minutes) ?? 0;
   const streak = num(vars.streak);
   const steps = num(vars.avgSteps);
-  const parts = [workouts === 1 ? 'אימון אחד' : `${workouts} אימונים`];
-  if (workouts > 1 && days > 0 && days < workouts) parts[0] += days === 1 ? ' ביום אחד' : ` ב-${days} ימים`;
-  if (minutes > 0) parts.push(`${minutes} דקות בסך הכול`);
-  if (streak !== null && streak >= 2) parts.push(`רצף של ${streak} ימים`);
-  if (steps !== null && steps >= 1000) parts.push(`ממוצע של ${Math.round(steps / 100) * 100} צעדים ביום`);
+  const daysShown = workouts > 1 && days > 0 && days < workouts ? days : 0;
+  const parts = [t('proactive.stats.workouts', { workouts, days: daysShown })];
+  if (minutes > 0) parts.push(t('proactive.stats.minutes', { minutes: String(minutes) }));
+  if (streak !== null && streak >= 2) parts.push(t('proactive.stats.streak', { streak: String(streak) }));
+  if (steps !== null && steps >= 1000) parts.push(t('proactive.stats.steps', { steps: String(Math.round(steps / 100) * 100) }));
   return parts.join(', ');
 }
 
 function weeklySuggestion(workouts: number): string {
-  if (workouts >= 4) return 'לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.';
-  if (workouts === 3) return 'לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.';
-  return 'לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.';
+  if (workouts >= 4) return t('proactive.weekly.suggestRest');
+  if (workouts === 3) return t('proactive.weekly.suggestAddOptional');
+  return t('proactive.weekly.suggestAdd');
 }
 
 export function renderProactive(i: RenderInput): RenderedMessage {
@@ -85,29 +88,29 @@ export function renderProactive(i: RenderInput): RenderedMessage {
   switch (i.templateKey) {
     case 'morning':
       return {
-        text: join(hello(i.firstName, 'בוקר טוב'), sessionLine(g, v), flex(null), byGender(g, { male: 'רוצה שאבנה לך אותו עכשיו?', female: 'רוצה שאבנה לך אותו עכשיו?', other: 'אפשר לבנות אותו עכשיו בכפתור למטה.' })),
+        text: join(hello(i.firstName, 'morning'), sessionLine(g, v), flex(null), t('proactive.morning.ask', { gender: g })),
         actions: ['build_today'],
         silent: v.silent === 1,
         flexHint: 'one short encouraging sentence for the start of a training day, tied to the user\'s goal or recent effort',
       };
     case 'morning_open':
       return {
-        text: join(hello(i.firstName, 'בוקר טוב'), sessionLine(g, v), flex(null), byGender(g, { male: 'בהצלחה, אני פה אם תרצה לשנות משהו.', female: 'בהצלחה, אני פה אם תרצי לשנות משהו.', other: 'בהצלחה, אני פה אם צריך לשנות משהו.' })),
+        text: join(hello(i.firstName, 'morning'), sessionLine(g, v), flex(null), t('proactive.morningOpen.close', { gender: g })),
         actions: ['open_schedule'],
         silent: v.silent === 1,
         flexHint: 'one short encouraging sentence for the start of a training day, tied to the user\'s goal or recent effort',
       };
     case 'weather_rain':
       return {
-        text: join(hello(i.firstName, 'בוקר טוב'), 'נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה.', flex(null), byGender(g, { male: 'רוצה שאבנה לך אימון בבית?', female: 'רוצה שאבנה לך אימון בבית?', other: 'אפשר לבנות אימון בבית בכפתור למטה.' })),
+        text: join(hello(i.firstName, 'morning'), t('proactive.rain.body'), flex(null), t('proactive.rain.ask', { gender: g })),
         actions: ['build_home'],
         silent: false,
         flexHint: 'one short sentence that a home workout today still counts',
       };
     case 'weather_heat': {
-      const label = text(v.label) ?? 'אימון';
+      const label = text(v.label) ?? t('proactive.defaultLabel');
       return {
-        text: join(hello(i.firstName, 'בוקר טוב'), 'היום חם מאוד בחוץ.', byGender(g, { male: `אם אתה יוצא ל${label}, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.`, female: `אם את יוצאת ל${label}, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.`, other: `מי שיוצא ל${label}, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.` }), flex(null)),
+        text: join(hello(i.firstName, 'morning'), t('proactive.heat.intro'), t('proactive.heat.advice', { gender: g, label }), flex(null)),
         actions: ['open_schedule'],
         silent: false,
         flexHint: 'one short sentence that it is fine to go easier in the heat',
@@ -115,23 +118,23 @@ export function renderProactive(i: RenderInput): RenderedMessage {
     }
     case 'weekly': {
       const workouts = num(v.workouts) ?? 0;
-      const praise = workouts >= 3 ? byGender(g, WEEKLY_PRAISE.many) : WEEKLY_PRAISE.few;
+      const praise = workouts >= 3 ? t('proactive.praise.many', { gender: g }) : t('proactive.praise.few');
       return {
-        text: join(`סיכום שבועי${i.firstName ? ` ל${i.firstName}` : ''}: ${weeklyStats(v)}.`, flex(praise), weeklySuggestion(workouts)),
+        text: join(i.firstName ? t('proactive.weekly.summaryNamed', { name: i.firstName, stats: weeklyStats(v) }) : t('proactive.weekly.summary', { stats: weeklyStats(v) }), flex(praise), weeklySuggestion(workouts)),
         actions: ['open_schedule'],
         silent: false,
         flexHint: 'one short warm sentence of praise for this week, without numbers',
       };
     }
     case 'assessment': {
-      const name = text(v.name) ?? 'אחד התחומים';
+      const name = text(v.name) ?? t('proactive.assessment.defaultName');
       const slug = text(v.slug);
       return {
         text: join(
-          hello(i.firstName, 'היי'),
-          g === 'other' ? `עדיין אין בדיקת רמה ב${name}, ולכן האימונים עוד לא כוללים את התחום הזה.` : `חסרה לך בדיקת רמה ב${name}, ולכן האימונים שלך עוד לא כוללים את התחום הזה.`,
+          hello(i.firstName, 'hi'),
+          t('proactive.assessment.missing', { gender: g, name }),
           flex(null),
-          byGender(g, { male: 'זה לוקח כמה דקות. רוצה לבדוק עכשיו?', female: 'זה לוקח כמה דקות. רוצה לבדוק עכשיו?', other: 'זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.' }),
+          t('proactive.assessment.ask', { gender: g }),
         ),
         actions: slug && isAssessableSlug(slug) ? [checkLevelActionId(slug)] : [],
         silent: false,
@@ -140,9 +143,9 @@ export function renderProactive(i: RenderInput): RenderedMessage {
     }
     case 'post_workout': {
       const minutes = num(v.minutes);
-      const what = minutes ? `אימון של ${minutes} דקות` : 'אימון';
+      const what = minutes ? t('proactive.post.sessionMinutes', { minutes: String(minutes) }) : t('proactive.post.session');
       return {
-        text: join(g === 'other' ? `ה${what} נשמר, כל הכבוד.` : `סיימת ${what}, כל הכבוד.`, flex(null), 'איך היה?'),
+        text: join(t('proactive.post.done', { gender: g, what }), flex(null), t('proactive.post.howWas')),
         actions: ['rate_easy', 'rate_right', 'rate_hard'],
         silent: false,
         flexHint: null,
