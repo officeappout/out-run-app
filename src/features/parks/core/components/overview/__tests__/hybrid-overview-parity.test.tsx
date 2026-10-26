@@ -10,10 +10,10 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-const flagState = { v2: false };
+const flagState = { v2: false, carousel: true };
 
 vi.mock('@/hooks/useFeatureFlags', () => ({
-  useFeatureFlags: () => ({ flags: { enableHomeV2: flagState.v2 }, loading: false }),
+  useFeatureFlags: () => ({ flags: { enableHomeV2: flagState.v2, enableHybridDifficultyCarousel: flagState.carousel }, loading: false }),
 }));
 vi.mock('@/features/user', () => {
   const state = { profile: { core: { gender: 'male', isSuperAdmin: false } } };
@@ -61,6 +61,18 @@ describe('HybridOverviewScreen parity (pre-refactor snapshots)', () => {
     });
     it(`budget split, unnamed station, fallback hint — ${tag}`, () => {
       expect(render(budgetSplitFixture(), v2)).toMatchSnapshot();
+    });
+    it(`carousel flag off: no carousel, the easy plan is the one that runs — ${tag}`, () => {
+      flagState.carousel = false;
+      const composed = fullParkFixture() as { bolts: { plans: unknown[]; selectedIndex: number }; plan: unknown };
+      try {
+        const html = render(composed, v2);
+        expect(html).not.toContain('aria-label="בחירת עצימות"');
+        expect(composed.bolts.selectedIndex).toBe(0);
+        expect(composed.plan).toBe(composed.bolts.plans[0]);
+      } finally {
+        flagState.carousel = true;
+      }
     });
   }
 });

@@ -92,13 +92,13 @@ describe('HybridOverviewScreen — stationName passed unconditionally to HybridJ
   });
 });
 
-describe('HybridOverviewScreen — difficulty carousel intentionally UNCHANGED (held out of scope)', () => {
-  it('still branches on composed.bolts — budget-split keeps the decorative, non-interactive pill', () => {
-    const match = screenSrc.match(/\{composed\.bolts \? \(([\s\S]*?)\) : \(([\s\S]*?)\)\}\s*\n\s*<\/div>\s*\n\s*\n\s*\{\/\* axis \*\/\}/);
+describe('HybridOverviewScreen — difficulty carousel (behind enable_hybrid_difficulty_carousel since 26.10)', () => {
+  it('branches on composed.bolts && showBolts — otherwise the decorative, non-interactive pill', () => {
+    const match = screenSrc.match(/\{composed\.bolts && showBolts \? \(([\s\S]*?)\) : \(([\s\S]*?)\)\}\s*\n\s*<\/div>\s*\n\s*\n\s*\{\/\* axis \*\/\}/);
     expect(match, 'difficulty-carousel ternary not found — was it changed?').toBeTruthy();
     expect(match![1]).toContain('role="group"');
     expect(match![1]).toContain('selectBolt(i)');
-    expect(match![2]).toContain('DifficultyBolts difficulty={2}');
+    expect(match![2]).toContain('DifficultyBolts difficulty={composed.bolts ? 1 : 2}');
   });
 });
 
