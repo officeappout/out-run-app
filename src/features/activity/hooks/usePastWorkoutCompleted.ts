@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { savedDayGoalsOf, type SavedDayGoals } from '../lib/saved-day-goals';
 
 /**
  * Two parallel per-date maps returned by `usePastWorkoutCompleted`, built
@@ -23,6 +24,12 @@ export interface PastWorkoutCompletionMaps {
    * with `isRecovery: true`.
    */
   recoveryMap: Map<string, boolean>;
+  /**
+   * enable_flame_tiers_v1 — ISO date → the day's saved goal fields, from the SAME reads
+   * (no extra getDoc): strengthGoalMet (the done gate), aerobicWorkoutMinutes (recorded run /
+   * walk minutes), workoutCompleted, stepGoalMet. Present for every day that has a doc.
+   */
+  goalsMap: Map<string, SavedDayGoals>;
 }
 
 /**
@@ -44,6 +51,7 @@ export function usePastWorkoutCompleted(
 ): PastWorkoutCompletionMaps {
   const [completedMap, setCompletedMap] = useState<Map<string, boolean>>(new Map());
   const [recoveryMap, setRecoveryMap] = useState<Map<string, boolean>>(new Map());
+  const [goalsMap, setGoalsMap] = useState<Map<string, SavedDayGoals>>(new Map());
 
   // Join into a stable primitive so the effect refires only when the SET of
   // past dates changes — a fresh array identity every render would thrash it.
@@ -53,6 +61,7 @@ export function usePastWorkoutCompleted(
     if (!userId || !key) {
       setCompletedMap(new Map());
       setRecoveryMap(new Map());
+      setGoalsMap(new Map());
       return;
     }
     let cancelled = false;
@@ -65,9 +74,10 @@ export function usePastWorkoutCompleted(
             const ref = doc(db, 'dailyProgress', `${userId}_${iso}`);
             const snap = await getDoc(ref);
             const data = snap.exists() ? snap.data() : undefined;
-            return [iso, !!data?.workoutCompleted, !!data?.isRecovery] as const;
+            const goals = data ? savedDayGoalsOf(data) : null;
+            return [iso, !!data?.workoutCompleted, !!data?.isRecovery, goals] as const;
           } catch {
-            return [iso, false, false] as const;
+            return [iso, false, false, null] as const;
           }
         }),
       );
@@ -75,6 +85,9 @@ export function usePastWorkoutCompleted(
         const completedEntries = results.filter(([, done]) => done);
         setCompletedMap(new Map(completedEntries.map(([iso, done]) => [iso, done])));
         setRecoveryMap(new Map(completedEntries.map(([iso, , isRecovery]) => [iso, isRecovery])));
+        const goalEntries: [string, SavedDayGoals][] = [];
+        for (const [iso, , , goals] of results) if (goals) goalEntries.push([iso, goals]);
+        setGoalsMap(new Map(goalEntries));
       }
     })();
 
@@ -83,5 +96,5 @@ export function usePastWorkoutCompleted(
     };
   }, [userId, key]);
 
-  return { completedMap, recoveryMap };
+  return { completedMap, recoveryMap, goalsMap };
 }

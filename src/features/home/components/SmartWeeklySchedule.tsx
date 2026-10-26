@@ -18,6 +18,7 @@ import { Bed, Check, ChevronDown, CalendarDays, Footprints } from 'lucide-react'
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import { useFlameDays } from '@/features/activity/hooks/useFlameDays';
 import type { FlameLevel } from '@/features/activity/lib/flame-level';
+import { withFlameTier } from '../utils/flame-tier-props';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
@@ -185,6 +186,7 @@ interface DayActivityData {
   /** enable_flame_tiers_v1: flameLevelForDay's level / "started" mark (absent while off). */
   flameLevel?: FlameLevel;
   flameStarted?: boolean;
+  flameStepsOnly?: boolean;
   /** S8-only: completed an OUT workout (drives the FLAME). Split from the blended isCompleted. */
   workoutDone?: boolean;
   /**
@@ -943,8 +945,6 @@ export default function SmartWeeklySchedule({
   // icon-priority logic. Returns a stable getter to use inside useMemo.
   const getDayStatus = useDayStatus();
   const ringColors = useTrackRingColors();
-  // enable_flame_tiers_v1: every flame comes from flameLevelForDay (null while off — no reads).
-  const flameDayOf = useFlameDays(flameTiers);
 
   // Subscribe to the global midnight clock so the weekly strip's "today"
   // index advances at 00:00 without a hard refresh.
@@ -1071,7 +1071,10 @@ export default function SmartWeeklySchedule({
     return isos;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey]);
-  const { completedMap: pastProgressMap, recoveryMap: pastRecoveryMap } = usePastWorkoutCompleted(userId, weekPastIsos);
+  const { completedMap: pastProgressMap, recoveryMap: pastRecoveryMap, goalsMap: pastGoalsMap } = usePastWorkoutCompleted(userId, weekPastIsos);
+  // enable_flame_tiers_v1: every flame comes from flameLevelForDay — past days from the saved
+  // dailyProgress (same reads as above), today live (null while off — no reads).
+  const flameDayOf = useFlameDays(flameTiers, null, pastGoalsMap);
 
   // Normalize selected days from props
   const selectedDays = scheduleDays || [];
@@ -1182,13 +1185,17 @@ export default function SmartWeeklySchedule({
         );
         // enable_flame_tiers_v1: the flame axis is the day's level (≥1 = a flame), not the
         // bare "workout finished" flag; a workout below the bar gets the "started" mark.
-        const flame = flameDayOf ? flameDayOf(isoDate) : null;
+        const flame = flameDayOf
+          ? flameDayOf(isoDate, {
+              aerobicPlanDone: runningEntriesByDayIndex.get(i)?.status === 'completed' || !!walkCell?.walkDone,
+            })
+          : null;
         dayData = {
           ...dayData,
           hasActivity: status.hasActivity,
           isCompleted: status.isCompleted,
           workoutDone: flame ? flame.level >= 1 : status.workoutDone,
-          ...(flame ? { flameLevel: flame.level, flameStarted: flame.started } : {}),
+          ...(flame ? { flameLevel: flame.level, flameStarted: flame.started, flameStepsOnly: flame.stepsOnly } : {}),
           isRecoveryCompletion: status.isRecoveryCompletion,
           totalMinutes: status.totalMinutes,
           categories: status.categories,
@@ -1449,7 +1456,11 @@ export default function SmartWeeklySchedule({
       }, t);
 
       return dayData.flameLevel !== undefined
-        ? { ...displayProps, flameLevel: dayData.flameLevel, flameStarted: dayData.flameStarted }
+        ? withFlameTier(displayProps, {
+            level: dayData.flameLevel,
+            started: !!dayData.flameStarted,
+            stepsOnly: !!dayData.flameStepsOnly,
+          })
         : displayProps;
     }
 
@@ -1955,6 +1966,7 @@ export default function SmartWeeklySchedule({
               }}
             >
               <MonthlyCalendarGrid
+                flameTiers={flameTiers}
                 selectedDate={selectedDate ?? ''}
                 onDaySelect={(iso) => onDaySelect?.(iso)}
                 viewMode={viewMode}

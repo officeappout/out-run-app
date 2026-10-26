@@ -1,20 +1,33 @@
 /**
- * Assemble one day's flameLevelForDay input from what the device already holds — PURE.
- * The hook (useFlameDays) feeds it the activity store, the weekly-volume session logs and
- * the lead program's weekly set budget; no extra reads.
+ * Assemble one day's flameLevelForDay input from what the app already holds — PURE.
+ *   • server-saved dailyProgress (`saved`: strengthGoalMet, aerobicWorkoutMinutes, workoutCompleted,
+ *     stepGoalMet) — the source for every day, so other devices count;
+ *   • the activity store's day (streak minutes / steps);
+ *   • local weekly-volume session logs — TODAY only, as the in-progress fallback;
+ *   • `pending` — this session before its own write lands (strength summary).
  */
 import { flameLevelForDay, type FlameActivityDay, type FlameDay } from './flame-level';
 
 /** This session's numbers before its own activity / volume write lands (strength summary). */
 export interface PendingSession {
   strengthMinutes?: number;
+  /** Non-strength minutes (streak only — not the aerobic goal unless recorded as run / walk). */
   cardioMinutes?: number;
   strengthSets?: number;
 }
 
+/** The goal fields a dailyProgress doc may carry. */
+export interface SavedDayGoals {
+  strengthGoalMet?: boolean;
+  aerobicWorkoutMinutes?: number;
+  workoutCompleted?: boolean;
+  stepGoalMet?: boolean;
+}
+
 export interface FlameDayContext {
   activity: FlameActivityDay | null | undefined;
-  /** Sets logged in the session logs for that day. */
+  isToday: boolean;
+  /** Sets in the local session logs for that day (used for today only). */
   loggedSets: number;
   /** Weekly set budget of the lead program (0 = none). */
   weeklyTarget: number;
@@ -22,6 +35,8 @@ export interface FlameDayContext {
   scheduleDays: number;
   /** Is that day a planned strength day? */
   isTrainingDay: boolean;
+  saved?: SavedDayGoals | null;
+  aerobicPlanDone?: boolean;
   pending?: PendingSession | null;
 }
 
@@ -48,13 +63,19 @@ export function dailyTargetFor(weeklyTarget: number, scheduleDays: number, isTra
 }
 
 export function flameDayFromContext(ctx: FlameDayContext): FlameDay {
-  const pending = ctx.pending ?? null;
+  const pending = ctx.isToday ? ctx.pending ?? null : null;
   const activity = pending ? addMinutes(ctx.activity, pending) : ctx.activity;
-  const sets = (Number(ctx.loggedSets) || 0) + (Number(pending?.strengthSets) || 0);
+  const localSets = ctx.isToday ? (Number(ctx.loggedSets) || 0) + (Number(pending?.strengthSets) || 0) : 0;
+  const saved = ctx.saved ?? null;
   return flameLevelForDay({
     activity,
-    strengthSets: sets,
+    strengthSets: localSets,
     strengthTargetSets: dailyTargetFor(ctx.weeklyTarget, ctx.scheduleDays, ctx.isTrainingDay),
-    workoutLogged: !!pending && ((Number(pending.strengthMinutes) || 0) > 0 || (Number(pending.cardioMinutes) || 0) > 0 || sets > 0),
+    strengthGoalSaved: saved?.strengthGoalMet,
+    aerobicMinutes: saved?.aerobicWorkoutMinutes,
+    aerobicPlanDone: ctx.aerobicPlanDone,
+    qualifiesSaved: !!saved?.workoutCompleted || !!saved?.stepGoalMet,
+    workoutLogged: !!saved?.workoutCompleted
+      || (!!pending && ((Number(pending.strengthMinutes) || 0) > 0 || (Number(pending.cardioMinutes) || 0) > 0 || localSets > 0)),
   });
 }

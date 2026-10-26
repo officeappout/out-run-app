@@ -47,6 +47,8 @@ export function useWeekStripProps() {
   return {
     props: {
       v2: flags.enableHomeV2,
+      // enable_flame_tiers_v1: the progress tab's strip shows the same flames as home.
+      flameTiers: !!flags.enableFlameTiersV1,
       schedule: strip.schedule,
       currentTrack: strip.currentTrack,
       scheduleDays: strip.scheduleDays,

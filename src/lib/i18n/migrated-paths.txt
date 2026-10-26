@@ -631,3 +631,5 @@ src/features/activity/lib/flame-tiers-flag.ts
 src/features/activity/hooks/useFlameDays.ts
 src/features/activity/hooks/useFlameTiersFlag.ts
 src/features/home/utils/strength-day-gate.ts
+src/features/activity/lib/saved-day-goals.ts
+src/features/home/utils/flame-tier-props.ts

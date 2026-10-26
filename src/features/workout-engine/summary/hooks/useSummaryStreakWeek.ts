@@ -2,7 +2,9 @@
 
 import { useMemo } from 'react';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
-import { buildWeekDots, type WeekDot } from '@/components/ui/v2/summary';
+import { buildWeekDots, localDateKey, type WeekDot } from '@/components/ui/v2/summary';
+import { usePastWorkoutCompleted } from '@/features/activity/hooks/usePastWorkoutCompleted';
+import { useUserStore } from '@/features/user';
 import { useFlameTiersFlag } from '@/features/activity/hooks/useFlameTiersFlag';
 import { useFlameDays } from '@/features/activity/hooks/useFlameDays';
 import type { PendingSession } from '@/features/activity/lib/flame-day-input';
@@ -16,8 +18,18 @@ import type { PendingSession } from '@/features/activity/lib/flame-day-input';
  *
  * enable_flame_tiers_v1: `todayDone` is ignored — every dot (today included) carries
  * flameLevelForDay's real level; `pending` adds this session's minutes / sets to today
- * while its own write hasn't landed (strength summary). Never forced "done".
+ * while its own write hasn't landed (strength summary). Never forced "done". Past days of the
+ * week read their saved dailyProgress (≤ 6 small reads, only while the flag is on).
  */
+
+/** This week's days before today (local keys), Sunday first. */
+function weekPastIsos(today: Date): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < today.getDay(); i++) {
+    out.push(localDateKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay() + i)));
+  }
+  return out;
+}
 export function useSummaryStreakWeek({
   todayDone,
   pending,
@@ -27,7 +39,11 @@ export function useSummaryStreakWeek({
 }): { days: WeekDot[]; best: number } {
   const weekActivities = useActivityStore((s) => s.weekActivities);
   const longestStreak = useActivityStore((s) => s.longestStreak);
-  const flameDayOf = useFlameDays(useFlameTiersFlag(), pending);
+  const tiers = useFlameTiersFlag();
+  const uid = useUserStore((s) => s.profile?.id);
+  const pastIsos = useMemo(() => (tiers ? weekPastIsos(new Date()) : []), [tiers]);
+  const { goalsMap } = usePastWorkoutCompleted(tiers ? uid : undefined, pastIsos);
+  const flameDayOf = useFlameDays(tiers, pending, goalsMap);
   const days = useMemo(
     () => buildWeekDots(weekActivities ?? {}, new Date(), flameDayOf ? { flameOf: flameDayOf } : { todayDone }),
     [weekActivities, todayDone, flameDayOf],

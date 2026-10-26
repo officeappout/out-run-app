@@ -113,6 +113,19 @@ export function aerobicCompletionLabels(
 
 const SESSION_KEY = 'post_workout_completed';
 
+/**
+ * enable_flame_tiers_v1: the run / walk minutes this workout RECORDED (the aerobic goal of the
+ * flame levels counts only these, never passive health minutes). Run / walk: the session;
+ * hybrid: its run + walk legs; strength / cycling: 0. Pure.
+ */
+export function recordedAerobicMinutes(payload: Pick<CompletionPayload, 'workoutType' | 'durationMinutes' | 'hybridParts'>): number {
+  if (payload.workoutType === 'running' || payload.workoutType === 'walking') return Math.max(0, payload.durationMinutes || 0);
+  if (payload.workoutType === 'hybrid' && payload.hybridParts) {
+    return Math.max(0, (payload.hybridParts.runMinutes || 0) + (payload.hybridParts.walkMinutes || 0));
+  }
+  return 0;
+}
+
 export async function syncWorkoutCompletion(payload: CompletionPayload): Promise<void> {
   // 1. Activity Store → dailyActivity + streaks (Zustand – synchronous update, async Firestore sync)
   //
@@ -143,7 +156,7 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
 
   // 2. Progression Store → dailyProgress + goalHistory (Firestore write)
   await useProgressionStore.getState()
-    .markTodayAsCompleted(payload.workoutType, payload.isRecovery, payload.strengthCompletion)
+    .markTodayAsCompleted(payload.workoutType, payload.isRecovery, payload.strengthCompletion, recordedAerobicMinutes(payload))
     .catch((err) => {
       console.error('[completion-sync] markTodayAsCompleted failed:', err);
     });
