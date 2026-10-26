@@ -59,6 +59,7 @@ import { library } from '@/messages/ns/library';
 import { common } from '@/messages/ns/common';
 import { withUnit } from '@/lib/i18n/units';
 import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
+import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 import WhereToTrainSection from '../where-to-train/WhereToTrainSection';
 import { useWhereToTrain } from '../where-to-train/useWhereToTrain';
 import TrainingHereSheet from '@/features/parks/client/components/training-here/TrainingHereSheet';
@@ -371,6 +372,8 @@ export default function WorkoutPreviewDrawer({
   const whereOn = useWhereToTrainV1();
   const where = useWhereToTrain(whereOn && isOpen && !!generatedWorkout, generatedWorkout?.exercises);
   const tc = useT(common);
+  // Military persona keeps its "service" location (as in WorkoutLocationSwitcher) — a third segment.
+  const whereShowService = profile ? hasPersona(profile, 'military') : false;
 
   const handleOpenLivePartners = useCallback(() => {
     usePartnerFilters.getState().setLiveActivity('strength');
@@ -709,7 +712,8 @@ export default function WorkoutPreviewDrawer({
 
           {whereOn && generatedWorkout && (
             <WhereToTrainSection
-              location={resolvedSwapLocation === 'home' ? 'home' : 'park'}
+              location={resolvedSwapLocation === 'home' || resolvedSwapLocation === 'service' ? resolvedSwapLocation : 'park'}
+              showService={whereShowService || resolvedSwapLocation === 'service'}
               onSelectLocation={(loc) => { void swapAll('location', loc); }}
               isSwapping={isSwapping}
               blockedNotice={
@@ -879,6 +883,7 @@ export default function WorkoutPreviewDrawer({
           onClose={where.closeSheet}
           activity="workout"
           workoutLabel={whereWorkoutLabel}
+          workoutTitle={displayTitle || null}
           place={where.sheetPlace}
           alternatives={where.places}
           onStartNow={() => handleStartWorkout()}

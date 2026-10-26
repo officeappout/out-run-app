@@ -28,7 +28,6 @@ import { useTrainingHerePublish } from './useTrainingHerePublish';
 import {
   laterTimeOptions,
   nextOccurrence,
-  reminderTimeFor,
   resolveStartTime,
   type TrainingHereActivity,
   type TrainingHerePlace,
@@ -42,6 +41,8 @@ export interface TrainingHereSheetProps {
   activity: TrainingHereActivity;
   /** Already-formatted workout line ("אימון עליון · 45 דק׳"); hidden when null. */
   workoutLabel: string | null;
+  /** Plain workout title, stored with the share (planned_sessions.workoutTitle). */
+  workoutTitle?: string | null;
   place: TrainingHerePlace;
   /** Other places the user may switch to ("החלף"); the link shows only when there is more than one. */
   alternatives?: readonly TrainingHerePlace[];
@@ -56,7 +57,7 @@ export interface TrainingHereSheetProps {
 const OTHER_KEY = 'other';
 
 export default function TrainingHereSheet({
-  open, onClose, activity, workoutLabel, place, alternatives, onStartNow, onPickOnly, onPublished,
+  open, onClose, activity, workoutLabel, workoutTitle, place, alternatives, onStartNow, onPickOnly, onPublished,
 }: TrainingHereSheetProps) {
   const t = useT(map);
   const tc = useT(common);
@@ -103,7 +104,8 @@ export default function TrainingHereSheet({
   const ctaLabel = saving
     ? t('trainingHere.cta.saving')
     : when === 'later'
-      ? (share && pickedLater ? t('trainingHere.cta.saveLater', { time: fmt(reminderTimeFor(pickedLater, openedAt)) }) : t('trainingHere.cta.done'))
+      // No one-off reminder exists yet (reminder.port.ts) — the CTA never promises one.
+      ? (share && pickedLater ? t('trainingHere.cta.save') : t('trainingHere.cta.done'))
       : onStartNow
         ? t('trainingHere.cta.startNow')
         : share ? t('trainingHere.cta.shareNow') : t('trainingHere.cta.done');
@@ -111,7 +113,7 @@ export default function TrainingHereSheet({
   const handleSubmit = async () => {
     if (share) {
       const start = resolveStartTime(when, pickedLater, new Date());
-      const id = await publish({ place: current, activity, startTime: start, visibility });
+      const id = await publish({ place: current, activity, startTime: start, visibility, workoutTitle });
       if (!id) return; // stays open with the error line
       onPublished?.(id, current);
     }
@@ -216,9 +218,16 @@ export default function TrainingHereSheet({
           <p role="alert" className="text-center text-[13px] font-bold text-red-600">{t('trainingHere.error')}</p>
         )}
 
+        <div>
         <Button variant="cta" size="cta" block disabled={saving} onClick={() => { void handleSubmit(); }}>
           {ctaLabel}
         </Button>
+        {when === 'later' && share && (
+          <p className="mt-2 text-center text-[12.5px] font-bold text-v2-muted">
+            {t(current.kind === 'route' ? 'trainingHere.later.hint.route' : 'trainingHere.later.hint.park')}
+          </p>
+        )}
+        </div>
 
         {onPickOnly && current.kind === 'park' && (
           <button

@@ -60,6 +60,13 @@ describe('WhereToTrainSection', () => {
     expect(out).not.toContain('גינת הירקון');
     await expect(out).toMatchFileSnapshot(snap('section-home'));
   });
+  it('military: a third שירות segment; plain users keep two', () => {
+    const military = html(<WhereToTrainSection {...base} showService location="service" parks={parks} loading={false} />);
+    expect(military).toContain('שירות');
+    expect(military).not.toContain('גינת הירקון');
+    expect(military).not.toContain('בבית');
+    expect(html(<WhereToTrainSection {...base} location="park" parks={parks} loading={false} />)).not.toContain('שירות');
+  });
   it('home without gear: bodyweight chip', () => {
     const out = html(<WhereToTrainSection {...base} homeGearLabels={[]} location="home" parks={[]} loading={false} />);
     expect(out).toContain('בבית · משקל גוף');

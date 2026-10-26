@@ -115,6 +115,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
               },
               trainingHere: {
                 workoutLabel: shareTrainingHere.workoutLabel,
+                workoutTitle: workoutTitleForPresence || null,
                 distanceM: shareTrainingHere.place.distanceM ?? null,
                 alternatives: shareTrainingHere.alternatives,
                 onStartNow: () => onStart(),

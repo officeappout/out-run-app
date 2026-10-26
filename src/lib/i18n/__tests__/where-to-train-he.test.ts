@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { library } from '@/messages/ns/library';
 import { map } from '@/messages/ns/map';
 import { makeT } from '../t';
+import he from '@/messages/he/map.json';
 
 const tl = makeT('he', library);
 const tm = makeT('he', map);
@@ -15,6 +16,7 @@ describe('library preview.where.*', () => {
     expect(tl('preview.location.title')).toBe('איפה מתאמנים?');
     expect(tl('preview.where.park')).toBe('פארק');
     expect(tl('preview.where.home')).toBe('בית');
+    expect(tl('preview.where.service')).toBe('שירות');
     expect(tl('preview.where.homeGear', { gear: 'מתח · מקבילים' })).toBe('בבית · מתח · מקבילים');
     expect(tl('preview.where.homeBodyweight')).toBe('בבית · משקל גוף');
     expect(tl('preview.where.parksLabel')).toBe('גינות קרובות');
@@ -40,9 +42,11 @@ describe('map trainingHere.*', () => {
     ]);
     expect(g('trainingHere.cta.startNow')).toEqual(['התחילי אימון עכשיו', 'התחל אימון עכשיו', 'התחלת אימון עכשיו']);
     expect(g('trainingHere.cta.shareNow')).toEqual(['שתפי עכשיו', 'שתף עכשיו', 'שיתוף עכשיו']);
-    expect(g('trainingHere.cta.saveLater', { time: '17:45' })).toEqual([
-      'שמרי · נזכיר לך ב-17:45', 'שמור · נזכיר לך ב-17:45', 'שמירה · תזכורת ב-17:45',
-    ]);
+    // No one-off reminder exists yet: the later CTA is a plain "שמור" and nothing promises a reminder.
+    expect(g('trainingHere.cta.save')).toEqual(['שמור', 'שמור', 'שמור']);
+    expect(g('trainingHere.later.hint.park')).toEqual(['תראי את זה בדף הפארק', 'תראה את זה בדף הפארק', 'זה יופיע בדף הפארק']);
+    expect(g('trainingHere.later.hint.route')).toEqual(['תראי את זה בדף המסלול', 'תראה את זה בדף המסלול', 'זה יופיע בדף המסלול']);
+    expect(Object.values(he).some((v) => v.includes('נזכיר'))).toBe(false);
     expect(g('trainingHere.cta.done')).toEqual(['סגרי', 'סגור', 'סגירה']);
   });
 

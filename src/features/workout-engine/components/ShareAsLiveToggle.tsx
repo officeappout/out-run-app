@@ -118,6 +118,8 @@ interface ShareAsLiveToggleProps {
    */
   trainingHere?: {
     workoutLabel?: string | null;
+    /** Plain workout title stored with the share (planned_sessions.workoutTitle). */
+    workoutTitle?: string | null;
     distanceM?: number | null;
     alternatives?: readonly TrainingHerePlace[];
     onStartNow?: () => void;
@@ -255,6 +257,7 @@ export default function ShareAsLiveToggle({
       onClose={() => setComposeOpen(false)}
       activity={toComposeActivityType(activityType)}
       workoutLabel={trainingHere?.workoutLabel ?? null}
+      workoutTitle={trainingHere?.workoutTitle ?? null}
       place={{ ...initialPlace, distanceM: trainingHere?.distanceM ?? null }}
       alternatives={trainingHere?.alternatives}
       onStartNow={trainingHere?.onStartNow}

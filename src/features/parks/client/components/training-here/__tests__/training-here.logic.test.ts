@@ -58,6 +58,12 @@ describe('buildArrivalInput', () => {
       lat: 32.1, lng: 34.8, activityType: 'workout', startTime: at(18, 0), privacyMode: 'verified_global',
     });
     expect('routeId' in input).toBe(false);
+    expect('workoutTitle' in input).toBe(false);
+  });
+  it('stores the workout title when given (trimmed), never an empty one', () => {
+    const place: TrainingHerePlace = { kind: 'park', id: 'p1', name: 'Yarkon', lat: 1, lng: 2 };
+    expect(buildArrivalInput({ ...base, place, activity: 'workout', workoutTitle: ' Upper body ' }).workoutTitle).toBe('Upper body');
+    expect('workoutTitle' in buildArrivalInput({ ...base, place, activity: 'workout', workoutTitle: '  ' })).toBe(false);
   });
   it('a route writes routeId + routeName with the activity type', () => {
     const place: TrainingHerePlace = { kind: 'route', id: 'r1', name: 'Loop', lat: null, lng: null };

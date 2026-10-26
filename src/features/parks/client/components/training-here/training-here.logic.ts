@@ -52,7 +52,7 @@ export function resolveStartTime(when: TrainingHereWhen, picked: Date | null, no
   return when === 'later' && picked ? picked : now;
 }
 
-/** REMINDER_LEAD_MIN before the start, never in the past. */
+/** REMINDER_LEAD_MIN before the start, never in the past. (For the future reminder — see reminder.port.ts.) */
 export function reminderTimeFor(start: Date, now: Date, leadMin = REMINDER_LEAD_MIN): Date {
   return new Date(Math.max(start.getTime() - leadMin * 60_000, now.getTime()));
 }
@@ -72,8 +72,11 @@ export function buildArrivalInput(args: {
   activity: TrainingHereActivity;
   startTime: Date;
   visibility: TrainingHereVisibility;
+  /** Display title of the workout, stored as planned_sessions.workoutTitle when present. */
+  workoutTitle?: string | null;
 }): CreatePlannedSessionInput {
   const { place } = args;
+  const workoutTitle = args.workoutTitle?.trim();
   return {
     userId: args.userId,
     displayName: args.displayName,
@@ -83,6 +86,7 @@ export function buildArrivalInput(args: {
       : { routeId: place.id, routeName: place.name }),
     lat: place.lat,
     lng: place.lng,
+    ...(workoutTitle ? { workoutTitle } : {}),
     activityType: ACTIVITY_TYPE[args.activity],
     startTime: args.startTime,
     privacyMode: args.visibility,

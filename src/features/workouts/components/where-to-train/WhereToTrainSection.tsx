@@ -4,10 +4,11 @@
  * WhereToTrainSection — "איפה מתאמנים?" under the intensity selector (enable_where_to_train_v1,
  * board RP-13 phone 4). A פארק / בית toggle (drives the existing location swap); פארק shows a
  * carousel of nearby parks with the map's compact park card, best match first; בית shows only the
- * home-equipment chip. Render-only: data and handlers come from the drawer.
+ * home-equipment chip. Military users get a third segment, שירות (the "service" location the old
+ * switcher offered them) — no option that exists today is dropped. Render-only: data and handlers come from the drawer.
  */
 
-import { Home, Trees } from 'lucide-react';
+import { Home, Shield, Trees } from 'lucide-react';
 import SegmentedPicker from '@/components/ui/v2/SegmentedPicker';
 import HScroller from '@/components/ui/v2/HScroller';
 import Chip from '@/components/ui/v2/Chip';
@@ -20,11 +21,13 @@ import { common } from '@/messages/ns/common';
 import { useLocaleStore } from '@/store/useLocaleStore';
 import type { WhereToTrainPark } from './useWhereToTrainParks';
 
-export type WhereToTrainLocation = 'park' | 'home';
+export type WhereToTrainLocation = 'park' | 'home' | 'service';
 
 export interface WhereToTrainSectionProps {
   location: WhereToTrainLocation;
   onSelectLocation: (loc: WhereToTrainLocation) => void;
+  /** Military persona: offer the "service" location as a third segment. */
+  showService?: boolean;
   isSwapping: boolean;
   /** Already-translated notice when a location switch was refused (location gate). */
   blockedNotice?: string | null;
@@ -37,7 +40,7 @@ export interface WhereToTrainSectionProps {
 }
 
 export default function WhereToTrainSection({
-  location, onSelectLocation, isSwapping, blockedNotice, parks, loading, selectedParkId, onOpenPark, homeGearLabels,
+  location, onSelectLocation, showService = false, isSwapping, blockedNotice, parks, loading, selectedParkId, onOpenPark, homeGearLabels,
 }: WhereToTrainSectionProps) {
   const t = useT(library);
   const tm = useT(map);
@@ -64,6 +67,7 @@ export default function WhereToTrainSection({
           options={[
             { key: 'park', label: t('preview.where.park'), icon: <Trees size={14} /> },
             { key: 'home', label: t('preview.where.home'), icon: <Home size={14} /> },
+            ...(showService ? [{ key: 'service' as const, label: t('preview.where.service'), icon: <Shield size={14} /> }] : []),
           ]}
         />
       </div>
@@ -98,7 +102,7 @@ export default function WhereToTrainSection({
             ))}
           </HScroller>
         ) : null
-      ) : (
+      ) : location === 'service' ? null : (
         <Chip icon={<Home size={14} />}>
           {homeGearLabels.length > 0
             ? t('preview.where.homeGear', { gear: homeGearLabels.join(' · ') })

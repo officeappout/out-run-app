@@ -24,6 +24,7 @@ export function useTrainingHerePublish() {
     activity: TrainingHereActivity;
     startTime: Date;
     visibility: TrainingHereVisibility;
+    workoutTitle?: string | null;
   }): Promise<string | null> => {
     const user = auth.currentUser;
     if (!user) { setFailed(true); return null; }
