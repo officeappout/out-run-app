@@ -14,8 +14,8 @@ type BarKind = 'pull' | 'push';
 
 const PULL_ICON = /pull|chin|bar(?!s)|high.?bar|rings?/i;
 const PUSH_ICON = /parallel|dip/i;
-const PULL_NAME = /מתח|טבעות|pull|chin|rings?/i;
-const PUSH_NAME = /מקבילים|דיפ|parallel|dip/i;
+const PULL_NAME = /מתח|טבעות|pull|chin|rings?/i; // i18n-allow-hebrew: matches equipment names in data, not UI copy
+const PUSH_NAME = /מקבילים|דיפ|parallel|dip/i; // i18n-allow-hebrew: matches equipment names in data, not UI copy
 
 export function barKindOf(eq: PlaceEquipment): BarKind | null {
   const icon = eq.iconKey ?? '';
