@@ -60,3 +60,14 @@ export function stationCloseEvents(
   // A station closed while the countdown still showed: start it, then close it (0 s of work).
   return seq === 'transition' ? [{ type: 'START_STATION' }, done] : [done];
 }
+
+/**
+ * Pilot M8: the run card's "דילוג לבא" (next to "הבא: <station>") skips the CURRENT step,
+ * i.e. ends this leg and moves on to the station, exactly like "הגעתי". It used to skip the
+ * STATION itself, which on a walk → station → walk-home plan left only the last leg, so the
+ * user saw the whole workout skipped. Skipping the station stays on the transition card and
+ * the station screen.
+ */
+export function runLegSkipEvents(): Array<{ type: 'ARRIVE_MANUAL' }> {
+  return [{ type: 'ARRIVE_MANUAL' }];
+}
