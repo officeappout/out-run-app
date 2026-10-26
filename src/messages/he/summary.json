@@ -29,7 +29,7 @@
   "share.distance": "{km} ק״מ",
   "share.group": " | {count} אנשים · {km} ק״מ יחד",
   "share.text": "סיימתי אימון ב-OUT! {distance}{group} 💪",
-  "share.tooShort": "אימון קצר מדי — לא נשמר",
+  "share.tooShort": "אימון קצר מדי, לא נשמר",
   "share.cta": "שתף",
   "rings.pace": "{activityType, select, walking {ד׳/ק״מ} other {קצב ממוצע}}",
   "rings.time": "זמן",

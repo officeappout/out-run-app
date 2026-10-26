@@ -81,17 +81,17 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
       ['leagues.sheets.how.distance.title', 'מרחק'],
       ['leagues.sheets.how.distance.body', 'סך הקילומטרים מאימוני ריצה והליכה שתיעדת בתקופה שנבחרה (יומי, שבועי או חודשי).'],
       ['leagues.sheets.how.scopes.title', 'קבוצות, שכונות וערים'],
-      ['leagues.sheets.how.scopes.body', 'נקודות פעילות: כל דקת אימון כוח שווה 2 נקודות, וכל דקת אימון אירובי או תחזוקה שווה נקודה אחת. קבוצות מדורגות לפי ממוצע לחבר פעיל; שכונות וערים — לפי סכום הנקודות של כל החברים.'],
+      ['leagues.sheets.how.scopes.body', 'נקודות פעילות: כל דקת אימון כוח שווה 2 נקודות, וכל דקת אימון אירובי או תחזוקה שווה נקודה אחת. קבוצות מדורגות לפי ממוצע לחבר פעיל; שכונות וערים, לפי סכום הנקודות של כל החברים.'],
       ['leagues.sheets.xpNote', 'נקודות XP ורמות לא נספרות בדירוג הליגה.'],
       ['leagues.sheets.scope.workouts.title', 'אימונים'],
       ['leagues.sheets.scope.workouts.body', 'כל דקת אימון כוח שווה 2 נקודות. כל דקת ריצה, הליכה, רכיבה או אימון תחזוקה שווה נקודה אחת.'],
       ['leagues.sheets.scope.steps.title', 'צעדים'],
       ['leagues.sheets.scope.steps.body', 'כל 1,000 צעדים מלאים ביום שווים 3 נקודות (למשל 7,800 צעדים = 21 נקודות). הצעדים מתעדכנים פעם בשעה.'],
-      ['leagues.sheets.scope.invite.title', 'חבר שמצטרף — 50+'],
+      ['leagues.sheets.scope.invite.title', 'חבר שמצטרף, 50+'],
       ['leagues.sheets.scope.invite.body', 'חבר שמצטרף דרך הקישור שלך מוסיף 50 נקודות לשכונה ולעיר שלך, עד 5 חברים בשבוע. הוא לא נספר כמשתתף פעיל עד שיתאמן.'],
       ['leagues.sheets.scope.order.title', 'איך מדרגים'],
-      ['leagues.sheets.scope.order.body', 'הדירוג הרשמי הוא לפי ממוצע הנקודות למשתתף פעיל — כך גם שכונה או יישוב קטנים יכולים לנצח. השבוע מתחיל ביום ראשון, והחודש הוא החודש הקלנדרי.'],
-      ['leagues.sheets.scope.kmNote', 'הק״מ שמוצגים ליד הנקודות הם בשביל הכיף — הם לא משפיעים על הנקודות או על הדירוג.'],
+      ['leagues.sheets.scope.order.body', 'הדירוג הרשמי הוא לפי ממוצע הנקודות למשתתף פעיל, כך גם שכונה או יישוב קטנים יכולים לנצח. השבוע מתחיל ביום ראשון, והחודש הוא החודש הקלנדרי.'],
+      ['leagues.sheets.scope.kmNote', 'הק״מ שמוצגים ליד הנקודות הם בשביל הכיף, הם לא משפיעים על הנקודות או על הדירוג.'],
       // scopes board
       ['leagues.scopes.metric.points', 'נקודות'],
       ['leagues.scopes.metric.km', 'ק״מ'],
@@ -111,8 +111,8 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
       ['leagues.scopes.measure.total', 'סה״כ'],
       ['leagues.scopes.unit.km', 'ק״מ'],
       ['leagues.scopes.unit.kmPerMember', 'ק״מ למשתתף'],
-      ['leagues.scopes.note.km', 'הק״מ מוצגים בשביל הכיף — הם לא משנים את הנקודות או את הדירוג הרשמי.'],
-      ['leagues.scopes.note.avg', 'בממוצע למשתתף פעיל גודל השכונה לא קובע — גם קבוצה קטנה יכולה לנצח.'],
+      ['leagues.scopes.note.km', 'הק״מ מוצגים בשביל הכיף, הם לא משנים את הנקודות או את הדירוג הרשמי.'],
+      ['leagues.scopes.note.avg', 'בממוצע למשתתף פעיל גודל השכונה לא קובע, גם קבוצה קטנה יכולה לנצח.'],
       ['leagues.scopes.note.total', 'בסה״כ הגדולים מובילים. הדירוג הרשמי הוא לפי ממוצע למשתתף.'],
       // battle card
       ['leagues.battle.groupWalk', 'יוצאים להליכה קבוצתית'],
@@ -140,7 +140,7 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
       ['leagues.national.measure.total', 'סה״כ'],
       ['leagues.national.measure.improved', 'הכי משתפרים'],
       ['leagues.national.unavailable.title', 'הדירוג הזה נפתח בקרוב'],
-      ['leagues.national.unavailable.body', 'הוא נבנה מהאימונים עצמם — עוד רגע הוא כאן.'],
+      ['leagues.national.unavailable.body', 'הוא נבנה מהאימונים עצמם, עוד רגע הוא כאן.'],
       ['leagues.national.empty.kmTitle', 'עוד אין ק״מ בתקופה הזו'],
       ['leagues.national.empty.improvedTitle', 'עוד אין שיפור לעומת התקופה הקודמת'],
       ['leagues.national.empty.title', 'עוד אין פעילות בתקופה הזו'],
@@ -149,8 +149,8 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
       ['leagues.national.mine', 'שלך'],
       ['leagues.national.unit.km', 'ק״מ'],
       ['leagues.national.unit.kmPerMember', 'ק״מ למשתתף'],
-      ['leagues.national.note.km', 'הק״מ מוצגים בשביל הכיף — הם לא משנים את הנקודות או את הדירוג הרשמי.'],
-      ['leagues.national.note.avg', 'בממוצע למשתתף פעיל הגודל לא קובע — גם יישוב קטן יכול לנצח.'],
+      ['leagues.national.note.km', 'הק״מ מוצגים בשביל הכיף, הם לא משנים את הנקודות או את הדירוג הרשמי.'],
+      ['leagues.national.note.avg', 'בממוצע למשתתף פעיל הגודל לא קובע, גם יישוב קטן יכול לנצח.'],
       ['leagues.national.note.improved', 'מי הוסיף הכי הרבה לעומת התקופה הקודמת.'],
       ['leagues.national.note.total', 'בסה״כ הגדולים מובילים. הדירוג הרשמי הוא לפי ממוצע למשתתף.'],
       // groups board
@@ -169,7 +169,7 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
     const runOld = (seg: string) =>
       seg === '3k' ? 'שיא קצב ל-3 ק"מ' : seg === '5k' ? 'שיא קצב ל-5 ק"מ' : seg === '10k' ? 'שיא קצב ל-10 ק"מ' : 'סה"כ ק"מ שבועי';
     for (const seg of ['all', '3k', '5k', '10k']) expect(t('leagues.individual.context.running', { segment: seg })).toBe(runOld(seg));
-    expect(t('leagues.individual.context.strengthProgram', { program: 'מתח' })).toBe(`רמה ואחוז השלמה — ${'מתח'}`);
+    expect(t('leagues.individual.context.strengthProgram', { program: 'מתח' })).toBe(`רמה ואחוז השלמה, ${'מתח'}`);
 
     const phrase = (w: string) => (w === 'daily' ? 'היום' : w === 'weekly' ? 'השבוע' : 'החודש');
     for (const w of WINDOWS) {
@@ -193,7 +193,7 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
     expect(t('leagues.individual.expand.all', { count: String(1200) })).toBe(`להציג את כל ${1200} המשתתפים`);
     for (const n of [1, 2, 4, 1234])
       expect(t('leagues.individual.sparse.body', { n, count: String(n) })).toBe(
-        `${n === 1 ? 'משתתף אחד עד עכשיו' : `רק ${n} משתתפים עד עכשיו`} — הזמינו חברים להתחרות איתכם`,
+        `${n === 1 ? 'משתתף אחד עד עכשיו' : `רק ${n} משתתפים עד עכשיו`}, הזמינו חברים להתחרות איתכם`,
       );
   });
 
@@ -220,7 +220,7 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
       expect(t('leagues.sheets.peek.gap', { dir: gap > 0 ? 'ahead' : gap < 0 ? 'behind' : 'tie' })).toBe(gap > 0 ? 'לפניך' : gap < 0 ? 'אחריך' : 'שוויון');
     for (const isTenant of [true, false]) {
       const tenant = isTenant ? 'yes' : 'no';
-      expect(t('leagues.sheets.how.general.title', { tenant })).toBe(isTenant ? 'כללי — ימים פעילים' : 'כללי — רצף ימי אימון');
+      expect(t('leagues.sheets.how.general.title', { tenant })).toBe(isTenant ? 'כללי, ימים פעילים' : 'כללי, רצף ימי אימון');
       expect(t('leagues.sheets.how.general.body', { tenant })).toBe(
         isTenant
           ? 'בליגת הארגון סופרים את מספר הימים שבהם התאמנת.'
@@ -257,7 +257,7 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
     expect(t('leagues.national.unit.perMember', { unit })).toBe(`${unit} למשתתף`);
     expect(t('leagues.scopes.km', { km: '1,240.5' })).toBe(`${'1,240.5'} ק״מ`);
     expect(t('leagues.national.km', { km: '1,240.5' })).toBe(`${'1,240.5'} ק״מ`);
-    // gender batch 3: the podium follows the rows — "1 פעיל", "N פעילים"
+    // gender batch 3: the podium follows the rows, "1 פעיל", "N פעילים"
     for (const n of [1, 2, 1234]) {
       const active = n === 1 ? `${n} פעיל` : `${n} פעילים`;
       expect(t('leagues.scopes.podium.sub', { n, count: String(n) })).toBe(active);

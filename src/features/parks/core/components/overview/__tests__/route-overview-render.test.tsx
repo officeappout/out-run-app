@@ -73,7 +73,7 @@ describe('RouteOverviewDrawer (M-5a)', () => {
     expect(html.split('ריצה · לולאת הירקון').length - 1).toBe(1);
     expect(html).toContain('הליכה אל המסלול');
     expect(html).toContain('הליכה חזרה');
-    expect(html).toContain('מסלול מעגלי — חוזר לנקודת ההתחלה');
+    expect(html).toContain('מסלול מעגלי, חוזר לנקודת ההתחלה');
     expect(html).toContain('aria-expanded="false"');
     expect(html.split('bg-v2-cta').length - 1).toBe(1);
     expect(html).toContain('התחל ריצה');

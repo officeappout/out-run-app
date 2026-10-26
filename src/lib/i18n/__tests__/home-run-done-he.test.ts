@@ -33,7 +33,7 @@ describe('home (he) — run-done state', () => {
     expect(t('runCard.dayHint.inDays', { n: 3 })).toBe('בעוד 3 ימים');
     expect(t('doneToday.sets', { n: 18 })).toBe('18 סטים');
     expect(t('runWeek.summary', { done: 1, total: 3 })).toBe('1 מתוך 3 בוצע');
-    expect(t('runSlot.reason', { type: 'ריצה קלה' })).toBe('ריצה קלה בתוכנית שלך — נמצא לה מסלול מתאים');
+    expect(t('runSlot.reason', { type: 'ריצה קלה' })).toBe('ריצה קלה בתוכנית שלך, נמצא לה מסלול מתאים');
     expect(t('doneToday.runPlan', { week: 2, total: 8, n: 1, target: 3 })).toBe('שבוע 2 מתוך 8 · ריצה 1 מתוך 3');
   });
   it('gender-neutral: the catalog has no gender select for these keys (nothing addresses the user)', () => {

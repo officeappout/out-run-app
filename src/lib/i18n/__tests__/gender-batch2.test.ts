@@ -43,7 +43,7 @@ const CATALOG_CASES: Array<[string, string, string, string]> = [
   ["community:outreach.company.cta", "🏢 שלח הודעה ל-HR", "🏢 שלחי הודעה ל-HR", "🏢 שליחת הודעה ל-HR"],
   ["community:outreach.youth.subtitle", "דבר עם צוות התנועה ושתפו את החניכים בוואטסאפ.", "דברי עם צוות התנועה ושתפו את החניכים בוואטסאפ.", "דברו עם צוות התנועה ושתפו את החניכים בוואטסאפ."],
   ["community:outreach.youth.cta", "⛺ שלח הודעה לצוות התנועה", "⛺ שלחי הודעה לצוות התנועה", "⛺ שליחת הודעה לצוות התנועה"],
-  ["map:partners.empty.live.sub", "היה הראשון — סמן את עצמך פנוי לפני האימון", "היי הראשונה — סמני את עצמך פנויה לפני האימון", "היו הראשונים — סמנו שאתם פנויים לפני האימון"],
+  ["map:partners.empty.live.sub", "היה הראשון, סמן את עצמך פנוי לפני האימון", "היי הראשונה, סמני את עצמך פנויה לפני האימון", "היו הראשונים, סמנו שאתם פנויים לפני האימון"],
   ["map:partners.empty.scheduled.sub", "הוסף אימון ללוז ושתף אותו עם הקהילה", "הוסיפי אימון ללוז ושתפי אותו עם הקהילה", "הוסיפו אימון ללוז ושתפו אותו עם הקהילה"],
   ["player:run.controls.resume", "המשך אימון", "המשיכי אימון", "ממשיכים באימון"],
   ["player:run.free.dock.resume", "המשך אימון", "המשיכי אימון", "ממשיכים באימון"],
@@ -62,11 +62,11 @@ const CATALOG_CASES: Array<[string, string, string, string]> = [
   ["map:carousel.empty.loopHint", "נסה לשנות את המרחק או את סוג הפעילות.", "נסי לשנות את המרחק או את סוג הפעילות.", "אפשר לשנות את המרחק או את סוג הפעילות."],
   ["profile:steps.error.retry", "נסה שוב מאוחר יותר", "נסי שוב מאוחר יותר", "נסו שוב מאוחר יותר"],
   ["profile:skillTree.node.youAreHere", "אתה כאן", "את כאן", "הרמה שלך"],
-  ["profile:skillTree.unassessed.banner", "עדיין לא יודעים את הרמה שלך — בצע מבדק כדי לסמן איפה אתה", "עדיין לא יודעים את הרמה שלך — בצעי מבדק כדי לסמן איפה את", "עדיין לא יודעים את הרמה שלך — מבדק קצר יסמן איפה הרמה שלך"],
+  ["profile:skillTree.unassessed.banner", "עדיין לא יודעים את הרמה שלך, בצע מבדק כדי לסמן איפה אתה", "עדיין לא יודעים את הרמה שלך, בצעי מבדק כדי לסמן איפה את", "עדיין לא יודעים את הרמה שלך, מבדק קצר יסמן איפה הרמה שלך"],
   ["profile:steps.connect.cta", "התחבר לאפליקציית הבריאות", "התחברי לאפליקציית הבריאות", "חיבור לאפליקציית הבריאות"],
   ["home:loadAdvisor.onTrack", "אתה בדרך הנכונה! איזון מעולה בין קבוצות השרירים.", "את בדרך הנכונה! איזון מעולה בין קבוצות השרירים.", "בדרך הנכונה! איזון מעולה בין קבוצות השרירים."],
   ["home:programStart.title", "בוא נבנה לך תוכנית", "בואי נבנה לך תוכנית", "בואו נבנה לך תוכנית"],
-  ["home:runCard.skip", "אין לי כוח היום — דלג לעוד", "אין לי כוח היום — דלגי לעוד", "אין לי כוח היום — דילוג לעוד"],
+  ["home:runCard.skip", "אין לי כוח היום, דלג לעוד", "אין לי כוח היום, דלגי לעוד", "אין לי כוח היום, דילוג לעוד"],
   ["home:walkCard.start.today", "צא להליכה", "צאי להליכה", "יוצאים להליכה"],
   ["community:group.next.joinWaitlist", "הצטרף לרשימת המתנה", "הצטרפי לרשימת המתנה", "הצטרפות לרשימת המתנה"],
   ["community:group.next.book", "הירשם למפגש", "הירשמי למפגש", "הרשמה למפגש"],
@@ -83,7 +83,7 @@ const CATALOG_CASES: Array<[string, string, string, string]> = [
   ["profile:profile.grid.empty.line2", "תתחיל לזוז!", "תתחילי לזוז!", "בואו נזוז!"],
   ["onboarding:bridge.title", "בוא נכניס הכל ללו״ז", "בואי נכניס הכל ללו״ז", "בואו נכניס הכל ללו״ז"],
   ["onboarding:hierarchy.add.submitted", "ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.", "ההצעה שלך נשלחה וממתינה לאישור. את כבר משויכת אליה.", "ההצעה שלך נשלחה וממתינה לאישור. השיוך שלך אליה כבר נשמר."],
-  ["onboarding:personaDrawer.staleUnit", "היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש", "היחידה שבחרת בעבר כבר לא קיימת — בחרי מחדש", "היחידה שנבחרה בעבר כבר לא קיימת — צריך לבחור מחדש"],
+  ["onboarding:personaDrawer.staleUnit", "היחידה שבחרת בעבר כבר לא קיימת, בחר מחדש", "היחידה שבחרת בעבר כבר לא קיימת, בחרי מחדש", "היחידה שנבחרה בעבר כבר לא קיימת, צריך לבחור מחדש"],
   ["onboarding:signaturePad.hint", "חתום כאן עם האצבע", "חתמי כאן עם האצבע", "חתימה כאן עם האצבע"],
   ["onboarding:identity.alert.noUser", "לא נמצא משתמש מחובר. נסה לרענן את הדף.", "לא נמצא משתמש מחובר. נסי לרענן את הדף.", "לא נמצא משתמש מחובר. נסו לרענן את הדף."],
   ["onboarding:identity.alert.authError", "שגיאה באימות המשתמש. נסה לרענן את הדף.", "שגיאה באימות המשתמש. נסי לרענן את הדף.", "שגיאה באימות המשתמש. נסו לרענן את הדף."],
@@ -119,9 +119,9 @@ describe('gender batch 2 — catalog keys, three outputs', () => {
     expect(tr('community:banner.participants', { ...p, gender: 'female' })).toBe('3 / 10 משתתפות');
     expect(tr('community:banner.participants', { ...p, gender: 'other' })).toBe('3 / 10 משתתפים');
     const c = { count: '4' };
-    expect(tr('community:leagues.units.belowFloor.body', { ...c, gender: 'male' })).toBe('4 משתתפים פעילים כרגע — שלח לחברים שלך ליחידה!');
-    expect(tr('community:leagues.units.belowFloor.body', { ...c, gender: 'female' })).toBe('4 משתתפים פעילים כרגע — שלחי לחברים שלך ליחידה!');
-    expect(tr('community:leagues.units.belowFloor.body', { ...c, gender: 'other' })).toBe('4 משתתפים פעילים כרגע — שלחו לחברים ביחידה!');
+    expect(tr('community:leagues.units.belowFloor.body', { ...c, gender: 'male' })).toBe('4 משתתפים פעילים כרגע, שלח לחברים שלך ליחידה!');
+    expect(tr('community:leagues.units.belowFloor.body', { ...c, gender: 'female' })).toBe('4 משתתפים פעילים כרגע, שלחי לחברים שלך ליחידה!');
+    expect(tr('community:leagues.units.belowFloor.body', { ...c, gender: 'other' })).toBe('4 משתתפים פעילים כרגע, שלחו לחברים ביחידה!');
   });
 
   it('texts sent to friends → "בואו" for everyone (decision 7)', () => {

@@ -12,14 +12,14 @@ const t = makeT('he', schedule);
 describe('schedule engines — catalog parity with the old template literals', () => {
   it('plural / values / selects', () => {
     for (const days of [0, 1, 2, 7]) {
-      const old = `בימים הפנויים נכנסים רק ${days === 1 ? 'יום כוח אחד' : `${days} ימי כוח`}. המומלץ הוא ${3} — אם אפשר, הוסיפו יום.`;
+      const old = `בימים הפנויים נכנסים רק ${days === 1 ? 'יום כוח אחד' : `${days} ימי כוח`}. המומלץ הוא ${3}, אם אפשר, הוסיפו יום.`;
       expect(t('engine.reason.STRENGTH_FLOOR_UNMET_AVAILABILITY', { days, floor: String(3) })).toBe(old);
     }
     for (const n of [0, 1, 6, 1000, 123456]) {
       expect(t('engine.reason.LONG_TRAINING_STREAK', { days: String(n) })).toBe(`${n} ימי אימון ברצף. אפשר, אבל שימו לב להתאוששות.`);
-      expect(t('engine.rules.ERR_03', { count: String(n) })).toBe(`${n} סקילים קשים — האימון מתפזר וההתקדמות בכולם תואט.`);
+      expect(t('engine.rules.ERR_03', { count: String(n) })).toBe(`${n} סקילים קשים, האימון מתפזר וההתקדמות בכולם תואט.`);
       expect(t('engine.rules.ERR_DAYS_MIN', { days: String(n), count: String(n + 1), required: String(n + 2) })).toBe(
-        `${n} ימים ל-${n + 1} סקילים קשים — מומלץ ${n + 2} לפחות.`,
+        `${n} ימים ל-${n + 1} סקילים קשים, מומלץ ${n + 2} לפחות.`,
       );
       expect(t('engine.reason.DAYS_BELOW_SKILL_MIN', { skills: String(n), required: String(n), available: String(n) })).toBe(
         `ל-${n} מיומנויות מומלצים ${n} ימי אימון, ויש ${n}.`,
@@ -44,10 +44,10 @@ describe('schedule engines — catalog parity with the old template literals', (
     }
     for (const order of ['running-first', 'strength-first']) {
       expect(t('drawer.sharedDay', { day: 'ג', order: order === 'running-first' ? 'running' : 'strength' })).toBe(
-        `ג — יום כפול: ${order === 'running-first' ? 'ריצה קודם' : 'כוח קודם'}`,
+        `ג, יום כפול: ${order === 'running-first' ? 'ריצה קודם' : 'כוח קודם'}`,
       );
     }
-    expect(t('drawer.runningNote.thisWeekScope')).toBe('הריצות זזות רק ב"מכאן והלאה" — השבוע נשארו במקומן.');
-    expect(t('drawer.noData')).toBe('אין עדיין מספיק נתונים כדי להציע לוז — פתח תוכנית כוח או ריצה קודם.');
+    expect(t('drawer.runningNote.thisWeekScope')).toBe('הריצות זזות רק ב"מכאן והלאה", השבוע נשארו במקומן.');
+    expect(t('drawer.noData')).toBe('אין עדיין מספיק נתונים כדי להציע לוז, פתח תוכנית כוח או ריצה קודם.');
   });
 });

@@ -39,7 +39,7 @@ describe('summary — aerobic summary blocks', () => {
       ['streak.praise', 'כל הכבוד!'],
       ['participants.nameFallback', 'משתתף'],
       ['participants.you', ' (את/ה)'],
-      ['share.tooShort', 'אימון קצר מדי — לא נשמר'],
+      ['share.tooShort', 'אימון קצר מדי, לא נשמר'],
       ['share.cta', 'שתף'],
       ['rings.time', 'זמן'],
       ['rings.calories', 'קק״ל'],

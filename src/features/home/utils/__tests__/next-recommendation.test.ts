@@ -78,8 +78,8 @@ describe('doneKindsOf / nextHeaderHe', () => {
   });
   it('every header is the same Hebrew now that it comes from the catalog', () => {
     expect(nextHeaderHe({ kind: 'walk', why: 'planned' })).toBe('עוד מחכה לך היום: הליכה');
-    expect(nextHeaderHe({ kind: 'walk', why: 'steps' })).toBe('נשארו צעדים — הליכה קצרה תסגור את היום');
-    expect(nextHeaderHe({ kind: 'strength', why: 'topup', sets: 6 })).toBe('אימון משלים — לסגור את יעד הכוח של היום');
+    expect(nextHeaderHe({ kind: 'walk', why: 'steps' })).toBe('נשארו צעדים, הליכה קצרה תסגור את היום');
+    expect(nextHeaderHe({ kind: 'strength', why: 'topup', sets: 6 })).toBe('אימון משלים, לסגור את יעד הכוח של היום');
     expect(nextHeaderHe({ kind: 'strength', why: 'planned' })).toBe('עוד מחכה לך היום: אימון כוח');
     expect(nextHeaderHe({ kind: 'strength', why: 'week' })).toBe('נשאר אימון כוח השבוע');
     expect(nextHeaderHe({ kind: 'run', why: 'planned' })).toBe('עוד מחכה לך היום: ריצה');
@@ -104,7 +104,7 @@ describe('strength top-up (owner 20.10.2026: depends on the daily goal)', () => 
     expect(resolveNextRecommendation({ ...base, doneToday: ['run'], plannedToday: ['run'], strengthTopUpSets: 6 }).why).not.toBe('topup');
   });
   it('header says why', () => {
-    expect(nextHeaderHe({ kind: 'strength', why: 'topup', sets: 6 })).toBe('אימון משלים — לסגור את יעד הכוח של היום');
+    expect(nextHeaderHe({ kind: 'strength', why: 'topup', sets: 6 })).toBe('אימון משלים, לסגור את יעד הכוח של היום');
   });
 });
 

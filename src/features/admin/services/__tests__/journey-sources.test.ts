@@ -11,7 +11,7 @@ import {
 const day = (d: string) => new Date(`${d}T10:00:00Z`);
 
 const LINKS: SourceLink[] = [
-  { id: 'site-home', name: 'אתר — דף בית', utmSource: 'website', utmMedium: 'cta', linkType: 'web', clicks: 40 },
+  { id: 'site-home', name: 'אתר, דף בית', utmSource: 'website', utmMedium: 'cta', linkType: 'web', clicks: 40 },
   { id: 'ig-bio', name: 'ביו אינסטגרם', utmSource: 'instagram', utmMedium: 'bio', linkType: 'web', clicks: 25 },
   { id: 'park-qr', name: 'QR גינה', utmSource: 'qr', utmMedium: 'print', linkType: 'qr_physical', clicks: 9 },
   { id: 'partner', name: 'שותף', utmSource: 'partner', utmMedium: null, linkType: 'partner', clicks: 3 },

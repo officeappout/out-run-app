@@ -90,15 +90,15 @@ describe('running goal visuals (runningGoals.*)', () => {
   });
   it('goal subtitles, both genders (the profile gender must not leak in)', () => {
     for (const f of [false, true]) {
-      expect(runningGoalSubtitle('start_running', f, t)).toBe('מאפס או אחרי הפסקה ארוכה — שילוב הליכה וריצה');
-      expect(runningGoalSubtitle('improve_time', f, t)).toBe('3, 5 או 10 ק״מ מהר יותר — עם אינטרוולים וטמפו');
+      expect(runningGoalSubtitle('start_running', f, t)).toBe('מאפס או אחרי הפסקה ארוכה, שילוב הליכה וריצה');
+      expect(runningGoalSubtitle('improve_time', f, t)).toBe('3, 5 או 10 ק״מ מהר יותר, עם אינטרוולים וטמפו');
       expect(runningGoalSubtitle('maintain_fitness', f, t)).toBe(g(f, 'כבר רץ ורוצה להישאר עקבי ובריא', 'כבר רצה ורוצה להישאר עקבית ובריאה'));
       expect(runningGoalSubtitle(null, f, t)).toBeNull();
     }
   });
   it('ability copy and experience hints, both genders', () => {
     for (const f of [false, true]) {
-      expect(abilityCopy('none', f, t)).toEqual({ title: 'הצעד הראשון', sub: g(f, 'עוד לא רץ בכלל — נתחיל בהליכה', 'עוד לא רצה בכלל — נתחיל בהליכה') });
+      expect(abilityCopy('none', f, t)).toEqual({ title: 'הצעד הראשון', sub: g(f, 'עוד לא רץ בכלל, נתחיל בהליכה', 'עוד לא רצה בכלל, נתחיל בהליכה') });
       expect(abilityCopy('5_15', f, t)).toEqual({ title: null, sub: 'ריצה קצרה, עם הפסקות' });
       expect(abilityCopy('15_30', f, t)).toEqual({ title: null, sub: 'ריצה רציפה נוחה' });
       expect(abilityCopy('30_45', f, t)).toEqual({ title: null, sub: g(f, 'מוכן לבנות מרחק', 'מוכנה לבנות מרחק') });

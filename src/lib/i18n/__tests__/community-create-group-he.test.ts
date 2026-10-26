@@ -51,7 +51,7 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
       ['createGroup.groupType.school.label', 'ביה״ס'],
       ['createGroup.groupType.school.sub', 'קהילת בית ספר'],
       ['createGroup.type.question', 'איזו קהילה פותחים?'],
-      ['createGroup.type.privateDefault', 'פרטית כברירת מחדל — אפשר לשנות בשלב הפרטיות'],
+      ['createGroup.type.privateDefault', 'פרטית כברירת מחדל, אפשר לשנות בשלב הפרטיות'],
       ['createGroup.basics.nameLabel', 'שם הקבוצה *'],
       ['createGroup.basics.category', 'קטגוריה'],
       ['createGroup.basics.categoryOptional', 'קטגוריה (אופציונלי)'],
@@ -59,9 +59,9 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
       // createGroup.basics.descriptionPlaceholder: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ['createGroup.mode.question', 'איך הקהילה שלך מתאמנת ביחד?'],
       ['createGroup.mode.together.label', 'אימון משותף'],
-      ['createGroup.mode.together.sub', 'מפגשים קבועים בזמן ומקום — הקבוצה מתאמנת ביחד'],
+      ['createGroup.mode.together.sub', 'מפגשים קבועים בזמן ומקום, הקבוצה מתאמנת ביחד'],
       ['createGroup.mode.ownPace.label', 'כל אחד בקצב שלו'],
-      ['createGroup.mode.ownPace.sub', 'ליגה, אתגר או תחרות — כל אחד מתאמן ומדווח תוצאות'],
+      ['createGroup.mode.ownPace.sub', 'ליגה, אתגר או תחרות, כל אחד מתאמן ומדווח תוצאות'],
       ['createGroup.outreach.how', 'איך זה עובד?'],
       ['createGroup.outreach.howStep2', 'הם יצרו קשר עם Out'],
       ['createGroup.outreach.sent', 'נשלח! תודה'],
@@ -147,7 +147,7 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
       );
       expect(t('createGroup.outreach.title', { org })).toBe(`רוצים ליגה רשמית ל${label}?`);
       expect(t('createGroup.outreach.body', { org })).toBe(
-        `פנו ל${recipient} ובקשו שישתפו פעולה עם Out — ואנחנו נפתח את הליגה הרשמית!`,
+        `פנו ל${recipient} ובקשו שישתפו פעולה עם Out, ואנחנו נפתח את הליגה הרשמית!`,
       );
       expect(t('createGroup.outreach.howStep1', { org })).toBe(`שלחו את ההודעה ל${recipient}`);
       expect(t('createGroup.outreach.howStep3', { org })).toBe(`הליגה הרשמית של ${orgLabel} נפתחת!`);
@@ -174,7 +174,7 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
     const inviteCode = 'AB12';
     const link = 'https://app.example/join/AB12';
     expect(t('createGroup.success.shareText', { name, inviteCode, link })).toBe(
-      `היי! הקמתי קהילה חדשה "${name}" — בואו להצטרף! 🏃\nקוד הצטרפות: ${inviteCode}\n${link}`, // gender batch 3: בואו (decision 7)
+      `היי! הקמתי קהילה חדשה "${name}", בואו להצטרף! 🏃\nקוד הצטרפות: ${inviteCode}\n${link}`, // gender batch 3: בואו (decision 7)
     );
   });
 });

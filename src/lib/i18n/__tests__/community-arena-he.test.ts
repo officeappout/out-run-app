@@ -100,7 +100,7 @@ describe('community (he) arena components — byte-identical to the pre-extracti
       ['creator.edit.title', 'עריכת פרטי הקהילה'],
       ['creator.edit.subtitle', 'שם, תיאור, מיקום, לוח זמנים'],
       ['creator.stats.title', 'צפה בסטטיסטיקות'],
-      ['creator.stats.subtitle', 'בקרוב — נתוני פעילות ונוכחות'],
+      ['creator.stats.subtitle', 'בקרוב, נתוני פעילות ונוכחות'],
       ['creator.members.title', 'חברי הקהילה'],
       ['creator.members.empty', 'אין חברים רשומים עדיין'],
       ['creator.members.owner', 'בעלים'],
@@ -293,7 +293,7 @@ describe('community (he) arena components — byte-identical to the pre-extracti
     }
     expect(t('cityChallenge.done', { name })).toBe(`${name} הגיעה ליעד החודשי!`);
     const left = 876544;
-    expect(t('cityChallenge.left', { left: left.toLocaleString('he-IL') })).toBe(`עוד ${left.toLocaleString('he-IL')} נק׳ ליעד — כל אימון וכל 1,000 צעדים מקרבים.`);
+    expect(t('cityChallenge.left', { left: left.toLocaleString('he-IL') })).toBe(`עוד ${left.toLocaleString('he-IL')} נק׳ ליעד, כל אימון וכל 1,000 צעדים מקרבים.`);
   });
 
   it('MunicipalPressureCard — default templates keep their ${var} placeholders', () => {
@@ -324,23 +324,23 @@ describe('community (he) arena components — byte-identical to the pre-extracti
     type G = 'male' | 'female';
     const OLD = {
       school: {
-        defaultMale: 'היי, אני תלמיד ב-${orgName} ומתאמן עם Out. רציתי להציע שנביא את הפלטפורמה לבית הספר — זה בחינם ומדליק! 🔥',
-        defaultFemale: 'היי, אני תלמידה ב-${orgName} ומתאמנת עם Out. רציתי להציע שנביא את הפלטפורמה לבית הספר — זה בחינם ומדליק! 🔥',
+        defaultMale: 'היי, אני תלמיד ב-${orgName} ומתאמן עם Out. רציתי להציע שנביא את הפלטפורמה לבית הספר, זה בחינם ומדליק! 🔥',
+        defaultFemale: 'היי, אני תלמידה ב-${orgName} ומתאמנת עם Out. רציתי להציע שנביא את הפלטפורמה לבית הספר, זה בחינם ומדליק! 🔥',
         title: (orgName: string) => `רוצה להביא את Out ל${orgName}?`,
         // Gender batch 2: no slash forms — "המנהל/ת" → "הנהלת בית הספר", "המורה ישמע" → "כל הצוות ישמע".
         subtitle: (g: G) => `${g === 'female' ? 'דברי' : 'דבר'} עם הנהלת בית הספר! ${g === 'female' ? 'שלחי' : 'שלח'} הודעה בוואטסאפ וכל הצוות ישמע על Out.`,
         buttonIdle: (g: G) => `🏫 ${g === 'female' ? 'שלחי' : 'שלח'} הודעה להנהלת בית הספר`,
       },
       company: {
-        defaultMale: 'היי, אני עובד ב-${orgName} ומתאמן עם Out. שווה שנביא את זה לארגון — בחינם ומחזק את הצוות! 💪',
-        defaultFemale: 'היי, אני עובדת ב-${orgName} ומתאמנת עם Out. שווה שנביא את זה לארגון — בחינם ומחזק את הצוות! 💪',
+        defaultMale: 'היי, אני עובד ב-${orgName} ומתאמן עם Out. שווה שנביא את זה לארגון, בחינם ומחזק את הצוות! 💪',
+        defaultFemale: 'היי, אני עובדת ב-${orgName} ומתאמנת עם Out. שווה שנביא את זה לארגון, בחינם ומחזק את הצוות! 💪',
         title: (orgName: string) => `רוצה ש-Out יגיע ל${orgName}?`,
         subtitle: (g: G) => `${g === 'female' ? 'דברי' : 'דבר'} עם מחלקת הרווחה / HR ושתפו את הצוות בוואטסאפ.`,
         buttonIdle: (g: G) => `🏢 ${g === 'female' ? 'שלחי' : 'שלח'} הודעה ל-HR`,
       },
       youth: {
-        defaultMale: 'היי, אני חניך ב-${orgName} ומתאמן עם Out. בואו נביא את זה לתנועה — אימונים מגניבים בחינם! 🔥',
-        defaultFemale: 'היי, אני חניכה ב-${orgName} ומתאמנת עם Out. בואו נביא את זה לתנועה — אימונים מגניבים בחינם! 🔥',
+        defaultMale: 'היי, אני חניך ב-${orgName} ומתאמן עם Out. בואו נביא את זה לתנועה, אימונים מגניבים בחינם! 🔥',
+        defaultFemale: 'היי, אני חניכה ב-${orgName} ומתאמנת עם Out. בואו נביא את זה לתנועה, אימונים מגניבים בחינם! 🔥',
         title: (orgName: string) => `רוצה את Out ב${orgName}?`,
         subtitle: (g: G) => `${g === 'female' ? 'דברי' : 'דבר'} עם צוות התנועה ושתפו את החניכים בוואטסאפ.`,
         buttonIdle: (g: G) => `⛺ ${g === 'female' ? 'שלחי' : 'שלח'} הודעה לצוות התנועה`,
@@ -357,9 +357,9 @@ describe('community (he) arena components — byte-identical to the pre-extracti
     }
     // Unknown / other gender: neutral (was the masculine text).
     const NEUTRAL = {
-      school: ['היי, אני מ-${orgName} ואני באפליקציית Out. רציתי להציע שנביא את הפלטפורמה לבית הספר — זה בחינם ומדליק! 🔥', 'דברו עם הנהלת בית הספר! שלחו הודעה בוואטסאפ וכל הצוות ישמע על Out.', '🏫 שליחת הודעה להנהלת בית הספר'],
-      company: ['היי, אני מ-${orgName} ואני באפליקציית Out. שווה שנביא את זה לארגון — בחינם ומחזק את הצוות! 💪', 'דברו עם מחלקת הרווחה / HR ושתפו את הצוות בוואטסאפ.', '🏢 שליחת הודעה ל-HR'],
-      youth: ['היי, אני מ-${orgName} ואני באפליקציית Out. בואו נביא את זה לתנועה — אימונים מגניבים בחינם! 🔥', 'דברו עם צוות התנועה ושתפו את החניכים בוואטסאפ.', '⛺ שליחת הודעה לצוות התנועה'],
+      school: ['היי, אני מ-${orgName} ואני באפליקציית Out. רציתי להציע שנביא את הפלטפורמה לבית הספר, זה בחינם ומדליק! 🔥', 'דברו עם הנהלת בית הספר! שלחו הודעה בוואטסאפ וכל הצוות ישמע על Out.', '🏫 שליחת הודעה להנהלת בית הספר'],
+      company: ['היי, אני מ-${orgName} ואני באפליקציית Out. שווה שנביא את זה לארגון, בחינם ומחזק את הצוות! 💪', 'דברו עם מחלקת הרווחה / HR ושתפו את הצוות בוואטסאפ.', '🏢 שליחת הודעה ל-HR'],
+      youth: ['היי, אני מ-${orgName} ואני באפליקציית Out. בואו נביא את זה לתנועה, אימונים מגניבים בחינם! 🔥', 'דברו עם צוות התנועה ושתפו את החניכים בוואטסאפ.', '⛺ שליחת הודעה לצוות התנועה'],
     } as const;
     for (const org of ['school', 'company', 'youth'] as const) {
       const [message, subtitle, cta] = NEUTRAL[org];

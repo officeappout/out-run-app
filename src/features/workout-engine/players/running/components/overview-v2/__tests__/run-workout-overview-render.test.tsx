@@ -151,7 +151,7 @@ describe('on a chosen route (M-6f / 6i)', () => {
 describe('CTA states + reverse card', () => {
   it('no route near (M-6c): notice + "בחר במפה"', () => {
     const html = renderToStaticMarkup(<RunOverviewCta mode="none" onStart={noop} onPickOnMap={noop} onSuggest={noop} />);
-    expect(html).toContain('לא מצאנו מסלול מתאים קרוב — אפשר לרוץ מכאן');
+    expect(html).toContain('לא מצאנו מסלול מתאים קרוב, אפשר לרוץ מכאן');
     expect(html).toContain('בחירה במפה');
     expect(html).not.toContain('הצע לי מסלול');
   });
