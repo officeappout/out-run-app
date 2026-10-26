@@ -49,6 +49,15 @@ async function extractParkEquipment(parkId: string): Promise<string[]> {
 }
 
 /**
+ * The equipment of ONE known park (the park the user chose), no fallback chain:
+ * [] when that park carries none — the caller decides what to fall back to.
+ */
+export async function resolveChosenParkEquipmentIds(parkId: string): Promise<string[]> {
+  await ensureEquipmentCachesLoaded();
+  return extractParkEquipment(parkId);
+}
+
+/**
  * Resolve the equipment IDs available at the user's current park.
  *
  * Priority:

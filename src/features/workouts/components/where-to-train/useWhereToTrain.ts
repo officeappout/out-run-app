@@ -41,6 +41,8 @@ export function useWhereToTrain(enabled: boolean, exercises: readonly EngineWork
 
   return {
     parks, loading, homeGearLabels, places, selectedParkId, selectedPlace,
+    /** The card the user explicitly tapped (null until then; selectedParkId falls back to the best match). */
+    pickedParkId: pickedId && parks.some((p) => p.id === pickedId) ? pickedId : null,
     sheetPlace, sheetOpen, openPark, closeSheet, pickOnly,
   };
 }

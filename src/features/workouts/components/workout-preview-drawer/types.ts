@@ -102,6 +102,11 @@ export interface WorkoutPreviewDrawerProps {
    * and `workout_start_pressed` (threaded into useWorkoutSession below).
    */
   surface: string;
+  /**
+   * The park whose page started this workout (park page → "התחל אימון"). A location switch to the
+   * park uses this park's equipment (after a where-to-train pick), not the nearest park's.
+   */
+  sourceParkId?: string | null;
 }
 
 // ── Section Grouping ─────────────────────────────────────────────────────
