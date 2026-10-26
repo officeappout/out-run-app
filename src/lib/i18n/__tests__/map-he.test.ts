@@ -218,6 +218,14 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       ['equipment.section.brands', 'מותגים זמינים'],
       ['equipment.sheet.label', 'פרטי מתקן'],
       ['equipment.sheet.close', 'סגירה'],
+      ['equipment.v2.facts.muscle', 'שריר'],
+      ['equipment.v2.facts.level', 'רמה'],
+      ['equipment.v2.facts.type', 'סוג'],
+      ['equipment.v2.programs', 'תוכניות'],
+      ['equipment.v2.levels.title', 'תרגילים לפי רמה'],
+      ['equipment.v2.muscles', 'שרירים'],
+      ['equipment.v2.musclePrimary', 'ראשי'],
+      ['equipment.v2.muscleSecondary', 'משני'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
   });
@@ -281,6 +289,9 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
     expect(t('equipment.videoTitle', { name: 'מתח' })).toBe(`${'מתח'} demo video`);
     expect(t('equipment.programChip', { label: 'פלג גוף עליון', level: String(3) })).toBe(`${'פלג גוף עליון'} · Level ${3}`);
     expect(t('equipment.brandFallback', { n: String(2) })).toBe(`מותג ${1 + 1}`);
+    expect(t('equipment.v2.facts.levelValue', { level: String(3) })).toBe('רמה 3');
+    expect(t('equipment.v2.facts.levelRange', { from: String(1), to: String(4) })).toBe('רמות 1–4');
+    expect(t('equipment.v2.programChip', { label: 'פלג גוף עליון', level: String(3) })).toBe('פלג גוף עליון · רמה 3');
     // rich: "מותג:" + {' '} + <span>{brandName}</span>
     expect(t.rich<string>('equipment.brandLine', { name: 'Ludos', brand: (c: unknown) => `<span>${String(c)}</span>` }).join(''))
       .toBe('מותג: <span>Ludos</span>');
@@ -311,8 +322,8 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
     }
   });
 
-  it('the three prefixes hold 126 keys (add a case above with every new one)', () => {
+  it('the three prefixes hold 137 keys (add a case above with every new one)', () => {
     const mine = Object.keys(he).filter((k) => /^(routePreview|overview\.route|equipment)\./.test(k));
-    expect(mine.length).toBe(126);
+    expect(mine.length).toBe(137);
   });
 });
