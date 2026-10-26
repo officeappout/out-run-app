@@ -75,7 +75,6 @@ function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOver
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center"
-      dir="rtl"
     >
       <div className="relative mb-10">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -397,7 +396,6 @@ export default function GatewayPage() {
     <div
       className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col items-center justify-center px-5 py-12 relative overflow-hidden"
       style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom))' }}
-      dir="rtl"
     >
       <AnimatePresence>
         {showGuestTransition && (
@@ -446,7 +444,7 @@ export default function GatewayPage() {
             whileTap={{ scale: isBusy ? 1 : 0.97 }}
             onClick={handleExploreMap}
             disabled={isBusy}
-            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-52 text-right disabled:opacity-60 group"
+            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-52 text-start disabled:opacity-60 group"
           >
             {/* Background Image */}
             <div
@@ -467,7 +465,7 @@ export default function GatewayPage() {
             )}
 
             {/* Content: Stacked at bottom-right */}
-            <div className="absolute bottom-0 right-0 left-0 p-5 flex flex-col items-start">
+            <div className="absolute bottom-0 start-0 end-0 p-5 flex flex-col items-start">
               <div className="flex items-center gap-2 mb-1.5">
                 <MapPin size={18} className="text-[#5BC2F2]" />
                 <h2
@@ -480,7 +478,6 @@ export default function GatewayPage() {
               <p
                 className="text-sm text-slate-900 font-medium"
                 style={{ fontFamily: 'var(--font-simpler)' }}
-                dir="rtl"
               >
                 כניסה מהירה ללא הרשמה למציאת מסלולי ריצה, גינות כושר קרובות ומתאמנים סביבכם בלייב.
               </p>
@@ -496,7 +493,7 @@ export default function GatewayPage() {
               whileTap={{ scale: isBusy ? 1 : 0.97 }}
               onClick={() => handleGetProgram('RUNNING')}
               disabled={isBusy}
-              className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-44 text-right disabled:opacity-60 group"
+              className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-44 text-start disabled:opacity-60 group"
             >
               <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
@@ -510,7 +507,7 @@ export default function GatewayPage() {
                   <Loader2 size={28} className="text-orange-500 animate-spin" />
                 </div>
               )}
-              <div className="absolute bottom-0 right-0 left-0 p-5 flex flex-col items-start">
+              <div className="absolute bottom-0 start-0 end-0 p-5 flex flex-col items-start">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Footprints size={18} className="text-orange-500" />
                   <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
@@ -535,7 +532,7 @@ export default function GatewayPage() {
             whileTap={{ scale: isBusy ? 1 : 0.97 }}
             onClick={() => handleGetProgram('STRENGTH')}
             disabled={isBusy}
-            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-48 text-right disabled:opacity-60 group"
+            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-48 text-start disabled:opacity-60 group"
           >
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
@@ -549,7 +546,7 @@ export default function GatewayPage() {
                 <Loader2 size={28} className="text-[#5BC2F2] animate-spin" />
               </div>
             )}
-            <div className="absolute bottom-0 right-0 left-0 p-5 flex flex-col items-start">
+            <div className="absolute bottom-0 start-0 end-0 p-5 flex flex-col items-start">
               <div className="flex items-center gap-2 mb-1.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -562,7 +559,7 @@ export default function GatewayPage() {
                   תוכנית כוח
                 </h2>
               </div>
-              <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }} dir="rtl">
+              <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }}>
                 אימון מותאם אישית למטרות שלך
               </p>
             </div>

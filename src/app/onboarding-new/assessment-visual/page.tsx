@@ -1096,7 +1096,6 @@ export default function VisualAssessmentPage() {
         className={v2
           ? 'h-full bg-v2-surface flex items-center justify-center'
           : 'min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center'}
-        dir="rtl"
       >
         <div className="text-center">
           <Loader2
@@ -1133,7 +1132,6 @@ export default function VisualAssessmentPage() {
       className={v2
         ? 'h-full bg-white flex flex-col overflow-hidden'
         : 'h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden'}
-      dir="rtl"
     >
       {identityOverlay}
       {/* Flow content — fills all available space */}
