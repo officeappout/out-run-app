@@ -15,7 +15,6 @@ import type { WeeklyStrengthBudgetState } from '../hybrid/weekly-budget-gate';
 /** One card per style at most (variety rule). */
 export type PlaceWorkoutStyle =
   | 'strength'
-  | 'strength_short'
   | 'hybrid'
   | 'run_easy'
   | 'run_hills'
@@ -91,7 +90,6 @@ export interface PlaceUserContext {
 export type PlaceWorkoutReason =
   | 'plan_today'
   | 'equipment'
-  | 'bars'
   | 'route_near_park'
   | 'park_on_route'
   | 'distance_fits'
@@ -101,7 +99,6 @@ export type PlaceWorkoutReason =
 /** The one meta line under the title (the UI formats numbers and units). */
 export type PlaceWorkoutMeta =
   | { kind: 'park_workout' }
-  | { kind: 'equipment'; names: string[] }
   | { kind: 'loop'; minutes: number }
   | { kind: 'distance'; km: number | null; laps: number | null }
   | { kind: 'hill_reps'; reps: number; climbAtKm: number | null }

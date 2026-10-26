@@ -8,7 +8,9 @@
  *      weekly strength budget is not spent (weekly-budget-gate).
  *   3. Variety: at most one card per style, at most MAX_SUGGESTIONS cards.
  *
- * Never a workout that doesn't fit. A hybrid (aerobic + strength) only when a
+ * Never a workout that doesn't fit, and never a filler card: every card is a
+ * real, startable workout from an existing start path (owner 26.10 — better
+ * two good cards than a weak third). A hybrid (aerobic + strength) only when a
  * route is ≤ HYBRID_MAX_KM from the park (park page) or a park is on / beside
  * the route (route page). No plan → the onboarding persona orders the styles.
  *
@@ -22,7 +24,6 @@ import { lighting } from '../players/running/lib/route-fit/route-traits';
 import type { WorkoutRouteNeeds } from '../players/running/lib/route-fit/types';
 import { isWeeklyStrengthBudgetSpent } from '../hybrid/weekly-budget-gate';
 import { DEFAULT_BASE_PACE_SEC_PER_KM } from '../hybrid/aerobic-kind';
-import { parkTraits } from './park-traits';
 import type {
   ParkPlace, Place, PlaceBanner, PlaceUserContext, PlaceWorkoutStyle, PlaceWorkoutSuggestion, RoutePlace,
 } from './types';
@@ -32,7 +33,6 @@ export const MAX_SUGGESTIONS = 3;
 export const HYBRID_MAX_KM = 0.4;
 /** The park workout's default length — the same availableTime home composes with. */
 export const PARK_WORKOUT_MIN = 20;
-export const SHORT_STRENGTH_MIN = 15;
 export const HYBRID_MIN = 40;
 export const EASY_RUN_MIN = 30;
 export const WALK_MIN = 40;
@@ -76,8 +76,8 @@ function dedupeStyles(list: PlaceWorkoutSuggestion[]): PlaceWorkoutSuggestion[] 
 /** Persona order of the alternative styles (no plan, or after the plan card). */
 function alternativeOrder(ctx: PlaceUserContext, place: Place['kind']): PlaceWorkoutStyle[] {
   if (place === 'park') {
-    if (ctx.persona === 'run' || ctx.persona === 'walk') return ['hybrid', 'strength', 'strength_short'];
-    return ['strength', 'hybrid', 'strength_short'];
+    if (ctx.persona === 'run' || ctx.persona === 'walk') return ['hybrid', 'strength'];
+    return ['strength', 'hybrid'];
   }
   if (isWalker(ctx)) return ['walk', 'hybrid', 'run_easy'];
   if (ctx.persona === 'run' || ctx.hasRunPlan) return ['run_easy', 'hybrid', 'walk'];
@@ -91,7 +91,6 @@ function orderBy(list: PlaceWorkoutSuggestion[], order: PlaceWorkoutStyle[]): Pl
 // ── Park ──────────────────────────────────────────────────────────────────
 
 function forPark(place: ParkPlace, ctx: PlaceUserContext): PlaceWorkoutSuggestion[] {
-  const traits = parkTraits(place.equipment);
   const hybridOk = place.nearestRouteKm != null && place.nearestRouteKm <= HYBRID_MAX_KM;
   const spent = budgetSpent(ctx);
   const plan: PlaceWorkoutSuggestion[] = [];
@@ -128,13 +127,6 @@ function forPark(place: ParkPlace, ctx: PlaceUserContext): PlaceWorkoutSuggestio
       meta: { kind: 'park_workout' }, reason: place.equipment.length > 0 ? 'equipment' : 'persona',
       start: { kind: 'park_strength', parkId: place.parkId, difficulty: 'medium', minutes: PARK_WORKOUT_MIN },
     });
-    if (traits.hasPullBar || traits.hasDipBars) {
-      alts.push({
-        id: 'strength-short', style: 'strength_short', isFromPlan: false, planTitle: null, durationMin: SHORT_STRENGTH_MIN,
-        meta: { kind: 'equipment', names: traits.highlightNames }, reason: 'bars',
-        start: { kind: 'park_strength', parkId: place.parkId, difficulty: 'hard', minutes: SHORT_STRENGTH_MIN },
-      });
-    }
   }
   return dedupeStyles([...plan, ...orderBy(alts, alternativeOrder(ctx, 'park'))]);
 }

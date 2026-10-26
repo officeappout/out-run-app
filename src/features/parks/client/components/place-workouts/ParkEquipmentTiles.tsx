@@ -2,20 +2,19 @@
 
 /**
  * The park's equipment as dark tiles (enable_place_workouts_v1, board RP-13
- * phone 1): icon + name + brand, 2 columns, the first SHOWN_TILES and
+ * phone 1): the equipment's picture + name + brand (ParkEquipmentTile), 2 columns, the first SHOWN_TILES and
  * "עוד N מתקנים ›" to show the rest. A tile opens the equipment drawer, as
  * the classic grid does.
  */
 
 import { useState, type ReactNode } from 'react';
-import { Dumbbell } from 'lucide-react';
 import type { Park } from '@/features/parks/core/types/park.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import ParkEquipmentTile from './ParkEquipmentTile';
 
 export const SHOWN_TILES = 6;
-const TILE_BG = 'linear-gradient(160deg, #0e1419, #24323d)';
 
 export interface ParkEquipmentTilesProps {
   park: Park;
@@ -40,29 +39,7 @@ export default function ParkEquipmentTiles({ park, equipment, onSelect }: ParkEq
       <div className="grid grid-cols-2 gap-2">
         {shown.map((eq) => {
           const brand = park.gymEquipment?.find((g) => g.equipmentId === eq.id)?.brandName || park.primaryBrand || '';
-          return (
-            <button
-              key={eq.id}
-              type="button"
-              onClick={() => onSelect({ id: eq.id, brand: brand || null })}
-              className="flex flex-col gap-2.5 rounded-[20px] p-3 text-start text-white transition-transform duration-150 ease-v2 active:scale-[0.98]"
-              style={{ background: TILE_BG }}
-              aria-label={eq.name}
-            >
-              <span className="grid h-[38px] w-[38px] place-items-center rounded-xl" style={{ background: 'rgba(0,186,247,0.16)' }}>
-                {eq.iconKey ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/assets/icons/equipment/${eq.iconKey}.svg`} alt="" className="h-6 w-6 object-contain brightness-0 invert" loading="lazy" decoding="async" />
-                ) : (
-                  <Dumbbell size={20} className="text-v2-accent" aria-hidden />
-                )}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-[14px] font-black">{eq.name}</span>
-                {brand && <span className="block truncate text-[11.5px] font-bold opacity-70">{brand}</span>}
-              </span>
-            </button>
-          );
+          return <ParkEquipmentTile key={eq.id} equipment={eq} brand={brand} onSelect={() => onSelect({ id: eq.id, brand: brand || null })} />;
         })}
       </div>
       {hidden > 0 && (

@@ -2,17 +2,20 @@
 
 /**
  * The workout rail of a place page (boards RP-13 phones 1–2): section title +
- * subtitle, at most one banner, then up to 3 WorkoutMiniCards — the first one
- * dark (the plan's, when there is one), each with its own start pill.
- * Render-only: the caller ranks (suggestWorkoutsForPlace) and starts.
+ * subtitle, at most one banner, then the real workouts that fit (at most 3,
+ * often fewer) as MediaWorkoutCards — home's daily card treatment: the
+ * generated workout's exercise media, else the place's photo, under a dark
+ * gradient. The plan's card gets the tinted eyebrow. Render-only: the caller
+ * ranks (suggestWorkoutsForPlace) and starts.
  */
 
 import { Info } from 'lucide-react';
-import { HScroller, WorkoutMiniCard } from '@/components/ui/v2';
+import { HScroller, MediaWorkoutCard } from '@/components/ui/v2';
 import type { PlaceBanner, PlaceWorkoutSuggestion } from '@/features/workout-engine/place-fit';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
-import { placeWorkoutCopy, styleAccent, styleStrip, type GeneratedLead } from './place-workout-copy';
+import { placeWorkoutCopy, type GeneratedLead } from './place-workout-copy';
+import { placeCardMedia } from './place-card-media';
 
 const BANNER_KEY = {
   unlit_after_dark: 'placeWorkouts.banner.unlitAfterDark',
@@ -25,12 +28,18 @@ export interface PlaceWorkoutRailProps {
   subtitle: string;
   suggestions: readonly PlaceWorkoutSuggestion[];
   banner: PlaceBanner | null;
-  /** The first card's generated workout (park page): ready / 'loading' / null (not generated). */
+  /** The park workout generated on open (park page): ready / 'loading' / null (not generated). */
   lead?: GeneratedLead | 'loading' | null;
+  /** The card `lead` belongs to (defaults to the first card). */
+  leadId?: string | null;
+  /** The place's own photo, for cards with no generated workout. */
+  placePhoto?: string | null;
   onStart: (s: PlaceWorkoutSuggestion) => void;
 }
 
-export default function PlaceWorkoutRail({ title, subtitle, suggestions, banner, lead = null, onStart }: PlaceWorkoutRailProps) {
+export default function PlaceWorkoutRail({
+  title, subtitle, suggestions, banner, lead = null, leadId, placePhoto = null, onStart,
+}: PlaceWorkoutRailProps) {
   const t = useT(map);
   if (suggestions.length === 0) return null;
   return (
@@ -47,17 +56,16 @@ export default function PlaceWorkoutRail({ title, subtitle, suggestions, banner,
       )}
       <HScroller gap={3} className="-mx-5 pb-1 pt-0.5">
         {suggestions.map((s, i) => {
-          const copy = placeWorkoutCopy(s, t, i === 0 ? lead : null);
-          const dark = i === 0 && s.isFromPlan;
+          const isLead = s.id === (leadId ?? suggestions[0]?.id);
+          const copy = placeWorkoutCopy(s, t, isLead ? lead : null);
           return (
-            <WorkoutMiniCard
+            <MediaWorkoutCard
               key={s.id}
-              dark={dark}
+              media={placeCardMedia(s, isLead ? lead : null, placePhoto)}
+              highlight={s.isFromPlan}
               eyebrow={copy.eyebrow}
               title={copy.title}
               meta={copy.meta}
-              accent={styleAccent(s.style)}
-              strip={dark ? undefined : styleStrip(s.style)}
               cta={i === 0 ? t('placeWorkouts.cta.lead') : t('placeWorkouts.cta.other')}
               onStart={() => onStart(s)}
             />
