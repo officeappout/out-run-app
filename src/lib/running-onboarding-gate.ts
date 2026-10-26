@@ -1,10 +1,13 @@
 import { hasAnsweredPersona } from './persona-declaration';
 import { isRunningScheduleUserConfirmed } from './running-schedule-source';
 import { hasRunningTrack, hasStrengthTrack } from './track-ownership';
+import { readStoredWalkingGoal } from '@/features/schedule/walking/walkingGoal';
 import { countStrengthTemplateDays, type ResolveSlug } from '@/features/schedule/engine/strengthVocabulary';
 
 type GateProfile = {
   running?: { isUnlocked?: unknown; scheduleDaysSource?: unknown };
+  /** lifestyle.walkingGoal: written by the walking signup together with the walk days. */
+  lifestyle?: { walkingGoal?: unknown } | null;
   // Shaped to satisfy hasAnsweredPersona's own parameter type
   // (persona-declaration.ts, owned by a different, separately-in-flight
   // piece of work) — not restated/asserted here as this function's own
@@ -31,7 +34,8 @@ type GateProfile = {
  * `gateEnabled=true`:
  *   running track (hasRunningTrack — has running unlocked at all, not
  *   "is running the active dashboard mode right now"):
- *     hasAnsweredPersona(profile) && isRunningScheduleUserConfirmed(profile)
+ *     isRunningScheduleUserConfirmed(profile)   (persona dropped, pilot O10)
+ *   a saved walking plan (lifestyle.walkingGoal): true
  *   otherwise:
  *     hasSchedule && hasAnsweredPersona(profile)
  *
@@ -45,9 +49,13 @@ export function resolveCardHasScheduleAndPersona(
   gateEnabled: boolean,
 ): boolean {
   if (!gateEnabled) return hasSchedule;
-  return hasRunningTrack(profile)
-    ? hasAnsweredPersona(profile) && isRunningScheduleUserConfirmed(profile)
-    : hasSchedule && hasAnsweredPersona(profile);
+  // Pilot O10 (26.10.2026): the v2 running / walking signups pick real days but never ask
+  // the persona question, so the card stayed after "filling running" and the user could
+  // not tell what clears it. A runner's own confirmed days, or a saved walking plan, now
+  // clear it on their own; the strength branch is unchanged.
+  if (hasRunningTrack(profile)) return isRunningScheduleUserConfirmed(profile);
+  if (readStoredWalkingGoal(profile?.lifestyle?.walkingGoal) != null) return true;
+  return hasSchedule && hasAnsweredPersona(profile);
 }
 
 // ── Second track → the schedule-builder drawer, not the wizard ─────────────
