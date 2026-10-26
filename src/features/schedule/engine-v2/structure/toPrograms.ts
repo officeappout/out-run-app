@@ -10,5 +10,5 @@ export const HOST_SLUG: Record<StrengthDayKind, string> = {
 export function toStrengthPrograms(plan: StructurePlan): StrengthProgramInput[] {
   const counts = new Map<string, number>();
   for (const d of plan.sequence) if (d.type === 'strength') counts.set(HOST_SLUG[d.kind], (counts.get(HOST_SLUG[d.kind]) ?? 0) + 1);
-  return [...counts].map(([slug, sessionsPerWeek], i) => ({ slug, sessionsPerWeek, priority: i + 1 }));
+  return Array.from(counts).map(([slug, sessionsPerWeek], i) => ({ slug, sessionsPerWeek, priority: i + 1 }));
 }
