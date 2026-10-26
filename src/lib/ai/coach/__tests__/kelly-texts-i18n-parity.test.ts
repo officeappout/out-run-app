@@ -133,7 +133,7 @@ it('proactive templates', async () => {
   for (const k of keys)
     for (const g of GENDERS)
       for (const firstName of ['', 'דנה'])
-        for (const [i, vars] of varSets.entries())
+        for (const [i, vars] of Array.from(varSets.entries()))
           for (const flex of [null, 'משפט גמיש.'])
             out[`${k}.${g}.${firstName || '-'}.v${i}.${flex ? 'flex' : 'noflex'}`] = renderProactive({ templateKey: k, vars, gender: g, firstName, flex });
   await expect(json(out)).toMatchFileSnapshot(snap('proactive-templates'));
