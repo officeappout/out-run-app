@@ -895,11 +895,15 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       // enable_flame_tiers_v1 (owner 26.10.2026): the snapshot is computed with the
       // stricter 'tiers' gate (useActivitySync) and gates workoutCompleted the same way —
       // but a day already marked done (an earlier qualifying session, a run) never drops back.
+      // A legacy (pre-flag) strength workoutCompleted — no strengthGoalMet — is not "already
+      // done" under the new gate: this snapshot (the day's total sets) decides (today-done-gate.ts).
       const { flameTiersEnabledNow } = await import('@/features/activity/lib/flame-tiers-flag');
+      const { isLegacyStrengthDone } = await import('@/features/activity/lib/today-done-gate');
       const flameTiers = flameTiersEnabledNow();
       const gateDone = (HOME_DAILY_GOAL_V1 || flameTiers) && strengthCompletion;
+      const alreadyDone = existingData.workoutCompleted === true && !isLegacyStrengthDone(existingData);
       const workoutCompleted = gateDone
-        ? strengthCompletion.met || (flameTiers && existingData.workoutCompleted === true)
+        ? strengthCompletion.met || (flameTiers && alreadyDone)
         : true;
 
       // Update with workout completion

@@ -192,16 +192,20 @@ export const SIM_WALK_TRAIL = {
 // ═══════════════════════════════════════════════════════════════════
 
 // Brand palette (design-language.md: `v2-cyan` #00c9f2 = brand cyan, `v2-ink` #0e1419).
-// Fill is brand INK (not cyan): white count text on brand cyan is only ~2:1, on ink it is
-// ~16.6:1 (WCAG AA/AAA), and a cyan ring + soft cyan halo makes the disc read on light
-// streets-v12 as well as on dark/satellite styles. (cluster-style, 23.10.2026)
+// Fill is SOLID brand cyan with a white ring (the look the owner knows), count text is brand
+// INK: ink on cyan is ~9.9:1 (WCAG AA/AAA), unlike white on cyan (~2:1). (cluster-style,
+// 23.10.2026; 26.10.2026: the 23.10 ink fill + wide 35% blurred cyan halo read on the
+// light streets-v12 map as a hollow / see-through circle — owner field note.)
 export const CLUSTER_BRAND = {
-  fill: '#0e1419',
-  ring: '#00c9f2',
+  fill: '#00c9f2',
+  ring: '#ffffff',
   ringLarge: '#00dcd0', // brand turquoise (v2-teal) for the biggest clusters
   halo: '#00c9f2',
-  text: '#ffffff',
+  text: '#0e1419',
 } as const;
+
+/** Halo stays a faint glow so it never reads as part of the disc. */
+export const CLUSTER_HALO_OPACITY = 0.15;
 
 /** Count thresholds (point_count >= N) and the matching pixel radius per size step. */
 export const CLUSTER_STEPS = {
@@ -229,8 +233,8 @@ export const PARK_CLUSTERS_GLOW = {
       CLUSTER_STEPS.large, CLUSTER_STEPS.haloRadius.large,
       CLUSTER_STEPS.xlarge, CLUSTER_STEPS.haloRadius.xlarge,
     ],
-    'circle-opacity': 0.35,
-    'circle-blur': 0.8,
+    'circle-opacity': CLUSTER_HALO_OPACITY,
+    'circle-blur': 1,
   },
 };
 
@@ -287,7 +291,7 @@ export const PARK_CLUSTER_COUNT = {
   },
   paint: {
     'text-color': CLUSTER_BRAND.text,
-    'text-halo-color': 'rgba(0,0,0,0.15)',
+    'text-halo-color': 'rgba(255,255,255,0.35)',
     'text-halo-width': 1,
   },
 };

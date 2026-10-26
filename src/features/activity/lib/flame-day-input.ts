@@ -7,6 +7,7 @@
  *   • `pending` — this session before its own write lands (strength summary).
  */
 import { flameLevelForDay, type FlameActivityDay, type FlameDay } from './flame-level';
+import { strengthDayGoalMet } from '@/features/home/utils/strength-day-gate';
 
 /** This session's numbers before its own activity / volume write lands (strength summary). */
 export interface PendingSession {
@@ -22,6 +23,8 @@ export interface SavedDayGoals {
   aerobicWorkoutMinutes?: number;
   workoutCompleted?: boolean;
   stepGoalMet?: boolean;
+  /** workoutCompleted came from the pre-flag rule for a strength session (no strengthGoalMet). */
+  legacyStrengthDone?: boolean;
 }
 
 export interface FlameDayContext {
@@ -67,14 +70,19 @@ export function flameDayFromContext(ctx: FlameDayContext): FlameDay {
   const activity = pending ? addMinutes(ctx.activity, pending) : ctx.activity;
   const localSets = ctx.isToday ? (Number(ctx.loggedSets) || 0) + (Number(pending?.strengthSets) || 0) : 0;
   const saved = ctx.saved ?? null;
+  const targetSets = dailyTargetFor(ctx.weeklyTarget, ctx.scheduleDays, ctx.isTrainingDay);
+  // TODAY: a legacy (pre-flag) strength workoutCompleted is re-checked against the new gate
+  // (today-done-gate.ts); past days keep their saved fields.
+  const savedDone = !!saved?.workoutCompleted
+    && !(ctx.isToday && saved.legacyStrengthDone && !strengthDayGoalMet(localSets, targetSets));
   return flameLevelForDay({
     activity,
     strengthSets: localSets,
-    strengthTargetSets: dailyTargetFor(ctx.weeklyTarget, ctx.scheduleDays, ctx.isTrainingDay),
+    strengthTargetSets: targetSets,
     strengthGoalSaved: saved?.strengthGoalMet,
     aerobicMinutes: saved?.aerobicWorkoutMinutes,
     aerobicPlanDone: ctx.aerobicPlanDone,
-    qualifiesSaved: !!saved?.workoutCompleted || !!saved?.stepGoalMet,
+    qualifiesSaved: savedDone || !!saved?.stepGoalMet,
     workoutLogged: !!saved?.workoutCompleted
       || (!!pending && ((Number(pending.strengthMinutes) || 0) > 0 || (Number(pending.cardioMinutes) || 0) > 0 || localSets > 0)),
   });

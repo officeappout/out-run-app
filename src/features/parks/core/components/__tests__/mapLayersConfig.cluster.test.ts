@@ -39,10 +39,18 @@ describe('park cluster layer config', () => {
   it('white count text meets WCAG AA on the cluster fill', () => {
     expect(contrast(CLUSTER_BRAND.text, CLUSTER_BRAND.fill)).toBeGreaterThanOrEqual(4.5);
   });
-  it('fill is fully opaque and ring/halo use brand cyan', () => {
+  it('fill is a solid, fully opaque brand-cyan disc with an opaque ring', () => {
+    expect(PARK_CLUSTERS.paint['circle-color']).toBe('#00c9f2');
     expect(PARK_CLUSTERS.paint['circle-opacity']).toBe(1);
+    expect(PARK_CLUSTERS.paint['circle-stroke-opacity']).toBe(1);
     expect(PARK_CLUSTERS.paint['circle-stroke-width']).toBeGreaterThan(0);
     expect(PARK_CLUSTERS_GLOW.paint['circle-color']).toBe('#00c9f2');
+  });
+  it('fill is not a near-black disc (reads as see-through on the light map)', () => {
+    expect(lum(CLUSTER_BRAND.fill)).toBeGreaterThan(0.2);
+  });
+  it('halo stays faint so it never reads as a translucent disc', () => {
+    expect(PARK_CLUSTERS_GLOW.paint['circle-opacity']).toBeLessThanOrEqual(0.2);
   });
   it('size steps grow with count and halo is larger than disc', () => {
     const r = CLUSTER_STEPS.radius, h = CLUSTER_STEPS.haloRadius;
