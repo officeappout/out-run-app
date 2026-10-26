@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { PREF_KEY_PERMISSIONS } from '@/lib/healthBridge/init';
+import { subscribeHealthPermissionChanged } from '@/lib/healthBridge/permissionEvents';
 
 function isNativeApp(): boolean {
   if (typeof window === 'undefined') return false;
@@ -23,6 +24,8 @@ function isNativeApp(): boolean {
  * connected," and could show a stale "connect to health" CTA even while
  * sync was running fine off the correctly-set native flag.
  *
+ * Re-reads on every flag write (permissionEvents.ts) and on return to the foreground.
+ *
  * Returns `null` while the initial native read is in flight — callers
  * should treat null as "don't know yet" (show a neutral/loading state),
  * not "not connected", to avoid flashing the wrong CTA before the real
@@ -34,7 +37,7 @@ export function useHealthConnected(): boolean | null {
   useEffect(() => {
     if (!isNativeApp()) return;
     let cancelled = false;
-    (async () => {
+    const read = async () => {
       try {
         const { Preferences } = await import('@capacitor/preferences');
         const { value } = await Preferences.get({ key: PREF_KEY_PERMISSIONS });
@@ -42,9 +45,14 @@ export function useHealthConnected(): boolean | null {
       } catch {
         if (!cancelled) setConnected(false);
       }
-    })();
+    };
+    void read();
+    // Re-read when the flag is written anywhere, or the app returns to the foreground
+    // (pilot O12: the "connect your steps" card stayed after a slow iOS grant).
+    const unsubscribe = subscribeHealthPermissionChanged(() => { void read(); });
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 

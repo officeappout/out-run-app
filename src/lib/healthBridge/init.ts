@@ -42,6 +42,7 @@ import {
   type SampleSource,
 } from '@/lib/outbox/outbox-db';
 import { pushSample } from './eventEmitter';
+import { notifyHealthPermissionChanged } from './permissionEvents';
 import { recordSyncAttempt, recordSyncResult, recordSyncError, recordEnqueued } from './debugState';
 
 const PREF_KEY_CURSOR = 'outrun.healthBridge.cursorISO';
@@ -498,6 +499,7 @@ export async function initHealthBridge(): Promise<void> {
         } else {
           await Preferences.remove({ key: PREF_KEY_PERMISSIONS });
         }
+        notifyHealthPermissionChanged();
         const { useSettingsStore } = await import('@/features/home/store/useSettingsStore');
         useSettingsStore.getState().patch({ healthBridgeEnabled: granted });
         if (granted) void healthBridgeSyncNow('manual');
@@ -616,6 +618,7 @@ export async function requestHealthPermissions(): Promise<{
     console.log('[healthBridge][flow] requestHealthPermissions: OS dialog resolved, granted=', granted, 'reason=', result?.reason);
     if (granted) {
       await Preferences.set({ key: PREF_KEY_PERMISSIONS, value: '1' });
+      notifyHealthPermissionChanged();
       try {
         await (HealthBridge as any).enableBackgroundDelivery();
       } catch (err) {
@@ -683,6 +686,7 @@ export async function disconnectHealth(): Promise<void> {
     await (HealthBridge as any).disableBackgroundDelivery();
     const { plugin: Preferences } = await getPrefs();
     await Preferences.remove({ key: PREF_KEY_PERMISSIONS });
+    notifyHealthPermissionChanged();
   } catch (err) {
     console.warn('[healthBridge] disconnect failed:', err);
   }
