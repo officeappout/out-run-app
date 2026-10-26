@@ -569,6 +569,16 @@ src/app/api/tv/
 # Workout overview single ⋯ menu (enable_overview_more_menu_v1, namespace wide, keys menu.* + pair.menu.*) — translation-ready from the first commit.
 src/features/workouts/components/workout-preview-drawer/components/OverviewMoreMenu.tsx
 
+# wave 2 batch am — route pages + the help hub. Namespaces: pages (globalError.*), social (chatPage.*), profile
+# (activityLog.*; month names via monthLabel, wave 3A), onboarding (healthPage.*), legal (help.hub.* / help.chapter.* /
+# help.preview.*). Left: health page's retry button (pickGendered GENDERED_COPY.retry, already gender-aware), help
+# chapter titles / blurbs + tour names (src/lib/app-help, src/features/user/onboarding/services — outside), global-error's
+# <html lang="he" dir="rtl"> (wave 4).
+src/app/global-error.tsx
+src/app/chat/
+src/app/progress/
+src/app/onboarding-new/health/
+src/features/help/
 # wave 2 batch al (namespace home, keys page.* / calmReturnCard.* / runCatchUp.* / streakCard.* / firstWeekCard.* /
 # ghostUpsell.* / processing.* / topUp.* / runWeekList.* / runReturn.*) — src/app/home/page.tsx + small home components.
 # Marked in page.tsx (manual list in the PR): GROUP_VERB join verbs (composed by PostJoinSuccessDrawer, like

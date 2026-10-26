@@ -2,9 +2,13 @@
  * Static illustration of the strength player for the 'player' tour preview: progress bars,
  * the "סיימתי" button and the how-to cues — each carrying the tour's own data-coach target.
  */
-const CUES = ['כפות הידיים מתחת לכתפיים', 'הגוף בקו ישר מהראש לעקבים', 'יורדים לאט ודוחפים חזרה'];
+import { useT } from '@/hooks/useT';
+import { legal } from '@/messages/ns/legal';
+
+const CUES = ['help.preview.player.cue1', 'help.preview.player.cue2', 'help.preview.player.cue3'] as const;
 
 export default function PreviewPlayer() {
+  const t = useT(legal);
   return (
     <div className="absolute inset-0 flex flex-col bg-[#0e1419]">
       <div className="px-5" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}>
@@ -15,20 +19,20 @@ export default function PreviewPlayer() {
             </span>
           ))}
         </div>
-        <p className="mt-3 text-[13px] font-bold text-white/70">תרגיל 2 מתוך 5</p>
+        <p className="mt-3 text-[13px] font-bold text-white/70">{t('help.preview.player.progress')}</p>
       </div>
       <div className="flex-1" />
       <div className="rounded-t-[28px] bg-white px-5 pb-6 pt-5 text-v2-ink" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)' }}>
-        <p className="text-[22px] font-black">שכיבות סמיכה</p>
-        <p className="mt-0.5 text-[15px] font-bold text-v2-ink-2">12 חזרות</p>
+        <p className="text-[22px] font-black">{t('help.preview.player.exercise')}</p>
+        <p className="mt-0.5 text-[15px] font-bold text-v2-ink-2">{t('help.preview.player.reps')}</p>
         <div className="mt-4" data-coach="player-done">
-          <div className="grid h-14 place-items-center rounded-full bg-v2-cta text-[16px] font-bold text-v2-on-cta shadow-v2-cta">סיימתי</div>
+          <div className="grid h-14 place-items-center rounded-full bg-v2-cta text-[16px] font-bold text-v2-on-cta shadow-v2-cta">{t('help.preview.player.done')}</div>
         </div>
         <div className="mt-4 rounded-2xl bg-v2-tint p-3.5" data-coach="player-how-to">
-          <p className="text-[14px] font-black">איך מבצעים</p>
+          <p className="text-[14px] font-black">{t('help.preview.player.howTo')}</p>
           <ul className="mt-1.5 space-y-1">
             {CUES.map((c) => (
-              <li key={c} className="text-[13px] font-semibold text-v2-ink-2">{c}</li>
+              <li key={c} className="text-[13px] font-semibold text-v2-ink-2">{t(c)}</li>
             ))}
           </ul>
         </div>

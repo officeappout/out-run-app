@@ -18,9 +18,12 @@ import { requestTourReplay } from '@/features/user/onboarding/services/tour-repl
 import HelpChapterCard from './HelpChapterCard';
 import HelpQAItem from './HelpQAItem';
 import TourList from './TourList';
+import { useT } from '@/hooks/useT';
+import { legal } from '@/messages/ns/legal';
 
 export default function HelpHub({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const t = useT(legal);
   const [entries, setEntries] = useState<HelpQA[]>([]);
   const [query, setQuery] = useState('');
   const [chapter, setChapter] = useState<HelpChapter['id'] | null>(null);
@@ -48,10 +51,10 @@ export default function HelpHub({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC] text-gray-900" style={{ colorScheme: 'light' }} dir="rtl">
       <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 pb-3" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
-        <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-gray-100 active:bg-gray-200" aria-label="חזור">
+        <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-gray-100 active:bg-gray-200" aria-label={t('help.hub.back')}>
           <ArrowRight className="h-5 w-5 text-gray-700" />
         </button>
-        <h1 className="flex-1 text-base font-black text-gray-900">איך משתמשים ושאלות נפוצות</h1>
+        <h1 className="flex-1 text-base font-black text-gray-900">{t('help.hub.title')}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom,0px)+24px)] pt-4">
@@ -60,16 +63,16 @@ export default function HelpHub({ onClose }: { onClose: () => void }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value.slice(0, 80))}
-            placeholder="חיפוש: לו״ז, צעדים, פארק..."
+            placeholder={t('help.hub.searchPlaceholder')}
             className="min-w-0 flex-1 bg-transparent text-[16px] text-gray-900 outline-none placeholder:text-gray-400"
             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
-            aria-label="חיפוש בשאלות"
+            aria-label={t('help.hub.searchLabel')}
           />
         </label>
 
         {query.trim().length < 2 && (
           <>
-            <h2 className="mb-2 mt-5 text-[13px] font-black text-v2-muted">סיור באפליקציה</h2>
+            <h2 className="mb-2 mt-5 text-[13px] font-black text-v2-muted">{t('help.hub.chaptersTitle')}</h2>
             <div className="grid grid-cols-2 gap-2.5">
               {HELP_CHAPTERS.map((c) => (
                 <HelpChapterCard
@@ -82,20 +85,20 @@ export default function HelpHub({ onClose }: { onClose: () => void }) {
               ))}
             </div>
             <div className="mt-5">
-              <TourList title="סיורים באפליקציה" />
+              <TourList title={t('help.hub.toursTitle')} />
             </div>
           </>
         )}
 
         <h2 className="mb-2 mt-5 text-[13px] font-black text-v2-muted">
-          {query.trim().length >= 2 ? 'תוצאות' : chapter ? HELP_CHAPTERS.find((c) => c.id === chapter)?.title : 'שאלות נפוצות'}
+          {query.trim().length >= 2 ? t('help.hub.results') : chapter ? HELP_CHAPTERS.find((c) => c.id === chapter)?.title : t('help.hub.faq')}
         </h2>
         <div className="overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.06)]">
           {shown.map((e) => (
             <HelpQAItem key={e.id} entry={e} defaultOpen={shown.length === 1} />
           ))}
           {shown.length === 0 && entries.length > 0 && (
-            <p className="px-4 py-5 text-center text-[13px] font-semibold text-v2-muted">לא מצאנו תשובה. אפשר לשאול את קלי.</p>
+            <p className="px-4 py-5 text-center text-[13px] font-semibold text-v2-muted">{t('help.hub.noAnswer')}</p>
           )}
         </div>
 
@@ -105,7 +108,7 @@ export default function HelpHub({ onClose }: { onClose: () => void }) {
           className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white text-[13.5px] font-extrabold text-v2-deep shadow-[0_0_0_1px_rgba(14,27,42,0.08)] active:scale-[0.98]"
         >
           <Sparkles className="h-4 w-4" aria-hidden />
-          לשאול את קלי
+          {t('help.hub.askKelly')}
         </button>
       </div>
     </div>
