@@ -85,19 +85,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const flags = useFeatureFlags(isSuperAdmin).flags;
   const v2 = flags.enableHomeV2;
-  // enable_hybrid_difficulty_carousel off (pilot 26.10, M11): no carousel, the easy plan runs.
+  // enable_hybrid_difficulty_carousel off (pilot 26.10, M11): no carousel; the engine's pick runs.
   const showBolts = flags.enableHybridDifficultyCarousel;
   // Difficulty carousel (full-park only): 3 pre-composed bolt plans, swap by index —
   // NO re-compose. `plan` = the active bolt; budget-split cards have no `bolts` and
   // keep their single `composed.plan` unchanged.
-  const [boltIndex, setBoltIndex] = useState(() => {
-    if (composed.bolts && !showBolts) {
-      composed.bolts.selectedIndex = 0;
-      composed.plan = composed.bolts.plans[0];
-      return 0;
-    }
-    return composed.bolts?.selectedIndex ?? 1;
-  });
+  const [boltIndex, setBoltIndex] = useState(composed.bolts?.selectedIndex ?? 1);
   const plan = composed.bolts ? composed.bolts.plans[boltIndex] : composed.plan;
   const selectBolt = (i: number) => {
     setBoltIndex(i);
@@ -319,7 +312,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
           </div>
         ) : (
           <span className={v2 ? 'inline-flex items-center bg-white rounded-full shadow-v2-ring' : 'inline-flex items-center bg-white rounded-lg'} style={v2 ? { padding: '5px 12px' } : { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}>
-            <DifficultyBolts difficulty={composed.bolts ? 1 : 2} size="sm" />
+            <DifficultyBolts difficulty={composed.bolts ? ((boltIndex + 1) as 1 | 2 | 3) : 2} size="sm" />
           </span>
         )}
       </div>

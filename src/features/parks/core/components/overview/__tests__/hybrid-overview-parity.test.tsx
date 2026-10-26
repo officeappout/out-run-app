@@ -62,14 +62,16 @@ describe('HybridOverviewScreen parity (pre-refactor snapshots)', () => {
     it(`budget split, unnamed station, fallback hint — ${tag}`, () => {
       expect(render(budgetSplitFixture(), v2)).toMatchSnapshot();
     });
-    it(`carousel flag off: no carousel, the easy plan is the one that runs — ${tag}`, () => {
+    it(`carousel flag off: no carousel, the engine's pick still runs — ${tag}`, () => {
       flagState.carousel = false;
       const composed = fullParkFixture() as { bolts: { plans: unknown[]; selectedIndex: number }; plan: unknown };
+      const picked = composed.bolts.selectedIndex;
+      const plan = composed.plan;
       try {
         const html = render(composed, v2);
         expect(html).not.toContain('aria-label="בחירת עצימות"');
-        expect(composed.bolts.selectedIndex).toBe(0);
-        expect(composed.plan).toBe(composed.bolts.plans[0]);
+        expect(composed.bolts.selectedIndex).toBe(picked);
+        expect(composed.plan).toBe(plan);
       } finally {
         flagState.carousel = true;
       }

@@ -98,7 +98,7 @@ describe('HybridOverviewScreen — difficulty carousel (behind enable_hybrid_dif
     expect(match, 'difficulty-carousel ternary not found — was it changed?').toBeTruthy();
     expect(match![1]).toContain('role="group"');
     expect(match![1]).toContain('selectBolt(i)');
-    expect(match![2]).toContain('DifficultyBolts difficulty={composed.bolts ? 1 : 2}');
+    expect(match![2]).toContain('DifficultyBolts difficulty={composed.bolts ? ((boltIndex + 1) as 1 | 2 | 3) : 2}');
   });
 });
 
