@@ -141,5 +141,5 @@ export type { WheelPickerProps, WheelColumn, WheelOption, WheelValue } from './W
 // A workout card's media layer (home's daily card treatment: still → video loop → brand gradient).
 export { default as HeroMediaBackground } from './HeroMediaBackground';
 // Workout rails on place pages (park / route): the media card with home's treatment, whole card = start.
-export { default as MediaWorkoutCard, MEDIA_WORKOUT_CARD_W, MEDIA_WORKOUT_CARD_H } from './MediaWorkoutCard';
+export { default as MediaWorkoutCard, MEDIA_WORKOUT_CARD_W, MEDIA_WORKOUT_CARD_H, MEDIA_WORKOUT_CARD_ART_H } from './MediaWorkoutCard';
 export type { MediaWorkoutCardProps, MediaWorkoutCardMedia } from './MediaWorkoutCard';
