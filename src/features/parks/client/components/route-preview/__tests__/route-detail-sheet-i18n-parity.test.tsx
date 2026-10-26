@@ -55,6 +55,8 @@ vi.mock('@/features/workout-engine/components/ShareAsLiveToggle', () => ({
 vi.mock('@/features/parks/client/components/UserProfileSheet', () => ({ default: () => null }));
 // enable_map_polish_v1 off — the wheel sheet is not part of this parity snapshot.
 vi.mock('@/features/parks/core/map-polish/useMapPolishV1', () => ({ useMapPolishV1: () => false }));
+// enable_place_workouts_v1 off: the snapshots pin the page as it was.
+vi.mock('@/features/parks/client/components/place-workouts/hooks/usePlaceWorkoutsFlag', () => ({ usePlaceWorkoutsFlag: () => false }));
 
 import { MotionGlobalConfig } from 'framer-motion';
 import RouteDetailSheet from '../RouteDetailSheet';

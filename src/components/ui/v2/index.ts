@@ -137,3 +137,6 @@ export type { ScreenSkeletonProps } from './ScreenSkeleton';
 export * from './bottom-chrome';
 export { default as WheelPicker } from './WheelPicker';
 export type { WheelPickerProps, WheelColumn, WheelOption, WheelValue } from './WheelPicker';
+// Workout rails on place pages (park / route, boards RP-12 / RP-13): the 176 × 196 card with its own start pill.
+export { default as WorkoutMiniCard, WORKOUT_MINI_CARD_W, WORKOUT_MINI_CARD_H } from './WorkoutMiniCard';
+export type { WorkoutMiniCardProps } from './WorkoutMiniCard';

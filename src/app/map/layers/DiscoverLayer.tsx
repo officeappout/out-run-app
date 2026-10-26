@@ -841,6 +841,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   const { flags: mapFeatureFlags, rawFlags: mapRawFlags, loading: mapFlagsLoading } = useFeatureFlags(isSuperAdmin);
   // enable_map_polish_v1 (inside v2): route details stay in the v2 overview (no legacy sheet).
   const mapPolish = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && mapFeatureFlags.enableMapPolishV1;
+  // enable_place_workouts_v1: the route page (RouteDetailSheet: workouts on the route, details,
+  // "מתאמנים כאן") stays reachable from the overview's "כל פרטי המסלול" even under map polish.
+  const placeWorkoutsOn = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && !!mapFeatureFlags.enablePlaceWorkoutsV1;
   // enable_destination_planner_v1 (inside v2): the planner sheet replaces the commute carousel.
   const destPlanner = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && mapFeatureFlags.enableDestinationPlannerV1;
 
@@ -1138,6 +1141,22 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     return p;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, userCityName, keyFor]);
+
+  // enable_place_workouts_v1: a hybrid card on the park / route page hands its intent here
+  // (useMapStore.pendingHybridIntent) → the SAME compose + overview the free-run drawer uses.
+  // Nothing sets it while the flag is off. A request older than a minute is dropped.
+  const pendingHybridIntent = useMapStore((s) => s.pendingHybridIntent);
+  useEffect(() => {
+    if (!pendingHybridIntent) return;
+    const req = useMapStore.getState().consumePendingHybridIntent();
+    if (!req || Date.now() - req.at > 60_000) return;
+    useMapStore.getState().setSelectedPark(null);
+    logic.setSelectedRoute(null);
+    setOverviewTitle(hybridSessionTitle(req.intent.aerobicKind));
+    setMapMode('freeRun');
+    composeAndShowOverview(req.intent, 'config');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingHybridIntent]);
 
   // PERF (13.10.2026): compose route_stops in the background once the slots carousel is up AND the
   // main thread is idle — not on the CTA tap, not 300ms after settle, and not on raw mount — so its
@@ -1905,7 +1924,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
         }}
         onNavigate={navigateToRouteStart}
         showCredits={mapPolish}
-        renderFullDetails={mapPolish ? undefined : (back) => (
+        renderFullDetails={mapPolish && !placeWorkoutsOn ? undefined : (back) => (
           <RouteDetailSheet
             isOpen
             route={route}
