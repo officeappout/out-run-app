@@ -6,6 +6,8 @@
  * Strength: from the confirmed engine-v2 week. Running (the wizard's running
  * step): from the days/time that step put in the onboarding store.
  */
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
 import { scheduleIdNameHe } from '@/features/schedule/engine/strengthVocabulary';
 import { RUN_TIME_PRESETS, dayLettersLine } from '@/features/schedule/utils/runWeekRecommendation';
 import {
@@ -13,6 +15,9 @@ import {
   strengthSessionTimes,
   type StrengthWeekRecommendation,
 } from '@/features/schedule/utils/strengthWeekRecommendation';
+
+
+const t = makeT('he', onboarding);
 
 export interface WizardReminderPlan {
   subtitle: string;
@@ -23,8 +28,8 @@ export interface WizardReminderPlan {
 
 /** Nothing known yet — a neutral step that still turns reminders on. */
 export const EMPTY_REMINDER_PLAN: WizardReminderPlan = {
-  subtitle: 'לפי הימים שבחרת',
-  sampleWorkoutName: 'אימון',
+  subtitle: t('reminderPlan.subtitle.empty'),
+  sampleWorkoutName: t('signup.addTrack.reminder.sampleFallback'),
   sampleTime: RUN_TIME_PRESETS.evening.time,
   sessions: [],
 };
@@ -35,7 +40,7 @@ export function strengthReminderPlan(week: StrengthWeekRecommendation): WizardRe
   const main = first.items.find((id) => id !== 'HANDSTAND') ?? first.items[0];
   return {
     subtitle: strengthReminderSubtitle(week),
-    sampleWorkoutName: main ? scheduleIdNameHe(main) : 'אימון כוח',
+    sampleWorkoutName: main ? scheduleIdNameHe(main) : t('reminderPlan.sample.strength'),
     sampleTime: RUN_TIME_PRESETS[first.window].time,
     sessions: strengthSessionTimes(week),
   };
@@ -54,8 +59,8 @@ export function runningReminderPlan(store: {
     ? store.runningScheduleTime
     : RUN_TIME_PRESETS.morning.time;
   return {
-    subtitle: `${days.length === 1 ? 'ריצה אחת' : `${days.length} ריצות`} בשבוע · ${dayLettersLine(days)}`,
-    sampleWorkoutName: 'ריצה',
+    subtitle: t('reminderPlan.subtitle.runs', { count: days.length, days: dayLettersLine(days) }),
+    sampleWorkoutName: t('signup.run.reminder.sampleFallback'),
     sampleTime: time,
     sessions: days.map((dow) => ({ dow, time })),
   };

@@ -130,6 +130,8 @@ export default defineConfig({
       'src/app/home/__tests__/**/*.test.tsx',
       // i18n wave 2 batch aq (profile namespace, hubV1.*) — v1 progress tab sections, Hebrew markup parity (jsdom).
       'src/features/progression-hub/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch av (profile namespace) — progression components Hebrew markup parity.
+      'src/features/user/progression/components/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',

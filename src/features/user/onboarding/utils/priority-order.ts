@@ -17,6 +17,10 @@
 
 import { PROGRAM_CARD_LABELS_HE, MUSCLE_NAME_HE, SKILL_NAME_HE } from '../constants/program-path-labels.constants';
 import type { ProgramCardId } from './program-card-selection';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 export interface PriorityItem {
   id: string;
@@ -61,7 +65,7 @@ export function buildPriorityGroups(
   if (cardOrder.length >= MIN_ITEMS_FOR_A_GROUP) {
     groups.push({
       key: 'cards',
-      titleHe: 'כיוונים',
+      titleHe: t('priority.group.cards'),
       items: toItems(cardOrder, PROGRAM_CARD_LABELS_HE as Record<ProgramCardId, string> as Record<string, string>),
     });
   }
@@ -70,7 +74,7 @@ export function buildPriorityGroups(
   if (muscleIds.length >= MIN_ITEMS_FOR_A_GROUP) {
     groups.push({
       key: 'muscles',
-      titleHe: 'אזורי מיקוד',
+      titleHe: t('priority.group.muscles'),
       items: toItems(muscleIds, MUSCLE_NAME_HE),
     });
   }
@@ -79,7 +83,7 @@ export function buildPriorityGroups(
   if (skillIds.length >= MIN_ITEMS_FOR_A_GROUP) {
     groups.push({
       key: 'skills',
-      titleHe: 'אלמנטים',
+      titleHe: t('priority.group.skills'),
       items: toItems(skillIds, SKILL_NAME_HE),
     });
   }

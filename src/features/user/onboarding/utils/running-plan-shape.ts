@@ -12,6 +12,8 @@
  * runs later (bridgeRunningOnboarding during sync). So the chart shows
  * RELATIVE volume (multiplier / max multiplier), labelled "נפח יחסי".
  */
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
 import {
   buildVolumeMultipliers,
   distributePhases,
@@ -19,6 +21,8 @@ import {
 import { calibrateBasePace, computeZones, determineProfileType } from '@/features/workout-engine/core/services/running-engine.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '@/features/workout-engine/core/config/pace-map-config';
 import type { RunnerGoal } from '@/features/workout-engine/core/types/running.types';
+
+const t = makeT('he', onboarding);
 
 export type PlanWeekKind = 'build' | 'recovery' | 'goal';
 
@@ -155,12 +159,12 @@ export function paceTargetRows(answers: PaceAnswers): PaceTargetRow[] {
   const z = paceZonesFor(answers);
   if (!z) return [];
   const rows: PaceTargetRow[] = [];
-  if (z.easy?.label) rows.push({ label: 'קלה וארוכה', range: z.easy.label });
+  if (z.easy?.label) rows.push({ label: t('runPlan.pace.easy'), range: z.easy.label });
   if (answers.goalPath === 'improve_time') {
-    if (z.tempo?.label) rows.push({ label: 'טמפו', range: z.tempo.label });
-    if (z.interval_short?.label) rows.push({ label: 'חזרות קצרות', range: z.interval_short.label });
+    if (z.tempo?.label) rows.push({ label: t('runPlan.pace.tempo'), range: z.tempo.label });
+    if (z.interval_short?.label) rows.push({ label: t('runPlan.pace.shortReps'), range: z.interval_short.label });
   } else if (z.fartlek_medium?.label) {
-    rows.push({ label: 'פארטלק', range: z.fartlek_medium.label });
+    rows.push({ label: t('runPlan.pace.fartlek'), range: z.fartlek_medium.label });
   }
   return rows;
 }
@@ -196,30 +200,30 @@ export function buildPlanContentRows(input: {
 
   rows.push({
     kind: 'easy',
-    title: frequency >= 4 ? 'ריצות קלות וארוכות' : 'ריצה ארוכה בקצב נוח',
-    sub: easyPaceLabel ? `בסיס סיבולת · ${easyPaceLabel}` : 'בסיס סיבולת, בלי למהר',
+    title: frequency >= 4 ? t('runPlan.easy.title.frequent') : t('runPlan.easy.title.single'),
+    sub: easyPaceLabel ? t('runPlan.easy.sub.pace', { pace: easyPaceLabel }) : t('runPlan.easy.sub.noPace'),
   });
 
-  const perWeek = frequency >= 3 ? 'עד פעמיים בשבוע' : 'פעם בשבוע';
+  const perWeek = frequency >= 3 ? t('runPlan.perWeek.twice') : t('runPlan.perWeek.once');
   if (goalPath === 'improve_time') {
-    rows.push({ kind: 'quality', title: 'אינטרוולים וטמפו', sub: `${perWeek} · מהירות וסף` });
+    rows.push({ kind: 'quality', title: t('runPlan.quality.improveTime.title'), sub: t('runPlan.quality.improveTime.sub', { perWeek }) });
   } else if (goalPath === 'maintain_fitness') {
-    rows.push({ kind: 'quality', title: 'פארטלק קל והאצות', sub: `${perWeek} · שומרים על חדות` });
+    rows.push({ kind: 'quality', title: t('runPlan.quality.maintain.title'), sub: t('runPlan.quality.maintain.sub', { perWeek }) });
   } else {
-    rows.push({ kind: 'quality', title: 'פארטלק, האצות ועליות קצרות', sub: `${perWeek} · עבודת מהירות עדינה` });
+    rows.push({ kind: 'quality', title: t('runPlan.quality.start.title'), sub: t('runPlan.quality.start.sub', { perWeek }) });
   }
 
   const recovery = bars.filter((b) => b.kind === 'recovery').map((b) => b.week);
   if (recovery.length > 0) {
     const list =
       recovery.length === 1
-        ? `שבוע ${recovery[0]}`
+        ? t('runPlan.recovery.list.one', { week: String(recovery[0]) })
         : recovery.length <= 3
-          ? `שבועות ${recovery.slice(0, -1).join(', ')} ו-${recovery[recovery.length - 1]}`
-          : `${recovery.length} שבועות לאורך התוכנית`;
-    rows.push({ kind: 'recovery', title: 'שבועות התאוששות', sub: `${list} · פחות נפח` });
+          ? t('runPlan.recovery.list.few', { head: recovery.slice(0, -1).join(', '), last: String(recovery[recovery.length - 1]) })
+          : t('runPlan.recovery.list.many', { count: String(recovery.length) });
+    rows.push({ kind: 'recovery', title: t('runPlan.recovery.title'), sub: t('runPlan.recovery.sub', { list }) });
   }
 
-  rows.push({ kind: 'adapt', title: 'מתעדכן לפי הריצות שלך', sub: 'הקצבים מחושבים מחדש לפי הביצועים' });
+  rows.push({ kind: 'adapt', title: t('runPlan.adapt.title'), sub: t('runPlan.adapt.sub') });
   return rows;
 }

@@ -5,6 +5,11 @@
  * sessionStorage hand-off shape read by onboarding-sync.service.ts.
  */
 
+import { makeT } from '@/lib/i18n/t';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
+
 export const GOAL_NOTE_MAX_LENGTH = 300;
 export const GOAL_NOTE_STORAGE_KEY = 'onboarding_goal_note';
 
@@ -12,11 +17,11 @@ export type AgeBracket = 'under_18' | '18_29' | '30_44' | '45_59' | '60_plus';
 export type GoalNoteGender = 'male' | 'female';
 
 export const AGE_BRACKET_LABELS_HE: Record<AgeBracket, string> = {
-  under_18: 'מתחת ל-18',
-  '18_29': '18–29',
-  '30_44': '30–44',
-  '45_59': '45–59',
-  '60_plus': '60+',
+  under_18: t('goalNote.age.under18'),
+  '18_29': t('goalNote.age.18_29'),
+  '30_44': t('goalNote.age.30_44'),
+  '45_59': t('goalNote.age.45_59'),
+  '60_plus': t('goalNote.age.60plus'),
 };
 
 /** Whole years between birthDate and now (null for an invalid date). */
@@ -48,50 +53,53 @@ export function parseIsoDay(day: string | null | undefined): Date | null {
 
 // ── Placeholder examples ─────────────────────────────────────────────
 
-type Example = string | { m: string; f: string; only?: GoalNoteGender };
+/** A catalog key; a gendered example is one ICU select (`gender` is passed), `only` limits it to one gender. */
+type Example = { key: OnboardingKey; only?: GoalNoteGender };
+
+const ex = (key: OnboardingKey, only?: GoalNoteGender): Example => ({ key, only });
 
 const EXAMPLES: Record<AgeBracket, Example[]> = {
   // Minors: no dating / relationship examples, by design.
   under_18: [
-    'להתכונן לגיבוש',
-    { m: 'להיות חזק יותר בספורט שלי', f: 'להיות חזקה יותר בספורט שלי' },
-    'להתאמן עם חברים בפארק',
-    'לעשות מתח ראשון',
+    ex('goalNote.example.under18.0'),
+    ex('goalNote.example.under18.1'),
+    ex('goalNote.example.under18.2'),
+    ex('goalNote.example.under18.3'),
   ],
   '18_29': [
-    'לרדת במשקל לקראת הקיץ',
-    'להכיר חברים חדשים להתאמן איתם',
-    { m: 'להכיר מישהי דרך הספורט', f: 'להכיר מישהו דרך הספורט' },
-    'להתכונן לגיוס',
-    'לשמור על כושר במילואים',
-    'לעשות 10 מתח',
+    ex('goalNote.example.a18_29.0'),
+    ex('goalNote.example.a18_29.1'),
+    ex('goalNote.example.a18_29.2'),
+    ex('goalNote.example.a18_29.3'),
+    ex('goalNote.example.a18_29.4'),
+    ex('goalNote.example.a18_29.5'),
   ],
   '30_44': [
-    { m: 'להיות אבא חזק', f: 'להיות אמא חזקה' },
-    { m: '', f: 'לחזור לכושר אחרי לידה', only: 'female' },
-    'לשמור על כושר במילואים',
-    'לרדת במשקל',
-    { m: 'למצוא שותף לאימונים', f: 'למצוא שותפה לאימונים' },
+    ex('goalNote.example.a30_44.0'),
+    ex('goalNote.example.a30_44.female', 'female'),
+    ex('goalNote.example.a30_44.1'),
+    ex('goalNote.example.a30_44.2'),
+    ex('goalNote.example.a30_44.3'),
   ],
   '45_59': [
-    'לחזק את הגב',
-    'לשמור על כושר לאורך שנים',
-    'להתאמן עם חברים בשכונה',
-    'לרדת במשקל',
+    ex('goalNote.example.a45_59.0'),
+    ex('goalNote.example.a45_59.1'),
+    ex('goalNote.example.a45_59.2'),
+    ex('goalNote.example.a45_59.3'),
   ],
   '60_plus': [
-    'לשמור על שיווי משקל',
-    { m: 'להישאר חזק ועצמאי', f: 'להישאר חזקה ועצמאית' },
-    'להכיר חברים חדשים בשכונה',
+    ex('goalNote.example.a60plus.0'),
+    ex('goalNote.example.a60plus.1'),
+    ex('goalNote.example.a60plus.2'),
   ],
 };
 
 /** Unknown age: a neutral set (no dating, no army/birth specifics). */
 const FALLBACK_EXAMPLES: Example[] = [
-  'לרדת במשקל',
-  'לעשות מתח ראשון',
-  'לחזק את הגב',
-  'לשמור על כושר לאורך שנים',
+  ex('goalNote.example.unknown.0'),
+  ex('goalNote.example.unknown.1'),
+  ex('goalNote.example.unknown.2'),
+  ex('goalNote.example.unknown.3'),
 ];
 
 /**
@@ -103,17 +111,15 @@ export function goalNoteExamples(bracket: AgeBracket | null, gender: string | nu
   const g: GoalNoteGender = gender === 'female' ? 'female' : 'male';
   const list = bracket ? EXAMPLES[bracket] : FALLBACK_EXAMPLES;
   const out: string[] = [];
-  for (const ex of list) {
-    if (typeof ex === 'string') { out.push(ex); continue; }
-    if (ex.only && ex.only !== g) continue;
-    const text = g === 'female' ? ex.f : ex.m;
-    if (text) out.push(text);
+  for (const example of list) {
+    if (example.only && example.only !== g) continue;
+    out.push(t(example.key, { gender: g }));
   }
   return out;
 }
 
 export function goalNotePlaceholder(example: string): string {
-  return `למשל: ${example}…`;
+  return t('goalNote.placeholder', { example });
 }
 
 // ── Sanitiser ────────────────────────────────────────────────────────

@@ -1,4 +1,8 @@
 import type { ProgramCardId } from '../utils/program-card-selection';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 /**
  * Static Hebrew display labels for the 3 program-path cards, muscle chips,
@@ -14,28 +18,28 @@ import type { ProgramCardId } from '../utils/program-card-selection';
 /** Short-form card label (skills shortened from the card's full sentence
  *  copy to fit a compact priority-list row). */
 export const PROGRAM_CARD_LABELS_HE: Record<ProgramCardId, string> = {
-  health: 'בריאות, כוח ואנרגיה',
-  body_focus: 'עיצוב ושרירים',
-  skills: 'קליסטניקס מתקדם',
+  health: t('programPath.page.health.title'),
+  body_focus: t('programPath.page.body.title'),
+  skills: t('programCard.skills'),
 };
 
 export const MUSCLE_NAME_HE: Record<string, string> = {
-  chest: 'חזה',
-  back: 'גב',
-  shoulders: 'כתפיים',
-  biceps: 'יד קדמית',
-  triceps: 'יד אחורית',
-  legs: 'רגליים',
-  core: 'בטן וליבה',
-  glutes: 'ישבן',
+  chest: t('muscle.chest'),
+  back: t('muscle.back'),
+  shoulders: t('muscle.shoulders'),
+  biceps: t('muscle.biceps'),
+  triceps: t('muscle.triceps'),
+  legs: t('muscle.legs'),
+  core: t('muscle.core'),
+  glutes: t('muscle.glutes'),
 };
 
 export const SKILL_NAME_HE: Record<string, string> = {
-  calisthenics_upper: 'קליסטניקס עליון (כל האלמנטים)',
-  front_lever: 'פרונט לבר',
-  muscle_up: 'עליית כוח',
-  planche: 'פלאנץ׳',
-  handstand: 'עמידת ידיים',
-  hspu: 'שכיבות סמיכה בעמידת ידיים',
-  one_arm_pullup: 'מתח יד אחת',
+  calisthenics_upper: t('skill.calisthenicsUpper'),
+  front_lever: t('skill.frontLever'),
+  muscle_up: t('skill.muscleUp'),
+  planche: t('skill.planche'),
+  handstand: t('skill.handstand'),
+  hspu: t('skill.hspu'),
+  one_arm_pullup: t('skill.oneArmPullup'),
 };

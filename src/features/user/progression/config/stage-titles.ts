@@ -16,17 +16,22 @@
  * profile sheet stay in lockstep.
  */
 
+import { makeT } from '@/lib/i18n/t';
+import { profile } from '@/messages/ns/profile';
+
+const t = makeT('he', profile);
+
 export const STAGE_TITLES: Record<number, string> = {
-  1: 'מתחיל',
-  2: 'שוחר',
-  3: 'מתאמן',
-  4: 'פעיל',
-  5: 'יציב',
-  6: 'מתקדם',
-  7: 'חזק',
-  8: 'אלוף',
-  9: 'מאסטר',
-  10: 'אגדה',
+  1: t('stageTitle.1'),
+  2: t('stageTitle.2'),
+  3: t('stageTitle.3'),
+  4: t('stageTitle.4'),
+  5: t('stageTitle.5'),
+  6: t('stageTitle.6'),
+  7: t('stageTitle.7'),
+  8: t('stageTitle.8'),
+  9: t('stageTitle.9'),
+  10: t('stageTitle.10'),
 };
 
 /**
@@ -35,5 +40,5 @@ export const STAGE_TITLES: Record<number, string> = {
  */
 export function getStageTitle(stage: number | null | undefined): string {
   if (stage == null || stage <= 0) return STAGE_TITLES[1];
-  return STAGE_TITLES[stage] ?? `שלב ${stage}`;
+  return STAGE_TITLES[stage] ?? t('stageTitle.fallback', { stage: String(stage) });
 }

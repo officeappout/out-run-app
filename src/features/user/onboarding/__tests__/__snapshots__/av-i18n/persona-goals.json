@@ -1,0 +1,160 @@
+{
+ "GOAL_OPTIONS": [
+  {
+   "id": "routine",
+   "shortTitleHe": "שגרה קבועה",
+   "shortTitleEn": "Routine",
+   "longDescHe": "להתמיד ולבנות שגרה קבועה",
+   "longDescEn": "build and maintain a steady routine",
+   "tag": "goal_routine"
+  },
+  {
+   "id": "aesthetics",
+   "shortTitleHe": "חיטוב ואסתטיקה",
+   "shortTitleEn": "Toning",
+   "longDescHe": "לבנות גוף חטוב ואסתטי",
+   "longDescEn": "build a toned and aesthetic body",
+   "tag": "goal_aesthetics"
+  },
+  {
+   "id": "fitness",
+   "shortTitleHe": "כושר ובריאות",
+   "shortTitleEn": "Health",
+   "longDescHe": "לשמור על כושר כללי ובריאות לטווח ארוך",
+   "longDescEn": "maintain general fitness and long-term health",
+   "tag": "goal_fitness"
+  },
+  {
+   "id": "performance",
+   "shortTitleHe": "שיפור ביצועים",
+   "shortTitleEn": "Performance",
+   "longDescHe": "להשתפר בביצועים בענף הספורט שלי",
+   "longDescEn": "improve performance in my sport",
+   "tag": "goal_performance"
+  },
+  {
+   "id": "skills",
+   "shortTitleHe": "מיומנות מתקדמת",
+   "shortTitleEn": "Skills",
+   "longDescHe": "ללמוד תרגילים מתקדמים (מתח, פלאנץ' וכו')",
+   "longDescEn": "learn advanced exercises (pull-ups, planche, etc.)",
+   "tag": "goal_skills"
+  },
+  {
+   "id": "community",
+   "shortTitleHe": "קהילה",
+   "shortTitleEn": "Community",
+   "longDescHe": "להכיר שותפים חדשים ולהצטרף לקהילה מקומית",
+   "longDescEn": "meet new partners and join a local community",
+   "tag": "goal_community"
+  }
+ ],
+ "RUN_GOAL_OPTIONS": [
+  {
+   "id": "routine",
+   "shortTitleHe": "שגרת ריצה קבועה",
+   "shortTitleEn": "Running routine",
+   "longDescHe": "לרוץ בקביעות ולבנות שגרה",
+   "longDescEn": "run regularly and build a routine",
+   "tag": "goal_routine"
+  },
+  {
+   "id": "fitness",
+   "shortTitleHe": "כושר ובריאות",
+   "shortTitleEn": "Health",
+   "longDescHe": "לשמור על כושר ובריאות לטווח ארוך",
+   "longDescEn": "stay fit and healthy for the long run",
+   "tag": "goal_fitness"
+  },
+  {
+   "id": "run_distance",
+   "shortTitleHe": "לרוץ רחוק יותר",
+   "shortTitleEn": "Run farther",
+   "longDescHe": "לרוץ מרחקים ארוכים יותר",
+   "longDescEn": "run longer distances",
+   "tag": "goal_run_distance"
+  },
+  {
+   "id": "run_pace",
+   "shortTitleHe": "לשפר קצב",
+   "shortTitleEn": "Run faster",
+   "longDescHe": "לשפר את הקצב שלי",
+   "longDescEn": "improve my pace",
+   "tag": "goal_run_pace"
+  },
+  {
+   "id": "community",
+   "shortTitleHe": "קהילה",
+   "shortTitleEn": "Community",
+   "longDescHe": "להכיר שותפים לריצה ולהצטרף לקהילה מקומית",
+   "longDescEn": "meet running partners and join a local community",
+   "tag": "goal_community"
+  }
+ ],
+ "ALL_GOAL_OPTIONS": [
+  {
+   "id": "routine",
+   "shortTitleHe": "שגרה קבועה",
+   "shortTitleEn": "Routine",
+   "longDescHe": "להתמיד ולבנות שגרה קבועה",
+   "longDescEn": "build and maintain a steady routine",
+   "tag": "goal_routine"
+  },
+  {
+   "id": "aesthetics",
+   "shortTitleHe": "חיטוב ואסתטיקה",
+   "shortTitleEn": "Toning",
+   "longDescHe": "לבנות גוף חטוב ואסתטי",
+   "longDescEn": "build a toned and aesthetic body",
+   "tag": "goal_aesthetics"
+  },
+  {
+   "id": "fitness",
+   "shortTitleHe": "כושר ובריאות",
+   "shortTitleEn": "Health",
+   "longDescHe": "לשמור על כושר כללי ובריאות לטווח ארוך",
+   "longDescEn": "maintain general fitness and long-term health",
+   "tag": "goal_fitness"
+  },
+  {
+   "id": "performance",
+   "shortTitleHe": "שיפור ביצועים",
+   "shortTitleEn": "Performance",
+   "longDescHe": "להשתפר בביצועים בענף הספורט שלי",
+   "longDescEn": "improve performance in my sport",
+   "tag": "goal_performance"
+  },
+  {
+   "id": "skills",
+   "shortTitleHe": "מיומנות מתקדמת",
+   "shortTitleEn": "Skills",
+   "longDescHe": "ללמוד תרגילים מתקדמים (מתח, פלאנץ' וכו')",
+   "longDescEn": "learn advanced exercises (pull-ups, planche, etc.)",
+   "tag": "goal_skills"
+  },
+  {
+   "id": "community",
+   "shortTitleHe": "קהילה",
+   "shortTitleEn": "Community",
+   "longDescHe": "להכיר שותפים חדשים ולהצטרף לקהילה מקומית",
+   "longDescEn": "meet new partners and join a local community",
+   "tag": "goal_community"
+  },
+  {
+   "id": "run_distance",
+   "shortTitleHe": "לרוץ רחוק יותר",
+   "shortTitleEn": "Run farther",
+   "longDescHe": "לרוץ מרחקים ארוכים יותר",
+   "longDescEn": "run longer distances",
+   "tag": "goal_run_distance"
+  },
+  {
+   "id": "run_pace",
+   "shortTitleHe": "לשפר קצב",
+   "shortTitleEn": "Run faster",
+   "longDescHe": "לשפר את הקצב שלי",
+   "longDescEn": "improve my pace",
+   "tag": "goal_run_pace"
+  }
+ ]
+}

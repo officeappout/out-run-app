@@ -1,0 +1,462 @@
+{
+ "home/male": [
+  {
+   "target": "home-today-workout",
+   "title": "האימון של היום",
+   "text": "כאן האימון של היום — לחיצה ומתחילים",
+   "finger": true
+  },
+  {
+   "target": "home-plus",
+   "title": "הכפתור +",
+   "text": "ה־+ מוסיף אימון, יציאה לאימון או הזמנת חבר"
+  },
+  {
+   "target": "home-week",
+   "title": "השבוע שלך",
+   "text": "כאן הלו״ז השבועי שלך",
+   "alt": {
+    "target": "nav-map",
+    "title": "המפה",
+    "text": "כאן מוצאים גינות כושר ומסלולים קרובים"
+   }
+  }
+ ],
+ "home/female": [
+  {
+   "target": "home-today-workout",
+   "title": "האימון של היום",
+   "text": "כאן האימון של היום — לחיצה ומתחילים",
+   "finger": true
+  },
+  {
+   "target": "home-plus",
+   "title": "הכפתור +",
+   "text": "ה־+ מוסיף אימון, יציאה לאימון או הזמנת חבר"
+  },
+  {
+   "target": "home-week",
+   "title": "השבוע שלך",
+   "text": "כאן הלו״ז השבועי שלך",
+   "alt": {
+    "target": "nav-map",
+    "title": "המפה",
+    "text": "כאן מוצאים גינות כושר ומסלולים קרובים"
+   }
+  }
+ ],
+ "home/other": [
+  {
+   "target": "home-today-workout",
+   "title": "האימון של היום",
+   "text": "כאן האימון של היום — לחיצה ומתחילים",
+   "finger": true
+  },
+  {
+   "target": "home-plus",
+   "title": "הכפתור +",
+   "text": "ה־+ מוסיף אימון, יציאה לאימון או הזמנת חבר"
+  },
+  {
+   "target": "home-week",
+   "title": "השבוע שלך",
+   "text": "כאן הלו״ז השבועי שלך",
+   "alt": {
+    "target": "nav-map",
+    "title": "המפה",
+    "text": "כאן מוצאים גינות כושר ומסלולים קרובים"
+   }
+  }
+ ],
+ "home/null": [
+  {
+   "target": "home-today-workout",
+   "title": "האימון של היום",
+   "text": "כאן האימון של היום — לחיצה ומתחילים",
+   "finger": true
+  },
+  {
+   "target": "home-plus",
+   "title": "הכפתור +",
+   "text": "ה־+ מוסיף אימון, יציאה לאימון או הזמנת חבר"
+  },
+  {
+   "target": "home-week",
+   "title": "השבוע שלך",
+   "text": "כאן הלו״ז השבועי שלך",
+   "alt": {
+    "target": "nav-map",
+    "title": "המפה",
+    "text": "כאן מוצאים גינות כושר ומסלולים קרובים"
+   }
+  }
+ ],
+ "map/male": [
+  {
+   "target": "map-search",
+   "title": "חיפוש",
+   "text": "חיפוש פארק או כתובת"
+  },
+  {
+   "target": "map-layers",
+   "title": "מה רואים במפה",
+   "text": "כאן אתה בוחר מה רואים במפה: מתקני כושר, ברזיות ושירותים"
+  },
+  {
+   "target": "map-park",
+   "title": "פארקים",
+   "text": "לחיצה על פארק מראה מתקנים ומי מתאמן שם"
+  }
+ ],
+ "map/female": [
+  {
+   "target": "map-search",
+   "title": "חיפוש",
+   "text": "חיפוש פארק או כתובת"
+  },
+  {
+   "target": "map-layers",
+   "title": "מה רואים במפה",
+   "text": "כאן את בוחרת מה רואים במפה: מתקני כושר, ברזיות ושירותים"
+  },
+  {
+   "target": "map-park",
+   "title": "פארקים",
+   "text": "לחיצה על פארק מראה מתקנים ומי מתאמן שם"
+  }
+ ],
+ "map/other": [
+  {
+   "target": "map-search",
+   "title": "חיפוש",
+   "text": "חיפוש פארק או כתובת"
+  },
+  {
+   "target": "map-layers",
+   "title": "מה רואים במפה",
+   "text": "כאן בוחרים מה רואים במפה: מתקני כושר, ברזיות ושירותים"
+  },
+  {
+   "target": "map-park",
+   "title": "פארקים",
+   "text": "לחיצה על פארק מראה מתקנים ומי מתאמן שם"
+  }
+ ],
+ "map/null": [
+  {
+   "target": "map-search",
+   "title": "חיפוש",
+   "text": "חיפוש פארק או כתובת"
+  },
+  {
+   "target": "map-layers",
+   "title": "מה רואים במפה",
+   "text": "כאן אתה בוחר מה רואים במפה: מתקני כושר, ברזיות ושירותים"
+  },
+  {
+   "target": "map-park",
+   "title": "פארקים",
+   "text": "לחיצה על פארק מראה מתקנים ומי מתאמן שם"
+  }
+ ],
+ "community/male": [
+  {
+   "target": "community-league",
+   "title": "הליגה של השכונה",
+   "text": "כאן הליגה של השכונה והעיר שלך"
+  },
+  {
+   "target": "community-invite",
+   "title": "הזמנת חבר",
+   "text": "הזמנת חבר מוסיפה +50 לשכונה",
+   "alt": {
+    "target": "community-hoods-tab",
+    "title": "ליגת השכונות",
+    "text": "כאן השכונה שלך מול השכונות בעיר. הזמנת חבר מוסיפה לה +50"
+   }
+  }
+ ],
+ "community/female": [
+  {
+   "target": "community-league",
+   "title": "הליגה של השכונה",
+   "text": "כאן הליגה של השכונה והעיר שלך"
+  },
+  {
+   "target": "community-invite",
+   "title": "הזמנת חבר",
+   "text": "הזמנת חבר מוסיפה +50 לשכונה",
+   "alt": {
+    "target": "community-hoods-tab",
+    "title": "ליגת השכונות",
+    "text": "כאן השכונה שלך מול השכונות בעיר. הזמנת חבר מוסיפה לה +50"
+   }
+  }
+ ],
+ "community/other": [
+  {
+   "target": "community-league",
+   "title": "הליגה של השכונה",
+   "text": "כאן הליגה של השכונה והעיר שלך"
+  },
+  {
+   "target": "community-invite",
+   "title": "הזמנת חבר",
+   "text": "הזמנת חבר מוסיפה +50 לשכונה",
+   "alt": {
+    "target": "community-hoods-tab",
+    "title": "ליגת השכונות",
+    "text": "כאן השכונה שלך מול השכונות בעיר. הזמנת חבר מוסיפה לה +50"
+   }
+  }
+ ],
+ "community/null": [
+  {
+   "target": "community-league",
+   "title": "הליגה של השכונה",
+   "text": "כאן הליגה של השכונה והעיר שלך"
+  },
+  {
+   "target": "community-invite",
+   "title": "הזמנת חבר",
+   "text": "הזמנת חבר מוסיפה +50 לשכונה",
+   "alt": {
+    "target": "community-hoods-tab",
+    "title": "ליגת השכונות",
+    "text": "כאן השכונה שלך מול השכונות בעיר. הזמנת חבר מוסיפה לה +50"
+   }
+  }
+ ],
+ "player/male": [
+  {
+   "target": "player-progress",
+   "title": "הפסים למעלה",
+   "text": "הפסים למעלה מראים איפה אתה באימון ומה עוד נשאר"
+  },
+  {
+   "target": "player-how-to",
+   "title": "איך מבצעים",
+   "text": "כאן ההסבר איך מבצעים את התרגיל",
+   "alt": {
+    "target": "player-explain",
+    "title": "איך מבצעים",
+    "text": "הכפתור \"הסבר\" פותח וידאו על ביצוע התרגיל"
+   }
+  },
+  {
+   "target": "player-done",
+   "title": "סיימתי",
+   "text": "סיימת סט? לחיצה על \"סיימתי\" ועוברים לתרגיל הבא",
+   "finger": true
+  }
+ ],
+ "player/female": [
+  {
+   "target": "player-progress",
+   "title": "הפסים למעלה",
+   "text": "הפסים למעלה מראים איפה את באימון ומה עוד נשאר"
+  },
+  {
+   "target": "player-how-to",
+   "title": "איך מבצעים",
+   "text": "כאן ההסבר איך מבצעים את התרגיל",
+   "alt": {
+    "target": "player-explain",
+    "title": "איך מבצעים",
+    "text": "הכפתור \"הסבר\" פותח וידאו על ביצוע התרגיל"
+   }
+  },
+  {
+   "target": "player-done",
+   "title": "סיימתי",
+   "text": "סיימת סט? לחיצה על \"סיימתי\" ועוברים לתרגיל הבא",
+   "finger": true
+  }
+ ],
+ "player/other": [
+  {
+   "target": "player-progress",
+   "title": "הפסים למעלה",
+   "text": "הפסים למעלה מראים איפה עומדים באימון ומה עוד נשאר"
+  },
+  {
+   "target": "player-how-to",
+   "title": "איך מבצעים",
+   "text": "כאן ההסבר איך מבצעים את התרגיל",
+   "alt": {
+    "target": "player-explain",
+    "title": "איך מבצעים",
+    "text": "הכפתור \"הסבר\" פותח וידאו על ביצוע התרגיל"
+   }
+  },
+  {
+   "target": "player-done",
+   "title": "סיימתי",
+   "text": "סיימת סט? לחיצה על \"סיימתי\" ועוברים לתרגיל הבא",
+   "finger": true
+  }
+ ],
+ "player/null": [
+  {
+   "target": "player-progress",
+   "title": "הפסים למעלה",
+   "text": "הפסים למעלה מראים איפה אתה באימון ומה עוד נשאר"
+  },
+  {
+   "target": "player-how-to",
+   "title": "איך מבצעים",
+   "text": "כאן ההסבר איך מבצעים את התרגיל",
+   "alt": {
+    "target": "player-explain",
+    "title": "איך מבצעים",
+    "text": "הכפתור \"הסבר\" פותח וידאו על ביצוע התרגיל"
+   }
+  },
+  {
+   "target": "player-done",
+   "title": "סיימתי",
+   "text": "סיימת סט? לחיצה על \"סיימתי\" ועוברים לתרגיל הבא",
+   "finger": true
+  }
+ ],
+ "route/male": [
+  {
+   "target": "route-card",
+   "title": "המסלול שלך",
+   "text": "מחליקים הצידה כדי לראות עוד מסלולים באזור.",
+   "finger": "swipe"
+  },
+  {
+   "target": "route-strength-stop",
+   "title": "עצירות כוח",
+   "text": "בכל עצירה כמה דקות כוח על המתקנים. הנגן יגיד לך מתי.",
+   "finger": true
+  },
+  {
+   "target": "route-start",
+   "title": "יוצאים לדרך",
+   "text": "לחיצה כאן מתחילה. בפעם הראשונה נבקש 3 פרטים והצהרת בריאות קצרה.",
+   "ring": true
+  }
+ ],
+ "route/female": [
+  {
+   "target": "route-card",
+   "title": "המסלול שלך",
+   "text": "מחליקים הצידה כדי לראות עוד מסלולים באזור.",
+   "finger": "swipe"
+  },
+  {
+   "target": "route-strength-stop",
+   "title": "עצירות כוח",
+   "text": "בכל עצירה כמה דקות כוח על המתקנים. הנגן יגיד לך מתי.",
+   "finger": true
+  },
+  {
+   "target": "route-start",
+   "title": "יוצאים לדרך",
+   "text": "לחיצה כאן מתחילה. בפעם הראשונה נבקש 3 פרטים והצהרת בריאות קצרה.",
+   "ring": true
+  }
+ ],
+ "route/other": [
+  {
+   "target": "route-card",
+   "title": "המסלול שלך",
+   "text": "מחליקים הצידה כדי לראות עוד מסלולים באזור.",
+   "finger": "swipe"
+  },
+  {
+   "target": "route-strength-stop",
+   "title": "עצירות כוח",
+   "text": "בכל עצירה כמה דקות כוח על המתקנים. הנגן יגיד לך מתי.",
+   "finger": true
+  },
+  {
+   "target": "route-start",
+   "title": "יוצאים לדרך",
+   "text": "לחיצה כאן מתחילה. בפעם הראשונה נבקש 3 פרטים והצהרת בריאות קצרה.",
+   "ring": true
+  }
+ ],
+ "route/null": [
+  {
+   "target": "route-card",
+   "title": "המסלול שלך",
+   "text": "מחליקים הצידה כדי לראות עוד מסלולים באזור.",
+   "finger": "swipe"
+  },
+  {
+   "target": "route-strength-stop",
+   "title": "עצירות כוח",
+   "text": "בכל עצירה כמה דקות כוח על המתקנים. הנגן יגיד לך מתי.",
+   "finger": true
+  },
+  {
+   "target": "route-start",
+   "title": "יוצאים לדרך",
+   "text": "לחיצה כאן מתחילה. בפעם הראשונה נבקש 3 פרטים והצהרת בריאות קצרה.",
+   "ring": true
+  }
+ ],
+ "route-player/male": [
+  {
+   "target": "route-player-controls",
+   "title": "סיום האימון",
+   "text": "לחיצה ארוכה מסיימת, כדי שלא ייגמר בטעות בכיס."
+  }
+ ],
+ "route-player/female": [
+  {
+   "target": "route-player-controls",
+   "title": "סיום האימון",
+   "text": "לחיצה ארוכה מסיימת, כדי שלא ייגמר בטעות בכיס."
+  }
+ ],
+ "route-player/other": [
+  {
+   "target": "route-player-controls",
+   "title": "סיום האימון",
+   "text": "לחיצה ארוכה מסיימת, כדי שלא ייגמר בטעות בכיס."
+  }
+ ],
+ "route-player/null": [
+  {
+   "target": "route-player-controls",
+   "title": "סיום האימון",
+   "text": "לחיצה ארוכה מסיימת, כדי שלא ייגמר בטעות בכיס."
+  }
+ ],
+ "plan/male": [
+  {
+   "target": "home-today-workout",
+   "title": "בוחרים תוכנית",
+   "text": "כוח או ריצה: לוחץ על כרטיס, עונה על כמה שאלות קצרות, והתוכנית מוכנה.",
+   "finger": true
+  }
+ ],
+ "plan/female": [
+  {
+   "target": "home-today-workout",
+   "title": "בוחרים תוכנית",
+   "text": "כוח או ריצה: לוחצת על כרטיס, עונה על כמה שאלות קצרות, והתוכנית מוכנה.",
+   "finger": true
+  }
+ ],
+ "plan/other": [
+  {
+   "target": "home-today-workout",
+   "title": "בוחרים תוכנית",
+   "text": "כוח או ריצה: לוחצים על כרטיס, עונים על כמה שאלות קצרות, והתוכנית מוכנה.",
+   "finger": true
+  }
+ ],
+ "plan/null": [
+  {
+   "target": "home-today-workout",
+   "title": "בוחרים תוכנית",
+   "text": "כוח או ריצה: לוחץ על כרטיס, עונה על כמה שאלות קצרות, והתוכנית מוכנה.",
+   "finger": true
+  }
+ ]
+}
