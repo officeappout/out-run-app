@@ -212,7 +212,7 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
                 </p>
               </div>
               <span className={c.pct}>{r.percent}%</span>
-              <ChevronLeft className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
+              <ChevronLeft className="h-4 w-4 shrink-0 text-gray-400 ltr:-scale-x-100" aria-hidden />
             </button>
           ))}
         </div>
@@ -298,7 +298,6 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            dir="rtl"
           >
             <div className="mx-auto max-w-md">
               <div className="flex justify-center pt-3 pb-1">

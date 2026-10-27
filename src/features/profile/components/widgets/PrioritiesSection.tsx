@@ -30,7 +30,6 @@ function PriorityGroupRowV2({ group }: { group: PriorityGroup }) {
           <div
             key={item.id}
             className="flex items-center gap-3 rounded-[20px] bg-white px-3.5 py-3 shadow-v2-ring"
-            dir="rtl"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-v2-tint text-[12px] font-black text-v2-deep ring-1 ring-inset ring-v2-accent/40 tabular-nums">
               {item.order}
@@ -52,7 +51,6 @@ function PriorityGroupRow({ group }: { group: PriorityGroup }) {
           <div
             key={item.id}
             className="flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-2.5"
-            dir="rtl"
           >
             <span
               className="w-5 h-5 rounded-full bg-[#182236] text-white flex items-center justify-center font-bold shrink-0"
@@ -77,7 +75,7 @@ export default function PrioritiesSection({ v2 = false }: { v2?: boolean } = {})
 
   if (v2) {
     return (
-      <div className="space-y-5" dir="rtl">
+      <div className="space-y-5">
         <h3 className="text-[15px] font-black text-v2-ink">{t('priorities.title')}</h3>
         {groups.map((group) => (
           <PriorityGroupRowV2 key={group.key} group={group} />
@@ -87,7 +85,7 @@ export default function PrioritiesSection({ v2 = false }: { v2?: boolean } = {})
   }
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-black text-gray-800">{t('priorities.title')}</h3>
       </div>

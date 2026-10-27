@@ -85,7 +85,7 @@ export default function StrengthTab() {
                 key={ex.exerciseId}
                 type="button"
                 onClick={() => router.push(`/profile/exercise/${encodeURIComponent(ex.exerciseId)}?name=${encodeURIComponent(ex.name)}`)}
-                className="flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                className="flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
               >
                 <KindIcon kind="strength" size={36} />
                 <div className="min-w-0 flex-1">
@@ -95,7 +95,7 @@ export default function StrengthTab() {
                     {ex.updatedAt ? ` · ${relativeDay(ex.updatedAt, now)}` : ''}
                   </p>
                 </div>
-                <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+                <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
               </button>
             ))}
           </div>

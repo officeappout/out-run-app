@@ -48,8 +48,7 @@ export default function StrengthHistoryCard({ workout, onClick }: StrengthHistor
       onClick={onClick}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all text-right"
-      dir="rtl"
+      className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all text-start"
     >
       <div className="flex flex-row gap-4 p-4">
         {/* Left: Muscle Group Icon */}

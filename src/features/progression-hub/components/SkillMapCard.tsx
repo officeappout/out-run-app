@@ -114,7 +114,7 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
       tabIndex={0}
       onClick={onTap}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onTap(); }}
-      className="w-full text-right active:opacity-80 transition-opacity cursor-pointer"
+      className="w-full text-start active:opacity-80 transition-opacity cursor-pointer"
     >
       <ProgramProgressCard
         programName={displayName}

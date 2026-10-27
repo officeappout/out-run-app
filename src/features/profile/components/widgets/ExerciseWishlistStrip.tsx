@@ -99,7 +99,7 @@ export default function ExerciseWishlistStrip({ v2 = false }: { v2?: boolean } =
 
   if (v2) {
     return (
-      <div dir="rtl">
+      <div>
         <h3 className="mb-3 text-[15px] font-black text-v2-ink">{t('wishlist.title')}</h3>
         {entries.length === 0 ? (
           <div className="flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-v2-ring">
@@ -121,7 +121,7 @@ export default function ExerciseWishlistStrip({ v2 = false }: { v2?: boolean } =
 
   if (entries.length === 0) {
     return (
-      <div dir="rtl">
+      <div>
         <div className="flex items-center gap-2 mb-3">
           <Star className="w-4 h-4 text-amber-400" />
           <h3 className="text-sm font-black text-gray-900">{t('wishlist.title')}</h3>
@@ -135,7 +135,7 @@ export default function ExerciseWishlistStrip({ v2 = false }: { v2?: boolean } =
   }
 
   return (
-    <div dir="rtl">
+    <div>
       <div className="flex items-center gap-2 mb-3 px-0.5">
         <Star className="w-4 h-4 text-amber-400" />
         <h3 className="text-sm font-black text-gray-900">{t('wishlist.title')}</h3>

@@ -57,10 +57,10 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
         className="flex w-40 flex-shrink-0 flex-col gap-2 rounded-[20px] bg-white p-3.5 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
       >
         <div className="flex items-start justify-between gap-1">
-          <p className="flex-1 truncate text-right text-[14px] font-extrabold text-v2-ink" title={goal.exerciseName}>
+          <p className="flex-1 truncate text-start text-[14px] font-extrabold text-v2-ink" title={goal.exerciseName}>
             {goal.exerciseName}
           </p>
-          {onClick && <ChevronLeft className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-v2-muted" aria-hidden />}
+          {onClick && <ChevronLeft className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />}
         </div>
 
         <div className="flex items-baseline justify-start gap-1 whitespace-nowrap">
@@ -117,13 +117,13 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
       {/* Header: exercise name + chevron */}
       <div className="flex items-start justify-between gap-1">
         <p
-          className="text-xs font-bold text-gray-800 leading-tight line-clamp-2 flex-1 text-right"
+          className="text-xs font-bold text-gray-800 leading-tight line-clamp-2 flex-1 text-start"
           title={goal.exerciseName}
         >
           {goal.exerciseName}
         </p>
         {onClick && (
-          <ChevronLeft className="w-3 h-3 text-gray-300 flex-shrink-0 mt-0.5" />
+          <ChevronLeft className="w-3 h-3 text-gray-300 flex-shrink-0 mt-0.5 ltr:-scale-x-100" />
         )}
       </div>
 
