@@ -856,5 +856,7 @@
   "liveUser.minorLock": "הודעות ישירות זמינות רק לבני 18+",
   "liveUser.stageFallback": "שלב {stage}",
   "mapLayers.mockLocation.label": "מיקום מדומה",
-  "mapLayers.mockLocation.confirm": "מיקום מדומה פעיל ({label}) — האימון יעקוב אחרי המיקום המדומה, לא GPS אמיתי. להמשיך?"
+  "mapLayers.mockLocation.confirm": "מיקום מדומה פעיל ({label}) — האימון יעקוב אחרי המיקום המדומה, לא GPS אמיתי. להמשיך?",
+  "weather.chip.aria": "מזג האוויר: {temp} מעלות",
+  "weather.chip.ariaHint": "מזג האוויר: {temp} מעלות, {hint}"
 }

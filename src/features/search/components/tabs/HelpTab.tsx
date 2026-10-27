@@ -18,6 +18,7 @@ import { RowSkeleton } from '../Skeletons';
 import { rankQa, type ContentCorpus } from '../../providers/content';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
+import { legal } from '@/messages/ns/legal';
 
 const CHAPTER_DOT = ['#ccfbf1', '#e0f2fe', '#fef9c3', '#c7f3ee', '#f1f5f9', '#ede9fe'];
 
@@ -28,6 +29,7 @@ export default function HelpTab({ query, corpus, toursOn = false }: {
   toursOn?: boolean;
 }) {
   const t = useT(library);
+  const tLegal = useT(legal);
   const router = useRouter();
   const show = (c: HelpChapter) => {
     if (c.tour) router.push(requestTourReplay(c.tour.id, c.tour.step));
@@ -56,7 +58,7 @@ export default function HelpTab({ query, corpus, toursOn = false }: {
               {HELP_CHAPTERS.map((c, i) => (
                 <button key={c.id} type="button" onClick={() => show(c)} disabled={!c.tour && !c.href} className="flex items-center gap-2 rounded-2xl bg-white p-2.5 text-start text-[13px] font-bold text-[#171717] shadow-[0_0_0_1px_rgba(14,27,42,0.06)] active:scale-[0.98] disabled:opacity-70">
                   <span className="h-[26px] w-[26px] shrink-0 rounded-[9px]" style={{ background: CHAPTER_DOT[i % CHAPTER_DOT.length] }} aria-hidden />
-                  {c.title}
+                  {tLegal(`help.chapter.${c.id}.title`)}
                 </button>
               ))}
             </div>

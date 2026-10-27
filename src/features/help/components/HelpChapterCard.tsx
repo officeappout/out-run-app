@@ -19,8 +19,8 @@ export default function HelpChapterCard({ chapter, onShow, onSelect, selected }:
       className={`flex flex-col gap-2 rounded-2xl bg-white p-3 shadow-[0_0_0_1px_rgba(14,27,42,0.06)] ${selected ? 'ring-2 ring-v2-accent' : ''}`}
     >
       <button type="button" onClick={onSelect} className="text-right">
-        <span className="block text-[14.5px] font-black text-v2-ink">{chapter.title}</span>
-        <span className="mt-0.5 block text-[12px] font-semibold leading-snug text-v2-muted">{chapter.blurb}</span>
+        <span className="block text-[14.5px] font-black text-v2-ink">{t(`help.chapter.${chapter.id}.title`)}</span>
+        <span className="mt-0.5 block text-[12px] font-semibold leading-snug text-v2-muted">{t(`help.chapter.${chapter.id}.blurb`)}</span>
       </button>
       {onShow && (
         <button
