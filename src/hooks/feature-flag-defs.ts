@@ -737,6 +737,14 @@ export const FLAG_DEFS = [
   // "מתאמנים כאן" section. Reads only (the park's first workout is generated on open). Fail-closed; super admins
   // preview it. Off = both pages byte-identical to today.
   { key: 'enablePlaceWorkoutsV1', firestoreKey: 'enable_place_workouts_v1', defaultValue: false, superAdminValue: true },
+  // Map places drawer (26.10.2026, canvas page 11 board RP-4, refined by RP-12 / RP-13). Inside enable_home_v2: the
+  // idle map's bottom shows ONE drawer, always from the user's location — what's within walking range (training
+  // parks + official on-foot routes, from the cached park catalog / official-route cache, no new reads), filter
+  // chips (הכול / כוח / ריצה / הליכה / משולב) and per place the workouts that fit there (place-fit, pure — no
+  // generator for the list). Tap a place → its workouts (the park / route page's place-workouts rail). Nothing in
+  // walking range → "צור לי מסלול באזור שלי" opens the existing free-run route generator. Fail-closed; super admins
+  // preview it. Off = the map is identical to today.
+  { key: 'enableMapPlacesDrawerV1', firestoreKey: 'enable_map_places_drawer_v1', defaultValue: false, superAdminValue: true },
   // Done-today gate + flame tiers (26.10.2026, owner decisions). Strength "done for today" = completed sets
   // ≥ ceil(⅔ × daily target) AND ≥ 4 (no budget / rest day: ≥ 4) — below that home keeps the workout
   // section and the top-up card. Every flame / day dot (weekly strip, v2 capsules, summary week dots) comes

@@ -614,6 +614,10 @@ src/features/workout-engine/place-fit/
 src/components/ui/v2/MediaWorkoutCard.tsx
 src/components/ui/v2/HeroMediaBackground.tsx
 src/features/content/exercises/client/components/detail-v2/
+# Map places drawer (enable_map_places_drawer_v1, namespace map, keys placesDrawer.*) — translation-ready from the first
+# commit; key parity: places-drawer/__tests__/places-drawer-ui.test.tsx.
+src/features/parks/client/components/places-drawer/
+src/features/parks/core/services/park-point-fetch.ts
 # Training partners = mutual follow (enable_where_to_train_v1, owner 26.10): feed activity items (community trainingShares.*)
 # and the own profile's partners row / list (profile profile.partners.*).
 src/features/social/components/training-shares/
