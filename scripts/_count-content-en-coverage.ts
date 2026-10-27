@@ -6,7 +6,8 @@
  */
 import * as admin from 'firebase-admin';
 
-const key = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY ?? '');
+const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+const key = raw ? JSON.parse(raw) : null;
 if (!key?.project_id) { console.error('❌ FIREBASE_SERVICE_ACCOUNT_KEY missing'); process.exit(1); }
 if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(key as admin.ServiceAccount) });
 const db = admin.firestore();
