@@ -90,7 +90,8 @@ describe('selection chain matrix', () => {
   });
   it('translated code defaults of the locale win over the Hebrew library; untranslated keys do not count', () => {
     // No locale ships push.json yet → no translated defaults exist.
-    expect(defaultRowsFor('level_up', 'en').every((r) => r.locale === 'en')).toBe(true);
+    // (an untranslated key falls back to the Hebrew text inside the shared core)
+    expect(defaultRowsFor('level_up', 'en').map((r) => r.title)).toEqual(defaultRowsFor('level_up', 'he').map((r) => r.title));
     const r = pick([he], { locale: 'en' });
     expect(r?.rowId).toBe('he1');
   });
