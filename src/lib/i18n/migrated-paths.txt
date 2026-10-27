@@ -794,3 +794,5 @@ src/features/user/progression/components/BadgeDisplay.tsx
 src/features/user/progression/components/AchievementSheet.tsx
 src/features/user/progression/components/AchievementUnlockToast.tsx
 src/features/user/progression/components/IdentityHeroCard.tsx
+# wave 2 batch aw (namespace player, timedLabels.*) — the timed player's pure label builders (makeT('he', player) at module scope; exported signatures unchanged).
+src/features/workout-engine/players/strength/timed/logic/

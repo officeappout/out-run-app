@@ -6,8 +6,12 @@ import type { TimedView } from '@/features/workout-engine/engines/timed/timed.se
 import { emomIntervalMs } from '@/features/workout-engine/engines/timed/emom.machine';
 import type { AmrapState, EmomState, TimedBlockSpec, TimedItem, TimedState } from '@/features/workout-engine/engines/timed/timed.types';
 import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/timed-result';
+import { makeT } from '@/lib/i18n/t';
+import { unitLabel } from '@/lib/i18n/units';
+import { player } from '@/messages/ns/player';
 
-export const FORMAT_NAME: Record<TimedBlockSpec['format'], string> = { tabata: 'טבטה', emom: 'EMOM', amrap: 'AMRAP' };
+/** Hebrew translator, built once (these labels are rebuilt every tick mid-workout). */
+const t = makeT('he', player);
 
 /** Whole seconds left of a countdown (rounded UP, so 0.2 s left still reads 0:01). */
 export function ceilSec(ms: number): number {
@@ -35,20 +39,20 @@ export function blockMinutes(spec: TimedBlockSpec): number {
 
 /** "AMRAP 10′" / "EMOM 12′" / "טבטה 20/10". */
 export function blockTitle(spec: TimedBlockSpec): string {
-  if (spec.format === 'tabata') return `${FORMAT_NAME.tabata} ${spec.config.workSec}/${spec.config.restSec}`;
-  return `${FORMAT_NAME[spec.format]} ${blockMinutes(spec)}′`;
+  if (spec.format === 'tabata') return t('timedLabels.title.tabata', { work: String(spec.config.workSec), rest: String(spec.config.restSec) });
+  return t('timedLabels.title.minutes', { format: spec.format, minutes: String(blockMinutes(spec)) });
 }
 
 /** The big number + its unit on the work card ("12" / "חזרות"). */
 export function itemTarget(item: TimedItem | null | undefined): { value: string; unit: string } | null {
   if (!item) return null;
   if (item.kind === 'aerobic_leg') {
-    if (item.distanceM) return { value: String(item.distanceM), unit: 'מ׳' };
-    if (item.durationSec) return { value: formatClock(item.durationSec), unit: 'דק׳' };
+    if (item.distanceM) return { value: String(item.distanceM), unit: unitLabel('m') };
+    if (item.durationSec) return { value: formatClock(item.durationSec), unit: unitLabel('min') };
     return null;
   }
-  if (item.targetReps) return { value: String(item.targetReps), unit: 'חזרות' };
-  if (item.targetHoldSec) return { value: String(item.targetHoldSec), unit: 'שנ׳' };
+  if (item.targetReps) return { value: String(item.targetReps), unit: t('timedLabels.unit.reps') };
+  if (item.targetHoldSec) return { value: String(item.targetHoldSec), unit: t('timedLabels.unit.sec') };
   return null;
 }
 
@@ -56,8 +60,8 @@ export function itemTarget(item: TimedItem | null | undefined): { value: string;
 export function itemTargetText(item: TimedItem | null | undefined): string {
   if (!item) return '';
   if (item.kind === 'aerobic_leg') return item.name;
-  const t = itemTarget(item);
-  return t ? `${t.value} ${t.unit}` : '';
+  const target = itemTarget(item);
+  return target ? t('timedLabels.target.text', { value: target.value, unit: target.unit }) : '';
 }
 
 /** Unit of the reps picker for an item. */
@@ -65,26 +69,24 @@ export function itemUnit(item: TimedItem | null | undefined): 'reps' | 'time' {
   return item?.kind === 'exercise' && !item.targetReps && !!item.targetHoldSec ? 'time' : 'reps';
 }
 
-const sideLabel = (side: TimedView['side']) => (side === 'right' ? ' · ימין' : side === 'left' ? ' · שמאל' : '');
-
 /** The coloured line above the work card. */
 export function timedEyebrow(state: TimedState, view: TimedView, prefix: string | null = null): string {
   let core: string;
   if (state.spec.format === 'amrap') {
     const n = state.spec.items.length;
-    core = `סבב ${view.round} · תרגיל ${(state as AmrapState).data.itemIndex + 1} מתוך ${n}`;
+    core = t('timedLabels.eyebrow.amrap', { round: String(view.round), item: String((state as AmrapState).data.itemIndex + 1), total: String(n) });
   } else if (state.spec.format === 'emom') {
-    core = `דקה ${view.round}/${view.roundsTotal ?? view.round}`;
+    core = t('timedLabels.eyebrow.emom', { round: String(view.round), total: String(view.roundsTotal ?? view.round) });
   } else {
-    core = `אינטרוול ${view.round}/${view.roundsTotal ?? view.round}${sideLabel(view.side)}`;
+    core = t('timedLabels.eyebrow.tabata', { round: String(view.round), total: String(view.roundsTotal ?? view.round), side: view.side ?? '' });
   }
-  return prefix ? `${prefix} · ${core}` : core;
+  return prefix ? t('timedLabels.eyebrow.prefixed', { prefix, text: core }) : core;
 }
 
 /** Label over the header clock: "נותרו" / "פינישר · נותרו" / "הזמן נגמר". */
 export function clockCaption(view: TimedView, prefix: string | null = null): string {
-  if (view.status === 'awaiting_partial' || view.status === 'done') return 'הזמן נגמר';
-  return prefix ? `${prefix} · נותרו` : 'נותרו';
+  if (view.status === 'awaiting_partial' || view.status === 'done') return t('timedLabels.clock.over');
+  return prefix ? t('timedLabels.clock.leftPrefixed', { prefix }) : t('timedLabels.clock.left');
 }
 
 /** The header clock ("05:48"): block time left. */
@@ -101,26 +103,26 @@ export function phaseClock(view: TimedView): string {
 export function workHint(view: TimedView, item: TimedItem | null): string | null {
   if (view.format === 'emom') {
     if (view.isLastSeconds && item?.kind === 'exercise') {
-      return `עוד ${ceilSec(view.phaseRemainingMs)} שנ׳ — לא סיימת? נרשום כמה הספקת`;
+      return t('timedLabels.hint.emomLast', { sec: String(ceilSec(view.phaseRemainingMs)) });
     }
-    return 'סיימת? מה שנשאר מהדקה הוא המנוחה';
+    return t('timedLabels.hint.emomRest');
   }
-  if (view.format === 'amrap') return item?.kind === 'exercise' ? 'יעד קבוע בכל סבב' : null;
+  if (view.format === 'amrap') return item?.kind === 'exercise' ? t('timedLabels.hint.amrapFixed') : null;
   return null;
 }
 
 /** "הבא בסבב" (AMRAP) / "דקה 6" (EMOM) / "התרגיל הבא" (tabata). */
 export function nextCaption(view: TimedView): string {
-  if (view.format === 'amrap') return 'הבא בסבב';
-  if (view.format === 'emom') return `דקה ${view.round + 1}`;
-  return 'התרגיל הבא';
+  if (view.format === 'amrap') return t('timedLabels.next.amrap');
+  if (view.format === 'emom') return t('timedLabels.next.emom', { n: String(view.round + 1) });
+  return t('timedLabels.next.tabata');
 }
 
 /** EMOM rest line: "סיימת ב-0:39 · 21 שנ׳ מנוחה" (null when the minute was not finished by a tap). */
 export function emomRestLine(state: EmomState, view: TimedView): string | null {
   const m = state.data.minutes[view.round - 1];
   if (!m || m.workMs == null || m.status !== 'done') return null;
-  return `סיימת ב-${formatClock(Math.round(m.workMs / 1000))} · ${ceilSec(view.phaseRemainingMs)} שנ׳ מנוחה`;
+  return t('timedLabels.emom.restLine', { work: formatClock(Math.round(m.workMs / 1000)), rest: String(ceilSec(view.phaseRemainingMs)) });
 }
 
 /** EMOM: the minute's full length (for the minute ring). */
@@ -139,11 +141,11 @@ export function amrapRoundLine(state: AmrapState, roundIndex: number): string | 
   };
   const cur = dur(roundIndex);
   if (cur == null) return null;
-  const base = `${formatClock(cur)} לסבב`;
+  const time = formatClock(cur);
   const prev = roundIndex > 0 ? dur(roundIndex - 1) : null;
-  if (prev == null || prev === cur) return base;
+  if (prev == null || prev === cur) return t('timedLabels.round.line', { time });
   const diff = formatClock(Math.abs(prev - cur));
-  return prev > cur ? `${base} · מהיר ב-${diff} מהסבב הקודם` : `${base} · איטי ב-${diff} מהסבב הקודם`;
+  return prev > cur ? t('timedLabels.round.faster', { time, diff }) : t('timedLabels.round.slower', { time, diff });
 }
 
 /** The format explainer behind the "i" (explains the FORMAT only). */
@@ -151,33 +153,31 @@ export function formatInfo(spec: TimedBlockSpec): { title: string; lines: string
   if (spec.format === 'amrap') {
     const n = spec.items.length;
     return {
-      title: 'מה זה AMRAP?',
+      title: t('timedLabels.info.amrap.title'),
       lines: [
-        `AMRAP = כמה שיותר סבבים בזמן הקצוב. כאן: ${blockMinutes(spec)} דקות.`,
-        `סבב = ${n === 1 ? 'התרגיל' : `${n} התרגילים לפי הסדר`}. מסיימים אחד ועוברים מיד לבא.`,
-        'סופרים סבבים מלאים, ובסוף מוסיפים את החזרות של הסבב שלא נגמר.',
-        'אין מנוחה קבועה: נחים כשצריך, השעון ממשיך.',
+        t('timedLabels.info.amrap.line1', { minutes: String(blockMinutes(spec)) }),
+        t('timedLabels.info.amrap.line2', { n: String(n) }),
+        t('timedLabels.info.amrap.line3'),
+        t('timedLabels.info.amrap.line4'),
       ],
     };
   }
   if (spec.format === 'emom') {
-    const sec = spec.config.intervalSec;
-    const every = sec === 60 ? 'כל דקה' : `כל ${sec} שנ׳`;
     return {
-      title: 'מה זה EMOM?',
+      title: t('timedLabels.info.emom.title'),
       lines: [
-        `EMOM = ${every} מתחילים משימה חדשה. כאן: ${spec.config.totalIntervals} פעמים.`,
-        'מסיימים את המשימה ולוחצים סיימתי — מה שנשאר מהזמן הוא המנוחה.',
-        'לא הספקת עד הסוף? רושמים כמה עשית, והמשימה הבאה מתחילה בזמן.',
+        t('timedLabels.info.emom.line1', { sec: String(spec.config.intervalSec), times: String(spec.config.totalIntervals) }),
+        t('timedLabels.info.emom.line2'),
+        t('timedLabels.info.emom.line3'),
       ],
     };
   }
   return {
-    title: 'מה זה טבטה?',
+    title: t('timedLabels.info.tabata.title'),
     lines: [
-      `${spec.config.workSec} שניות עבודה, ${spec.config.restSec} שניות מנוחה — ${spec.config.rounds} אינטרוולים.`,
-      'הטיימר מוביל: עוברים לבד בין עבודה למנוחה, אין צורך ללחוץ.',
-      'עובדים בעצימות גבוהה לאורך כל האינטרוול.',
+      t('timedLabels.info.tabata.line1', { work: String(spec.config.workSec), rest: String(spec.config.restSec), rounds: String(spec.config.rounds) }),
+      t('timedLabels.info.tabata.line2'),
+      t('timedLabels.info.tabata.line3'),
     ],
   };
 }
@@ -186,11 +186,12 @@ export function formatInfo(spec: TimedBlockSpec): { title: string; lines: string
 export function resultLine(result: TimedBlockResult): string {
   if (result.amrap) {
     const { fullRounds, extraReps } = result.amrap.score;
-    const rounds = `${fullRounds} ${fullRounds === 1 ? 'סבב מלא' : 'סבבים מלאים'}`;
-    return extraReps > 0 ? `${rounds} · ועוד ${extraReps} חזרות` : rounds;
+    return extraReps > 0
+      ? t('timedLabels.result.amrapExtra', { count: String(fullRounds), extra: String(extraReps) })
+      : t('timedLabels.result.amrap', { count: String(fullRounds) });
   }
-  if (result.emom) return `${result.emom.done}/${result.emom.total} דקות בזמן`;
-  if (result.tabata) return `${result.tabata.intervalsDone}/${result.tabata.intervalsTotal} אינטרוולים`;
+  if (result.emom) return t('timedLabels.result.emom', { done: String(result.emom.done), total: String(result.emom.total) });
+  if (result.tabata) return t('strengthSummary.timed.tabata.line', { done: String(result.tabata.intervalsDone), total: String(result.tabata.intervalsTotal) });
   return '';
 }
 
@@ -199,18 +200,25 @@ export function readyItemLine(spec: TimedBlockSpec, index: number): string {
   const item = spec.items[index];
   const target = itemTargetText(item);
   if (!item) return '';
-  if (spec.format === 'amrap') return item.kind === 'aerobic_leg' ? 'בכל סבב' : target ? `${target} · בכל סבב` : 'בכל סבב';
+  if (spec.format === 'amrap') return item.kind === 'aerobic_leg' || !target ? t('timedLabels.ready.amrapEach') : t('timedLabels.ready.amrapTargetEach', { target });
   if (spec.format === 'emom') {
     const n = spec.items.length;
-    const which = n === 2 ? (index === 0 ? 'דקות אי-זוגיות' : 'דקות זוגיות') : n > 2 ? `כל ${n} דקות` : 'כל דקה';
-    return target && item.kind === 'exercise' ? `${which} · ${target}` : which;
+    const which =
+      n === 2
+        ? index === 0
+          ? t('timedLabels.ready.emomOdd')
+          : t('timedLabels.ready.emomEven')
+        : n > 2
+          ? t('timedLabels.ready.emomEveryN', { n: String(n) })
+          : t('timedLabels.ready.emomEveryMinute');
+    return target && item.kind === 'exercise' ? t('timedLabels.ready.emomWithTarget', { which, target }) : which;
   }
-  return `${spec.config.workSec} שנ׳${item.isUnilateral ? ' לכל צד' : ''}`;
+  return t('timedLabels.ready.tabata', { sec: String(spec.config.workSec), unilateral: item.isUnilateral ? 'yes' : 'no' });
 }
 
 /** Mini-player line while the player is dragged down: name + "סבב 3 · נותרו 05:48". */
 export function miniPlayerInfo(state: TimedState, view: TimedView, prefix: string | null = null): { name: string; label: string } {
   const name = view.current?.name ?? blockTitle(state.spec);
-  if (state.status === 'idle') return { name: blockTitle(state.spec), label: 'מוכן להתחלה' };
-  return { name, label: `${timedEyebrow(state, view, prefix)} · ${clockCaption(view)} ${headerClock(view)}` };
+  if (state.status === 'idle') return { name: blockTitle(state.spec), label: t('timedLabels.mini.ready') };
+  return { name, label: t('timedLabels.mini.line', { eyebrow: timedEyebrow(state, view, prefix), caption: clockCaption(view), clock: headerClock(view) }) };
 }

@@ -9,6 +9,11 @@ import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/t
 import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/timed.types';
 import type { ExerciseResultLog } from '../../hooks/useWorkoutStateMachine';
 import { blockTitle, formatClock, readyItemLine, resultLine } from './timed-labels';
+import { makeT } from '@/lib/i18n/t';
+import { player } from '@/messages/ns/player';
+
+/** Hebrew translator, built once. */
+const t = makeT('he', player);
 
 export type TimedPlaylistStatus = 'done' | 'active' | 'upcoming';
 
@@ -19,11 +24,12 @@ export interface TimedPlaylistModel {
   rows: Array<{ key: string; name: string; imageUrl?: string; detail: string; done: boolean }>;
 }
 
-const RULE: Record<TimedBlockSpec['format'], string> = {
-  amrap: 'כמה שיותר סבבים',
-  emom: 'משימה בתחילת כל דקה',
-  tabata: 'הטיימר מוביל',
-};
+/** Keys of the one-line rule of each format (translated when the model is built). */
+const RULE_KEY = {
+  amrap: 'timedLabels.playlist.rule.amrap',
+  emom: 'timedLabels.playlist.rule.emom',
+  tabata: 'timedLabels.playlist.rule.tabata',
+} as const satisfies Record<TimedBlockSpec['format'], string>;
 
 export function timedPlaylistModel(
   spec: TimedBlockSpec,
@@ -40,15 +46,16 @@ export function timedPlaylistModel(
     }
     const sum = done.reduce((a, v) => a + v, 0);
     const timed = entry?.repsSource?.includes('timer') ?? false;
-    const detail = `${timed ? formatClock(sum) : `${sum} חזרות`} · ×${done.length}`;
+    const value = timed ? formatClock(sum) : t('strengthSummary.hero.reps', { reps: String(sum) });
+    const detail = t('timedLabels.playlist.doneDetail', { value, count: String(done.length) });
     return { key: `${it.key}-${i}`, name: it.name, ...(it.imageUrl ? { imageUrl: it.imageUrl } : {}), detail, done: true };
   });
   const totalReps = segmentLog.reduce((a, e) => a + (e.repsSource?.includes('timer') ? 0 : e.confirmedReps.reduce((b, v) => b + Math.max(0, v), 0)), 0);
   const line =
     status === 'active'
-      ? 'עכשיו'
+      ? t('timedLabels.now')
       : status === 'done'
-        ? (result ? resultLine(result) : '') || `${totalReps} חזרות`
-        : RULE[spec.format];
+        ? (result ? resultLine(result) : '') || t('strengthSummary.hero.reps', { reps: String(totalReps) })
+        : t(RULE_KEY[spec.format]);
   return { title: blockTitle(spec), status, line, rows };
 }

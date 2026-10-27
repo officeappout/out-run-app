@@ -11,6 +11,11 @@
  */
 import { emomIntervalMs } from '@/features/workout-engine/engines/timed/emom.machine';
 import type { EmomState, TimedItem, TimedState } from '@/features/workout-engine/engines/timed/timed.types';
+import { makeT } from '@/lib/i18n/t';
+import { player } from '@/messages/ns/player';
+
+/** Hebrew translator, built once. */
+const t = makeT('he', player);
 
 export type TimedPrompt =
   | { kind: 'amrap_partial'; itemIndex: number; item: TimedItem; round: number }
@@ -54,6 +59,6 @@ export function promptInitialValue(prompt: TimedPrompt): number {
 /** Drawer eyebrow: "הזמן נגמר · שכיבות סמיכה בסבב 5" / "דקה 5 · סקוואט". */
 export function promptEyebrow(prompt: TimedPrompt): string {
   return prompt.kind === 'amrap_partial'
-    ? `הזמן נגמר · ${prompt.item.name} בסבב ${prompt.round}`
-    : `דקה ${prompt.minuteIndex + 1} · ${prompt.item.name}`;
+    ? t('timedLabels.prompt.eyebrow.amrap', { name: prompt.item.name, round: String(prompt.round) })
+    : t('timedLabels.prompt.eyebrow.emom', { minute: String(prompt.minuteIndex + 1), name: prompt.item.name });
 }
