@@ -15,6 +15,8 @@ import { subscribeToMessages, sendMessage, markThreadAsRead } from '../services/
 import { KELLY_UID } from '../services/kelly-welcome-bot.service';
 import type { ChatMessage, ChatThread as ChatThreadType } from '../types/chat.types';
 import LinkAccountPrompt from '@/components/LinkAccountPrompt';
+import { useT } from '@/hooks/useT';
+import { social } from '@/messages/ns/social';
 
 interface ChatThreadProps {
   thread: ChatThreadType;
@@ -30,15 +32,16 @@ interface ChatThreadProps {
  * (`/admin/authority/reports`) partitions identical `reason` values
  * regardless of where the report originated.
  */
-const REPORT_REASONS: { id: string; label: string }[] = [
-  { id: 'inappropriate', label: 'תוכן לא ראוי' },
-  { id: 'harassment', label: 'הטרדה או אלימות' },
-  { id: 'spam', label: 'ספאם / תוכן מסחרי' },
-  { id: 'impersonation', label: 'התחזות' },
-  { id: 'other', label: 'אחר' },
-];
+const REPORT_REASONS = [
+  { id: 'inappropriate', labelKey: 'chatThread.report.reason.inappropriate' },
+  { id: 'harassment', labelKey: 'chatThread.report.reason.harassment' },
+  { id: 'spam', labelKey: 'chatThread.report.reason.spam' },
+  { id: 'impersonation', labelKey: 'chatThread.report.reason.impersonation' },
+  { id: 'other', labelKey: 'chatThread.report.reason.other' },
+] as const;
 
 export default function ChatThread({ thread, myUid, myName, createdByUid }: ChatThreadProps) {
+  const t = useT(social);
   const isGroupThread = thread.type === 'group';
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -52,7 +55,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
   const otherUid = isGroupThread
     ? undefined
     : thread.participants.find((uid) => uid !== myUid);
-  const otherName = otherUid ? thread.participantNames?.[otherUid] ?? 'משתמש' : '';
+  const otherName = otherUid ? thread.participantNames?.[otherUid] ?? 'משתמש' : ''; // i18n-allow-hebrew: data — saved as blocks.blockedName / reports.targetName
   const [menuOpen, setMenuOpen] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
@@ -182,7 +185,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
       await addDoc(collection(db, 'reports'), {
         targetId,
         targetType: isGroupThread ? 'group' : 'user',
-        targetName: isGroupThread ? thread.groupName ?? 'קבוצה' : otherName,
+        targetName: isGroupThread ? thread.groupName ?? 'קבוצה' : otherName, // i18n-allow-hebrew: data — saved as reports.targetName
         reporterId: myUid,
         reason: reportReason,
         status: 'pending',
@@ -210,8 +213,8 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
 
   // Thread display name shown in the internal header bar.
   const threadDisplayName = isGroupThread
-    ? (thread.groupName ?? 'קבוצה')
-    : (otherUid ? (thread.participantNames?.[otherUid] ?? 'שיחה') : 'שיחה');
+    ? (thread.groupName ?? t('chatThread.groupFallback'))
+    : (otherUid ? (thread.participantNames?.[otherUid] ?? t('chatThread.threadFallback')) : t('chatThread.threadFallback'));
 
   return (
     <div className="relative flex flex-col h-full" dir="rtl">
@@ -230,13 +233,13 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
 
           {isSupportThread && (
             <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-sky-100 text-sky-600 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">
-              פניית תמיכה
+              {t('chatThread.supportBadge')}
             </span>
           )}
 
           {isGroupThread && !isSupportThread && (
             <span className="inline-flex items-center text-[10px] font-bold bg-purple-100 text-purple-600 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">
-              קבוצה
+              {t('chatThread.groupBadge')}
             </span>
           )}
         </div>
@@ -246,7 +249,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
           <button
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
-            aria-label="אפשרויות שיחה"
+            aria-label={t('chatThread.menu')}
             className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
           >
             <MoreVertical className="w-4 h-4 text-gray-500" />
@@ -275,7 +278,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
                       className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-start"
                     >
                       <Ban className="w-4 h-4 text-gray-500" />
-                      בטל חסימה
+                      {t('chatThread.unblock')}
                     </button>
                   ) : (
                     <button
@@ -289,7 +292,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
                       ) : (
                         <Ban className="w-4 h-4" />
                       )}
-                      חסום משתמש
+                      {t('chatThread.block')}
                     </button>
                   ))}
                 <button
@@ -298,7 +301,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
                   className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 text-start"
                 >
                   <Flag className="w-4 h-4 text-red-500" />
-                  {isGroupThread ? 'דווח על הקבוצה' : 'דווח על המשתמש'}
+                  {isGroupThread ? t('chatThread.menuReportGroup') : t('chatThread.menuReportUser')}
                 </button>
               </div>
             </>
@@ -314,14 +317,14 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
             <div className="flex items-center gap-2">
               <Flag className="w-5 h-5 text-red-500" />
               <h3 className="text-base font-black text-gray-900">
-                {isGroupThread ? 'דיווח על הקבוצה' : `דיווח על ${otherName}`}
+                {isGroupThread ? t('chatThread.report.titleGroup') : t('chatThread.report.titleUser', { name: otherName })}
               </h3>
             </div>
             <button
               type="button"
               onClick={() => setReportOpen(false)}
               className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
-              aria-label="סגור"
+              aria-label={t('chatThread.report.close')}
             >
               <X className="w-4 h-4 text-gray-500" />
             </button>
@@ -331,21 +334,21 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
             {reportSubmitted ? (
               <div className="text-center py-10">
                 <div className="text-5xl mb-3">✅</div>
-                <h4 className="text-lg font-black text-gray-900 mb-1">הדיווח נשלח</h4>
+                <h4 className="text-lg font-black text-gray-900 mb-1">{t('chatThread.report.sentTitle')}</h4>
                 <p className="text-sm text-gray-500">
-                  תודה על שמירת הקהילה. נבדוק את הדיווח בהקדם.
+                  {t('chatThread.report.sentBody')}
                 </p>
                 <button
                   type="button"
                   onClick={() => setReportOpen(false)}
                   className="mt-6 w-full py-3 rounded-xl text-sm font-bold text-gray-400"
                 >
-                  סגור
+                  {t('chatThread.report.sentClose')}
                 </button>
               </div>
             ) : (
               <>
-                <p className="text-sm text-gray-500 mb-4">מה הסיבה לדיווח?</p>
+                <p className="text-sm text-gray-500 mb-4">{t('chatThread.report.whyTitle')}</p>
                 <div className="space-y-2 mb-6">
                   {REPORT_REASONS.map((r) => (
                     <button
@@ -358,7 +361,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
                           : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
                       }`}
                     >
-                      {r.label}
+                      {t(r.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -371,7 +374,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
                   {reportSubmitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    'שלח דיווח'
+                    t('chatThread.report.submit')
                   )}
                 </button>
               </>
@@ -390,7 +393,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
             return (
               <div key={msg.id} className="flex justify-center">
                 <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-3 py-1">
-                  🤘 {isMine ? 'שלחת ידיים' : `${msg.senderName} הרים ידיים`}
+                  🤘 {isMine ? t('chatThread.highFive.mine') : t('chatThread.highFive.theirs', { name: msg.senderName })}
                 </span>
               </div>
             );
@@ -410,7 +413,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
                   {isAdmin && (
                     <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-500 bg-amber-50 rounded-full px-1.5 py-0.5">
                       <Crown className="w-2.5 h-2.5" />
-                      מנהל/ת
+                      {t('chatThread.adminBadge')}
                     </span>
                   )}
                 </div>
@@ -434,7 +437,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
       {isBlocked ? (
         <div className="px-4 pt-3 pb-[calc(var(--kb-safe-bottom)+12px)] border-t border-gray-100 bg-white flex items-center justify-center gap-2 text-sm text-gray-500">
           <Ban className="w-4 h-4 text-gray-400" />
-          חסמת משתמש זה. בטל את החסימה כדי לשלוח הודעות.
+          {t('chatThread.blockedNotice')}
         </div>
       ) : (
         <div className="px-4 pt-3 pb-[calc(var(--kb-safe-bottom)+12px)] border-t border-gray-100 bg-white flex items-center gap-2">
@@ -448,7 +451,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="כתוב הודעה..."
+            placeholder={t('chatThread.placeholder')}
             className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none text-right text-gray-900 placeholder:text-gray-400"
             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
           />
@@ -469,7 +472,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
           setShowLinkPrompt(false);
           handleSend();
         }}
-        message="כדי לשלוח הודעה צריך לקשר חשבון"
+        message={t('chatThread.linkAccount')}
       />
     </div>
   );

@@ -5,12 +5,8 @@ import { ChevronLeft } from 'lucide-react';
 import MiniSparkline from './MiniSparkline';
 import { getExerciseTrend } from '@/features/workout-engine/services/exercise-history.service';
 import type { LevelGoal } from '@/types/workout';
-import { useUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
-
-/** Empty graph hint, two lines (gender copy, decisions 1 + 21.10.2026). */
-const GRAPH_HINT_LINE1 = { male: 'התחל אימון', female: 'התחילי אימון', other: 'אחרי האימון' };
-const GRAPH_HINT_LINE2 = { male: 'לראות גרף', female: 'לראות גרף', other: 'יופיע כאן גרף' };
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface GoalCardProps {
   goal: LevelGoal;
@@ -28,7 +24,7 @@ interface GoalCardProps {
  * Tapping it navigates to the Exercise Analytics page.
  */
 export default function GoalCard({ goal, userId, isFallback = false, onClick, v2 = false }: GoalCardProps) {
-  const gender = useUiGender();
+  const t = useT(profileNs);
   const [maxRepsHistory, setMaxRepsHistory] = useState<number[]>([]);
   const [latestReps, setLatestReps] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +49,7 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
   const pct = Math.round(fraction * 100);
 
   if (v2) {
-    const unitHe = goal.unit === 'seconds' ? 'שנ׳' : 'חזרות';
+    const unitHe = goal.unit === 'seconds' ? t('goalCard.unit.seconds') : t('goalCard.unit.reps');
     return (
       <button
         type="button"
@@ -97,15 +93,15 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
         ) : (
           <div className="flex h-[60px] items-center justify-center">
             <span className="text-center text-[12px] font-bold leading-snug text-v2-muted">
-              {pickGendered(gender, GRAPH_HINT_LINE1)}
+              {t('goalCard.hint.line1')}
               <br />
-              {pickGendered(gender, GRAPH_HINT_LINE2)}
+              {t('goalCard.hint.line2')}
             </span>
           </div>
         )}
 
         {!isFallback && (
-          <p className="text-center text-[11px] font-extrabold text-v2-deep">+150 XP בהשלמה</p>
+          <p className="text-center text-[11px] font-extrabold text-v2-deep">{t('goalCard.xpReward')}</p>
         )}
       </button>
     );
@@ -155,7 +151,7 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
           ) : (
             <span className="text-lg font-black text-gray-900 tabular-nums">
               {latestReps ?? '—'}
-              <span className="text-[10px] font-bold text-gray-400 ms-1">חזרות</span>
+              <span className="text-[10px] font-bold text-gray-400 ms-1">{t('goalCard.unit.reps')}</span>
             </span>
           )}
         </div>
@@ -179,9 +175,9 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
       ) : (
         <div className="h-[60px] flex items-center justify-center">
           <span className="text-[10px] text-gray-400 text-center leading-snug">
-            {pickGendered(gender, GRAPH_HINT_LINE1)}
+            {t('goalCard.hint.line1')}
             <br />
-            {pickGendered(gender, GRAPH_HINT_LINE2)}
+            {t('goalCard.hint.line2')}
           </span>
         </div>
       )}
@@ -189,7 +185,7 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
       {/* XP reward — only meaningful in goal mode (real target exists) */}
       {!isFallback && (
         <p className="text-[10px] font-bold text-amber-500 text-center mt-1">
-          +150 XP בהשלמה
+          {t('goalCard.xpReward')}
         </p>
       )}
     </button>

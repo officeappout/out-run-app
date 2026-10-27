@@ -17,6 +17,8 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { resolveImageForLocation } from '@/features/content/exercises/core/exercise.types';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface ResolvedWishlistItem {
   exerciseId: string;
@@ -67,6 +69,7 @@ function WishlistPillV2({ item }: { item: ResolvedWishlistItem }) {
 }
 
 export default function ExerciseWishlistStrip({ v2 = false }: { v2?: boolean } = {}) {
+  const t = useT(profileNs);
   const { profile } = useUserStore();
   const entries = profile?.progression?.exerciseWishlist ?? [];
   const [resolved, setResolved] = useState<ResolvedWishlistItem[]>([]);
@@ -97,13 +100,13 @@ export default function ExerciseWishlistStrip({ v2 = false }: { v2?: boolean } =
   if (v2) {
     return (
       <div dir="rtl">
-        <h3 className="mb-3 text-[15px] font-black text-v2-ink">תרגילים שאני רוצה ללמוד</h3>
+        <h3 className="mb-3 text-[15px] font-black text-v2-ink">{t('wishlist.title')}</h3>
         {entries.length === 0 ? (
           <div className="flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-v2-ring">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep">
               <Star className="h-[18px] w-[18px]" aria-hidden />
             </span>
-            <p className="text-[14px] font-bold text-v2-ink-2">עדיין לא סימנת תרגילים</p>
+            <p className="text-[14px] font-bold text-v2-ink-2">{t('wishlist.empty')}</p>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -121,11 +124,11 @@ export default function ExerciseWishlistStrip({ v2 = false }: { v2?: boolean } =
       <div dir="rtl">
         <div className="flex items-center gap-2 mb-3">
           <Star className="w-4 h-4 text-amber-400" />
-          <h3 className="text-sm font-black text-gray-900">תרגילים שאני רוצה ללמוד</h3>
+          <h3 className="text-sm font-black text-gray-900">{t('wishlist.title')}</h3>
         </div>
         <div className="flex flex-col items-center justify-center py-6 text-center">
           <Star className="w-10 h-10 text-gray-200 mb-2" />
-          <p className="text-sm font-bold text-gray-400">עדיין לא סימנת תרגילים</p>
+          <p className="text-sm font-bold text-gray-400">{t('wishlist.empty')}</p>
         </div>
       </div>
     );
@@ -135,7 +138,7 @@ export default function ExerciseWishlistStrip({ v2 = false }: { v2?: boolean } =
     <div dir="rtl">
       <div className="flex items-center gap-2 mb-3 px-0.5">
         <Star className="w-4 h-4 text-amber-400" />
-        <h3 className="text-sm font-black text-gray-900">תרגילים שאני רוצה ללמוד</h3>
+        <h3 className="text-sm font-black text-gray-900">{t('wishlist.title')}</h3>
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">

@@ -19,16 +19,24 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { social } from '@/messages/ns/social';
+import { withUnit, type CommonT } from '@/lib/i18n/units';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function timeAgo(date: Date): string {
+type SocialT = (key: NamespaceKey<typeof social>, values?: MessageValues) => string;
+
+function timeAgo(date: Date, t: SocialT, tc: CommonT): string {
   const diff = (Date.now() - date.getTime()) / 1000;
-  if (diff < 60) return 'עכשיו';
-  if (diff < 3600) return `${Math.floor(diff / 60)} דק׳`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} שע׳`;
-  return `${Math.floor(diff / 86400)} ימים`;
+  if (diff < 60) return t('chatInbox.now');
+  if (diff < 3600) return withUnit('min', Math.floor(diff / 60), tc);
+  if (diff < 86400) return withUnit('hour', Math.floor(diff / 3600), tc);
+  return t('chatInbox.days', { n: String(Math.floor(diff / 86400)) });
 }
 
 type InboxFilter = 'all' | 'unread' | 'groups';
@@ -47,9 +55,11 @@ interface ChatInboxProps {
 }
 
 export default function ChatInbox({ isOpen, onClose, initialThread = null }: ChatInboxProps) {
+  const t = useT(social);
+  const tc = useT(common);
   const { profile } = useUserStore();
   const myUid = profile?.id ?? null;
-  const myName = profile?.core?.name ?? 'אווטיר';
+  const myName = profile?.core?.name ?? 'אווטיר'; // i18n-allow-hebrew: data — sent as the sender name of every message
 
   // Admin/coach interception: ROOT admins only (david@/office@) see the
   // platform-wide master inbox of every chat — including minors' chats —
@@ -91,7 +101,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
   const threads = isAdmin
     ? allThreads
     : kellyUnified
-      ? myThreads.filter((t) => !t.participants?.includes(KELLY_UID))
+      ? myThreads.filter((th) => !th.participants?.includes(KELLY_UID))
       : myThreads;
   const isLoading = isAdmin ? allLoading : myLoading;
 
@@ -130,7 +140,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
 
   function getThreadDisplayName(thread: ChatThreadType): string {
     if (thread.type === 'group') {
-      return thread.groupName || 'קבוצה';
+      return thread.groupName || t('chatInbox.groupFallback');
     }
     // Admin master view: label each DM by the human participant (not Kelly).
     if (isAdmin) {
@@ -138,11 +148,11 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
         thread.participants.find((uid) => uid !== KELLY_UID) ??
         thread.participants[0] ??
         '';
-      return thread.participantNames?.[userUid] || 'משתמש';
+      return thread.participantNames?.[userUid] || t('chatInbox.userFallback');
     }
-    if (!myUid) return 'אווטיר';
+    if (!myUid) return t('chatInbox.avatarFallback');
     const partnerUid = thread.participants.find((uid) => uid !== myUid) ?? '';
-    return thread.participantNames?.[partnerUid] || 'אווטיר';
+    return thread.participantNames?.[partnerUid] || t('chatInbox.avatarFallback');
   }
 
   function getUnread(thread: ChatThreadType): number {
@@ -157,7 +167,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
   }
 
   function getLastMessagePreview(thread: ChatThreadType): string {
-    if (!thread.lastMessage) return 'התחל שיחה...';
+    if (!thread.lastMessage) return t('chatInbox.startConversation');
     if (thread.type === 'group' && thread.lastSenderId) {
       const senderName = thread.participantNames?.[thread.lastSenderId];
       if (senderName && thread.lastSenderId !== myUid) {
@@ -171,33 +181,33 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
     let list = threads;
 
     if (filter === 'unread') {
-      list = list.filter((t) => getUnread(t) > 0);
+      list = list.filter((th) => getUnread(th) > 0);
     } else if (filter === 'groups') {
-      list = list.filter((t) => t.type === 'group');
+      list = list.filter((th) => th.type === 'group');
     }
 
     if (searchTerm.trim().length >= 2) {
       const q = searchTerm.trim().toLowerCase();
-      list = list.filter((t) => getThreadDisplayName(t).toLowerCase().includes(q));
+      list = list.filter((th) => getThreadDisplayName(th).toLowerCase().includes(q));
     }
 
     return list;
   }, [threads, filter, searchTerm, myUid]);
 
-  const unreadTotal = threads.reduce((sum, t) => sum + getUnread(t), 0);
-  const groupCount = threads.filter((t) => t.type === 'group').length;
+  const unreadTotal = threads.reduce((sum, th) => sum + getUnread(th), 0);
+  const groupCount = threads.filter((th) => th.type === 'group').length;
 
   const FILTERS: { key: InboxFilter; label: string; count?: number }[] = [
-    { key: 'all', label: 'הכל' },
-    { key: 'unread', label: 'לא נקראו', count: unreadTotal },
-    { key: 'groups', label: 'קבוצות', count: groupCount },
+    { key: 'all', label: t('chatInbox.filter.all') },
+    { key: 'unread', label: t('chatInbox.filter.unread'), count: unreadTotal },
+    { key: 'groups', label: t('chatInbox.filter.groups'), count: groupCount },
   ];
 
   const title = openThread
     ? getThreadDisplayName(openThread)
     : isAdmin
-      ? 'הודעות (ניהול)'
-      : 'הודעות';
+      ? t('chatInbox.titleAdmin')
+      : t('chatInbox.title');
 
   const body = (
     <>
@@ -218,7 +228,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="חיפוש שיחות..."
+                placeholder={t('chatInbox.searchPlaceholder')}
                 className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
               />
               {searchTerm && (
@@ -298,7 +308,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
 
               {isLoading && (
                 <p className="text-sm text-gray-400 text-center py-12 animate-pulse">
-                  טוען שיחות...
+                  {t('chatInbox.loading')}
                 </p>
               )}
 
@@ -310,20 +320,20 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                   <p className="text-sm font-bold text-gray-900">
                     {filter === 'unread'
                       ? isAdmin
-                        ? 'אין שיחות שממתינות לתגובה'
-                        : 'אין הודעות שלא נקראו'
+                        ? t('chatInbox.empty.adminUnread')
+                        : t('chatInbox.empty.unread')
                       : filter === 'groups'
-                        ? 'אין שיחות קבוצתיות'
+                        ? t('chatInbox.empty.groups')
                         : isAdmin
-                          ? 'אין שיחות פעילות'
-                          : 'עדיין אין הודעות...'}
+                          ? t('chatInbox.empty.adminAll')
+                          : t('chatInbox.empty.all')}
                   </p>
                   <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
                     {isAdmin
-                      ? 'שיחות משתמשים יופיעו כאן לפי הזמן האחרון'
+                      ? t('chatInbox.emptyHint.admin')
                       : filter === 'all'
-                        ? 'לחץ על אווטיר במפה כדי לפתוח שיחה'
-                        : 'נסה לסנן לפי "הכל"'}
+                        ? t('chatInbox.emptyHint.all')
+                        : t('chatInbox.emptyHint.filtered')}
                   </p>
                 </div>
               )}
@@ -362,12 +372,12 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                             </span>
                             {isGroup && (
                               <span className="flex-shrink-0 text-[9px] bg-purple-100 text-purple-600 font-bold rounded px-1.5 py-0.5">
-                                קבוצה
+                                {t('chatInbox.groupBadge')}
                               </span>
                             )}
                           </div>
                           <span className="text-[11px] text-gray-400 flex-shrink-0 mr-2">
-                            {timeAgo(thread.lastMessageAt)}
+                            {timeAgo(thread.lastMessageAt, t, tc)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between mt-0.5">
@@ -417,21 +427,21 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
           <div className="flex items-center justify-between gap-3 px-5 py-2" dir="rtl">
             <div className="flex min-w-0 items-center gap-2">
               {openThread && (
-                <IconButton aria-label="חזרה לרשימה" tone="surface" size={36} className="shrink-0" onClick={() => setOpenThread(null)}>
+                <IconButton aria-label={t('chatInbox.backToList')} tone="surface" size={36} className="shrink-0" onClick={() => setOpenThread(null)}>
                   <ChevronLeft className="h-4 w-4" />
                 </IconButton>
               )}
               <h2 className="truncate text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{title}</h2>
               {openThread?.type === 'group' && (
                 <span className="shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep">
-                  קבוצה
+                  {t('chatInbox.groupBadge')}
                 </span>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {!openThread && (
                 <IconButton
-                  aria-label="חיפוש שיחות"
+                  aria-label={t('chatInbox.search')}
                   aria-pressed={searchOpen}
                   tone={searchOpen ? 'tint' : 'surface'}
                   size={36}
@@ -440,7 +450,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                   <Search className="h-4 w-4" />
                 </IconButton>
               )}
-              <IconButton aria-label="סגירה" tone="surface" size={36} onClick={onClose}>
+              <IconButton aria-label={t('chatInbox.close')} tone="surface" size={36} onClick={onClose}>
                 <X className="h-4 w-4" />
               </IconButton>
             </div>
@@ -501,12 +511,12 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                   {openThread
                     ? getThreadDisplayName(openThread)
                     : isAdmin
-                      ? 'הודעות (ניהול)'
-                      : 'הודעות'}
+                      ? t('chatInbox.titleAdmin')
+                      : t('chatInbox.title')}
                 </h2>
                 {openThread?.type === 'group' && (
                   <span className="text-[10px] bg-purple-100 text-purple-600 font-bold rounded-full px-2 py-0.5">
-                    קבוצה
+                    {t('chatInbox.groupBadge')}
                   </span>
                 )}
               </div>

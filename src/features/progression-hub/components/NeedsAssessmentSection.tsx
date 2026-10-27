@@ -19,15 +19,18 @@ import {
   type HubNeedsAssessmentItem,
 } from '@/features/progression-map/services/progress-hub-bucketing.service';
 import { SkillMapCard } from './SkillMapCard';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export function NeedsAssessmentSection({ items }: { items: HubNeedsAssessmentItem[] }) {
+  const t = useT(profileNs);
   const router = useRouter();
   if (items.length === 0) return null;
 
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-sm font-black text-gray-800">עוד לא בדקת רמה</h2>
+        <h2 className="text-sm font-black text-gray-800">{t('hubV1.needsAssessment')}</h2>
         <p className="mt-1 text-xs font-medium text-gray-500">{NEEDS_ASSESSMENT_EXPLAINER}</p>
       </div>
       <div className="space-y-3">

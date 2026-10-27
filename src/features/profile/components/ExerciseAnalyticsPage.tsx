@@ -36,6 +36,8 @@ import { formatDate } from '@/lib/i18n/core/fmt';
 import { useLocaleStore } from '@/store/useLocaleStore';
 import type { Locale } from '@/lib/i18n/locales';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -71,16 +73,16 @@ function fmtImprovement(pct: number | null): string {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const TIME_RANGES: { key: TimeRange; label: string }[] = [
-  { key: '1m', label: '1ח׳' },
-  { key: '3m', label: '3ח׳' },
-  { key: 'all', label: 'הכל' },
-];
+const TIME_RANGES = [
+  { key: '1m', labelKey: 'exerciseAnalyticsV1.range.1m' },
+  { key: '3m', labelKey: 'exerciseAnalyticsV1.range.3m' },
+  { key: 'all', labelKey: 'exerciseAnalyticsV1.range.all' },
+] as const satisfies ReadonlyArray<{ key: TimeRange; labelKey: string }>;
 
-const METRIC_OPTS: { key: Metric; label: string }[] = [
-  { key: 'maxReps', label: 'שיא חזרות' },
-  { key: 'totalVolume', label: 'נפח כולל' },
-];
+const METRIC_OPTS = [
+  { key: 'maxReps', labelKey: 'exerciseAnalyticsV1.metric.maxReps' },
+  { key: 'totalVolume', labelKey: 'exerciseAnalyticsV1.metric.totalVolume' },
+] as const satisfies ReadonlyArray<{ key: Metric; labelKey: string }>;
 
 /** Number wheel values for the goal picker — 1 to 100. */
 const GOAL_RANGE = Array.from({ length: 100 }, (_, i) => i + 1);
@@ -88,6 +90,7 @@ const GOAL_RANGE = Array.from({ length: 100 }, (_, i) => i + 1);
 // ── Main component ───────────────────────────────────────────────────────────
 
 export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: Props) {
+  const t = useT(profileNs);
   const locale = useLocaleStore((s) => s.locale);
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
@@ -115,7 +118,8 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
     value: metric === 'maxReps' ? s.maxReps : s.totalVolume,
   }));
 
-  const metricUnit = metric === 'maxReps' ? 'חזרות' : 'חז׳ (נפח)';
+  const metricUnit =
+    metric === 'maxReps' ? t('exerciseAnalyticsV1.metricUnit.reps') : t('exerciseAnalyticsV1.metricUnit.volume');
   const yMax = chartData.length > 0 ? Math.max(...chartData.map((d) => d.value)) : 10;
 
   // Ensure the Y domain always fits the reference line
@@ -167,13 +171,13 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
           <button
             onClick={() => router.back()}
             className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-600 active:bg-gray-100 transition-colors"
-            aria-label="חזור"
+            aria-label={t('exerciseAnalyticsV1.back')}
           >
             <ChevronRight className="w-5 h-5" />
           </button>
           <div className="flex-1 min-w-0 text-center">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              ניתוח ביצועים
+              {t('exerciseAnalyticsV1.title')}
             </p>
             <h1 className="text-[15px] font-black text-gray-900 truncate leading-tight">
               {exerciseName}
@@ -181,7 +185,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
           </div>
           <button
             className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 active:bg-gray-100 transition-colors"
-            aria-label="הגדרות"
+            aria-label={t('exerciseAnalyticsV1.settings')}
           >
             <Settings2 className="w-5 h-5" />
           </button>
@@ -191,7 +195,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
 
           {/* ── Time range selector ── */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-            {TIME_RANGES.map(({ key, label }) => (
+            {TIME_RANGES.map(({ key, labelKey }) => (
               <button
                 key={key}
                 onClick={() => setTimeRange(key)}
@@ -202,7 +206,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
                     : 'text-gray-500',
                 ].join(' ')}
               >
-                {label}
+                {t(labelKey)}
               </button>
             ))}
           </div>
@@ -220,14 +224,14 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
           ) : analytics && (
             <div className="grid grid-cols-3 gap-2">
               <StatCard
-                label="שיא אישי"
+                label={t('exerciseAnalyticsV1.stat.personalBest')}
                 value={analytics.personalBest > 0 ? String(analytics.personalBest) : '—'}
-                unit="חז׳"
+                unit={t('exerciseAnalyticsV1.stat.repsUnit')}
                 icon={<Award className="w-3.5 h-3.5 text-amber-400" />}
                 accent="amber"
               />
               <StatCard
-                label="נפח כולל"
+                label={t('exerciseAnalyticsV1.stat.totalVolume')}
                 value={
                   analytics.cumulativeVolume > 0
                     ? analytics.cumulativeVolume >= 1000
@@ -235,12 +239,12 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
                       : String(analytics.cumulativeVolume)
                     : '—'
                 }
-                unit="חז׳"
+                unit={t('exerciseAnalyticsV1.stat.repsUnit')}
                 icon={<TrendingUp className="w-3.5 h-3.5 text-[#00ADEF]" />}
                 accent="blue"
               />
               <StatCard
-                label="שיפור"
+                label={t('exerciseAnalyticsV1.stat.improvement')}
                 value={fmtImprovement(improvementPct)}
                 unit=""
                 icon={<Zap className="w-3.5 h-3.5 text-purple-400" />}
@@ -265,7 +269,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
                   className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl px-3 py-1.5 active:scale-95 transition-transform"
                 >
                   <Target className="w-3.5 h-3.5" />
-                  <span className="text-xs font-black">יעד: {effectiveTarget} חז׳</span>
+                  <span className="text-xs font-black">{t('exerciseAnalyticsV1.goal.pill', { n: String(effectiveTarget) })}</span>
                   <Pencil className="w-3 h-3 opacity-60" />
                 </button>
               ) : (
@@ -275,7 +279,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
                   className="flex items-center gap-1.5 bg-white border border-dashed border-gray-300 text-gray-500 rounded-xl px-3 py-1.5 active:scale-95 transition-transform"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span className="text-xs font-black">הוסף יעד</span>
+                  <span className="text-xs font-black">{t('exerciseAnalyticsV1.goal.add')}</span>
                 </button>
               )}
             </div>
@@ -283,7 +287,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
 
           {/* ── Metric toggle ── */}
           <div className="flex gap-2">
-            {METRIC_OPTS.map(({ key, label }) => (
+            {METRIC_OPTS.map(({ key, labelKey }) => (
               <button
                 key={key}
                 onClick={() => setMetric(key)}
@@ -294,7 +298,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
                     : 'bg-white text-gray-500 border-gray-200',
                 ].join(' ')}
               >
-                {label}
+                {t(labelKey)}
               </button>
             ))}
           </div>
@@ -374,7 +378,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
                           strokeDasharray="6 3"
                           strokeWidth={1.5}
                           label={{
-                            value: `יעד ${effectiveTarget}`,
+                            value: t('exerciseAnalyticsV1.chart.target', { n: String(effectiveTarget) }),
                             position: 'insideTopRight',
                             fontSize: 9,
                             fill: '#F59E0B',
@@ -401,14 +405,14 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-[#00ADEF]" />
                     <span className="text-[10px] font-bold text-gray-500">
-                      {metric === 'maxReps' ? 'שיא חזרות' : 'נפח כולל'}
+                      {metric === 'maxReps' ? t('exerciseAnalyticsV1.metric.maxReps') : t('exerciseAnalyticsV1.metric.totalVolume')}
                     </span>
                   </div>
                   {effectiveTarget != null && effectiveTarget > 0 && metric === 'maxReps' && (
                     <div className="flex items-center gap-1.5">
                       <div className="w-5 border-t border-dashed border-amber-400" />
                       <span className="text-[10px] font-bold text-gray-400">
-                        יעד ({effectiveTarget} חז׳)
+                        {t('exerciseAnalyticsV1.chart.legendTarget', { n: String(effectiveTarget) })}
                       </span>
                     </div>
                   )}
@@ -422,22 +426,22 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
             <div className="bg-white rounded-2xl shadow-subtle border border-gray-100 overflow-hidden">
               {/* Log header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-                <h2 className="text-sm font-black text-gray-900">היסטוריה מלאה</h2>
+                <h2 className="text-sm font-black text-gray-900">{t('exerciseAnalyticsV1.history.title')}</h2>
                 <span className="text-[10px] font-bold text-gray-400 bg-gray-100 rounded-lg px-2 py-0.5">
-                  {filteredSessions.length} אימונים
+                  {t('exerciseAnalyticsV1.history.count', { n: String(filteredSessions.length) })}
                 </span>
               </div>
 
               {/* Column labels */}
               <div className="flex items-center px-4 py-1.5 bg-gray-50 border-b border-gray-100">
                 <span className="flex-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                  תאריך
+                  {t('exerciseAnalyticsV1.history.col.date')}
                 </span>
                 <span className="w-24 text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                  סטים × חזרות
+                  {t('exerciseAnalyticsV1.history.col.sets')}
                 </span>
                 <span className="w-12 text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                  שינוי
+                  {t('exerciseAnalyticsV1.history.col.change')}
                 </span>
               </div>
 
@@ -503,6 +507,7 @@ function GoalPickerModal({
   onClose,
   onSave,
 }: GoalPickerModalProps) {
+  const t = useT(profileNs);
   const [selected, setSelected] = useState(initialValue);
 
   // Sync picker when the modal re-opens with a new context
@@ -540,13 +545,13 @@ function GoalPickerModal({
                   <div className="flex items-center gap-2 mb-1">
                     <Target className="w-4 h-4 text-amber-400" />
                     <h2 className="text-base font-black text-gray-900">
-                      {currentGoal != null ? 'עדכן יעד' : 'הגדר יעד אישי'}
+                      {currentGoal != null ? t('exerciseAnalyticsV1.picker.update') : t('exerciseAnalyticsV1.picker.set')}
                     </h2>
                   </div>
                   <p className="text-xs text-gray-400 leading-relaxed">
                     {currentGoal != null
-                      ? `יעד נוכחי: ${currentGoal} חזרות`
-                      : 'בחר כמה חזרות תרצה להגיע'}
+                      ? t('exerciseAnalyticsV1.picker.current', { n: String(currentGoal) })
+                      : t('exerciseAnalyticsV1.picker.hint')}
                   </p>
                 </div>
                 <button
@@ -564,7 +569,7 @@ function GoalPickerModal({
                 values={GOAL_RANGE}
                 selectedValue={selected}
                 onChange={setSelected}
-                label="חזרות"
+                label={t('exerciseAnalyticsV1.picker.unit')}
               />
             </div>
 
@@ -581,7 +586,7 @@ function GoalPickerModal({
                 {saving ? (
                   <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  'שמירה'
+                  t('exerciseAnalyticsV1.picker.save')
                 )}
               </button>
             </div>
@@ -707,35 +712,38 @@ function DeltaBadge({ delta }: { delta: number }) {
 // ── Empty / error states ──────────────────────────────────────────────────────
 
 function FirstSessionEmptyState({ exerciseName }: { exerciseName: string }) {
+  const t = useT(profileNs);
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center gap-2 px-4">
-      <span className="text-4xl" role="img" aria-label="ניצחון">
+      <span className="text-4xl" role="img" aria-label={t('exerciseAnalyticsV1.first.emoji')}>
         🎉
       </span>
-      <p className="text-sm font-black text-gray-800">הצעד הראשון נרשם!</p>
+      <p className="text-sm font-black text-gray-800">{t('exerciseAnalyticsV1.first.title')}</p>
       <p className="text-xs text-gray-400 max-w-[220px] leading-relaxed">
-        הנתון הראשון שלך ב{exerciseName} נשמר. סיים עוד אימון כדי לראות את הגרף מתחיל לחיות.
+        {t('exerciseAnalyticsV1.first.body', { name: exerciseName })}
       </p>
     </div>
   );
 }
 
 function EmptyRangeState() {
+  const t = useT(profileNs);
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
       <TrendingUp className="w-10 h-10 text-gray-200" />
-      <p className="text-sm font-black text-gray-500">אין נתונים בטווח הזמן הזה</p>
-      <p className="text-xs text-gray-400">נסה טווח ארוך יותר</p>
+      <p className="text-sm font-black text-gray-500">{t('exerciseAnalyticsV1.emptyRange.title')}</p>
+      <p className="text-xs text-gray-400">{t('exerciseAnalyticsV1.emptyRange.hint')}</p>
     </div>
   );
 }
 
 function ErrorState() {
+  const t = useT(profileNs);
   const uiGender = useUiGender();
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
       <TrendingUp className="w-10 h-10 text-gray-200" />
-      <p className="text-sm font-black text-gray-500">שגיאה בטעינת הנתונים</p>
+      <p className="text-sm font-black text-gray-500">{t('exerciseAnalyticsV1.error.title')}</p>
       <p className="text-xs text-gray-400">{pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
     </div>
   );
