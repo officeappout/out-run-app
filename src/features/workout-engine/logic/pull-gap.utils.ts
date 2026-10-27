@@ -162,3 +162,21 @@ export function balanceFocusAreas(
   }
   return mode;
 }
+
+/**
+ * Standard (non-day-focus) sessions: the user trains pull without pull gear (home
+ * without a bar, a park with none mapped) → stamp `pullGap: 'bodyweight_pull'` so the
+ * overview says "אין מתח — משיכה בלי ציוד". Never overrides a mode a day-focus pass
+ * already set; a session without a pull exercise says nothing (lower days stay silent).
+ */
+export function stampBodyweightPullGap(
+  workout: GeneratedWorkout,
+  availableEquipment: readonly string[],
+): PullGapMode | null {
+  if (workout.pullGap) return workout.pullGap;
+  if (hasPullGear(availableEquipment)) return null;
+  const mains = workout.exercises.filter((e) => isMainRole(e) && !e.protocolBlock);
+  if (!mains.some((e) => isPull(e.exercise))) return null;
+  workout.pullGap = 'bodyweight_pull';
+  return 'bodyweight_pull';
+}
