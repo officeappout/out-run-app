@@ -156,7 +156,6 @@ export type PersonaGroup = 'student' | 'mom' | 'dad' | 'senior' | 'reservist' | 
 
 export interface InitialCardProps {
   gender: 'male' | 'female';
-  t: (male: string, female: string) => string;
   locationError: string | null;
   onFindLocation: () => void;
   onSearchManually: () => void;

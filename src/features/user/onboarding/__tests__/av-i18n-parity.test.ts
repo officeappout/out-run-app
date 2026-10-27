@@ -44,7 +44,8 @@ import {
 import { BUNDLED_GOAL_PHOTOS, GOAL_IMAGE_CONFIG } from '../constants/program-path-goal-images';
 import { RUNNING_LABELS, STRENGTH_LABELS } from '../constants/onboarding-phases';
 import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
-import { ENTRY_COPY } from '../components/steps/UnifiedLocation/entry-globe/entry-copy';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
 import { STAGE_TITLES, getStageTitle } from '@/features/user/progression/config/stage-titles';
 import { LEVEL_STAGES, getLevelName } from '@/features/user/progression/config/lemur-stages';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
@@ -150,10 +151,11 @@ describe('av parity — constants + data', () => {
   });
 
   it('phase labels, health questions, entry copy, stage titles', async () => {
+    const entryT = makeT('he', onboardingNs);
     await expect(dump({
       RUNNING_LABELS, STRENGTH_LABELS, HEALTH_QUESTIONS, LEGAL_TEXT,
       headline: {
-        pre: ENTRY_COPY.headlinePre, goals: ENTRY_COPY.headlineGoals, need: ENTRY_COPY.headlineNeed, nothing: ENTRY_COPY.headlineNothing,
+        pre: entryT('entryHeadline.pre'), goals: ['train', 'health', 'people', 'strong'].map((k) => entryT(`entryHeadline.goal.${k}` as never)), need: entryT('entryHeadline.need'), nothing: entryT('entryHeadline.nothing'),
       },
       STAGE_TITLES, stage0: getStageTitle(0), stage11: getStageTitle(11),
       LEVEL_STAGES,

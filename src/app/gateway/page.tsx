@@ -25,17 +25,19 @@ import { consumePendingInvites } from '@/features/user/onboarding/services/consu
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
 import { legacyGatewayRedirect } from '@/lib/landing-fallback/fallback-routes';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // ============================================================================
 // LOADING OVERLAY — Clean, branded transition
 // ============================================================================
 
 const LOADING_STATES = [
-  "מאתר מסלולים אופטימליים...",
-  "מכייל GPS...",
-  "מנתח נתוני שטח...",
-  "מכין את הדאשבורד שלך...",
-];
+  'gateway.overlay.status.routes',
+  'gateway.overlay.status.gps',
+  'gateway.overlay.status.terrain',
+  'gateway.overlay.status.dashboard',
+] as const;
 
 interface GuestTransitionOverlayProps {
   status: 'loading' | 'error';
@@ -59,6 +61,7 @@ interface GuestTransitionOverlayProps {
  *     always gets the user back to a real, interactive screen.
  */
 function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOverlayProps) {
+  const t = useT(onboarding);
   const [statusIndex, setStatusIndex] = useState(0);
 
   useEffect(() => {
@@ -98,7 +101,7 @@ function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOver
                 className="text-[#5BC2F2] text-sm font-medium absolute w-full"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                {LOADING_STATES[statusIndex]}
+                {t(LOADING_STATES[statusIndex])}
               </motion.p>
             </AnimatePresence>
           </div>
@@ -118,23 +121,23 @@ function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOver
             className="text-slate-700 text-base font-bold mb-2"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            החיבור לא הצליח
+            {t('gateway.overlay.error.title')}
           </p>
           <p className="text-slate-600 text-sm font-medium mb-8 max-w-xs">
-            משהו השתבש בהתחברות. בדקו את החיבור לאינטרנט ונסו שוב, או חזרו למסך הראשי.
+            {t('gateway.overlay.error.body')}
           </p>
           <div className="w-full max-w-xs flex flex-col gap-3">
             <BrandCtaButton
               onClick={onRetry}
               className="w-full py-3.5 text-sm"
             >
-              נסה שוב
+              {t('gateway.overlay.error.retry')}
             </BrandCtaButton>
             <button
               onClick={onExit}
               className="w-full py-3.5 rounded-2xl bg-slate-100 text-slate-600 font-bold text-sm"
             >
-              חזרה למסך הראשי
+              {t('gateway.overlay.error.exit')}
             </button>
           </div>
         </>
@@ -150,6 +153,7 @@ function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOver
 export default function GatewayPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const t = useT(onboarding);
   const [loading, setLoading] = useState(false);
   const [showGuestTransition, setShowGuestTransition] = useState(false);
   const [guestTransitionStatus, setGuestTransitionStatus] = useState<'loading' | 'error'>('loading');
@@ -224,7 +228,7 @@ export default function GatewayPage() {
           if (typeof window !== 'undefined' && localStorage.getItem('pending_session_token')) {
             const sessionRedirect = await consumePendingSessionInvite(
               user.uid,
-              user.displayName ?? 'משתמש',
+              user.displayName ?? 'משתמש', // i18n-allow-hebrew: data — saved as the member's display name
               user.photoURL ?? null,
             );
             if (sessionRedirect) {
@@ -312,7 +316,7 @@ export default function GatewayPage() {
         // full-screen overlay to fall back into, so surface it as a toast
         // instead (P0-1, 24.09.2026). The button is already interactive
         // again below, which doubles as "try again."
-        showToast('error', 'החיבור לא הצליח. נסו שוב.');
+        showToast('error', t('landing.toast.connectFailed'));
         isBusyRef.current = false;
         setLoading(false);
         return;
@@ -361,7 +365,7 @@ export default function GatewayPage() {
       // community page group-invite flows that don't go through /join/[code].
       const groupRedirect = await consumePendingGroupInvite(
         user.uid,
-        user.displayName ?? 'משתמש',
+        user.displayName ?? 'משתמש', // i18n-allow-hebrew: data — saved as the member's display name
       );
       if (groupRedirect) {
         router.push(groupRedirect);
@@ -371,7 +375,7 @@ export default function GatewayPage() {
       // If user came from a session invite deep link, consume token then redirect to map
       const sessionRedirect = await consumePendingSessionInvite(
         user.uid,
-        user.displayName ?? 'משתמש',
+        user.displayName ?? 'משתמש', // i18n-allow-hebrew: data — saved as the member's display name
         user.photoURL,
       );
       if (sessionRedirect) {
@@ -383,7 +387,7 @@ export default function GatewayPage() {
     } catch (error) {
       console.error('[Gateway] Get program error:', error);
       reportSignupFailure('GATEWAY_GET_PROGRAM', extractErrorCode(error));
-      showToast('error', 'החיבור לא הצליח. נסו שוב.');
+      showToast('error', t('landing.toast.connectFailed'));
       isBusyRef.current = false;
       setLoading(false);
     }
@@ -426,7 +430,7 @@ export default function GatewayPage() {
             className="text-slate-600 text-sm font-medium"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            מה מתאים לך?
+            {t('gateway.title')}
           </p>
         </motion.div>
 
@@ -472,14 +476,14 @@ export default function GatewayPage() {
                   className="text-xl font-bold text-slate-900"
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  גלו את המפה
+                  {t('gateway.card.map.title')}
                 </h2>
               </div>
               <p
                 className="text-sm text-slate-900 font-medium"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                כניסה מהירה ללא הרשמה למציאת מסלולי ריצה, גינות כושר קרובות ומתאמנים סביבכם בלייב.
+                {t('gateway.card.map.body')}
               </p>
             </div>
           </motion.button>
@@ -511,11 +515,11 @@ export default function GatewayPage() {
                 <div className="flex items-center gap-2 mb-1.5">
                   <Footprints size={18} className="text-orange-500" />
                   <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
-                    תוכנית ריצה
+                    {t('gateway.card.running.title')}
                   </h2>
                 </div>
                 <p className="text-sm text-slate-500 font-normal" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  מ-0 ל-5K או שיפור זמנים
+                  {t('gateway.card.running.body')}
                 </p>
               </div>
             </motion.button>
@@ -556,21 +560,21 @@ export default function GatewayPage() {
                   className="w-[18px] h-[18px] object-contain"
                 />
                 <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  תוכנית כוח
+                  {t('gateway.card.strength.title')}
                 </h2>
               </div>
               <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }}>
-                אימון מותאם אישית למטרות שלך
+                {t('gateway.card.strength.body')}
               </p>
             </div>
           </motion.button>
 
         </div>
 
-        <nav aria-label="מידע משפטי ונגישות" className="flex items-center justify-center gap-4 text-xs" style={{ fontFamily: 'var(--font-simpler)' }}>
+        <nav aria-label={t('gateway.legal.label')} className="flex items-center justify-center gap-4 text-xs" style={{ fontFamily: 'var(--font-simpler)' }}>
           {/* 44px-tall hit area; the negative margin keeps the row's layout exactly as before. */}
-          <a href="/accessibility" className="-my-3.5 inline-flex min-h-[44px] items-center font-semibold text-[#007EA8] underline underline-offset-2">הצהרת נגישות</a>
-          <a href="/privacy" className="-my-3.5 inline-flex min-h-[44px] items-center font-semibold text-[#007EA8] underline underline-offset-2">מדיניות פרטיות</a>
+          <a href="/accessibility" className="-my-3.5 inline-flex min-h-[44px] items-center font-semibold text-[#007EA8] underline underline-offset-2">{t('gateway.legal.accessibility')}</a>
+          <a href="/privacy" className="-my-3.5 inline-flex min-h-[44px] items-center font-semibold text-[#007EA8] underline underline-offset-2">{t('gateway.legal.privacy')}</a>
         </nav>
 
       </div>

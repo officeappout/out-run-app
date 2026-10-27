@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
@@ -102,7 +104,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const gender = typeof window !== 'undefined'
     ? (sessionStorage.getItem('onboarding_personal_gender') || 'male') as 'male' | 'female'
     : 'male';
-  const t = (male: string, female: string) => gender === 'female' ? female : male;
+  const t = useT(onboarding);
 
   // ── Selected Sports from onboarding state ──
   const allSelectedSports: string[] = (() => {
@@ -588,7 +590,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     if (gpsSessionRef.current !== session) return;
 
     if (first.status !== 'ok') {
-      setLocationError('לא הצלחנו לאתר את המיקום שלך. נסה שוב או חפש ידנית.');
+      setLocationError(t('locationStep.error.noFix'));
       setStage(LocationStage.INITIAL);
       if (!isExplorer) {
         try {
@@ -647,7 +649,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     if (gpsSessionRef.current !== session) return;
     const start = diveStartFor(answer);
     if (start === 'never') {
-      setLocationError('לא הצלחנו לאתר את המיקום שלך. נסה שוב או חפש ידנית.');
+      setLocationError(t('locationStep.error.noFix'));
       setStage(LocationStage.INITIAL);
       return;
     }
@@ -672,7 +674,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     const coords = await useGPSStore.getState().requestPermissionNow();
 
     if (!coords) {
-      setLocationError('לא הצלחנו לאתר את המיקום שלך. נסה שוב או חפש ידנית.');
+      setLocationError(t('locationStep.error.noFix'));
 
       // Return to INITIAL card so the error red box is visible
       // and the user can retry or tap "search manually"
@@ -1050,7 +1052,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
               transition={{ duration: 1.5, repeat: Infinity }}
               className={v2 ? 'text-[14px] font-bold text-v2-muted whitespace-nowrap' : 'text-slate-600 font-simpler'}
             >
-              טוען מפה...
+              {t('locationStep.mapLoading')}
             </motion.p>
           </div>
         )}
@@ -1156,7 +1158,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
                 const isHybrid = heroRoute.isHybrid;
                 const heroColor = isHybrid ? '#F97316' : '#06B6D4';
                 const glowColor = isHybrid ? '#FB923C' : '#22D3EE';
-                const routeKm = heroRoute.distance ? `${heroRoute.distance.toFixed(1)} ק״מ מסלול` : '';
+                const routeKm = heroRoute.distance ? t('locationStep.heroRoute.km', { km: heroRoute.distance.toFixed(1) }) : '';
 
                 return (
                   <React.Fragment key={`hero-${heroRoute.id}`}>
@@ -1294,7 +1296,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
                 <div className="absolute inset-1 rounded-full overflow-hidden">
                   <img
                     src="/assets/lemur/king-lemur.png"
-                    alt="המיקום שלך"
+                    alt={t('locationStep.you.alt')}
                     className="w-full h-full object-cover"
                     style={{ objectPosition: 'center center' }}
                   />
@@ -1401,7 +1403,6 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           <InitialCard
             key="initial"
             gender={gender}
-            t={t}
             locationError={locationError}
             onFindLocation={handleFindLocation}
             onSearchManually={handleSearchManually}

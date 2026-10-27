@@ -760,6 +760,12 @@ src/features/social/components/ChatThread.tsx
 src/app/community/[id]/page.tsx
 src/app/community/_components/leagues/CompetitionToggle.tsx
 src/app/arena/create/
+# batch au (namespace onboarding, keys gateway.* / dynamicPage.* / locationStep.* / entryHeadline.*) — /gateway, the dynamic
+# questionnaire page, the location step's own copy and the entry globe headline (entry-copy.ts removed, nothing else read it).
+src/app/gateway/
+src/app/onboarding-new/dynamic/
+src/features/user/onboarding/components/steps/UnifiedLocationStep.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntryGlobeHeadline.tsx
 
 # batch av (namespaces onboarding + profile) — onboarding non-component code and progression config/components.
 # Files that return Hebrew to outside callers are listed file-level; component folders stay out (batch au / open PRs).
@@ -782,7 +788,6 @@ src/features/user/onboarding/constants/program-path.constants.ts
 src/features/user/onboarding/constants/program-path-goal-images.ts
 src/features/user/onboarding/constants/onboarding-phases.ts
 src/features/user/onboarding/data/health-questions.ts
-src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/entry-copy.ts
 src/features/user/progression/config/stage-titles.ts
 src/features/user/progression/config/lemur-stages.ts
 src/features/user/progression/components/BadgeDisplay.tsx
