@@ -823,3 +823,6 @@ src/features/workout-engine/summary/run-type/run-type.mapping.ts
 src/features/workouts/components/ExpandableText.tsx
 src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts
 src/features/workout-engine/players/strength/logic/player-controls.utils.ts
+# schedule tutorial v1 (namespace schedule, keys tutorial.* / dayCards.*): new folders, translation-ready from the start.
+src/features/schedule/tutorial-v1
+src/features/schedule/day-cards
