@@ -1,5 +1,6 @@
 'use client';
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 
 /** v2 hairline ring (design-language §2). */
@@ -107,6 +108,7 @@ export default function GeneratedWorkoutExerciseList({
 }: GeneratedWorkoutExerciseListProps) {
   const v2 = useHomeV2();
   const t = useT(library);
+  const contentLang = useContentLanguage();
   // enable_home_v2: a workout with a timed block (AMRAP / EMOM main, tabata) gets the
   // overview header + journey strip + intensity profile and format block headers.
   const timedModel = useMemo(
@@ -424,7 +426,7 @@ export default function GeneratedWorkoutExerciseList({
                   const parentName =
                     typeof ex.exercise.name === 'string'
                       ? ex.exercise.name
-                      : getLocalizedText(ex.exercise.name, 'he');
+                      : getLocalizedText(ex.exercise.name, contentLang);
 
                   if (isPyramid) {
                     return pyramidSeq!.map((step, stepIdx) => {

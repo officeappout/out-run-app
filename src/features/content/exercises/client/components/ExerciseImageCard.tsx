@@ -27,6 +27,7 @@
  * numbers.
  */
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { useMemo, useState } from 'react';
 import { Gauge, Play } from 'lucide-react';
 import { Exercise, getLocalizedText } from '../../core/exercise.types';
@@ -66,7 +67,8 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
   // object itself actually changes (levelsByProgram is replaced wholesale
   // by setLevelsByProgram, never mutated in place).
   const activeProgramIds = useMemo(() => Object.keys(levelsByProgram), [levelsByProgram]);
-  const name = getLocalizedText(exercise.name);
+  const lang = useContentLanguage();
+  const name = getLocalizedText(exercise.name, lang);
   const muscle = pickPrimaryMuscle(exercise);
   const thumbnailUrl = pickThumbnailUrl(exercise, filterLocation);
   const level = resolveCardLevel(exercise, activeProgramIds, allPrograms);

@@ -567,6 +567,9 @@ export const FLAG_DEFS = [
   { key: 'enableLocaleEn', firestoreKey: 'enable_locale_en', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleRu', firestoreKey: 'enable_locale_ru', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleDe', firestoreKey: 'enable_locale_de', defaultValue: false, superAdminValue: false },
+  // Content in the user's language (exercise names, descriptions...). OFF = Hebrew content exactly as before. Needs enable_i18n
+  // and the user on English; an empty English field falls back to Hebrew. Display only (no stored data changes).
+  { key: 'enableContentLocale', firestoreKey: 'enable_content_locale', defaultValue: false, superAdminValue: false },
   // i18n wave 5B (docs/i18n/PLAN.md §2.6) — pushes by recipient locale. Needs enable_i18n too. OFF = every push is
   // selected and rendered exactly as before (Hebrew). On: users/{uid}.core.locale → library rows of that locale →
   // translated code defaults → Hebrew. Read server-side from system_config/feature_flags (the super-admin value
