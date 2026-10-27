@@ -1,1 +1,19 @@
-{}
+{
+  "refineLevels.title": "Update levels",
+  "refineLevels.subtitle": "Adjust the level for each muscle group",
+  "refineLevels.saving": "Saving changes...",
+  "refineLevels.saved.title": "Levels updated",
+  "refineLevels.saved.subtitle": "Going back to settings...",
+  "refineLevels.saveFailed": "Couldn’t save, please try again",
+  "globalError.title": "Something went wrong",
+  "globalError.chunkBody": "A new version of the app is available. Reload the page to continue.",
+  "globalError.reload": "Reload page",
+  "globalError.retry": "Try again",
+  "roadmap.welcome": "Welcome!",
+  "roadmap.sub": "Your workouts start now",
+  "roadmap.done": "You finished signing up!",
+  "roadmap.soon": "The full Roadmap page will be here soon",
+  "roadmap.home": "Go to home",
+  "roadmap.map": "View the map",
+  "explorer.saveFailed": "We couldn’t save the location. Check your internet connection and try again."
+}
