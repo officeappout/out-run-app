@@ -15,11 +15,11 @@ import { diffWeek, refKey } from './diff';
 import { dayReasons } from './explain';
 import { finalizeLayout } from './finalize';
 import { renderV2ReasonsHe, type V2Reason } from './reasonsV2';
-import { checkHardRules, emptyGrid, isEasyRun, isLongRun, runStreakCap, type Grid } from './rules';
+import { checkHardRules, emptyGrid, isEasyRun, isLegsUnit, isLongRun, runStreakCap, type Grid } from './rules';
 import { streakComfortOf, type ScoreCtx } from './score';
 import { searchWeek, type SearchResult } from './search';
 import { applyLadder, buildUnits, makeRunUnit, makeStrengthUnit, type ReducedSet, type Unit } from './units';
-import { canonicalSlug, HEAVY_LEGS } from './programProfiles';
+import { canonicalSlug } from './programProfiles';
 import type { DayPlan, ScheduleEngineInput, SessionRef, WeekPlan } from './types';
 
 function existingCounts(input: ScheduleEngineInput, frozen: readonly boolean[]): Map<string, number[]> | null {
@@ -111,6 +111,7 @@ export function buildWeek(input: ScheduleEngineInput): WeekPlan {
       existing,
       moveWeight,
       streakComfort: streakComfortOf(input.levels),
+      runCap: runStreakCap(input.levels.running),
       totalSessions: set.runs.length + set.strength.length,
       frozen,
     };
@@ -181,7 +182,7 @@ export function buildWeek(input: ScheduleEngineInput): WeekPlan {
   if (longest > streakComfortOf(input.levels)) warnings.push({ code: 'LONG_TRAINING_STREAK', days: longest });
   // R29: legs on an easy-run day is the planned home for legs, not a forced double.
   const doubles = [0, 1, 2, 3, 4, 5, 6].filter(
-    (d) => grid.run[d] && grid.strength[d] && !(isEasyRun(grid.run[d]) && grid.strength[d]!.load.legs >= HEAVY_LEGS),
+    (d) => grid.run[d] && grid.strength[d] && !(isEasyRun(grid.run[d]) && isLegsUnit(grid.strength[d])),
   );
   const freeLeft = [0, 1, 2, 3, 4, 5, 6].some((d) => av.open[d] && !grid.run[d] && !grid.strength[d]);
   if (doubles.length && !freeLeft) doubles.forEach((d) => warnings.push({ code: 'DOUBLE_ON_QUALITY_DAY', day: d }));
@@ -193,6 +194,7 @@ export function buildWeek(input: ScheduleEngineInput): WeekPlan {
     warnings.push({ code: 'STRENGTH_PEAK_IN_RUN_PEAK', strengthWeek: 4, runWeek: 0 });
   }
   if (plan.travelWeek) warnings.push({ code: 'TRAVEL_WEEK' });
+  if (days.some((ss) => ss.some((s) => s.kind === 'run' && s.extra))) warnings.push({ code: 'RUN_VOLUME_SPLIT' });
   if (input.walking?.dailyStepGoal) warnings.push({ code: 'STEPS_DAILY', goal: input.walking.dailyStepGoal });
 
   const dayPlans: DayPlan[] = days.map((sessions, d) => ({

@@ -28,7 +28,8 @@ describe('core weekly target (R31, owner 27.10.2026)', () => {
     expect(coreSetsLeft({ weeklyTarget: 8, setsThisWeek: 12 })).toBe(0);
   });
 
-  it('a single counts its sets, a 4-minute tabata / follow-along counts as one block', () => {
+  it('a single counts its sets, a 4-minute tabata / follow-along counts as 4 sets (owner 27.10)', () => {
+    expect(CORE_BLOCK_SET_EQUIVALENT).toBe(4);
     expect(coreSetsOfSlot('single', 3)).toBe(3);
     expect(coreSetsOfSlot('single', 2)).toBe(2);
     expect(coreSetsOfSlot('tabata')).toBe(CORE_BLOCK_SET_EQUIVALENT);
@@ -38,10 +39,10 @@ describe('core weekly target (R31, owner 27.10.2026)', () => {
   it('the optional 8-minute core card on a non-workout day counts toward the target (S13)', () => {
     expect(OPTIONAL_CORE_CARD_MINUTES).toBe(8);
     const card = coreSetsOfOptionalCard();
-    expect(card).toBe(2 * CORE_BLOCK_SET_EQUIVALENT);
-    // Week: target 6, two workouts with a 2-set single each, then the optional card: target met, next slot skipped.
-    const sets = coreSetsOfSlot('single', 2) * 2 + card;
-    expect(coreSlotOpen({ weeklyTarget: 6, setsThisWeek: sets })).toBe(false);
+    expect(card).toBe(8);
+    // Week: target 8, one 2-set single, then the optional card: target met, next slot skipped.
+    const sets = coreSetsOfSlot('single', 2) + card;
+    expect(coreSlotOpen({ weeklyTarget: 8, setsThisWeek: sets })).toBe(false);
   });
 
   it('target not met: the next strength workout still gets its core slot', () => {

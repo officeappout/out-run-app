@@ -4,7 +4,7 @@
  * ties break on a deterministic key. Pure and bounded (SEARCH_NODE_BUDGET).
  */
 import { SEARCH_NODE_BUDGET } from './config';
-import { profileOf } from './programProfiles';
+import { MODERATE_LEGS, HEAVY_LEGS, profileOf } from './programProfiles';
 import {
   breaksH2,
   breaksH3,
@@ -13,10 +13,10 @@ import {
   breaksH7,
   breaksH11,
   cloneGrid,
+  isEasyRun,
   isKeyRun,
   isQualityRun,
   keyRunBreaksH3,
-  longestRunStreak,
   nextDay,
   type Grid,
 } from './rules';
@@ -27,6 +27,7 @@ export interface SearchCtx {
   open: readonly boolean[];
   maxPerDay: number;
   maxTrainingDays?: number;
+  /** Kept for callers; the run streak is scored (ScoreCtx.runCap), never pruned. */
   runCap: number;
   score: ScoreCtx;
   /** Pre-filled (frozen / history) grid. */
@@ -59,6 +60,16 @@ function variantOfUnit(u: Unit): Unit | null {
   };
   variantCache.set(u.id + '>' + u.variant, v);
   return v;
+}
+
+const lightCache = new Map<string, Unit>();
+/** The light-legs version of a heavy legs unit: moderate leg load (passes H3), reduced volume in finalize. */
+export function lightLegsOf(u: Unit): Unit {
+  const hit = lightCache.get(u.id);
+  if (hit) return hit;
+  const l: Unit = { ...u, load: { ...u.load, legs: MODERATE_LEGS }, lightLegs: true, variant: undefined };
+  lightCache.set(u.id, l);
+  return l;
 }
 
 /** Search the best grid for this unit set. `budgetBest` = a total to beat (pruning). */
@@ -112,6 +123,8 @@ export function searchWeek(runs: Unit[], strength: Unit[], ctx: SearchCtx, extra
       // The no-legs variant also serves a quality day (H11: upper body only next to intervals / tempo).
       const v = keyTomorrow || isQualityRun(grid.run[d]) ? variantOfUnit(u) : null;
       if (v) options.push(v);
+      // Owner 27.10.2026: legs after an easy run the day before intervals / tempo run light.
+      if (u.load.legs >= HEAVY_LEGS && isEasyRun(grid.run[d]) && n !== null && isQualityRun(grid.run[n])) options.push(lightLegsOf(u));
       for (const cand of options) {
         if (breaksH3(cand, d, grid)) continue;
         if (breaksH11(cand, grid.run[d])) continue;
@@ -137,7 +150,6 @@ export function searchWeek(runs: Unit[], strength: Unit[], ctx: SearchCtx, extra
   const placeRun = (i: number, minDayBySame: Map<string, number>) => {
     if (truncated) return;
     if (i === runOrder.length) {
-      if (longestRunStreak(grid) > ctx.runCap) return;
       if (scoreRunBound(grid, ctx.score) + extraCost > bestTotal + 1e-9) return;
       placeStrength(0, new Map());
       return;

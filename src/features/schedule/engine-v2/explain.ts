@@ -45,7 +45,7 @@ export function dayReasons(days: PlacedSession[][], ctx: DayReasonCtx): V2Reason
     }
     if (run && mainStrength.length) {
       const runFirst = ss.indexOf(run) < ss.indexOf(mainStrength[0]);
-      const legs = mainStrength.some((s) => profileOf(s.slug ?? '').load.legs >= HEAVY_LEGS);
+      const legs = mainStrength.some((s) => s.lightLegs || profileOf(s.slug ?? '').load.legs >= HEAVY_LEGS);
       if (isKeySlot(run.slot)) r.push({ code: 'QUALITY_RUN_FIRST', day: d });
       else if (legs && runFirst) r.push({ code: 'LEGS_AFTER_EASY_RUN', day: d });
       else if (!runFirst) r.push({ code: 'EASY_DOUBLE_STRENGTH_FIRST', day: d });
