@@ -33,7 +33,7 @@ const DROP_REASON_HE: Record<WbDropCode, string> = {
   H8: 'יותר מדי ימי ריצה ברצף',
   H9: 'יותר מדי אימונים ביום אחד',
   // TEMP: placeholder copy so typecheck passes — schedule owners to replace with final wording for H11 (R29+R30).
-  H11: 'אי אפשר לשלב כאן אימון רגליים עם ריצת איכות',
+  H11: 'ביום ריצת איכות משלבים רק כוח לפלג גוף עליון',
 };
 
 export const dropReasonHe = (code: WbDropCode): string => DROP_REASON_HE[code];
