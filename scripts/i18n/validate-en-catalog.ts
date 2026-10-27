@@ -25,6 +25,22 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   common: () => true,
   pages: () => true,
   home: (k) => k.startsWith('settings.'),
+  player: (k) => !LANGUAGE_NEUTRAL.player.has(k),
+  summary: (k) => !LANGUAGE_NEUTRAL.summary.has(k),
+};
+
+/**
+ * Batch 3 keys that are identical in Hebrew and English (protocol names, symbol-only joiners, brand tokens):
+ * they stay out of the en catalogs on purpose (the Hebrew value is already correct for English).
+ */
+export const LANGUAGE_NEUTRAL: Record<'player' | 'summary', Set<string>> = {
+  player: new Set([
+    'strengthSummary.protocol.emom', 'strengthSummary.protocol.amrap', 'strengthPlayer.timed.list.queueSuffix',
+    'timedLabels.title.minutes', 'timedLabels.target.text', 'timedLabels.eyebrow.prefixed',
+    'timedLabels.ready.emomWithTarget', 'timedLabels.mini.line', 'timedLabels.playlist.doneDetail',
+    'hybrid.v2.header.titleOf',
+  ]),
+  summary: new Set(['identity.xp']),
 };
 
 /** Strings that may equal the Hebrew (do-not-translate items). */
@@ -43,10 +59,21 @@ interface Walked {
   plurals: Map<string, string[]>;
   tags: string[];
   texts: string[];
+  bare: string[]; // {arg} + countable noun outside any plural
 }
 
-function walk(els: any[], w: Walked): void {
-  for (const el of els as any[]) {
+const COUNTABLE = /^\s*(?:reps?|sets?|rounds?|exercises?|blocks?|laps?|minutes?|seconds?|steps?|stars?|people|persons?|calories|intervals?|items?|loops?|routes?|participants?)\b/i;
+
+function walk(els: any[], w: Walked, inPlural = false): void {
+  for (let i = 0; i < els.length; i++) {
+    const el = els[i];
+    if (!inPlural && (el.type as number) === TYPE.argument) {
+      const next = els[i + 1];
+      if (next && next.type === TYPE.literal) {
+        const m = (next.value as string).match(COUNTABLE);
+        if (m) w.bare.push(`{${el.value}}${m[0]}`);
+      }
+    }
     switch (el.type as number) {
       case TYPE.literal: w.texts.push(el.value); break;
       case TYPE.argument: if (!w.args.has(el.value)) w.args.set(el.value, 'arg'); break;
@@ -54,14 +81,14 @@ function walk(els: any[], w: Walked): void {
       case TYPE.select:
         w.args.set(el.value, 'select');
         w.selects.set(el.value, Object.keys(el.options));
-        for (const o of Object.values(el.options)) walk(o.value, w);
+        for (const o of Object.values(el.options)) walk(o.value, w, true); // a select with a count key (1 / other) is the Hebrew-style plural
         break;
       case TYPE.plural:
         w.args.set(el.value, 'plural');
         w.plurals.set(el.value, Object.keys(el.options));
-        for (const o of Object.values(el.options)) walk(o.value, w);
+        for (const o of Object.values(el.options)) walk(o.value, w, true);
         break;
-      case TYPE.tag: w.tags.push(el.value); walk(el.children, w); break;
+      case TYPE.tag: w.tags.push(el.value); walk(el.children, w, inPlural); break;
       default: break;
     }
   }
@@ -70,7 +97,7 @@ function walk(els: any[], w: Walked): void {
 function analyze(message: string): Walked | Error {
   try {
     const ast = new IntlMessageFormat(message, 'en', undefined, { ignoreTag: false }).getAst();
-    const w: Walked = { args: new Map(), selects: new Map(), plurals: new Map(), tags: [], texts: [] };
+    const w: Walked = { args: new Map(), selects: new Map(), plurals: new Map(), tags: [], texts: [], bare: [] };
     walk(ast, w);
     return w;
   } catch (e) {
@@ -190,6 +217,9 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     ];
     for (const [he_, en_, term] of GLOSS) if (he_.test(heMsg) && !en_.test(enMsg)) add(key, 'V13', 'warn', `Hebrew trigger ${he_} but English lacks "${term}"`);
     if (/fitness park/i.test(enMsg)) add(key, 'V13', 'error', '"fitness park" is not the approved term (outdoor gym / calisthenics park)');
+
+    // V15 plural policy: a bare count placeholder next to a countable noun (outside plural/select) needs an ICU plural
+    for (const m of e.bare) add(key, 'V15', 'warn', `count next to a noun without a plural: "${m}"`);
 
     // V14 untranslated
     if (enMsg === heMsg && !SAME_AS_HEBREW_OK.test(enMsg)) add(key, 'V14', 'error', 'English equals Hebrew');
