@@ -567,6 +567,11 @@ export const FLAG_DEFS = [
   { key: 'enableLocaleEn', firestoreKey: 'enable_locale_en', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleRu', firestoreKey: 'enable_locale_ru', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleDe', firestoreKey: 'enable_locale_de', defaultValue: false, superAdminValue: false },
+  // i18n wave 5B (docs/i18n/PLAN.md §2.6) — pushes by recipient locale. Needs enable_i18n too. OFF = every push is
+  // selected and rendered exactly as before (Hebrew). On: users/{uid}.core.locale → library rows of that locale →
+  // translated code defaults → Hebrew. Read server-side from system_config/feature_flags (the super-admin value
+  // is client-only; Cloud Functions see the stored value).
+  { key: 'pushLocaleV1', firestoreKey: 'push_locale_v1', defaultValue: false, superAdminValue: true },
   // App-session signal (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md open
   // question 10): "came back to the app without tapping a push". The old app_open/session_start
   // event types were removed (#171) because nothing ever fired them — not for cost or noise — so
