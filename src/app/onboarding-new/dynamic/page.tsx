@@ -31,6 +31,8 @@ import { useDeferredIdentity } from '@/features/user/onboarding/hooks/useDeferre
 import { questionMotionClass, questionnaireScreen } from '@/features/user/onboarding/utils/questionnaire-screen';
 import { Loader2 } from 'lucide-react';
 import { runSignupNextRoute } from '@/features/user/onboarding/utils/run-signup-routing';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 /**
  * Dynamic Onboarding Page
@@ -40,6 +42,7 @@ import { runSignupNextRoute } from '@/features/user/onboarding/utils/run-signup-
 export default function DynamicOnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useT(onboarding);
   const { hasCompletedOnboarding, initializeProfile, refreshProfile } = useUserStore();
   // enable_home_v2 — styling only (loading/error states, welcome line, and
   // the v2 look of ResultLoading/ProgramResult). Same flow and handlers.
@@ -152,7 +155,7 @@ export default function DynamicOnboardingPage() {
         setError(null);
       } catch (err: any) {
         console.error('Error initializing engine:', err);
-        setError(err.message || 'שגיאה בטעינת השאלון');
+        setError(err.message || t('dynamicPage.loadError'));
       } finally {
         setLoading(false);
       }
@@ -246,7 +249,7 @@ export default function DynamicOnboardingPage() {
           }
         } catch (err: any) {
           console.error('Error processing input answer:', err);
-          setError(err.message || 'שגיאה בעיבוד התשובה');
+          setError(err.message || t('dynamicPage.answerError'));
         } finally {
           setIsAnimating(false);
         }
@@ -314,7 +317,7 @@ export default function DynamicOnboardingPage() {
         }
       } catch (err: any) {
         console.error('Error processing answer:', err);
-        setError(err.message || 'שגיאה בעיבוד התשובה');
+        setError(err.message || t('dynamicPage.answerError'));
       } finally {
         setIsAnimating(false);
       }
@@ -356,7 +359,7 @@ export default function DynamicOnboardingPage() {
       
       // Validate required fields
       if (!savedName) {
-        alert('יש למלא את השם כדי להמשיך');
+        alert(t('dynamicPage.nameRequired'));
         return;
       }
 
@@ -594,7 +597,7 @@ export default function DynamicOnboardingPage() {
       setShowResultLoading(true);
     } catch (err: any) {
       console.error('Error completing onboarding:', err);
-      alert('שגיאה בשמירת הפרופיל. אנא נסה שוב.');
+      alert(t('dynamicPage.saveError'));
     }
   }, [assignedLevel, assignedLevelId, assignedProgramId, assignedResults, masterProgramSubLevels, engine, initializeProfile, router, v2]);
 
@@ -653,7 +656,7 @@ export default function DynamicOnboardingPage() {
         levelNumber={finalLevelNumber}
         levelId={assignedLevelId}
         programId={assignedProgramId}
-        userName={savedName || (savedLanguage === 'he' ? 'חבר/ה' : savedLanguage === 'ru' ? 'друг' : 'friend')}
+        userName={savedName || (savedLanguage === 'he' ? 'חבר/ה' : savedLanguage === 'ru' ? 'друг' : 'friend')} // i18n-allow-hebrew: per-language fallback name (onboarding-locales language, not the UI locale)
         language={savedLanguage}
         onContinue={handleProgramResultContinue}
         v2={v2}
@@ -667,14 +670,14 @@ export default function DynamicOnboardingPage() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-v2-surface">
         <Loader2 size={32} className="animate-spin text-v2-accent" aria-hidden />
-        <p className="text-[13px] font-bold text-v2-muted">טוען שאלון...</p>
+        <p className="text-[13px] font-bold text-v2-muted">{t('dynamicPage.loadingQuestionnaire')}</p>
       </div>
     );
   }
   if (screen === 'loading') {
     return (
       <div className="h-screen flex items-center justify-center">
-        <div className="text-gray-500">טוען שאלון...</div>
+        <div className="text-gray-500">{t('dynamicPage.loadingQuestionnaire')}</div>
       </div>
     );
   }
@@ -684,14 +687,14 @@ export default function DynamicOnboardingPage() {
     return (
       <div className="flex h-full items-center justify-center bg-v2-surface px-6">
         <div className="w-full max-w-sm rounded-v2-card bg-white p-6 text-center shadow-v2-card">
-          <p className="text-[20px] font-black !tracking-[-0.02em] text-v2-ink">שגיאה</p>
+          <p className="text-[20px] font-black !tracking-[-0.02em] text-v2-ink">{t('dynamicPage.error.title')}</p>
           <p className="mt-1 text-[14px] font-medium text-v2-ink-2">{error}</p>
           <button
             type="button"
             onClick={() => window.location.reload()}
             className="mt-5 h-12 w-full whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
-            {sessionStorage.getItem('onboarding_personal_gender') === 'female' ? 'נסי שוב' : 'נסה שוב'}
+            {t('dynamicPage.error.retry')}
           </button>
         </div>
       </div>
@@ -701,13 +704,13 @@ export default function DynamicOnboardingPage() {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="text-red-500 text-xl font-bold">שגיאה</div>
+          <div className="text-red-500 text-xl font-bold">{t('dynamicPage.error.title')}</div>
           <div className="text-gray-600">{error}</div>
           <button
             onClick={() => window.location.reload()}
             className="px-6 py-3 bg-brand-cta hover:brightness-105 text-on-brand rounded-xl font-bold"
           >
-            נסה שוב
+            {t('dynamicPage.error.retryLegacy')}
           </button>
         </div>
       </div>
@@ -725,8 +728,8 @@ export default function DynamicOnboardingPage() {
   // Personalized welcome message (only show on first question of questionnaire)
   // Safe implementation to prevent crash: use fallback if locale is missing
   const isFirstQuestion = questionIndex === 0; // First question of fitness assessment
-  const userName = savedName || (savedLanguage === 'he' ? 'חבר/ה' : savedLanguage === 'ru' ? 'друг' : 'friend');
-  const welcomeTemplate = locale?.common?.welcomeMessage || "מעולה {name}, בואו נתחיל לדייק את רמת הכושר שלך";
+  const userName = savedName || (savedLanguage === 'he' ? 'חבר/ה' : savedLanguage === 'ru' ? 'друг' : 'friend'); // i18n-allow-hebrew: per-language fallback name (onboarding-locales language)
+  const welcomeTemplate = locale?.common?.welcomeMessage || "מעולה {name}, בואו נתחיל לדייק את רמת הכושר שלך"; // i18n-allow-hebrew: fallback for the onboarding-locales welcome template (language-driven, not the UI locale)
   const welcomeMessage = isFirstQuestion && welcomeTemplate 
     ? (welcomeTemplate.includes('{name}') ? welcomeTemplate.replace('{name}', userName) : welcomeTemplate)
     : null;
@@ -811,14 +814,14 @@ export default function DynamicOnboardingPage() {
   if (v2) {
     return (
       <div className="flex h-full items-center justify-center bg-v2-surface">
-        <p className="text-[13px] font-bold text-v2-muted">טוען תוצאות...</p>
+        <p className="text-[13px] font-bold text-v2-muted">{t('dynamicPage.loadingResults')}</p>
         {identityOverlay}
       </div>
     );
   }
   return (
     <div className="h-screen flex items-center justify-center">
-      <div className="text-gray-500">טוען תוצאות...</div>
+      <div className="text-gray-500">{t('dynamicPage.loadingResults')}</div>
     </div>
   );
 }

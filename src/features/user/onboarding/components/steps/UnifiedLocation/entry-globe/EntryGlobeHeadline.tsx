@@ -2,10 +2,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ENTRY_COPY } from './entry-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import { EntryLogoSlot } from './EntryLogoSlot';
 
 const ROTATE_MS = 2600;
+const GOAL_KEYS = [
+  'entryHeadline.goal.train',
+  'entryHeadline.goal.health',
+  'entryHeadline.goal.people',
+  'entryHeadline.goal.strong',
+] as const;
 
 /**
  * "בשביל / ‹rotating goal› / לא צריך כלום" over the light sky, with the faint
@@ -13,7 +20,8 @@ const ROTATE_MS = 2600;
  */
 export function EntryGlobeHeadline({ logoSlot = false }: { logoSlot?: boolean }) {
   const reduce = !!useReducedMotion();
-  const goals = ENTRY_COPY.headlineGoals;
+  const t = useT(onboarding);
+  const goals = GOAL_KEYS.map((k) => t(k));
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
@@ -40,7 +48,7 @@ export function EntryGlobeHeadline({ logoSlot = false }: { logoSlot?: boolean })
         className="relative flex flex-col items-center px-5 text-center text-v2-ink"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 11vh)' }}
       >
-        <span className="text-[30px] font-normal leading-[38px] !tracking-[-0.02em]">{ENTRY_COPY.headlinePre}</span>
+        <span className="text-[30px] font-normal leading-[38px] !tracking-[-0.02em]">{t('entryHeadline.pre')}</span>
         {/* every goal stacked invisibly keeps the line steady while it rotates */}
         <span className="relative grid w-full justify-items-center text-[31px] font-black leading-[42px] !tracking-[-0.02em]">
           {goals.map((g) => (
@@ -62,12 +70,12 @@ export function EntryGlobeHeadline({ logoSlot = false }: { logoSlot?: boolean })
           </AnimatePresence>
         </span>
         <span className="text-[30px] font-normal leading-[40px] !tracking-[-0.02em]">
-          {ENTRY_COPY.headlineNeed}{' '}
+          {t('entryHeadline.need')}{' '}
           <b
             className="font-black"
             style={{ background: 'linear-gradient(transparent 62%, #7dd3fc 62%)' }}
           >
-            {ENTRY_COPY.headlineNothing}
+            {t('entryHeadline.nothing')}
           </b>
         </span>
       </h1>

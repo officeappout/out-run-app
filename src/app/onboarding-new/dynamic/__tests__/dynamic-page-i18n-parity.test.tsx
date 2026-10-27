@@ -1,5 +1,5 @@
 /**
- * i18n batch au (namespace `onboarding`, keys `dynamic.page.*`): the questionnaire page's loading screens, recorded
+ * i18n batch au (namespace `onboarding`, keys `dynamicPage.*`): the questionnaire page's loading screens, recorded
  * BEFORE the extraction. The error / alert / fallback copy sits behind async state and is pinned by
  * src/lib/i18n/__tests__/onboarding-au-he.test.ts. `<!-- -->` is stripped before comparing.
  */
