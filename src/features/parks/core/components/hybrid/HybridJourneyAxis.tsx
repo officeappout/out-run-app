@@ -21,11 +21,9 @@ import OverviewLegAxis from '../overview/OverviewLegAxis';
 import type { OverviewLeg } from '../overview/overview-legs';
 import HybridStationCard from './HybridStationCard';
 import { aerobicKindLabel } from '@/features/workout-engine/hybrid/aerobic-kind';
-
-const ZONE_LABEL: Record<string, string> = {
-  jogging: 'ריצה קלה', easy: 'קל', recovery: 'שחרור', walk: 'הליכה',
-  tempo: 'טמפו', long_run: 'ריצה ממושכת', fartlek_medium: 'פרטלק', fartlek_fast: 'פרטלק מהיר',
-};
+import { useT } from '@/hooks/useT';
+import { map, type MapT } from '@/messages/ns/map';
+import { defaultMapT } from '@/features/parks/core/default-map-t';
 
 /**
  * Segments → overview legs. Round-trip walk legs are DISPLAY-ONLY transport legs
@@ -37,12 +35,13 @@ const ZONE_LABEL: Record<string, string> = {
 export function buildHybridLegs(
   segments: HybridPlannedSegment[],
   opts: { stationName?: string; walkLegs?: { thereMin: number; backMin: number } | null; aerobicKind?: string },
+  t: MapT = defaultMapT(),
 ): OverviewLeg[] {
   const { stationName, walkLegs, aerobicKind } = opts;
   const legs: OverviewLeg[] = [];
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0;
-  if (walkLegs && walkLegs.thereMin > 0) legs.push({ kind: 'transport', key: 'walk-there', phase: 'there', label: 'הליכה אל המסלול', minutes: walkLegs.thereMin });
+  if (walkLegs && walkLegs.thereMin > 0) legs.push({ kind: 'transport', key: 'walk-there', phase: 'there', label: t('hybrid.axis.walkThere'), minutes: walkLegs.thereMin });
   segments.forEach((seg, i) => {
     if (seg.kind !== 'aerobic') {
       legs.push({ kind: 'station', key: `stn${i}`, subtype: seg.domainFocus, durationSec: seg.durationSec, ref: i });
@@ -54,27 +53,27 @@ export function buildHybridLegs(
     const action = aerobicKindLabel(seg.aerobicType ?? 'walking');
     const base = { kind: 'aerobic' as const, key: `leg${i}`, activity: seg.aerobicType, stripActivity: seg.aerobicType ?? aerobicKind, durationSec: seg.durationSec, distanceKm: seg.distanceKm, paceSecPerKm: pace };
     if (stationName) {
-      const legTitle = aerIdx === 1 ? `אל ${stationName}` : aerIdx === aerCount ? 'חזרה לנקודת ההתחלה' : 'המשך';
+      const legTitle = aerIdx === 1 ? t('hybrid.axis.toStation', { name: stationName }) : aerIdx === aerCount ? t('hybrid.axis.backToStart') : t('hybrid.axis.continue');
       legs.push({
         ...base, layout: 'destination', title: legTitle,
         // פעולה · מרחק · זמן (הפועל = הפעילות)
-        meta: [{ key: 'all', icon: 'activity', text: <>{action} · {seg.distanceKm != null ? seg.distanceKm.toFixed(2) : '—'} ק״מ · {formatMinutes(seg.durationSec)}</> }],
+        meta: [{ key: 'all', icon: 'activity', text: t('hybrid.axis.metaAll', { action, km: seg.distanceKm != null ? seg.distanceKm.toFixed(2) : '—', time: formatMinutes(seg.durationSec) }) }],
       });
       return;
     }
     // David, 23.09.2026, bug #4: was hardcoded "רגל ריצה" even for a walking leg.
     legs.push({
       ...base, layout: 'standard',
-      title: <>{action} · מקטע {aerIdx}</>,
-      badge: ZONE_LABEL[String(seg.zone)] ?? 'אירובי',
+      title: t('hybrid.axis.legTitle', { action, n: String(aerIdx) }),
+      badge: t('hybrid.axis.zone', { zone: String(seg.zone) }),
       meta: [
-        ...(seg.distanceKm != null ? [{ key: 'km', icon: 'distance' as const, text: <>{seg.distanceKm.toFixed(2)} ק״מ</> }] : []),
+        ...(seg.distanceKm != null ? [{ key: 'km', icon: 'distance' as const, text: t('hybrid.axis.km', { km: seg.distanceKm.toFixed(2) }) }] : []),
         ...(seg.durationSec != null ? [{ key: 'min', icon: 'time' as const, text: formatMinutes(seg.durationSec) }] : []),
       ],
       loopNote: i === segments.length - 1,
     });
   });
-  if (walkLegs && walkLegs.backMin > 0) legs.push({ kind: 'transport', key: 'walk-back', phase: 'back', label: 'הליכה חזרה', minutes: walkLegs.backMin });
+  if (walkLegs && walkLegs.backMin > 0) legs.push({ kind: 'transport', key: 'walk-back', phase: 'back', label: t('hybrid.axis.walkBack'), minutes: walkLegs.backMin });
   return legs;
 }
 
@@ -125,15 +124,16 @@ export default function HybridJourneyAxis({
   // G2.1 (Sderot pilot): ONE neutral, gendered questionnaire line for the whole route —
   // the union of every station's assessmentNudge AND needsAssessment domains. Locked
   // stations show only a neutral locked state (HybridStationCard).
+  const t = useT(map);
   const userGender = useUserStore((s) => s.profile?.core?.gender) as 'male' | 'female' | 'other' | undefined;
-  const questionnaireLine = routeQuestionnaireLine(segments, userGender);
+  const questionnaireLine = routeQuestionnaireLine(segments, userGender, t);
 
   // Station super-collapse (point 20): per station, keyed by segment index; default open.
   const [collapsedStations, setCollapsedStations] = useState<Record<number, boolean>>({});
   const toggleStation = (idx: number) =>
     setCollapsedStations((m) => ({ ...m, [idx]: !m[idx] }));
 
-  const legs = buildHybridLegs(segments, { stationName, walkLegs });
+  const legs = buildHybridLegs(segments, { stationName, walkLegs }, t);
   const ordinals: Record<number, number> = {};
   legs.forEach((l) => { if (l.kind === 'station') ordinals[l.ref] = Object.keys(ordinals).length + 1; });
 

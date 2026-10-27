@@ -11,7 +11,9 @@
  * locked stop). Now: one neutral, gendered line for the route (union of domains), and each
  * locked station shows only a neutral "locked" state.
  */
-import { g, type AppGender } from '@/lib/utils/gendered-text';
+import type { AppGender } from '@/lib/utils/gendered-text';
+import type { MapT } from '@/messages/ns/map';
+import { defaultMapT } from '@/features/parks/core/default-map-t';
 
 interface SegLike {
   kind?: string;
@@ -32,6 +34,7 @@ export interface RouteQuestionnaireLine {
 export function routeQuestionnaireLine(
   segments: readonly SegLike[],
   gender: AppGender | null | undefined,
+  t: MapT = defaultMapT(),
 ): RouteQuestionnaireLine | null {
   const locked = segments.filter((s) => s.content?.needsAssessment);
   const nudged = segments.filter((s) => s.content?.assessmentNudge);
@@ -42,14 +45,7 @@ export function routeQuestionnaireLine(
   ]));
   const hasLocked = locked.length > 0;
   const text = hasLocked
-    ? g(gender,
-        'שאלון כוח קצר יפתח את תחנות הכוח במסלול — למלא עכשיו',
-        'שאלון כוח קצר יפתח את תחנות הכוח במסלול — למלא עכשיו',
-      )
-    : g(gender,
-        'רוצה אימון מותאם יותר? מלא שאלון כוח קצר',
-        'רוצה אימון מותאם יותר? מלאי שאלון כוח קצר',
-        'אימון מותאם יותר? שאלון כוח קצר',
-      );
+    ? t('hybrid.questionnaire.locked')
+    : t('hybrid.questionnaire.nudge', { gender: gender ?? 'male' });
   return { domains, hasLocked, text };
 }

@@ -337,5 +337,17 @@
   "help.preview.station.dips": "מקבילים",
   "help.preview.station.reps": "חזרות",
   "help.preview.station.time": "זמן",
-  "help.preview.station.start": "מתחילים"
+  "help.preview.station.start": "מתחילים",
+  "help.chapter.map.title": "מפה ופארקים",
+  "help.chapter.map.blurb": "חיפוש פארק, שכבות המפה ומה רואים בפארק",
+  "help.chapter.workouts.title": "אימונים",
+  "help.chapter.workouts.blurb": "האימון של היום, בניית אימון לבד ומיקום האימון",
+  "help.chapter.schedule.title": "בונה הלו״ז",
+  "help.chapter.schedule.blurb": "הלו״ז השבועי, הזזת אימון ובניית שבוע",
+  "help.chapter.running.title": "ריצה והליכה",
+  "help.chapter.running.blurb": "ריצה והליכה חופשית, מסלולים ותוכנית ריצה",
+  "help.chapter.kelly.title": "קלי",
+  "help.chapter.kelly.blurb": "מה קלי יודע לעשות ואיך מדברים עם הצוות",
+  "help.chapter.settings.title": "הגדרות",
+  "help.chapter.settings.blurb": "התראות, צעדים, ציוד, חשבון ופרטיות"
 }

@@ -7,6 +7,8 @@
  * Anything missing is left out — never invented.
  */
 import { unitLabel, withUnit } from '@/lib/i18n/units';
+import type { SummaryT } from '@/messages/ns/summary';
+import { defaultSummaryT } from '../summary-t';
 import type { MetricRing } from '@/components/ui/v2/MetricRings';
 import type { RepPaceRow } from '@/components/ui/v2/RepPaceTable';
 import { programRingModel, type ProgramRingModel } from '@/components/ui/v2/summary';
@@ -75,9 +77,9 @@ export function repsTitle(records: readonly PlannedBlockRecord[] | null | undefi
   return null;
 }
 
-export function runHero(w: RunLike, kind: RunSummaryKind): RunHero {
+export function runHero(w: RunLike, kind: RunSummaryKind, t: SummaryT = defaultSummaryT()): RunHero {
   const cat = categoryLabel(w.runMeta?.category);
-  const fallback = kind === 'intervals' ? 'אינטרוולים' : kind === 'long' ? 'ריצה ארוכה' : kind === 'easy' ? 'ריצה קלה' : 'ריצה';
+  const fallback = t('mapping.heroFallback', { kind });
   return {
     label: cat ?? (w.runMeta?.title || fallback),
     repsTitle: kind === 'intervals' ? repsTitle(w.blockResults, w.runMeta?.plannedReps) : null,
@@ -103,20 +105,20 @@ export function timeInZonePct(meta: RunSummaryMeta | undefined): number | null {
   return Math.max(0, Math.min(100, Math.round((t.inSec / t.totalSec) * 100)));
 }
 
-export function runTypeRings(w: RunLike, kind: RunSummaryKind): MetricRing[] {
+export function runTypeRings(w: RunLike, kind: RunSummaryKind, t: SummaryT = defaultSummaryT()): MetricRing[] {
   const km = w.distance ?? 0;
   const distance: MetricRing = {
     key: 'distance',
     value: km > 0 ? km.toFixed(2) : '--',
     unit: unitLabel('km'),
-    label: 'מרחק',
+    label: t('aerobic.stat.distance'),
     pct: km > 0 ? 100 : 0,
     color: RING_COLORS.distance,
   };
   const time: MetricRing = {
     key: 'time',
     value: timeLabel(w.duration),
-    label: 'זמן',
+    label: t('aerobic.stat.time'),
     pct: (w.duration ?? 0) > 0 ? 100 : 0,
     color: RING_COLORS.time,
   };
@@ -124,7 +126,7 @@ export function runTypeRings(w: RunLike, kind: RunSummaryKind): MetricRing[] {
     key: 'pace',
     value: paceLabel(w.pace),
     unit: `${unitLabel('min')}/${unitLabel('km')}`,
-    label: 'קצב ממוצע',
+    label: t('aerobic.stat.pace'),
     pct: (w.pace ?? 0) > 0 ? 100 : 0,
     color: RING_COLORS.pace,
   };
@@ -139,8 +141,8 @@ export function runTypeRings(w: RunLike, kind: RunSummaryKind): MetricRing[] {
       {
         key: 'reps',
         value: `${recs.length}/${planned}`,
-        unit: 'חזרות',
-        label: 'חזרות',
+        unit: t('mapping.reps'),
+        label: t('mapping.reps'),
         sub: d && recs.every((r) => r.plannedDistanceMeters === d) ? fmtDistance(d) : null,
         pct: planned > 0 ? Math.min(100, Math.round((recs.length / planned) * 100)) : 0,
         color: RING_COLORS.distance,
@@ -149,7 +151,7 @@ export function runTypeRings(w: RunLike, kind: RunSummaryKind): MetricRing[] {
         key: 'repPace',
         value: repPace ? fmtPace(repPace) : '--',
         unit: `${unitLabel('min')}/${unitLabel('km')}`,
-        label: 'קצב חזרה',
+        label: t('mapping.repPace'),
         sub: s.label,
         pct: s.scored > 0 ? Math.round((s.inRange / s.scored) * 100) : repPace ? 100 : 0,
         color: RING_COLORS.pace,
@@ -163,9 +165,9 @@ export function runTypeRings(w: RunLike, kind: RunSummaryKind): MetricRing[] {
     const tiz = timeInZonePct(w.runMeta);
     return [
       distance,
-      { ...pace, sub: band ? `טווח ${fmtBand(band.min, band.max)}` : null },
+      { ...pace, sub: band ? t('mapping.band', { band: fmtBand(band.min, band.max) }) : null },
       tiz !== null
-        ? { key: 'zone', value: `${tiz}%`, label: 'זמן בטווח', pct: tiz, color: RING_COLORS.segments }
+        ? { key: 'zone', value: `${tiz}%`, label: t('mapping.timeInZone'), pct: tiz, color: RING_COLORS.segments }
         : time,
     ];
   }
@@ -197,7 +199,7 @@ export interface KmSplitModel {
   lastKmPace: string | null;
 }
 
-export function kmSplitModel(splits: readonly KmSplit[] | null, band: { min: number; max: number } | null): KmSplitModel | null {
+export function kmSplitModel(splits: readonly KmSplit[] | null, band: { min: number; max: number } | null, t: SummaryT = defaultSummaryT()): KmSplitModel | null {
   if (!splits || splits.length < 2) return null;
   let prev = 0;
   const items = splits.map((s) => {
@@ -216,8 +218,8 @@ export function kmSplitModel(splits: readonly KmSplit[] | null, band: { min: num
       key: `km-${i}`,
       n: x.full ? Math.round(x.s.km) : Number(x.s.km.toFixed(1)),
       title: fmtClock(x.s.sec),
-      sub: x.full ? `ק״מ ${label}` : `${label} ק״מ (חלקי)`,
-      ...(isFast ? { status: 'הכי מהיר' } : {}),
+      sub: x.full ? t('mapping.split.full', { label }) : t('mapping.split.partial', { label }),
+      ...(isFast ? { status: t('mapping.split.fastest') } : {}),
       tone: isFast ? 'best' : inBand === null ? 'none' : inBand ? 'in' : 'off',
       value: x.p ? fmtPace(x.p) : '--:--',
       paceSec: x.p,
@@ -228,7 +230,7 @@ export function kmSplitModel(splits: readonly KmSplit[] | null, band: { min: num
   return {
     rows,
     band,
-    fastestLabel: fastest ? `הכי מהיר: ק״מ ${Math.round(fastest.s.km)}` : null,
+    fastestLabel: fastest ? t('mapping.split.fastestLabel', { km: String(Math.round(fastest.s.km)) }) : null,
     lastKmPace: lastFull?.p ? fmtPace(lastFull.p) : null,
   };
 }
@@ -246,7 +248,7 @@ function minutesLabel(sec: number): string {
 }
 
 /** Warm-up · reps in groups of three · cool-down (R4-prop-intervals "מהלך האימון"). */
-export function courseItems(w: RunLike): CourseItem[] {
+export function courseItems(w: RunLike, t: SummaryT = defaultSummaryT()): CourseItem[] {
   const recs = w.blockResults ?? [];
   if (recs.length === 0) return [];
   const out: CourseItem[] = [];
@@ -254,7 +256,7 @@ export function courseItems(w: RunLike): CourseItem[] {
   if (m?.warmup) {
     out.push({
       id: 'warmup',
-      label: 'חימום',
+      label: t('mapping.course.warmup'),
       detail: [minutesLabel(m.warmup.durationSeconds), m.warmup.distanceMeters > 0 ? fmtDistance(m.warmup.distanceMeters) : null]
         .filter(Boolean)
         .join(' · '),
@@ -266,14 +268,14 @@ export function courseItems(w: RunLike): CourseItem[] {
     const b = g[g.length - 1].rep > 0 ? g[g.length - 1].rep : i + g.length;
     out.push({
       id: `reps-${i}`,
-      label: a === b ? `חזרה ${a}` : `חזרות ${a}–${b}`,
+      label: a === b ? t('mapping.course.rep', { n: String(a) }) : t('mapping.course.reps', { from: String(a), to: String(b) }),
       detail: g.map((r) => (r.avgPaceSec ? fmtPace(r.avgPaceSec) : fmtClock(r.durationSeconds))).join(' · '),
     });
   }
   if (m?.cooldown) {
     out.push({
       id: 'cooldown',
-      label: 'שחרור',
+      label: t('mapping.course.cooldown'),
       detail: [minutesLabel(m.cooldown.durationSeconds), m.cooldown.distanceMeters > 0 ? fmtDistance(m.cooldown.distanceMeters) : null]
         .filter(Boolean)
         .join(' · '),
@@ -309,6 +311,7 @@ export function runPlanProgress(
   program: Pick<ActiveRunningProgram, 'schedule'> | null | undefined,
   position: { week: number; day: number } | null | undefined,
   programName?: string | null,
+  t: SummaryT = defaultSummaryT(),
 ): RunPlanProgress | null {
   const schedule = program?.schedule;
   if (!schedule || schedule.length === 0 || !position) return null;
@@ -324,10 +327,10 @@ export function runPlanProgress(
   const pct = ((idx + 1) / total) * 100;
   const gain = 100 / total;
   return {
-    name: programName?.trim() || 'תוכנית ריצה',
-    weekLabel: `שבוע ${position.week}/${weeks}`,
-    positionLabel: `אימון ${posInWeek} מתוך ${week.length} השבוע`,
-    nextLabel: nextName ? `הבא: ${nextName}` : null,
+    name: programName?.trim() || t('mapping.plan.name'),
+    weekLabel: t('mapping.plan.week', { week: String(position.week), weeks: String(weeks) }),
+    positionLabel: t('mapping.plan.position', { pos: String(posInWeek), total: String(week.length) }),
+    nextLabel: nextName ? t('mapping.plan.next', { name: nextName }) : null,
     ring: programRingModel(pct, gain, false),
     gain,
   };
@@ -359,24 +362,24 @@ export interface RunPlanInput {
   programName?: string | null;
 }
 
-export function runTypeModel(w: RunLike, planInput?: RunPlanInput | null): RunTypeModel {
+export function runTypeModel(w: RunLike, planInput?: RunPlanInput | null, t: SummaryT = defaultSummaryT()): RunTypeModel {
   const kind = runSummaryKind(w);
   const rawSplits = kind === 'intervals' ? null : resolveKmSplits(w);
   const lapSplits = splitsFromLaps(w.laps);
-  const splits = kmSplitModel(rawSplits, kind === 'free' ? null : mainBand(w.runMeta));
+  const splits = kmSplitModel(rawSplits, kind === 'free' ? null : mainBand(w.runMeta), t);
   const extras: RunTypeExtra[] = [];
   if (kind === 'long') {
-    if ((w.elevationGain ?? 0) > 0) extras.push({ key: 'ascent', label: 'עלייה', value: `+${withUnit('m', Math.round(w.elevationGain as number))}` });
-    if (splits?.lastKmPace) extras.push({ key: 'lastKm', label: 'ק״מ אחרון', value: splits.lastKmPace });
+    if ((w.elevationGain ?? 0) > 0) extras.push({ key: 'ascent', label: t('mapping.extra.ascent'), value: `+${withUnit('m', Math.round(w.elevationGain as number))}` });
+    if (splits?.lastKmPace) extras.push({ key: 'lastKm', label: t('mapping.extra.lastKm'), value: splits.lastKmPace });
   }
   return {
     kind,
-    hero: runHero(w, kind),
-    rings: runTypeRings(w, kind),
+    hero: runHero(w, kind, t),
+    rings: runTypeRings(w, kind, t),
     splits,
     splitsFromLaps: !!rawSplits && !!lapSplits && lapSplits.length >= 2,
-    course: kind === 'intervals' ? courseItems(w) : [],
-    plan: planInput ? runPlanProgress(planInput.program, w.runMeta?.plan, planInput.programName) : null,
+    course: kind === 'intervals' ? courseItems(w, t) : [],
+    plan: planInput ? runPlanProgress(planInput.program, w.runMeta?.plan, planInput.programName, t) : null,
     extras,
   };
 }

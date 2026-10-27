@@ -11,6 +11,8 @@
 
 import { Flag, MapPin } from 'lucide-react';
 import { IconTile } from '@/components/ui/v2';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const ACCENT = '#00ADEF';
 
@@ -20,6 +22,7 @@ export interface HybridStationCtaProps {
 }
 
 export default function HybridStationCta({ isFinalLeg, onClick }: HybridStationCtaProps) {
+  const t = useT(player);
   return (
     <button
       type="button"
@@ -35,7 +38,7 @@ export default function HybridStationCta({ isFinalLeg, onClick }: HybridStationC
       style={{ backgroundColor: isFinalLeg ? '#16A34A' : ACCENT }}
     >
       <IconTile icon={isFinalLeg ? Flag : MapPin} tone="dark" size="sm" />
-      {isFinalLeg ? 'סיים אימון משולב' : 'הגעתי לתחנה'}
+      {isFinalLeg ? t('hybrid.cta.finish') : t('hybrid.cta.arrive')}
     </button>
   );
 }

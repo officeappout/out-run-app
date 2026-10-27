@@ -2,6 +2,8 @@
  * player-controls.utils — pure helpers behind the strength player's rest/set controls
  * (G2.4 field-test fixes). Plain .ts so the node-only vitest can cover them.
  */
+import type { PlayerT } from '@/messages/ns/player';
+import { defaultPlayerT } from '@/features/workout-engine/hybrid/hybrid-t';
 
 /** "+15 שנ׳" on the rest screen: extend the CURRENT rest. A rest already at 0 (auto-advance
  *  off, waiting for a tap) restarts from 0, so the user gets the full extra seconds. */
@@ -26,9 +28,9 @@ export function restBeepForSecond(next: number): 'short' | 'long' | null {
  * logged reps when one exists (a re-edit can leave a gap), else the machine's current round.
  * Returns null when there's nothing meaningful to show (single set / bad input).
  */
-export function setCounterLabel(firstIncompleteSetIdx: number, currentRound: number, totalSets: number): string | null {
+export function setCounterLabel(firstIncompleteSetIdx: number, currentRound: number, totalSets: number, t: PlayerT = defaultPlayerT()): string | null {
   if (!Number.isFinite(totalSets) || totalSets <= 1) return null;
   const raw = firstIncompleteSetIdx >= 0 ? firstIncompleteSetIdx + 1 : currentRound;
   const current = Math.min(Math.max(1, Math.round(raw || 1)), totalSets);
-  return `סט ${current} מתוך ${totalSets}`;
+  return t('strengthPlayer.header.setCounter', { current: String(current), total: String(totalSets) });
 }

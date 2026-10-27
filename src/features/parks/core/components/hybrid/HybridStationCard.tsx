@@ -25,6 +25,7 @@ import { HYBRID_STR as STR } from './hybrid-colors';
 import { CARD_PAD, CardGroup, Meta, STR_TINT, STR_TEXT, useAxisCardStyles } from '../overview/axis/AxisParts';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import { library } from '@/messages/ns/library';
 
 /** Station kind by activity (route-stops Bug 3b): stretch/mobility/yoga and core stops have their
  *  own label (map.json `hybrid.station.noun` / `hybrid.station.meta`); a strength/undefined station
@@ -72,6 +73,7 @@ export default function HybridStationCard({
 }: HybridStationCardProps) {
   const { v2, cardCls, cardStyle, titleCls, titleStyle } = useAxisCardStyles();
   const t = useT(map);
+  const tl = useT(library);
   // Domain-assessment gate (David, 23-24.09.2026): unassessed station stays ON THE
   // AXIS with a neutral lock card (G2.1: the questionnaire line is shown ONCE, above).
   if (seg.content?.needsAssessment) {
@@ -98,7 +100,7 @@ export default function HybridStationCard({
     (e: any) => ((e?.exerciseRole || e?.exercise?.exerciseRole) ?? 'main') === 'main',
   ).length;
   // Named station → the strength preview's section grouping; unnamed → flat list.
-  const sections = stationName ? groupExercisesIntoSections(exs as any) : [];
+  const sections = stationName ? groupExercisesIntoSections(exs as any, undefined, tl) : [];
   return (
     <div className={cardCls} style={cardStyle}>
       <div style={CARD_PAD}>

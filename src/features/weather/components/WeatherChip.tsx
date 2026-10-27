@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import type { HomeWeather } from '../hooks/useWeather';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 import { IMS_ATTRIBUTION_HE, IMS_DISCLAIMER_HE } from '../core/provider-attribution';
 
 /** WMO weather code → lucide icon. */
@@ -46,6 +48,7 @@ export function iconForWeatherCode(code: number | null, isNight: boolean): Lucid
 
 export default function WeatherChip({ weather }: { weather: HomeWeather | null }) {
   const v2 = useHomeV2();
+  const t = useT(map);
   if (!weather || weather.temperatureC == null) return null;
 
   const { classification } = weather;
@@ -62,7 +65,7 @@ export default function WeatherChip({ weather }: { weather: HomeWeather | null }
     <div
       dir="rtl"
       role="status"
-      aria-label={hint ? `מזג האוויר: ${temp} מעלות, ${hint}` : `מזג האוויר: ${temp} מעלות`}
+      aria-label={hint ? t('weather.chip.ariaHint', { temp: String(temp), hint }) : t('weather.chip.aria', { temp: String(temp) })}
       className={`inline-flex max-w-full items-center gap-1.5 whitespace-nowrap bg-white dark:bg-slate-800 ${v2 ? 'h-8 ps-2.5 pe-3' : 'px-2.5 py-1'}`}
       style={v2 ? { borderRadius: 999, boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' } : { borderRadius: 10, border: '1px solid #E0E9FF' }}
     >

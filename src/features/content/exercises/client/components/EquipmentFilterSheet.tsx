@@ -52,6 +52,9 @@ import {
 import { useUserStore } from '@/features/user';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { library } from '@/messages/ns/library';
 
 /** Home v2 (enable_home_v2) styling switch for the sub-components below.
  *  Provided by the sheet; false = today's UI, byte-for-byte. */
@@ -118,6 +121,8 @@ function isPersonalGear(g: GearDefinition): boolean {
 }
 
 export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initialIds, mode = 'filter', onChange, activeLocation, onboardingV2 = false }: Props) {
+  const t = useT(library);
+  const tc = useT(common);
   const isProfileMode = mode === 'profile';
   const isInlineMode = mode === 'inline-onboarding';
   const filterIds = useExerciseLibraryStore((s) => s.filters.equipmentIds);
@@ -302,14 +307,14 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
   // ── Footer summary text ──────────────────────────────────────────────
   const summary = useMemo(() => {
     const totalChips = draft.size; // includes sentinel
-    if (totalChips === 0) return 'לא נבחר ציוד — יוצגו כל התרגילים';
-    if (activePreset === 'home') return 'ערכת בית · גוף + מאולתר';
-    if (activePreset === 'park') return 'ערכת פארק · גוף + ציוד פארק';
-    if (activePreset === 'gym') return 'ערכת חדר כושר · כל הציוד';
+    if (totalChips === 0) return t('exercises.equipSheet.summary.none');
+    if (activePreset === 'home') return t('exercises.equipSheet.summary.home');
+    if (activePreset === 'park') return t('exercises.equipSheet.summary.park');
+    if (activePreset === 'gym') return t('exercises.equipSheet.summary.gym');
     const realGear = totalChips - (draft.has(BODYWEIGHT_SENTINEL) ? 1 : 0);
-    if (realGear === 0) return 'משקל גוף בלבד';
-    return `${realGear} פריטי ציוד נבחרו`;
-  }, [draft, activePreset]);
+    if (realGear === 0) return t('exercises.equipSheet.summary.bodyweightOnly');
+    return t('exercises.equipSheet.summary.count', { count: String(realGear) });
+  }, [draft, activePreset, t]);
 
   const apply = useCallback(async () => {
     const ids = Array.from(draft);
@@ -375,7 +380,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
           <button
             type="button"
             onClick={onClose}
-            aria-label="חזרה"
+            aria-label={tc('actions.back')}
             className={v2
               ? 'grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
               : 'p-1 -mr-1 text-gray-500 hover:text-gray-800 flex-shrink-0'}
@@ -388,7 +393,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
             ? 'min-w-0 flex-1 truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink'
             : `font-bold text-gray-900 ${isProfileMode ? 'flex-1 text-lg' : 'text-base'}`}
         >
-          {isProfileMode ? 'הציוד שלי' : 'ציוד ומיקום'}
+          {isProfileMode ? t('exercises.equipSheet.title.profile') : t('exercises.equipSheet.title.filter')}
         </h2>
         {!isProfileMode && (
           <button
@@ -397,7 +402,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
             className={v2
               ? 'grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]'
               : 'p-2 -me-2 text-gray-400 hover:text-gray-600 rounded-full'}
-            aria-label="סגור"
+            aria-label={t('exercises.equipSheet.close')}
           >
             <X size={18} strokeWidth={v2 ? 2.4 : 2} />
           </button>
@@ -410,7 +415,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
         {!isProfileMode && (
           <>
             <p className={v2 ? 'mb-2.5 whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2'}>
-              מקום אימון
+              {t('exercises.equipSheet.location')}
             </p>
             {/* חדר כושר removed — no gym footage exists. The 'gym' PresetId and
                 its applyPreset branch are intentionally kept so a previously
@@ -420,13 +425,13 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
                 active={activePreset === 'home'}
                 onClick={() => applyPreset('home')}
                 icon={<Home size={v2 ? 16 : 18} />}
-                label="בית"
+                label={t('exercises.equipSheet.preset.home')}
               />
               <PresetButton
                 active={activePreset === 'park'}
                 onClick={() => applyPreset('park')}
                 icon={<MapPin size={v2 ? 16 : 18} />}
-                label="פארק"
+                label={t('exercises.equipSheet.preset.park')}
               />
             </div>
           </>
@@ -434,46 +439,46 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
 
         {/* ── Bodyweight (universal) ── */}
         <p className={v2 ? 'mb-2.5 whitespace-nowrap text-[15px] font-black text-v2-ink' : `font-bold text-gray-400 uppercase tracking-wider mb-2 ${isProfileMode ? 'text-xs' : 'text-[11px]'}`}>
-          בסיס
+          {t('exercises.equipSheet.base')}
         </p>
         <div className={v2 ? 'mb-6' : 'mb-5'}>
           <Chip
             active={draft.has(BODYWEIGHT_SENTINEL)}
             onClick={() => toggle(BODYWEIGHT_SENTINEL)}
             iconNode={<PersonStanding size={isProfileMode ? 20 : 16} className={v2 ? 'text-v2-deep' : 'text-gray-700'} />}
-            label="משקל גוף"
+            label={t('exercises.filters.bodyweight')}
             large={isProfileMode}
           />
         </div>
 
         {loadError ? (
           <p className={v2 ? 'py-6 text-center text-[14px] font-bold text-v2-down' : 'text-sm text-red-600 text-center py-6'}>
-            שגיאה בטעינת הציוד
+            {t('exercises.equipSheet.loadError')}
           </p>
         ) : gear.length === 0 ? (
           <p className={v2 ? 'flex items-center justify-center gap-2 py-8 text-[14px] font-bold text-v2-muted' : 'text-sm text-gray-400 text-center py-8'}>
             {v2 && <Loader2 size={16} className="animate-spin text-v2-accent" />}
-            טוען ציוד...
+            {t('exercises.filters.gearLoading')}
           </p>
         ) : (
           <>
             {!isProfileMode && (
               <Section
-                title="ציוד פארק"
+                title={t('exercises.filters.gearPark')}
                 items={sections.park}
                 draft={draft}
                 onToggle={toggle}
               />
             )}
             <Section
-              title="ציוד מאולתר / ביתי"
+              title={t('exercises.filters.gearImprovised')}
               items={sections.improvised}
               draft={draft}
               onToggle={toggle}
               large={isProfileMode}
             />
             <Section
-              title="ציוד אישי"
+              title={t('exercises.filters.gearPersonal')}
               items={sections.personal}
               draft={draft}
               onToggle={toggle}
@@ -496,7 +501,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
               ? 'h-12 flex-shrink-0 whitespace-nowrap rounded-full bg-white px-6 text-[15px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
               : 'flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors'}
           >
-            נקה
+            {t('exercises.equipSheet.clear')}
           </button>
           <button
             type="button"
@@ -515,13 +520,13 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
             } : undefined}
           >
             {saving ? (
-              <><Loader2 size={14} className="animate-spin" /><span>שומר...</span></>
+              <><Loader2 size={14} className="animate-spin" /><span>{t('exercises.equipSheet.saving')}</span></>
             ) : isProfileMode ? (
-              'שמור שינויים'
+              t('exercises.equipSheet.save')
             ) : isInlineMode ? (
-              'בואו נעדכן ציוד'
+              t('exercises.equipSheet.inlineApply')
             ) : (
-              'החל סינון'
+              t('exercises.equipSheet.apply')
             )}
           </button>
         </div>

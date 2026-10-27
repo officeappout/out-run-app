@@ -60,7 +60,7 @@ describe('library preview.* — plain strings', () => {
   });
 
   it('covers every preview.* key (count per prefix)', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('preview.')).length).toBe(85); // 74 + the 4 preview.location.unavailable.* keys (enable_location_gate_v1) + the 7 preview.where.* keys (enable_where_to_train_v1, where-to-train-he.test.ts)
+    expect(Object.keys(he).filter((k) => k.startsWith('preview.')).length).toBe(89); // 74 + the 4 preview.location.unavailable.* keys (enable_location_gate_v1) + the 7 preview.where.* keys (enable_where_to_train_v1, where-to-train-he.test.ts) + the 4 preview.section.title.* keys (batch ax)
   });
 });
 

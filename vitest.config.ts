@@ -53,6 +53,8 @@ export default defineConfig({
       'src/features/tv-mode/__tests__/**/*.test.tsx',
       // Unified search (enable_unified_search) — flag-off parity + card render tests, static markup.
       'src/features/search/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch az — WeatherChip aria-label parity, static markup.
+      'src/features/weather/components/__tests__/**/*.test.tsx',
       // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.
       'src/features/user/onboarding/intro/__tests__/**/*.test.tsx',
       // Schedule tutorial v1 (enable_schedule_tutorial_v1) + shared day cards: static-markup render tests.
@@ -126,6 +128,10 @@ export default defineConfig({
       'src/features/workout-engine/players/strength/__tests__/**/*.test.tsx',
       // i18n wave 2 batch ad (summary namespace) — aerobic summary child blocks, Hebrew markup parity, static markup.
       'src/features/workout-engine/summary/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch ax (map namespace, hybrid.axis.*) — HybridJourneyAxis leg copy + questionnaire line parity, static markup.
+      'src/features/parks/core/components/hybrid/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch ax (player namespace, hybrid.*) — hybrid station / v2 player cards + copy parity, static markup.
+      'src/features/workout-engine/hybrid/__tests__/**/*.test.tsx',
       // i18n wave 2 batch aa (library namespace, preview.*) — workout preview drawer Hebrew markup parity, static markup.
       'src/features/workouts/components/workout-preview-drawer/__tests__/**/*.test.tsx',
       // i18n wave 2 (namespace home) — home screen components, Hebrew markup parity (static + jsdom).

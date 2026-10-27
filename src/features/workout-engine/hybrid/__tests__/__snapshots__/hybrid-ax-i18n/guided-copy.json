@@ -1,0 +1,209 @@
+{
+ "male": {
+  "guidanceReps": "עשה 8 חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceRepsBare": "עשה חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceRepsBlank": "עשה חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceTime": "ממשיכים עד שהטיימר נגמר",
+  "cta": "מתחילים",
+  "steps": [
+   {
+    "target": "station-start",
+    "text": "כשמוכנים, לוחצים כאן",
+    "finger": true
+   },
+   {
+    "target": "station-chip",
+    "text": "כל תרגיל מסומן לפי הסוג שלו",
+    "legend": [
+     {
+      "icon": "time",
+      "text": "זמן: אנחנו סופרים"
+     },
+     {
+      "icon": "reps",
+      "text": "חזרות: אתה סופר ולוחץ סיימתי"
+     }
+    ]
+   },
+   {
+    "target": "station-skip",
+    "text": "בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה",
+    "legend": [
+     {
+      "icon": "pause",
+      "text": "עצירה"
+     },
+     {
+      "icon": "skip",
+      "text": "דילוג"
+     }
+    ]
+   }
+  ],
+  "entry": [
+   {
+    "target": "station-start",
+    "title": "מתחילים",
+    "text": "כשמוכנים, לוחצים כאן",
+    "finger": true
+   },
+   {
+    "target": "station-chip",
+    "title": "זמן או חזרות",
+    "text": "בזמן אנחנו סופרים. בחזרות אתה סופר ולוחץ סיימתי"
+   },
+   {
+    "target": "station-skip",
+    "title": "עצירה ודילוג",
+    "text": "בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה"
+   }
+  ],
+  "walkFirstNear": "התחל ללכת · בעוד 350 מ׳ תחנה ראשונה",
+  "walkFirstNull": "התחל ללכת · לתחנה הראשונה",
+  "walkNextNear": "המשך ללכת · בעוד 1.2 ק\"מ התחנה הבאה",
+  "walkNextNull": "המשך ללכת · לתחנה הבאה"
+ },
+ "female": {
+  "guidanceReps": "עשי 8 חזרות בקצב שלך, ואז לחצי סיימתי",
+  "guidanceRepsBare": "עשי חזרות בקצב שלך, ואז לחצי סיימתי",
+  "guidanceRepsBlank": "עשי חזרות בקצב שלך, ואז לחצי סיימתי",
+  "guidanceTime": "ממשיכים עד שהטיימר נגמר",
+  "cta": "מתחילים",
+  "steps": [
+   {
+    "target": "station-start",
+    "text": "כשמוכנים, לוחצים כאן",
+    "finger": true
+   },
+   {
+    "target": "station-chip",
+    "text": "כל תרגיל מסומן לפי הסוג שלו",
+    "legend": [
+     {
+      "icon": "time",
+      "text": "זמן: אנחנו סופרים"
+     },
+     {
+      "icon": "reps",
+      "text": "חזרות: את סופרת ולוחצת סיימתי"
+     }
+    ]
+   },
+   {
+    "target": "station-skip",
+    "text": "בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה",
+    "legend": [
+     {
+      "icon": "pause",
+      "text": "עצירה"
+     },
+     {
+      "icon": "skip",
+      "text": "דילוג"
+     }
+    ]
+   }
+  ],
+  "entry": [
+   {
+    "target": "station-start",
+    "title": "מתחילים",
+    "text": "כשמוכנים, לוחצים כאן",
+    "finger": true
+   },
+   {
+    "target": "station-chip",
+    "title": "זמן או חזרות",
+    "text": "בזמן אנחנו סופרים. בחזרות את סופרת ולוחצת סיימתי"
+   },
+   {
+    "target": "station-skip",
+    "title": "עצירה ודילוג",
+    "text": "בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה"
+   }
+  ],
+  "walkFirstNear": "התחילי ללכת · בעוד 350 מ׳ תחנה ראשונה",
+  "walkFirstNull": "התחילי ללכת · לתחנה הראשונה",
+  "walkNextNear": "המשיכי ללכת · בעוד 1.2 ק\"מ התחנה הבאה",
+  "walkNextNull": "המשיכי ללכת · לתחנה הבאה"
+ },
+ "other": {
+  "guidanceReps": "עשה 8 חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceRepsBare": "עשה חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceRepsBlank": "עשה חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceTime": "ממשיכים עד שהטיימר נגמר",
+  "cta": "מתחילים",
+  "steps": [
+   {
+    "target": "station-start",
+    "text": "כשמוכנים, לוחצים כאן",
+    "finger": true
+   },
+   {
+    "target": "station-chip",
+    "text": "כל תרגיל מסומן לפי הסוג שלו",
+    "legend": [
+     {
+      "icon": "time",
+      "text": "זמן: אנחנו סופרים"
+     },
+     {
+      "icon": "reps",
+      "text": "חזרות: סופרים ולוחצים סיימתי"
+     }
+    ]
+   },
+   {
+    "target": "station-skip",
+    "text": "בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה",
+    "legend": [
+     {
+      "icon": "pause",
+      "text": "עצירה"
+     },
+     {
+      "icon": "skip",
+      "text": "דילוג"
+     }
+    ]
+   }
+  ],
+  "entry": [
+   {
+    "target": "station-start",
+    "title": "מתחילים",
+    "text": "כשמוכנים, לוחצים כאן",
+    "finger": true
+   },
+   {
+    "target": "station-chip",
+    "title": "זמן או חזרות",
+    "text": "בזמן אנחנו סופרים. בחזרות סופרים ולוחצים סיימתי"
+   },
+   {
+    "target": "station-skip",
+    "title": "עצירה ודילוג",
+    "text": "בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה"
+   }
+  ],
+  "walkFirstNear": "מתחילים ללכת · בעוד 350 מ׳ תחנה ראשונה",
+  "walkFirstNull": "מתחילים ללכת · לתחנה הראשונה",
+  "walkNextNear": "ממשיכים ללכת · בעוד 1.2 ק\"מ התחנה הבאה",
+  "walkNextNull": "ממשיכים ללכת · לתחנה הבאה"
+ },
+ "null": {
+  "guidanceReps": "עשה 8 חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceRepsBare": "עשה חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceRepsBlank": "עשה חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceTime": "ממשיכים עד שהטיימר נגמר",
+  "cta": "מתחילים"
+ },
+ "undefined": {
+  "guidanceReps": "עשה 8 חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceRepsBare": "עשה חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceRepsBlank": "עשה חזרות בקצב שלך, ואז לחץ סיימתי",
+  "guidanceTime": "ממשיכים עד שהטיימר נגמר",
+  "cta": "מתחילים"
+ },
+ "greeting": "כל הכבוד, הגעת!"
+}

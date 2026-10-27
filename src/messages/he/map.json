@@ -856,5 +856,21 @@
   "liveUser.minorLock": "הודעות ישירות זמינות רק לבני 18+",
   "liveUser.stageFallback": "שלב {stage}",
   "mapLayers.mockLocation.label": "מיקום מדומה",
-  "mapLayers.mockLocation.confirm": "מיקום מדומה פעיל ({label}) — האימון יעקוב אחרי המיקום המדומה, לא GPS אמיתי. להמשיך?"
+  "mapLayers.mockLocation.confirm": "מיקום מדומה פעיל ({label}) — האימון יעקוב אחרי המיקום המדומה, לא GPS אמיתי. להמשיך?",
+  "weather.chip.aria": "מזג האוויר: {temp} מעלות",
+  "weather.chip.ariaHint": "מזג האוויר: {temp} מעלות, {hint}",
+  "hybrid.axis.zone": "{zone, select, jogging {ריצה קלה} easy {קל} recovery {שחרור} walk {הליכה} tempo {טמפו} long_run {ריצה ממושכת} fartlek_medium {פרטלק} fartlek_fast {פרטלק מהיר} other {אירובי}}",
+  "hybrid.axis.walkThere": "הליכה אל המסלול",
+  "hybrid.axis.walkBack": "הליכה חזרה",
+  "hybrid.axis.toStation": "אל {name}",
+  "hybrid.axis.backToStart": "חזרה לנקודת ההתחלה",
+  "hybrid.axis.continue": "המשך",
+  "hybrid.axis.metaAll": "{action} · {km} ק״מ · {time}",
+  "hybrid.axis.legTitle": "{action} · מקטע {n}",
+  "hybrid.axis.km": "{km} ק״מ",
+  "hybrid.questionnaire.locked": "שאלון כוח קצר יפתח את תחנות הכוח במסלול — למלא עכשיו",
+  "hybrid.questionnaire.nudge": "{gender, select, female {רוצה אימון מותאם יותר? מלאי שאלון כוח קצר} male {רוצה אימון מותאם יותר? מלא שאלון כוח קצר} other {אימון מותאם יותר? שאלון כוח קצר}}",
+  "recenter.me": "מרכז אותי",
+  "recenter.course": "כיוון הליכה",
+  "recenter.north": "צפון למעלה"
 }

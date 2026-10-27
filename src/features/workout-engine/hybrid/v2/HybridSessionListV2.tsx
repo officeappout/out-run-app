@@ -8,6 +8,8 @@
  */
 
 import React, { useMemo } from 'react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import { Footprints } from 'lucide-react';
 import { ExerciseSetsTable } from '@/components/ui/v2';
 import { SessionListLayer } from '../../players/shared/v2';
@@ -26,21 +28,22 @@ function RunThumb() {
 }
 
 export default function HybridSessionListV2({ onClose }: { onClose: () => void }) {
+  const t = useT(player);
   const api = useHybridPlayerV2();
   const { totals } = useFreeRunLive();
   const sections = useMemo(
-    () => (api?.enabled ? hybridListSections(api.plan, api.legs, api.names, exerciseNameOf, exerciseImageOf) : []),
-    [api?.enabled, api?.plan, api?.legs, api?.names],
+    () => (api?.enabled ? hybridListSections(api.plan, api.legs, api.names, exerciseNameOf, exerciseImageOf, t) : []),
+    [api?.enabled, api?.plan, api?.legs, api?.names, t],
   );
   if (!api?.enabled || !api.view) return null;
-  const h = headerView(api.view, api.plan, api.names, api.label);
+  const h = headerView(api.view, api.plan, api.names, api.label, t);
 
   return (
     <SessionListLayer
-      subtitle={`${h.eyebrow} · ${api.plan.length} בלוקים`}
+      subtitle={t('hybrid.v2.list.subtitle', { eyebrow: h.eyebrow, count: String(api.plan.length) })}
       onClose={onClose}
       safeTop={false}
-      totals={listTotals(sections, totals.durationSec, totals.distanceKm)}
+      totals={listTotals(sections, totals.durationSec, totals.distanceKm, t)}
     >
       <div className="mt-4 space-y-5">
         {sections.map((s) => (
@@ -54,7 +57,7 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
               <h3 className="min-w-0 truncate whitespace-nowrap text-[15px] font-black text-v2-ink">{s.title}</h3>
               {s.status === 'active' && (
                 <span className="shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11.5px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40">
-                  עכשיו
+                  {t('hybrid.v2.list.status.active')}
                 </span>
               )}
               <span className="ms-auto shrink-0 whitespace-nowrap text-[12px] font-bold text-v2-muted">{s.meta}</span>
