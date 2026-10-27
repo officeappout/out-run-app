@@ -24,6 +24,7 @@ import {
   LOCALE_PREF_KEY,
   decideHtmlLangDir,
   deviceLocales,
+  deviceLocalesFor,
   effectiveLocaleFlags,
   pickAppLocale,
 } from '@/lib/i18n/locale-resolution';
@@ -71,7 +72,7 @@ export default function LocaleSync() {
     const localeFlags = effectiveLocaleFlags({ enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe }, isSuperAdmin);
     void getOnboardingPrefAsync(LOCALE_PREF_KEY).then((storedLocale) => {
       if (cancelled) return;
-      const next = pickAppLocale(localeFlags, { profileLocale, storedLocale, deviceLocales: deviceLocales() });
+      const next = pickAppLocale(localeFlags, { profileLocale, storedLocale, deviceLocales: deviceLocalesFor(deviceLocales(), { enableLocaleEn }) });
       setLocaleState({ i18nEnabled: true, locale: next });
       writeLocaleCookie(next);
     });

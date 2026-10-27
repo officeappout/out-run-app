@@ -64,6 +64,15 @@ export function decideHtmlLangDir(input: {
   return { lang: input.locale, dir: dirOf(input.locale) };
 }
 
+/**
+ * Device languages the AUTOMATIC resolution may use. English that is allowed only through the super-admin
+ * override (enable_locale_en still off) is never picked from the device: the owner's Hebrew app must not
+ * flip to an empty English catalog on first run — English needs an explicit pick in Settings.
+ */
+export function deviceLocalesFor(device: readonly string[], realFlags: Pick<LocaleFlags, 'enableLocaleEn'>): string[] {
+  return realFlags.enableLocaleEn ? [...device] : device.filter((l) => !/^en(?:[-_]|$)/i.test(l));
+}
+
 /** Device languages (navigator.languages; WKWebView reports the iOS language). */
 export function deviceLocales(): string[] {
   if (typeof navigator === 'undefined') return [];
