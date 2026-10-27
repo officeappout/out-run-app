@@ -13,6 +13,8 @@ import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sheet from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 export interface EquipmentFilterShellProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ export interface EquipmentFilterShellProps {
 }
 
 export default function EquipmentFilterShell({ isOpen, onClose, isProfileMode, v2, children }: EquipmentFilterShellProps) {
+  const t = useT(library);
   // v2 (filter / inline-onboarding): the shared Sheet owns backdrop (z-[70],
   // blurred), panel (z-[71]), spring, grabber and whole-panel
   // drag-to-dismiss (> 120 px) — the classic branch's values. Profile mode
@@ -32,7 +35,7 @@ export default function EquipmentFilterShell({ isOpen, onClose, isProfileMode, v
     <Sheet
       open={isOpen}
       onClose={onClose}
-      ariaLabel="ציוד ומיקום"
+      ariaLabel={t('exercises.equipSheet.title.filter')}
       zIndex={SHEET_Z.filterPanel}
       backdropZIndex={SHEET_Z.filter}
       backdropStyle={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
