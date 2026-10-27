@@ -13,8 +13,7 @@
  * sign-in; concurrent calls share one run, so the referral / invite is consumed once and
  * only one navigation happens.
  */
-import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
-import { INTRO_SEEN_PREF, isIntroSeen, withIntroRedirect } from '../intro/intro-route';
+import { introAwareRouter } from '../intro/intro-router';
 import { runExploreMapFlow, type ExploreMapRouter } from './run-explore-map-flow';
 
 let inflight: Promise<boolean> | null = null;
@@ -22,13 +21,7 @@ let inflight: Promise<boolean> | null = null;
 export function runNewAccountFlow(router: ExploreMapRouter, opts: { introOn: boolean }): Promise<boolean> {
   if (inflight) return inflight;
   inflight = (async () => {
-    const flowRouter = opts.introOn
-      ? withIntroRedirect(router, {
-          introOn: true,
-          introSeen: isIntroSeen(await getOnboardingPrefAsync(INTRO_SEEN_PREF)),
-        })
-      : router;
-    return runExploreMapFlow(flowRouter);
+    return runExploreMapFlow(await introAwareRouter(router, opts));
   })().finally(() => {
     inflight = null;
   });

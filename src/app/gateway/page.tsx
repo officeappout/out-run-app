@@ -24,6 +24,8 @@ import {
 import { consumePendingInvites } from '@/features/user/onboarding/services/consume-pending-invites';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
+import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
+import { introAwareRouter } from '@/features/user/onboarding/intro/intro-router';
 import { legacyGatewayRedirect } from '@/lib/landing-fallback/fallback-routes';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
@@ -165,6 +167,9 @@ export default function GatewayPage() {
   const { enabled: retired } = useLandingRealFallback();
   const retiredRef = useRef(false);
   retiredRef.current = retired;
+  const { enabled: introOn } = useEntryIntroV1();
+  const introOnRef = useRef(false);
+  introOnRef.current = introOn;
 
   // Derived: is anything in progress?
   const isBusy = loading || showGuestTransition;
@@ -279,7 +284,8 @@ export default function GatewayPage() {
     setGuestTransitionStatus('loading');
     setShowGuestTransition(true);
     try {
-      const proceeded = await runExploreMapFlow(router);
+      // Owner 27.10: a new sign-up landing here also gets /intro once per device.
+      const proceeded = await runExploreMapFlow(await introAwareRouter(router, { introOn: introOnRef.current }));
       if (!proceeded) {
         // resolveUser() already logged AUTH_ANONYMOUS (run-explore-map-
         // flow.ts) — this is purely the visible side: swap the overlay to
