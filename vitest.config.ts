@@ -126,6 +126,10 @@ export default defineConfig({
       'src/features/workout-engine/players/strength/__tests__/**/*.test.tsx',
       // i18n wave 2 batch ad (summary namespace) — aerobic summary child blocks, Hebrew markup parity, static markup.
       'src/features/workout-engine/summary/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch ax (map namespace, hybrid.axis.*) — HybridJourneyAxis leg copy + questionnaire line parity, static markup.
+      'src/features/parks/core/components/hybrid/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch ax (player namespace, hybrid.*) — hybrid station / v2 player cards + copy parity, static markup.
+      'src/features/workout-engine/hybrid/__tests__/**/*.test.tsx',
       // i18n wave 2 batch aa (library namespace, preview.*) — workout preview drawer Hebrew markup parity, static markup.
       'src/features/workouts/components/workout-preview-drawer/__tests__/**/*.test.tsx',
       // i18n wave 2 (namespace home) — home screen components, Hebrew markup parity (static + jsdom).

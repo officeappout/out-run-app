@@ -1,0 +1,433 @@
+{
+ "named": [
+  {
+   "kind": "transport",
+   "key": "walk-there",
+   "phase": "there",
+   "label": "הליכה אל המסלול",
+   "minutes": 4
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg0",
+   "activity": "walking",
+   "stripActivity": "walking",
+   "durationSec": 900,
+   "distanceKm": 1.2,
+   "paceSecPerKm": 600,
+   "layout": "destination",
+   "title": "אל גינת כושר רוקח",
+   "meta": [
+    {
+     "key": "all",
+     "icon": "activity",
+     "text": "הליכה · 1.20 ק״מ · 15 דק׳"
+    }
+   ]
+  },
+  {
+   "kind": "station",
+   "key": "stn1",
+   "subtype": "push",
+   "durationSec": 600,
+   "ref": 1
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg2",
+   "activity": "walking",
+   "stripActivity": "walking",
+   "durationSec": 1000,
+   "distanceKm": 1.4,
+   "paceSecPerKm": 600,
+   "layout": "destination",
+   "title": "המשך",
+   "meta": [
+    {
+     "key": "all",
+     "icon": "activity",
+     "text": "הליכה · 1.40 ק״מ · 17 דק׳"
+    }
+   ]
+  },
+  {
+   "kind": "station",
+   "key": "stn3",
+   "subtype": "pull",
+   "durationSec": 600,
+   "ref": 3
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg4",
+   "activity": "walking",
+   "stripActivity": "walking",
+   "durationSec": 600,
+   "distanceKm": 0.8,
+   "paceSecPerKm": 600,
+   "layout": "destination",
+   "title": "חזרה לנקודת ההתחלה",
+   "meta": [
+    {
+     "key": "all",
+     "icon": "activity",
+     "text": "הליכה · 0.80 ק״מ · 10 דק׳"
+    }
+   ]
+  },
+  {
+   "kind": "transport",
+   "key": "walk-back",
+   "phase": "back",
+   "label": "הליכה חזרה",
+   "minutes": 5
+  }
+ ],
+ "unnamed": [
+  {
+   "kind": "aerobic",
+   "key": "leg0",
+   "activity": "walking",
+   "stripActivity": "walking",
+   "durationSec": 900,
+   "distanceKm": 1.2,
+   "paceSecPerKm": 600,
+   "layout": "standard",
+   "title": "הליכה · מקטע 1",
+   "badge": "הליכה",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.20 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "15 דק׳"
+    }
+   ],
+   "loopNote": false
+  },
+  {
+   "kind": "station",
+   "key": "stn1",
+   "subtype": "push",
+   "durationSec": 600,
+   "ref": 1
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg2",
+   "activity": "walking",
+   "stripActivity": "walking",
+   "durationSec": 1000,
+   "distanceKm": 1.4,
+   "paceSecPerKm": 600,
+   "layout": "standard",
+   "title": "הליכה · מקטע 2",
+   "badge": "הליכה",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.40 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "17 דק׳"
+    }
+   ],
+   "loopNote": false
+  },
+  {
+   "kind": "station",
+   "key": "stn3",
+   "subtype": "pull",
+   "durationSec": 600,
+   "ref": 3
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg4",
+   "activity": "walking",
+   "stripActivity": "walking",
+   "durationSec": 600,
+   "distanceKm": 0.8,
+   "paceSecPerKm": 600,
+   "layout": "standard",
+   "title": "הליכה · מקטע 3",
+   "badge": "הליכה",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "0.80 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "10 דק׳"
+    }
+   ],
+   "loopNote": true
+  }
+ ],
+ "park": [
+  {
+   "kind": "aerobic",
+   "key": "leg0",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 720,
+   "distanceKm": 1,
+   "paceSecPerKm": 600,
+   "layout": "destination",
+   "title": "אל פארק הירקון",
+   "meta": [
+    {
+     "key": "all",
+     "icon": "activity",
+     "text": "ריצה · 1.00 ק״מ · 12 דק׳"
+    }
+   ]
+  },
+  {
+   "kind": "station",
+   "key": "stn1",
+   "subtype": "legs",
+   "durationSec": 600,
+   "ref": 1
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg2",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 600,
+   "distanceKm": 1,
+   "paceSecPerKm": 600,
+   "layout": "destination",
+   "title": "חזרה לנקודת ההתחלה",
+   "meta": [
+    {
+     "key": "all",
+     "icon": "activity",
+     "text": "ריצה · 1.00 ק״מ · 10 דק׳"
+    }
+   ]
+  }
+ ],
+ "parkUnnamed": [
+  {
+   "kind": "aerobic",
+   "key": "leg0",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 720,
+   "distanceKm": 1,
+   "paceSecPerKm": 600,
+   "layout": "standard",
+   "title": "ריצה · מקטע 1",
+   "badge": "הליכה",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.00 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "12 דק׳"
+    }
+   ],
+   "loopNote": false
+  },
+  {
+   "kind": "station",
+   "key": "stn1",
+   "subtype": "legs",
+   "durationSec": 600,
+   "ref": 1
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg2",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 600,
+   "distanceKm": 1,
+   "paceSecPerKm": 600,
+   "layout": "standard",
+   "title": "ריצה · מקטע 2",
+   "badge": "הליכה",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.00 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "10 דק׳"
+    }
+   ],
+   "loopNote": true
+  }
+ ],
+ "zones": [
+  {
+   "kind": "aerobic",
+   "key": "leg0",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 300,
+   "distanceKm": 1,
+   "paceSecPerKm": 0,
+   "layout": "standard",
+   "title": "ריצה · מקטע 1",
+   "badge": "ריצה קלה",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.00 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "5 דק׳"
+    }
+   ],
+   "loopNote": false
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg1",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 300,
+   "distanceKm": 1,
+   "paceSecPerKm": 0,
+   "layout": "standard",
+   "title": "ריצה · מקטע 2",
+   "badge": "שחרור",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.00 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "5 דק׳"
+    }
+   ],
+   "loopNote": false
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg2",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 300,
+   "distanceKm": 1,
+   "paceSecPerKm": 0,
+   "layout": "standard",
+   "title": "ריצה · מקטע 3",
+   "badge": "טמפו",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.00 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "5 דק׳"
+    }
+   ],
+   "loopNote": false
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg3",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 300,
+   "distanceKm": 1,
+   "paceSecPerKm": 0,
+   "layout": "standard",
+   "title": "ריצה · מקטע 4",
+   "badge": "פרטלק מהיר",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.00 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "5 דק׳"
+    }
+   ],
+   "loopNote": false
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg4",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 300,
+   "distanceKm": 1,
+   "paceSecPerKm": 0,
+   "layout": "standard",
+   "title": "ריצה · מקטע 5",
+   "badge": "אירובי",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.00 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "5 דק׳"
+    }
+   ],
+   "loopNote": false
+  },
+  {
+   "kind": "aerobic",
+   "key": "leg5",
+   "activity": "running",
+   "stripActivity": "running",
+   "durationSec": 300,
+   "distanceKm": 1,
+   "paceSecPerKm": 0,
+   "layout": "standard",
+   "title": "ריצה · מקטע 6",
+   "badge": "אירובי",
+   "meta": [
+    {
+     "key": "km",
+     "icon": "distance",
+     "text": "1.00 ק״מ"
+    },
+    {
+     "key": "min",
+     "icon": "time",
+     "text": "5 דק׳"
+    }
+   ],
+   "loopNote": true
+  }
+ ]
+}

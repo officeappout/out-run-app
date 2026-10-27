@@ -1,0 +1,57 @@
+{
+ "full": [
+  {
+   "id": "warmup",
+   "title": "חימום",
+   "rounds": 1
+  },
+  {
+   "id": "superset-0",
+   "title": "סופר סט",
+   "rounds": 3
+  },
+  {
+   "id": "regular-1",
+   "title": "סט רגיל",
+   "rounds": 3
+  },
+  {
+   "id": "regular-2",
+   "title": "סט רגיל",
+   "rounds": 3
+  },
+  {
+   "id": "tabata",
+   "title": "טבטה",
+   "rounds": 8
+  },
+  {
+   "id": "cooldown",
+   "title": "מתיחות",
+   "rounds": 1
+  }
+ ],
+ "pyramid": [
+  {
+   "id": "pyramid-0",
+   "title": "סט שיא",
+   "rounds": 3
+  },
+  {
+   "id": "pyramid-1",
+   "title": "סט שיא",
+   "rounds": 3
+  },
+  {
+   "id": "regular-2",
+   "title": "סט שיא",
+   "rounds": 3
+  }
+ ],
+ "timedMain": [
+  {
+   "id": "timed-main",
+   "title": "AMRAP 10"
+  }
+ ]
+}

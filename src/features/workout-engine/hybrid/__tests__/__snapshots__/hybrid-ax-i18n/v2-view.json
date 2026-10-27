@@ -1,0 +1,356 @@
+{
+ "idle": {
+  "header": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצה אל פארק הירקון · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNamed": {
+   "eyebrow": "מסלול + עצירות",
+   "title": "ריצה אל פארק הירקון · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNoNames": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצה אל התחנה · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "next": null,
+  "nextNoName": null,
+  "mini": {
+   "color": "#84cc16",
+   "title": "ריצה אל פארק הירקון",
+   "subtitle": "22:40 · 2.20 ק״מ"
+  },
+  "transition": {
+   "countdown": "0:00",
+   "fraction": 0,
+   "stationLabel": "ריצה אל פארק הירקון",
+   "stationMeta": "12 דק׳",
+   "first": null,
+   "moreText": null
+  }
+ },
+ "onLeg": {
+  "header": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצה אל פארק הירקון · 1.8 ק״מ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNamed": {
+   "eyebrow": "מסלול + עצירות",
+   "title": "ריצה אל פארק הירקון · 1.8 ק״מ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNoNames": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצה אל התחנה · 1.8 ק״מ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "next": {
+   "label": "בלוק כוח · פארק הירקון",
+   "meta": "3 תרגילים · 10′",
+   "color": "#00baf7"
+  },
+  "nextNoName": {
+   "label": "בלוק כוח",
+   "meta": "3 תרגילים · 10′",
+   "color": "#00baf7"
+  },
+  "mini": {
+   "color": "#84cc16",
+   "title": "ריצה אל פארק הירקון",
+   "subtitle": "22:40 · 2.20 ק״מ"
+  },
+  "transition": {
+   "countdown": "0:00",
+   "fraction": 0,
+   "stationLabel": "ריצה אל פארק הירקון",
+   "stationMeta": "12 דק׳",
+   "first": null,
+   "moreText": null
+  }
+ },
+ "approaching": {
+  "header": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצה אל פארק הירקון · 50 מ׳ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNamed": {
+   "eyebrow": "מסלול + עצירות",
+   "title": "ריצה אל פארק הירקון · 50 מ׳ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNoNames": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצה אל התחנה · 50 מ׳ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "next": {
+   "label": "בלוק כוח · פארק הירקון",
+   "meta": "3 תרגילים · 10′",
+   "color": "#00baf7"
+  },
+  "nextNoName": {
+   "label": "בלוק כוח",
+   "meta": "3 תרגילים · 10′",
+   "color": "#00baf7"
+  },
+  "mini": {
+   "color": "#84cc16",
+   "title": "ריצה אל פארק הירקון",
+   "subtitle": "22:40 · 2.20 ק״מ"
+  },
+  "transition": {
+   "countdown": "0:00",
+   "fraction": 0,
+   "stationLabel": "ריצה אל פארק הירקון",
+   "stationMeta": "12 דק׳",
+   "first": null,
+   "moreText": null
+  }
+ },
+ "transition": {
+  "header": {
+   "eyebrow": "ריצה + כוח",
+   "title": "מעבר לכוח · 2 מתוך 3",
+   "color": "#00baf7"
+  },
+  "headerNamed": {
+   "eyebrow": "מסלול + עצירות",
+   "title": "מעבר לכוח · 2 מתוך 3",
+   "color": "#00baf7"
+  },
+  "headerNoNames": {
+   "eyebrow": "ריצה + כוח",
+   "title": "מעבר לכוח · 2 מתוך 3",
+   "color": "#00baf7"
+  },
+  "next": null,
+  "nextNoName": null,
+  "mini": {
+   "color": "#00baf7",
+   "title": "מעבר לכוח · 0:15",
+   "subtitle": "22:40 · 2.20 ק״מ"
+  },
+  "transition": {
+   "countdown": "0:15",
+   "fraction": 0.75,
+   "stationLabel": "תחנת כוח · פארק הירקון",
+   "stationMeta": "3 תרגילים · 7 סטים · 10 דק׳",
+   "first": {
+    "name": "מתח",
+    "target": "6–8 חזרות",
+    "setsText": "סט 1 מתוך 3"
+   },
+   "moreText": "עוד 2 תרגילים"
+  }
+ },
+ "station": {
+  "header": {
+   "eyebrow": "ריצה + כוח",
+   "title": "תחנת כוח · פארק הירקון · 2 מתוך 3",
+   "color": "#00baf7"
+  },
+  "headerNamed": {
+   "eyebrow": "מסלול + עצירות",
+   "title": "תחנת כוח · פארק הירקון · 2 מתוך 3",
+   "color": "#00baf7"
+  },
+  "headerNoNames": {
+   "eyebrow": "ריצה + כוח",
+   "title": "תחנת כוח · 2 מתוך 3",
+   "color": "#00baf7"
+  },
+  "next": null,
+  "nextNoName": null,
+  "mini": {
+   "color": "#00baf7",
+   "title": "תחנת כוח · פארק הירקון",
+   "subtitle": "22:40 · 2.20 ק״מ"
+  },
+  "transition": {
+   "countdown": "0:00",
+   "fraction": 0,
+   "stationLabel": "תחנת כוח · פארק הירקון",
+   "stationMeta": "3 תרגילים · 7 סטים · 10 דק׳",
+   "first": {
+    "name": "מתח",
+    "target": "6–8 חזרות",
+    "setsText": "סט 1 מתוך 3"
+   },
+   "moreText": "עוד 2 תרגילים"
+  }
+ },
+ "cooldown": {
+  "header": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצת שחרור · 200 מ׳ · 3 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNamed": {
+   "eyebrow": "מסלול + עצירות",
+   "title": "ריצת שחרור · 200 מ׳ · 3 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNoNames": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצת שחרור · 200 מ׳ · 3 מתוך 3",
+   "color": "#84cc16"
+  },
+  "next": null,
+  "nextNoName": null,
+  "mini": {
+   "color": "#84cc16",
+   "title": "ריצת שחרור",
+   "subtitle": "22:40 · 2.20 ק״מ"
+  },
+  "transition": {
+   "countdown": "0:00",
+   "fraction": 0,
+   "stationLabel": "ריצת שחרור",
+   "stationMeta": "2 דק׳",
+   "first": null,
+   "moreText": null
+  }
+ },
+ "skipped": {
+  "header": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצת שחרור · 300 מ׳ · 3 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNamed": {
+   "eyebrow": "מסלול + עצירות",
+   "title": "ריצת שחרור · 300 מ׳ · 3 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNoNames": {
+   "eyebrow": "ריצה + כוח",
+   "title": "ריצת שחרור · 300 מ׳ · 3 מתוך 3",
+   "color": "#84cc16"
+  },
+  "next": null,
+  "nextNoName": null,
+  "mini": {
+   "color": "#84cc16",
+   "title": "ריצת שחרור",
+   "subtitle": "22:40 · 2.20 ק״מ"
+  },
+  "transition": {
+   "countdown": "0:00",
+   "fraction": 0,
+   "stationLabel": "ריצת שחרור",
+   "stationMeta": "2 דק׳",
+   "first": null,
+   "moreText": null
+  }
+ },
+ "walkLeg": {
+  "header": {
+   "eyebrow": "הליכה + כוח",
+   "title": "הליכה אל התחנה · 1 ק״מ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNamed": {
+   "eyebrow": "מסלול + עצירות",
+   "title": "הליכה אל התחנה · 1 ק״מ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "headerNoNames": {
+   "eyebrow": "הליכה + כוח",
+   "title": "הליכה אל התחנה · 1 ק״מ · 1 מתוך 3",
+   "color": "#84cc16"
+  },
+  "next": {
+   "label": "בלוק כוח",
+   "meta": "3 תרגילים · 10′",
+   "color": "#00baf7"
+  },
+  "nextNoName": {
+   "label": "בלוק כוח",
+   "meta": "3 תרגילים · 10′",
+   "color": "#00baf7"
+  },
+  "mini": {
+   "color": "#84cc16",
+   "title": "הליכה אל התחנה",
+   "subtitle": "22:40 · 2.20 ק״מ"
+  },
+  "transition": {
+   "countdown": "0:00",
+   "fraction": 0,
+   "stationLabel": "הליכה אל התחנה",
+   "stationMeta": "13 דק׳",
+   "first": null,
+   "moreText": null
+  }
+ },
+ "legLabels": [
+  [
+   [
+    "ריצה אל פארק הירקון",
+    "ריצה אל התחנה"
+   ],
+   [
+    "הליכה אל התחנה",
+    "הליכה אל התחנה"
+   ]
+  ],
+  [
+   [
+    "תחנת כוח · פארק הירקון",
+    "תחנת כוח"
+   ],
+   [
+    "תחנת כוח",
+    "תחנת כוח"
+   ]
+  ],
+  [
+   [
+    "ריצת שחרור",
+    "ריצת שחרור"
+   ],
+   [
+    "רכיבת שחרור",
+    "רכיבת שחרור"
+   ]
+  ]
+ ],
+ "zones": [
+  {
+   "minSec": 330,
+   "maxSec": 350,
+   "label": "ריצה קלה",
+   "showNumbers": true
+  },
+  null,
+  {
+   "minSec": 600,
+   "maxSec": 700,
+   "label": "הליכה",
+   "showNumbers": true
+  },
+  null,
+  {
+   "minSec": 600,
+   "maxSec": 700,
+   "label": "הליכה",
+   "showNumbers": true
+  },
+  {
+   "minSec": 330,
+   "maxSec": 350,
+   "label": "טמפו",
+   "showNumbers": true
+  },
+  {
+   "minSec": 330,
+   "maxSec": 350,
+   "label": "ריצה קלה",
+   "showNumbers": true
+  }
+ ]
+}

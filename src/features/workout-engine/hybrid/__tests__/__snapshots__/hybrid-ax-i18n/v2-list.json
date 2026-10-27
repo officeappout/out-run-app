@@ -1,0 +1,890 @@
+{
+ "idle": {
+  "secs": [
+   {
+    "key": "leg-0",
+    "kind": "run",
+    "title": "ריצה אל פארק הירקון",
+    "meta": "2 ק״מ",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "leg-0",
+      "name": "2 ק״מ",
+      "subtitle": "עוד לא התחיל",
+      "tiles": [
+       {
+        "value": "–",
+        "tone": "missed"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "st-1",
+    "kind": "station",
+    "title": "תחנת כוח · פארק הירקון",
+    "meta": "3 תרגילים · 0/7 סטים",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "pull-0",
+      "name": "מתח",
+      "subtitle": "6–8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       },
+       {
+        "value": "3",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "dip-1",
+      "name": "מקבילים",
+      "subtitle": "8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "pl-2",
+      "name": "פלאנק",
+      "subtitle": "30 שנ׳",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "leg-2",
+    "kind": "run",
+    "title": "ריצת שחרור",
+    "meta": "300 מ׳",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "leg-2",
+      "name": "300 מ׳",
+      "subtitle": "עוד לא התחיל",
+      "tiles": [
+       {
+        "value": "–",
+        "tone": "missed"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "totals": "22:40 · 2.20 ק״מ · 0/7 סטים",
+  "totalsEmpty": "0:00 · 0.00 ק״מ"
+ },
+ "onLeg": {
+  "secs": [
+   {
+    "key": "leg-0",
+    "kind": "run",
+    "title": "ריצה אל פארק הירקון",
+    "meta": "2 ק״מ · עכשיו",
+    "status": "active",
+    "rows": [
+     {
+      "key": "leg-0",
+      "name": "2 ק״מ",
+      "subtitle": "1:00",
+      "tiles": [
+       {
+        "value": "0.25",
+        "tone": "missed"
+       }
+      ],
+      "active": true,
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "st-1",
+    "kind": "station",
+    "title": "תחנת כוח · פארק הירקון",
+    "meta": "3 תרגילים · 0/7 סטים",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "pull-0",
+      "name": "מתח",
+      "subtitle": "6–8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       },
+       {
+        "value": "3",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "dip-1",
+      "name": "מקבילים",
+      "subtitle": "8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "pl-2",
+      "name": "פלאנק",
+      "subtitle": "30 שנ׳",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "leg-2",
+    "kind": "run",
+    "title": "ריצת שחרור",
+    "meta": "300 מ׳",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "leg-2",
+      "name": "300 מ׳",
+      "subtitle": "עוד לא התחיל",
+      "tiles": [
+       {
+        "value": "–",
+        "tone": "missed"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "totals": "22:40 · 2.20 ק״מ · 0/7 סטים",
+  "totalsEmpty": "0:00 · 0.00 ק״מ"
+ },
+ "approaching": {
+  "secs": [
+   {
+    "key": "leg-0",
+    "kind": "run",
+    "title": "ריצה אל פארק הירקון",
+    "meta": "2 ק״מ · עכשיו",
+    "status": "active",
+    "rows": [
+     {
+      "key": "leg-0",
+      "name": "2 ק״מ",
+      "subtitle": "10:00 · 5:08 לק״מ",
+      "tiles": [
+       {
+        "value": "1.95",
+        "tone": "missed"
+       }
+      ],
+      "active": true,
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "st-1",
+    "kind": "station",
+    "title": "תחנת כוח · פארק הירקון",
+    "meta": "3 תרגילים · 0/7 סטים",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "pull-0",
+      "name": "מתח",
+      "subtitle": "6–8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       },
+       {
+        "value": "3",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "dip-1",
+      "name": "מקבילים",
+      "subtitle": "8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "pl-2",
+      "name": "פלאנק",
+      "subtitle": "30 שנ׳",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "leg-2",
+    "kind": "run",
+    "title": "ריצת שחרור",
+    "meta": "300 מ׳",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "leg-2",
+      "name": "300 מ׳",
+      "subtitle": "עוד לא התחיל",
+      "tiles": [
+       {
+        "value": "–",
+        "tone": "missed"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "totals": "22:40 · 2.20 ק״מ · 0/7 סטים",
+  "totalsEmpty": "0:00 · 0.00 ק״מ"
+ },
+ "transition": {
+  "secs": [
+   {
+    "key": "leg-0",
+    "kind": "run",
+    "title": "ריצה אל פארק הירקון",
+    "meta": "2 ק״מ · הושלם",
+    "status": "done",
+    "rows": [
+     {
+      "key": "leg-0",
+      "name": "2 ק״מ",
+      "subtitle": "10:00 · 5:00 לק״מ",
+      "tiles": [
+       {
+        "value": "2.00",
+        "tone": "in"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "st-1",
+    "kind": "station",
+    "title": "תחנת כוח · פארק הירקון",
+    "meta": "3 תרגילים · 0/7 סטים · עכשיו",
+    "status": "active",
+    "rows": [
+     {
+      "key": "pull-0",
+      "name": "מתח",
+      "subtitle": "6–8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       },
+       {
+        "value": "3",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "dip-1",
+      "name": "מקבילים",
+      "subtitle": "8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "pl-2",
+      "name": "פלאנק",
+      "subtitle": "30 שנ׳",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "leg-2",
+    "kind": "run",
+    "title": "ריצת שחרור",
+    "meta": "300 מ׳",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "leg-2",
+      "name": "300 מ׳",
+      "subtitle": "עוד לא התחיל",
+      "tiles": [
+       {
+        "value": "–",
+        "tone": "missed"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "totals": "22:40 · 2.20 ק״מ · 0/7 סטים",
+  "totalsEmpty": "0:00 · 0.00 ק״מ"
+ },
+ "station": {
+  "secs": [
+   {
+    "key": "leg-0",
+    "kind": "run",
+    "title": "ריצה אל פארק הירקון",
+    "meta": "2 ק״מ · הושלם",
+    "status": "done",
+    "rows": [
+     {
+      "key": "leg-0",
+      "name": "2 ק״מ",
+      "subtitle": "10:00 · 5:00 לק״מ",
+      "tiles": [
+       {
+        "value": "2.00",
+        "tone": "in"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "st-1",
+    "kind": "station",
+    "title": "תחנת כוח · פארק הירקון",
+    "meta": "3 תרגילים · 0/7 סטים · עכשיו",
+    "status": "active",
+    "rows": [
+     {
+      "key": "pull-0",
+      "name": "מתח",
+      "subtitle": "6–8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       },
+       {
+        "value": "3",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "dip-1",
+      "name": "מקבילים",
+      "subtitle": "8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "pl-2",
+      "name": "פלאנק",
+      "subtitle": "30 שנ׳",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "leg-2",
+    "kind": "run",
+    "title": "ריצת שחרור",
+    "meta": "300 מ׳",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "leg-2",
+      "name": "300 מ׳",
+      "subtitle": "עוד לא התחיל",
+      "tiles": [
+       {
+        "value": "–",
+        "tone": "missed"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "totals": "22:40 · 2.20 ק״מ · 0/7 סטים",
+  "totalsEmpty": "0:00 · 0.00 ק״מ"
+ },
+ "cooldown": {
+  "secs": [
+   {
+    "key": "leg-0",
+    "kind": "run",
+    "title": "ריצה אל פארק הירקון",
+    "meta": "2 ק״מ · הושלם",
+    "status": "done",
+    "rows": [
+     {
+      "key": "leg-0",
+      "name": "2 ק״מ",
+      "subtitle": "11:40 · 5:33 לק״מ",
+      "tiles": [
+       {
+        "value": "2.10",
+        "tone": "in"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "st-1",
+    "kind": "station",
+    "title": "תחנת כוח · פארק הירקון",
+    "meta": "3 תרגילים · 3/7 סטים · הושלם",
+    "status": "done",
+    "rows": [
+     {
+      "key": "pull-0",
+      "name": "מתח",
+      "subtitle": "6–8 חזרות",
+      "tiles": [
+       {
+        "value": "7",
+        "tone": "in"
+       },
+       {
+        "value": "7",
+        "tone": "in"
+       },
+       {
+        "value": "6",
+        "tone": "in"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "dip-1",
+      "name": "מקבילים",
+      "subtitle": "8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "pl-2",
+      "name": "פלאנק",
+      "subtitle": "30 שנ׳",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "leg-2",
+    "kind": "run",
+    "title": "ריצת שחרור",
+    "meta": "300 מ׳ · עכשיו",
+    "status": "active",
+    "rows": [
+     {
+      "key": "leg-2",
+      "name": "300 מ׳",
+      "subtitle": "1:00",
+      "tiles": [
+       {
+        "value": "0.10",
+        "tone": "missed"
+       }
+      ],
+      "active": true,
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "totals": "22:40 · 2.20 ק״מ · 3/7 סטים",
+  "totalsEmpty": "0:00 · 0.00 ק״מ"
+ },
+ "skipped": {
+  "secs": [
+   {
+    "key": "leg-0",
+    "kind": "run",
+    "title": "ריצה אל פארק הירקון",
+    "meta": "2 ק״מ · הושלם",
+    "status": "done",
+    "rows": [
+     {
+      "key": "leg-0",
+      "name": "2 ק״מ",
+      "subtitle": "5:00 · 5:00 לק״מ",
+      "tiles": [
+       {
+        "value": "1.00",
+        "tone": "in"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "st-1",
+    "kind": "station",
+    "title": "תחנת כוח · פארק הירקון",
+    "meta": "3 תרגילים · 0/7 סטים · דילגת",
+    "status": "skipped",
+    "rows": [
+     {
+      "key": "pull-0",
+      "name": "מתח",
+      "subtitle": "דילגת",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       },
+       {
+        "value": "3",
+        "tone": "missed"
+       }
+      ],
+      "muted": true
+     },
+     {
+      "key": "dip-1",
+      "name": "מקבילים",
+      "subtitle": "דילגת",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": true
+     },
+     {
+      "key": "pl-2",
+      "name": "פלאנק",
+      "subtitle": "דילגת",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": true
+     }
+    ]
+   },
+   {
+    "key": "leg-2",
+    "kind": "run",
+    "title": "ריצת שחרור",
+    "meta": "300 מ׳ · עכשיו",
+    "status": "active",
+    "rows": [
+     {
+      "key": "leg-2",
+      "name": "300 מ׳",
+      "subtitle": "עוד לא התחיל",
+      "tiles": [
+       {
+        "value": "–",
+        "tone": "missed"
+       }
+      ],
+      "active": true,
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "totals": "22:40 · 2.20 ק״מ · 0/7 סטים",
+  "totalsEmpty": "0:00 · 0.00 ק״מ"
+ },
+ "walkLeg": {
+  "secs": [
+   {
+    "key": "leg-0",
+    "kind": "run",
+    "title": "הליכה אל התחנה",
+    "meta": "1.2 ק״מ · עכשיו",
+    "status": "active",
+    "rows": [
+     {
+      "key": "leg-0",
+      "name": "1.2 ק״מ",
+      "subtitle": "1:00",
+      "tiles": [
+       {
+        "value": "0.20",
+        "tone": "missed"
+       }
+      ],
+      "active": true,
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "st-1",
+    "kind": "station",
+    "title": "תחנת כוח",
+    "meta": "3 תרגילים · 0/7 סטים",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "pull-0",
+      "name": "מתח",
+      "subtitle": "6–8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       },
+       {
+        "value": "3",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "dip-1",
+      "name": "מקבילים",
+      "subtitle": "8 חזרות",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     },
+     {
+      "key": "pl-2",
+      "name": "פלאנק",
+      "subtitle": "30 שנ׳",
+      "tiles": [
+       {
+        "value": "1",
+        "tone": "missed"
+       },
+       {
+        "value": "2",
+        "tone": "missed"
+       }
+      ],
+      "muted": false
+     }
+    ]
+   },
+   {
+    "key": "leg-2",
+    "kind": "run",
+    "title": "רכיבת שחרור",
+    "meta": "3 ק״מ",
+    "status": "not_reached",
+    "rows": [
+     {
+      "key": "leg-2",
+      "name": "3 ק״מ",
+      "subtitle": "עוד לא התחיל",
+      "tiles": [
+       {
+        "value": "–",
+        "tone": "missed"
+       }
+      ],
+      "active": false,
+      "muted": false
+     }
+    ]
+   }
+  ],
+  "totals": "22:40 · 2.20 ק״מ · 0/7 סטים",
+  "totalsEmpty": "0:00 · 0.00 ק״מ"
+ }
+}

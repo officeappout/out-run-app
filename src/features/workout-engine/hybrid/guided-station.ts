@@ -10,7 +10,8 @@
  *   settings.guidedStationsCompleted  number  | absent  — stations COMPLETED in guided mode (starts at 0, no backfill)
  *   settings.guidedFastPromptAsked    boolean | absent  — "כבר הבנת? לעבור למצב מהיר" was shown once
  */
-import { g, type AppGender } from '@/lib/utils/gendered-text';
+import type { AppGender } from '@/lib/utils/gendered-text';
+import { defaultPlayerT, type PlayerT } from './hybrid-t';
 
 export const GUIDED_SETTING_KEY = 'settings.guidedStation';
 export const GUIDED_COMPLETED_COUNT_KEY = 'settings.guidedStationsCompleted';
@@ -63,19 +64,28 @@ export function shouldShowFastPrompt(guided: boolean, completedCount: number, al
 }
 
 /** Guidance line under the exercise (guided only). Reps: gendered; timed: neutral. */
-export function guidanceLine(kind: 'reps' | 'time', gender: AppGender | null | undefined, reps?: string | number): string {
-  if (kind === 'time') return 'ממשיכים עד שהטיימר נגמר';
-  const x = reps != null && String(reps).trim() !== '' ? `${reps} ` : '';
-  return g(gender, `עשה ${x}חזרות בקצב שלך, ואז לחץ סיימתי`, `עשי ${x}חזרות בקצב שלך, ואז לחצי סיימתי`);
+export function guidanceLine(
+  kind: 'reps' | 'time',
+  gender: AppGender | null | undefined,
+  reps?: string | number,
+  t: PlayerT = defaultPlayerT(),
+): string {
+  if (kind === 'time') return t('hybrid.guidance.time');
+  const g = gender ?? 'other';
+  return reps != null && String(reps).trim() !== ''
+    ? t('hybrid.guidance.reps', { gender: g, n: String(reps) })
+    : t('hybrid.guidance.repsBare', { gender: g });
 }
 
 /** Welcome-screen greeting (guided only). "הגעת" is spelled the same for both genders. */
-export const WELCOME_GREETING = 'כל הכבוד, הגעת!';
+export function welcomeGreeting(t: PlayerT = defaultPlayerT()): string {
+  return t('hybrid.welcome.greeting');
+}
 
 /** Welcome-screen CTA (guided only) — one neutral form for everyone (owner gender decisions:
  *  buttons use neutral / noun forms, not "בוא/בואי נתחיל"). `gender` kept for call-site parity. */
-export function welcomeCta(_gender?: AppGender | null): string {
-  return 'מתחילים';
+export function welcomeCta(_gender?: AppGender | null, t: PlayerT = defaultPlayerT()): string {
+  return t('hybrid.welcome.cta');
 }
 
 /** Welcome-screen type chip: Timer ("זמן") for time-based / tabata exercises, Repeat ("חזרות") for rep-counted ones. */

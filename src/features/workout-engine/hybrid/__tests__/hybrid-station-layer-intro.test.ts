@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
+import he from '@/messages/he/player.json';
 
 /**
  * Regression — G3.1 (Sderot field test, 10.10.2026): first-timers dropped
@@ -37,8 +38,10 @@ describe('HybridStationLayer — start-of-walk intro', () => {
   });
 
   it('renders the exact requested copy, with a real distance when available', () => {
-    expect(src).toContain('🚶 התחל ללכת');
-    expect(src).toContain('— בעוד {formatApproxDistance(distanceToStationM)} יש גינת כושר');
+    // The copy moved to the `player` catalog (i18n batch ax); the layer picks the key by distance.
+    expect(he['hybrid.layer.intro']).toBe('🚶 התחל ללכת');
+    expect(he['hybrid.layer.introWithDistance']).toBe('🚶 התחל ללכת — בעוד {distance} יש גינת כושר');
+    expect(src).toContain("t('hybrid.layer.introWithDistance', { distance: formatApproxDistance(distanceToStationM) })");
   });
 
   it('the pre-existing approach-CTA gating is untouched (still gated, not a regression introduced by this change)', () => {

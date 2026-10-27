@@ -14,6 +14,7 @@
  * onboardingPrefs, keyed by uid; "דלג" counts as seen.
  */
 import { common } from '@/messages/ns/common';
+import { player } from '@/messages/ns/player';
 import { useT } from '@/hooks/useT';
 import { withUnit } from '@/lib/i18n/units';
 import { useEffect, useState } from 'react';
@@ -26,7 +27,7 @@ import type { WorkoutPlan } from '@/features/parks';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import StationExerciseRow from '@/features/workout-engine/players/strength/components/StationExerciseRow';
 import type { StationContext } from './station-flow';
-import { WELCOME_GREETING, welcomeCta, exerciseTypeChip } from './guided-station';
+import { welcomeGreeting, welcomeCta, exerciseTypeChip } from './guided-station';
 import {
   COACH_TARGET_CHIPS, COACH_TARGET_START,
   shouldShowStationTutorial, stationTutorialEntrySteps, stationTutorialSeenKey, stationTutorialSteps,
@@ -64,6 +65,7 @@ interface Props {
 
 export default function StationWelcomeScreen({ plan, context, gender, onStart, guided, uid, oneBubbleStyle = false }: Props) {
   const tc = useT(common);
+  const t = useT(player);
   // PR-B4: first-time tutorial — resolved async (native cold start may have evicted localStorage).
   const [showTutorial, setShowTutorial] = useState(false);
   useEffect(() => {
@@ -96,14 +98,14 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart, g
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 56px)' }}
       >
         <p className="text-[13px] font-bold text-[#00ADEF] mb-1">
-          תחנה {context.stationNumber} מתוך {context.stationTotal}
+          {t('hybrid.welcome.stationOf', { number: String(context.stationNumber), total: String(context.stationTotal) })}
         </p>
         <h1 className="text-[26px] font-black text-gray-900 leading-tight mb-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-          {WELCOME_GREETING}
+          {welcomeGreeting(t)}
         </h1>
         <p className="text-[15px] font-bold text-gray-600 mb-4">
-          {context.parkName ?? 'גינת כושר'}
-          {context.estimatedMin != null && <span className="text-gray-400"> · כ-{withUnit('min', context.estimatedMin, tc)}</span>}
+          {context.parkName ?? t('hybrid.parkFallback')}
+          {context.estimatedMin != null && <span className="text-gray-400">{t('hybrid.welcome.estimate', { time: withUnit('min', context.estimatedMin, tc) })}</span>}
         </p>
 
         <div className="space-y-3 pb-4">
@@ -122,7 +124,7 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart, g
                       ? <Timer size={14} strokeWidth={2.4} aria-hidden />
                       : <Repeat size={14} strokeWidth={2.4} aria-hidden />}
                   >
-                    {chip === 'time' ? 'זמן' : 'חזרות'}
+                    {chip === 'time' ? t('hybrid.welcome.chip.time') : t('hybrid.welcome.chip.reps')}
                   </Chip>
                 }
               />
@@ -134,14 +136,14 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart, g
       <div className="px-5 pt-2" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 20px))' }}>
         <div data-coach={COACH_TARGET_START}>
           <BrandCtaButton onClick={onStart} className="w-full h-14 rounded-full text-[16px] font-bold">
-            {welcomeCta(gender)}
+            {welcomeCta(gender, t)}
           </BrandCtaButton>
         </div>
       </div>
 
       {showTutorial && (oneBubbleStyle
-        ? <CoachMarks steps={stationTutorialEntrySteps(gender)} onFinish={finishTutorial} variant="entry" />
-        : <CoachMarks steps={stationTutorialSteps(gender).map(toCoachMarkStep)} onFinish={finishTutorial} />)}
+        ? <CoachMarks steps={stationTutorialEntrySteps(gender, t)} onFinish={finishTutorial} variant="entry" />
+        : <CoachMarks steps={stationTutorialSteps(gender, t).map(toCoachMarkStep)} onFinish={finishTutorial} />)}
     </motion.div>
   );
 }

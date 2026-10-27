@@ -404,5 +404,19 @@
   "preview.where.homeBodyweight": "בבית · משקל גוף",
   "preview.where.parksLabel": "גינות קרובות",
   "preview.where.workoutLine": "{title} · {duration}",
-  "preview.where.service": "שירות"
+  "preview.where.service": "שירות",
+  "preview.section.title.warmup": "חימום",
+  "preview.section.title.superset": "סופר סט",
+  "preview.section.title.regular": "סט רגיל",
+  "preview.section.title.cooldown": "מתיחות",
+  "workouts.expandable.less": "הצג פחות",
+  "workouts.expandable.more": "קרא עוד",
+  "workouts.expandable.moreDots": "קרא עוד...",
+  "workoutOverview.back": "חזור",
+  "workoutOverview.name": "אימון כוח",
+  "workoutOverview.segment.warmup": "חימום",
+  "workoutOverview.segment.strength": "תרגילי כוח",
+  "workoutOverview.segment.cooldown": "קירור",
+  "workoutOverview.seconds": "{n} שניות",
+  "workoutOverview.reps": "{n} חזרות"
 }

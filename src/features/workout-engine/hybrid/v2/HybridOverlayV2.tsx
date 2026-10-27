@@ -13,6 +13,8 @@
  */
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import type { useDragControls } from 'framer-motion';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
@@ -33,6 +35,7 @@ interface Props {
 }
 
 export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
+  const t = useT(player);
   const api = useHybridPlayerV2();
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
@@ -43,7 +46,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   if (!api?.enabled || !api.view || !api.strip) return null;
 
   const view = api.view;
-  const h = headerView(view, api.plan, api.names, api.label);
+  const h = headerView(view, api.plan, api.names, api.label, t);
   const cart = toCartItems(api.strip);
 
   return (
@@ -56,7 +59,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
               dragControls.start(e);
             }}
             leading={
-              <CartProgressIcon items={cart} onClick={onMinimize} size={48} ariaLabel={`מהלך האימון · ${api.strip.doneCount} הושלמו`} />
+              <CartProgressIcon items={cart} onClick={onMinimize} size={48} ariaLabel={t('hybrid.v2.overlay.cartAria', { count: String(api.strip.doneCount) })} />
             }
             eyebrow={h.eyebrow}
             eyebrowColor={h.color}

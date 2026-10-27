@@ -3,6 +3,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface SummarySheetProps {
   open: boolean;
@@ -22,6 +24,7 @@ interface SummarySheetProps {
  * Ships inert — no mount site until the composition pages wire it.
  */
 export default function SummarySheet({ open, title, onClose, children }: SummarySheetProps) {
+  const t = useT(summary);
   return (
     <AnimatePresence>
       {open && (
@@ -56,7 +59,7 @@ export default function SummarySheet({ open, title, onClose, children }: Summary
               <span className="text-base font-bold text-gray-900">{title ?? ''}</span>
               <button
                 onClick={onClose}
-                aria-label="סגור"
+                aria-label={t('aerobic.footer.close')}
                 className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
               >
                 <X size={20} />

@@ -125,6 +125,7 @@ describe('HybridJourneyAxis — legacy aerobic-leg title uses the real activity,
     // Label renamed "רגל … — יציאה" → "הליכה · מקטע N" (Phase 2b design alignment); still `action`-driven.
     // Since the overview-shell split (19.10.2026) the destination title fallback lives
     // in its own branch, so only the rendered standard-layout title remains.
-    expect(axisSrc).toContain('{action} · מקטע {aerIdx}');
+    // i18n batch ax: the title copy moved to the `map` catalog (`hybrid.axis.legTitle` = "{action} · מקטע {n}"); still `action`-driven.
+    expect(axisSrc).toContain("t('hybrid.axis.legTitle', { action, n: String(aerIdx) })");
   });
 });
