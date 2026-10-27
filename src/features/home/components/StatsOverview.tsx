@@ -1,6 +1,6 @@
 'use client';
 
-import { plannedSessionMinutes } from '@/features/schedule/goals/plannedSessionMinutes';
+import { homeTrioAvailableMinutes } from '@/features/home/utils/home-trio-minutes';
 import { common } from '@/messages/ns/common';
 import { weekdayLabel } from '@/lib/i18n/units';
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
@@ -781,7 +781,7 @@ export default function StatsOverview({
     const lateNight = isTargetToday && isLateNightPivot(profile.lifestyle?.trainingTime);
     // Schedule tutorial users: their chosen session length (first-weeks ramp applied) instead of
     // the 60-minute pool; everyone without lifestyle.sessionMinutes keeps 60.
-    const condensedTime = lateNight ? 15 : plannedSessionMinutes(profile, new Date()) ?? 60;
+    const condensedTime = homeTrioAvailableMinutes(profile, new Date(), lateNight);
     if (lateNight) {
       console.log('[UTS] Late-Night Pivot active → condensed 15-min workout');
     }
