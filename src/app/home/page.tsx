@@ -52,7 +52,7 @@ import { composeParkWorkout, type ParkWorkoutDifficulty } from '@/features/worko
 import type { Park } from '@/features/parks/core/types/park.types';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, RUNNING_ONBOARDING_GATE_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_INTENSITY_TOGGLE_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, RUNNING_ONBOARDING_GATE_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { resolveScheduleCardDecision } from '@/lib/running-onboarding-gate';
@@ -4420,9 +4420,9 @@ export default function HomePage() {
         onStartWorkout={(workoutId) => router.push(`/workouts/${workoutId}/active`)}
         onGeneratedWorkoutUpdate={handleWorkoutGenerated}
         onEditEntry={previewEntry?.entryId ? handleEditFromDrawer : undefined}
-        intensityOptions={trioSelector?.options}
-        selectedIntensityIndex={trioSelector?.selectedIndex}
-        onSelectIntensity={trioSelector?.onSelect}
+        intensityOptions={HOME_INTENSITY_TOGGLE_ENABLED ? trioSelector?.options : undefined}
+        selectedIntensityIndex={HOME_INTENSITY_TOGGLE_ENABLED ? trioSelector?.selectedIndex : undefined}
+        onSelectIntensity={HOME_INTENSITY_TOGGLE_ENABLED ? trioSelector?.onSelect : undefined}
         surface={openSurface ?? 'home-primary'}
         sourceParkId={previewParkId}
       />

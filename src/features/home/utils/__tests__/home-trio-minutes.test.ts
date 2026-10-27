@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 
 import { resolveEffectiveBoltTime } from '@/features/workout-engine/logic/bolt-time.utils';
-import { homeTrioAvailableMinutes } from '../home-trio-minutes';
+import { defaultSessionMinutesForLevel, homeTrioAvailableMinutes } from '../home-trio-minutes';
 
 const NOW = new Date('2026-10-27T10:00:00');
 const user = (level: number, minutes?: number, start = '2026-10-26T08:00:00.000Z') => ({
@@ -12,9 +12,13 @@ const user = (level: number, minutes?: number, start = '2026-10-26T08:00:00.000Z
 });
 
 describe('homeTrioAvailableMinutes', () => {
-  it('no saved length keeps the legacy 60', () => {
-    expect(homeTrioAvailableMinutes(user(3), NOW, false)).toBe(60);
-    expect(homeTrioAvailableMinutes(null, NOW, false)).toBe(60);
+  it('no saved length: a level-based default (beginners short, advanced ~50)', () => {
+    expect(homeTrioAvailableMinutes(user(1), NOW, false)).toBe(20);
+    expect(homeTrioAvailableMinutes(user(4), NOW, false)).toBe(30);
+    expect(homeTrioAvailableMinutes(user(8), NOW, false)).toBe(40);
+    expect(homeTrioAvailableMinutes(user(12), NOW, false)).toBe(45);
+    expect(homeTrioAvailableMinutes(user(20), NOW, false)).toBe(50);
+    expect(homeTrioAvailableMinutes(null, NOW, false)).toBe(defaultSessionMinutesForLevel(1));
   });
   it('late night wins', () => {
     expect(homeTrioAvailableMinutes(user(3, 45), NOW, true)).toBe(15);
