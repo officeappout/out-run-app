@@ -9,6 +9,7 @@ import { hapticLight } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import type { WhatNowRouteCopy } from '../../services/entry-whatnow';
+import { useAerobicProgramsOpen } from '../../hooks/useAerobicProgramsOpen';
 
 const BRAND_GRADIENT = 'linear-gradient(135deg, #00baf7 0%, #0cf2e3 100%)';
 /** Plan hero tile gradient (design N2 / N2b). */
@@ -55,6 +56,8 @@ export function WhatNowRouteCard({
 
 export function WhatNowPlanCard({ tagged, onClick }: { tagged: boolean; onClick: () => void }) {
   const t = useT(onboarding);
+  // Owner 27.10.2026: while running/walking signup is frozen the card leads to strength only, so it says so.
+  const { open: aerobicOpen } = useAerobicProgramsOpen();
   return (
     <button
       type="button"
@@ -77,8 +80,8 @@ export function WhatNowPlanCard({ tagged, onClick }: { tagged: boolean; onClick:
       {tagged && (
         <span className="self-start flex h-[22px] items-center rounded-full bg-white/25 px-2.5 text-[11px] font-bold">{t('whatNow.plan.tag')}</span>
       )}
-      <span className="max-w-[200px] text-[19px] font-bold">{t('whatNow.plan.title')}</span>
-      <span className="max-w-[190px] text-[13px] leading-[18px] opacity-95">{t('whatNow.plan.sub')}</span>
+      <span className="max-w-[200px] text-[19px] font-bold">{t(aerobicOpen ? 'whatNow.plan.title' : 'whatNow.plan.titleStrength')}</span>
+      <span className="max-w-[190px] text-[13px] leading-[18px] opacity-95">{t(aerobicOpen ? 'whatNow.plan.sub' : 'whatNow.plan.subStrength')}</span>
       <span className="mt-1 flex h-[30px] items-center gap-1 self-start rounded-full bg-white px-3 text-[12.5px] font-bold text-[#04222b]">
         {t('whatNow.plan.cta')}<ChevronLeft className="ltr:-scale-x-100" size={14} aria-hidden />
       </span>
