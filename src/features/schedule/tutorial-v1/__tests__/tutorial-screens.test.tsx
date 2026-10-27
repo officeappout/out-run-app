@@ -80,7 +80,7 @@ describe('screens', () => {
   });
 
   it('ל4 simple week: hero, ring legend, rows, confirm', () => {
-    const out = html(<WeekPlanStep week={week()} dates={dates} todayDow={0} stepsToday={2400} saving={false} error={false} onConfirm={noop} onTrainNow={noop} onChange={noop} />);
+    const out = html(<WeekPlanStep week={week()} dates={dates} todayDow={0} stepsToday={2400} saving={false} error={false} onConfirm={noop} onChange={noop} />);
     for (const s of ['השבוע שלך מוכן!', 'שבוע 1', 'כוח 90', 'הליכה', '3 אימוני כוח, 2 ימי תנועה ויעד צעדים בכל יום.', 'אישור השבוע', 'לשנות', 'כל הגוף · דחיפה', '2,400 עד עכשיו', '×3', 'יום תנועה']) {
       expect(out).toContain(s);
     }
@@ -89,7 +89,7 @@ describe('screens', () => {
   });
 
   it('ל4ב with runs: run cards and the run chip', () => {
-    const out = html(<WeekPlanStep week={week(true)} dates={dates} todayDow={0} stepsToday={0} saving={false} error={false} onConfirm={noop} onTrainNow={noop} onChange={noop} />);
+    const out = html(<WeekPlanStep week={week(true)} dates={dates} todayDow={0} stepsToday={0} saving={false} error={false} onConfirm={noop} onChange={noop} />);
     expect(out).toContain('ריצה');
     expect(out).toContain('/icons/programs/Run.svg');
     expect(out).not.toMatch(PHYSICAL);
