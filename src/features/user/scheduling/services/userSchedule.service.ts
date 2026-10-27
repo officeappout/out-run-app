@@ -32,7 +32,7 @@ import type {
   ScheduleActivityCategory,
 } from '../types/schedule.types';
 import { addDays } from '../utils/dateUtils';
-import { recurringDayPlan, recurringStartTime } from '../utils/recurring-day.core';
+import { dayLetterOfDateKey, recurringDayPlan, recurringStartTime, type RecurringReminderTimes } from '../utils/recurring-day.core';
 
 const COLLECTION = 'userSchedule';
 
@@ -273,7 +273,7 @@ export async function hydrateFromTemplate(
    * recurring entries previously had no `startTime` at all — see
    * scheduling-capability-audit.md.
    */
-  reminders?: { runningTime?: string; strengthTime?: string },
+  reminders?: RecurringReminderTimes,
 ): Promise<UserScheduleEntry[]> {
   const uid = await resolveAuthUid();
   if (!uid) return [];
@@ -283,7 +283,7 @@ export async function hydrateFromTemplate(
   const plan = recurringDayPlan(template, date, reminders);
   if (plan.kind === 'none') return [];
   const programIds = plan.kind === 'training' ? plan.sessions.map((s) => s.programId) : [];
-  const startTime = recurringStartTime(reminders);
+  const startTime = recurringStartTime(reminders, dayLetterOfDateKey(date));
   const nowIso = new Date().toISOString();
   // A rest day (empty array) still gets exactly one entry, same as before.
   // A training day gets one entry PER id, in template order — genEntryId()

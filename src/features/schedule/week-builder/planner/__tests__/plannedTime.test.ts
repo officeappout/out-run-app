@@ -106,3 +106,10 @@ describe('shownPlannedTime — only a meaningful time shows', () => {
     expect(shownPlannedTime('x', null)).toBeNull();
   });
 });
+
+describe('shownPlannedTime with per-day times (schedule tutorial)', () => {
+  it('07:00 is the user\'s when they set their days\' times', () => {
+    expect(shownPlannedTime('07:00', { strengthTimesByDay: { a: '07:00' } })).toBe('07:00');
+    expect(shownPlannedTime('07:00', { strengthTimesByDay: { a: 'x' } })).toBeNull();
+  });
+});

@@ -22,6 +22,10 @@ export interface HomeTodayInput {
   recurringTemplate?: Partial<Record<string, readonly string[]>> | null;
   /** profile.lifestyle.trainingTime "HH:MM". */
   trainingTime?: string | null;
+  /** profile.lifestyle.reminders.strengthTimesByDay (letter -> "HH:MM"); a day's own time wins. */
+  timesByDay?: Partial<Record<string, string>> | null;
+  /** Today's planned session length (plannedSessionMinutes), when the user chose one. */
+  plannedMinutes?: number | null;
   strengthDone: boolean;
   /** Minutes of today's strength session(s), when done. */
   strengthMinutes?: number | null;
@@ -33,7 +37,7 @@ export interface HomeTodayInput {
 export interface HomeTodayModel {
   dow: number;
   dayOfMonth: number;
-  strength: { label: StrengthLabel; time: string | null; done: boolean; minutes: number | null } | null;
+  strength: { label: StrengthLabel; time: string | null; done: boolean; minutes: number | null; plannedMinutes: number | null } | null;
   steps: { steps: number; goal: number; pct: number; done: boolean };
   optional: { kind: OptionalKind; minutes: number; done: boolean } | null;
   flames: { closed: number; total: number };
@@ -57,12 +61,22 @@ export function strengthLabelOn(input: HomeTodayInput, dow: number): StrengthLab
   return labelOf(itemsOf(input, dow), fullBodyIndex);
 }
 
+/** A day's start time: its own time (schedule tutorial), else the one training time. */
+export function timeOn(input: Pick<HomeTodayInput, 'trainingTime' | 'timesByDay'>, dow: number): string | null {
+  const own = input.timesByDay?.[DAY_LETTERS_HE[dow]];
+  if (own && HHMM.test(own)) return own;
+  return input.trainingTime && HHMM.test(input.trainingTime) ? input.trainingTime : null;
+}
+
 export function resolveHomeToday(input: HomeTodayInput): HomeTodayModel {
   const dow = input.todayDow;
-  const time = input.trainingTime && HHMM.test(input.trainingTime) ? input.trainingTime : null;
   const isStrengthDay = (d: number) => input.scheduleDays.includes(DAY_LETTERS_HE[d]);
+  const planned = typeof input.plannedMinutes === 'number' && input.plannedMinutes > 0 ? input.plannedMinutes : null;
   const strength = isStrengthDay(dow)
-    ? { label: strengthLabelOn(input, dow), time, done: input.strengthDone, minutes: input.strengthDone ? input.strengthMinutes ?? null : null }
+    ? {
+        label: strengthLabelOn(input, dow), time: timeOn(input, dow), done: input.strengthDone,
+        minutes: input.strengthDone ? input.strengthMinutes ?? null : null, plannedMinutes: planned,
+      }
     : null;
 
   const goal = Math.max(0, Math.round(input.stepsGoal));
@@ -75,7 +89,7 @@ export function resolveHomeToday(input: HomeTodayInput): HomeTodayModel {
   let next: HomeTodayModel['next'] = null;
   for (let k = 1; k <= 7; k++) {
     const d = (dow + k) % 7;
-    if (isStrengthDay(d)) { next = { dow: d, time }; break; }
+    if (isStrengthDay(d)) { next = { dow: d, time: timeOn(input, d) }; break; }
   }
 
   return {

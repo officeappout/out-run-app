@@ -833,6 +833,7 @@ src/features/workout-engine/players/strength/logic/player-controls.utils.ts
 src/features/schedule/tutorial-v1
 src/features/schedule/day-cards
 src/features/schedule/home-today
+src/features/schedule/goals
 # wave 2 batch ay (namespaces common ui.* / library favorites.* / profile recentActivity.* / home / map / pages) — shared components, system fallbacks, small widgets.
 src/components/BrandedSplashScreen.tsx
 src/components/ErrorBoundary.tsx
