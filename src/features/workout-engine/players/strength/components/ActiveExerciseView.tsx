@@ -288,6 +288,7 @@ export default function ActiveExerciseView({
         key={`player-${activeKey}`}
         exerciseId={exerciseId}
         videoUrl={safeVideoUrl}
+        imageUrl={posterUrl ?? null}
         exerciseName={exerciseName}
         exerciseType={exerciseType}
         isFollowAlong={isFollowAlong}
