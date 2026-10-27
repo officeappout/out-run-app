@@ -129,6 +129,7 @@ interface FlagState {
   enable_tv_mode_v1: boolean;
   enable_overview_more_menu_v1: boolean;
   enable_hill_finder_v1: boolean;
+  enable_run_drawer_from_me_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1067,6 +1068,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-emerald-600',
     title: 'מציאת גבעה לאימון עליות',
     description: 'בתצוגת אימון הריצה, כשהאימון של היום הוא אימון עליות ואף אחד מהמסלולים שהוצעו לא כולל עלייה מתאימה (שיפוע ואורך החזרה), מופיעה שורה עם הגבעה המתאימה הקרובה: מקטעי עלייה מאושרים (climb_segments) ועליות שזוהו בפרופיל הגובה של מסלולים רשמיים קרובים, עד 5 ק״מ. קריאה בלבד, לא נכתב כלום. מנהל-על רואה את זה כבר עכשיו. כבוי = התצוגה כמו היום, בלי קריאות נוספות.',
+  },
+  // Run drawer "from me" (27.10.2026) — canvas page 11, board RP-14.
+  {
+    key: 'enable_run_drawer_from_me_v1',
+    icon: RouteIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'מגירת הריצה: מתחילים ממני',
+    description: 'בתצוגת אימון הריצה על המפה, הכול מתחיל מהמיקום שלך: מתחת לכותרת האימון מופיעה שורת אריחי מסלולים — לולאות שנוצרו מכאן לאימון הזה (אותו מחולל לולאות), ומסלול רשמי רק כשהוא קרוב (עד ק״מ) ומתאים לאימון. האריח הראשון נבחר, לכל אריח שורה ירוקה "למה מתאים", ו"הצעה אחרת" מבקשת סט לולאות חדש. אין קרוסלה מעל המפה ואין מצב "ממסלול". מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

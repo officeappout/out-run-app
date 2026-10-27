@@ -31,7 +31,7 @@ function accessScore(km: number, radiusKm: number): number {
   return Math.max(0, 1 - (km - 0.2) / Math.max(0.1, radiusKm - 0.2));
 }
 
-function accessReason(km: number): string | null {
+export function accessReason(km: number): string | null {
   if (!Number.isFinite(km)) return null;
   if (km <= 0.15) return 'מתחיל לידך';
   if (km < 1) return `${withUnit('m', Math.round((km * 1000) / 50) * 50)} ממך`;

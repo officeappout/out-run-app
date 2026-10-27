@@ -18,6 +18,7 @@ import { useUserCityName } from '@/features/parks/core/hooks/useUserCityName';
 import { useHillFinderV1 } from '@/hooks/useHillFinderV1';
 import { buildWorkoutRouteNeeds, suggestRoutesForWorkout, type HillCandidate, type RouteSuggestion } from '../../lib/route-fit';
 import type { RunBlock } from '../../types/run-block.type';
+import { FROM_ME_SEARCH_LIMIT } from '../../utils/run-overview/run-route-tiles';
 import type { RunPaceContext } from '../../utils/run-preview/run-estimates';
 
 export type SuggestStatus = 'idle' | 'loading' | 'done';
@@ -27,8 +28,16 @@ export interface RouteSuggestionsState {
   suggestions: RouteSuggestion[];
   /** enable_hill_finder_v1: the nearest suitable hill when no suggestion has a climb that meets the spec. */
   hill: HillCandidate | null;
-  request: () => void;
+  request: (opts?: RouteSearchOptions) => void;
   reset: () => void;
+}
+
+/** enable_run_drawer_from_me_v1 (board RP-14) — absent = today's search, unchanged. */
+export interface RouteSearchOptions {
+  /** Always ask the loop generator (not only as a top-up) and return enough for loops + an official route. */
+  fromMe?: boolean;
+  /** "הצעה אחרת" — the generator's variety index. */
+  attempt?: number;
 }
 
 export function useRouteSuggestions(
@@ -45,7 +54,7 @@ export function useRouteSuggestions(
   const token = useRef(0);
   useEffect(() => () => { token.current += 1; }, []);
 
-  const request = useCallback(() => {
+  const request = useCallback((opts?: RouteSearchOptions) => {
     setHill(null);
     if (!workout || !origin) {
       setSuggestions([]);
@@ -59,7 +68,10 @@ export function useRouteSuggestions(
       ctx,
       { startAt: new Date(), origin },
     );
-    suggestRoutesForWorkout(origin, needs, { cityName })
+    const fromMe = opts?.fromMe
+      ? { limit: FROM_ME_SEARCH_LIMIT, goodScore: Number.POSITIVE_INFINITY, attempt: opts.attempt ?? 0 }
+      : {};
+    suggestRoutesForWorkout(origin, needs, { cityName, ...fromMe })
       .catch(() => [] as RouteSuggestion[])
       .then((out) => {
         if (my !== token.current) return;

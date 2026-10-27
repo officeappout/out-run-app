@@ -28,6 +28,8 @@ export interface OverviewDrawerShellProps {
   onBack: () => void;
   /** Sticky summary (title · time · …) — also a drag zone. */
   header: ReactNode;
+  /** A full-bleed row between the header and the strip (not a drag zone, pans sideways). Omit → no row. */
+  aboveStrip?: ReactNode;
   /** Journey strip under the header (shown at every detent). Omit → no row. */
   strip?: ReactNode;
   /**
@@ -46,7 +48,7 @@ export interface OverviewDrawerShellProps {
 }
 
 export default function OverviewDrawerShell({
-  v2, onBack, header, strip, graphs, children, cta, initialDetent, snapRequest,
+  v2, onBack, header, aboveStrip, strip, graphs, children, cta, initialDetent, snapRequest,
 }: OverviewDrawerShellProps) {
   const {
     dragControls, cardRef, currentAnchor, controls, dragConstraints,
@@ -114,8 +116,21 @@ export default function OverviewDrawerShell({
             {header}
           </div>
 
-          {/* Journey strip — shown at EVERY detent incl. peek (points 9/10). */}
-          {strip != null && (
+          {/* Journey strip — shown at EVERY detent incl. peek (points 9/10). The
+              optional row above it shares the strip's child slot, so a drawer
+              without one keeps today's tree (and React ids) exactly. */}
+          {aboveStrip != null ? (
+            <>
+              <div className="pb-2.5 flex-shrink-0" style={{ touchAction: 'pan-x' }}>
+                {aboveStrip}
+              </div>
+              {strip != null && (
+                <div className="px-4 pb-2.5 flex-shrink-0">
+                  {strip}
+                </div>
+              )}
+            </>
+          ) : strip != null && (
             <div className="px-4 pb-2.5 flex-shrink-0">
               {strip}
             </div>
