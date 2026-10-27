@@ -68,8 +68,6 @@ export default defineConfig({
       // i18n wave 2 (map namespace, batch ac) — park page sections, Hebrew markup parity (static markup).
       'src/features/parks/client/components/park-detail/__tests__/**/*.test.tsx',
       'src/features/parks/client/components/place-workouts/__tests__/**/*.test.tsx',
-      // Map places drawer (enable_map_places_drawer_v1) — catalog parity + static render.
-      'src/features/parks/client/components/places-drawer/__tests__/**/*.test.tsx',
       // i18n wave 2 (community namespace) — group page Hebrew markup parity (static markup + jsdom taps).
       'src/features/arena/components/group-details/__tests__/**/*.test.tsx',
       // i18n wave 2 (onboarding namespace) — strength assessment page parity (jsdom, services mocked).
