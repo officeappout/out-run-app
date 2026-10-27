@@ -78,6 +78,8 @@ import { EntryGlobeLayer } from './UnifiedLocation/entry-globe/EntryGlobeLayer';
 import { DragHintChip } from './UnifiedLocation/entry-globe/DragHintChip';
 import { awaitLocationAnswer, diveStartFor } from './UnifiedLocation/entry-globe/dive-gate';
 import { markGlobeIntroSeen } from '@/features/parks/core/hooks/entry-camera';
+import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
+import { LOCATE_V1_LEMUR_PX, LOCATE_V1_ZOOM } from './UnifiedLocation/entry-globe/locate-v1';
 
 // ── Dynamic Mapbox Imports (avoid SSR) ───────────────────
 // MapboxMap uses a forwardRef wrapper so next/dynamic correctly passes ref={mapRef}
@@ -1020,6 +1022,14 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
 
   // enable_entry_globe_v1 — what the Earth layer shows (all false when off).
   const entryDiving = entryGlobe && stage === LocationStage.CONFIRMING && globeDive === 'dive';
+  // enable_map_tutorial_v1 (board M1, pilot L3): a closer street zoom once the "גרים ב…?" drawer is up,
+  // a smaller lemur, and the drag hint above it (under the pin the drawer hid it).
+  const mapTutorialV1 = useMapTutorialV1();
+  const confirmSettled = stage === LocationStage.CONFIRMING && !entryDiving;
+  useEffect(() => {
+    if (!mapTutorialV1 || !confirmSettled) return;
+    mapRef.current?.getMap()?.easeTo({ zoom: LOCATE_V1_ZOOM, duration: 900 });
+  }, [mapTutorialV1, confirmSettled]);
   const showEntryGlobe =
     entryGlobe &&
     globeDive !== 'arrived' &&
@@ -1288,7 +1298,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
                 className="relative flex-shrink-0"
                 animate={{ scale: isDragging ? 1.1 : 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                style={{ width: '76px', height: '76px' }}
+                style={mapTutorialV1 ? { width: LOCATE_V1_LEMUR_PX, height: LOCATE_V1_LEMUR_PX } : { width: '76px', height: '76px' }}
               >
                 <div 
                   className="absolute inset-0 bg-white rounded-full shadow-2xl"
@@ -1355,9 +1365,9 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
 
               {/* enable_entry_globe_v1: drag hint under the pin, until the first drag */}
               {entryGlobe && (
-                <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(100% + 18px)' }}>
+                <div className="absolute left-1/2 -translate-x-1/2" style={mapTutorialV1 ? { bottom: 'calc(100% + 12px)' } : { top: 'calc(100% + 18px)' }}>
                   <AnimatePresence>
-                    {!entryDiving && !mapDragged && <DragHintChip key="drag-hint" />}
+                    {!entryDiving && !mapDragged && <DragHintChip key="drag-hint" homeLine={mapTutorialV1} />}
                   </AnimatePresence>
                 </div>
               )}

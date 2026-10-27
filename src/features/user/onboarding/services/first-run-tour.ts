@@ -12,10 +12,14 @@ import type { AppGender } from '@/lib/utils/gendered-text';
 import { makeT } from '@/lib/i18n/t';
 import { onboarding } from '@/messages/ns/onboarding';
 import { weekdayLabel } from '@/lib/i18n/units';
+import { isMapTutorialTour, mapTutorialSteps } from './map-tutorial-tour';
 
 const t = makeT('he', onboarding);
 
 export type FirstRunTourId = 'home' | 'map' | 'community' | 'player' | 'route' | 'route-player' | 'plan';
+
+/** Every tour FirstRunTour can run: + enable_map_tutorial_v1's workout-drawer tour (not replayable until it graduates). */
+export type AnyFirstRunTourId = FirstRunTourId | 'route-drawer';
 
 /** The WelcomeDrawer's choices (v2 adds the quiet "סתם בא לי להסתכל באפליקציה" link). */
 export type WelcomeChoice = 'strength' | 'nearby' | 'browse' | 'skip-to-map';
@@ -88,7 +92,7 @@ export function leagueTabCoachTarget(tabId: string): string | undefined {
 }
 
 /** onboardingPrefs key for "this user has seen (or skipped) this tour". */
-export function firstRunTourSeenKey(tour: FirstRunTourId, uid: string | null | undefined): string {
+export function firstRunTourSeenKey(tour: AnyFirstRunTourId, uid: string | null | undefined): string {
   return `first_run_tour_seen:${tour}:${uid || 'anon'}`;
 }
 
@@ -225,12 +229,16 @@ export function homeTourFromTodaySteps(today: HomeTourToday): FirstRunTourStep[]
 }
 
 export function firstRunTourSteps(
-  tour: FirstRunTourId,
+  tour: AnyFirstRunTourId,
   gender: AppGender | null | undefined,
-  opts?: { homeToday?: HomeTourToday | null },
+  opts?: { homeToday?: HomeTourToday | null; mapTutorialV1?: boolean },
 ): FirstRunTourStep[] {
   // g(): null / undefined gender -> the male form (the old convention); 'other' -> the neutral branch.
   const gd = { gender: gender ?? 'male' };
+  // enable_map_tutorial_v1 (boards M3/M6/M7): the map tutorial's own steps. 'route-drawer' exists only there.
+  if (opts?.mapTutorialV1 && isMapTutorialTour(tour)) {
+    return mapTutorialSteps(tour, { title: t('tour.map.layers.title'), text: t('tour.map.layers.text', gd) });
+  }
   switch (tour) {
     case 'home':
       if (opts?.homeToday) return homeTourFromTodaySteps(opts.homeToday);

@@ -32,6 +32,12 @@ import RoundTripPill from '../overview/RoundTripPill';
 import { journeyItemsFromLegs } from '../overview/overview-legs';
 import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 import { aerobicKindLabel } from '@/features/workout-engine/hybrid/aerobic-kind';
+import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import { RouteDrawerTour } from '@/features/user/onboarding/components/entry-whatnow/EntryRouteTours';
+import { DRAWER_COACH, tagDrawerCoach } from '../overview/map-tutorial-coach';
 
 const ACCENT = '#00ADEF';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
@@ -85,6 +91,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const flags = useFeatureFlags(isSuperAdmin).flags;
   const v2 = flags.enableHomeV2;
+  // enable_map_tutorial_v1 (board M7): tour targets on the strip + start, and the first-workout note
+  // under "התחל אימון" (L12, moved off the route card). Off = today's drawer.
+  const mapTutorialV1 = useMapTutorialV1();
+  const profile = useUserStore((st) => st.profile);
+  const tMap = useT(map);
+  const firstWorkoutNote = mapTutorialV1 && !hasAcceptedHealthDeclaration(profile) ? tMap('mapTutorial.drawer.firstWorkoutNote') : null;
   // enable_hybrid_difficulty_carousel off (pilot 26.10, M11): no carousel; the engine's pick runs.
   const showBolts = flags.enableHybridDifficultyCarousel;
   // Difficulty carousel (full-park only): 3 pre-composed bolt plans, swap by index —
@@ -183,11 +195,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // Built from the SAME overview legs the axis renders (buildHybridLegs), through the
   // shared JourneyStrip primitive.
   const showWalkLegs = roundTripOn && roundTripLegs != null;
-  const journeyItems = journeyItemsFromLegs(buildHybridLegs(plan.segments, {
+  const legItems = journeyItemsFromLegs(buildHybridLegs(plan.segments, {
     stationName: composed.station?.name,
     walkLegs: showWalkLegs ? { thereMin: roundTripLegs!.walkThereMin, backMin: roundTripLegs!.walkBackMin } : null,
     aerobicKind,
   }));
+  const journeyItems = mapTutorialV1 ? tagDrawerCoach(legItems) : legItems;
 
   // Point 15: publish the station fractions for the map route gradient (cleared on
   // unmount so non-hybrid routes render with their normal flat color).
@@ -223,8 +236,15 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
           <RoundTripPill v2={v2} on={roundTripOn} walkMin={roundTripLegs.walkThereMin + roundTripLegs.walkBackMin} onToggle={toggleRoundTrip} />
         )}
       </>}
-      strip={<JourneyStrip items={journeyItems} v2={v2} />}
-      cta={<OverviewStartButton v2={v2} label="התחל אימון" ariaLabel="התחל אימון משולב" onClick={onStart} />}
+      strip={mapTutorialV1
+        ? <div data-coach={DRAWER_COACH.strip}><JourneyStrip items={journeyItems} v2={v2} /></div>
+        : <JourneyStrip items={journeyItems} v2={v2} />}
+      cta={mapTutorialV1 ? (
+        <div data-coach={DRAWER_COACH.start}>
+          <OverviewStartButton v2={v2} label="התחל אימון" ariaLabel="התחל אימון משולב" onClick={onStart} />
+          {firstWorkoutNote && <p className="mt-1.5 text-center text-[12px] leading-snug text-v2-muted">{firstWorkoutNote}</p>}
+        </div>
+      ) : <OverviewStartButton v2={v2} label="התחל אימון" ariaLabel="התחל אימון משולב" onClick={onStart} />}
     >
       {/* A3 fallback banner — needs-assessment link follow-up: when
           composed.assessmentDomains is set (needsAssessment, never a real
@@ -348,6 +368,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       />
       </HomeV2Context.Provider>
       <ReportProblemButton types={['hybrid_smart_walk', 'hybrid_full_park', 'hybrid_route_stops', 'hybrid_free_aerobic']} wrapperClassName="flex justify-center py-3" />
+      <RouteDrawerTour uid={profile?.id} gender={profile?.core?.gender} />
     </OverviewDrawerShell>
   );
 }

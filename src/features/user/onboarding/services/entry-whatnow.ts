@@ -14,8 +14,11 @@
 
 import { makeT } from '@/lib/i18n/t';
 import { onboarding } from '@/messages/ns/onboarding';
+import { map } from '@/messages/ns/map';
 
 const t = makeT('he', onboarding);
+/** enable_map_tutorial_v1 copy (`mapTutorial.*`, he only until the tutorial graduates). */
+const tm = makeT('he', map);
 
 /** A park within this distance (metres) counts as "near" on its own. */
 export const WHATNOW_NEAR_PARK_M = 400;
@@ -94,6 +97,8 @@ export interface WhatNowRouteCopy {
   tag: string;
   title: string;
   sub: string;
+  /** enable_map_tutorial_v1 (board M2, L5): "ממליצים להתחיל עכשיו" under the sub line. */
+  cta?: string;
 }
 
 /** The route card's copy (design N2, verbatim shape). */
@@ -108,6 +113,25 @@ export function whatNowRouteCopy(route: WhatNowRouteSuggestion, parkName: string
     tag: t('whatNowSvc.route.tag'),
     title: t('whatNowSvc.route.title', { min: String(min) }),
     sub: t('whatNowSvc.route.sub', { verb, stops, place: inPark(parkName) }),
+  };
+}
+
+/**
+ * enable_map_tutorial_v1 (board M2, pilot L5): "זיהינו מסלול עם גינה לידך" · "הליכה 30 דק׳ · עצירת כוח
+ * בגינת X" · "ממליצים להתחיל עכשיו".
+ */
+export function whatNowRouteCopyV1(route: WhatNowRouteSuggestion, parkName: string | null | undefined): WhatNowRouteCopy {
+  const min = Math.max(1, Math.round(route.minutes));
+  const verb = route.aerobicKind === 'running' ? tm('mapTutorial.whatNow.route.verb.running') : tm('mapTutorial.whatNow.route.verb.walking');
+  const stops =
+    route.stops == null ? tm('mapTutorial.whatNow.route.stops.unknown')
+      : route.stops <= 1 ? tm('mapTutorial.whatNow.route.stops.one')
+        : tm('mapTutorial.whatNow.route.stops.many', { n: String(route.stops) });
+  return {
+    tag: t('whatNowSvc.route.tag'),
+    title: tm('mapTutorial.whatNow.route.title'),
+    sub: tm('mapTutorial.whatNow.route.sub', { verb, min: String(min), stops, place: inPark(parkName) }),
+    cta: tm('mapTutorial.whatNow.route.cta'),
   };
 }
 

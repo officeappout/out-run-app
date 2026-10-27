@@ -131,6 +131,7 @@ interface FlagState {
   enable_overview_more_menu_v1: boolean;
   enable_hill_finder_v1: boolean;
   enable_run_drawer_from_me_v1: boolean;
+  enable_map_tutorial_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1087,6 +1088,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'מגירת הריצה: מתחילים ממני',
     description: 'בתצוגת אימון הריצה על המפה, הכול מתחיל מהמיקום שלך: מתחת לכותרת האימון מופיעה שורת אריחי מסלולים — לולאות שנוצרו מכאן לאימון הזה (אותו מחולל לולאות), ומסלול רשמי רק כשהוא קרוב (עד ק״מ) ומתאים לאימון. האריח הראשון נבחר, לכל אריח שורה ירוקה "למה מתאים", ו"הצעה אחרת" מבקשת סט לולאות חדש. אין קרוסלה מעל המפה ואין מצב "ממסלול". מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // First-run map tutorial (27.10.2026) — canvas boards M1-M8, pilot notes L3, L5, L7-L13.
+  {
+    key: 'enable_map_tutorial_v1',
+    icon: RouteIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'טוטוריאל מפה ראשון',
+    description: 'משתמש חדש במפה: במגירת "גרים ב…" הסבר על הליגה והגרירה מעל הלמור (למור קטן יותר וזום קרוב), כרטיס המסלול במגירת "מה בא לך" עם הקופי החדש, "רק להסתכל מסביב" מבטיח 3 דברים במפה, סיור המסלול (פרטים, העצירה בגינה, הסדר, "יאללה, בואו נתחיל" שפותח את המסלול), כרטיס המסלול האמיתי עם כפתור i ("למה קיבלתי את המסלול") ולחיצה על כל הכרטיס, סיור במגירת האימון, וכרטיס השאלון החדש. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {
