@@ -6,7 +6,8 @@
  *
  *   route → `onRoute` (the map opens its existing "מה עושים היום?" carousel; the settle-preview
  *           draws the suggested route with its strength stops)
- *   plan  → /home (the strength / run start cards built by the schedule chat)
+ *   plan  → running frozen: the strength signup (details screen, then the v3 questionnaire,
+ *           owner 27.10.2026, strength-choice-route.ts); running open: /home's start cards
  *   kelly → /ai-coach?starter=entry (the chat with ready chips)
  *   browse / dismiss → just closes
  */
@@ -17,6 +18,11 @@ import {
   type WhatNowAnswer, type WhatNowRouteSuggestion,
 } from '../../services/entry-whatnow';
 import WhatNowDrawer from './WhatNowDrawer';
+import { useAerobicProgramsOpen } from '../../hooks/useAerobicProgramsOpen';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { hasKnownIdentity, seedOnboardingTrackEntry } from '../../utils/onboarding-entry';
+import { isStrengthSignupHref, whatNowPlanHref } from '../../utils/strength-choice-route';
+import { hasAnyProgram } from '@/lib/landing-fallback/fallback-routes';
 
 export interface EntryWhatNowHostProps {
   enabled: boolean;
@@ -40,14 +46,20 @@ export default function EntryWhatNowHost(props: EntryWhatNowHostProps) {
 function EntryWhatNowInner({ enabled, landing, uid, position, route, blocked, kellyAvailable, onRoute, onAnswered }: EntryWhatNowHostProps) {
   const router = useRouter();
   const state = useEntryWhatNow({ enabled, landing, uid, position, route, blocked });
+  const { open: aerobicOpen } = useAerobicProgramsOpen();
+  const profile = useUserStore((s) => s.profile);
 
   const onAnswer = (a: WhatNowAnswer) => {
     state.answer(a);
     onAnswered?.(a);
     if (a === 'route') onRoute();
     else if (a === 'plan') {
-      markWhatNowPlanArrival(typeof window !== 'undefined' ? window.sessionStorage : null);
-      router.push('/home');
+      const href = whatNowPlanHref({
+        aerobicOpen, hasProgram: hasAnyProgram(profile), identityKnown: hasKnownIdentity(profile),
+      });
+      if (isStrengthSignupHref(href)) seedOnboardingTrackEntry(profile, 'STRENGTH');
+      else markWhatNowPlanArrival(typeof window !== 'undefined' ? window.sessionStorage : null);
+      router.push(href);
     } else if (a === 'kelly') router.push(WHATNOW_KELLY_URL);
   };
 

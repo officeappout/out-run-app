@@ -10,7 +10,8 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
-import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
+import { strengthStoryBar } from '@/features/user/onboarding/constants/onboarding-phases';
+import { useStrengthQuizV3Entry } from '@/features/user/onboarding/components/strength-quiz-v3/useStrengthQuizV3';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
@@ -90,6 +91,8 @@ export default function IdentityProfileScreen({
   // keeps the onboarding state, hands back via onWorkoutIdentitySaved — with its own intro.
   const isProgram = context === 'program';
   const isWorkout = context === 'workout' || isProgram;
+  // Owner 27.10: the strength v3 flow counts its real 4 phases (running keeps the 5-phase bar).
+  const storyBar = strengthStoryBar('profile', useStrengthQuizV3Entry());
   const { profile, updateProfile, refreshProfile } = useUserStore();
   // enable_landing_real_fallback — the two /gateway exits below go to the real flow instead.
   const { enabled: realFallback } = useLandingRealFallback();
@@ -149,7 +152,8 @@ export default function IdentityProfileScreen({
       setFormData(prev => ({ ...prev, name: profile.core.name }));
     // Workout context: quick signup (MAP_ONLY) writes gender 'other' as a
     // placeholder the user never chose — don't pre-select it.
-    if (profile?.core?.gender && !(isWorkout && profile.core.gender === 'other'))
+    // The same placeholder on a MAP_ONLY user entering the program flow (no birth date yet).
+    if (profile?.core?.gender && !(profile.core.gender === 'other' && (isWorkout || !profile.core.birthDate)))
       setFormData(prev => ({ ...prev, gender: profile.core.gender as Gender }));
     if (profile?.core?.birthDate) {
       const bd = profile.core.birthDate;
@@ -529,9 +533,9 @@ export default function IdentityProfileScreen({
 
           <div className="flex-1 min-h-[36px] flex flex-col justify-center">
             <OnboardingStoryBar
-              totalPhases={isExpress || isWorkout ? 1 : STRENGTH_PHASES.TOTAL}
-              currentPhase={isExpress || isWorkout ? 1 : STRENGTH_PHASES.PROFILE}
-              phaseLabel={isExpress || isWorkout ? undefined : STRENGTH_PHASES.labels[STRENGTH_PHASES.PROFILE]}
+              totalPhases={isExpress || isWorkout ? 1 : storyBar.total}
+              currentPhase={isExpress || isWorkout ? 1 : storyBar.current}
+              phaseLabel={isExpress || isWorkout ? undefined : t(storyBar.labelKey)}
               noPadding
             />
           </div>
