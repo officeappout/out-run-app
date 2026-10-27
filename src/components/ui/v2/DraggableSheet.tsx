@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { animate, motion, useDragControls, useMotionValue, useReducedMotion, type PanInfo } from 'framer-motion';
 import { EASE_V2 } from './tokens';
 import { resolveSnap, rubberBand } from './logic';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface DraggableSheetProps {
   /**
@@ -56,6 +58,7 @@ export default function DraggableSheet({
   className = '',
   ariaLabel,
 }: DraggableSheetProps) {
+  const t = useT(common);
   const reduce = useReducedMotion();
   const controls = useDragControls();
   const [vh, setVh] = useState(SSR_VIEWPORT);
@@ -150,7 +153,7 @@ export default function DraggableSheet({
         <button
           type="button"
           onClick={toggle}
-          aria-label={px[snapIndex] === maxH ? 'כווץ' : 'הרחב'}
+          aria-label={px[snapIndex] === maxH ? t('ui.sheet.collapse') : t('ui.sheet.expand')}
           aria-expanded={px[snapIndex] === maxH}
           className="block w-full pt-2.5 pb-1.5"
         >

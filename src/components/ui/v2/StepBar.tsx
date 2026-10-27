@@ -1,6 +1,8 @@
 'use client';
 
 import { buildStepBarSegments, ENTRY_STEP_LABELS } from './step-bar';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface StepBarProps {
   /** 1-based current step. */
@@ -21,9 +23,10 @@ export default function StepBar({
   lastLabelSuffix,
   className = '',
 }: StepBarProps) {
+  const t = useT(common);
   const segments = buildStepBarSegments({ current, labels, lastLabelSuffix });
   return (
-    <ol className={`flex gap-1.5 ${className}`} aria-label="התקדמות" dir="rtl">
+    <ol className={`flex gap-1.5 ${className}`} aria-label={t('ui.stepBar.aria')} dir="rtl">
       {segments.map((seg) => {
         const lit = seg.state !== 'future';
         return (

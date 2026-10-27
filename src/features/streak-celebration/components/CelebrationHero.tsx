@@ -11,6 +11,8 @@ import StreakFlame from '@/components/ui/v2/StreakFlame';
 import type { FlameTone } from '@/components/ui/v2/streak';
 import { milestoneBadges, type Celebration } from '../core/celebration.core';
 import ShieldMark from './ShieldMark';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 const DEEP = '#c2410c';
 const pop = { type: 'spring', stiffness: 260, damping: 16 } as const;
@@ -24,8 +26,8 @@ function TickingNumber({ to, unit }: { to: number; unit?: string }) {
       setN(to);
       return;
     }
-    const t = setTimeout(() => setN(to), 650);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setN(to), 650);
+    return () => clearTimeout(timer);
   }, [to, reduce]);
   return (
     <div className="relative mt-1.5 flex h-[84px] flex-col items-center overflow-hidden">
@@ -83,6 +85,7 @@ function WeekFlames({ tones, streak }: { tones: FlameTone[]; streak: number }) {
 
 function MilestoneBadge({ streak }: { streak: number }) {
   const reduce = useReducedMotion();
+  const t = useT(home);
   return (
     <>
       <motion.div
@@ -106,7 +109,7 @@ function MilestoneBadge({ streak }: { streak: number }) {
           }}
         >
           <span className="text-[64px] font-black leading-[64px]">{streak}</span>
-          <span className="text-[16px] font-extrabold">ימים</span>
+          <span className="text-[16px] font-extrabold">{t('streakCelebration.milestoneDays')}</span>
         </div>
       </motion.div>
       <div className="mt-[18px] flex gap-3.5" dir="rtl">

@@ -8,5 +8,12 @@
   "globalError.title": "משהו השתבש",
   "globalError.chunkBody": "גרסה חדשה של האפליקציה זמינה. רענן את הדף כדי להמשיך.",
   "globalError.reload": "רענן עמוד",
-  "globalError.retry": "נסו שוב"
+  "globalError.retry": "נסו שוב",
+  "roadmap.welcome": "ברוכים הבאים!",
+  "roadmap.sub": "האימונים שלך מתחילים עכשיו",
+  "roadmap.done": "השלמת את תהליך ההרשמה בהצלחה!",
+  "roadmap.soon": "דף ה-Roadmap המלא יופיע כאן בקרוב",
+  "roadmap.home": "לך לדף הבית",
+  "roadmap.map": "צפה במפה",
+  "explorer.saveFailed": "לא הצלחנו לשמור את המיקום. בדקו חיבור לאינטרנט ונסו שוב."
 }

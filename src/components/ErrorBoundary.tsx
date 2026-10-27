@@ -4,6 +4,57 @@ import React, { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { currentUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+
+/** Default fallback UI (a function component so it can use useT; the class below can't). */
+function DefaultErrorFallback({ error, errorInfo, onReset }: { error: Error | null; errorInfo: React.ErrorInfo | null; onReset: () => void }) {
+  const t = useT(common);
+  return (
+    <div className="flex items-center justify-center min-h-[300px] p-6">
+      <div className="max-w-md w-full bg-red-50 border-2 border-red-200 rounded-xl p-6 shadow-lg">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-red-100 rounded-lg">
+            <AlertTriangle size={24} className="text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-red-900">
+            {t('ui.errorBoundary.title')}
+          </h2>
+        </div>
+        
+        <p className="text-sm text-red-700 mb-4">
+          {t('ui.errorBoundary.body')}
+        </p>
+
+        {error && (
+          <details className="mb-4">
+            <summary className="text-xs text-red-600 cursor-pointer hover:text-red-800 font-semibold">
+              {t('ui.errorBoundary.details')}
+            </summary>
+            <div className="mt-2 p-3 bg-white rounded-lg border border-red-200">
+              <p className="text-xs font-mono text-gray-700 break-all">
+                {error.toString()}
+              </p>
+              {errorInfo && (
+                <pre className="text-[10px] font-mono text-gray-600 mt-2 overflow-auto max-h-32">
+                  {errorInfo.componentStack}
+                </pre>
+              )}
+            </div>
+          </details>
+        )}
+
+        <button
+          onClick={onReset}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
+        >
+          <RefreshCw size={16} />
+          {pickGendered(currentUiGender(), GENDERED_COPY.retry)}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -84,48 +135,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
       // Default fallback UI
       return (
-        <div className="flex items-center justify-center min-h-[300px] p-6">
-          <div className="max-w-md w-full bg-red-50 border-2 border-red-200 rounded-xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertTriangle size={24} className="text-red-600" />
-              </div>
-              <h2 className="text-xl font-bold text-red-900">
-                שגיאה בטעינת הרכיב
-              </h2>
-            </div>
-            
-            <p className="text-sm text-red-700 mb-4">
-              אירעה שגיאה בלתי צפויה. הנתונים שלך נשמרו באופן אוטומטי.
-            </p>
-
-            {this.state.error && (
-              <details className="mb-4">
-                <summary className="text-xs text-red-600 cursor-pointer hover:text-red-800 font-semibold">
-                  פרטים טכניים
-                </summary>
-                <div className="mt-2 p-3 bg-white rounded-lg border border-red-200">
-                  <p className="text-xs font-mono text-gray-700 break-all">
-                    {this.state.error.toString()}
-                  </p>
-                  {this.state.errorInfo && (
-                    <pre className="text-[10px] font-mono text-gray-600 mt-2 overflow-auto max-h-32">
-                      {this.state.errorInfo.componentStack}
-                    </pre>
-                  )}
-                </div>
-              </details>
-            )}
-
-            <button
-              onClick={this.handleReset}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
-            >
-              <RefreshCw size={16} />
-              {pickGendered(currentUiGender(), GENDERED_COPY.retry)}
-            </button>
-          </div>
-        </div>
+        <DefaultErrorFallback error={this.state.error} errorInfo={this.state.errorInfo} onReset={this.handleReset} />
       );
     }
 

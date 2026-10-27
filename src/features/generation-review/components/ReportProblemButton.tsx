@@ -10,6 +10,8 @@ import { Flag } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import type { GenerationType } from '@/lib/generation-review/types';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 const ReportProblemSheet = dynamicImport(() => import('./ReportProblemSheet'), { ssr: false });
 
@@ -18,6 +20,7 @@ export default function ReportProblemButton({ types, className = '', wrapperClas
   const isSuperAdmin = useUserStore((s) => s.profile?.core?.isSuperAdmin === true);
   const { flags } = useFeatureFlags(isSuperAdmin);
   const [open, setOpen] = useState(false);
+  const t = useT(common);
   if (!flags.enableGenerationReview) return null;
   return (
     <div className={wrapperClassName}>
@@ -30,7 +33,7 @@ export default function ReportProblemButton({ types, className = '', wrapperClas
         className={`inline-flex items-center gap-1 text-xs text-slate-400 underline-offset-2 hover:underline ${className}`}
       >
         <Flag size={12} aria-hidden />
-        דווח על בעיה
+        {t('ui.report.button')}
       </button>
       {open && <ReportProblemSheet open={open} onClose={() => setOpen(false)} types={types} />}
     </div>

@@ -16,6 +16,8 @@
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface ClassicFormSheetProps {
   isOpen: boolean;
@@ -36,6 +38,7 @@ export default function ClassicFormSheet({
   panelClassName,
   children,
 }: ClassicFormSheetProps) {
+  const t = useT(common);
   return (
     <AnimatePresence>
       {isOpen && (
@@ -64,7 +67,7 @@ export default function ClassicFormSheet({
               <h3 className="text-base font-black text-gray-900">{title}</h3>
               <button
                 onClick={onClose}
-                aria-label="סגירה"
+                aria-label={t('actions.close')}
                 className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all"
               >
                 <X className="w-4 h-4" />

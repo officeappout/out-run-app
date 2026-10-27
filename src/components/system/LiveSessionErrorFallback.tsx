@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { Dumbbell, Footprints, Home, Map as MapIcon, Play } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import RouteErrorFallback from './RouteErrorFallback';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 interface Props {
   error: Error & { digest?: string };
@@ -36,6 +38,7 @@ interface Props {
  */
 export default function LiveSessionErrorFallback({ error, reset, boundary, kind = 'strength' }: Props) {
   const router = useRouter();
+  const t = useT(common);
   const isRun = kind === 'run';
   return (
     <RouteErrorFallback
@@ -43,16 +46,16 @@ export default function LiveSessionErrorFallback({ error, reset, boundary, kind 
       reset={reset}
       boundary={boundary}
       icon={isRun ? Footprints : Dumbbell}
-      title="משהו השתבש באימון"
-      description="זמן האימון שלך נשמר. אפשר לחזור לאימון ולהמשיך."
-      retryLabel="המשך אימון"
+      title={t('ui.system.live.title')}
+      description={t('ui.system.live.description')}
+      retryLabel={t('ui.system.live.resume')}
       retryIcon={Play}
       secondaryAction={isRun ? {
-        label: 'חזרה למפה',
+        label: t('ui.system.live.backToMap'),
         icon: MapIcon,
         onClick: () => router.replace('/map'),
       } : {
-        label: 'יציאה לדף הבית',
+        label: t('ui.system.live.exitHome'),
         icon: Home,
         onClick: () => {
           try {

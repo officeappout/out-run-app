@@ -22,6 +22,8 @@ import { useEntryGlobeV1 } from '@/features/user/onboarding/hooks/useEntryGlobeV
 import { ENTRY_V2_MAP_URL, markEntryV2Landing } from '@/features/user/onboarding/entry-v2-landing';
 import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
 import { consumeIntroArrival } from '@/features/user/onboarding/intro/intro-route';
+import { useT } from '@/hooks/useT';
+import { pages } from '@/messages/ns/pages';
 
 // enable_entry_intro_v1 — the ring closing into the logo, only on the hop from /intro.
 const RingCloseOverlay = lazy(() =>
@@ -52,6 +54,7 @@ function LoadingPlaceholder({ plain = false }: { plain?: boolean }) {
 export default function ExplorerPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const t = useT(pages);
 
   // Client-only guard — prevents SSR of browser-dependent code
   const [mounted, setMounted] = useState(false);
@@ -190,7 +193,7 @@ export default function ExplorerPage() {
                 sessionStorage.setItem('profile_update_toast', '1');
               }
             } else {
-              showToast('error', 'לא הצלחנו לשמור את המיקום. בדקו חיבור לאינטרנט ונסו שוב.');
+              showToast('error', t('explorer.saveFailed'));
             }
           }
           router.replace('/profile');

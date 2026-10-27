@@ -2,37 +2,37 @@
 
 import { Dumbbell, PersonStanding, Bike, Activity, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
-import { useUiGender } from '@/hooks/useUiGender';
 import { formatDate as formatLocaleDate } from '@/lib/i18n/core/fmt';
 import { useLocaleStore } from '@/store/useLocaleStore';
 import type { Locale } from '@/lib/i18n/locales';
-import { pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 
 interface RecentActivityListProps {
   workouts: WorkoutHistoryEntry[];
   isLoading: boolean;
 }
 
-/** Map displayIcon / workoutType to an icon component and Hebrew label */
+/** Map displayIcon / workoutType to an icon component and a label kind id (`recentActivity.kind`) */
 function getActivityMeta(workout: WorkoutHistoryEntry): {
   Icon: React.ElementType;
-  label: string;
+  kind: string;
   iconColor: string;
 } {
   const type = workout.workoutType ?? workout.activityType ?? 'running';
   switch (type) {
     case 'strength':
     case 'STRENGTH':
-      return { Icon: Dumbbell, label: 'אימון כוח', iconColor: 'text-purple-500' };
+      return { Icon: Dumbbell, kind: 'strength', iconColor: 'text-purple-500' };
     case 'walking':
-      return { Icon: PersonStanding, label: 'הליכה', iconColor: 'text-green-500' };
+      return { Icon: PersonStanding, kind: 'walking', iconColor: 'text-green-500' };
     case 'cycling':
-      return { Icon: Bike, label: 'רכיבה', iconColor: 'text-amber-500' };
+      return { Icon: Bike, kind: 'cycling', iconColor: 'text-amber-500' };
     case 'recovery':
-      return { Icon: Moon, label: 'אימון התאוששות', iconColor: 'text-slate-500' };
+      return { Icon: Moon, kind: 'recovery', iconColor: 'text-slate-500' };
     case 'running':
     default:
-      return { Icon: Activity, label: 'ריצה', iconColor: 'text-[#00ADEF]' };
+      return { Icon: Activity, kind: 'running', iconColor: 'text-[#00ADEF]' };
   }
 }
 
@@ -52,12 +52,12 @@ function formatDate(d: Date | string | undefined, locale: Locale): string {
  */
 export default function RecentActivityList({ workouts, isLoading }: RecentActivityListProps) {
   const recent = workouts.slice(0, 5);
-  const uiGender = useUiGender();
+  const t = useT(profile);
   const locale = useLocaleStore((s) => s.locale);
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
-      <h3 className="text-sm font-black text-gray-800 mb-3">פעילות אחרונה</h3>
+      <h3 className="text-sm font-black text-gray-800 mb-3">{t('recentActivity.title')}</h3>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -76,15 +76,15 @@ export default function RecentActivityList({ workouts, isLoading }: RecentActivi
         <div className="flex flex-col items-center justify-center py-6 gap-2">
           <span className="text-3xl">🏃</span>
           <p className="text-sm font-bold text-gray-500 text-center">
-            עוד אין פעילויות.
+            {t('recentActivity.empty')}
             <br />
-            {pickGendered(uiGender, { male: 'תתחיל לזוז!', female: 'תתחילי לזוז!', other: 'בואו נזוז!' })}
+            {t('recentActivity.cta')}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           {recent.map((workout, idx) => {
-            const { Icon, label, iconColor } = getActivityMeta(workout);
+            const { Icon, kind, iconColor } = getActivityMeta(workout);
             const xp = workout.xpEarned ?? 0;
             const dateStr = formatDate(workout.date, locale);
 
@@ -100,7 +100,7 @@ export default function RecentActivityList({ workouts, isLoading }: RecentActivi
 
                 {/* Label + date */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-black text-gray-800 leading-snug">{label}</p>
+                  <p className="text-xs font-black text-gray-800 leading-snug">{t('recentActivity.kind', { kind })}</p>
                   <p className="text-[10px] text-gray-400">{dateStr}</p>
                 </div>
 

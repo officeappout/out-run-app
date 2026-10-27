@@ -79,6 +79,8 @@ import { X } from 'lucide-react';
 import IconButton from './IconButton';
 import { SHEET_Z, SPRING_SHEET, type SheetZIndex } from './tokens';
 import { DEFAULT_SHEET_DISMISS, sheetBottomPadding, shouldDismissSheet } from './logic';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 /** The v2 sheet surface (rounded top, white, sheet shadow). */
 export const SHEET_SURFACE_CLASS = 'rounded-t-[28px] bg-white shadow-v2-sheet';
@@ -228,7 +230,7 @@ export function SheetHeader({
   titleId,
   onClose,
   hideClose = false,
-  closeLabel = 'סגירה',
+  closeLabel,
   className = 'flex items-center justify-between px-5 pb-2',
 }: {
   title: ReactNode;
@@ -238,11 +240,12 @@ export function SheetHeader({
   closeLabel?: string;
   className?: string;
 }) {
+  const t = useT(common);
   return (
     <div className={className}>
       <h2 id={titleId} className={SHEET_TITLE_CLASS}>{title}</h2>
       {!hideClose && onClose && (
-        <IconButton aria-label={closeLabel} tone="surface" size={36} onClick={onClose}>
+        <IconButton aria-label={closeLabel ?? t('actions.close')} tone="surface" size={36} onClick={onClose}>
           <X className="h-4 w-4" />
         </IconButton>
       )}

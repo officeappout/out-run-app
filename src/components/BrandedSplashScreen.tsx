@@ -1,5 +1,8 @@
 'use client';
 
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+
 /**
  * Full-screen branded splash. Shown by the landing page (`/`) while
  * Firebase restores the auth session for returning users.
@@ -11,11 +14,12 @@
  * this component is safe in any SSR/Suspense context.
  */
 export default function BrandedSplashScreen() {
+  const t = useT(common);
   return (
     <div
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-white"
       aria-busy="true"
-      aria-label="טוען"
+      aria-label={t('ui.loading.label')}
     >
       {/*
        * Spinning donut ring — replicates the logo's "O" glyph.
@@ -51,7 +55,7 @@ export default function BrandedSplashScreen() {
         className="text-black/30 text-[11px] font-medium tracking-[0.20em] uppercase"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
-        טוען
+        {t('ui.loading.label')}
       </p>
     </div>
   );

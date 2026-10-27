@@ -25,8 +25,8 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link2, AlertTriangle } from 'lucide-react';
 import { linkWithGoogleAccount, linkWithAppleAccount } from '@/lib/auth.service';
-import { currentUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 interface LinkAccountPromptProps {
   isOpen: boolean;
@@ -41,8 +41,9 @@ export default function LinkAccountPrompt({
   isOpen,
   onClose,
   onLinked,
-  message = 'כדי לעקוב / לשלוח הודעה צריך לקשר חשבון',
+  message,
 }: LinkAccountPromptProps) {
+  const t = useT(common);
   const [loading, setLoading] = useState<'google' | 'apple' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAndroid, setIsAndroid] = useState(false);
@@ -84,11 +85,11 @@ export default function LinkAccountPrompt({
           return;
         }
         if (linkError === `${provider}_account_exists`) {
-          setError(`חשבון ${provider === 'google' ? 'Google' : 'Apple'} זה כבר בשימוש. ${pickGendered(currentUiGender(), { male: 'אנא נסה חשבון אחר.', female: 'אנא נסי חשבון אחר.', other: 'אנא נסו חשבון אחר.' })}`);
+          setError(t('ui.linkAccount.error.exists', { provider: provider === 'google' ? 'Google' : 'Apple' }));
         } else if (linkError === `${provider}_timeout`) {
-          setError(pickGendered(currentUiGender(), { male: 'החלון לא נפתח. אנא נסה שוב.', female: 'החלון לא נפתח. אנא נסי שוב.', other: 'החלון לא נפתח. אנא נסו שוב.' }));
+          setError(t('ui.linkAccount.error.timeout'));
         } else {
-          setError(pickGendered(currentUiGender(), { male: 'שגיאה בחיבור החשבון. אנא נסה שוב.', female: 'שגיאה בחיבור החשבון. אנא נסי שוב.', other: 'שגיאה בחיבור החשבון. אנא נסו שוב.' }));
+          setError(t('ui.linkAccount.error.failed'));
         }
         setLoading(null);
         return;
@@ -98,7 +99,7 @@ export default function LinkAccountPrompt({
         onLinked();
       }
     } catch {
-      setError(pickGendered(currentUiGender(), { male: 'שגיאה בלתי צפויה. אנא נסה שוב.', female: 'שגיאה בלתי צפויה. אנא נסי שוב.', other: 'שגיאה בלתי צפויה. אנא נסו שוב.' }));
+      setError(t('ui.linkAccount.error.unexpected'));
       setLoading(null);
     }
   }
@@ -129,9 +130,9 @@ export default function LinkAccountPrompt({
             </div>
           </div>
 
-          <h2 className="text-lg font-black text-gray-900 text-center mb-2">{message}</h2>
+          <h2 className="text-lg font-black text-gray-900 text-center mb-2">{message ?? t('ui.linkAccount.defaultMessage')}</h2>
           <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
-            פעולות שרואים אותן משתמשים אחרים (עקוב, הודעות) דורשות חשבון מקושר. זה לא חושף נתונים חדשים — רק מאבטח את החשבון שלך.
+            {t('ui.linkAccount.explain')}
           </p>
 
           <button
@@ -147,7 +148,7 @@ export default function LinkAccountPrompt({
               <img src="https://www.google.com/favicon.ico" alt="" className="w-5 h-5" />
             )}
             <span className="font-bold text-gray-700">
-              {loading === 'google' ? 'מתחבר...' : 'המשך עם Google'}
+              {loading === 'google' ? t('ui.connecting') : t('ui.linkAccount.google')}
             </span>
           </button>
 
@@ -166,7 +167,7 @@ export default function LinkAccountPrompt({
                 </svg>
               )}
               <span className="font-bold text-white">
-                {loading === 'apple' ? 'מתחבר...' : 'המשך עם Apple'}
+                {loading === 'apple' ? t('ui.connecting') : t('ui.linkAccount.apple')}
               </span>
             </button>
           )}
@@ -191,7 +192,7 @@ export default function LinkAccountPrompt({
             disabled={isLoading}
             className="w-full text-center text-sm font-semibold text-gray-400 py-2 disabled:opacity-50"
           >
-            לא עכשיו
+            {t('actions.notNow')}
           </button>
         </motion.div>
       </motion.div>

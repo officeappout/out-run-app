@@ -13,6 +13,8 @@
 
 import React from 'react';
 import { Check, ChevronLeft } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 /** The finished-workout surface (AgendaDayCard v2 + DoneRow). */
 export const DONE_SURFACE_STYLE: React.CSSProperties = {
@@ -26,9 +28,10 @@ export const DONE_GREEN = '#1D9E75';
 
 /** Round check in the completion colour (flat colour or a CSS gradient). */
 export function DoneCheck({ color = DONE_GREEN }: { color?: string }) {
+  const t = useT(common);
   return (
     <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full text-white" style={{ background: color }}>
-      <Check className="h-3 w-3" strokeWidth={3.2} aria-label="בוצע" />
+      <Check className="h-3 w-3" strokeWidth={3.2} aria-label={t('ui.done.aria')} />
     </span>
   );
 }

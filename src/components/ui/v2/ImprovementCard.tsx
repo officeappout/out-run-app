@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { ExerciseThumb } from './ExerciseSetsTable';
 import { deltaLabel, improvementHeadline, type ImprovementUnit } from './summary';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 /**
  * "שיפור מהפעם הקודמת" — the big green card: a green tile, the title, one
@@ -38,9 +40,10 @@ const GREEN_TEXT = '#047857';
 const GREEN_SUB = '#065f46';
 
 export default function ImprovementCard({ items, context, headerAction, footer }: ImprovementCardProps) {
+  const t = useT(common);
   const head = improvementHeadline(items);
   if (!head) return null;
-  const line = context ?? (items.length === 1 ? 'תרגיל אחד השתפר' : `${items.length} תרגילים השתפרו`);
+  const line = context ?? t('ui.improvement.count', { n: items.length });
   return (
     <div className="rounded-[22px] bg-[#ecfdf5] p-3.5" style={{ boxShadow: 'inset 0 0 0 1px rgba(16,185,129,0.28)' }}>
       <div className="flex items-center gap-2.5">
@@ -49,7 +52,7 @@ export default function ImprovementCard({ items, context, headerAction, footer }
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[16px] font-black" style={{ color: GREEN_TEXT }}>
-            שיפור מהפעם הקודמת
+            {t('ui.improvement.title')}
           </div>
           <div className="mt-px truncate text-[12.5px] font-bold" style={{ color: GREEN_SUB }}>
             {line}
@@ -78,14 +81,18 @@ export default function ImprovementCard({ items, context, headerAction, footer }
           <div className="min-w-0 flex-1">
             <div className="truncate text-[14.5px] font-extrabold text-v2-ink">{it.name}</div>
             <div className="mt-px truncate text-[12.5px] font-bold text-v2-muted">
-              פעם קודמת{' '}
-              <b dir="ltr" className="text-v2-ink-2">
-                {it.previous}
-              </b>{' '}
-              · היום{' '}
-              <b dir="ltr" style={{ color: GREEN_TEXT }}>
-                {it.today}
-              </b>
+              {t.rich('ui.improvement.compare', {
+                prev: () => (
+                  <b dir="ltr" className="text-v2-ink-2">
+                    {it.previous}
+                  </b>
+                ),
+                today: () => (
+                  <b dir="ltr" style={{ color: GREEN_TEXT }}>
+                    {it.today}
+                  </b>
+                ),
+              })}
             </div>
           </div>
           <span

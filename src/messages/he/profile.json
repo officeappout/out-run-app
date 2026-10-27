@@ -570,5 +570,9 @@
   "stageTitle.8": "אלוף",
   "stageTitle.9": "מאסטר",
   "stageTitle.10": "אגדה",
-  "stageTitle.fallback": "שלב {stage}"
+  "stageTitle.fallback": "שלב {stage}",
+  "recentActivity.title": "פעילות אחרונה",
+  "recentActivity.kind": "{kind, select, strength {אימון כוח} walking {הליכה} cycling {רכיבה} recovery {אימון התאוששות} other {ריצה}}",
+  "recentActivity.empty": "עוד אין פעילויות.",
+  "recentActivity.cta": "{gender, select, female {תתחילי לזוז!} male {תתחיל לזוז!} other {בואו נזוז!}}"
 }
