@@ -27,7 +27,7 @@ const LEGAL_VERSION = '2.4';
 describe('legal · accessibility statement (he)', () => {
   const cases: Array<[Key, string]> = [
     ['accessibility.meta.title', 'הצהרת נגישות | OUT'],
-    ['accessibility.meta.description', 'הצהרת הנגישות של OUT — סטטוס ההתאמה לתקן ישראלי ת"י 5568 / WCAG 2.x ברמה AA, פרטי רכז הנגישות ואמצעי פנייה.'],
+    ['accessibility.meta.description', 'הצהרת הנגישות של OUT: סטטוס ההתאמה לתקן ישראלי ת"י 5568 / WCAG 2.x ברמה AA, פרטי רכז הנגישות ואמצעי פנייה.'],
     ['accessibility.backToApp', '← חזרה לאפליקציה'],
     ['accessibility.title', 'הצהרת נגישות'],
     ['accessibility.commitment.title', 'המחויבות שלנו'],
@@ -39,6 +39,15 @@ describe('legal · accessibility statement (he)', () => {
     ['accessibility.done.iconButtons', 'כפתורים המסומנים באייקון בלבד קיבלו שם נגיש לקוראי מסך.'],
     ['accessibility.done.contrast', 'צבעי טקסט ואייקונים בגוון הכחול של המותג הוכהו כדי לעמוד ביחס ניגודיות של 4.5:1 לפחות.'],
     ['accessibility.done.intervalLabel', 'תווית האינטרוולים במסך האימון הוצגה על רקע אטום כך שהניגודיות אינה תלויה בתוכן שמאחוריה.'],
+    ['accessibility.adjust.rtl', "האפליקציה מוגדרת בשפה ובכיוון הנכונים (עברית מימין לשמאל)."],
+    ['accessibility.adjust.zoom', "אפשר להגדיל את התצוגה (זום) בכל מכשיר, כולל צביטה במסך מגע."],
+    ['accessibility.adjust.reducedMotion', "כשבמכשיר מוגדרת העדפה להפחתת תנועה, חלק מהאנימציות מופחתות."],
+    ['accessibility.adjust.altText', "לתמונות בעלות תוכן יש טקסט חלופי, ותמונות קישוטיות מוסתרות מקוראי מסך."],
+    ['accessibility.limits.maps', "המפות באפליקציה אינן נגישות במלואן למקלדת ולקוראי מסך. המידע עליהן זמין גם בפנייה אלינו."],
+    ['accessibility.limits.videos', "סרטוני ההדרכה והתרגילים אינם כוללים כתוביות כרגע."],
+    ['accessibility.adjust.title', 'התאמות באפליקציה'],
+    ['accessibility.limits.title', 'מגבלות ידועות'],
+    ['accessibility.limits.intro', 'אנחנו מכירים את המגבלות הבאות ועובדים לתקן אותן:'],
     ['accessibility.contact.title', 'רכז הנגישות ופנייה אלינו'],
     ['accessibility.contact.intro', 'נתקלתם בקושי, או צריכים את המידע בדרך אחרת? נשמח לשמוע ולטפל בפנייה.'],
     ['accessibility.contact.coordinatorLabel', 'רכז נגישות:'],
@@ -56,7 +65,7 @@ describe('legal · accessibility statement (he)', () => {
     for (const [key, old] of cases) expect(t(key)).toBe(old);
   });
   it('values and markup', () => {
-    const ACCESSIBILITY_LAST_UPDATED_HE = '12 באוקטובר 2026';
+    const ACCESSIBILITY_LAST_UPDATED_HE = '27 באוקטובר 2026';
     expect(t('accessibility.lastUpdated', { date: ACCESSIBILITY_LAST_UPDATED_HE })).toBe(`עודכן לאחרונה: ${ACCESSIBILITY_LAST_UPDATED_HE}`);
     expect(richText('accessibility.standard.status', {}, ['b'])).toBe(
       '<b>סטטוס: בתהליך התאמה.</b> השירות עדיין אינו עומד במלואו בדרישות התקן. אנחנו בודקים את המסכים באופן שיטתי, מתקנים ליקויים לפי סדר חשיבות, ומעדכנים הצהרה זו ככל שההתאמה מתקדמת. עד להשלמתה ייתכן שחלק מהמסכים והרכיבים עדיין אינם נגישים במלואם.',
