@@ -14,7 +14,6 @@ import { makeT } from '../t';
 import { pickGendered, type GenderedText } from '../gender-copy';
 import { FREE_RUN_COPY } from '@/features/parks/core/components/free-run/free-run-gender-copy';
 import { LEAGUE_COPY } from '@/features/arena/components/league-gender-copy';
-import { ARENA_CREATE_COPY } from '@/app/arena/create/arena-create-copy';
 import { achievementName, ACHIEVEMENT_MAP } from '@/features/user/progression/config/achievement-definitions';
 
 const T: Record<string, (key: string, values?: Record<string, unknown>) => string> = {
@@ -92,6 +91,30 @@ const CATALOG_CASES: Array<[string, string, string, string]> = [
   ["onboarding:signaturePad.hint", "חתום כאן עם האצבע", "חתמי כאן עם האצבע", "חתימה כאן עם האצבע"],
   ["onboarding:identity.alert.noUser", "לא נמצא משתמש מחובר. נסה לרענן את הדף.", "לא נמצא משתמש מחובר. נסי לרענן את הדף.", "לא נמצא משתמש מחובר. נסו לרענן את הדף."],
   ["onboarding:identity.alert.authError", "שגיאה באימות המשתמש. נסה לרענן את הדף.", "שגיאה באימות המשתמש. נסי לרענן את הדף.", "שגיאה באימות המשתמש. נסו לרענן את הדף."],
+  // /arena/create wizard (moved from arena-create-copy.ts in batch aq)
+  ["community:arenaCreate.copy.titleFriends", "צור ליגת חברים", "צורי ליגת חברות", "ליגת חברים חדשה"],
+  ["community:arenaCreate.copy.titleFamily", "צור ליגת משפחה", "צורי ליגת משפחה", "ליגת משפחה חדשה"],
+  ["community:arenaCreate.copy.titleSchool", "הצטרף לבית ספר", "הצטרפי לבית ספר", "הצטרפות לבית ספר"],
+  ["community:arenaCreate.copy.titleUnit", "הצטרף ליחידה", "הצטרפי ליחידה", "הצטרפות ליחידה"],
+  ["community:arenaCreate.copy.titleNew", "צור ליגה חדשה", "צורי ליגה חדשה", "ליגה חדשה"],
+  ["community:arenaCreate.copy.gpsLocked", "חבר GPS כדי להצטרף לעיר", "חברי GPS כדי להצטרף לעיר", "צריך GPS כדי להצטרף לעיר"],
+  ["community:arenaCreate.copy.schoolCardDesc", "הצטרף לליגת בית הספר שלך", "הצטרפי לליגת בית הספר שלך", "הצטרפות לליגת בית הספר שלך"],
+  ["community:arenaCreate.copy.unitCardDesc", "הצטרף לליגת היחידה שלך", "הצטרפי לליגת היחידה שלך", "הצטרפות לליגת היחידה שלך"],
+  ["community:arenaCreate.copy.pickType", "בחר את סוג הקבוצה", "בחרי את סוג הקבוצה", "איזו קבוצה פותחים?"],
+  ["community:arenaCreate.copy.descriptionPlaceholder", "ספר בקצרה על הקבוצה...", "ספרי בקצרה על הקבוצה...", "כמה מילים על הקבוצה..."],
+  ["community:arenaCreate.copy.createError", "אירעה שגיאה ביצירת הקבוצה. נסה שוב.", "אירעה שגיאה ביצירת הקבוצה. נסי שוב.", "אירעה שגיאה ביצירת הקבוצה. נסו שוב."],
+  ["community:arenaCreate.copy.genericError", "אירעה שגיאה. נסה שוב.", "אירעה שגיאה. נסי שוב.", "אירעה שגיאה. נסו שוב."],
+  ["community:arenaCreate.copy.inviteOne", "הזמן לפחות שותף אחד", "הזמיני לפחות שותף אחד", "מזמינים לפחות שותף אחד"],
+  ["community:arenaCreate.copy.shareAndOpen", "שתף ופתח קבוצה", "שתפי ופתחי קבוצה", "שיתוף ופתיחת קבוצה"],
+  ["community:arenaCreate.copy.openWhatsapp", "פתח בוואטסאפ", "פתחי בוואטסאפ", "פתיחה בוואטסאפ"],
+  ["community:arenaCreate.copy.joinYourUnit", "הצטרף ליחידה שלך", "הצטרפי ליחידה שלך", "הצטרפות ליחידה שלך"],
+  ["community:arenaCreate.copy.joinYourSchool", "הצטרף לבית הספר שלך", "הצטרפי לבית הספר שלך", "הצטרפות לבית הספר שלך"],
+  ["community:arenaCreate.copy.getCodeUnit", "קבל קוד גישה ממפקד הכושר שלך", "קבלי קוד גישה ממפקד הכושר שלך", "מקבלים קוד גישה ממפקד הכושר"],
+  ["community:arenaCreate.copy.enterCode", "הזן את הקוד כאן", "הזיני את הקוד כאן", "מזינים את הקוד כאן"],
+  ["community:arenaCreate.copy.autoJoinUnit", "הצטרף אוטומטית לליגת היחידה שלך!", "הצטרפי אוטומטית לליגת היחידה שלך!", "מצטרפים אוטומטית לליגת היחידה!"],
+  ["community:arenaCreate.copy.getCodeSchool", "קבל קוד גישה ממורה לחנ\"ג / רכזת הספורט", "קבלי קוד גישה ממורה לחנ\"ג / רכזת הספורט", "מקבלים קוד גישה ממורה לחנ\"ג / רכזת הספורט"],
+  ["community:arenaCreate.copy.autoJoinSchool", "הצטרף אוטומטית לליגת בית הספר שלך!", "הצטרפי אוטומטית לליגת בית הספר שלך!", "מצטרפים אוטומטית לליגת בית הספר!"],
+  ["community:arenaCreate.copy.welcomeToLeague", "ברוך הבא לליגת:", "ברוכה הבאה לליגת:", "ברוכים הבאים לליגת:"],
 ];
 
 function tr(id: string, values?: Record<string, unknown>): string {
@@ -142,7 +165,7 @@ describe('gender batch 2 — catalog keys, three outputs', () => {
 
 describe('gender batch 2 — code copy modules: every entry', () => {
   const modules: Record<string, Record<string, GenderedText>> = {
-    FREE_RUN_COPY, LEAGUE_COPY, ARENA_CREATE_COPY,
+    FREE_RUN_COPY, LEAGUE_COPY,
   };
   for (const [mod, entries] of Object.entries(modules)) {
     for (const [id, text] of Object.entries(entries)) {
@@ -154,13 +177,11 @@ describe('gender batch 2 — code copy modules: every entry', () => {
     }
   }
 
-  it('pins: free run, league, arena create', () => {
+  it('pins: free run, league', () => {
     expectThree('startFree', FREE_RUN_COPY.startFree, 'התחל חופשי', 'התחילי חופשי', 'בלי מסלול');
     expectThree('startToAddress', FREE_RUN_COPY.startToAddress, 'התחל לכתובת הזו', 'התחילי לכתובת הזו', 'יוצאים לכתובת הזו');
     expectThree('compileError', FREE_RUN_COPY.compileError, 'משהו השתבש בהרכבת המסלול. נסה שוב.', 'משהו השתבש בהרכבת המסלול. נסי שוב.', 'משהו השתבש בהרכבת המסלול. נסו שוב.');
     expectThree('lockedCity', LEAGUE_COPY.lockedCity, 'לחץ על העירייה כדי לפתוח את הליגה הרשמית', 'לחצי על העירייה כדי לפתוח את הליגה הרשמית', 'לוחצים על העירייה כדי לפתוח את הליגה הרשמית');
-    expectThree('welcomeToLeague', ARENA_CREATE_COPY.welcomeToLeague, 'ברוך הבא לליגת:', 'ברוכה הבאה לליגת:', 'ברוכים הבאים לליגת:');
-    expectThree('outreachIntro', ARENA_CREATE_COPY.outreachIntro, 'אני מתאמן עם Out ורוצה', 'אני מתאמנת עם Out ורוצה', 'אני באפליקציית Out ורוצה');
   });
 });
 

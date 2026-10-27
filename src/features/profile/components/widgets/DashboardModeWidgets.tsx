@@ -13,6 +13,7 @@
  */
 
 import { common } from '@/messages/ns/common';
+import { profile as profileNs } from '@/messages/ns/profile';
 import { useT } from '@/hooks/useT';
 import { unitLabel, weekdayLabels } from '@/lib/i18n/units';
 import React, { useMemo } from 'react';
@@ -116,22 +117,12 @@ interface StrengthWidgetsProps {
   v2?: boolean;
 }
 
-const HEBREW_DOMAIN_LABEL: Record<string, string> = {
-  push: 'דחיפה',
-  pushing: 'דחיפה',
-  pull: 'משיכה',
-  pulling: 'משיכה',
-  legs: 'רגליים',
-  lower_body: 'רגליים',
-  core: 'בטן',
-  abs: 'בטן',
-  upper_body: 'פלג עליון',
-  full_body: 'כל הגוף',
-};
+// Domain ids that have a translated label (modeWidgets.domain select); anything else prints its raw id, as before.
 
 
 export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
   const tc = useT(common);
+  const t = useT(profileNs);
   const WEEKDAY_LABELS_SUN_FIRST = weekdayLabels('letter', tc);
   const strength = useWeeklyVolumeStore((s) => s.strength);
   const activeMinutes = useWeeklyVolumeStore((s) => s.activeMinutes);
@@ -144,8 +135,8 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
   const domainList = useMemo(() => {
     const entries = Object.entries(strength.domainSetsCompleted ?? {})
       .filter(([, count]) => count > 0);
-    return entries.map(([key]) => HEBREW_DOMAIN_LABEL[key.toLowerCase()] ?? key);
-  }, [strength.domainSetsCompleted]);
+    return entries.map(([key]) => t('modeWidgets.domain', { domain: key.toLowerCase(), raw: key }));
+  }, [strength.domainSetsCompleted, t]);
 
   const minutesPct = activeMinutes.weeklyGoal > 0
     ? Math.round((activeMinutes.totalMinutes / activeMinutes.weeklyGoal) * 100)
@@ -171,7 +162,7 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
   if (v2) {
     return (
       <div>
-        <SectionLabelV2>השבוע שלך</SectionLabelV2>
+        <SectionLabelV2>{t('modeWidgets.week.title')}</SectionLabelV2>
         <div className="rounded-v2-card bg-white p-4 shadow-v2-card">
           <div className="flex items-center gap-4">
             <CircularProgress
@@ -186,7 +177,7 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
                   {activeMinutes.totalMinutes}
                 </span>
                 <span className="mt-0.5 whitespace-nowrap text-[11px] font-bold text-v2-muted">
-                  מתוך {activeMinutes.weeklyGoal}&apos;
+                  {t('modeWidgets.week.minutesOf', { n: String(activeMinutes.weeklyGoal) })}
                 </span>
               </div>
             </CircularProgress>
@@ -196,21 +187,21 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
                 <span className="text-[22px] font-black leading-none text-v2-ink tabular-nums">
                   {strength.totalSetsCompleted}
                 </span>
-                <span className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">סטים השבוע</span>
+                <span className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">{t('modeWidgets.week.sets')}</span>
               </div>
               <div className="flex max-w-[110px] flex-col items-center text-center">
                 <span className="text-[22px] font-black leading-none text-v2-ink tabular-nums">
                   {domainList.length}
                 </span>
                 <span className="mt-1 w-full truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">
-                  {domainList.length > 0 ? domainList.slice(0, 2).join(' · ') : 'קבוצות שרירים'}
+                  {domainList.length > 0 ? domainList.slice(0, 2).join(' · ') : t('modeWidgets.week.muscleGroups')}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="mt-4">
-            <p className="mb-2 text-[13px] font-extrabold text-v2-deep">עומס יומי</p>
+            <p className="mb-2 text-[13px] font-extrabold text-v2-deep">{t('modeWidgets.week.dailyLoad')}</p>
             <div className="flex items-end gap-1.5" style={{ height: 40 }}>
               {WEEKDAY_LABELS_SUN_FIRST.map((label, i) => (
                 <div key={label} className="flex h-full flex-1 flex-col items-center justify-end">
@@ -235,11 +226,11 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
               <>
                 <Medal className="h-4 w-4 shrink-0 text-v2-deep" aria-hidden />
                 <p className="truncate text-[13px] font-extrabold text-v2-ink-2">
-                  שיא · {progressData!.programName} · רמה {progressData!.currentLevel}
+                  {t('modeWidgets.record.v2', { name: progressData!.programName, level: String(progressData!.currentLevel) })}
                 </p>
               </>
             ) : (
-              <p className="text-[12.5px] font-bold text-v2-muted">עוד לא נקבע שיא — תתחיל להתאמן</p>
+              <p className="text-[12.5px] font-bold text-v2-muted">{t('modeWidgets.record.noneV2')}</p>
             )}
           </div>
         </div>
@@ -249,7 +240,7 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
 
   return (
     <div>
-      <SectionLabel>השבוע שלך</SectionLabel>
+      <SectionLabel>{t('modeWidgets.week.title')}</SectionLabel>
       {/* Ring + flat inline stat row — degrades gracefully at 0 (empty ring,
           "0" stats with a friendly sub-label) instead of broken-looking
           boxed squares. Flattened ("פרופיל חלק" follow-up): no card
@@ -267,7 +258,7 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
               {activeMinutes.totalMinutes}
             </span>
             <span className="text-[8px] text-gray-400 mt-0.5 whitespace-nowrap">
-              מתוך {activeMinutes.weeklyGoal}&apos;
+              {t('modeWidgets.week.minutesOf', { n: String(activeMinutes.weeklyGoal) })}
             </span>
           </div>
         </CircularProgress>
@@ -277,14 +268,14 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
             <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
               {strength.totalSetsCompleted}
             </span>
-            <span className="text-[10px] font-bold text-gray-500 mt-0.5">סטים השבוע</span>
+            <span className="text-[10px] font-bold text-gray-500 mt-0.5">{t('modeWidgets.week.sets')}</span>
           </div>
           <div className="flex flex-col items-center text-center max-w-[100px]">
             <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
               {domainList.length}
             </span>
             <span className="text-[10px] font-bold text-gray-500 mt-0.5 truncate">
-              {domainList.length > 0 ? domainList.slice(0, 2).join(' · ') : 'קבוצות שרירים'}
+              {domainList.length > 0 ? domainList.slice(0, 2).join(' · ') : t('modeWidgets.week.muscleGroups')}
             </span>
           </div>
         </div>
@@ -292,7 +283,7 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
 
       {/* Weekly load strip */}
       <div className="mt-4">
-        <p className="text-[10px] font-bold text-gray-400 mb-1.5">עומס יומי</p>
+        <p className="text-[10px] font-bold text-gray-400 mb-1.5">{t('modeWidgets.week.dailyLoad')}</p>
         <div className="flex items-end gap-1.5" style={{ height: 32 }}>
           {WEEKDAY_LABELS_SUN_FIRST.map((label, i) => (
             <div key={label} className="flex-1 h-full flex flex-col justify-end items-center gap-1">
@@ -320,10 +311,10 @@ export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
       <div className="mt-3 pt-3 border-t border-gray-100 text-center">
         {hasPR ? (
           <p className="text-xs font-bold text-gray-600">
-            🏅 שיא · {progressData!.programName} · רמה {progressData!.currentLevel}
+            {t('modeWidgets.record.v1', { name: progressData!.programName, level: String(progressData!.currentLevel) })}
           </p>
         ) : (
-          <p className="text-xs font-medium text-gray-400">עוד לא נקבע שיא — תתחיל להתאמן 💪</p>
+          <p className="text-xs font-medium text-gray-400">{t('modeWidgets.record.noneV1')}</p>
         )}
       </div>
     </div>
@@ -352,6 +343,7 @@ function formatPace(minPerKm: number): string {
 
 export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
   const tc = useT(common);
+  const t = useT(profileNs);
   const running = useWeeklyVolumeStore((s) => s.running);
   const { stepsToday, todayActivity } = useDailyActivity();
   const locale = useLocaleStore((s) => s.locale);
@@ -382,12 +374,12 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
   if (v2) {
     return (
       <div>
-        <SectionLabelV2>ריצה</SectionLabelV2>
+        <SectionLabelV2>{t('modeWidgets.run.title')}</SectionLabelV2>
         <div className="grid grid-cols-2 gap-2.5">
           <WidgetCardV2
             Icon={Route}
             iconColor="#00baf7"
-            label='ק״מ השבוע'
+            label={t('modeWidgets.run.weekKm')}
             value={
               running.weeklyTargetDistance > 0
                 ? `${running.totalDistance.toFixed(1)} / ${running.weeklyTargetDistance.toFixed(0)}`
@@ -399,24 +391,24 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
           <WidgetCardV2
             Icon={Gauge}
             iconColor="#65a30d"
-            label="קצב ממוצע"
+            label={t('modeWidgets.run.avgPace')}
             value={formatPace(avgPaceMinPerKm)}
             sub={unitLabel('minPerKm', tc)}
           />
           <WidgetCardV2
             Icon={Footprints}
             iconColor="#f59e0b"
-            label="צעדים היום"
+            label={t('modeWidgets.run.stepsToday')}
             value={formatNumber(stepsToday, locale)}
-            sub={`מתוך ${formatNumber(stepsGoal, locale)}`}
+            sub={t('modeWidgets.run.stepsOf', { n: formatNumber(stepsGoal, locale) })}
             progressPct={stepsPct}
           />
           <WidgetCardV2
             Icon={Activity}
             iconColor="#8b5cf6"
-            label="ריצה ארוכה"
+            label={t('modeWidgets.run.longRun')}
             value={longRunKm > 0 ? `${longRunKm.toFixed(1)}` : '—'}
-            sub={longRunKm > 0 ? unitLabel('km', tc) : 'אין נתונים עדיין'}
+            sub={longRunKm > 0 ? unitLabel('km', tc) : t('modeWidgets.run.noData')}
           />
         </div>
       </div>
@@ -425,7 +417,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
 
   return (
     <div>
-      <SectionLabel>ריצה</SectionLabel>
+      <SectionLabel>{t('modeWidgets.run.title')}</SectionLabel>
       {/* Flattened ("פרופיל חלק" follow-up) — internal hairline
           divide-x/divide-y only, no outer border/box, instead of 4
           separate boxed cards; WidgetCard itself carries no chrome now,
@@ -434,7 +426,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
         <WidgetCard
           Icon={Route}
           iconColor="text-[#00ADEF]"
-          label='ק״מ השבוע'
+          label={t('modeWidgets.run.weekKm')}
           value={
             running.weeklyTargetDistance > 0
               ? `${running.totalDistance.toFixed(1)} / ${running.weeklyTargetDistance.toFixed(0)}`
@@ -447,7 +439,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
         <WidgetCard
           Icon={Gauge}
           iconColor="text-emerald-500"
-          label="קצב ממוצע"
+          label={t('modeWidgets.run.avgPace')}
           value={formatPace(avgPaceMinPerKm)}
           sub={unitLabel('minPerKm', tc)}
         />
@@ -455,18 +447,18 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
         <WidgetCard
           Icon={Footprints}
           iconColor="text-amber-500"
-          label="צעדים היום"
+          label={t('modeWidgets.run.stepsToday')}
           value={formatNumber(stepsToday, locale)}
-          sub={`מתוך ${formatNumber(stepsGoal, locale)}`}
+          sub={t('modeWidgets.run.stepsOf', { n: formatNumber(stepsGoal, locale) })}
           progressPct={stepsPct}
         />
 
         <WidgetCard
           Icon={Activity}
           iconColor="text-purple-500"
-          label="ריצה ארוכה"
+          label={t('modeWidgets.run.longRun')}
           value={longRunKm > 0 ? `${longRunKm.toFixed(1)}` : '—'}
-          sub={longRunKm > 0 ? unitLabel('km', tc) : 'אין נתונים עדיין'}
+          sub={longRunKm > 0 ? unitLabel('km', tc) : t('modeWidgets.run.noData')}
         />
       </div>
     </div>

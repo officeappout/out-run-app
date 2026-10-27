@@ -16,6 +16,8 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import AddStrengthProgramCard from '@/features/home/components/AddStrengthProgramCard';
 import type { HubMineItem } from '@/features/progression-map/services/progress-hub-bucketing.service';
 import { SkillMapCard } from './SkillMapCard';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface MyProgramsSectionProps {
   items: HubMineItem[];
@@ -24,13 +26,14 @@ interface MyProgramsSectionProps {
 }
 
 export function MyProgramsSection({ items, hasPendingAssessment }: MyProgramsSectionProps) {
+  const t = useT(profileNs);
   const profile = useUserStore((s) => s.profile);
 
   if (items.length === 0 && hasPendingAssessment) return null;
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-black text-gray-800">התוכניות שלי</h2>
+      <h2 className="text-sm font-black text-gray-800">{t('hubV1.mine')}</h2>
       {items.length === 0 ? (
         <AddStrengthProgramCard profile={profile} />
       ) : (
@@ -41,7 +44,7 @@ export function MyProgramsSection({ items, hasPendingAssessment }: MyProgramsSec
               programId={item.programId}
               nameHe={item.programId}
               state={item.role === 'primary' || item.role === 'active' ? 'active' : 'tracked'}
-              badge={item.role === 'primary' ? 'ראשי' : undefined}
+              badge={item.role === 'primary' ? t('hubV1.primaryBadge') : undefined}
             />
           ))}
         </div>

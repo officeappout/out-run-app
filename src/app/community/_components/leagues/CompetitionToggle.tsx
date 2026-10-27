@@ -2,9 +2,12 @@
 
 import React from 'react';
 import type { LeaguesVM } from './leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 /** יחידים | קבוצות toggle (hidden in Home v2 — the v2 tabs decide). */
 export function CompetitionToggle({ vm }: { vm: LeaguesVM }) {
+  const t = useT(community);
   const {
     featureFlags,
     competitionMode,
@@ -16,7 +19,7 @@ export function CompetitionToggle({ vm }: { vm: LeaguesVM }) {
       className="flex p-1 rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
       dir="rtl"
       role="tablist"
-      aria-label="מצב תחרות"
+      aria-label={t('competitionToggle.label')}
     >
       {(['individual', 'group'] as const).map((mode) => (
         <button
@@ -31,7 +34,7 @@ export function CompetitionToggle({ vm }: { vm: LeaguesVM }) {
               : 'text-v2-muted'
           }`}
         >
-          {mode === 'individual' ? 'יחידים' : 'קבוצות'}
+          {mode === 'individual' ? t('competitionToggle.individual') : t('competitionToggle.group')}
         </button>
       ))}
     </div>

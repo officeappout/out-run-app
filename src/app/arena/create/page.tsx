@@ -8,8 +8,10 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Home, Building2, GraduationCap, Trees, Share2, Lock, Check, Megaphone, Shield, School } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { pickGendered, type GenderedText } from '@/lib/i18n/gender-copy';
-import { ARENA_CREATE_COPY } from './arena-create-copy';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { community } from '@/messages/ns/community';
+import { weekdayLabels } from '@/lib/i18n/units';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { createGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
@@ -54,20 +56,20 @@ const INITIAL_STATE: WizardState = {
 
 
 
-const CATEGORY_OPTIONS: Array<{ value: CommunityGroup['category']; label: string }> = [
-  { value: 'running', label: 'ריצה' },
-  { value: 'walking', label: 'הליכה' },
-  { value: 'calisthenics', label: 'כושר פונקציונלי' },
-  { value: 'yoga', label: 'יוגה' },
-  { value: 'cycling', label: 'אופניים' },
-  { value: 'other', label: 'אחר' },
-];
-
-const DAYS_HEB = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const CATEGORY_OPTIONS = [
+  { value: 'running', labelKey: 'arenaCreate.category.running' },
+  { value: 'walking', labelKey: 'arenaCreate.category.walking' },
+  { value: 'calisthenics', labelKey: 'arenaCreate.category.calisthenics' },
+  { value: 'yoga', labelKey: 'arenaCreate.category.yoga' },
+  { value: 'cycling', labelKey: 'arenaCreate.category.cycling' },
+  { value: 'other', labelKey: 'arenaCreate.category.other' },
+] as const satisfies ReadonlyArray<{ value: CommunityGroup['category']; labelKey: string }>;
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function CreateGroupPage() {
+  const t = useT(community);
+  const tc = useT(common);
   const router = useRouter();
   const { profile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
@@ -100,10 +102,8 @@ export default function CreateGroupPage() {
   const [dynamicNoCodeMessage, setDynamicNoCodeMessage] = useState<string | null>(null);
 
   const myUid = profile?.id ?? '';
-  const myName = profile?.core?.name ?? 'אווטיר';
+  const myName = profile?.core?.name ?? 'אווטיר'; // i18n-allow-hebrew: data — saved as the group creator's name
   const myGender = profile?.core?.gender;
-  /** Gendered copy (gender batch 2): male / female / neutral for unknown — arena-create-copy.ts. */
-  const g = (text: GenderedText) => pickGendered(myGender, text);
 
   // Load dynamic "אין לך קוד?" WhatsApp text from pressure_messages
   useEffect(() => {
@@ -119,13 +119,13 @@ export default function CreateGroupPage() {
 
   /** Dynamic page title based on selected group type and user gender */
   const pageTitle = useMemo(() => {
-    if (state.groupType === 'friends')    return pickGendered(myGender, ARENA_CREATE_COPY.titleFriends);
-    if (state.groupType === 'family')     return pickGendered(myGender, ARENA_CREATE_COPY.titleFamily);
-    if (state.groupType === 'school')     return pickGendered(myGender, ARENA_CREATE_COPY.titleSchool);
-    if (state.groupType === 'military')   return pickGendered(myGender, ARENA_CREATE_COPY.titleUnit);
-    if (state.groupType === 'neighborhood') return 'ליגת שכונה';
-    return pickGendered(myGender, ARENA_CREATE_COPY.titleNew);
-  }, [state.groupType, myGender]);
+    if (state.groupType === 'friends')    return t('arenaCreate.copy.titleFriends');
+    if (state.groupType === 'family')     return t('arenaCreate.copy.titleFamily');
+    if (state.groupType === 'school')     return t('arenaCreate.copy.titleSchool');
+    if (state.groupType === 'military')   return t('arenaCreate.copy.titleUnit');
+    if (state.groupType === 'neighborhood') return t('arenaCreate.title.neighborhood');
+    return t('arenaCreate.copy.titleNew');
+  }, [state.groupType, t]);
 
   function update<K extends keyof WizardState>(key: K, value: WizardState[K]) {
     setState((prev) => ({ ...prev, [key]: value }));
@@ -143,18 +143,18 @@ export default function CreateGroupPage() {
     {
       type: 'neighborhood' as CommunityGroupType,
       icon: <Home className="w-6 h-6" />,
-      label: 'שכונה',
-      description: 'קבוצה פתוחה לכל מתאמני העיר',
+      label: t('arenaCreate.card.neighborhood.label'),
+      description: t('arenaCreate.card.neighborhood.desc'),
       available: access.hasCityAccess,
-      lockedMsg: g(ARENA_CREATE_COPY.gpsLocked),
+      lockedMsg: t('arenaCreate.copy.gpsLocked'),
       getScopeId: () => access.cityAuthorityId ?? '',
       getAuthorityId: () => access.cityAuthorityId ?? '',
     },
     {
       type: 'friends' as CommunityGroupType,
       icon: <span className="text-2xl leading-none">👥</span>,
-      label: 'חברים',
-      description: 'ליגה לחברים פרטית',
+      label: t('arenaCreate.card.friends.label'),
+      description: t('arenaCreate.card.friends.desc'),
       available: true,
       lockedMsg: '',
       getScopeId: () => '',
@@ -163,8 +163,8 @@ export default function CreateGroupPage() {
     {
       type: 'family' as CommunityGroupType,
       icon: <span className="text-2xl leading-none">👨‍👩‍👧</span>,
-      label: 'משפחה',
-      description: 'ליגה משפחתית פרטית',
+      label: t('arenaCreate.card.family.label'),
+      description: t('arenaCreate.card.family.desc'),
       available: true,
       lockedMsg: '',
       getScopeId: () => '',
@@ -173,8 +173,8 @@ export default function CreateGroupPage() {
     {
       type: 'work' as CommunityGroupType,
       icon: <Building2 className="w-6 h-6" />,
-      label: 'עבודה',
-      description: 'הביאו את Out למקום העבודה!',
+      label: t('arenaCreate.card.work.label'),
+      description: t('arenaCreate.card.work.desc'),
       available: true,
       lockedMsg: '',
       getScopeId: () => access.orgId ?? '',
@@ -183,8 +183,8 @@ export default function CreateGroupPage() {
     {
       type: 'university' as CommunityGroupType,
       icon: <GraduationCap className="w-6 h-6" />,
-      label: 'אוני׳ / קמפוס',
-      description: 'הביאו את Out לקמפוס!',
+      label: t('arenaCreate.card.university.label'),
+      description: t('arenaCreate.card.university.desc'),
       available: true,
       lockedMsg: '',
       getScopeId: () => access.orgId ?? '',
@@ -193,8 +193,8 @@ export default function CreateGroupPage() {
     {
       type: 'park' as CommunityGroupType,
       icon: <Trees className="w-6 h-6" />,
-      label: 'פארק',
-      description: 'קבוצה אזורית לפארק ספציפי',
+      label: t('arenaCreate.card.park.label'),
+      description: t('arenaCreate.card.park.desc'),
       available: true,
       lockedMsg: '',
       getScopeId: () => access.preferredParkId ?? '',
@@ -203,8 +203,8 @@ export default function CreateGroupPage() {
     {
       type: 'school' as CommunityGroupType,
       icon: <School className="w-6 h-6" />,
-      label: 'בית ספר 🏫',
-      description: g(ARENA_CREATE_COPY.schoolCardDesc),
+      label: t('arenaCreate.card.school.label'),
+      description: t('arenaCreate.copy.schoolCardDesc'),
       available: true,
       lockedMsg: '',
       getScopeId: () => '',
@@ -213,8 +213,8 @@ export default function CreateGroupPage() {
     {
       type: 'military' as CommunityGroupType,
       icon: <Shield className="w-6 h-6" />,
-      label: 'צבא / יחידה 🛡️',
-      description: g(ARENA_CREATE_COPY.unitCardDesc),
+      label: t('arenaCreate.card.military.label'),
+      description: t('arenaCreate.copy.unitCardDesc'),
       available: true,
       lockedMsg: '',
       getScopeId: () => '',
@@ -227,7 +227,7 @@ export default function CreateGroupPage() {
   function renderTypeStep() {
     return (
       <div className="space-y-3" dir="rtl">
-        <p className="text-sm text-gray-500 px-1">{g(ARENA_CREATE_COPY.pickType)}</p>
+        <p className="text-sm text-gray-500 px-1">{t('arenaCreate.copy.pickType')}</p>
         {TYPE_CARDS.map((card) => (
           <button
             key={card.type}
@@ -276,17 +276,17 @@ export default function CreateGroupPage() {
     return (
       <div className="space-y-4" dir="rtl">
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">שם הקבוצה</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.info.name')}</label>
           <input
             value={state.name}
             onChange={(e) => update('name', e.target.value)}
-            placeholder="למשל: ריצת בוקר הרצליה"
+            placeholder={t('arenaCreate.info.namePlaceholder')}
             className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-right outline-none focus:ring-2 focus:ring-cyan-400"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">קטגוריה</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.info.category')}</label>
           <div className="grid grid-cols-3 gap-2">
             {CATEGORY_OPTIONS.map((opt) => (
               <button
@@ -298,18 +298,18 @@ export default function CreateGroupPage() {
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">תיאור קצר</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.info.description')}</label>
           <textarea
             value={state.description}
             onChange={(e) => update('description', e.target.value)}
-            placeholder={g(ARENA_CREATE_COPY.descriptionPlaceholder)}
+            placeholder={t('arenaCreate.copy.descriptionPlaceholder')}
             rows={3}
             className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-right outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
           />
@@ -319,13 +319,13 @@ export default function CreateGroupPage() {
         {(state.groupType === 'friends' || state.groupType === 'family') ? (
           <div className="flex items-center gap-2 bg-cyan-50 rounded-xl px-4 py-3 border border-cyan-100">
             <Lock className="w-4 h-4 text-cyan-500 flex-shrink-0" />
-            <p className="text-sm font-bold text-cyan-700">קבוצה פרטית — הצטרפות בקוד הזמנה בלבד</p>
+            <p className="text-sm font-bold text-cyan-700">{t('arenaCreate.info.privateBadge')}</p>
           </div>
         ) : (
           <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
             <div>
-              <p className="text-sm font-bold text-gray-900">קבוצה פתוחה לכולם</p>
-              <p className="text-xs text-gray-500">מופיעה בתגלית הציבורית</p>
+              <p className="text-sm font-bold text-gray-900">{t('arenaCreate.info.public')}</p>
+              <p className="text-xs text-gray-500">{t('arenaCreate.info.publicHint')}</p>
             </div>
             <button
               onClick={() => update('isPublic', !state.isPublic)}
@@ -341,7 +341,7 @@ export default function CreateGroupPage() {
           onClick={() => setStep('schedule')}
           className="w-full py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 text-on-brand font-black text-sm disabled:opacity-40 transition-opacity"
         >
-          הבא — לוח זמנים
+          {t('arenaCreate.info.next')}
         </button>
       </div>
     );
@@ -353,9 +353,9 @@ export default function CreateGroupPage() {
     return (
       <div className="space-y-4" dir="rtl">
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">יום בשבוע</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.schedule.day')}</label>
           <div className="grid grid-cols-4 gap-2">
-            {DAYS_HEB.map((day, i) => (
+            {weekdayLabels('long', tc).map((day, i) => (
               <button
                 key={i}
                 onClick={() => update('dayOfWeek', i)}
@@ -372,7 +372,7 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">שעת התחלה</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.schedule.time')}</label>
           <input
             type="time"
             value={state.time}
@@ -382,10 +382,10 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">תדירות</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.schedule.frequency')}</label>
           <div className="grid grid-cols-3 gap-2">
-            {([['weekly', 'שבועי'], ['biweekly', 'דו-שבועי'], ['monthly', 'חודשי']] as const).map(
-              ([val, label]) => (
+            {([['weekly', 'arenaCreate.schedule.weekly'], ['biweekly', 'arenaCreate.schedule.biweekly'], ['monthly', 'arenaCreate.schedule.monthly']] as const).map(
+              ([val, labelKey]) => (
                 <button
                   key={val}
                   onClick={() => update('frequency', val)}
@@ -395,7 +395,7 @@ export default function CreateGroupPage() {
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  {label}
+                  {t(labelKey)}
                 </button>
               ),
             )}
@@ -403,11 +403,11 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">מיקום (אופציונלי)</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.schedule.location')}</label>
           <input
             value={state.meetingAddress}
             onChange={(e) => update('meetingAddress', e.target.value)}
-            placeholder="כתובת נקודת מפגש..."
+            placeholder={t('arenaCreate.schedule.locationPlaceholder')}
             className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-right outline-none focus:ring-2 focus:ring-cyan-400"
           />
         </div>
@@ -416,7 +416,7 @@ export default function CreateGroupPage() {
           onClick={() => setStep('invite')}
           className="w-full py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 text-on-brand font-black text-sm"
         >
-          הבא — הזמנת שותפים
+          {t('arenaCreate.schedule.next')}
         </button>
       </div>
     );
@@ -431,7 +431,7 @@ export default function CreateGroupPage() {
   }
 
   function buildShareMessage(inviteCode: string) {
-    return `הצטרפו לקבוצה שלי ב-Out! ${state.name}\n${buildInviteLink(inviteCode)}`;
+    return t('arenaCreate.share.message', { name: state.name, link: buildInviteLink(inviteCode) });
   }
 
   function openWhatsAppFallback(msg: string) {
@@ -473,7 +473,7 @@ export default function CreateGroupPage() {
       return { groupId: id, inviteCode };
     } catch (err) {
       console.error('[CreateGroup]', err);
-      setError(g(ARENA_CREATE_COPY.createError));
+      setError(t('arenaCreate.copy.createError'));
       return null;
     } finally {
       setIsSaving(false);
@@ -496,7 +496,7 @@ export default function CreateGroupPage() {
 
         if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
           try {
-            await navigator.share({ title: `הצטרפו ל${state.name}`, text: msg });
+            await navigator.share({ title: t('arenaCreate.share.title', { name: state.name }), text: msg });
           } catch (shareErr: unknown) {
             const errName = (shareErr as { name?: string })?.name;
             if (errName !== 'AbortError') {
@@ -510,7 +510,7 @@ export default function CreateGroupPage() {
         router.push('/community?tab=leagues');
       } catch (err) {
         console.error('[ShareGroup]', err);
-        setError(g(ARENA_CREATE_COPY.genericError));
+        setError(t('arenaCreate.copy.genericError'));
       } finally {
         setIsSharing(false);
       }
@@ -529,7 +529,7 @@ export default function CreateGroupPage() {
         router.push('/community?tab=leagues');
       } catch (err) {
         console.error('[WhatsAppDirect]', err);
-        setError(g(ARENA_CREATE_COPY.genericError));
+        setError(t('arenaCreate.copy.genericError'));
       } finally {
         setIsSharing(false);
       }
@@ -552,9 +552,9 @@ export default function CreateGroupPage() {
           >
             <Share2 className="w-8 h-8 text-cyan-500" />
           </div>
-          <h3 className="text-base font-black text-gray-900">{g(ARENA_CREATE_COPY.inviteOne)}</h3>
+          <h3 className="text-base font-black text-gray-900">{t('arenaCreate.copy.inviteOne')}</h3>
           <p className="text-xs text-gray-500 mt-1 max-w-[240px] mx-auto">
-            קבוצה נפתחת לאחר שמצטרף שותף ראשון — כך בונים נבחרת אמיתית
+            {t('arenaCreate.invite.explainer')}
           </p>
         </div>
 
@@ -565,7 +565,7 @@ export default function CreateGroupPage() {
           className="w-full py-4 rounded-2xl font-black text-white text-sm disabled:opacity-60 active:scale-[0.98] transition-all"
           style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
         >
-          {busy ? 'יוצר ושולח...' : `🟢 ${g(ARENA_CREATE_COPY.shareAndOpen)}`}
+          {busy ? t('arenaCreate.invite.creatingAndSending') : `🟢 ${t('arenaCreate.copy.shareAndOpen')}`}
         </button>
 
         {/* Fallback: guaranteed WhatsApp redirect */}
@@ -574,7 +574,7 @@ export default function CreateGroupPage() {
           disabled={busy}
           className="w-full py-3.5 rounded-2xl bg-white border border-green-200 text-green-700 font-bold text-sm disabled:opacity-40 active:scale-[0.98] transition-all"
         >
-          📲 {g(ARENA_CREATE_COPY.openWhatsapp)}
+          📲 {t('arenaCreate.copy.openWhatsapp')}
         </button>
 
         {/* Skip: create without sharing */}
@@ -583,7 +583,7 @@ export default function CreateGroupPage() {
           disabled={busy}
           className="w-full py-3.5 rounded-2xl bg-gray-100 text-gray-700 font-bold text-sm disabled:opacity-40"
         >
-          {isSaving ? 'יוצר קבוצה...' : `${g(ARENA_CREATE_COPY.skip)} — קבוצה פרטית`}
+          {isSaving ? t('arenaCreate.invite.creating') : t('arenaCreate.invite.skipPrivate')}
         </button>
 
         {error && <p className="text-xs text-red-500">{error}</p>}
@@ -597,30 +597,29 @@ export default function CreateGroupPage() {
     const isMilitary = state.groupType === 'military';
     const icon = isMilitary ? '🛡️' : '🏫';
     const title = isMilitary
-      ? g(ARENA_CREATE_COPY.joinYourUnit)
-      : g(ARENA_CREATE_COPY.joinYourSchool);
-    const orgName = isMilitary ? 'ליגת OUT של היחידה' : 'ליגת OUT של בית הספר';
-    const contactLabel = isMilitary ? 'מפקד כושר' : 'מורה לחנ"ג';
+      ? t('arenaCreate.copy.joinYourUnit')
+      : t('arenaCreate.copy.joinYourSchool');
+    const orgName = isMilitary ? t('arenaCreate.code.orgUnit') : t('arenaCreate.code.orgSchool');
 
     // Gender-aware fallback text; overridden by Firestore template when available
     // First person (the user speaks): "אשמח" is the same for everyone — the old female
     // branch "אשמחי" was not a Hebrew word.
     const fallbackNoCode = isMilitary
-      ? 'היי, אשמח להצטרף לליגת OUT של היחידה. אפשר לקבל קוד גישה?'
-      : 'היי, אשמח להצטרף לליגת OUT של בית הספר. אפשר לקבל קוד גישה?';
+      ? t('arenaCreate.code.noCodeUnit')
+      : t('arenaCreate.code.noCodeSchool');
     const noCodeWhatsapp = dynamicNoCodeMessage || fallbackNoCode;
 
     // How-it-works steps, gender-aware
     const howItWorks = isMilitary
       ? [
-          g(ARENA_CREATE_COPY.getCodeUnit),
-          g(ARENA_CREATE_COPY.enterCode),
-          g(ARENA_CREATE_COPY.autoJoinUnit),
+          t('arenaCreate.copy.getCodeUnit'),
+          t('arenaCreate.copy.enterCode'),
+          t('arenaCreate.copy.autoJoinUnit'),
         ]
       : [
-          g(ARENA_CREATE_COPY.getCodeSchool),
-          g(ARENA_CREATE_COPY.enterCode),
-          g(ARENA_CREATE_COPY.autoJoinSchool),
+          t('arenaCreate.copy.getCodeSchool'),
+          t('arenaCreate.copy.enterCode'),
+          t('arenaCreate.copy.autoJoinSchool'),
         ];
 
     function handleCodeSuccess(result: AccessCodeResult) {
@@ -640,11 +639,11 @@ export default function CreateGroupPage() {
       return (
         <div className="space-y-5 text-center py-8" dir="rtl">
           <div className="text-5xl mb-2">{icon}</div>
-          <h3 className="text-xl font-black text-gray-900 mb-3">{g(ARENA_CREATE_COPY.welcomeToLeague)}</h3>
+          <h3 className="text-xl font-black text-gray-900 mb-3">{t('arenaCreate.copy.welcomeToLeague')}</h3>
           <div className="flex justify-center">
             <UnitJoinSuccessBanner result={codeSuccessResult} />
           </div>
-          <p className="text-sm text-gray-500">מעביר אותך לליגה...</p>
+          <p className="text-sm text-gray-500">{t('arenaCreate.code.redirecting')}</p>
         </div>
       );
     }
@@ -655,7 +654,7 @@ export default function CreateGroupPage() {
         <div className="bg-gradient-to-b from-indigo-50 to-white rounded-3xl p-5 border border-indigo-200/60">
           <div className="text-3xl text-center mb-2">{icon}</div>
           <h3 className="text-sm font-black text-gray-900 text-center mb-3">
-            {isMilitary ? 'איך מצטרפים לליגת היחידה?' : 'איך מצטרפים לליגת בית הספר?'}
+            {isMilitary ? t('arenaCreate.code.howUnit') : t('arenaCreate.code.howSchool')}
           </h3>
           <div className="bg-white rounded-2xl p-3 border border-gray-100">
             <ol className="text-xs text-gray-700 space-y-2 list-decimal pr-4">
@@ -678,7 +677,7 @@ export default function CreateGroupPage() {
 
         {/* "אין לך קוד?" outreach section */}
         <div className="border-t border-gray-100 pt-4 space-y-3">
-          <p className="text-xs text-gray-500 text-center font-bold">אין לך קוד?</p>
+          <p className="text-xs text-gray-500 text-center font-bold">{t('arenaCreate.code.noCode')}</p>
           <button
             onClick={() =>
               window.open(
@@ -688,7 +687,7 @@ export default function CreateGroupPage() {
             }
             className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-green-50 text-green-700 font-bold text-sm border border-green-100 active:scale-[0.98] transition-all"
           >
-            📲 {g(ARENA_CREATE_COPY.send)} הודעה ל{contactLabel}
+            {t('arenaCreate.code.sendToContact', { kind: isMilitary ? 'military' : 'school' })}
           </button>
         </div>
 
@@ -697,7 +696,7 @@ export default function CreateGroupPage() {
           onClick={handleBack}
           className="w-full py-3 rounded-2xl bg-gray-100 text-gray-600 font-bold text-sm"
         >
-          חזרה לבחירת סוג
+          {t('arenaCreate.backToType')}
         </button>
       </div>
     );
@@ -708,12 +707,10 @@ export default function CreateGroupPage() {
   function renderOutreachStep() {
     // ── Work / University ────────────────────────────────────────────────────
     const isWork = state.groupType === 'work';
-    const label = isWork ? 'מקום העבודה' : 'הקמפוס';
-    const recipientLabel = isWork ? 'HR / מנהל ישיר' : 'אגודת הסטודנטים';
+    const kind = isWork ? 'work' : 'university';
     const icon = isWork ? '🏢' : '🎓';
 
-    const shareText =
-      `היי, ${g(ARENA_CREATE_COPY.outreachIntro)} להביא את הפלטפורמה ל${label} שלנו! Out זו ליגת כושר עירונית שמחברת אנשים לאימונים חכמים בחוץ. בואו נדבר!\n\nhttps://appout.co.il/`;
+    const shareText = t('arenaCreate.outreach.shareText', { kind });
 
     function handleShare() {
       window.open(
@@ -728,10 +725,10 @@ export default function CreateGroupPage() {
         <div className="bg-gradient-to-b from-amber-50 to-white rounded-3xl p-6 border border-amber-200/60">
           <div className="text-4xl mb-3">{icon}</div>
           <h3 className="text-base font-black text-gray-900">
-            רוצים ליגה רשמית ל{label}?
+            {t('arenaCreate.outreach.title', { kind })}
           </h3>
           <p className="text-xs text-gray-600 mt-2 leading-relaxed max-w-[280px] mx-auto">
-            כדי לפתוח קבוצת {isWork ? 'עבודה' : 'קמפוס'} רשמית, פנו ל{recipientLabel} ובקשו שישתפו פעולה עם Out!
+            {t('arenaCreate.outreach.body', { kind })}
           </p>
         </div>
 
@@ -740,12 +737,12 @@ export default function CreateGroupPage() {
             <Megaphone className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-sm font-bold text-gray-900">
-                איך זה עובד?
+                {t('arenaCreate.outreach.how')}
               </p>
               <ol className="text-xs text-gray-600 mt-1.5 space-y-1 list-decimal pr-4">
-                <li>שלחו את ההודעה ל{recipientLabel}</li>
-                <li>הם יצרו קשר עם Out</li>
-                <li>הליגה הרשמית של {isWork ? 'החברה' : 'הקמפוס'} נפתחת!</li>
+                <li>{t('arenaCreate.outreach.step1', { kind })}</li>
+                <li>{t('arenaCreate.outreach.step2')}</li>
+                <li>{t('arenaCreate.outreach.step3', { kind })}</li>
               </ol>
             </div>
           </div>
@@ -762,10 +759,10 @@ export default function CreateGroupPage() {
         >
           {outreachSent ? (
             <span className="flex items-center justify-center gap-2">
-              <Check className="w-4 h-4" /> נשלח! תודה {icon}
+              <Check className="w-4 h-4" />{' '}{t('arenaCreate.outreach.sent', { icon })}
             </span>
           ) : (
-            `📩 ${g(ARENA_CREATE_COPY.send)} הודעה ל${recipientLabel}`
+            t('arenaCreate.outreach.send', { kind })
           )}
         </button>
 
@@ -777,7 +774,7 @@ export default function CreateGroupPage() {
           }}
           className="w-full py-3 rounded-2xl bg-gray-100 text-gray-600 font-bold text-sm"
         >
-          חזרה לבחירת סוג
+          {t('arenaCreate.backToType')}
         </button>
       </div>
     );
@@ -786,12 +783,12 @@ export default function CreateGroupPage() {
   // ─── Step label map ─────────────────────────────────────────────────────────
 
   const STEP_LABELS: Record<Step, string> = {
-    type: 'סוג קבוצה',
-    info: 'פרטים בסיסיים',
-    schedule: 'לו"ז ומיקום',
-    invite: 'הזמנת שותפים',
-    outreach: 'הזמנת ארגון',
-    code_entry: 'כניסה בקוד',
+    type: t('arenaCreate.step.type'),
+    info: t('arenaCreate.step.info'),
+    schedule: t('arenaCreate.step.schedule'),
+    invite: t('arenaCreate.step.invite'),
+    outreach: t('arenaCreate.step.outreach'),
+    code_entry: t('arenaCreate.step.codeEntry'),
   };
 
   const STEPS: Step[] = ['type', 'info', 'schedule', 'invite'];

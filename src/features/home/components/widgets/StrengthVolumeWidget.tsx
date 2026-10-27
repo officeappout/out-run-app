@@ -16,6 +16,8 @@ import { seedOnboardingTrackEntry } from '@/features/user/onboarding/utils/onboa
 import { getProgramIcon } from '@/features/content/programs';
 import { SegmentedBar } from './SegmentedBar';
 import { SessionBarRow } from './SessionBarRow';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 // ============================================================================
 // TYPES
@@ -56,6 +58,7 @@ export function StrengthVolumeWidget({
   layout = 'full',
   className = '',
 }: StrengthVolumeWidgetProps) {
+  const t = useT(home);
   const { profile } = useUserStore();
   const { summary } = useWeeklyProgress();
 
@@ -69,7 +72,7 @@ export function StrengthVolumeWidget({
     const result: TrackRow[] = [
       {
         id: 'strength',
-        label: 'אימוני כוח',
+        label: t('strengthVolume.row.strength'),
         iconKey: 'muscle',
         completed: strengthSessions,
         target: 3,
@@ -83,7 +86,7 @@ export function StrengthVolumeWidget({
     ) {
       result.push({
         id: 'cardio',
-        label: 'אימוני ריצה',
+        label: t('strengthVolume.row.run'),
         iconKey: 'shoe',
         completed: cardioSessions,
         target: 2,
@@ -91,7 +94,7 @@ export function StrengthVolumeWidget({
     }
 
     return result;
-  }, [customRows, summary, profile, layout]);
+  }, [customRows, summary, profile, layout, t]);
 
   // ── Upsell: user finished running but NOT strength → show blurred card ──
   const dashboardMode = profile?.lifestyle?.dashboardMode;
@@ -102,7 +105,7 @@ export function StrengthVolumeWidget({
     return (
       <div className={`w-full max-w-[358px] mx-auto ${className}`} dir="rtl">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 px-1">
-          התקדמות שבועית
+          {t('strengthVolume.title')}
         </h3>
         <div className="relative overflow-hidden bg-white dark:bg-slate-800" style={CARD_STYLE}>
           {/* Blurred placeholder content */}
@@ -111,7 +114,7 @@ export function StrengthVolumeWidget({
             <div className="flex items-center justify-between mt-2.5">
               <div className="flex items-center gap-2">
                 <span className="text-gray-400">{getProgramIcon('muscle', 'w-5 h-5')}</span>
-                <span className="text-sm font-semibold text-gray-400">אימוני כוח</span>
+                <span className="text-sm font-semibold text-gray-400">{t('strengthVolume.row.strength')}</span>
               </div>
               <span className="text-sm font-bold text-gray-300 tabular-nums">0/3</span>
             </div>
@@ -123,14 +126,14 @@ export function StrengthVolumeWidget({
               <Dumbbell size={20} className="text-[#5BC2F2]" />
             </div>
             <p className="text-sm font-bold text-slate-800 dark:text-white text-center px-4">
-              השלם את פרופיל הכוח שלך
+              {t('strengthVolume.upsell.title')}
             </p>
             <a
               href="/onboarding-new/program-path?track=strength"
               onClick={() => seedOnboardingTrackEntry(profile, 'STRENGTH')}
               className="text-xs font-bold text-[#5BC2F2] hover:underline"
             >
-              להגיע ל-100% →
+              {t('strengthVolume.upsell.cta')}
             </a>
           </div>
         </div>
@@ -172,7 +175,7 @@ export function StrengthVolumeWidget({
   return (
     <div className={`w-full max-w-[358px] mx-auto ${className}`} dir="rtl">
       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 px-1">
-        התקדמות שבועית
+        {t('strengthVolume.title')}
       </h3>
 
       <div className="bg-white dark:bg-slate-800 overflow-hidden" style={CARD_STYLE}>
