@@ -10,7 +10,7 @@ import HealthDeclarationStep from '@/features/user/onboarding/components/HealthD
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
-import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
+import { strengthStoryBar, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { isHealthDeclarationSatisfied } from '@/lib/health-declaration';
 import { isMiniAssessmentActive, consumeMiniAssessmentState } from '@/features/user/onboarding/services/mini-domain-assessment';
@@ -23,6 +23,7 @@ import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { useStrengthQuizV3Entry } from '@/features/user/onboarding/components/strength-quiz-v3/useStrengthQuizV3';
 export default function HealthDeclarationPage() {
   const uiGender = useUiGender();
   const router = useRouter();
@@ -37,6 +38,8 @@ export default function HealthDeclarationPage() {
   const v2 = useOnboardingV2();
 
   const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
+  // Owner 27.10: the strength v3 flow counts its real 4 phases.
+  const strengthBar = strengthStoryBar('health', useStrengthQuizV3Entry());
 
   // Already accepted (e.g. via the other track's onboarding) — skip this
   // screen silently rather than asking again. Matches the existing
@@ -363,9 +366,9 @@ export default function HealthDeclarationPage() {
 
   return (
     <OnboardingLayout
-      totalSegments={STRENGTH_PHASES.TOTAL}
-      currentSegment={STRENGTH_PHASES.HEALTH}
-      phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.HEALTH]}
+      totalSegments={strengthBar.total}
+      currentSegment={strengthBar.current}
+      phaseLabel={t(strengthBar.labelKey)}
       hideContinueButton
     >
       {content}

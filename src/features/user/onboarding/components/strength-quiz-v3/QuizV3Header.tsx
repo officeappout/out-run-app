@@ -2,7 +2,7 @@
 
 import { ChevronRight } from 'lucide-react';
 import OnboardingStoryBar from '../OnboardingStoryBar';
-import { STRENGTH_PHASES, STRENGTH_LABEL_KEYS } from '../../constants/onboarding-phases';
+import { strengthStoryBar } from '../../constants/onboarding-phases';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 
@@ -14,10 +14,10 @@ interface QuizV3HeaderProps {
   phase?: 'assessment' | 'summary';
 }
 
-/** Back button + the strength story bars (phase 3 "מבדק רמה"), same row as the v2 slider header. */
+/** Back button + the strength v3 story bars (level check, then summary), same row as the v2 slider header. */
 export default function QuizV3Header({ onBack, fillPercent, phase = 'assessment' }: QuizV3HeaderProps) {
   const t = useT(onboarding);
-  const current = phase === 'summary' ? STRENGTH_PHASES.RESULT : STRENGTH_PHASES.ASSESSMENT;
+  const bar = strengthStoryBar(phase === 'summary' ? 'result' : 'assessment', true);
   return (
     <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
       {onBack ? (
@@ -34,10 +34,10 @@ export default function QuizV3Header({ onBack, fillPercent, phase = 'assessment'
       )}
       <div className="flex min-h-[40px] flex-1 flex-col justify-center">
         <OnboardingStoryBar
-          totalPhases={STRENGTH_PHASES.TOTAL}
-          currentPhase={current}
+          totalPhases={bar.total}
+          currentPhase={bar.current}
           phaseFillPercent={fillPercent}
-          phaseLabel={t(STRENGTH_LABEL_KEYS[current])}
+          phaseLabel={t(bar.labelKey)}
           noPadding
         />
       </div>

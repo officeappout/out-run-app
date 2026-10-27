@@ -91,7 +91,12 @@ export const FALLBACK_PLANNED_TIME = DEFAULT_RECURRING_START_TIME;
 export interface PlannedTimePrefs {
   strengthTime?: unknown;
   runningTime?: unknown;
+  /** Per-day strength times (schedule tutorial): the user chose their days' times. */
+  strengthTimesByDay?: unknown;
 }
+
+const hasDayTimes = (v: unknown): boolean =>
+  !!v && typeof v === 'object' && Object.values(v as Record<string, unknown>).some((t) => !!parsePlannedTime(t));
 
 /**
  * The time a row shows, or null. A time the user chose counts — any time other than the
@@ -105,6 +110,6 @@ export function shownPlannedTime(startTime: unknown, prefs?: PlannedTimePrefs | 
   if (!t) return null;
   const v = formatPlannedTime(t);
   if (v !== FALLBACK_PLANNED_TIME) return v;
-  const hasPref = !!parsePlannedTime(prefs?.strengthTime) || !!parsePlannedTime(prefs?.runningTime);
+  const hasPref = !!parsePlannedTime(prefs?.strengthTime) || !!parsePlannedTime(prefs?.runningTime) || hasDayTimes(prefs?.strengthTimesByDay);
   return hasPref ? v : null;
 }

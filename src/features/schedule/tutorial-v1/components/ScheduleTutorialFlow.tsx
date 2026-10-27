@@ -21,6 +21,7 @@ import { buildTutorialWeek } from '../model/tutorialWeek';
 import { programsList } from '../model/weekCards';
 import { saveTutorialWeek } from '../saveTutorialWeek';
 import { useTutorialInputs } from '../useTutorialInputs';
+import { useTutorialGoals } from '../useTutorialGoals';
 import SchedPersonaStep from './SchedPersonaStep';
 import SchedDaysStep from './SchedDaysStep';
 import WeekPlanStep from './WeekPlanStep';
@@ -37,6 +38,7 @@ export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWo
   const profile = useUserStore((s) => s.profile);
   const { todayActivity, stepsToday } = useDailyActivity();
   const inputs = useTutorialInputs();
+  const goals = useTutorialGoals();
 
   const [step, setStep] = useState<Step>('persona');
   const [days, setDays] = useState(inputs.initial);
@@ -53,9 +55,10 @@ export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWo
     () => buildTutorialWeek({
       seed: inputs.seed, levels: inputs.levels, engineLevel: inputs.engineLevel, days, minutes,
       running: inputs.running, twoPerDay, longRunDay,
-      stepsGoal: todayActivity?.stepsGoal ?? DAILY_STEP_GOAL, order: inputs.order,
+      stepsGoal: goals.steps?.goal ?? todayActivity?.stepsGoal ?? DAILY_STEP_GOAL, order: inputs.order,
+      ramp: goals.ramp,
     }),
-    [inputs, days, minutes, twoPerDay, longRunDay, todayActivity?.stepsGoal],
+    [inputs, days, minutes, twoPerDay, longRunDay, todayActivity?.stepsGoal, goals.steps?.goal, goals.ramp],
   );
 
   const b = (c: ReactNode) => <b>{c}</b>;
@@ -70,7 +73,11 @@ export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWo
     setSaving(true);
     setError(false);
     try {
-      await saveTutorialWeek(uid, week.strengthWeek, profile as Parameters<typeof saveTutorialWeek>[2]);
+      await saveTutorialWeek(uid, week, profile as Parameters<typeof saveTutorialWeek>[2], {
+        sessionMinutes: minutes,
+        running: inputs.running ? { longRunDay, twoPerDay } : null,
+        steps: goals.steps,
+      });
       setStartWorkout(andTrain);
       setStep('flames');
     } catch (err) {

@@ -54,8 +54,8 @@ afterEach(() => {
 describe('screens', () => {
   it.each(['male', 'female', 'other'] as const)('screen 1 and screen 2, %s', async (g) => {
     await open(g);
-    expect(q('[data-stub="layout"]')!.getAttribute('data-phase')).toBe('שלב 3: מבדק רמה');
-    expect(q('[data-stub="layout"]')!.getAttribute('data-segment')).toBe('3');
+    expect(q('[data-stub="layout"]')!.getAttribute('data-phase')).toBe('שלב 2: מבדק רמה'); // v3 flow: 4 phases (owner 27.10)
+    expect(q('[data-stub="layout"]')!.getAttribute('data-segment')).toBe('2');
     await expect(m!.html()).toMatchFileSnapshot(snap(`welcome-${g}`));
     await m!.click('[data-stub="continue"]');
     expect(q('[data-quiz-v3="assessment-intro"]')).not.toBeNull();

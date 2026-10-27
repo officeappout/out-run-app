@@ -17,7 +17,7 @@ import { useCoachTargetPresent } from '@/features/user/onboarding/hooks/useCoach
 import { FIRST_RUN_COACH } from '@/features/user/onboarding/services/first-run-tour';
 import { useScheduleTutorialV1 } from '../useScheduleTutorialV1';
 import { armHomeTourAfterScheduleTutorial, markScheduleTutorialSeen, scheduleTutorialSeenKey } from '../model/tutorialPrefs';
-import { tutorialPhase } from '../model/launch';
+import { replacesBridge, tutorialPhase } from '../model/launch';
 
 const SchedHomeCoach = dynamic(() => import('./SchedHomeCoach'), { ssr: false });
 const ScheduleTutorialFlow = dynamic(() => import('./ScheduleTutorialFlow'), { ssr: false });
@@ -29,10 +29,12 @@ export interface ScheduleTutorialHostProps {
   /** Nothing else is open on home (the home's own guard list). */
   calm: boolean;
   onBusyChange?: (busy: boolean) => void;
+  /** True while this tutorial serves the user in place of the old lifestyle bridge. */
+  onReplacesBridgeChange?: (replaces: boolean) => void;
   onFinished?: (r: { startWorkout: boolean }) => void;
 }
 
-export default function ScheduleTutorialHost({ uid, hasStrengthProgram, hasSchedule, calm, onBusyChange, onFinished }: ScheduleTutorialHostProps) {
+export default function ScheduleTutorialHost({ uid, hasStrengthProgram, hasSchedule, calm, onBusyChange, onReplacesBridgeChange, onFinished }: ScheduleTutorialHostProps) {
   const on = useScheduleTutorialV1();
   const candidate = on && hasStrengthProgram && !hasSchedule && !!uid;
   const isNew = useIsNewUserForTours(candidate);
@@ -50,6 +52,8 @@ export default function ScheduleTutorialHost({ uid, hasStrengthProgram, hasSched
   const phase = tutorialPhase({ candidate, isNew, seen, stage, calm, targetPresent });
 
   useEffect(() => { onBusyChange?.(phase.busy); }, [phase.busy, onBusyChange]);
+  const replaces = replacesBridge({ candidate, isNew });
+  useEffect(() => { onReplacesBridgeChange?.(replaces); }, [replaces, onReplacesBridgeChange]);
 
   if (phase.show === 'coach') {
     return (
