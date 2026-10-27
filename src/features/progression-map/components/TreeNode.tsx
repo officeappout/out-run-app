@@ -54,7 +54,7 @@ import Image from 'next/image';
 import { Check, Lock, Crown } from 'lucide-react';
 import { Exercise, getLocalizedText } from '@/features/content/exercises';
 import { resolveTreeNodeImage } from '../services/resolve-tree-node-image';
-import { isOptimizableNodeImage } from '../services/tree-node-image-loading';
+import { bunnyResizedUrl, nodeImageMode } from '../services/tree-node-image-loading';
 import { SwapPill } from './SwapPill';
 import { useT } from '@/hooks/useT';
 import { profile } from '@/messages/ns/profile';
@@ -86,11 +86,12 @@ export interface TreeNodeProps {
 }
 
 /**
- * W4 (27.10.2026): the node photo. A remote photo on a next.config host goes
- * through next/image, sized to the card (`sizes`), so the phone downloads a
- * small WebP instead of the full-size Bunny/Storage source. Anything else
- * (local SVG placeholder, unknown host) keeps the plain lazy <img>. The
- * card's own background is the placeholder while the photo loads.
+ * W4 (27.10.2026): the node photo, sized to the card instead of the
+ * full-size source — per host, see tree-node-image-loading.ts: Bunny Storage
+ * resized by Bunny Optimizer, Firebase Storage through next/image, Stream
+ * thumbnails / placeholder / unknown hosts as the plain lazy <img>. A remote
+ * plain photo on a priority node loads eagerly. The card's own background is
+ * the placeholder while the photo loads.
  */
 function NodePhoto({
   src,
@@ -110,7 +111,8 @@ function NodePhoto({
   imgClassName: string;
   onError: () => void;
 }) {
-  if (isOptimizableNodeImage(src)) {
+  const mode = nodeImageMode(src);
+  if (mode === 'next-image') {
     return (
       <Image
         src={src}
@@ -127,10 +129,10 @@ function NodePhoto({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={mode === 'bunny-resize' ? bunnyResizedUrl(src, size) : src}
       alt={alt}
       className={imgClassName}
-      loading="lazy"
+      loading={priority && src.startsWith('https://') ? 'eager' : 'lazy'}
       decoding="async"
       style={style}
       onError={onError}
