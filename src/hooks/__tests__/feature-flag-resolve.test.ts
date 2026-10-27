@@ -39,3 +39,16 @@ describe('resolveViewerFlags', () => {
     expect(resolveViewerFlags(switchesOn, { isSuperAdmin: true, isQaTester: true }, superFlags)).toBe(superFlags);
   });
 });
+
+describe('graduated flags (owner 27.10.2026: open to everyone)', () => {
+  it('are on for a regular user even when the stored value is false', async () => {
+    const { resolveViewerFlags, GRADUATED_OVERRIDES } = await import('../feature-flag-resolve');
+    const { FLAG_DEFS } = await import('../feature-flag-defs');
+    const off = Object.fromEntries(FLAG_DEFS.map((d) => [d.key, false])) as never;
+    const out = resolveViewerFlags(off, { isSuperAdmin: false, isQaTester: false }, off) as Record<string, boolean>;
+    expect(GRADUATED_OVERRIDES).toEqual({ enableStrengthQuizV3: true, enableScheduleTutorialV1: true });
+    expect(out.enableStrengthQuizV3).toBe(true);
+    expect(out.enableScheduleTutorialV1).toBe(true);
+    expect(out.enableHomeV2).toBe(false);
+  });
+});
