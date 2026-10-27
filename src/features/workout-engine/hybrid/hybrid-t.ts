@@ -8,5 +8,7 @@ import { makeT } from '@/lib/i18n/t';
 import { SOURCE_LOCALE } from '@/lib/i18n/locales';
 import { player, type PlayerT } from '@/messages/ns/player';
 
+export type { PlayerT };
+
 let heT: PlayerT | undefined;
 export const defaultPlayerT = (): PlayerT => (heT ??= makeT(SOURCE_LOCALE, player));
