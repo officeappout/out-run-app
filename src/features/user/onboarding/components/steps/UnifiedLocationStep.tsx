@@ -1403,7 +1403,6 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           <InitialCard
             key="initial"
             gender={gender}
-            t={t}
             locationError={locationError}
             onFindLocation={handleFindLocation}
             onSearchManually={handleSearchManually}

@@ -106,7 +106,6 @@ describe('InitialCard', () => {
                 await htmlOf(
                   <InitialCard
                     gender={gender}
-                    t={(a, b) => (gender === 'female' ? b : a)}
                     locationError={purpose === 'strength' ? 'לא הצלחנו לאתר מיקום' : null}
                     onFindLocation={noop}
                     onSearchManually={noop}
