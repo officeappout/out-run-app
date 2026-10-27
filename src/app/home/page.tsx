@@ -12,6 +12,7 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import { FIRST_RUN_COACH, firstRunToursEnabled, homeWeekCoachTarget, shouldArmHomeTour, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
+import { ScheduleTutorialHost } from '@/features/schedule/tutorial-v1';
 import { useCoachTargetPresent } from '@/features/user/onboarding/hooks/useCoachTargetPresent';
 import { consumeWhatNowPlanArrival } from '@/features/user/onboarding/services/entry-whatnow';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
@@ -456,6 +457,8 @@ export default function HomePage() {
   // The home tour waits for the "today" card (never measures a loading skeleton); polling stops
   // once the tour has closed for this visit (done / skip / seen / not a new user).
   const [homeTourClosed, setHomeTourClosed] = useState(false);
+  // enable_schedule_tutorial_v1: the schedule tutorial may still show (holds the welcome drawer and home tour back). Off = always false.
+  const [schedTutBusy, setSchedTutBusy] = useState(false);
   const homeTodayCardPresent = useCoachTargetPresent(FIRST_RUN_COACH.homeWorkout, firstRunToursOn && !homeTourClosed);
   useEffect(() => {
     if (consumeWhatNowPlanArrival(window.sessionStorage)) setWhatNowPlanArrival(true);
@@ -4159,7 +4162,7 @@ export default function HomePage() {
           same guard list as the FAB below, so this never stacks on top of
           the lifestyle wizard, planner, builder, or an open workout. */}
       <AnimatePresence>
-        {entryRouterClassification.kind === 'new' && !whatNowPlanArrival && !welcomeSuppressedByMap &&
+        {entryRouterClassification.kind === 'new' && !whatNowPlanArrival && !welcomeSuppressedByMap && !schedTutBusy &&
           !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && !shouldShowBridge && (
             <WelcomeDrawer
               geoBranch={entryRouterClassification.geoBranch}
@@ -4201,11 +4204,26 @@ export default function HomePage() {
           todayCardPresent: homeTodayCardPresent,
           surfaceOpen:
             showPlanner || showLifestyleWizard || builderOpen || !!editEntry || !!selectedWorkout || shouldShowBridge ||
-            plusDrawerOpen || composeOpen || wizardOpen || reportOpen,
+            plusDrawerOpen || composeOpen || wizardOpen || reportOpen || schedTutBusy,
         })}
         uid={profile?.id}
         gender={profile?.core?.gender}
         onClose={() => { setHomeTourRequested(false); setHomeTourClosed(true); }}
+      />
+
+      {/* enable_schedule_tutorial_v1 (ל1 to ל5): a new user with a strength program and no schedule yet.
+          Renders nothing while the flag is off. */}
+      <ScheduleTutorialHost
+        uid={profile?.id}
+        hasStrengthProgram={hasStrengthProgram}
+        hasSchedule={cardHasScheduleAndPersona}
+        calm={!(showPlanner || showLifestyleWizard || builderOpen || !!editEntry || !!selectedWorkout || shouldShowBridge ||
+          plusDrawerOpen || composeOpen || wizardOpen || reportOpen)}
+        onBusyChange={setSchedTutBusy}
+        onFinished={(r) => {
+          refreshProfile().catch(() => {});
+          if (r.startWorkout) void handleHeroPress();
+        }}
       />
 
       {/* Entry flow v2: "תוכנית" from the map's "מה בא לך עכשיו?" → point at the start cards. */}

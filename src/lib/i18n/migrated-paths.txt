@@ -796,3 +796,6 @@ src/features/user/progression/components/AchievementUnlockToast.tsx
 src/features/user/progression/components/IdentityHeroCard.tsx
 # wave 2 batch aw (namespace player, timedLabels.*) — the timed player's pure label builders (makeT('he', player) at module scope; exported signatures unchanged).
 src/features/workout-engine/players/strength/timed/logic/
+# schedule tutorial v1 (namespace schedule, keys tutorial.* / dayCards.*): new folders, translation-ready from the start.
+src/features/schedule/tutorial-v1
+src/features/schedule/day-cards
