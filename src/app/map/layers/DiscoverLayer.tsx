@@ -28,8 +28,6 @@ import { scheduleIdle } from '@/lib/scheduleIdle';
 import HybridSlotCarousel, { ENTRY_PHRASES } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
 import { composedWorkoutMin, composedCardStats, cardTotalFor, readRoundTripPref, type RoundTripLegs } from '@/features/workout-engine/hybrid/round-trip';
 import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
-import dynamic from 'next/dynamic';
-import { hudBottomAboveDrawerCss } from '@/features/parks/client/components/places-drawer/places-drawer.layout';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
@@ -115,9 +113,6 @@ import { firstWorkoutNote, mapTourAfterWhatNow, routeSuggestionFromSlots } from 
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
-
-// enable_map_places_drawer_v1: loaded only when the flag is on (off = no new code on the map).
-const MapPlacesDrawer = dynamic(() => import('@/features/parks/client/components/places-drawer/MapPlacesDrawer'), { ssr: false });
 
 const BRAND_COLOR = '#00E5FF';
 const GRAY_COLOR = '#6B7280';
@@ -849,10 +844,6 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // enable_place_workouts_v1: the route page (RouteDetailSheet: workouts on the route, details,
   // "מתאמנים כאן") stays reachable from the overview's "כל פרטי המסלול" even under map polish.
   const placeWorkoutsOn = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && !!mapFeatureFlags.enablePlaceWorkoutsV1;
-  // enable_map_places_drawer_v1 (inside v2): the idle map's ONE bottom drawer — what's near me + the
-  // workouts that fit there (canvas page 11, RP-4). It takes the "מה עושים היום?" entry's place.
-  const placesDrawerOn = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && !!mapFeatureFlags.enableMapPlacesDrawerV1;
-  const [placesDrawerOpen, setPlacesDrawerOpen] = useState(true);
   // enable_destination_planner_v1 (inside v2): the planner sheet replaces the commute carousel.
   const destPlanner = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && mapFeatureFlags.enableDestinationPlannerV1;
 
@@ -2216,10 +2207,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
             <div
               className="absolute right-4 z-[40] flex flex-col gap-3"
               // v2: lower, nearer the bottom like home's "+" (owner's review).
-              // enable_map_places_drawer_v1: stacked right above the places drawer while it's up.
-              style={{ bottom: placesDrawerOn && mapMode === 'idle' && partnerTab === null
-                ? hudBottomAboveDrawerCss(placesDrawerOpen)
-                : mapFeatureFlags.enableHomeV2 ? 'calc(max(270px, env(safe-area-inset-bottom, 0px) + 240px))' : 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}
+              style={{ bottom: mapFeatureFlags.enableHomeV2 ? 'calc(max(270px, env(safe-area-inset-bottom, 0px) + 240px))' : 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}
             >
               {chromeFocused ? null : SOCIAL_COMPOSE_UI_ENABLED ? (
                 <PlusFab onOpen={() => setPlusDrawerOpen(true)} v2={mapFeatureFlags.enableHomeV2} />
@@ -2269,7 +2257,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
 
             {/* ── On-map hybrid entry ("מה עושים היום?") — idle only, flag-gated.
                 Opens the slot layer (resetHybridFlow('slots') — passive, no compose). */}
-            {!placesDrawerOn && mapFeatureFlags.enableHybridSlots && mapMode === 'idle' && isMapVisuallyReady && (
+            {mapFeatureFlags.enableHybridSlots && mapMode === 'idle' && isMapVisuallyReady && (
               <div
                 className="absolute left-0 right-0 z-[100] pointer-events-none"
                 style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
@@ -2289,29 +2277,6 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   className="px-6 pointer-events-auto"
                 />
               </div>
-            )}
-
-            {/* ── Map places drawer (enable_map_places_drawer_v1) — idle only, always from the user's
-                location. "צור לי מסלול באזור שלי" = the free-run drawer's existing "עם מסלול" generator,
-                fired once (the same one-shot autoRoute the planned-walk hand-off uses). */}
-            {placesDrawerOn && mapMode === 'idle' && partnerTab === null && isMapVisuallyReady && (
-              <MapPlacesDrawer
-                userLocation={userLocation}
-                onGenerateRoute={(activity) => {
-                  resetHybridFlow();
-                  logic.handleActivityChange(activity as ActivityType);
-                  setWalkAutoRoute(true);
-                  setMapMode('freeRun');
-                  setFreeRunStep('config');
-                }}
-                onOpenPark={(park) => useMapStore.getState().setSelectedPark(park)}
-                onOpenRoute={(route) => {
-                  logic.setSelectedRoute(route);
-                  logic.setFocusedRoute(route);
-                }}
-                open={placesDrawerOpen}
-                onOpenChange={setPlacesDrawerOpen}
-              />
             )}
 
             {/* ── Free-run flow — two stages, mutually exclusive ─────────
