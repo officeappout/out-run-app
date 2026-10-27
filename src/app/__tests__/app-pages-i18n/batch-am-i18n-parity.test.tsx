@@ -79,6 +79,7 @@ vi.mock('@/features/user/onboarding/store/useOnboardingStore', () => ({ useOnboa
 vi.mock('@/features/user/onboarding/hooks/useOnboardingV2', () => ({ useOnboardingV2: () => S.v2 }));
 vi.mock('@/lib/onboardingPrefs', () => ({ getOnboardingPref: () => S.track }));
 vi.mock('@/lib/health-declaration', () => ({ isHealthDeclarationSatisfied: () => S.accepted }));
+vi.mock('@/features/user/onboarding/components/strength-quiz-v3/useStrengthQuizV3', () => ({ useStrengthQuizV3Entry: () => false }));
 vi.mock('@/features/user/onboarding/services/onboarding-sync.service', () => ({ syncOnboardingToFirestore: async () => {} }));
 vi.mock('@/features/analytics/onboarding-funnel', () => ({ logOnboardingFunnelStep: () => {} }));
 vi.mock('@/lib/reportSignupFailure', () => ({ reportSignupFailure: () => {}, extractErrorCode: () => '' }));
