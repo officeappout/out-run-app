@@ -38,21 +38,7 @@ import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { useT } from '@/hooks/useT';
 import { common } from '@/messages/ns/common';
 import { weekdayLabel } from '@/lib/i18n/units';
-
-const FREQ_LABELS: Record<string, string> = {
-  weekly: 'שבועי',
-  biweekly: 'דו-שבועי',
-  monthly: 'חודשי',
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  walking: 'הליכה',
-  running: 'ריצה',
-  yoga: 'יוגה',
-  calisthenics: 'קליסטניקס',
-  cycling: 'אופניים',
-  other: 'אחר',
-};
+import { community } from '@/messages/ns/community';
 
 interface MemberInfo {
   uid: string;
@@ -63,6 +49,7 @@ interface MemberInfo {
 
 export default function CommunityHubPage() {
   const tc = useT(common);
+  const t = useT(community);
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
@@ -143,7 +130,7 @@ export default function CommunityHubPage() {
   const handleJoinFromDrawer = useCallback(
     async (eventId: string) => {
       if (!uid) return;
-      const name = profile?.core?.name || 'משתמש';
+      const name = profile?.core?.name || 'משתמש'; // i18n-allow-hebrew: data — written to the event registration
       const photo = profile?.core?.photoURL || undefined;
       setDrawerJoining(true);
       try {
@@ -165,7 +152,7 @@ export default function CommunityHubPage() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-sm text-gray-500 animate-pulse">טוען קהילה...</p>
+        <p className="text-sm text-gray-500 animate-pulse">{t('communityHub.loading')}</p>
       </div>
     );
   }
@@ -174,12 +161,12 @@ export default function CommunityHubPage() {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#F8FAFC] gap-4" dir="rtl">
         <Users2 className="w-12 h-12 text-gray-300" />
-        <p className="text-sm font-bold text-gray-700">הקבוצה לא נמצאה</p>
+        <p className="text-sm font-bold text-gray-700">{t('communityHub.notFound')}</p>
         <button
           onClick={() => router.back()}
           className="text-xs font-bold text-cyan-600 hover:underline"
         >
-          חזרה
+          {t('communityHub.back')}
         </button>
       </div>
     );
@@ -219,13 +206,13 @@ export default function CommunityHubPage() {
             <div>
               <h1 className="text-base font-black text-gray-900 leading-tight">{group.name}</h1>
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
-                {CATEGORY_LABELS[group.category] ?? group.category}
+                {t('communityHub.category', { cat: `c_${group.category ?? ''}`, raw: group.category ?? '' })}
               </span>
             </div>
           </div>
           <button
             className="p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
-            aria-label="שתף"
+            aria-label={t('communityHub.share')}
           >
             <Share2 className="w-4.5 h-4.5 text-gray-500" />
           </button>
@@ -252,7 +239,7 @@ export default function CommunityHubPage() {
         <section>
           <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5" />
-            אודות
+            {t('communityHub.about')}
           </h3>
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <p className="text-sm text-gray-700 leading-relaxed">{group.description}</p>
@@ -276,7 +263,7 @@ export default function CommunityHubPage() {
             <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
               <span className="flex items-center gap-1">
                 <Users2 className="w-3.5 h-3.5 text-gray-400" />
-                {group.currentParticipants} חברים
+                {t('communityHub.members', { n: String(group.currentParticipants) })}
               </span>
               {hasPrice && (
                 <span className="flex items-center gap-1">
@@ -285,7 +272,7 @@ export default function CommunityHubPage() {
                 </span>
               )}
               {!hasPrice && (
-                <span className="text-emerald-600 font-bold">חינם</span>
+                <span className="text-emerald-600 font-bold">{t('communityHub.free')}</span>
               )}
             </div>
           </div>
@@ -296,7 +283,7 @@ export default function CommunityHubPage() {
           <section>
             <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
               <Target className="w-3.5 h-3.5 text-cyan-500" />
-              קבוצות שרירים
+              {t('communityHub.muscles')}
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {group.targetMuscles!.map((muscle) => (
@@ -316,7 +303,7 @@ export default function CommunityHubPage() {
           <section>
             <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
               <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
-              ציוד נדרש
+              {t('communityHub.equipment')}
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {group.equipment!.map((item) => (
@@ -336,7 +323,7 @@ export default function CommunityHubPage() {
           <section>
             <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
-              לוח זמנים קבוע
+              {t('communityHub.schedule')}
             </h3>
             <div className="space-y-2">
               {scheduleSlots.map((slot, idx) => (
@@ -349,10 +336,10 @@ export default function CommunityHubPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-bold text-gray-900">
-                      יום {weekdayLabel(slot.dayOfWeek, 'long', tc)} · {slot.time}
+                      {t('communityHub.slot', { day: weekdayLabel(slot.dayOfWeek, 'long', tc), time: slot.time })}
                     </p>
                     <p className="text-[10px] text-gray-400 font-medium">
-                      {FREQ_LABELS[slot.frequency] ?? slot.frequency}
+                      {t('communityHub.frequency', { frequency: slot.frequency ?? '', raw: slot.frequency ?? '' })}
                     </p>
                   </div>
                 </div>
@@ -365,11 +352,11 @@ export default function CommunityHubPage() {
         <section>
           <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
             <Users2 className="w-3.5 h-3.5" />
-            חברי הקבוצה ({members.length})
+            {t('communityHub.groupMembers', { n: String(members.length) })}
           </h3>
           {members.length === 0 ? (
             <p className="text-xs text-gray-400 bg-white rounded-xl p-4 text-center border border-gray-100">
-              עדיין אין חברים בקבוצה
+              {t('communityHub.noMembers')}
             </p>
           ) : (
             <div className="flex flex-wrap gap-3">
@@ -400,11 +387,11 @@ export default function CommunityHubPage() {
         <section>
           <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" />
-            אירועים קרובים
+            {t('communityHub.events')}
           </h3>
           {events.length === 0 ? (
             <p className="text-xs text-gray-400 bg-white rounded-xl p-4 text-center border border-gray-100">
-              אין אירועים קרובים בקבוצה
+              {t('communityHub.noEvents')}
             </p>
           ) : (
             <div className="space-y-3">

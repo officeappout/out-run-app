@@ -18,6 +18,8 @@
 
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { buildPriorityGroups, type PriorityGroup } from '@/features/user/onboarding/utils/priority-order';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 function PriorityGroupRowV2({ group }: { group: PriorityGroup }) {
   return (
@@ -67,6 +69,7 @@ function PriorityGroupRow({ group }: { group: PriorityGroup }) {
 }
 
 export default function PrioritiesSection({ v2 = false }: { v2?: boolean } = {}) {
+  const t = useT(profileNs);
   const profile = useUserStore((s) => s.profile);
   const groups = buildPriorityGroups(profile?.progression);
 
@@ -75,7 +78,7 @@ export default function PrioritiesSection({ v2 = false }: { v2?: boolean } = {})
   if (v2) {
     return (
       <div className="space-y-5" dir="rtl">
-        <h3 className="text-[15px] font-black text-v2-ink">מה בחרת, לפי עדיפות</h3>
+        <h3 className="text-[15px] font-black text-v2-ink">{t('priorities.title')}</h3>
         {groups.map((group) => (
           <PriorityGroupRowV2 key={group.key} group={group} />
         ))}
@@ -86,7 +89,7 @@ export default function PrioritiesSection({ v2 = false }: { v2?: boolean } = {})
   return (
     <div className="space-y-5" dir="rtl">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-black text-gray-800">מה בחרת, לפי עדיפות</h3>
+        <h3 className="text-sm font-black text-gray-800">{t('priorities.title')}</h3>
       </div>
       {groups.map((group) => (
         <PriorityGroupRow key={group.key} group={group} />

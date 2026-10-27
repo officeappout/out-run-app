@@ -12,6 +12,7 @@
 
 import { unitLabel } from '@/lib/i18n/units';
 import { common } from '@/messages/ns/common';
+import { home } from '@/messages/ns/home';
 import { useT } from '@/hooks/useT';
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -60,12 +61,12 @@ function formatTime(totalSeconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-// Race distances
+// Race distances. The label is built at render: '5K' / '10K' read the same in every language, the half marathon is a key.
 const RACES = [
-  { label: '5K', distanceKm: 5 },
-  { label: '10K', distanceKm: 10 },
-  { label: 'חצי מרתון', distanceKm: 21.0975 },
-];
+  { id: '5k', distanceKm: 5 },
+  { id: '10k', distanceKm: 10 },
+  { id: 'half', distanceKm: 21.0975 },
+] as const;
 
 // ============================================================================
 // MAIN COMPONENT
@@ -77,7 +78,9 @@ export function RunForecastWidget({
   className = '',
 }: RunForecastWidgetProps) {
   const tc = useT(common);
+  const t = useT(home);
   const { profile } = useUserStore();
+  const raceLabel = (id: (typeof RACES)[number]['id']) => (id === 'half' ? t('runForecast.race.half') : id.toUpperCase());
 
   const predictions = useMemo((): RacePrediction[] => {
     if (averagePaceMinPerKm <= 0) return [];
@@ -85,13 +88,14 @@ export function RunForecastWidget({
     const refTimeSec = averagePaceMinPerKm * 60 * referenceDistanceKm;
 
     return RACES.map((race) => ({
-      label: race.label,
+      label: raceLabel(race.id),
       distanceKm: race.distanceKm,
       predictedTime: formatTime(
         riegelPredict(refTimeSec, referenceDistanceKm, race.distanceKm),
       ),
     }));
-  }, [averagePaceMinPerKm, referenceDistanceKm]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [averagePaceMinPerKm, referenceDistanceKm, t]);
 
   // ── Upsell: user finished strength but NOT running → show blurred card ──
   const dashboardMode = profile?.lifestyle?.dashboardMode;
@@ -108,12 +112,12 @@ export function RunForecastWidget({
         <div className="filter blur-[6px] opacity-40 pointer-events-none select-none">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-gray-300" />
-            <h3 className="text-base font-bold text-gray-300">תחזית מרוצים</h3>
+            <h3 className="text-base font-bold text-gray-300">{t('runForecast.title')}</h3>
           </div>
           <div className="grid grid-cols-3 gap-3">
             {RACES.map((r) => (
-              <div key={r.label} className="bg-gray-50 rounded-xl p-3 text-center">
-                <span className="text-xs text-gray-300">{r.label}</span>
+              <div key={r.id} className="bg-gray-50 rounded-xl p-3 text-center">
+                <span className="text-xs text-gray-300">{raceLabel(r.id)}</span>
                 <p className="text-lg font-black text-gray-300">--:--</p>
               </div>
             ))}
@@ -126,14 +130,14 @@ export function RunForecastWidget({
             <Footprints size={20} className="text-orange-500" />
           </div>
           <p className="text-sm font-bold text-slate-800 dark:text-white text-center px-4">
-            התחל את מסע הריצה שלך
+            {t('runForecast.upsell.title')}
           </p>
           <a
             href="/onboarding-new/dynamic"
             onClick={() => seedOnboardingTrackEntry(profile, 'RUNNING')}
             className="text-xs font-bold text-orange-500 hover:underline"
           >
-            להגיע ל-100% →
+            {t('runForecast.upsell.cta')}
           </a>
         </div>
       </div>
@@ -158,7 +162,7 @@ export function RunForecastWidget({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-lime-500" />
-          <h3 className="text-base font-bold text-gray-900 dark:text-white">תחזית מרוצים</h3>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">{t('runForecast.title')}</h3>
         </div>
         <div className="flex items-center gap-1.5 bg-lime-50 dark:bg-lime-900/20 px-2.5 py-1 rounded-full">
           <Timer className="w-3.5 h-3.5 text-lime-600 dark:text-lime-400" />
@@ -192,7 +196,7 @@ export function RunForecastWidget({
       </div>
 
       <p className="text-[10px] text-gray-400 mt-3 text-center">
-        מבוסס על ממוצע 3 האימונים האחרונים • נוסחת Riegel
+        {t('runForecast.footnote')}
       </p>
     </div>
   );

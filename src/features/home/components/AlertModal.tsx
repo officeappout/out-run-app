@@ -1,6 +1,8 @@
 "use client";
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 interface AlertModalProps {
   type: 'missed' | 'comeback';
@@ -9,16 +11,17 @@ interface AlertModalProps {
 }
 
 export default function AlertModal({ type, onClose, onAction }: AlertModalProps) {
+  const t = useT(home);
   const content = {
     missed: {
-      title: 'אתמול היה אמור להיות אימון, אבל לא נורא -',
-      subtitle: 'אפשר להשלים אותו גם היום!',
-      button: 'אני רוצה להתאמן!',
+      title: t('alertModal.missed.title'),
+      subtitle: t('alertModal.missed.subtitle'),
+      button: t('alertModal.missed.button'),
     },
     comeback: {
-      title: 'התגעגענו! לפעמים הפסקות הן חלק מהדרך',
-      subtitle: 'ומה שחשוב זה לחזור. שנעשה אימון מהיר?',
-      button: 'אני רוצה להתאמן!',
+      title: t('alertModal.comeback.title'),
+      subtitle: t('alertModal.comeback.subtitle'),
+      button: t('alertModal.comeback.button'),
     },
   };
 

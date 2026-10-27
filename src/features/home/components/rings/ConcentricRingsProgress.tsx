@@ -188,6 +188,7 @@ export default function ConcentricRingsProgress({
   compact = false,
   dynamicCenterColor = false,
 }: ConcentricRingsProgressProps) {
+  const tc = useT(common);
   // Fetch ring data from activity store
   const { ringData: storeRingData, totalMinutesToday, isLoading } = useDailyActivity();
   
@@ -233,7 +234,7 @@ export default function ConcentricRingsProgress({
     
     switch (centerMode) {
       case 'minutes':
-        return { main: `${totalMinutesToday}`, sub: 'דק\'' };
+        return { main: `${totalMinutesToday}`, sub: unitLabel('minAscii', tc) };
       case 'primary':
         return { main: `${Math.round(rings[0]?.percentage || 0)}`, sub: '%' };
       case 'percentage':
@@ -241,7 +242,7 @@ export default function ConcentricRingsProgress({
         const avgPercentage = rings.reduce((sum, r) => sum + r.percentage, 0) / rings.length;
         return { main: `${Math.round(avgPercentage)}`, sub: '%' };
     }
-  }, [rings, centerMode, totalMinutesToday]);
+  }, [rings, centerMode, totalMinutesToday, tc]);
   
   // Loading state
   if (isLoading && !customRingData) {

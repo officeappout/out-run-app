@@ -19,18 +19,11 @@ import type { LevelGoal } from '@/types/workout';
  * Cards navigate to ExerciseAnalyticsPage on tap.
  */
 import { Target } from 'lucide-react';
-import { useUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
-
-/** No workouts yet (gender copy, decisions 1 + 21.10.2026). */
-const EMPTY_GOALS_HINT = {
-  male: 'התחל אימון כדי לראות יעדים כאן.',
-  female: 'התחילי אימון כדי לראות יעדים כאן.',
-  other: 'אחרי האימון הראשון, היעדים יופיעו כאן.',
-};
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
-  const gender = useUiGender();
+  const t = useT(profileNs);
   const { goals: programGoals, loading: goalsLoading } = useActiveProgramGoals();
 
   // ── Reliable userId from persisted store, not auth singleton ─────────────
@@ -96,7 +89,7 @@ export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
   if (v2) {
     return (
       <div dir="rtl">
-        <h3 className="mb-3 text-[15px] font-black text-v2-ink">יעדי תרגילים</h3>
+        <h3 className="mb-3 text-[15px] font-black text-v2-ink">{t('goalCarousel.title')}</h3>
         {isLoading ? (
           <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-hide">
             {[0, 1, 2].map((i) => (
@@ -109,9 +102,9 @@ export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
               <Target className="h-5 w-5" aria-hidden />
             </span>
             <p className="text-[14px] font-bold leading-snug text-v2-ink-2">
-              עדיין לא התאמנת.
+              {t('goalCarousel.empty')}
               <br />
-              {pickGendered(gender, EMPTY_GOALS_HINT)}
+              {t('goalCarousel.emptyHint')}
             </p>
           </div>
         ) : (
@@ -134,7 +127,7 @@ export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
 
   return (
     <div dir="rtl">
-      <h3 className="text-sm font-black text-gray-800 mb-3">יעדי תרגילים</h3>
+      <h3 className="text-sm font-black text-gray-800 mb-3">{t('goalCarousel.title')}</h3>
 
       {isLoading ? (
         <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
@@ -150,9 +143,9 @@ export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
         <div className="flex flex-col items-center justify-center py-6 gap-2">
           <span className="text-3xl">🎯</span>
           <p className="text-sm font-bold text-gray-500 text-center leading-snug">
-            עדיין לא התאמנת.
+            {t('goalCarousel.empty')}
             <br />
-            {pickGendered(gender, EMPTY_GOALS_HINT)}
+            {t('goalCarousel.emptyHint')}
           </p>
         </div>
       ) : (

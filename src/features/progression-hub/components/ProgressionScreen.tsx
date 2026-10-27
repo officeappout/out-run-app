@@ -35,6 +35,8 @@ import ProgressScreenV2 from '../v2/components/ProgressScreenV2';
 import ProgressHubScreen from '../v2/hub/ProgressHubScreen';
 import { isProgressHubOn } from '../v2/hub/useProgressHubFlag';
 import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export function ProgressionScreen() {
   // enable_home_v2: the tab holds everything about what you did (P-1…P-4).
@@ -51,13 +53,14 @@ export function ProgressionScreen() {
 
 /** Flag-off: exactly today's screen. */
 function ProgressionScreenV1() {
+  const t = useT(profileNs);
   const { ready, buckets } = useProgressHubBuckets();
   return (
     <div className="min-h-screen bg-[#F8FAFC]" dir="rtl">
       <AppHeader />
 
       <div className="max-w-md mx-auto px-4 py-5 space-y-6">
-        <h1 className="text-xl font-black text-gray-900">התקדמות</h1>
+        <h1 className="text-xl font-black text-gray-900">{t('hubV1.title')}</h1>
 
         {/* IS_XP_ENABLED gate — the whole card is XP/level/lemur, nothing
             else, so hide it outright rather than leave an empty shell. */}

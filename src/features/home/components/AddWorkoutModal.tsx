@@ -31,7 +31,10 @@ import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
 import { auth } from '@/lib/firebase';
-import { g } from '@/lib/utils/gendered-text';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { home } from '@/messages/ns/home';
+import { weekdayLabel, withUnit } from '@/lib/i18n/units';
 import { WalkingIcon, RunIcon, MuscleIcon, getProgramIcon, resolveIconKey, resolveProgramLabel } from '@/features/content/programs/core/program-icon.util';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import type { ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
@@ -58,18 +61,14 @@ type WorkoutType = BuilderWorkoutType;
 
 // Pure type→category contract lives in workout-type-mapping.ts (unit-tested);
 // this array only adds the presentation layer (labels + icons).
-const TYPE_OPTIONS: Array<{ value: WorkoutType; label: string; icon: React.ReactNode; activityCategory: ActivityCategory; scheduleCategory: ScheduleActivityCategory; activityType: ActivityType }> = [
-  { value: 'strength', label: 'כוח',    icon: <MuscleIcon className="w-6 h-6" />,  ...WORKOUT_TYPE_MAPPING.strength },
-  { value: 'running',  label: 'ריצה',   icon: <RunIcon className="w-6 h-6" />,     ...WORKOUT_TYPE_MAPPING.running },
-  { value: 'walking',  label: 'הליכה',  icon: <WalkingIcon className="w-6 h-6" />, ...WORKOUT_TYPE_MAPPING.walking },
+const TYPE_OPTIONS: Array<{ value: WorkoutType; labelKey: 'addWorkout.type.strength' | 'addWorkout.type.running' | 'addWorkout.type.walking'; icon: React.ReactNode; activityCategory: ActivityCategory; scheduleCategory: ScheduleActivityCategory; activityType: ActivityType }> = [
+  { value: 'strength', labelKey: 'addWorkout.type.strength', icon: <MuscleIcon className="w-6 h-6" />,  ...WORKOUT_TYPE_MAPPING.strength },
+  { value: 'running',  labelKey: 'addWorkout.type.running',  icon: <RunIcon className="w-6 h-6" />,     ...WORKOUT_TYPE_MAPPING.running },
+  { value: 'walking',  labelKey: 'addWorkout.type.walking',  icon: <WalkingIcon className="w-6 h-6" />, ...WORKOUT_TYPE_MAPPING.walking },
 ];
 
 // ── Drum time picker constants kept for reference ───────────────────────────
 // (DrumTimePicker component is imported from @/components/ui/DrumTimePicker)
-
-const HEBREW_DAY_NAMES: Record<number, string> = {
-  0: 'ראשון', 1: 'שני', 2: 'שלישי', 3: 'רביעי', 4: 'חמישי', 5: 'שישי', 6: 'שבת',
-};
 
 function getNextFullHour(): string {
   const now = new Date();
@@ -78,12 +77,6 @@ function getNextFullHour(): string {
   if (h < 5)  h = 5;
   if (h > 22) h = 22;
   return `${String(h).padStart(2, '0')}:00`;
-}
-
-function formatTargetDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00');
-  const day = HEBREW_DAY_NAMES[d.getDay()] ?? '';
-  return `יום ${day}, ${d.getDate()}/${d.getMonth() + 1}`;
 }
 
 // Stable empty fallbacks — must live OUTSIDE the component so Zustand's
@@ -106,12 +99,13 @@ export default function AddWorkoutModal({
   onOpenBuilder,
 }: AddWorkoutModalProps) {
   const router = useRouter();
+  const t = useT(home);
+  const tc = useT(common);
   const isEditMode = !!initialEntryId;
   const defaultTime = useMemo(() => getNextFullHour(), []);
   const weeklySummary = useActivityStore((s) => s.weeklySummary);
   const logWorkout = useActivityStore((s) => s.logWorkout);
   const profile = useUserStore((s) => s.profile);
-  const gender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
   const activePrograms = useUserStore((s) => s.profile?.progression?.activePrograms ?? EMPTY_PROGRAMS) as Array<{ templateId: string; name?: string }>;
   const tracks = useUserStore((s) => s.profile?.progression?.tracks ?? EMPTY_TRACKS) as Record<string, { currentLevel?: number }>;
   const lastWorkoutProgramId = useActivityStore((s) => (s as any).history?.find((h: any) => h.category === 'strength')?.programId ?? null) as string | null;
@@ -281,7 +275,7 @@ export default function AddWorkoutModal({
               userId: auth.currentUser.uid,
               displayName: auth.currentUser.displayName
                 ?? auth.currentUser.email
-                ?? 'משתמש',
+                ?? 'משתמש', // i18n-allow-hebrew: data — written to planned_sessions.displayName
               photoURL: auth.currentUser.photoURL,
               routeId: '',
               ...(programName ? { programName } : {}),
@@ -319,7 +313,11 @@ export default function AddWorkoutModal({
   const v2 = useHomeV2();
   // v2 look (design lab): label / control styles shared across the sheet.
   const LBL = v2 ? 'flex items-center gap-1.5 text-[13px] font-extrabold text-v2-deep mb-2' : 'flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5';
-  const heading = isEditMode ? 'ערוך אימון' : 'הוסף אימון';
+  const heading = isEditMode ? t('addWorkout.heading.edit') : t('addWorkout.heading.add');
+  const formatTargetDate = (iso: string) => {
+    const d = new Date(iso + 'T00:00:00');
+    return t('addWorkout.targetDate', { day: weekdayLabel(d.getDay(), 'long', tc), date: `${d.getDate()}/${d.getMonth() + 1}` });
+  };
   // Sheet body — shared by the v2 Sheet and the legacy chrome below.
   const body = (
     <>
@@ -334,7 +332,7 @@ export default function AddWorkoutModal({
         {/* Time — drum / scroll picker */}
         <div>
           <label className={LBL}>
-            <Clock className="w-3.5 h-3.5" /> שעה <span className="text-red-400">*</span>
+            <Clock className="w-3.5 h-3.5" />{' '}{t('addWorkout.field.time')}{' '}<span className="text-red-400">*</span>
           </label>
           <DrumTimePicker value={startTime} onChange={setStartTime} />
         </div>
@@ -342,13 +340,13 @@ export default function AddWorkoutModal({
         {/* Title */}
         <div>
           <label className={LBL}>
-            <Tag className="w-3.5 h-3.5" /> שם
+            <Tag className="w-3.5 h-3.5" />{' '}{t('addWorkout.field.name')}
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="לדוגמא: אימון גב + חזה"
+            placeholder={t('addWorkout.field.namePlaceholder')}
             className={
               v2
                 ? 'h-12 w-full rounded-[16px] bg-white px-4 text-[15px] font-semibold text-v2-ink shadow-v2-ring placeholder:text-v2-muted focus:outline-none focus:ring-2 focus:ring-v2-accent'
@@ -360,7 +358,7 @@ export default function AddWorkoutModal({
         {/* Type */}
         <div>
           <label className={LBL}>
-            <Dumbbell className="w-3.5 h-3.5" /> סוג
+            <Dumbbell className="w-3.5 h-3.5" />{' '}{t('addWorkout.field.type')}
           </label>
           <div className="flex gap-2">
             {TYPE_OPTIONS.map((opt) => (
@@ -381,7 +379,7 @@ export default function AddWorkoutModal({
                 }
               >
                 {opt.icon}
-                <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{opt.label}</span>
+                <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{t(opt.labelKey)}</span>
               </button>
             ))}
           </div>
@@ -412,7 +410,7 @@ export default function AddWorkoutModal({
               // An id the icon/label cascade doesn't know came out raw
               // (e.g. "…yCZF") — show a neutral name instead.
               const resolvedLabel = resolveProgramLabel(track.id);
-              const label = resolvedLabel && resolvedLabel !== track.id ? resolvedLabel : 'תוכנית';
+              const label = resolvedLabel && resolvedLabel !== track.id ? resolvedLabel : t('addWorkout.programFallback');
               const isSelected = selectedProgramId === track.id;
               return (
                 <button
@@ -449,9 +447,9 @@ export default function AddWorkoutModal({
         <div>
           <label className={v2 ? 'mb-2 flex items-center justify-between gap-1.5 text-[13px] font-extrabold text-v2-deep' : 'flex items-center justify-between gap-1.5 text-xs font-bold text-gray-500 mb-2'}>
             <span className="flex items-center gap-1.5">
-              <Timer className="w-3.5 h-3.5" /> משך
+              <Timer className="w-3.5 h-3.5" />{' '}{t('addWorkout.field.duration')}
             </span>
-            <span className="text-[#00C9F2] tabular-nums">{duration} דק׳</span>
+            <span className="text-[#00C9F2] tabular-nums">{withUnit('min', duration, tc)}</span>
           </label>
           <div dir="rtl">
             <input
@@ -480,9 +478,9 @@ export default function AddWorkoutModal({
               }}
             />
             <div className="flex justify-between text-[10px] text-gray-900 font-bold mt-1 tabular-nums">
-              <span>10׳</span>
-              <span>60׳</span>
-              <span>120׳</span>
+              <span>{t('addWorkout.rangeMarker', { n: '10' })}</span>
+              <span>{t('addWorkout.rangeMarker', { n: '60' })}</span>
+              <span>{t('addWorkout.rangeMarker', { n: '120' })}</span>
             </div>
           </div>
         </div>
@@ -503,14 +501,10 @@ export default function AddWorkoutModal({
           </div>
           <div className="flex-1 min-w-0">
             <div className={v2 ? 'text-[14px] font-extrabold leading-tight text-v2-ink' : 'text-xs font-bold text-gray-900 leading-tight'}>
-              {g(gender, 'שתף עם הקהילה', 'שתפי עם הקהילה')} — חפש שותף לאימון
+              {t('addWorkout.share.title')}
             </div>
             <div className={v2 ? 'mt-0.5 text-[12px] font-bold leading-tight text-v2-muted' : 'text-[10px] text-gray-500 mt-0.5 leading-tight'}>
-              {g(
-                gender,
-                'תופיע לאחרים שמחפשים שותף',
-                'תופיעי לאחרים שמחפשים שותפה',
-              )}
+              {t('addWorkout.share.sub')}
             </div>
           </div>
           <div
@@ -536,7 +530,7 @@ export default function AddWorkoutModal({
               : 'w-full py-3 bg-brand-cta hover:brightness-105 text-on-brand font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
           }
         >
-          {saving ? 'שומר...' : isEditMode ? 'עדכן' : 'שמור'}
+          {saving ? t('addWorkout.save.saving') : isEditMode ? t('addWorkout.save.update') : t('addWorkout.save.save')}
         </button>
 
         {/* Secondary CTA — open Smart Workout Builder with schedule context */}
@@ -569,7 +563,7 @@ export default function AddWorkoutModal({
                 : 'w-full py-2.5 text-sm font-bold text-[#0284c7] bg-cyan-50 hover:bg-cyan-100 rounded-xl border border-cyan-200 transition-all active:scale-[0.98]'
             }
           >
-            בנה אימון מותאם ←
+            {t('addWorkout.buildCustom')}
           </button>
         )}
       </div>

@@ -743,3 +743,21 @@ src/app/map/layers/BuilderLayer.tsx
 src/app/map/layers/PlannedPreviewLayer.tsx
 src/app/map/layers/FreeRunLayer.tsx
 src/app/map/layers/DiscoverLayer.tsx
+# i18n wave 2 batch aq (home / profile / community / social namespaces) — file-level: dead siblings and untouched files stay out.
+src/features/home/components/AlertModal.tsx
+src/features/home/components/AddWorkoutModal.tsx
+src/features/home/components/widgets/RunForecastWidget.tsx
+src/features/home/components/widgets/StrengthVolumeWidget.tsx
+src/features/home/components/rings/ConcentricRingsProgress.tsx
+src/features/profile/components/ExerciseAnalyticsPage.tsx
+src/features/profile/components/widgets/GoalCard.tsx
+src/features/profile/components/widgets/GoalCarousel.tsx
+src/features/profile/components/widgets/PrioritiesSection.tsx
+src/features/profile/components/widgets/ExerciseWishlistStrip.tsx
+src/features/profile/components/widgets/DashboardModeWidgets.tsx
+src/features/progression-hub/components/
+src/features/social/components/ChatInbox.tsx
+src/features/social/components/ChatThread.tsx
+src/app/community/[id]/page.tsx
+src/app/community/_components/leagues/CompetitionToggle.tsx
+src/app/arena/create/

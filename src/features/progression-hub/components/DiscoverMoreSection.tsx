@@ -26,6 +26,8 @@ import {
   type HubDiscoverItem,
 } from '@/features/progression-map/services/progress-hub-bucketing.service';
 import { SkillMapCard } from './SkillMapCard';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 function DiscoverCard({ item }: { item: HubDiscoverItem }) {
   const router = useRouter();
@@ -45,6 +47,7 @@ function DiscoverCard({ item }: { item: HubDiscoverItem }) {
 }
 
 export function DiscoverMoreSection({ items }: { items: HubDiscoverItem[] }) {
+  const t = useT(profileNs);
   const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return null;
 
@@ -56,7 +59,7 @@ export function DiscoverMoreSection({ items }: { items: HubDiscoverItem[] }) {
         aria-expanded={expanded}
         className="w-full flex items-center justify-between"
       >
-        <h2 className="text-sm font-black text-gray-800">גלה עוד</h2>
+        <h2 className="text-sm font-black text-gray-800">{t('hubV1.discover')}</h2>
         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
       </button>
       {expanded && (
