@@ -49,10 +49,12 @@
  * itself accounts for it. Resets on exercise.id change so a swapped-in
  * representative isn't stuck showing a previous exercise's failure state.
  */
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, type CSSProperties } from 'react';
+import Image from 'next/image';
 import { Check, Lock, Crown } from 'lucide-react';
 import { Exercise, getLocalizedText } from '@/features/content/exercises';
 import { resolveTreeNodeImage } from '../services/resolve-tree-node-image';
+import { isOptimizableNodeImage } from '../services/tree-node-image-loading';
 import { SwapPill } from './SwapPill';
 import { useT } from '@/hooks/useT';
 import { profile } from '@/messages/ns/profile';
@@ -79,6 +81,61 @@ export interface TreeNodeProps {
   align: 'start' | 'end';
   /** Home v2 (enable_home_v2) styling — bigger photo, name pill, tint states, gentle pulse. */
   v2?: boolean;
+  /** On screen when the tree opens — load eagerly at high priority (W4). Others stay lazy. */
+  priority?: boolean;
+}
+
+/**
+ * W4 (27.10.2026): the node photo. A remote photo on a next.config host goes
+ * through next/image, sized to the card (`sizes`), so the phone downloads a
+ * small WebP instead of the full-size Bunny/Storage source. Anything else
+ * (local SVG placeholder, unknown host) keeps the plain lazy <img>. The
+ * card's own background is the placeholder while the photo loads.
+ */
+function NodePhoto({
+  src,
+  alt,
+  size,
+  priority,
+  style,
+  imgClassName,
+  onError,
+}: {
+  src: string;
+  alt: string;
+  size: number;
+  priority: boolean;
+  style?: CSSProperties;
+  /** Plain-<img> class — kept per variant so the unoptimized markup stays byte-identical. */
+  imgClassName: string;
+  onError: () => void;
+}) {
+  if (isOptimizableNodeImage(src)) {
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes={`${size}px`}
+        priority={priority}
+        className="object-cover"
+        style={style}
+        onError={onError}
+      />
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      className={imgClassName}
+      loading="lazy"
+      decoding="async"
+      style={style}
+      onError={onError}
+    />
+  );
 }
 
 // ── Home v2 node states (tint/brand, never black) ─────────────────────────
@@ -98,6 +155,7 @@ function TreeNodeImpl({
   onSwapTap,
   align,
   v2 = false,
+  priority = false,
 }: TreeNodeProps) {
   const locked = state === 'locked';
   const isTarget = state === 'target';
@@ -144,13 +202,12 @@ function TreeNodeImpl({
             className={`relative flex-shrink-0 overflow-hidden rounded-[24px] transition-transform duration-150 ease-v2 active:scale-[0.97] ${locked ? 'bg-v2-tint' : 'bg-white'} ${V2_STATE_RING[state]}`}
             style={{ width: size, height: size }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <NodePhoto
               src={imageUrl}
               alt={name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
+              size={size}
+              priority={priority}
+              imgClassName="h-full w-full object-cover"
               style={locked ? { filter: 'grayscale(70%) saturate(0.8)', opacity: 0.72 } : undefined}
               onError={() => setImgFailed(true)}
             />
@@ -201,6 +258,7 @@ function TreeNodeImpl({
     );
   }
 
+  const v1Size = isCurrent || isTarget ? 92 : 78;
   return (
     <div className={`flex flex-col items-${align === 'start' ? 'start' : 'end'} gap-1 max-w-[120px]`}>
       <div className="relative">
@@ -221,15 +279,14 @@ function TreeNodeImpl({
           type="button"
           onClick={onTap}
           className={`relative rounded-2xl overflow-hidden bg-slate-200 flex-shrink-0 transition-transform active:scale-95 ${STATE_RING[state]}`}
-          style={{ width: isCurrent || isTarget ? 92 : 78, height: isCurrent || isTarget ? 92 : 78 }}
+          style={{ width: v1Size, height: v1Size }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <NodePhoto
             src={imageUrl}
             alt={name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            decoding="async"
+            size={v1Size}
+            priority={priority}
+            imgClassName="w-full h-full object-cover"
             style={locked ? { filter: 'grayscale(55%) brightness(0.92)' } : undefined}
             onError={() => setImgFailed(true)}
           />
@@ -298,7 +355,8 @@ function treeNodePropsEqual(prev: TreeNodeProps, next: TreeNodeProps): boolean {
     prev.state === next.state &&
     prev.siblingCount === next.siblingCount &&
     prev.align === next.align &&
-    prev.v2 === next.v2
+    prev.v2 === next.v2 &&
+    prev.priority === next.priority
   );
 }
 
