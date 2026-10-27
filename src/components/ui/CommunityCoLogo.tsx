@@ -26,12 +26,15 @@
 import React, { useEffect, useState } from 'react';
 import { useUserStore } from '@/features/user';
 import { getAuthority } from '@/features/admin/services/authority.service';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 // Module-level cache keyed by community id so the header doesn't re-hit
 // Firestore on every mount/route change. Value `null` = "resolved, no logo".
 const logoCache = new Map<string, string | null>();
 
 export default function CommunityCoLogo() {
+  const t = useT(common);
   const profile = useUserStore((s) => s.profile);
   const communityId = profile?.core?.tenantId ?? profile?.core?.authorityId ?? null;
 
@@ -75,7 +78,7 @@ export default function CommunityCoLogo() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={logoUrl}
-        alt="קהילה"
+        alt={t('ui.communityLogo.alt')}
         className="h-6 max-w-[72px] object-contain select-none"
       />
       <div className="w-px h-5 bg-gray-300" aria-hidden />

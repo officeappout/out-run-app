@@ -4,6 +4,8 @@ import { useId } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { EASE_V2 } from './tokens';
 import { formatStat, type BarDatum } from './logic';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface LineChartProps {
   data: BarDatum[];
@@ -44,6 +46,7 @@ export default function LineChart({
   formatValue = formatStat,
 }: LineChartProps) {
   const id = useId();
+  const t = useT(common);
   const reduce = useReducedMotion();
   const n = data.length;
   if (n === 0) return null;
@@ -55,8 +58,8 @@ export default function LineChart({
   const max = Math.max(goal ?? 0, ...data.map((d) => d.value)) * 1.12 || 1;
   const every = labelEvery ?? (n > 14 ? Math.ceil(n / 6) : 1);
   const x = (i: number) => {
-    const t = n === 1 ? 0.5 : i / (n - 1);
-    const ltr = padX + t * (W - padX * 2);
+    const frac = n === 1 ? 0.5 : i / (n - 1);
+    const ltr = padX + frac * (W - padX * 2);
     return dir === 'rtl' ? W - ltr : ltr;
   };
   const y = (v: number) => padTop + (1 - v / max) * (H - padTop - padBottom);
@@ -79,7 +82,7 @@ export default function LineChart({
       viewBox={`0 0 ${W} ${H}`}
       className={`block h-auto w-full overflow-visible ${className}`}
       role="img"
-      aria-label={ariaLabel ?? 'גרף'}
+      aria-label={ariaLabel ?? t('ui.chart.aria')}
     >
       <defs>
         <linearGradient id={`${id}-a`} x1="0" y1="0" x2="0" y2="1">
@@ -91,7 +94,7 @@ export default function LineChart({
         <g>
           <line x1={padX} x2={W - padX} y1={y(goal)} y2={y(goal)} stroke="#94a3b8" strokeWidth="1.2" strokeDasharray="4 5" />
           <text x={dir === 'rtl' ? W - padX : padX} y={y(goal) - 6} textAnchor={dir === 'rtl' ? 'end' : 'start'} fontSize="10.5" fontWeight="700" fill="#64748b">
-            {goalLabel ?? `יעד ${formatStat(goal)}`}
+            {goalLabel ?? t('ui.chart.goal', { goal: String(formatStat(goal)) })}
           </text>
         </g>
       )}

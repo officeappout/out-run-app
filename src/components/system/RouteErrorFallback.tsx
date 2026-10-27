@@ -7,6 +7,8 @@ import ErrorState, { type ErrorStateAction } from '@/components/ui/v2/ErrorState
 import { isChunkLoadError } from '@/lib/sentry-shared';
 import { clearChunkReloadFlag, reloadOnceForChunkError } from '@/lib/chunk-reload';
 import { reportBoundaryError } from './report-boundary-error';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface RouteErrorFallbackProps {
   error: Error & { digest?: string };
@@ -35,13 +37,14 @@ export default function RouteErrorFallback({
   error,
   reset,
   boundary,
-  title = 'משהו השתבש',
-  description = 'זה קורה לפעמים. אפשר לנסות שוב — שום דבר לא נמחק.',
+  title,
+  description,
   icon,
-  retryLabel = 'נסו שוב',
+  retryLabel,
   retryIcon = RefreshCw,
   secondaryAction,
 }: RouteErrorFallbackProps) {
+  const t = useT(common);
   useEffect(() => {
     reportBoundaryError(error, boundary);
     reloadOnceForChunkError(error);
@@ -50,10 +53,10 @@ export default function RouteErrorFallback({
   if (isChunkLoadError(error)) {
     return (
       <ErrorState
-        title="יש גרסה חדשה"
-        description="גרסה חדשה של האפליקציה זמינה. רעננו כדי להמשיך."
+        title={t('ui.system.route.newVersionTitle')}
+        description={t('ui.system.route.newVersionBody')}
         primaryAction={{
-          label: 'רענן עמוד',
+          label: t('ui.system.route.reload'),
           icon: RefreshCw,
           onClick: () => {
             clearChunkReloadFlag();
@@ -66,11 +69,11 @@ export default function RouteErrorFallback({
 
   return (
     <ErrorState
-      title={title}
-      description={description}
+      title={title ?? t('ui.system.route.title')}
+      description={description ?? t('ui.system.route.description')}
       icon={icon}
       primaryAction={{
-        label: retryLabel,
+        label: retryLabel ?? t('actions.retry'),
         icon: retryIcon,
         onClick: () => {
           clearChunkReloadFlag();

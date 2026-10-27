@@ -6,6 +6,8 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 // ════════════════════════════════════════════════════════════════════
 // EXISTING-ACCOUNT MODAL
@@ -35,6 +37,7 @@ export default function ExistingAccountModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useT(common);
   const providerLabel = provider === 'google' ? 'Google' : 'Apple';
   // enable_home_v2: the shared <Sheet> shell only — the copy, both buttons,
   // their order and the no-dismiss behaviour (no backdrop tap, no drag, no ✕;
@@ -48,11 +51,10 @@ export default function ExistingAccountModal({
         className="text-lg font-bold text-slate-900 mb-2"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
-        החשבון הזה כבר רשום אצלנו
+        {t('ui.existingAccount.title')}
       </h3>
       <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-        אפשר להיכנס לחשבון ה-{providerLabel} הקיים, אבל מה שעשית עכשיו
-        כאורח לא יעבור לשם.
+        {t('ui.existingAccount.body', { provider: providerLabel })}
       </p>
       <div className="flex flex-col gap-3">
         <button
@@ -60,14 +62,14 @@ export default function ExistingAccountModal({
           disabled={loading}
           className="w-full bg-brand-cta hover:brightness-105 text-on-brand py-3.5 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all disabled:opacity-50"
         >
-          {loading ? 'מתחבר...' : `כניסה לחשבון ה-${providerLabel} הקיים`}
+          {loading ? t('ui.connecting') : t('ui.existingAccount.enter', { provider: providerLabel })}
         </button>
         <button
           onClick={onCancel}
           disabled={loading}
           className="w-full bg-slate-100 text-slate-600 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-200 active:scale-[0.98] transition-all disabled:opacity-50"
         >
-          ביטול
+          {t('actions.cancel')}
         </button>
       </div>
     </>
@@ -91,7 +93,7 @@ export default function ExistingAccountModal({
         scroll="none"
         // The body pads itself (p-6); only the home-indicator inset on top.
         safeArea="env(safe-area-inset-bottom)"
-        ariaLabel="החשבון הזה כבר רשום אצלנו"
+        ariaLabel={t('ui.existingAccount.title')}
       >
         <div className="p-6" dir="rtl">
           {content}

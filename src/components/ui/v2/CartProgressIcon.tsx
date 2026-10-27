@@ -12,6 +12,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cartDoneCount, cartRingSegments, type CartRingItem } from './cart-ring';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export interface CartProgressIconProps {
   items: readonly CartRingItem[];
@@ -24,6 +26,7 @@ export interface CartProgressIconProps {
 }
 
 export default function CartProgressIcon({ items, onClick, ariaLabel, size = 54, className = '' }: CartProgressIconProps) {
+  const t = useT(common);
   const stroke = size >= 50 ? 4.5 : 3.5;
   const segments = cartRingSegments(items, { size, stroke });
   const done = cartDoneCount(items);
@@ -37,8 +40,8 @@ export default function CartProgressIcon({ items, onClick, ariaLabel, size = 54,
   }, [done]);
   useEffect(() => {
     if (dropKey === null) return;
-    const t = setTimeout(() => setDropKey(null), 1100);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setDropKey(null), 1100);
+    return () => clearTimeout(timer);
   }, [dropKey]);
 
   const inset = Math.round(size * 0.15);
@@ -46,7 +49,7 @@ export default function CartProgressIcon({ items, onClick, ariaLabel, size = 54,
     <button
       type="button"
       onClick={onClick}
-      aria-label={ariaLabel ?? `רשימת האימון · ${done} הושלמו`}
+      aria-label={ariaLabel ?? t('ui.cart.aria', { done: String(done) })}
       className={`relative shrink-0 active:scale-[0.97] transition-transform duration-150 ease-v2 ${className}`}
       style={{ width: size, height: size }}
     >

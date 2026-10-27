@@ -437,5 +437,14 @@
   "workoutOverview.segment.strength": "תרגילי כוח",
   "workoutOverview.segment.cooldown": "קירור",
   "workoutOverview.seconds": "{n} שניות",
-  "workoutOverview.reps": "{n} חזרות"
+  "workoutOverview.reps": "{n} חזרות",
+  "favorites.difficulty": "{level, select, 1 {קל} 2 {בינוני} 3 {קשה} other {}}",
+  "favorites.card.counts": "{exercises} תרגילים · {sets} סבבים",
+  "favorites.row.exercises": "{exercises} תרגילים",
+  "favorites.row.offline": "זמין ללא אינטרנט",
+  "favorites.row.start": "להתחיל",
+  "favorites.loading": "טוען מועדפים...",
+  "favorites.empty.title": "אין אימונים שמורים",
+  "favorites.empty.body": "סמנ/י לב באימון שאהבת כדי לגשת אליו מכל מקום, גם ללא אינטרנט.",
+  "favorites.savedCount": "{count} אימונים שמורים"
 }

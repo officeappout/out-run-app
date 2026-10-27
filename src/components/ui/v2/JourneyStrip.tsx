@@ -21,6 +21,8 @@ import { ActivityGlyph } from '@/features/parks/core/components/hybrid/activity-
 import { HYBRID_AER as AER, HYBRID_STR as STR, HYBRID_WALK as WALK_LEG_COLOR } from '@/features/parks/core/components/hybrid/hybrid-colors';
 import { formatMinutes } from '@/features/parks/core/components/hybrid/hybrid-format';
 import type { JourneyStripItem } from './journey-strip';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 export type { JourneyStripItem, JourneyItemKind } from './journey-strip';
 
@@ -41,6 +43,7 @@ function itemText(it: JourneyStripItem): string {
 }
 
 function Item({ it, v2 }: { it: JourneyStripItem; v2: boolean }) {
+  const t = useT(common);
   if (it.kind === 'transport') {
     return (
       <span className="inline-flex items-center gap-1.5 text-[13px] font-bold whitespace-nowrap rounded-full"
@@ -63,7 +66,7 @@ function Item({ it, v2 }: { it: JourneyStripItem; v2: boolean }) {
       <span className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: v2 ? '#0e1419' : '#374151' }}>
         <span className="inline-flex items-center gap-0.5" style={{ color: AER }}>
           <ActivityGlyph kind="aerobic" subtype={it.subtype} className="w-[23px] h-[23px]" />
-          <Repeat size={14} strokeWidth={2.6} aria-label="חזרות" />
+          <Repeat size={14} strokeWidth={2.6} aria-label={t('ui.journey.repeat')} />
         </span>
         {itemText(it)}
       </span>

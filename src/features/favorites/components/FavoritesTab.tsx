@@ -9,6 +9,7 @@ import type { FavoriteWorkout } from '../types';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { useT } from '@/hooks/useT';
 import { common } from '@/messages/ns/common';
+import { library } from '@/messages/ns/library';
 import { withUnit } from '@/lib/i18n/units';
 
 interface FavoritesTabProps {
@@ -16,8 +17,6 @@ interface FavoritesTabProps {
   /** Home v2 (enable_home_v2) look — passed by the profile's FavoritesSheet. */
   v2?: boolean;
 }
-
-const DIFFICULTY_MAP: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
 
 function favoriteToGeneratedWorkout(fav: FavoriteWorkout): GeneratedWorkout {
   return {
@@ -95,6 +94,7 @@ const FavoriteWorkoutCard = React.forwardRef<
   { fav: FavoriteWorkout; isDownloaded: boolean; onSelect: () => void }
 >(function FavoriteWorkoutCard({ fav, isDownloaded, onSelect }, ref) {
   const tc = useT(common);
+  const t = useT(library);
   const rawThumbUrl = fav.exercises[0]?.imageUrl ?? null;
   const cachedThumbUrl = useCachedMediaUrl(rawThumbUrl);
   const [thumbError, setThumbError] = useState(false);
@@ -134,7 +134,7 @@ const FavoriteWorkoutCard = React.forwardRef<
         <div className="flex items-center gap-2 mt-1">
           <DifficultyBolts level={fav.difficulty} />
           <span className="text-[11px] text-gray-500 font-medium">
-            {DIFFICULTY_MAP[fav.difficulty] ?? ''}
+            {t('favorites.difficulty', { level: String(fav.difficulty) })}
           </span>
           <span className="text-gray-300">·</span>
           <div className="flex items-center gap-0.5 text-gray-500">
@@ -143,7 +143,7 @@ const FavoriteWorkoutCard = React.forwardRef<
           </div>
         </div>
         <p className="text-[10px] text-gray-400 mt-0.5">
-          {fav.exerciseCount} תרגילים · {fav.totalPlannedSets} סבבים
+          {t('favorites.card.counts', { exercises: String(fav.exerciseCount), sets: String(fav.totalPlannedSets) })}
         </p>
       </div>
 
@@ -163,6 +163,7 @@ const FavoriteWorkoutRowV2 = React.forwardRef<
   { fav: FavoriteWorkout; isDownloaded: boolean; onSelect: () => void }
 >(function FavoriteWorkoutRowV2({ fav, isDownloaded, onSelect }, ref) {
   const tc = useT(common);
+  const t = useT(library);
   return (
     <motion.button
       ref={ref}
@@ -180,25 +181,26 @@ const FavoriteWorkoutRowV2 = React.forwardRef<
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-extrabold text-v2-ink">{fav.title}</p>
         <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-          <span>{DIFFICULTY_MAP[fav.difficulty] ?? ''}</span>
+          <span>{t('favorites.difficulty', { level: String(fav.difficulty) })}</span>
           <span aria-hidden>·</span>
           <Clock size={12} aria-hidden />
           <span>{withUnit('min', fav.estimatedDuration, tc)}</span>
           <span aria-hidden>·</span>
-          <span className="truncate">{fav.exerciseCount} תרגילים</span>
+          <span className="truncate">{t('favorites.row.exercises', { exercises: String(fav.exerciseCount) })}</span>
         </div>
       </div>
       {isDownloaded && (
-        <ArrowDownCircle size={18} className="shrink-0 text-v2-up" aria-label="זמין ללא אינטרנט" />
+        <ArrowDownCircle size={18} className="shrink-0 text-v2-up" aria-label={t('favorites.row.offline')} />
       )}
       <span className="shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-3 py-1.5 text-[12px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40">
-        להתחיל
+        {t('favorites.row.start')}
       </span>
     </motion.button>
   );
 });
 
 export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesTabProps) {
+  const t = useT(library);
   const favorites = useFavoritesStore((s) => s.favorites);
   const downloadedIds = useFavoritesStore((s) => s.downloadedIds);
   const isLoading = useFavoritesStore((s) => s.isLoading);
@@ -226,7 +228,7 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-v2-accent border-t-transparent" />
-          <p className="text-[13px] font-bold text-v2-muted">טוען מועדפים...</p>
+          <p className="text-[13px] font-bold text-v2-muted">{t('favorites.loading')}</p>
         </div>
       );
     }
@@ -237,9 +239,9 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
             <Heart size={26} aria-hidden />
           </span>
           <div className="space-y-1.5 text-center">
-            <p className="text-[17px] font-black text-v2-ink">אין אימונים שמורים</p>
+            <p className="text-[17px] font-black text-v2-ink">{t('favorites.empty.title')}</p>
             <p className="max-w-[280px] text-[14px] font-medium leading-relaxed text-v2-ink-2">
-              סמנ/י לב באימון שאהבת כדי לגשת אליו מכל מקום, גם ללא אינטרנט.
+              {t('favorites.empty.body')}
             </p>
           </div>
         </div>
@@ -248,7 +250,7 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
     return (
       <div className="space-y-2.5">
         <p className="text-[12px] font-bold text-v2-muted" dir="rtl">
-          {sortedFavorites.length} אימונים שמורים
+          {t('favorites.savedCount', { count: String(sortedFavorites.length) })}
         </p>
         <AnimatePresence mode="popLayout">
           {sortedFavorites.map((fav) => (
@@ -268,7 +270,7 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
         <div className="w-8 h-8 border-3 border-[#00C9F2] border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-gray-400 font-medium">טוען מועדפים...</p>
+        <p className="text-sm text-gray-400 font-medium">{t('favorites.loading')}</p>
       </div>
     );
   }
@@ -280,9 +282,9 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
           <Heart size={28} className="text-gray-300" />
         </div>
         <div className="text-center space-y-1.5">
-          <p className="text-base font-bold text-gray-700">אין אימונים שמורים</p>
+          <p className="text-base font-bold text-gray-700">{t('favorites.empty.title')}</p>
           <p className="text-sm text-gray-400 leading-relaxed max-w-[280px]">
-            סמנ/י לב באימון שאהבת כדי לגשת אליו מכל מקום, גם ללא אינטרנט.
+            {t('favorites.empty.body')}
           </p>
         </div>
       </div>
@@ -292,7 +294,7 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
   return (
     <div className="space-y-3">
       <p className="text-[11px] text-gray-400 font-medium text-end" dir="rtl">
-        {sortedFavorites.length} אימונים שמורים
+        {t('favorites.savedCount', { count: String(sortedFavorites.length) })}
       </p>
       <AnimatePresence mode="popLayout">
         {sortedFavorites.map((fav) => (

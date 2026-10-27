@@ -1,5 +1,8 @@
 'use client';
 
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+
 /**
  * ScreenSkeleton — the neutral, v2-style placeholder a screen shows while its
  * feature flags are still unknown (useFeatureFlags().ready === false: the server
@@ -21,6 +24,7 @@ export interface ScreenSkeletonProps {
 const BLOCK = 'animate-pulse rounded-v2-card bg-white shadow-v2-ring';
 
 export default function ScreenSkeleton({ variant = 'page', cards = 3 }: ScreenSkeletonProps) {
+  const t = useT(common);
   const stack = (
     <div className="space-y-3" aria-hidden>
       <div className={`${BLOCK} h-44`} />
@@ -31,7 +35,7 @@ export default function ScreenSkeleton({ variant = 'page', cards = 3 }: ScreenSk
   );
   if (variant === 'inline') return stack;
   return (
-    <div className="min-h-[100dvh] bg-v2-surface" role="status" aria-busy="true" aria-label="טוען">
+    <div className="min-h-[100dvh] bg-v2-surface" role="status" aria-busy="true" aria-label={t('ui.loading.label')}>
       <div className="h-[calc(env(safe-area-inset-top)+56px)]" />
       <div className="mx-auto max-w-md space-y-4 px-4">
         <div className="flex items-center justify-between" aria-hidden>

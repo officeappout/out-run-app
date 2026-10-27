@@ -743,5 +743,6 @@
   "addWorkout.save.saving": "שומר...",
   "addWorkout.save.update": "עדכן",
   "addWorkout.save.save": "שמור",
-  "addWorkout.buildCustom": "בנה אימון מותאם ←"
+  "addWorkout.buildCustom": "בנה אימון מותאם ←",
+  "streakCelebration.milestoneDays": "ימים"
 }

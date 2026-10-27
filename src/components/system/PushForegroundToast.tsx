@@ -27,6 +27,8 @@ import {
   usePushToastStore,
   type ForegroundPushToast,
 } from '@/lib/native/usePushToastStore';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 const AUTO_DISMISS_MS = 5000;
 
@@ -34,6 +36,7 @@ const AUTO_DISMISS_MS = 5000;
 
 function PushToastCard({ toast }: { toast: ForegroundPushToast }) {
   const dismiss = usePushToastStore((s) => s.dismiss);
+  const t = useT(common);
 
   // Auto-dismiss timer — reset if the same toast re-mounts (shouldn't happen
   // in practice since each toast has a unique `id`).
@@ -97,7 +100,7 @@ function PushToastCard({ toast }: { toast: ForegroundPushToast }) {
             shrink-0 p-1 rounded-lg transition-colors
             ${isSystem ? 'hover:bg-white/10' : 'hover:bg-slate-100'}
           `}
-          aria-label="סגור התראה"
+          aria-label={t('ui.pushToast.dismiss')}
         >
           <X className={`w-4 h-4 ${isSystem ? 'text-slate-400' : 'text-slate-500'}`} />
         </button>
@@ -114,13 +117,14 @@ function PushToastCard({ toast }: { toast: ForegroundPushToast }) {
  */
 export default function PushForegroundToast() {
   const queue = usePushToastStore((s) => s.queue);
+  const t = useT(common);
 
   return (
     <div
       className="fixed top-0 inset-x-0 z-[190] flex flex-col items-center gap-2 pointer-events-none px-4 pt-14"
       role="status"
       aria-live="polite"
-      aria-label="התראות פוש בזמן אמת"
+      aria-label={t('ui.pushToast.region')}
     >
       <AnimatePresence mode="sync">
         {queue.map((toast) => (
