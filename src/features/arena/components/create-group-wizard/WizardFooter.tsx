@@ -41,7 +41,7 @@ export function WizardFooter({
       className={`flex-shrink-0 px-5 pt-4 pb-4 border-t ${v2 ? 'border-v2-hairline' : 'border-gray-100'}`}
       style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
     >
-      <div className="flex items-center gap-3" dir="rtl">
+      <div className="flex items-center gap-3">
         {/* Back */}
         <button
           onClick={handleBack}
@@ -62,7 +62,7 @@ export function WizardFooter({
             }
           >
             {outreachMode ? t('createGroup.footer.nextOutreach') : t('createGroup.footer.next')}
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4 ltr:-scale-x-100" />
           </button>
         ) : (
           <button

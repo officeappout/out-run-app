@@ -84,7 +84,7 @@ export function StepType({
         ))}
       </div>
       {DEFAULT_PRIVATE_TYPES.has(form.groupType) && (
-        <p className="text-[11px] text-cyan-600 font-semibold text-right flex items-center gap-1 justify-end">
+        <p className="text-[11px] text-cyan-600 font-semibold text-start flex items-center gap-1 justify-end">
           {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}🔒 ברירת-מחדל פרטי — ניתן לשנות בשלב הפרטיות
         </p>
       )}

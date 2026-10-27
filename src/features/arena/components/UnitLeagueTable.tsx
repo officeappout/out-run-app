@@ -103,7 +103,7 @@ export function UnitLeagueTableView({
   const activeOpt = RANGE_OPTIONS.find((o) => o.value === range) ?? RANGE_OPTIONS[0];
 
   return (
-    <section dir="rtl">
+    <section>
       <BoardCard
         title={t('leagues.units.title')}
         subtitle={
@@ -132,7 +132,7 @@ export function UnitLeagueTableView({
                   key={opt.value}
                   type="button"
                   onClick={() => { setRange(opt.value); setIsOpen(false); }}
-                  className={`w-full flex items-center gap-2 text-right px-3.5 py-2.5 text-[14px] font-bold ${
+                  className={`w-full flex items-center gap-2 text-start px-3.5 py-2.5 text-[14px] font-bold ${
                     opt.value === range ? 'text-v2-deep' : 'text-v2-ink hover:bg-v2-surface'
                   }`}
                 >

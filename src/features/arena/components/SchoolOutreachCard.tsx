@@ -142,7 +142,6 @@ export default function SchoolOutreachCard({
   return (
     <div
       className={`bg-gradient-to-br ${copy.cardGradient} border ${copy.cardBorder} rounded-2xl p-5 shadow-sm`}
-      dir="rtl"
     >
       <div className="flex items-start gap-3">
         <div

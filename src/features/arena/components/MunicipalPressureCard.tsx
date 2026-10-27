@@ -118,7 +118,7 @@ export default function MunicipalPressureCard({ cityName, authority }: Municipal
   }
 
   return (
-    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/60 rounded-2xl p-5 shadow-sm" dir="rtl">
+    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/60 rounded-2xl p-5 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
           <Megaphone className="w-5 h-5 text-amber-600" />

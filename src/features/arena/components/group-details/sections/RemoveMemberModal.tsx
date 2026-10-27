@@ -35,7 +35,6 @@ export default function RemoveMemberModal({ member, removing, onCancel, onConfir
             transition={{ type: 'spring', damping: 24, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
             className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-xs shadow-2xl space-y-4"
-            dir="rtl"
           >
             <div className="text-center space-y-1">
               <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-3">

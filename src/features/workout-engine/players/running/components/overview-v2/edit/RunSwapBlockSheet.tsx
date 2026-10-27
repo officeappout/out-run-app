@@ -82,7 +82,7 @@ export default function RunSwapBlockSheet({ open, groups, color, onSwap, onClose
         </div>
       )}
     >
-      <div dir="rtl" className="pb-1">
+      <div className="pb-1">
         {groups.map((g) => (
           <section key={g.level} aria-label={t(LEVEL_TITLE_KEY[g.level])}>
             <div className="mt-4 flex items-center gap-2">
