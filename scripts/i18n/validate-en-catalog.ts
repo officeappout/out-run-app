@@ -1,6 +1,6 @@
 // @ts-nocheck -- standalone tsx script (scripts/ is not compiled with the app tsconfig target)
 /**
- * English catalog validator (docs/i18n/EN-PILOT-PLAN.md §4, checks V1-V14).
+ * English catalog validator (docs/i18n/EN-PILOT-PLAN.md §4, checks V1-V14, V16).
  * Pure Node + the ICU parser the runtime uses (@formatjs/icu-messageformat-parser, the parser
  * inside intl-messageformat). No tsc, no network.
  *
@@ -164,6 +164,11 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
       if (!eb) { add(key, 'V4', 'error', `plural {${n}} is not a plural in en`); continue; }
       for (const b of eb) if (['zero', 'two', 'few', 'many'].includes(b)) add(key, 'V4', 'error', `English plural has category "${b}"`);
       for (const b of hb) if (b.startsWith('=') && !eb.includes(b)) add(key, 'V4', 'error', `explicit branch ${b} dropped`);
+    }
+    // V16 every English plural has one (or =1) and other
+    for (const [n, eb] of e.plurals) {
+      if (!eb.includes('one') && !eb.includes('=1')) add(key, 'V16', 'error', `English plural {${n}} lacks "one" (or =1)`);
+      if (!eb.includes('other')) add(key, 'V16', 'error', `English plural {${n}} lacks "other"`);
     }
     for (const n of e.plurals.keys()) if (!h.plurals.has(n)) add(key, 'V4', 'warn', `plural {${n}} added in en (Hebrew has none)`);
 

@@ -79,6 +79,12 @@ describe('validator catches defects', () => {
     expect(run('א {n}', 'a')).toContain('V3');
     expect(run('א {n}', 'a {n} {m}')).toContain('V3');
   });
+  it('V16 English plural without one or other', () => {
+    expect(run('{n, plural, one {א} other {ב}}', '{n, plural, other {a}}')).toContain('V16');
+    expect(run('{n, plural, one {א} other {ב}}', '{n, plural, one {a} other {b}}')).not.toContain('V16');
+    expect(run('{n, plural, =1 {א} other {ב}}', '{n, plural, =1 {a} other {b}}')).not.toContain('V16');
+    expect(run('{n, plural, one {א} other {ב}}', '{n, plural, one {a}}')).toContain('V2'); // missing other fails to parse
+  });
   it('V4 plural turned into text, or a "two" category', () => {
     expect(run('{n, plural, one {א} other {ב}}', 'a {n}')).toContain('V4');
     expect(run('{n, plural, one {א} other {ב}}', '{n, plural, one {a} two {b} other {c}}')).toContain('V4');
