@@ -34,7 +34,7 @@ export default function ExerciseRowDetails({ exercise, workoutLocation, classNam
   if (!d.hasAny) return null;
 
   return (
-    <div dir="rtl" className={className} style={{ fontFamily: 'var(--font-simpler)' }} data-exercise-row-details="">
+    <div className={className} style={{ fontFamily: 'var(--font-simpler)' }} data-exercise-row-details="">
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}

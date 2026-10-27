@@ -59,7 +59,6 @@ export default function ResumeWorkoutDialog({ elapsedTime, onResume, onStartOver
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ type: 'spring', damping: 22, stiffness: 300 }}
         className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
-        dir="rtl"
       >
         <div className="w-14 h-14 mx-auto mb-5 rounded-full border-2 border-[#00AEEF] flex items-center justify-center">
           <History size={22} className="text-[#00AEEF]" />

@@ -33,7 +33,7 @@ export default function InviteBonusCard({ scopeName }: { scopeName?: string | nu
   };
 
   return (
-    <div className="rounded-v2-card border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-4 text-right" dir="rtl">
+    <div className="rounded-v2-card border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-4 text-start">
       <div className="flex items-start gap-3">
         <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[14px] bg-white text-v2-deep">
           <UserPlus size={20} strokeWidth={2.4} aria-hidden />

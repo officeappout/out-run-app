@@ -149,7 +149,6 @@ export default function DataEntryModal({
             transition={{ type: 'spring', damping: 22, stiffness: 300 }}
             className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-xs shadow-xl overflow-hidden"
             onClick={e => e.stopPropagation()}
-            dir="rtl"
           >
             {/* ── Header ─────────────────────────────────────────────────── */}
             <div className="p-5 pb-2">
@@ -170,7 +169,7 @@ export default function DataEntryModal({
                 </div>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0 mr-[-4px]"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0 ms-[-4px]"
                 >
                   <X size={18} className="text-slate-400" />
                 </button>

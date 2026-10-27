@@ -105,7 +105,6 @@ export function BoardSheet({ isOpen, onClose, title, children }: BoardSheetProps
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            dir="rtl"
             initial={reduce ? { opacity: 0 } : { y: '100%' }}
             animate={reduce ? { opacity: 1 } : { y: 0 }}
             exit={reduce ? { opacity: 0 } : { y: '100%' }}
@@ -178,7 +177,7 @@ export function ParticipantPeek({ entry, myEntry, totalParticipants, mode, isSeg
         <div className="min-w-0 flex-1">
           <div className="text-[19px] font-black text-v2-ink truncate tracking-v2-tight">
             {entry.name}
-            {entry.isCurrentUser && <span className="text-[13px] font-bold text-v2-deep mr-1.5">{t('leagues.sheets.peek.me')}</span>}
+            {entry.isCurrentUser && <span className="text-[13px] font-bold text-v2-deep ms-1.5">{t('leagues.sheets.peek.me')}</span>}
           </div>
           <div className="flex items-center gap-1.5 mt-1 text-[13px] font-bold text-v2-muted">
             {isFirst && <Crown size={14} strokeWidth={2.4} className="text-[#b37400]" fill="#ffc83d" aria-hidden />}

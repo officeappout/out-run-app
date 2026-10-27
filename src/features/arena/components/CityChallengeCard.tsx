@@ -41,7 +41,7 @@ export default function CityChallengeCard({ cityId, cityName }: { cityId: string
   const month = monthLabel(new Date().getMonth(), t.locale, 'long');
 
   return (
-    <div className="rounded-v2-card bg-white p-4 shadow-v2-card text-right" dir="rtl">
+    <div className="rounded-v2-card bg-white p-4 shadow-v2-card text-start">
       <div className="flex items-center gap-3">
         <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[14px] bg-v2-tint text-v2-deep">
           <Target size={20} strokeWidth={2.4} aria-hidden />

@@ -64,7 +64,7 @@ export default function RestProgressBar({
       }}
     >
       <div
-        className="absolute inset-y-0 right-0 rounded-[8px]"
+        className="absolute inset-y-0 start-0 rounded-[8px]"
         style={{
           width: `${progress}%`,
           backgroundColor: isEnding ? '#FF8A00' : '#00BAF7',

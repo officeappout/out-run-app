@@ -38,7 +38,7 @@ export function LeagueSelectorButton({
   const t = useT(community);
   if (isLoading) {
     return (
-      <div className="w-full flex items-center gap-3 rounded-v2-card px-3.5 py-3 bg-white shadow-v2-card mb-3" dir="rtl">
+      <div className="w-full flex items-center gap-3 rounded-v2-card px-3.5 py-3 bg-white shadow-v2-card mb-3">
         <div className="w-11 h-11 rounded-[14px] bg-v2-surface animate-pulse flex-shrink-0" />
         <div className="flex-1 min-w-0 space-y-1.5">
           <div className="h-3.5 w-32 rounded bg-v2-surface animate-pulse" />
@@ -57,7 +57,6 @@ export function LeagueSelectorButton({
       aria-haspopup="dialog"
       aria-expanded={expanded}
       className="w-full flex items-center gap-3 rounded-v2-card px-3.5 py-3 bg-white shadow-v2-card active:scale-[0.97] transition-transform ease-v2 mb-3"
-      dir="rtl"
     >
       {activeCard?.logoUrl ? (
         <span className="w-11 h-11 rounded-[14px] overflow-hidden flex-shrink-0 ring-1 ring-inset ring-v2-hairline">
@@ -67,7 +66,7 @@ export function LeagueSelectorButton({
       ) : (
         <IconTile icon={LeagueIcon} tone="accent" size="lg" className="!w-11 !h-11" />
       )}
-      <div className="flex-1 min-w-0 text-right">
+      <div className="flex-1 min-w-0 text-start">
         <div className="flex items-center gap-1.5">
           <span className="text-[16px] font-black text-v2-ink truncate tracking-v2-tight">{activeCard?.name ?? t('leagues.selector.placeholder')}</span>
           <ChevronDown size={16} strokeWidth={2.4} className="text-v2-muted flex-shrink-0" />
