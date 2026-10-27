@@ -460,6 +460,8 @@ export default function HomePage() {
   const [homeTourClosed, setHomeTourClosed] = useState(false);
   // enable_schedule_tutorial_v1: the schedule tutorial may still show (holds the welcome drawer and home tour back). Off = always false.
   const [schedTutBusy, setSchedTutBusy] = useState(false);
+  // The schedule tutorial serves this user instead of the old lifestyle bridge (Part C).
+  const [schedTutOwnsBridge, setSchedTutOwnsBridge] = useState(false);
   const homeTodayCardPresent = useCoachTargetPresent(FIRST_RUN_COACH.homeWorkout, firstRunToursOn && !homeTourClosed);
   useEffect(() => {
     if (consumeWhatNowPlanArrival(window.sessionStorage)) setWhatNowPlanArrival(true);
@@ -1722,7 +1724,8 @@ export default function HomePage() {
   const shouldShowBridge =
     profile?.onboardingStatus === 'PENDING_LIFESTYLE' &&
     !profile?.lifestyle?.scheduleDays &&
-    !showLifestyleWizard;
+    !showLifestyleWizard &&
+    !schedTutOwnsBridge;
 
   const handleStartWizard = useCallback(() => {
     setShowLifestyleWizard(true);
@@ -4231,6 +4234,7 @@ export default function HomePage() {
         calm={!(showPlanner || showLifestyleWizard || builderOpen || !!editEntry || !!selectedWorkout || shouldShowBridge ||
           plusDrawerOpen || composeOpen || wizardOpen || reportOpen)}
         onBusyChange={setSchedTutBusy}
+        onReplacesBridgeChange={setSchedTutOwnsBridge}
         onFinished={(r) => {
           refreshProfile().catch(() => {});
           if (r.startWorkout) void handleHeroPress();

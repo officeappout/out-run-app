@@ -17,7 +17,7 @@ describe('onboarding — signup v2 / what-now / program-path keys', () => {
   it('owns exactly the expected keys per prefix', () => {
     const keys = Object.keys(he);
     expect(keys.filter((k) => k.startsWith('signup.'))).toHaveLength(115);
-    expect(keys.filter((k) => k.startsWith('whatNow.'))).toHaveLength(9);
+    expect(keys.filter((k) => k.startsWith('whatNow.'))).toHaveLength(11);
     expect(keys.filter((k) => k.startsWith('programPath.'))).toHaveLength(54);
   });
 
@@ -126,6 +126,8 @@ describe('onboarding — signup v2 / what-now / program-path keys', () => {
       ['whatNow.plan.title', 'תוכנית אישית בשבילך'],
       ['whatNow.plan.sub', 'כוח, ריצה או שניהם. נבנית לפי הרמה, הזמן והמקום שלך.'],
       ['whatNow.plan.cta', '2 דק׳ · בואו נבנה '],
+      ['whatNow.plan.titleStrength', 'תוכנית כוח אישית בשבילך'],
+      ['whatNow.plan.subStrength', 'נבנית לפי הרמה, הזמן והמקום שלך.'],
       ['whatNow.kelly.initial', 'ק'],
       ['whatNow.kelly.title', 'משהו אחר? לדבר עם קלי'],
       ['whatNow.kelly.sub', 'ספרו במילים שלכם, וקלי יבנה לכם'],

@@ -11,6 +11,17 @@ interface DoneDoc {
   category?: string | null;
 }
 
+const SHORT_SESSION_KINDS = new Set(['strength', 'hybrid', 'recovery']);
+
+/**
+ * The short optional session counts as done on a day without a scheduled workout when any
+ * strength / hybrid / recovery session was finished today (there is no core-tabata or mobility
+ * marker on the saved workout yet; runs and walks are not a short session).
+ */
+export function optionalDoneOf(docs: ReadonlyArray<DoneDoc> | null | undefined): boolean {
+  return (docs ?? []).some((d) => [d.workoutType, d.category, d.activityType].some((k) => typeof k === 'string' && SHORT_SESSION_KINDS.has(k)));
+}
+
 /** Minutes of today's strength docs (duration is seconds); 0 when there are none. */
 export function strengthMinutesOf(docs: ReadonlyArray<DoneDoc> | null | undefined): number {
   const sec = (docs ?? [])

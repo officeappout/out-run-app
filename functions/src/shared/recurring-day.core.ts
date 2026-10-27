@@ -27,7 +27,14 @@ export type RecurringTemplateLike = Partial<Record<string, string[] | null | und
 export interface RecurringReminderTimes {
   runningTime?: string | null;
   strengthTime?: string | null;
+  /**
+   * Per-day strength time ('HH:MM') keyed by day letter (lifestyle.reminders.strengthTimesByDay,
+   * written by the schedule tutorial). Optional: absent = the rule below, unchanged.
+   */
+  strengthTimesByDay?: Partial<Record<string, string | null | undefined>> | null;
 }
+
+const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** The category a template session is (the reminder's @אימון label). */
 export type RecurringSessionCategory = 'strength' | 'cardio';
@@ -59,8 +66,11 @@ export function dayLetterOfDateKey(dateKey: string): string {
  * Start time of a template session. Template sessions are strength-program
  * assignments (and the running bridge's own id), so strengthTime wins, then
  * runningTime, then 07:00 — exactly hydrateFromTemplate's rule since 05.10.
+ * With `dayLetter`, that day's own time (strengthTimesByDay) comes first.
  */
-export function recurringStartTime(reminders?: RecurringReminderTimes | null): string {
+export function recurringStartTime(reminders?: RecurringReminderTimes | null, dayLetter?: string): string {
+  const byDay = dayLetter ? reminders?.strengthTimesByDay?.[dayLetter] : undefined;
+  if (typeof byDay === 'string' && HHMM_RE.test(byDay)) return byDay;
   const s = reminders?.strengthTime;
   if (typeof s === 'string' && s) return s;
   const r = reminders?.runningTime;
@@ -79,11 +89,12 @@ export function recurringDayPlan(
    */
   runningProgramId?: string | null,
 ): RecurringDayPlan {
-  const ids = template?.[dayLetterOfDateKey(dateKey)];
+  const letter = dayLetterOfDateKey(dateKey);
+  const ids = template?.[letter];
   if (!Array.isArray(ids)) return { kind: 'none' };
   const programIds = ids.filter((x): x is string => typeof x === 'string' && x.length > 0);
   if (programIds.length === 0) return { kind: 'rest' };
-  const startTime = recurringStartTime(reminders);
+  const startTime = recurringStartTime(reminders, letter);
   return {
     kind: 'training',
     sessions: programIds.map((programId) => ({
