@@ -28,6 +28,8 @@ import {
 } from '@/features/user/places/store/useSavedPlacesStore';
 import { useRecentSearchesStore } from '../store/useRecentSearchesStore';
 import SearchOverlayV2 from './SearchOverlayV2';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export type NavHubState = 'idle' | 'searching' | 'navigating';
 
@@ -74,11 +76,11 @@ interface NavigationHubProps {
     userPos?: { lat: number; lng: number } | null;
 }
 
-const ACTIVITY_META: Array<{ id: ActivityType; label: string; icon: React.ElementType }> = [
-    { id: 'walking', label: 'הליכה', icon: Footprints },
-    { id: 'running', label: 'ריצה', icon: Activity },
-    { id: 'cycling', label: 'רכיבה', icon: Bike },
-];
+const ACTIVITY_META = [
+    { id: 'walking', labelKey: 'navHub.activity.walking', icon: Footprints },
+    { id: 'running', labelKey: 'navHub.activity.running', icon: Activity },
+    { id: 'cycling', labelKey: 'navHub.activity.cycling', icon: Bike },
+] as const satisfies ReadonlyArray<{ id: ActivityType; labelKey: string; icon: React.ElementType }>;
 
 /**
  * Quick action tiles inside the full-screen search overlay.
@@ -86,18 +88,18 @@ const ACTIVITY_META: Array<{ id: ActivityType; label: string; icon: React.Elemen
  * `saved` / `parks` are still input-stuffing intents (no persistence).
  */
 type QuickActionId = 'home' | 'work' | 'saved' | 'parks';
-const QUICK_ACTIONS: Array<{
+const QUICK_ACTIONS = [
+  { id: 'home', labelKey: 'navHub.quick.home', icon: Home, color: 'text-cyan-500', bg: 'bg-cyan-50' },
+  { id: 'work', labelKey: 'navHub.quick.work', icon: Briefcase, color: 'text-purple-500', bg: 'bg-purple-50' },
+  { id: 'saved', labelKey: 'navHub.quick.saved', icon: Bookmark, color: 'text-amber-500', bg: 'bg-amber-50' },
+  { id: 'parks', labelKey: 'navHub.quick.parks', icon: Trees, color: 'text-green-500', bg: 'bg-green-50' },
+] as const satisfies ReadonlyArray<{
   id: QuickActionId;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
   color: string;
   bg: string;
-}> = [
-  { id: 'home', label: 'בית', icon: Home, color: 'text-cyan-500', bg: 'bg-cyan-50' },
-  { id: 'work', label: 'עבודה', icon: Briefcase, color: 'text-purple-500', bg: 'bg-purple-50' },
-  { id: 'saved', label: 'שמורים', icon: Bookmark, color: 'text-amber-500', bg: 'bg-amber-50' },
-  { id: 'parks', label: 'פארקים', icon: Trees, color: 'text-green-500', bg: 'bg-green-50' },
-];
+}>;
 
 export default function NavigationHub({
     navState,
@@ -111,6 +113,7 @@ export default function NavigationHub({
     onSetSavedPlace,
     userPos,
 }: NavigationHubProps) {
+    const t = useT(map);
     const localInputRef = useRef<HTMLInputElement>(null);
     const actualInputRef = inputRef || localInputRef;
     const savedPlaces = useSavedPlacesStore((s) => s.places);
@@ -215,7 +218,7 @@ export default function NavigationHub({
                         <input
                             ref={actualInputRef}
                             type="text"
-                            placeholder="לאן רוצים להגיע?"
+                            placeholder={t('navHub.search.placeholder')}
                             value={searchQuery}
                             onChange={(e) => onSearchChange(e.target.value)}
                             className="flex-1 bg-transparent border-none outline-none text-[16px] text-gray-900 text-right font-semibold placeholder:text-gray-500"
@@ -231,7 +234,7 @@ export default function NavigationHub({
                             onClick={() => { onSearchChange(''); onStateChange('idle'); }}
                             className="text-cyan-600 text-xs font-bold ms-1"
                         >
-                            ביטול
+                            {t('navHub.cancel')}
                         </button>
                     </div>
                 </div>
@@ -247,13 +250,13 @@ export default function NavigationHub({
                                 horizontal stripe for thumb-comfortable
                                 scanning. */}
                             <div className="grid grid-cols-4 gap-2.5 mb-7">
-                                {QUICK_ACTIONS.map(({ id, label, icon: Icon, color, bg }) => {
+                                {QUICK_ACTIONS.map(({ id, labelKey, icon: Icon, color, bg }) => {
                                     const isSavedSlot = id === 'home' || id === 'work';
                                     const slot = isSavedSlot ? savedPlaces[id as SavedPlaceKind] : null;
                                     return (
                                         <button
                                             key={id}
-                                            onClick={() => handleQuickActionTap(id, label)}
+                                            onClick={() => handleQuickActionTap(id, t(labelKey))}
                                             className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-[0.97] ring-1 ring-black/5 shadow-[0_3px_10px_rgba(0,0,0,0.04)]"
                                             style={{
                                                 backgroundColor: 'rgba(255,255,255,0.6)',
@@ -265,11 +268,11 @@ export default function NavigationHub({
                                                 <Icon size={18} className={color} />
                                             </div>
                                             <span className="text-[11px] font-bold text-gray-800 leading-none">
-                                                {label}
+                                                {t(labelKey)}
                                             </span>
                                             {isSavedSlot && !slot && (
                                                 <span className="text-[9px] text-gray-400 leading-none -mt-0.5">
-                                                    הקש להגדרה
+                                                    {t('navHub.quick.setHint')}
                                                 </span>
                                             )}
                                         </button>
@@ -292,7 +295,7 @@ export default function NavigationHub({
                                         <div className="flex items-center gap-2">
                                             <Clock size={12} className="text-gray-400" />
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                                חיפושים אחרונים
+                                                {t('navHub.recents.title')}
                                             </span>
                                         </div>
                                         <button
@@ -300,7 +303,7 @@ export default function NavigationHub({
                                             onClick={clearRecents}
                                             className="text-[10px] font-bold text-gray-400 hover:text-gray-600 transition-colors"
                                         >
-                                            נקה
+                                            {t('navHub.recents.clear')}
                                         </button>
                                     </div>
                                     <div className="space-y-0.5">
@@ -332,7 +335,7 @@ export default function NavigationHub({
                                                         type="button"
                                                         onClick={() => removeRecent(entry.text)}
                                                         className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors opacity-0 group-hover:opacity-100"
-                                                        aria-label={`הסר את ${entry.text} מההיסטוריה`}
+                                                        aria-label={t('navHub.recents.remove', { text: entry.text })}
                                                     >
                                                         <X size={11} />
                                                     </button>
@@ -348,7 +351,7 @@ export default function NavigationHub({
                             <div className="flex items-center gap-2 mb-3 px-1">
                                 <Search size={12} className="text-gray-400" />
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                    תוצאות חיפוש
+                                    {t('navHub.results.title')}
                                 </span>
                                 <span className="text-[10px] text-gray-300">({displayItems.length})</span>
                             </div>
@@ -356,7 +359,7 @@ export default function NavigationHub({
                             {displayItems.length === 0 && !isSearching ? (
                                 <div className="text-center py-12 text-gray-400">
                                     <MapPin size={32} className="mx-auto mb-3 opacity-50" />
-                                    <p className="text-sm font-medium text-gray-500">לא נמצאו תוצאות</p>
+                                    <p className="text-sm font-medium text-gray-500">{t('navHub.results.none')}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-1">
@@ -383,7 +386,7 @@ export default function NavigationHub({
                                                   </span>
                                                   {item._source && item._source !== 'mapbox' && (
                                                     <span className={`text-[10px] font-bold ${item._source === 'park' ? 'text-emerald-500' : 'text-blue-500'}`}>
-                                                      {item._source === 'park' ? 'פארק' : 'מסלול'}
+                                                      {item._source === 'park' ? t('navHub.source.park') : t('navHub.source.route')}
                                                     </span>
                                                   )}
                                                 </div>

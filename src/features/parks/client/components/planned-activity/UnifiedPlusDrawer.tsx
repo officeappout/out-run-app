@@ -21,6 +21,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Sheet from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { X, Footprints, Users, MapPin, Zap, ChevronLeft } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface UnifiedPlusDrawerProps {
   isOpen: boolean;
@@ -49,6 +51,7 @@ export default function UnifiedPlusDrawer({
   onReport,
   onAddWorkout,
 }: UnifiedPlusDrawerProps) {
+  const t = useT(map);
   const select = (fn: () => void) => () => { onClose(); fn(); };
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   // v2 look (enable_home_v2) — the drawer opens from home and the map.
@@ -56,7 +59,7 @@ export default function UnifiedPlusDrawer({
   const uid = useUserStore((st) => st.profile?.id ?? null);
   const invite = () => {
     if (!uid) return;
-    const text = `בוא/י להתאמן איתי ב-OUT 💪 ${APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK}?ref=${uid}`;
+    const text = t('plus.invite.text', { link: `${APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK}?ref=${uid}` });
     if (navigator.share) navigator.share({ text }).catch(() => {});
     else if (navigator.clipboard) void navigator.clipboard.writeText(text);
   };
@@ -68,14 +71,14 @@ export default function UnifiedPlusDrawer({
   const activityRows: Row[] = [
     {
       icon: <Footprints size={18} className="text-gray-700" />,
-      label: 'יוצא להתאמן',
-      sublabel: 'שתף שאתה יוצא לאימון — ריצה, הליכה או כוח',
+      label: t('plus.row.goTrain.label'),
+      sublabel: t('plus.row.goTrain.sublabel'),
       onSelect: select(onGoTrain),
     },
     {
       icon: <Users size={18} className="text-gray-700" />,
-      label: 'פתח קבוצה/ליגה',
-      sublabel: 'התחל קהילה או ליגה חדשה',
+      label: t('plus.row.createGroup.label'),
+      sublabel: t('plus.row.createGroup.sublabel'),
       onSelect: select(onCreateGroup),
     },
   ];
@@ -83,14 +86,14 @@ export default function UnifiedPlusDrawer({
   const contributeRows: Row[] = [
     {
       icon: <MapPin size={18} className="text-gray-700" />,
-      label: 'הוסף מיקום',
-      sublabel: 'פארק, גינת כושר או נקודת עניין חדשה',
+      label: t('plus.row.addLocation.label'),
+      sublabel: t('plus.row.addLocation.sublabel'),
       onSelect: select(onAddLocation),
     },
     {
       icon: <Zap size={18} className="text-gray-700" />,
-      label: 'דיווח מהיר',
-      sublabel: 'ציוד פגום, תאורה, ניקיון ועוד',
+      label: t('plus.row.report.label'),
+      sublabel: t('plus.row.report.sublabel'),
       onSelect: select(onReport),
     },
   ];
@@ -142,23 +145,23 @@ export default function UnifiedPlusDrawer({
         portal={false}
         keyboardAware={false}
         backdropStyle={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
-        title="מה תרצה לעשות?"
+        title={t('plus.title')}
       >
         <div className="space-y-4 px-5 pb-4">
           {[
             {
-              title: 'פעילות',
+              title: t('plus.section.activity'),
               rows: [
                 ...(onAddWorkout
-                  ? [{ icon: <CalendarPlus size={18} />, label: 'הוספת אימון ללו״ז', sublabel: 'מתי, כמה זמן ואיזה סוג', onSelect: select(onAddWorkout) }]
+                  ? [{ icon: <CalendarPlus size={18} />, label: t('plus.row.addWorkout.label'), sublabel: t('plus.row.addWorkout.sublabel'), onSelect: select(onAddWorkout) }]
                   : []),
                 activityRows[0],
               ],
             },
             {
-              title: 'חברתי',
+              title: t('plus.section.social'),
               rows: [
-                { icon: <UserPlus size={18} />, label: 'הזמנת חבר', sublabel: '+50 נק׳ לשכונה ולעיר שלך כשהוא מצטרף', onSelect: select(invite) },
+                { icon: <UserPlus size={18} />, label: t('plus.row.invite.label'), sublabel: t('plus.row.invite.sublabel'), onSelect: select(invite) },
                 activityRows[1],
               ],
             },
@@ -169,7 +172,7 @@ export default function UnifiedPlusDrawer({
             </div>
           ))}
           <div className="space-y-2">
-            <div className="px-1 text-[13px] font-extrabold text-v2-deep">תרומה למפה</div>
+            <div className="px-1 text-[13px] font-extrabold text-v2-deep">{t('plus.section.contribute')}</div>
             <div className="grid grid-cols-2 gap-2">
               {contributeRows.map((row) => (
                 <button
@@ -217,10 +220,10 @@ export default function UnifiedPlusDrawer({
             </div>
 
             <div className="flex items-center justify-between px-5 pb-2">
-              <h3 className="text-base font-black text-gray-900">מה תרצה לעשות?</h3>
+              <h3 className="text-base font-black text-gray-900">{t('plus.title')}</h3>
               <button
                 onClick={onClose}
-                aria-label="סגירה"
+                aria-label={t('plus.close')}
                 className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all"
               >
                 <X className="w-4 h-4" />
@@ -229,13 +232,13 @@ export default function UnifiedPlusDrawer({
 
             <div className="px-5 pb-4 space-y-4">
               <div className="space-y-2">
-                <div className="text-[11px] font-bold text-gray-400 px-1">פעילות</div>
+                <div className="text-[11px] font-bold text-gray-400 px-1">{t('plus.section.activity')}</div>
                 <div className="space-y-1.5">
                   {activityRows.map((row) => renderRow(row))}
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="text-[11px] font-bold text-gray-400 px-1">תרומה למפה</div>
+                <div className="text-[11px] font-bold text-gray-400 px-1">{t('plus.section.contribute')}</div>
                 <div className="space-y-1.5">
                   {renderRow(contributeRows[0])}
                   {renderRow(contributeRows[1])}

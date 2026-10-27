@@ -63,7 +63,6 @@ import { Dumbbell, MapPin, Route as RouteIcon, Clock, Eye, AlertTriangle } from 
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
-import { g } from '@/lib/utils/gendered-text';
 import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { getCachedOfficialRoutes } from '@/features/parks/core/services/inventory.service';
 import { isRouteNearby } from '@/features/parks/core/services/geoUtils';
@@ -74,6 +73,8 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import type { PrivacyMode } from '@/types/community.types';
 import type { ActivityType, Route } from '@/features/parks/core/types/route.types';
 import { WalkingIcon, RunIcon, MuscleIcon, getProgramIcon, ICON_MAP } from '@/features/content/programs/core/program-icon.util';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export type ComposeActivityType = 'workout' | 'running' | 'walking';
 type WhereType = 'park' | 'route';
@@ -130,11 +131,11 @@ const WHERE_OPTIONS_FOR: Record<ComposeActivityType, WhereType[]> = {
   walking: ['park', 'route'],
 };
 
-const TYPE_OPTIONS: Array<{ value: ComposeActivityType; label: string; icon: React.ReactNode }> = [
-  { value: 'workout', label: 'כוח', icon: <MuscleIcon className="w-6 h-6" /> },
-  { value: 'running', label: 'ריצה', icon: <RunIcon className="w-6 h-6" /> },
-  { value: 'walking', label: 'הליכה', icon: <WalkingIcon className="w-6 h-6" /> },
-];
+const TYPE_OPTIONS = [
+  { value: 'workout', labelKey: 'plannedActivity.type.workout', icon: <MuscleIcon className="w-6 h-6" /> },
+  { value: 'running', labelKey: 'plannedActivity.type.running', icon: <RunIcon className="w-6 h-6" /> },
+  { value: 'walking', labelKey: 'plannedActivity.type.walking', icon: <WalkingIcon className="w-6 h-6" /> },
+] as const satisfies ReadonlyArray<{ value: ComposeActivityType; labelKey: string; icon: React.ReactNode }>;
 
 const EMPTY_PROGRAMS: Array<{ templateId: string; name?: string }> = [];
 const EMPTY_TRACKS: Record<string, { currentLevel?: number }> = {};
@@ -157,7 +158,7 @@ export default function PlannedActivityComposeSheet({
   onCreated,
 }: PlannedActivityComposeSheetProps) {
   const router = useRouter();
-  const gender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
+  const t = useT(map);
   // GPS is the only signal for park/route proximity now (06.10.2026 fix) —
   // same shared store useNearbyParks.ts/useRouteGeneration.ts already read,
   // never this sheet's own watcher (see useGPSStore's architecture contract).
@@ -345,7 +346,7 @@ export default function PlannedActivityComposeSheet({
 
       await createPlannedSession({
         userId: auth.currentUser.uid,
-        displayName: auth.currentUser.displayName ?? auth.currentUser.email ?? 'משתמש',
+        displayName: auth.currentUser.displayName ?? auth.currentUser.email ?? 'משתמש', // i18n-allow-hebrew: data — fallback name written to planned_sessions
         photoURL: auth.currentUser.photoURL,
         ...placeFields,
         ...(programName ? { programName } : {}),
@@ -376,7 +377,7 @@ export default function PlannedActivityComposeSheet({
       {/* Q1 — Type */}
       <div>
         <label className={`${LBL} mb-2`}>
-          <Dumbbell className="w-3.5 h-3.5" /> סוג
+          <Dumbbell className="w-3.5 h-3.5" /> {t('plannedActivity.label.type')}
         </label>
         <div className="flex gap-2">
           {TYPE_OPTIONS.map((opt) => (
@@ -390,7 +391,7 @@ export default function PlannedActivityComposeSheet({
               }`}
             >
               {opt.icon}
-              <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{opt.label}</span>
+              <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{t(opt.labelKey)}</span>
             </button>
           ))}
         </div>
@@ -403,7 +404,7 @@ export default function PlannedActivityComposeSheet({
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl">
               {getProgramIcon(selectedTrack.id, 'w-4 h-4')}
               <span className="text-xs font-bold text-gray-700">
-                {programName} · רמה {selectedTrack.level}
+                {t('plannedActivity.level', { program: programName ?? '', level: String(selectedTrack.level) })}
               </span>
             </div>
           )
@@ -412,14 +413,14 @@ export default function PlannedActivityComposeSheet({
             <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-amber-800 leading-tight">
-                {g(gender, 'עדיין לא הגדרת תוכנית/רמת כוח', 'עדיין לא הגדרת תוכנית/רמת כוח')}
+                {t('plannedActivity.noLevel')}
               </p>
               <button
                 type="button"
                 onClick={() => { onClose(); router.push('/profile'); }}
                 className="mt-1.5 text-xs font-bold text-amber-700 underline underline-offset-2"
               >
-                הגדר רמת כוח ←
+                {t('plannedActivity.setLevel')}
               </button>
             </div>
           </div>
@@ -431,7 +432,7 @@ export default function PlannedActivityComposeSheet({
         <div className="flex items-center justify-between mb-1.5">
           <label className={LBL}>
             {whereType === 'route' ? <RouteIcon className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
-            איפה <span className="text-red-400">*</span>
+            {t('plannedActivity.label.where')}<span className="text-red-400">*</span>
           </label>
           {whereOptions.length > 1 && (
             <div className="flex gap-1 bg-gray-50 rounded-lg p-0.5">
@@ -445,7 +446,7 @@ export default function PlannedActivityComposeSheet({
                       : 'text-gray-400'
                   }`}
                 >
-                  {w === 'route' ? 'מסלול' : 'פארק'}
+                  {w === 'route' ? t('plannedActivity.where.route') : t('plannedActivity.where.park')}
                 </button>
               ))}
             </div>
@@ -470,11 +471,11 @@ export default function PlannedActivityComposeSheet({
               ))}
             </div>
           ) : !coords ? (
-            <div className="text-xs text-gray-400 py-2">לא הצלחנו לאתר את המיקום שלך</div>
+            <div className="text-xs text-gray-400 py-2">{t('plannedActivity.noLocation')}</div>
           ) : parksLoading ? (
-            <div className="text-xs text-gray-400 py-2">טוען פארקים...</div>
+            <div className="text-xs text-gray-400 py-2">{t('plannedActivity.parks.loading')}</div>
           ) : (
-            <div className="text-xs text-gray-400 py-2">לא נמצאו פארקים בקרבתך</div>
+            <div className="text-xs text-gray-400 py-2">{t('plannedActivity.parks.empty')}</div>
           )
         ) : routeOptions.length > 0 ? (
           <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
@@ -493,18 +494,18 @@ export default function PlannedActivityComposeSheet({
             ))}
           </div>
         ) : !coords ? (
-          <div className="text-xs text-gray-400 py-2">לא הצלחנו לאתר את המיקום שלך</div>
+          <div className="text-xs text-gray-400 py-2">{t('plannedActivity.noLocation')}</div>
         ) : routesLoading ? (
-          <div className="text-xs text-gray-400 py-2">טוען מסלולים...</div>
+          <div className="text-xs text-gray-400 py-2">{t('plannedActivity.routes.loading')}</div>
         ) : (
-          <div className="text-xs text-gray-400 py-2">לא נמצאו מסלולים בקרבתך</div>
+          <div className="text-xs text-gray-400 py-2">{t('plannedActivity.routes.empty')}</div>
         )}
       </div>
 
       {/* Q3 — When */}
       <div>
         <label className={`${LBL} mb-2`}>
-          <Clock className="w-3.5 h-3.5" /> מתי
+          <Clock className="w-3.5 h-3.5" /> {t('plannedActivity.label.when')}
         </label>
         <div className="flex gap-2 mb-2">
           {(['now', 'scheduled'] as const).map((w) => (
@@ -517,7 +518,7 @@ export default function PlannedActivityComposeSheet({
                   : OFF
               }`}
             >
-              {w === 'now' ? 'עכשיו' : 'מתוזמן'}
+              {w === 'now' ? t('plannedActivity.when.now') : t('plannedActivity.when.scheduled')}
             </button>
           ))}
         </div>
@@ -534,7 +535,7 @@ export default function PlannedActivityComposeSheet({
                       : OFF
                   }`}
                 >
-                  {d === 'today' ? 'היום' : 'מחר'}
+                  {d === 'today' ? t('plannedActivity.day.today') : t('plannedActivity.day.tomorrow')}
                 </button>
               ))}
             </div>
@@ -546,7 +547,7 @@ export default function PlannedActivityComposeSheet({
       {/* Q4 — Visibility (Decision 3: public/partners only, ghost stays unexposed) */}
       <div>
         <label className={`${LBL} mb-2`}>
-          <Eye className="w-3.5 h-3.5" /> למי גלוי
+          <Eye className="w-3.5 h-3.5" /> {t('plannedActivity.label.visibility')}
         </label>
         <div className="flex gap-2">
           <button
@@ -557,7 +558,7 @@ export default function PlannedActivityComposeSheet({
                 : OFF
             }`}
           >
-            כולם
+            {t('plannedActivity.visibility.all')}
           </button>
           <button
             onClick={() => setVisibility('squad')}
@@ -567,7 +568,7 @@ export default function PlannedActivityComposeSheet({
                 : OFF
             }`}
           >
-            שותפי אימון בלבד
+            {t('plannedActivity.visibility.squad')}
           </button>
         </div>
       </div>
@@ -582,7 +583,7 @@ export default function PlannedActivityComposeSheet({
             : 'w-full py-3 bg-[#00C9F2] hover:bg-[#00B4D8] text-white font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
         }
       >
-        {saving ? 'שומר...' : 'פרסם'}
+        {saving ? t('plannedActivity.saving') : t('plannedActivity.publish')}
       </button>
     </div>
   );
@@ -596,7 +597,7 @@ export default function PlannedActivityComposeSheet({
       <Sheet
         open={isOpen}
         onClose={onClose}
-        title="יוצא להתאמן"
+        title={t('plannedActivity.title')}
         layout="nested"
         scroll="panel"
         zIndex={SHEET_Z.overlay}
@@ -613,7 +614,7 @@ export default function PlannedActivityComposeSheet({
     <ClassicFormSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="יוצא להתאמן"
+      title={t('plannedActivity.title')}
       backdropClassName="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
       panelClassName="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden max-h-[85vh] overflow-y-auto"
     >

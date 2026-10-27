@@ -31,6 +31,8 @@ import HybridStationLayer from '@/features/workout-engine/hybrid/HybridStationLa
 import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
 import { useRouteDirectionAdapt } from './useRouteDirectionAdapt';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 import { useUserStore } from '@/features/user';
 import { isApproachingStation } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import GpsDebugHud from '@/features/workout-engine/players/running/components/FreeRun/GpsDebugHud';
@@ -89,6 +91,7 @@ interface FreeRunLayerProps {
 }
 
 export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps) {
+  const t = useT(map);
   const { setMode, activityType } = useMapMode();
   const { isWorkoutActive } = logic;
 
@@ -404,7 +407,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                       style={{ top: groupBadgeTop }}
                     >
                       <div className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[12.5px] font-extrabold text-v2-deep shadow-v2-ring" dir="rtl">
-                        {`${sideRailParticipants.length + 1} רצים יחד`}
+                        {t('mapLayers.freeRun.together', { count: String(sideRailParticipants.length + 1) })}
                       </div>
                     </div>
                   )}
@@ -432,7 +435,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                         style={{ background: 'rgba(0,122,255,0.82)', backdropFilter: 'blur(8px)' }}
                       >
                         <span>🏃</span>
-                        <span>{sideRailParticipants.length + 1} רצים יחד</span>
+                        <span>{t('mapLayers.freeRun.together', { count: String(sideRailParticipants.length + 1) })}</span>
                       </div>
                     </div>
                   )}
@@ -450,11 +453,11 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors"
                   >
                     <MapPin size={14} />
-                    <span>גלה</span>
+                    <span>{t('mapLayers.freeRun.discover')}</span>
                   </button>
                   <button className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold bg-[#00E5FF] text-white transition-colors">
                     <Navigation size={14} />
-                    <span>חופשי</span>
+                    <span>{t('mapLayers.freeRun.free')}</span>
                   </button>
                 </div>
               </div>
@@ -466,7 +469,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                   className="px-10 py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00BAF7] text-white font-black text-lg shadow-2xl active:scale-[0.97] transition-all flex items-center gap-3"
                 >
                   <Play size={22} fill="white" />
-                  <span>התחל ריצה חופשית</span>
+                  <span>{t('mapLayers.freeRun.start')}</span>
                 </button>
               </div>
             </div>

@@ -6,36 +6,38 @@ import { Eye, EyeOff, Users, Globe, Settings2 } from 'lucide-react';
 import { usePrivacyStore, type PrivacyMode } from '../store/usePrivacyStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { computeAgeGroup } from '@/lib/age';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
-const MODES: Array<{
-  value: PrivacyMode;
-  label: string;
-  sublabel: string;
-  icon: React.FC<{ className?: string }>;
-  color: string;
-}> = [
+const MODES = [
   {
     value: 'ghost',
-    label: 'רוח',
-    sublabel: 'לא נראה לאף אחד',
+    labelKey: 'safecity.privacy.ghost.label',
+    sublabelKey: 'safecity.privacy.ghost.sublabel',
     icon: EyeOff,
     color: 'text-gray-500',
   },
   {
     value: 'squad',
-    label: 'חברים',
-    sublabel: 'רק מי שאני עוקב אחריו',
+    labelKey: 'safecity.privacy.squad.label',
+    sublabelKey: 'safecity.privacy.squad.sublabel',
     icon: Users,
     color: 'text-cyan-500',
   },
   {
     value: 'verified_global',
-    label: 'גלובלי',
-    sublabel: 'כל המאומתים בקבוצת הגיל שלי',
+    labelKey: 'safecity.privacy.verified_global.label',
+    sublabelKey: 'safecity.privacy.verified_global.sublabel',
     icon: Globe,
     color: 'text-green-500',
   },
-];
+] as const satisfies ReadonlyArray<{
+  value: PrivacyMode;
+  labelKey: string;
+  sublabelKey: string;
+  icon: React.FC<{ className?: string }>;
+  color: string;
+}>;
 
 const MODE_ICON: Record<PrivacyMode, React.FC<{ className?: string }>> = {
   ghost: EyeOff,
@@ -50,12 +52,13 @@ const MODE_RING: Record<PrivacyMode, string> = {
 };
 
 export default function PrivacyModeSwitcher() {
+  const t = useT(map);
   const { mode, setMode } = usePrivacyStore();
   const { profile } = useUserStore();
   const [open, setOpen] = useState(false);
 
   const isMinor = computeAgeGroup(profile?.core?.birthDate) === 'minor';
-  const availableModes = isMinor ? MODES.filter(m => m.value === 'ghost') : MODES;
+  const availableModes: ReadonlyArray<(typeof MODES)[number]> = isMinor ? MODES.filter(m => m.value === 'ghost') : MODES;
 
   // Force ghost if stored mode is not allowed for this age group
   useEffect(() => {
@@ -73,7 +76,7 @@ export default function PrivacyModeSwitcher() {
       <button
         onClick={() => setOpen((o) => !o)}
         className={`w-11 h-11 rounded-full bg-white shadow-lg flex items-center justify-center ring-2 ${MODE_RING[safeMode]} active:scale-90 transition-transform`}
-        aria-label="הגדרות פרטיות"
+        aria-label={t('safecity.privacy.aria')}
       >
         {open ? (
           <Settings2 className="w-5 h-5 text-gray-700 animate-spin" style={{ animationDuration: '2s' }} />
@@ -94,7 +97,7 @@ export default function PrivacyModeSwitcher() {
           >
             <div className="px-3 py-2 border-b border-gray-50">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                מצב נראות
+                {t('safecity.privacy.title')}
               </p>
             </div>
 
@@ -127,9 +130,9 @@ export default function PrivacyModeSwitcher() {
                         isActive ? 'text-gray-900' : 'text-gray-700'
                       }`}
                     >
-                      {m.label}
+                      {t(m.labelKey)}
                     </p>
-                    <p className="text-[10px] text-gray-400 truncate">{m.sublabel}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{t(m.sublabelKey)}</p>
                   </div>
                   {isActive && (
                     <div className="w-2 h-2 rounded-full bg-cyan-500 flex-shrink-0" />

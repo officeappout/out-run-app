@@ -10,8 +10,8 @@ import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { WizardData } from './index';
-import { currentUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface Props {
   data: WizardData;
@@ -21,15 +21,15 @@ interface Props {
   submitting: boolean;
 }
 
-/** v2 summary shows the facility's Hebrew name instead of its raw id. */
-const FACILITY_V2_LABELS: Record<ParkFacilityCategory, string> = {
-  gym_park: 'גינת כושר',
-  court: 'מגרש ספורט',
-  route: 'מסלול',
-  zen_spot: 'פינת גוף-נפש',
-  urban_spot: 'אורבן / אקסטרים',
-  nature_community: 'טבע וקהילה',
-};
+/** v2 summary shows the facility's display name instead of its raw id. */
+const FACILITY_V2_LABEL_KEYS = {
+  gym_park: 'wizard.facility.gym_park',
+  court: 'wizard.facility.court',
+  route: 'wizard.facility.route',
+  zen_spot: 'wizard.facility.zen_spot',
+  urban_spot: 'wizard.facility.urban_spot',
+  nature_community: 'wizard.facility.nature_community',
+} as const satisfies Record<ParkFacilityCategory, string>;
 
 const MAX_UPLOAD_DIMENSION = 1600;
 const UPLOAD_JPEG_QUALITY = 0.85;
@@ -112,6 +112,7 @@ async function deleteStorageObject(path: string): Promise<void> {
 }
 
 export default function Step3Photo({ data, updateData, onBack, onSubmit, submitting }: Props) {
+  const t = useT(map);
   const v2 = useWizardV2();
   const { profile } = useUserStore();
   const { showToast } = useToast();
@@ -165,7 +166,7 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
       if (perms.camera !== 'granted' || perms.photos !== 'granted') {
         const requested = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
         if (requested.camera === 'denied' && requested.photos === 'denied') {
-          showToast('error', 'לא ניתן לקבל הרשאות מצלמה/גלריה.');
+          showToast('error', t('wizard.photo.permissionDenied'));
           return;
         }
       }
@@ -195,13 +196,13 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
       const msg = String(err?.message || err || '');
       if (/cancel/i.test(msg)) return; // Capacitor cancellation — silent, same as ProfilePhotoUploader
       console.error('[Step3Photo] Camera capture failed:', err);
-      showToast('error', pickGendered(currentUiGender(), { male: 'שגיאה בהעלאת התמונה. נסה שוב.', female: 'שגיאה בהעלאת התמונה. נסי שוב.', other: 'שגיאה בהעלאת התמונה. נסו שוב.' }));
+      showToast('error', t('wizard.photo.uploadError'));
       setPreview(data.photoUrl);
       updateData({ photoUrl: null, photoStoragePath: null });
     } finally {
       setUploading(false);
     }
-  }, [profile?.id, showToast, replacePreviousUpload, updateData, data.photoUrl]);
+  }, [profile?.id, showToast, replacePreviousUpload, updateData, data.photoUrl, t]);
 
   /** Web fallback only — plain file input, no `capture` attribute so the
    *  browser's normal picker (camera + gallery) is offered. */
@@ -258,11 +259,11 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
 
   if (v2) {
     const summary: { Icon: LucideIcon; text: string }[] = [
-      { Icon: MapPin, text: data.parkName || 'ללא שם' },
-      ...(data.facilityType ? [{ Icon: Tag, text: FACILITY_V2_LABELS[data.facilityType] ?? data.facilityType }] : []),
-      ...(equipmentNames.length > 0 ? [{ Icon: Dumbbell, text: `מתקנים: ${equipmentNames.join(', ')}` }] : []),
-      ...(data.featureTags.length > 0 ? [{ Icon: CircleCheck, text: `${data.featureTags.length} תכונות` }] : []),
-      ...(data.photoUrl ? [{ Icon: CameraIcon, text: 'תמונה צורפה' }] : []),
+      { Icon: MapPin, text: data.parkName || t('wizard.summary.noName') },
+      ...(data.facilityType ? [{ Icon: Tag, text: FACILITY_V2_LABEL_KEYS[data.facilityType] ? t(FACILITY_V2_LABEL_KEYS[data.facilityType]) : data.facilityType }] : []),
+      ...(equipmentNames.length > 0 ? [{ Icon: Dumbbell, text: t('wizard.summary.equipment', { names: equipmentNames.join(', ') }) }] : []),
+      ...(data.featureTags.length > 0 ? [{ Icon: CircleCheck, text: t('wizard.summary.features', { count: String(data.featureTags.length) }) }] : []),
+      ...(data.photoUrl ? [{ Icon: CameraIcon, text: t('wizard.summary.photo') }] : []),
     ];
     return (
       <div className="flex h-full flex-col px-4 pb-6">
@@ -274,12 +275,12 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
           className="hidden"
         />
 
-        <p className={V2_LABEL}>תמונה (לא חובה)</p>
+        <p className={V2_LABEL}>{t('wizard.photo.label')}</p>
 
         {/* Preview or upload area */}
         {preview ? (
           <div className="relative mb-4 overflow-hidden rounded-[20px] shadow-v2-ring">
-            <img src={preview} alt="תצוגה מקדימה" className="h-52 w-full object-cover" />
+            <img src={preview} alt={t('wizard.photo.previewAlt')} className="h-52 w-full object-cover" />
             {uploading && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/70">
                 <Loader2 size={28} className="animate-spin text-v2-accent" />
@@ -288,7 +289,7 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
             <button
               type="button"
               onClick={handleRemove}
-              aria-label="הסרת תמונה"
+              aria-label={t('wizard.photo.remove')}
               className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-v2-down shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
               <Trash2 size={17} strokeWidth={2.4} />
@@ -304,15 +305,15 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
               <CameraIcon size={24} strokeWidth={2.4} />
             </div>
             <div className="text-center">
-              <p className="whitespace-nowrap text-[15px] font-extrabold text-v2-ink">צלמו או בחרו תמונה</p>
-              <p className="mt-1 text-[12px] font-bold text-v2-muted">JPG, PNG עד 10MB</p>
+              <p className="whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{t('wizard.photo.pick')}</p>
+              <p className="mt-1 text-[12px] font-bold text-v2-muted">{t('wizard.photo.hint')}</p>
             </div>
           </button>
         )}
 
         {/* Submit summary */}
         <div className="mb-4 rounded-[20px] bg-white p-4 shadow-v2-ring">
-          <p className="mb-2.5 text-[13px] font-extrabold text-v2-deep">סיכום</p>
+          <p className="mb-2.5 text-[13px] font-extrabold text-v2-deep">{t('wizard.summary.title')}</p>
           <div className="space-y-2">
             {summary.map(({ Icon, text }, i) => (
               <p key={i} className="flex items-start gap-2 text-[14px] font-bold text-v2-ink-2">
@@ -327,7 +328,7 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
         <div className="mt-auto flex items-center gap-3">
           <V2BackButton onClick={onBack} />
           <V2PrimaryButton onClick={onSubmit} disabled={submitting || uploading} loading={submitting} arrow={false}>
-            {submitting ? 'שולח...' : 'שלח לאישור'}
+            {submitting ? t('wizard.sending') : t('wizard.photo.submit')}
           </V2PrimaryButton>
         </div>
       </div>
@@ -344,12 +345,12 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
         className="hidden"
       />
 
-      <p className="text-slate-500 text-xs font-bold mb-3">תמונה (לא חובה)</p>
+      <p className="text-slate-500 text-xs font-bold mb-3">{t('wizard.photo.label')}</p>
 
       {/* Preview or upload area */}
       {preview ? (
         <div className="relative rounded-2xl overflow-hidden mb-4 border border-slate-200">
-          <img src={preview} alt="תצוגה מקדימה" className="w-full h-52 object-cover" />
+          <img src={preview} alt={t('wizard.photo.previewAlt')} className="w-full h-52 object-cover" />
           {uploading && (
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
               <Loader2 size={28} className="text-[#00E5FF] animate-spin" />
@@ -371,25 +372,25 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
             <CameraIcon size={24} className="text-slate-400" />
           </div>
           <div className="text-center">
-            <p className="text-slate-500 text-sm font-medium">צלמו או בחרו תמונה</p>
-            <p className="text-slate-400 text-[11px] mt-1">JPG, PNG עד 10MB</p>
+            <p className="text-slate-500 text-sm font-medium">{t('wizard.photo.pick')}</p>
+            <p className="text-slate-400 text-[11px] mt-1">{t('wizard.photo.hint')}</p>
           </div>
         </button>
       )}
 
       {/* Submit summary */}
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
-        <p className="text-slate-400 text-[11px] font-bold mb-2">סיכום:</p>
+        <p className="text-slate-400 text-[11px] font-bold mb-2">{t('wizard.summary.titleClassic')}</p>
         <div className="space-y-1 text-slate-600 text-xs">
-          <p>📍 {data.parkName || 'ללא שם'}</p>
+          <p>📍 {data.parkName || t('wizard.summary.noName')}</p>
           {data.facilityType && <p>🏷️ {data.facilityType}</p>}
           {equipmentNames.length > 0 && (
-            <p>🏋️ מתקנים: {equipmentNames.join(', ')}</p>
+            <p>🏋️ {t('wizard.summary.equipment', { names: equipmentNames.join(', ') })}</p>
           )}
           {data.featureTags.length > 0 && (
-            <p>✅ {data.featureTags.length} תכונות</p>
+            <p>✅ {t('wizard.summary.features', { count: String(data.featureTags.length) })}</p>
           )}
-          {data.photoUrl && <p>📸 תמונה צורפה</p>}
+          {data.photoUrl && <p>📸 {t('wizard.summary.photo')}</p>}
         </div>
       </div>
 
@@ -399,7 +400,7 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
           onClick={onBack}
           className="px-6 py-3.5 rounded-2xl bg-slate-100 text-slate-600 text-sm font-bold active:scale-[0.98]"
         >
-          חזרה
+          {t('wizard.back')}
         </button>
         <button
           onClick={onSubmit}
@@ -413,10 +414,10 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
           {submitting ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              שולח...
+              {t('wizard.sending')}
             </>
           ) : (
-            'שלח לאישור 🚀'
+            t('wizard.photo.submitClassic')
           )}
         </button>
       </div>

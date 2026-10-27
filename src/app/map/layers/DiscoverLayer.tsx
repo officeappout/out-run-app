@@ -65,6 +65,8 @@ import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapMode
 import RouteGenerationLoader from '@/features/parks/core/components/RouteGenerationLoader';
 import { useMapLogic } from '@/features/parks';
 import { ParkPreview } from '@/features/parks/client/components/park-preview';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 import { MapLayersControl } from '@/features/parks/core/components/MapLayersControl';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useRouteOverviewHandoff } from '@/features/parks/core/hooks/useRouteOverviewHandoff';
@@ -121,6 +123,7 @@ const GRAY_COLOR = '#6B7280';
 // SOCIAL_COMPOSE_UI_ENABLED is false (see feature-flags.ts). 2-button
 // fan-out: report + add-location only, no compose/group options.
 function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () => void }) {
+  const t = useT(map);
   const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="relative flex flex-col items-center gap-2">
@@ -129,14 +132,14 @@ function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () 
           <button
             onClick={() => { onReport(); setIsOpen(false); }}
             className="w-11 h-11 rounded-full shadow-lg flex items-center justify-center bg-amber-500 text-white active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
-            title="דיווח מהיר"
+            title={t('mapLayers.discover.speedDial.report')}
           >
             <Zap size={16} />
           </button>
           <button
             onClick={() => { onAdd(); setIsOpen(false); }}
             className="w-11 h-11 rounded-full shadow-lg flex items-center justify-center bg-emerald-500 text-white active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
-            title="הוסף מיקום"
+            title={t('mapLayers.discover.speedDial.add')}
           >
             <Plus size={16} />
           </button>
@@ -159,10 +162,11 @@ function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () 
 // מסודרות" — see .claude/plans/new-chat-investigation-stateful-fern.md).
 // Rendered only while SOCIAL_COMPOSE_UI_ENABLED is true.
 function PlusFab({ onOpen, v2 = false }: { onOpen: () => void; v2?: boolean }) {
+  const t = useT(map);
   return (
     <button
       onClick={onOpen}
-      aria-label="הוסף"
+      aria-label={t('mapLayers.discover.plusAria')}
       // v2: the white floating "+" from home (one filled gradient per screen).
       className={
         v2
@@ -257,6 +261,7 @@ interface DiscoverLayerProps {
 }
 
 export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter, firstRunTourEligible = false, entryV2Landing = false }: DiscoverLayerProps) {
+  const t = useT(map);
   const router = useRouter();
   // Warm the code-split overlay chunks once the map is idle (first tap stays instant).
   useDiscoverOverlayPreload();
@@ -348,7 +353,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // OverviewTitleBar. Captured per entry point — slot title from the slot, or a
   // derived aerobic+כוח label from the build-yourself drawer. Default is the neutral
   // focusedRoute name.
-  const [overviewTitle, setOverviewTitle] = useState<string>('אימון משולב');
+  const [overviewTitle, setOverviewTitle] = useState<string>(() => t('mapLayers.discover.hybridTitle'));
   // Route-preview chrome active = the hybrid overview drawer is up AND the flag is on.
   // Gates the top chrome (search/pills/layers) off and the blue title bar on. Gated on
   // LOCAL freeRunStep (not the store flag) so the swap happens in the same render pass
@@ -1058,7 +1063,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // overview's own inline draw (composeAndShowOverview) is left byte-identical.
   const drawComposedRoute = useCallback((composed: ComposedHybridSession) => {
     logic.setFocusedRoute({
-      id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath,
+      id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath, // i18n-allow-hebrew: data — composed route display name
       distance: composed.plan.totals.distanceKm,
       // Every resolved stop gets its own marker now (Part 5) — `stations` falls back to
       // the single legacy `station` so a caller that hasn't been re-composed still draws one pin.
@@ -1072,7 +1077,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // of a fully composed plan (which would require the heavy home-workout trio).
   const drawRoutePreview = useCallback((preview: HybridRoutePreview) => {
     logic.setFocusedRoute({
-      id: 'hybrid-route', name: 'אימון משולב', path: preview.routePath,
+      id: 'hybrid-route', name: 'אימון משולב', path: preview.routePath, // i18n-allow-hebrew: data — composed route display name
       distance: preview.distanceKm,
       stationMarkers: preview.stations ?? (preview.station ? [preview.station] : []),
     } as unknown as Route);
@@ -1107,7 +1112,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       // Show the generated route on the LIVE map behind the peekable overview;
       // carry the station location so MapShell drops a marker on it.
       logic.setFocusedRoute({
-        id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath,
+        id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath, // i18n-allow-hebrew: data — composed route display name
         distance: composed.plan.totals.distanceKm,
         stationMarkers: composed.stations ?? (composed.station ? [composed.station] : []),
       } as unknown as Route);
@@ -1874,7 +1879,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                       className="bg-white text-gray-800 text-sm font-semibold px-5 py-2 rounded-full shadow-md ring-1 ring-black/10 active:scale-95 transition-all"
                       dir="rtl"
                     >
-                      חפש באזור זה
+                      {t('mapLayers.discover.searchArea')}
                     </button>
                   </motion.div>
                 )}
@@ -2517,7 +2522,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                     transition={{ duration: 0.25, ease: 'easeInOut' }}
                   >
                     <OverviewTitleBar
-                      title="הצעות מסלולים"
+                      title={t('mapLayers.discover.suggestions')}
                       eyebrow={null}
                       // Hybrid: the closure the carousel's own close button used (reset + idle). Curated: the
                       // existing mode-chip dismiss (clears focus/selection, → idle). Both restore all chrome.
@@ -2636,7 +2641,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
 
             {mapMode === 'freeRun' && hybridComposing && (
               <div className="absolute inset-0 z-[101] flex items-center justify-center bg-black/20 pointer-events-auto">
-                <div className="bg-white rounded-2xl px-5 py-3 text-[14px] font-black text-gray-800 shadow-xl">מכין אימון משולב…</div>
+                <div className="bg-white rounded-2xl px-5 py-3 text-[14px] font-black text-gray-800 shadow-xl">{t('mapLayers.discover.composing')}</div>
               </div>
             )}
 

@@ -18,6 +18,8 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { XP_REWARDS } from '@/types/contribution.types';
 import type { ParkFacilityCategory, ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import type { ParkGymEquipment } from '@/features/content/equipment/gym';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface ContributionWizardProps {
   isOpen: boolean;
@@ -44,12 +46,12 @@ export interface WizardData {
   photoStoragePath: string | null;
 }
 
-const STEP_LABELS: Record<StepId, string> = {
-  location: 'מיקום',
-  details: 'פרטים',
-  equipment: 'מתקנים',
-  photo: 'תמונה',
-};
+const STEP_LABEL_KEYS = {
+  location: 'wizard.step.location',
+  details: 'wizard.step.details',
+  equipment: 'wizard.step.equipment',
+  photo: 'wizard.step.photo',
+} as const satisfies Record<StepId, string>;
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 300 : -300, opacity: 0 }),
@@ -58,6 +60,7 @@ const slideVariants = {
 };
 
 export default function ContributionWizard({ isOpen, onClose, initialLocation }: ContributionWizardProps) {
+  const t = useT(map);
   const { profile } = useUserStore();
   // Home v2 (enable_home_v2): styling only — the steps read it via WizardV2Context.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
@@ -118,7 +121,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
         type: 'new_location',
         status: 'pending',
         location: data.location,
-        parkName: data.parkName || 'מיקום חדש',
+        parkName: data.parkName || 'מיקום חדש', // i18n-allow-hebrew: data — fallback name written to the contribution doc
         facilityType: data.facilityType ?? undefined,
         featureTags: data.featureTags,
         isPointOfInterest: data.isPointOfInterest,
@@ -176,7 +179,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
             >
               {v2 ? <PartyPopper size={36} strokeWidth={2.2} className="text-v2-deep" /> : <span className="text-4xl">🎉</span>}
             </motion.div>
-            <p className={v2 ? 'mb-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-slate-900 text-lg font-bold mb-1'}>המיקום נשלח לאישור!</p>
+            <p className={v2 ? 'mb-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-slate-900 text-lg font-bold mb-1'}>{t('wizard.success.title')}</p>
             <p className={v2 ? 'text-[15px] font-extrabold text-v2-deep' : 'text-[#00E5FF] text-sm font-bold'}>+{XP_REWARDS.new_location} XP</p>
           </motion.div>
         )}
@@ -251,12 +254,12 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
           // min-h-[85vh] / max-h-[95vh]: see the classic panel below (field-test finding 23.09.2026).
           className="relative flex min-h-[85vh] max-h-[95vh] flex-col overflow-hidden"
           grabberClassName="flex justify-center pt-2.5"
-          ariaLabel="הוסף מיקום חדש"
+          ariaLabel={t('wizard.title')}
           header={
             <>
               <div className="flex items-center justify-between px-5 pt-3 pb-3">
-                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הוסף מיקום חדש</h2>
-                <IconButton aria-label="סגירה" tone="surface" size={36} onClick={onClose}>
+                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('wizard.title')}</h2>
+                <IconButton aria-label={t('wizard.close')} tone="surface" size={36} onClick={onClose}>
                   <X size={18} strokeWidth={2.4} />
                 </IconButton>
               </div>
@@ -279,7 +282,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
                       </div>
                       <span className={`whitespace-nowrap text-[12px] font-extrabold transition-colors ${
                         state === 'current' ? 'text-v2-ink' : state === 'done' ? 'text-v2-deep' : 'text-v2-muted'
-                      }`}>{STEP_LABELS[id]}</span>
+                      }`}>{t(STEP_LABEL_KEYS[id])}</span>
                       {i < v2IndicatorIds.length - 1 && (
                         <div className={`mx-0.5 h-0.5 w-3 rounded-full ${i < step ? 'bg-v2-accent/40' : 'bg-v2-hairline'}`} />
                       )}
@@ -328,7 +331,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="text-lg font-bold text-slate-900">הוסף מיקום חדש</h2>
+          <h2 className="text-lg font-bold text-slate-900">{t('wizard.title')}</h2>
           <button onClick={onClose} className="p-2 rounded-full bg-slate-100 text-slate-500 active:scale-90 transition-transform">
             <X size={18} />
           </button>
@@ -343,7 +346,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
               }`} />
               <span className={`text-[10px] font-medium transition-colors ${
                 i === step ? 'text-slate-900' : 'text-slate-400'
-              }`}>{STEP_LABELS[id]}</span>
+              }`}>{t(STEP_LABEL_KEYS[id])}</span>
               {i < stepIds.length - 1 && <div className="w-6 h-px bg-slate-200" />}
             </div>
           ))}

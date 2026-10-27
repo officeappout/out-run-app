@@ -721,3 +721,25 @@ src/features/workout-engine/summary/pages/HybridSummary.tsx
 src/components/ui/v2/ChoiceTile.tsx
 src/features/workout-engine/players/running/utils/run-overview/run-route-tiles.ts
 src/hooks/useRunDrawerFromMeV1.ts
+
+# wave 2 batch ar (namespace map; keys wizard.* / safecity.* / plannedActivity.* / plus.* / navHub.* / bottomNav.* /
+# slotCard.* / mapLayers.* / freeRun.* / liveUser.*) — add-location wizard + suggest-edit + quick-report, safecity sheets /
+# overlay, "+" drawer + compose sheet, free-run drawer + frame, navigation hub, bottom tab bar, map layers + shell.
+# Left Hebrew on purpose (manual list in the PR): AppMap, TurnCarousel / HybridSlotCarousel / HybridJourneyAxis /
+# HybridOverviewScreen, services (route-stitching / route-ranking / ...), heatmap + authorities (admin only), dead files.
+src/features/parks/client/components/contribution-wizard/
+src/features/safecity/components/
+src/features/parks/client/components/planned-activity/
+src/features/parks/client/components/UserProfileSheet.tsx
+src/features/parks/client/components/park-preview/index.tsx
+src/features/parks/core/components/NavigationHub.tsx
+src/features/parks/core/components/FreeRunDrawer.tsx
+src/features/parks/core/components/free-run/
+src/features/parks/core/components/hybrid/PlannedRunSlotCard.tsx
+src/features/navigation/BottomNavbar.tsx
+src/app/map/MapShell.tsx
+src/app/map/layers/NavigateLayer.tsx
+src/app/map/layers/BuilderLayer.tsx
+src/app/map/layers/PlannedPreviewLayer.tsx
+src/app/map/layers/FreeRunLayer.tsx
+src/app/map/layers/DiscoverLayer.tsx

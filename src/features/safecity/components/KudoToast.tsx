@@ -3,6 +3,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { KudoDoc } from '../services/kudos.service';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface KudoToastProps {
   kudo: KudoDoc | null;
@@ -14,6 +16,7 @@ interface KudoToastProps {
  * when someone sends a High Five.  Auto-dismisses after 3s (handled by hook).
  */
 export default function KudoToast({ kudo, onDismiss }: KudoToastProps) {
+  const t = useT(map);
   return (
     <AnimatePresence>
       {kudo && (
@@ -35,10 +38,10 @@ export default function KudoToast({ kudo, onDismiss }: KudoToastProps) {
             <span className="text-2xl" role="img" aria-label="high five">🙏</span>
             <div className="flex flex-col items-start">
               <span className="text-[13px] font-bold text-gray-900">
-                {kudo.fromName} שלח/ה לך High Five!
+                {t('safecity.kudo.title', { name: kudo.fromName })}
               </span>
               <span className="text-[11px] text-cyan-600 font-semibold">
-                המשך/י לגרוס את זה 💪
+                {t('safecity.kudo.cheer')}
               </span>
             </div>
           </button>

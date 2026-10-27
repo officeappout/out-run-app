@@ -11,9 +11,10 @@ import { RunIcon, WalkingIcon } from '@/features/content/programs/core/program-i
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { readLiveFlag } from '@/lib/feature-flag-live';
 import { playerActivityForPick, rideModeOn } from '@/features/workout-engine/players/running/lib/ride-mode';
-import { useUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
-import { FREE_RUN_COPY } from './free-run/free-run-gender-copy';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import { common } from '@/messages/ns/common';
+import { withUnit, unitLabel } from '@/lib/i18n/units';
 import { FreeRunMainFrame, FreeRunSubSheet } from './free-run/FreeRunSheetFrame';
 import { ActivityType } from '../types/route.types';
 import StrengthStationsToggle from './hybrid/StrengthStationsToggle';
@@ -185,11 +186,11 @@ interface FreeRunDrawerProps {
 
 // ── Activity data ──────────────────────────────────────────────────────────────
 
-const ACTIVITY_CHIPS: Array<{ id: CarouselActivity; label: string; emoji: string }> = [
-  { id: 'running', label: 'ריצה',   emoji: '🏃' },
-  { id: 'walking', label: 'הליכה',  emoji: '🚶' },
-  { id: 'cycling', label: 'רכיבה',  emoji: '🚴' },
-];
+const ACTIVITY_CHIPS = [
+  { id: 'running', labelKey: 'freeRun.activity.running', emoji: '🏃' },
+  { id: 'walking', labelKey: 'freeRun.activity.walking', emoji: '🚶' },
+  { id: 'cycling', labelKey: 'freeRun.activity.cycling', emoji: '🚴' },
+] as const satisfies ReadonlyArray<{ id: CarouselActivity; labelKey: string; emoji: string }>;
 
 /** Smart defaults per activity — placeholder until personalisation is wired. */
 const ACTIVITY_DEFAULTS: Record<CarouselActivity, {
@@ -372,6 +373,7 @@ function ActivityChips({
   selected: CarouselActivity;
   onSelect: (a: CarouselActivity) => void;
 }) {
+  const t = useT(map);
   const v2 = useContext(FreeRunV2);
   if (v2) {
     const icon = (id: CarouselActivity) =>
@@ -381,7 +383,7 @@ function ActivityChips({
     return (
       <div className="px-5 mb-4">
         <div className="flex gap-2.5">
-          {ACTIVITY_CHIPS.map(({ id, label }) => (
+          {ACTIVITY_CHIPS.map(({ id, labelKey }) => (
             <button
               key={id}
               type="button"
@@ -392,7 +394,7 @@ function ActivityChips({
               }`}
             >
               {icon(id)}
-              <span className="whitespace-nowrap text-[14px] font-extrabold">{label}</span>
+              <span className="whitespace-nowrap text-[14px] font-extrabold">{t(labelKey)}</span>
             </button>
           ))}
         </div>
@@ -402,7 +404,7 @@ function ActivityChips({
   return (
     <div className="px-5 mb-5">
       <div className="flex gap-2">
-        {ACTIVITY_CHIPS.map(({ id, label, emoji }) => (
+        {ACTIVITY_CHIPS.map(({ id, labelKey, emoji }) => (
           <button
             key={id}
             type="button"
@@ -416,7 +418,7 @@ function ActivityChips({
             aria-pressed={selected === id}
           >
             <span aria-hidden="true">{emoji}</span>
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>
@@ -436,10 +438,12 @@ function GoalSummaryRow({
   caloriesValue: number;
   onEdit: () => void;
 }) {
+  const t = useT(map);
+  const tc = useT(common);
   const summary =
-    goalType === 'time'     ? `${timeValue} דק׳` :
-    goalType === 'distance' ? `${distanceValue.toFixed(1)} ק״מ` :
-                              `${caloriesValue} קק״ל`;
+    goalType === 'time'     ? withUnit('min', timeValue, tc) :
+    goalType === 'distance' ? withUnit('km', distanceValue.toFixed(1), tc) :
+                              t('freeRun.units.calories', { n: String(caloriesValue) });
   const v2 = useContext(FreeRunV2);
 
   if (v2) {
@@ -451,15 +455,15 @@ function GoalSummaryRow({
         type="button"
         onClick={onEdit}
         className="mx-5 mb-4 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[20px] bg-white px-4 py-3 text-start shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
-        aria-label="עריכת מטרת אימון"
+        aria-label={t('freeRun.goal.editAria')}
       >
         <span className={V2_ICON_TILE}><Target size={18} strokeWidth={2.4} /></span>
         <span className="min-w-0 flex-1">
-          <span className="block whitespace-nowrap text-[13px] font-extrabold text-v2-deep">מטרת האימון</span>
+          <span className="block whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('freeRun.goal.title')}</span>
           <span className="block truncate whitespace-nowrap text-[17px] font-black text-v2-ink">{summary}</span>
         </span>
         <span className="h-8 shrink-0 whitespace-nowrap rounded-full bg-v2-surface px-3.5 text-[13px] font-extrabold leading-8 text-v2-deep ring-1 ring-inset ring-v2-hairline">
-          עריכה
+          {t('freeRun.goal.edit')}
         </span>
       </button>
     );
@@ -473,7 +477,7 @@ function GoalSummaryRow({
       <div className="flex items-center gap-3">
         <span className="text-2xl" aria-hidden="true">🎯</span>
         <div>
-          <p className="text-[11px] text-gray-400 font-semibold leading-tight">מותאם עבורך</p>
+          <p className="text-[11px] text-gray-400 font-semibold leading-tight">{t('freeRun.goal.personalized')}</p>
           <p className="text-[15px] font-black text-gray-900 leading-tight">{summary}</p>
         </div>
       </div>
@@ -482,9 +486,9 @@ function GoalSummaryRow({
         onClick={onEdit}
         className="text-[13px] font-black active:scale-95 transition-transform px-3 py-1.5 rounded-full"
         style={{ color: ACCENT, backgroundColor: `${ACCENT}18` }}
-        aria-label="עריכת מטרת אימון"
+        aria-label={t('freeRun.goal.editAria')}
       >
-        עריכה
+        {t('freeRun.goal.edit')}
       </button>
     </div>
   );
@@ -502,7 +506,7 @@ function EntryButtons({
   canStartWithRoute: boolean;
   cityName?: string;
 }) {
-  const uiGender = useUiGender();
+  const t = useT(map);
   const v2 = useContext(FreeRunV2);
   if (v2) {
     return (
@@ -512,25 +516,25 @@ function EntryButtons({
             type="button"
             onClick={onStartFree}
             className={`${V2_CTA} flex-1`}
-            aria-label={pickGendered(uiGender, FREE_RUN_COPY.startFreeAria)}
+            aria-label={t('freeRun.startFreeAria')}
           >
             <Play size={16} fill="currentColor" />
-            {pickGendered(uiGender, FREE_RUN_COPY.startFree)}
+            {t('freeRun.startFree')}
           </button>
           <button
             type="button"
             onClick={onStartWithRoute}
             disabled={!canStartWithRoute}
             className={`${V2_SECONDARY} h-12 flex-1 text-v2-deep`}
-            aria-label={pickGendered(uiGender, FREE_RUN_COPY.startRouteAria)}
+            aria-label={t('freeRun.startRouteAria')}
           >
             <RouteIcon size={17} strokeWidth={2.4} />
-            עם מסלול
+            {t('freeRun.entry.withRoute')}
           </button>
         </div>
         {canStartWithRoute && cityName && (
           <p className="mt-2 truncate whitespace-nowrap text-center text-[12px] font-bold text-v2-muted">
-            מסלולים יוצרו ב{cityName}
+            {t('freeRun.entry.cityNote', { city: cityName })}
           </p>
         )}
       </div>
@@ -545,10 +549,10 @@ function EntryButtons({
           onClick={onStartFree}
           className="flex-1 flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.98] transition-transform rounded-2xl"
           style={{ height: 52, backgroundColor: ACCENT }}
-          aria-label={pickGendered(uiGender, FREE_RUN_COPY.startFreeAria)}
+          aria-label={t('freeRun.startFreeAria')}
         >
           <Play size={16} fill="currentColor" />
-          {pickGendered(uiGender, FREE_RUN_COPY.startFree)}
+          {t('freeRun.startFree')}
         </button>
 
         {/* Secondary CTA */}
@@ -563,16 +567,16 @@ function EntryButtons({
             color: ACCENT,
             backgroundColor: '#FFFFFF',
           }}
-          aria-label={pickGendered(uiGender, FREE_RUN_COPY.startRouteAria)}
+          aria-label={t('freeRun.startRouteAria')}
         >
-          🗺️ עם מסלול
+          {t('freeRun.entry.withRouteClassic')}
         </button>
       </div>
 
       {/* City confirmation — shown only for route flow */}
       {canStartWithRoute && cityName && (
         <p className="text-center text-[11px] text-gray-400 mt-2 leading-tight">
-          מסלולים יוצרו ב{cityName}
+          {t('freeRun.entry.cityNote', { city: cityName })}
         </p>
       )}
     </div>
@@ -590,7 +594,8 @@ function WeightInlineRow({
   genderDefault: number;
   onSave: (w: number) => Promise<void>;
 }) {
-  const uiGender = useUiGender();
+  const t = useT(map);
+  const tc = useT(common);
   const v2 = useContext(FreeRunV2);
   const [value, setValue] = useState(genderDefault);
   const [saving, setSaving] = useState(false);
@@ -618,13 +623,13 @@ function WeightInlineRow({
     return (
       <div className="mt-3 rounded-[20px] bg-v2-tint px-4 py-3.5">
         <p className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
-          <Scale size={14} strokeWidth={2.4} /> משקלך לחישוב מדויק
+          <Scale size={14} strokeWidth={2.4} /> {t('freeRun.weight.title')}
         </p>
         <p className="mb-2.5 text-[12.5px] font-bold leading-snug text-v2-muted">
-          עדיין לא הזנת משקל — הערך הנוכחי הוא ברירת מחדל. כדי שחישוב הקלוריות יהיה מדויק, שווה לעדכן.
+          {t('freeRun.weight.hint')}
         </p>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => adjust(-1)} className={stepBtn} aria-label="הפחתת ק״ג">−</button>
+          <button type="button" onClick={() => adjust(-1)} className={stepBtn} aria-label={t('freeRun.weight.decrease')}>−</button>
           <div className="flex-1 text-center">
             <input
               type="number"
@@ -635,21 +640,21 @@ function WeightInlineRow({
                 if (!isNaN(v) && v >= 30 && v <= 200) setValue(v);
               }}
               className="w-full border-none bg-transparent text-center text-[18px] font-black text-v2-ink outline-none"
-              aria-label="משקל בקילוגרם"
+              aria-label={t('freeRun.weight.inputAria')}
             />
-            <span className="text-[12px] font-bold leading-none text-v2-muted">ק״ג</span>
+            <span className="text-[12px] font-bold leading-none text-v2-muted">{unitLabel('kg', tc)}</span>
           </div>
-          <button type="button" onClick={() => adjust(1)} className={stepBtn} aria-label="הוספת ק״ג">+</button>
+          <button type="button" onClick={() => adjust(1)} className={stepBtn} aria-label={t('freeRun.weight.increase')}>+</button>
           <button
             type="button"
             onClick={handleSave}
             disabled={saving}
             className={`${V2_SECONDARY} h-9 min-w-[56px] px-3.5 text-[13px] text-v2-deep`}
           >
-            {saving ? '...' : 'שמירה'}
+            {saving ? '...' : t('freeRun.weight.save')}
           </button>
         </div>
-        <p className="mt-1.5 text-[12px] font-bold text-v2-muted">{pickGendered(uiGender, FREE_RUN_COPY.skipWeight)}</p>
+        <p className="mt-1.5 text-[12px] font-bold text-v2-muted">{t('freeRun.skipWeight')}</p>
       </div>
     );
   }
@@ -659,9 +664,9 @@ function WeightInlineRow({
       className="mt-3 rounded-2xl px-4 py-3.5"
       style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD' }}
     >
-      <p className="text-[12px] font-black text-gray-700 mb-0.5">⚖️ משקלך לחישוב מדויק</p>
+      <p className="text-[12px] font-black text-gray-700 mb-0.5">{t('freeRun.weight.titleClassic')}</p>
       <p className="text-[11px] text-gray-400 leading-tight mb-2.5">
-        עדיין לא הזנת משקל — הערך הנוכחי הוא ברירת מחדל. כדי שחישוב הקלוריות יהיה מדויק, שווה לעדכן.
+        {t('freeRun.weight.hint')}
       </p>
       <div className="flex items-center gap-2">
         <button
@@ -669,7 +674,7 @@ function WeightInlineRow({
           onClick={() => adjust(-1)}
           className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-gray-700 text-lg font-bold active:scale-90 transition-transform"
           style={{ border: '1px solid #E2E8F0' }}
-          aria-label="הפחתת ק״ג"
+          aria-label={t('freeRun.weight.decrease')}
         >
           −
         </button>
@@ -684,9 +689,9 @@ function WeightInlineRow({
               if (!isNaN(v) && v >= 30 && v <= 200) setValue(v);
             }}
             className="text-[18px] font-black text-gray-900 text-center bg-transparent border-none outline-none w-full"
-            aria-label="משקל בקילוגרם"
+            aria-label={t('freeRun.weight.inputAria')}
           />
-          <span className="text-[11px] text-gray-400 leading-none">ק״ג</span>
+          <span className="text-[11px] text-gray-400 leading-none">{unitLabel('kg', tc)}</span>
         </div>
 
         <button
@@ -694,7 +699,7 @@ function WeightInlineRow({
           onClick={() => adjust(1)}
           className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-gray-700 text-lg font-bold active:scale-90 transition-transform"
           style={{ border: '1px solid #E2E8F0' }}
-          aria-label="הוספת ק״ג"
+          aria-label={t('freeRun.weight.increase')}
         >
           +
         </button>
@@ -706,10 +711,10 @@ function WeightInlineRow({
           className="px-3.5 h-9 rounded-xl text-[13px] font-black text-white active:scale-95 transition-transform disabled:opacity-50"
           style={{ backgroundColor: ACCENT, minWidth: 52 }}
         >
-          {saving ? '...' : 'שמירה'}
+          {saving ? '...' : t('freeRun.weight.save')}
         </button>
       </div>
-      <p className="text-[10px] text-gray-400 mt-1.5">{pickGendered(uiGender, FREE_RUN_COPY.skipWeight)}</p>
+      <p className="text-[10px] text-gray-400 mt-1.5">{t('freeRun.skipWeight')}</p>
     </div>
   );
 }
@@ -765,7 +770,8 @@ function GoalSheet({
   /** Current in-progress leg count — shown on the button so the user sees plan state without opening the sheet. 0 when nothing composed yet. */
   legPlanCount?: number;
 }) {
-  const uiGender = useUiGender();
+  const t = useT(map);
+  const tc = useT(common);
   const v2 = useContext(FreeRunV2);
 
   return (
@@ -773,7 +779,7 @@ function GoalSheet({
       isOpen={isOpen}
       onClose={onClose}
       v2={v2}
-      title="מטרת אימון"
+      title={t('freeRun.goalSheet.title')}
       tier="goal"
       v2Layout="scroll"
       keyboardAware
@@ -789,9 +795,9 @@ function GoalSheet({
       {/* Goal type pills */}
       <div className="px-5 mb-5">
         <div className="flex gap-2">
-          <Pill active={goalType === 'time'}     onClick={() => setGoalType('time')}>{v2 ? 'זמן' : '⏱ זמן'}</Pill>
-          <Pill active={goalType === 'distance'} onClick={() => setGoalType('distance')}>{v2 ? 'מרחק' : '📏 מרחק'}</Pill>
-          <Pill active={goalType === 'calories'} onClick={() => setGoalType('calories')}>{v2 ? 'קלוריות' : '🔥 קלוריות'}</Pill>
+          <Pill active={goalType === 'time'}     onClick={() => setGoalType('time')}>{v2 ? t('freeRun.goalSheet.time') : t('freeRun.goalSheet.timeClassic')}</Pill>
+          <Pill active={goalType === 'distance'} onClick={() => setGoalType('distance')}>{v2 ? t('freeRun.goalSheet.distance') : t('freeRun.goalSheet.distanceClassic')}</Pill>
+          <Pill active={goalType === 'calories'} onClick={() => setGoalType('calories')}>{v2 ? t('freeRun.goalSheet.calories') : t('freeRun.goalSheet.caloriesClassic')}</Pill>
         </div>
       </div>
 
@@ -800,35 +806,35 @@ function GoalSheet({
         {goalType === 'time' && (
           <>
             <div className="flex items-center justify-between mb-2">
-              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>משך האימון</span>
-              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{timeValue} דק׳</span>
+              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>{t('freeRun.goalSheet.duration')}</span>
+              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{withUnit('min', timeValue, tc)}</span>
             </div>
-            <GoalSlider min={5} max={120} step={5} value={timeValue} onChange={setTimeValue} formatLabel={(v) => `${v} דק׳`} />
+            <GoalSlider min={5} max={120} step={5} value={timeValue} onChange={setTimeValue} formatLabel={(v) => withUnit('min', v, tc)} />
           </>
         )}
 
         {goalType === 'distance' && (
           <>
             <div className="flex items-center justify-between mb-2">
-              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>מרחק</span>
-              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{distanceValue.toFixed(1)} ק״מ</span>
+              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>{t('freeRun.goalSheet.distance')}</span>
+              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{withUnit('km', distanceValue.toFixed(1), tc)}</span>
             </div>
             {/* No product-chosen distance ceiling (David, 08.08) — Mapbox Directions
                 itself imposes no max route distance for walking/cycling (verified,
                 only a 25-waypoint-per-request limit exists and loop mode never
                 approaches it). 100 is a generous usability bound for the slider
                 widget only, not a claimed technical limit — trivially raisable. */}
-            <GoalSlider min={0.5} max={100} step={0.5} value={distanceValue} onChange={setDistanceValue} formatLabel={(v) => `${v.toFixed(1)} ק״מ`} />
+            <GoalSlider min={0.5} max={100} step={0.5} value={distanceValue} onChange={setDistanceValue} formatLabel={(v) => withUnit('km', v.toFixed(1), tc)} />
           </>
         )}
 
         {goalType === 'calories' && (
           <>
             <div className="flex items-center justify-between mb-2">
-              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>קלוריות</span>
-              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{caloriesValue} קק״ל</span>
+              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>{t('freeRun.goalSheet.calories')}</span>
+              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{t('freeRun.units.calories', { n: String(caloriesValue) })}</span>
             </div>
-            <GoalSlider min={50} max={800} step={50} value={caloriesValue} onChange={setCaloriesValue} formatLabel={(v) => `${v} קק״ל`} />
+            <GoalSlider min={50} max={800} step={50} value={caloriesValue} onChange={setCaloriesValue} formatLabel={(v) => t('freeRun.units.calories', { n: String(v) })} />
             {weightMissing && (
               <WeightInlineRow
                 genderDefault={genderDefault}
@@ -847,7 +853,7 @@ function GoalSheet({
           editable, unconfirmed pick; only the explicit "🏁 התחל לכתובת
           הזו" button below actually calls startCommute. */}
       {v2 && (onRequestAddressDestination || onOpenLegPlan) && (
-        <p className="px-5 mb-2 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">אפשרויות מסלול</p>
+        <p className="px-5 mb-2 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('freeRun.goalSheet.routeOptions')}</p>
       )}
       {onRequestAddressDestination && v2 && (
         <div className="px-5 mb-2.5">
@@ -855,10 +861,10 @@ function GoalSheet({
             <span className={V2_ICON_TILE}><MapPin size={18} strokeWidth={2.4} /></span>
             <span className="min-w-0 flex-1">
               <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">
-                {pendingAddress ? (pendingAddress.label || 'היעד שנבחר') : 'יעד: כתובת'}
+                {pendingAddress ? (pendingAddress.label || t('freeRun.goalSheet.selectedDestination')) : t('freeRun.goalSheet.addressDestination')}
               </span>
               <span className="block whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                {pickGendered(uiGender, pendingAddress ? FREE_RUN_COPY.tapToChange : FREE_RUN_COPY.routeToAddress)}
+                {pendingAddress ? t('freeRun.tapToChange') : t('freeRun.routeToAddress')}
               </span>
             </span>
           </button>
@@ -869,14 +875,14 @@ function GoalSheet({
                 onClick={() => onConfirmAddressDestination?.(pendingAddress)}
                 className={`${V2_CTA} flex-1`}
               >
-                <Flag size={16} strokeWidth={2.4} /> {pickGendered(uiGender, FREE_RUN_COPY.startToAddress)}
+                <Flag size={16} strokeWidth={2.4} /> {t('freeRun.startToAddress')}
               </button>
               <button
                 type="button"
                 onClick={() => usePendingAddressStore.getState().clear()}
                 className={`${V2_SECONDARY} h-12 px-5 text-v2-ink-2`}
               >
-                ביטול
+                {t('freeRun.goalSheet.cancel')}
               </button>
             </div>
           )}
@@ -891,8 +897,8 @@ function GoalSheet({
             style={{ backgroundColor: '#F3F4F6' }}
           >
             {pendingAddress
-              ? `📍 ${pendingAddress.label || 'היעד שנבחר'} · שינוי`
-              : '📍 יעד: כתובת'}
+              ? t('freeRun.goalSheet.pendingChange', { label: pendingAddress.label || t('freeRun.goalSheet.selectedDestination') })
+              : t('freeRun.goalSheet.addressDestinationClassic')}
           </button>
 
           {pendingAddress && (
@@ -903,7 +909,7 @@ function GoalSheet({
                 className="flex-1 py-3 text-[13px] font-black text-white rounded-2xl active:scale-[0.98] transition-transform"
                 style={{ backgroundColor: ACCENT }}
               >
-                🏁 {pickGendered(uiGender, FREE_RUN_COPY.startToAddress)}
+                🏁 {t('freeRun.startToAddress')}
               </button>
               <button
                 type="button"
@@ -911,7 +917,7 @@ function GoalSheet({
                 className="px-4 py-3 text-[13px] font-black text-gray-400 rounded-2xl active:scale-[0.98] transition-transform"
                 style={{ backgroundColor: '#F3F4F6' }}
               >
-                ביטול
+                {t('freeRun.goalSheet.cancel')}
               </button>
             </div>
           )}
@@ -933,7 +939,7 @@ function GoalSheet({
           <button type="button" onClick={onOpenLegPlan} className={V2_OPTION}>
             <span className={V2_ICON_TILE}><Milestone size={18} strokeWidth={2.4} /></span>
             <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">
-              הוספת עצירות בדרך
+              {t('freeRun.goalSheet.addStops')}
             </span>
             {legPlanCount ? (
               <span className="shrink-0 rounded-full bg-v2-tint px-2.5 py-0.5 text-[13px] font-extrabold tabular-nums text-v2-deep">
@@ -951,7 +957,7 @@ function GoalSheet({
             className="w-full py-3 text-[13px] font-black text-white flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
             style={{ backgroundColor: ACCENT }}
           >
-            🧭 הוספת עצירות בדרך{legPlanCount ? ` (${legPlanCount})` : ''}
+            {t('freeRun.goalSheet.addStopsClassic', { suffix: legPlanCount ? ` (${legPlanCount})` : '' })}
           </button>
         </div>
       )}
@@ -962,8 +968,8 @@ function GoalSheet({
           <button type="button" onClick={onOpenExtras} className={V2_OPTION}>
             <span className={V2_ICON_TILE}><SlidersHorizontal size={18} strokeWidth={2.4} /></span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">הגדרות מסלול נוספות</span>
-              <span className="block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">חלות על &quot;עם מסלול&quot;</span>
+              <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{t('freeRun.goalSheet.moreSettings')}</span>
+              <span className="block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{t('freeRun.goalSheet.moreSettingsNote')}</span>
             </span>
           </button>
         </div>
@@ -975,7 +981,7 @@ function GoalSheet({
           className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
           style={{ backgroundColor: '#F3F4F6' }}
         >
-          ⚙️ הגדרות מסלול נוספות
+          {t('freeRun.goalSheet.moreSettingsClassic')}
         </button>
       </div>
       )}
@@ -989,7 +995,7 @@ function GoalSheet({
             onClick={onClose}
             className={pendingAddress && onRequestAddressDestination ? `${V2_SECONDARY} h-12 w-full` : V2_CTA}
           >
-            אישור
+            {t('freeRun.goalSheet.confirm')}
           </button>
         ) : (
         <button
@@ -998,7 +1004,7 @@ function GoalSheet({
           className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform rounded-xl"
           style={{ backgroundColor: ACCENT }}
         >
-          אישור
+          {t('freeRun.goalSheet.confirm')}
         </button>
         )}
       </div>
@@ -1033,7 +1039,7 @@ function LegPlanSheet({
   onRequestAddLeg?: () => void;
   onStartLegPlanRun?: (compiled: CompiledLegPlanRoute) => void;
 }) {
-  const uiGender = useUiGender();
+  const t = useT(map);
   const v2 = useContext(FreeRunV2);
   const legs = useLegPlanStore((s) => s.legs);
   const atMaxLegs = legs.length >= MAX_LEGS_PER_PLAN;
@@ -1069,7 +1075,7 @@ function LegPlanSheet({
       const compiled = await compileLegPlan(plan);
       onStartLegPlanRun(compiled);
     } catch (err) {
-      setCompileError(err instanceof Error ? err.message : pickGendered(uiGender, FREE_RUN_COPY.compileError));
+      setCompileError(err instanceof Error ? err.message : t('freeRun.compileError'));
     } finally {
       setIsCompiling(false);
     }
@@ -1080,7 +1086,7 @@ function LegPlanSheet({
       isOpen={isOpen}
       onClose={onClose}
       v2={v2}
-      title="עצירות בדרך"
+      title={t('freeRun.legPlan.title')}
       tier="extras"
       v2Layout="column"
       legacy={{
@@ -1096,7 +1102,7 @@ function LegPlanSheet({
       <div className="px-5 overflow-y-auto flex-1">
         {legs.length === 0 ? (
           <p className={v2 ? 'py-6 text-center text-[14px] font-bold text-v2-muted' : 'text-[13px] text-gray-500 text-center py-6'}>
-            {pickGendered(uiGender, FREE_RUN_COPY.noStops)}
+            {t('freeRun.noStops')}
           </p>
         ) : (
           <Reorder.Group axis="y" values={legs} onReorder={handleReorder} as="div" className="space-y-2">
@@ -1116,13 +1122,13 @@ function LegPlanSheet({
                   </span>
                 )}
                 <span className={v2 ? 'flex-1 truncate whitespace-nowrap text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-[13px] font-bold text-gray-800 truncate'}>
-                  {leg.label || `עצירה ${idx + 1}`}
+                  {leg.label || t('freeRun.legPlan.stopN', { n: String(idx + 1) })}
                 </span>
                 <button
                   type="button"
                   onClick={() => useLegPlanStore.getState().removeLeg(leg.id)}
                   className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-transform shrink-0"
-                  aria-label="הסרת עצירה"
+                  aria-label={t('freeRun.legPlan.removeAria')}
                 >
                   <Trash2 size={14} className={v2 ? 'text-v2-muted' : 'text-gray-400'} />
                 </button>
@@ -1141,9 +1147,9 @@ function LegPlanSheet({
             className={`${V2_SECONDARY} h-12 w-full text-v2-deep`}
           >
             {atMaxLegs ? (
-              <span className="truncate text-v2-muted">מקסימום {MAX_LEGS_PER_PLAN} עצירות</span>
+              <span className="truncate text-v2-muted">{t('freeRun.legPlan.max', { max: String(MAX_LEGS_PER_PLAN) })}</span>
             ) : (
-              <><Plus size={17} strokeWidth={2.6} /> הוספת עצירה</>
+              <><Plus size={17} strokeWidth={2.6} /> {t('freeRun.legPlan.add')}</>
             )}
           </button>
           {legs.length > 0 && onStartLegPlanRun && (
@@ -1154,8 +1160,8 @@ function LegPlanSheet({
               className={`${V2_CTA} mt-2.5`}
             >
               {isCompiling
-                ? <><Loader2 size={16} className="animate-spin" /> מרכיב מסלול...</>
-                : <><Flag size={16} strokeWidth={2.4} /> {activity === 'walking' ? 'התחל הליכה' : activity === 'cycling' ? 'התחל רכיבה' : 'התחל ריצה'}</>}
+                ? <><Loader2 size={16} className="animate-spin" /> {t('freeRun.legPlan.compiling')}</>
+                : <><Flag size={16} strokeWidth={2.4} /> {activity === 'walking' ? t('freeRun.legPlan.startWalking') : activity === 'cycling' ? t('freeRun.legPlan.startCycling') : t('freeRun.legPlan.startRunning')}</>}
             </button>
           )}
           {compileError && (
@@ -1167,7 +1173,7 @@ function LegPlanSheet({
               onClick={handleClearAll}
               className="mt-1.5 w-full py-2 text-[13px] font-extrabold text-v2-muted active:scale-[0.97] transition-transform duration-150 ease-v2"
             >
-              נקה הכל
+              {t('freeRun.legPlan.clearAll')}
             </button>
           )}
         </div>
@@ -1182,8 +1188,8 @@ function LegPlanSheet({
           style={{ backgroundColor: atMaxLegs ? '#F3F4F6' : ACCENT, color: atMaxLegs ? '#6B7280' : '#FFFFFF' }}
         >
           {atMaxLegs
-            ? `הגעת למספר המרבי של עצירות (${MAX_LEGS_PER_PLAN})`
-            : '➕ הוסף עצירה'}
+            ? t('freeRun.legPlan.maxReachedClassic', { max: String(MAX_LEGS_PER_PLAN) })
+            : t('freeRun.legPlan.addClassic')}
         </button>
 
         {/* Start run — compiles the plan into one route via a single
@@ -1198,8 +1204,8 @@ function LegPlanSheet({
             style={{ backgroundColor: ACCENT }}
           >
             {isCompiling
-              ? <><Loader2 size={16} className="animate-spin" /> מרכיב מסלול...</>
-              : '🏁 התחל ריצה'}
+              ? <><Loader2 size={16} className="animate-spin" /> {t('freeRun.legPlan.compiling')}</>
+              : t('freeRun.legPlan.startClassic')}
           </button>
         )}
 
@@ -1213,7 +1219,7 @@ function LegPlanSheet({
             onClick={handleClearAll}
             className="w-full py-2 mt-2 text-[12px] font-bold text-gray-400 active:scale-[0.98] transition-transform"
           >
-            נקה הכל
+            {t('freeRun.legPlan.clearAll')}
           </button>
         )}
       </div>
@@ -1234,6 +1240,7 @@ function ExtrasSheet({
   /** enable_route_pref_shade (+ GraphHopper routes): offer the "shadiest route" row. */
   showShade?: boolean;
 }) {
+  const t = useT(map);
   const v2 = useContext(FreeRunV2);
 
   return (
@@ -1241,7 +1248,7 @@ function ExtrasSheet({
       isOpen={isOpen}
       onClose={onClose}
       v2={v2}
-      title="הגדרות נוספות"
+      title={t('freeRun.extras.title')}
       tier="extras"
       v2Layout="plain"
       legacy={{
@@ -1256,31 +1263,31 @@ function ExtrasSheet({
       {v2 ? (
         <div className="mx-5 rounded-[20px] bg-white px-4 shadow-v2-ring">
           {V2_LIVE_EXTRAS.includes('gymParks') && (
-            <ToggleRow emoji="" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
+            <ToggleRow emoji="" label={t('freeRun.extras.gymParks')} value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
           )}
           {V2_LIVE_EXTRAS.includes('trail') && (
-            <ToggleRow emoji="" label="שבילי עפר" value={extras.trail} onToggle={() => onToggle('trail')} />
+            <ToggleRow emoji="" label={t('freeRun.extras.trail')} value={extras.trail} onToggle={() => onToggle('trail')} />
           )}
           {showShade && (
-            <ToggleRow emoji="" label="המסלול המוצל ביותר" value={extras.shade} onToggle={() => onToggle('shade')} />
+            <ToggleRow emoji="" label={t('freeRun.extras.shade')} value={extras.shade} onToggle={() => onToggle('shade')} />
           )}
         </div>
       ) : (
       <div className="px-5">
-        <ToggleRow emoji="🔄" label="מעגלי"              value={extras.circular} onToggle={() => onToggle('circular')} />
-        <ToggleRow emoji="🏋️" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
-        <ToggleRow emoji="🪑" label="עבור דרך ספסלים"      value={extras.benches}  onToggle={() => onToggle('benches')}  />
-        <ToggleRow emoji="📍" label="עבור דרך מדרגות"      value={extras.stairs}   onToggle={() => onToggle('stairs')}   />
-        <ToggleRow emoji="🌿" label="שבילי עפר (Trail)"    value={extras.trail}    onToggle={() => onToggle('trail')}    />
+        <ToggleRow emoji="🔄" label={t('freeRun.extras.circularClassic')} value={extras.circular} onToggle={() => onToggle('circular')} />
+        <ToggleRow emoji="🏋️" label={t('freeRun.extras.gymParks')} value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
+        <ToggleRow emoji="🪑" label={t('freeRun.extras.benchesClassic')} value={extras.benches}  onToggle={() => onToggle('benches')}  />
+        <ToggleRow emoji="📍" label={t('freeRun.extras.stairsClassic')} value={extras.stairs}   onToggle={() => onToggle('stairs')}   />
+        <ToggleRow emoji="🌿" label={t('freeRun.extras.trailClassic')} value={extras.trail}    onToggle={() => onToggle('trail')}    />
         {showShade && (
-          <ToggleRow emoji="🌳" label="המסלול המוצל ביותר" value={extras.shade} onToggle={() => onToggle('shade')} />
+          <ToggleRow emoji="🌳" label={t('freeRun.extras.shade')} value={extras.shade} onToggle={() => onToggle('shade')} />
         )}
       </div>
       )}
 
       <div className="px-5 pt-5">
         {v2 ? (
-          <button type="button" onClick={onClose} className={V2_CTA}>סיום</button>
+          <button type="button" onClick={onClose} className={V2_CTA}>{t('freeRun.extras.done')}</button>
         ) : (
         <button
           type="button"
@@ -1288,7 +1295,7 @@ function ExtrasSheet({
           className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform rounded-xl"
           style={{ backgroundColor: ACCENT }}
         >
-          סגור
+          {t('freeRun.extras.close')}
         </button>
         )}
       </div>
@@ -1316,6 +1323,7 @@ export default function FreeRunDrawer({
   autoRoute = false,
   onAutoRouteHandled,
 }: FreeRunDrawerProps) {
+  const t = useT(map);
   // Home v2 (enable_home_v2) — this drawer is a map layer, outside HomeV2Context.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const drawerFlags = useFeatureFlags(isSuperAdmin).flags;
@@ -1601,9 +1609,11 @@ export default function FreeRunDrawer({
       const actType = selectedActivity === 'walking' ? 'walking' : 'running';
       const dateLabel = new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit' })
         .format(new Date(scheduledFor));
-      const text = actType === 'walking'
-        ? `קבעתי הליכה ב-${dateLabel} בשעה ${schedTime} 🚶 בוא/י להצטרף! ${result.shareUrl}`
-        : `קבעתי ריצה ב-${dateLabel} בשעה ${schedTime} 🏃 בוא/י להצטרף! ${result.shareUrl}`;
+      const text = t(actType === 'walking' ? 'freeRun.share.walking' : 'freeRun.share.running', {
+        date: dateLabel,
+        time: schedTime,
+        url: result.shareUrl,
+      });
       if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ text }).catch(() => {
           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
@@ -1618,7 +1628,7 @@ export default function FreeRunDrawer({
 
   return (
     <FreeRunV2.Provider value={v2}>
-      <FreeRunMainFrame onClose={onClose} v2={v2} title="אירובי חופשי">
+      <FreeRunMainFrame onClose={onClose} v2={v2} title={t('freeRun.title')}>
         {/* ── Block 1: Activity chips ──────────────────────────────────── */}
         <ActivityChips selected={selectedActivity} onSelect={handleActivitySelect} />
 
@@ -1673,14 +1683,14 @@ export default function FreeRunDrawer({
           <div className="px-5 pb-2">
             <button type="button" onClick={handleSaveOnly} disabled={isSaving} className={V2_CTA}>
               {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={17} strokeWidth={2.6} />}
-              <span>{isSaving ? 'שומר...' : 'שמור לאימונים'}</span>
+              <span>{isSaving ? t('freeRun.saving') : t('freeRun.saveToWorkouts')}</span>
             </button>
           </div>
         ) : v2 && hybridEnabled ? (
           <div className="px-5 pb-2">
-            <button type="button" onClick={handleStartHybrid} aria-label="התחל אימון משולב" className={V2_CTA}>
+            <button type="button" onClick={handleStartHybrid} aria-label={t('freeRun.hybrid.startAria')} className={V2_CTA}>
               <Dumbbell size={17} strokeWidth={2.4} />
-              <span>התחל משולב</span>
+              <span>{t('freeRun.hybrid.start')}</span>
             </button>
           </div>
         ) : timing === 'later' ? (
@@ -1693,7 +1703,7 @@ export default function FreeRunDrawer({
               style={{ height: 52, backgroundColor: ACCENT }}
             >
               {isSaving && <Loader2 size={16} className="animate-spin" />}
-              <span>{isSaving ? 'שומר...' : '✓ שמור לאימונים'}</span>
+              <span>{isSaving ? t('freeRun.saving') : t('freeRun.saveToWorkoutsClassic')}</span>
             </button>
           </div>
         ) : hybridEnabled ? (
@@ -1701,11 +1711,11 @@ export default function FreeRunDrawer({
             <button
               type="button"
               onClick={handleStartHybrid}
-              aria-label="התחל אימון משולב"
+              aria-label={t('freeRun.hybrid.startAria')}
               className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.97] transition-transform rounded-2xl"
               style={{ height: 52, backgroundColor: ACCENT }}
             >
-              <span>💪🏃 התחל משולב</span>
+              <span>{t('freeRun.hybrid.startClassic')}</span>
             </button>
           </div>
         ) : (

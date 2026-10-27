@@ -39,12 +39,12 @@ interface UserProfileSheetProps {
   user: ProfileUser | null;
 }
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  running: 'רץ/ה עכשיו',
-  walking: 'הולך/ת עכשיו',
-  cycling: 'רוכב/ת עכשיו',
-  strength: 'מתאמן/ת עכשיו',
-};
+const ACTIVITY_LABEL_KEYS = {
+  running: 'liveUser.activity.running',
+  walking: 'liveUser.activity.walking',
+  cycling: 'liveUser.activity.cycling',
+  strength: 'liveUser.activity.strength',
+} as const;
 
 export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileSheetProps) {
   const router = useRouter();
@@ -104,8 +104,11 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
 
   const display = enriched ?? user;
   const avatarSrc = display.photoURL || resolvePersonaImage(display.personaId);
-  const stageLabel = display.lemurStage ? STAGE_TITLES[display.lemurStage] ?? `שלב ${display.lemurStage}` : null;
-  const activityLabel = display.activity?.status ? ACTIVITY_LABELS[display.activity.status] : null;
+  const stageLabel = display.lemurStage ? STAGE_TITLES[display.lemurStage] ?? t('liveUser.stageFallback', { stage: String(display.lemurStage) }) : null;
+  const activityKey = display.activity?.status
+    ? ACTIVITY_LABEL_KEYS[display.activity.status as keyof typeof ACTIVITY_LABEL_KEYS]
+    : undefined;
+  const activityLabel = activityKey ? t(activityKey) : null;
 
   // Compliance Phase 2.2 — DM is blocked when EITHER party is a minor.
   // Self-DMs are also hidden (no point messaging yourself).
@@ -212,7 +215,7 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-500 text-sm font-bold active:scale-[0.97] transition-all border border-gray-100"
                   >
                     <UserCircle2 size={15} />
-                    צפה בפרופיל
+                    {t('liveUser.viewProfile')}
                   </button>
 
                   {/* Send message button — hidden when DM is blocked
@@ -226,7 +229,7 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
                         onClose();
                         void useChatStore.getState().openDM(
                           currentProfile.id,
-                          currentProfile.core?.name ?? 'אווטיר',
+                          currentProfile.core?.name ?? 'אווטיר', // i18n-allow-hebrew: data — fallback sender name written to chats.participantNames
                           display.uid,
                           display.name,
                         );
@@ -234,7 +237,7 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-500 text-sm font-bold active:scale-[0.97] transition-all border border-gray-100"
                     >
                       <MessageCircle size={15} />
-                      שלח הודעה
+                      {t('liveUser.sendMessage')}
                     </button>
                   ) : (currentIsMinor || targetIsMinor) ? (
                     <div
@@ -242,7 +245,7 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
                       aria-disabled="true"
                     >
                       <Lock size={13} />
-                      הודעות ישירות זמינות רק לבני 18+
+                      {t('liveUser.minorLock')}
                     </div>
                   ) : null}
                 </div>

@@ -19,6 +19,8 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X } from 'lucide-react';
 import Sheet, { SheetHeader } from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 /** The drawer's spring (unchanged). */
 export const FREE_RUN_SPRING = { type: 'spring', damping: 28, stiffness: 300 } as const;
@@ -34,6 +36,7 @@ function LegacyHandlePill() {
 
 /** The legacy sub-sheet header: 16px title, optional gray close (flag off). */
 function LegacySubSheetHeader({ title, className, onClose }: { title: string; className: string; onClose?: () => void }) {
+  const t = useT(map);
   if (!onClose) {
     return (
       <div className={className}>
@@ -48,7 +51,7 @@ function LegacySubSheetHeader({ title, className, onClose }: { title: string; cl
         type="button"
         onClick={onClose}
         className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
-        aria-label="סגור"
+        aria-label={t('freeRun.close')}
       >
         <X size={14} className="text-gray-600" />
       </button>
@@ -102,11 +105,12 @@ export function FreeRunSubSheet({
   legacy,
   children,
 }: FreeRunSubSheetProps) {
+  const t = useT(map);
   const dragControls = useDragControls();
 
   if (v2) {
     const column = v2Layout === 'column';
-    const header = <SheetHeader title={title} onClose={onClose} closeLabel="סגור" className={V2_HEADER_CLASS} />;
+    const header = <SheetHeader title={title} onClose={onClose} closeLabel={t('freeRun.close')} className={V2_HEADER_CLASS} />;
     return (
       <Sheet
         open={isOpen}
@@ -195,6 +199,7 @@ export interface FreeRunMainFrameProps {
  * rising 400 px. Mounted only while shown (no exit animation) — as before.
  */
 export function FreeRunMainFrame({ onClose, v2, title, children }: FreeRunMainFrameProps) {
+  const t = useT(map);
   const dragControls = useDragControls();
 
   if (v2) {
@@ -218,7 +223,7 @@ export function FreeRunMainFrame({ onClose, v2, title, children }: FreeRunMainFr
         dragToDismiss={FREE_RUN_DRAG}
         grabberClassName="flex justify-center pt-3 pb-2"
         ariaLabel={title}
-        header={<SheetHeader title={title} onClose={onClose} closeLabel="סגור" className={V2_HEADER_CLASS} />}
+        header={<SheetHeader title={title} onClose={onClose} closeLabel={t('freeRun.close')} className={V2_HEADER_CLASS} />}
       >
         {children}
       </Sheet>
@@ -267,7 +272,7 @@ export function FreeRunMainFrame({ onClose, v2, title, children }: FreeRunMainFr
               type="button"
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform shrink-0"
-              aria-label="סגור"
+              aria-label={t('freeRun.close')}
             >
               <X size={14} className="text-gray-600" />
             </button>

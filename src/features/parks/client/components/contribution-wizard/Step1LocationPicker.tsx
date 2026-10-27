@@ -8,6 +8,8 @@ import { checkDuplicateNearby } from '@/features/parks/core/services/contributio
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type { WizardData } from './index';
 import type { Park } from '@/features/parks/core/types/park.types';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -20,9 +22,9 @@ interface Props {
 type LocationCategory = 'full_park' | 'poi';
 
 const POI_OPTIONS = [
-  { id: 'bench', label: 'ספסל', icon: '🪑' },
-  { id: 'dog_park', label: 'גינת כלבים', icon: '🐕' },
-  { id: 'water_fountain', label: 'ברזיית מים', icon: '🚰' },
+  { id: 'bench', labelKey: 'wizard.poi.bench', icon: '🪑' },
+  { id: 'dog_park', labelKey: 'wizard.poi.dog_park', icon: '🐕' },
+  { id: 'water_fountain', labelKey: 'wizard.poi.water_fountain', icon: '🚰' },
 ] as const;
 
 /** v2 icons for the POI chips (replace the emoji). */
@@ -33,6 +35,7 @@ const POI_V2_ICONS: Record<(typeof POI_OPTIONS)[number]['id'], LucideIcon> = {
 };
 
 export default function Step1LocationPicker({ data, updateData, onNext }: Props) {
+  const t = useT(map);
   const v2 = useWizardV2();
   const mapRef = useRef<MapRef>(null);
   const [duplicate, setDuplicate] = useState<Park | null>(null);
@@ -136,7 +139,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
           </Map>
           {!data.location && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
-              <p className={v2 ? 'whitespace-nowrap rounded-full bg-white px-4 py-2 text-[14px] font-extrabold text-v2-ink shadow-v2-ring' : 'text-slate-500 text-sm font-medium'}>לחצו על המפה לבחירת מיקום</p>
+              <p className={v2 ? 'whitespace-nowrap rounded-full bg-white px-4 py-2 text-[14px] font-extrabold text-v2-ink shadow-v2-ring' : 'text-slate-500 text-sm font-medium'}>{t('wizard.map.tapHint')}</p>
             </div>
           )}
         </div>
@@ -148,9 +151,9 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
             : 'bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 flex items-start gap-3'}>
             <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
             <div>
-              <p className={v2 ? 'text-[13px] font-extrabold text-amber-700' : 'text-amber-700 text-xs font-bold'}>מיקום קרוב כבר קיים</p>
+              <p className={v2 ? 'text-[13px] font-extrabold text-amber-700' : 'text-amber-700 text-xs font-bold'}>{t('wizard.duplicate.title')}</p>
               <p className={v2 ? 'mt-0.5 text-[12.5px] font-bold text-amber-700/80' : 'text-amber-600 text-[11px] mt-0.5'}>
-                &quot;{duplicate.name}&quot; נמצא פחות מ-50 מטר. נסו מיקום אחר.
+                {t('wizard.duplicate.body', { name: duplicate.name })}
               </p>
             </div>
           </div>
@@ -159,12 +162,12 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
         {/* Category Selection */}
         {v2 ? (
           <div className="mb-4">
-            <p className={V2_LABEL}>סוג המיקום</p>
+            <p className={V2_LABEL}>{t('wizard.category.label')}</p>
             <div className="flex gap-2.5">
               {([
-                { id: 'full_park', label: 'פארק / גינת כושר', Icon: Dumbbell },
-                { id: 'poi', label: 'נקודת עניין', Icon: MapPin },
-              ] as const).map(({ id, label, Icon }) => (
+                { id: 'full_park', labelKey: 'wizard.category.fullPark', Icon: Dumbbell },
+                { id: 'poi', labelKey: 'wizard.category.poi', Icon: MapPin },
+              ] as const).map(({ id, labelKey, Icon }) => (
                 <button
                   key={id}
                   type="button"
@@ -172,14 +175,14 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
                   className={`flex h-14 min-w-0 flex-1 items-center justify-center gap-2 px-3 text-[14.5px] font-extrabold ${v2Card(category === id)}`}
                 >
                   <Icon size={18} strokeWidth={2.4} className={category === id ? 'flex-shrink-0 text-v2-deep' : 'flex-shrink-0 text-v2-muted'} />
-                  <span className="truncate whitespace-nowrap">{label}</span>
+                  <span className="truncate whitespace-nowrap">{t(labelKey)}</span>
                 </button>
               ))}
             </div>
           </div>
         ) : (
         <div className="mb-4">
-          <p className="text-slate-500 text-xs font-bold mb-2">סוג המיקום</p>
+          <p className="text-slate-500 text-xs font-bold mb-2">{t('wizard.category.label')}</p>
           <div className="flex gap-2">
             <button
               onClick={() => handleCategoryChange('full_park')}
@@ -189,7 +192,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
                   : 'bg-slate-50 text-slate-500 border-slate-200'
               }`}
             >
-              🏋️ פארק / גינת כושר
+              {t('wizard.category.fullParkClassic')}
             </button>
             <button
               onClick={() => handleCategoryChange('poi')}
@@ -199,7 +202,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
                   : 'bg-slate-50 text-slate-500 border-slate-200'
               }`}
             >
-              📍 נקודת עניין
+              {t('wizard.category.poiClassic')}
             </button>
           </div>
         </div>
@@ -219,7 +222,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
                   className={`flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[13.5px] font-extrabold ${v2Chip(on)}`}
                 >
                   <Icon size={16} strokeWidth={2.4} className={on ? 'flex-shrink-0 text-v2-deep' : 'flex-shrink-0 text-v2-muted'} />
-                  <span className="truncate whitespace-nowrap">{poi.label}</span>
+                  <span className="truncate whitespace-nowrap">{t(poi.labelKey)}</span>
                 </button>
               );
             })}
@@ -238,7 +241,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
                 }`}
               >
                 <span className="text-lg">{poi.icon}</span>
-                <span>{poi.label}</span>
+                <span>{t(poi.labelKey)}</span>
               </button>
             ))}
           </div>
@@ -250,7 +253,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
       {v2 ? (
         <div className="mt-4 flex flex-shrink-0">
           <V2PrimaryButton onClick={onNext} disabled={!canProceed} arrow={!checking}>
-            {checking ? 'בודק...' : 'המשך'}
+            {checking ? t('wizard.checking') : t('wizard.continue')}
           </V2PrimaryButton>
         </div>
       ) : (
@@ -263,7 +266,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
             : 'bg-slate-100 text-slate-300 cursor-not-allowed'
         }`}
       >
-        {checking ? 'בודק...' : 'המשך'}
+        {checking ? t('wizard.checking') : t('wizard.continue')}
       </button>
       )}
     </div>

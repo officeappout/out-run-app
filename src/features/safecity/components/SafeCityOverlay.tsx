@@ -17,6 +17,8 @@ import { Flame, ShieldCheck, Eye } from 'lucide-react';
 import PrivacyModeSwitcher from './PrivacyModeSwitcher';
 import type { PresenceMarker } from '../services/segregation.service';
 import type { PrivacyMode } from '../store/usePrivacyStore';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface SafeCityOverlayProps {
   markers: PresenceMarker[];
@@ -33,6 +35,7 @@ export default function SafeCityOverlay({
   ageGroup,
   onMarkerTap,
 }: SafeCityOverlayProps) {
+  const t = useT(map);
   return (
     <>
       {/* Privacy FAB — bottom-left */}
@@ -47,10 +50,10 @@ export default function SafeCityOverlay({
           <Eye className="w-3.5 h-3.5 text-gray-500" />
           <span className="text-[10px] font-bold text-gray-700">
             {privacyMode === 'ghost'
-              ? 'מצב רוח — לא נראה'
+              ? t('safecity.overlay.ghost')
               : privacyMode === 'squad'
-                ? `חברים — ${markers.length} סביבך`
-                : `גלובלי — ${markers.length} מאומתים`}
+                ? t('safecity.overlay.squad', { count: String(markers.length) })
+                : t('safecity.overlay.global', { count: String(markers.length) })}
           </span>
         </div>
 
@@ -59,7 +62,7 @@ export default function SafeCityOverlay({
           <div className="bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 shadow-md border border-gray-100 flex items-center gap-2">
             <Flame className="w-3.5 h-3.5 text-orange-500" />
             <span className="text-[10px] font-bold text-gray-700">
-              {heatmapCount} פעילים באזור
+              {t('safecity.overlay.active', { count: String(heatmapCount) })}
             </span>
           </div>
         )}

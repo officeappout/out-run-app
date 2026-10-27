@@ -6,8 +6,10 @@ import WorkoutPreferencesModal from '@/features/parks/core/components/WorkoutPre
 import { useMapLogic } from '@/features/parks';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { Play, X } from 'lucide-react';
-import { useUiGender } from '@/hooks/useUiGender';
-import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import { common } from '@/messages/ns/common';
+import { withUnit } from '@/lib/i18n/units';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -16,7 +18,8 @@ interface BuilderLayerProps {
 }
 
 export default function BuilderLayer({ logic }: BuilderLayerProps) {
-  const uiGender = useUiGender();
+  const t = useT(map);
+  const tc = useT(common);
   // Hide the global BottomNavbar — both the preferences modal and the
   // route-picker card own the full bottom of the map.
   useSuppressBottomNav();
@@ -51,7 +54,7 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
         <div className="absolute bottom-0 left-0 right-0 z-20 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 p-4" dir="rtl">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-black text-gray-800">בחר מסלול</h3>
+              <h3 className="text-sm font-black text-gray-800">{t('mapLayers.builder.title')}</h3>
               <button onClick={() => setMode('discover')} className="p-1 rounded-lg hover:bg-gray-100">
                 <X size={18} className="text-gray-400" />
               </button>
@@ -60,7 +63,7 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
             {logic.isGenerating ? (
               <div className="flex items-center justify-center py-6">
                 <div className="animate-spin w-6 h-6 border-[3px] border-[#00E5FF] border-t-transparent rounded-full" />
-                <span className="text-sm text-gray-500 font-bold mr-3">מייצר מסלולים...</span>
+                <span className="text-sm text-gray-500 font-bold mr-3">{t('mapLayers.builder.generating')}</span>
               </div>
             ) : logic.routesToDisplay.length > 0 ? (
               <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -75,8 +78,8 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
                     }`}
                   >
                     <div className="text-right">
-                      <p className="text-sm font-bold text-gray-800">{route.name || 'מסלול'}</p>
-                      <p className="text-[11px] text-gray-500">{route.distance} ק״מ · {route.duration} דק׳</p>
+                      <p className="text-sm font-bold text-gray-800">{route.name || t('mapLayers.builder.routeFallback')}</p>
+                      <p className="text-[11px] text-gray-500">{withUnit('km', route.distance, tc)} · {withUnit('min', route.duration, tc)}</p>
                     </div>
                     {logic.focusedRoute?.id === route.id && (
                       <div className="w-3 h-3 rounded-full bg-[#00E5FF]" />
@@ -88,17 +91,17 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
               // Honest error state (routes phase 1.2) — generation failed;
               // previously this silently fell back to MOCK_ROUTES.
               <div className="text-center py-4">
-                <p className="text-sm text-gray-500 font-bold">לא הצלחנו לייצר מסלולים כרגע.</p>
+                <p className="text-sm text-gray-500 font-bold">{t('mapLayers.builder.error')}</p>
                 <button
                   type="button"
                   onClick={() => logic.handleShuffle(logic.preferences.activity)}
                   className="mt-2 px-4 py-1.5 rounded-full border border-gray-200 text-gray-600 font-bold text-xs active:scale-[0.97] transition-transform"
                 >
-                  {pickGendered(uiGender, GENDERED_COPY.retry)}
+                  {t('mapLayers.builder.retry')}
                 </button>
               </div>
             ) : (
-              <p className="text-center text-sm text-gray-400 py-4">אין מסלולים זמינים. נסה להגדיר מחדש.</p>
+              <p className="text-center text-sm text-gray-400 py-4">{t('mapLayers.builder.empty')}</p>
             )}
 
             {logic.focusedRoute && (
@@ -107,7 +110,7 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
                 className="w-full mt-3 py-3.5 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00BAF7] text-white font-black text-base shadow-lg active:scale-[0.97] transition-all flex items-center justify-center gap-2"
               >
                 <Play size={18} fill="white" />
-                <span>התחל מסלול</span>
+                <span>{t('mapLayers.builder.start')}</span>
               </button>
             )}
 
@@ -115,7 +118,7 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
               onClick={() => setShowPrefs(true)}
               className="w-full mt-2 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all"
             >
-              שנה הגדרות
+              {t('mapLayers.builder.changeSettings')}
             </button>
           </div>
         </div>

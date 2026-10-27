@@ -10,6 +10,8 @@
 
 import { Footprints, MapPin } from 'lucide-react';
 import type { PlannedRunSlot, PlannedWalkSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export interface PlannedRunSlotCardProps {
   /** Today's planned run, or (walkers) today's planned walk — same card, its own colour. */
@@ -20,6 +22,7 @@ export interface PlannedRunSlotCardProps {
 }
 
 export default function PlannedRunSlotCard({ slot, onArm, onCta }: PlannedRunSlotCardProps) {
+  const t = useT(map);
   return (
     <div className="flex h-full w-full flex-col justify-between gap-3 rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
       <div className="min-w-0">
@@ -43,7 +46,7 @@ export default function PlannedRunSlotCard({ slot, onArm, onCta }: PlannedRunSlo
         className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
       >
         <MapPin size={16} aria-hidden />
-        הצע לי מסלול
+        {t('slotCard.suggestRoute')}
       </button>
     </div>
   );

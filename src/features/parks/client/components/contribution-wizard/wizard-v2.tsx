@@ -9,6 +9,8 @@
  */
 import React from 'react';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export const WizardV2Context = React.createContext(false);
 export const useWizardV2 = () => React.useContext(WizardV2Context);
@@ -35,11 +37,12 @@ export const v2Chip = (selected: boolean) =>
 
 /** Round white back button (RTL: "back" points right). */
 export function V2BackButton({ onClick }: { onClick: () => void }) {
+  const t = useT(map);
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="חזרה"
+      aria-label={t('wizard.back')}
       className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
     >
       <ChevronRight size={20} strokeWidth={2.4} />

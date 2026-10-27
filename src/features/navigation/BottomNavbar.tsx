@@ -8,8 +8,11 @@ import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { V2_NAV_BOTTOM_CSS } from '@/components/ui/v2/bottom-chrome';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export default function BottomNavigation() {
+  const t = useT(map);
   const pathname = usePathname();
   const { status } = useSessionStore();
   const profile = useUserStore((s) => s.profile);
@@ -53,12 +56,12 @@ export default function BottomNavigation() {
   // of the social feed, so we must not hide the only entry point to /community
   // when only leagues is on.
   const navItems = [
-    { name: 'בית',       href: '/home',        icon: Home,       match: 'prefix' as const },
-    { name: 'מפה',       href: '/map',          icon: Map,        match: 'prefix' as const },
-    { name: 'התקדמות',   href: '/progression',  icon: TrendingUp, match: 'prefix' as const },
+    { name: t('bottomNav.home'),       href: '/home',        icon: Home,       match: 'prefix' as const },
+    { name: t('bottomNav.map'),       href: '/map',          icon: Map,        match: 'prefix' as const },
+    { name: t('bottomNav.progression'),   href: '/progression',  icon: TrendingUp, match: 'prefix' as const },
     ...(flags.enableCommunityFeed || flags.enableLeagues
       ? [
-          { name: 'חברתי', href: '/community', icon: Users, match: 'community-feed' as const },
+          { name: t('bottomNav.social'), href: '/community', icon: Users, match: 'community-feed' as const },
         ]
       : []),
   ];
@@ -162,14 +165,15 @@ function BottomNavV2({
   isSuppressed: boolean;
   showSocial: boolean;
 }) {
+  const t = useT(map);
   const on = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const left: V2Item[] = [
-    { name: 'בית', href: '/home', icon: Home, active: on('/home') },
-    { name: 'התקדמות', href: '/progression', icon: TrendingUp, active: on('/progression') },
+    { name: t('bottomNav.home'), href: '/home', icon: Home, active: on('/home') },
+    { name: t('bottomNav.progression'), href: '/progression', icon: TrendingUp, active: on('/progression') },
   ];
   const right: V2Item[] = [
-    ...(showSocial ? [{ name: 'חברתי', href: '/community', icon: Users, active: on('/community') }] : []),
-    { name: 'פרופיל', href: '/profile', icon: User, active: on('/profile') },
+    ...(showSocial ? [{ name: t('bottomNav.social'), href: '/community', icon: Users, active: on('/community') }] : []),
+    { name: t('bottomNav.profile'), href: '/profile', icon: User, active: on('/profile') },
   ];
   const mapActive = on('/map');
   const tab = (item: V2Item) => {
@@ -192,7 +196,7 @@ function BottomNavV2({
 
   return (
     <motion.nav
-      aria-label="ניווט ראשי"
+      aria-label={t('bottomNav.aria')}
       initial={false}
       animate={{ y: isSuppressed ? '140%' : '0%' }}
       transition={{ type: 'tween', duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
@@ -205,7 +209,7 @@ function BottomNavV2({
       <Link
         href="/map"
         tabIndex={isSuppressed ? -1 : 0}
-        aria-label="מפה"
+        aria-label={t('bottomNav.map')}
         aria-current={mapActive ? 'page' : undefined}
         // Inert: the home tour's 3rd step when there is no week strip (FIRST_RUN_COACH.homeNavMap).
         data-coach="nav-map"
