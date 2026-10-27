@@ -32,7 +32,8 @@ import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import ExistingAccountModal from '@/components/ExistingAccountModal';
 import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
 import { IntroLanding } from '@/features/user/onboarding/intro/components/IntroLanding';
-import { INTRO_SEEN_PREF, isIntroPreview, isIntroSeen, shouldHoldLandingSplash, withIntroRedirect } from '@/features/user/onboarding/intro/intro-route';
+import { isIntroPreview, shouldHoldLandingSplash } from '@/features/user/onboarding/intro/intro-route';
+import { introAwareRouter } from '@/features/user/onboarding/intro/intro-router';
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
 import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 import { runNewAccountFlow } from '@/features/user/onboarding/services/run-new-account-flow';
@@ -545,14 +546,7 @@ export default function LandingPage() {
     try {
       // enable_entry_intro_v1: the flow's final `/explorer` push becomes `/intro`
       // until the intro has been seen on this device; invite redirects untouched.
-      const flowRouter = introPreview
-        ? withIntroRedirect(router, { introOn: true, introSeen: false, preview: true })
-        : introOn
-          ? withIntroRedirect(router, {
-              introOn,
-              introSeen: isIntroSeen(await getOnboardingPrefAsync(INTRO_SEEN_PREF)),
-            })
-          : router;
+      const flowRouter = await introAwareRouter(router, { introOn, preview: introPreview });
       const proceeded = await runExploreMapFlow(flowRouter);
       if (!proceeded) {
         // resolveUser() already logged AUTH_ANONYMOUS (run-explore-map-
