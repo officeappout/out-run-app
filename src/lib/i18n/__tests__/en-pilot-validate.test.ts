@@ -37,7 +37,7 @@ describe('batch 3: player + summary', () => {
   it('translates every key except the language-neutral ones (identical in Hebrew), nothing extra', () => {
     for (const ns of ['player', 'summary'] as const) {
       const missing = Object.keys(he(ns)).filter((k) => !(k in en(ns)));
-      expect(missing.sort()).toEqual([...LANGUAGE_NEUTRAL[ns]].sort());
+      expect(missing.sort()).toEqual(Array.from(LANGUAGE_NEUTRAL[ns]).sort());
       expect(Object.keys(en(ns)).filter((k) => !(k in he(ns)))).toEqual([]);
     }
   });
@@ -60,7 +60,7 @@ describe('batch 3: player + summary', () => {
   it('plural coverage: English never uses categories other than one/other and =N', () => {
     for (const ns of ['player', 'summary'] as const) {
       for (const [k, v] of Object.entries(en(ns))) {
-        for (const m of v.matchAll(/\b(zero|two|few|many)\s*\{/g)) throw new Error(`${ns}:${k} uses plural category ${m[1]}`);
+        expect(/\b(zero|two|few|many)\s*\{/.test(v), `${ns}:${k} uses a non-English plural category`).toBe(false);
       }
     }
   });
