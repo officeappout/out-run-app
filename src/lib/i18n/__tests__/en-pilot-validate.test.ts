@@ -52,7 +52,7 @@ describe('en onboarding (batch 2)', () => {
 
   it('plural coverage: every plural has one (or =N) and other; no stray digit-noun counts', () => {
     for (const [k, v] of Object.entries(en)) {
-      for (const m of v.matchAll(/\{(\w+), plural,/g)) expect(v, k).toMatch(/other \{/);
+      if (/\{\w+, plural,/.test(v)) expect(v, k).toMatch(/other \{/);
       expect(/\{\w+\}\s+(minutes|weeks|days|hours|runs|walks|workouts|exercises|stations|members)\b/.test(v.replace(/\{\w+, plural,[^]*$/, '')), k).toBe(false);
     }
   });
