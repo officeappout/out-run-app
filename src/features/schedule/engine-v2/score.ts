@@ -6,7 +6,7 @@
  */
 import { PRIORITY_TUNING, STREAK_COMFORT, W } from './config';
 import { canonicalSlug, H6_PATTERNS, HEAVY_LEGS, MODERATE_LEGS, SKILL_CNS, SPREAD_PATTERN_LOAD } from './programProfiles';
-import { gapDays, isKeyRun, isLongRun, isQualityRun, nextDay, type Grid } from './rules';
+import { gapDays, isEasyRun, isKeyRun, isLegsUnit, isLongRun, isQualityRun, longestRunStreak, nextDay, type Grid } from './rules';
 import type { SchedulePriority, TrainingLevel } from './types';
 import type { Unit } from './units';
 
@@ -21,6 +21,8 @@ export interface ScoreCtx {
   totalSessions: number;
   /** Days that are history: never counted as moves. */
   frozen: readonly boolean[];
+  /** Run-day streak by level (soft since 27.10.2026). */
+  runCap?: number;
 }
 
 export type Breakdown = Record<string, number>;
@@ -73,6 +75,14 @@ function movedCount(grid: Grid, existing: Map<string, number[]>, frozen: readonl
 
 export function scoreRuns(grid: Grid, ctx: ScoreCtx, b: Breakdown): number {
   let t = 0;
+  // Run-day streak over the level's comfort: a cost, never a cap (owner 27.10.2026).
+  if (ctx.runCap !== undefined) {
+    const over = longestRunStreak(grid) - ctx.runCap;
+    if (over > 0) {
+      add(b, 'RUN_STREAK', W.RUN_STREAK_OVER_CAP * over);
+      t += W.RUN_STREAK_OVER_CAP * over;
+    }
+  }
   // S1 long run on the target day.
   const L = grid.run.findIndex((u) => isLongRun(u));
   if (L >= 0 && ctx.longRunDay !== null) {
@@ -104,12 +114,17 @@ export function scoreFull(grid: Grid, ctx: ScoreCtx): { total: number; breakdown
   scoreRuns(grid, ctx, b);
   const tuning = PRIORITY_TUNING[ctx.priority];
   let doubles = 0;
+  const easyDays = grid.run.filter(isEasyRun).length;
   for (let d = 0; d < 7; d++) {
     const s = grid.strength[d];
     const r = grid.run[d];
+    // R29: heavy legs on an easy-run day is the preferred home (no S5), elsewhere a soft cost.
+    const legsOnEasy = isLegsUnit(s) && isEasyRun(r);
+    if (s && easyDays > 0 && isLegsUnit(s) && !legsOnEasy) add(b, 'R29', W.R29_LEGS_OFF_EASY_DAY);
+    if (s?.lightLegs) add(b, 'LIGHT_LEGS', W.LIGHT_LEGS);
     if (s && r) {
       doubles++;
-      if (!isQualityRun(r)) add(b, 'S5', W.S5_DOUBLE_NOT_QUALITY);
+      if (!isQualityRun(r) && !legsOnEasy) add(b, 'S5', W.S5_DOUBLE_NOT_QUALITY);
       if (s.load.cns >= SKILL_CNS && s.isSkill) add(b, 'S12', W.S12_SKILL_WITH_RUN);
       if (s.isSkill) add(b, 'P_SKILL_WITH_RUN', tuning.skillWithRun);
       if (isKeyRun(r)) add(b, 'P_STRENGTH_AFTER_KEY', tuning.strengthAfterKeyRun);
@@ -119,7 +134,7 @@ export function scoreFull(grid: Grid, ctx: ScoreCtx): { total: number; breakdown
     if (s) {
       // S7 moderate legs the day before a key run (heavy legs is H3).
       const n = nextDay(d);
-      if (n !== null && s.load.legs >= MODERATE_LEGS && isKeyRun(grid.run[n])) add(b, 'S7', W.S7_MODERATE_LEGS_BEFORE_KEY);
+      if (n !== null && !s.lightLegs && s.load.legs >= MODERATE_LEGS && isKeyRun(grid.run[n])) add(b, 'S7', W.S7_MODERATE_LEGS_BEFORE_KEY);
       // S9 (cross-domain part): heavy legs the day after the long run — two leg-heavy days in a row.
       if (d > 0 && s.load.legs >= HEAVY_LEGS && isLongRun(grid.run[d - 1])) add(b, 'S9', W.S9_ADJACENT_HARD);
     }

@@ -1,6 +1,6 @@
 // @ts-nocheck -- standalone tsx script (scripts/ is not compiled with the app tsconfig target)
 /**
- * English catalog validator (docs/i18n/EN-PILOT-PLAN.md §4, checks V1-V14).
+ * English catalog validator (docs/i18n/EN-PILOT-PLAN.md §4, checks V1-V14, V16).
  * Pure Node + the ICU parser the runtime uses (@formatjs/icu-messageformat-parser, the parser
  * inside intl-messageformat). No tsc, no network.
  *
@@ -37,7 +37,50 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   pages: () => true,
   home: (k) => k.startsWith('settings.'),
   onboarding: (k) => !ONBOARDING_SKIPPED.test(k),
+  player: (k) => !LANGUAGE_NEUTRAL.player.has(k),
+  summary: (k) => !LANGUAGE_NEUTRAL.summary.has(k),
 };
+
+/**
+ * Batch 3 keys that are identical in Hebrew and English (protocol names, symbol-only joiners, brand tokens):
+ * they stay out of the en catalogs on purpose (the Hebrew value is already correct for English).
+ */
+export const LANGUAGE_NEUTRAL: Record<'player' | 'summary', Set<string>> = {
+  player: new Set([
+    'strengthSummary.protocol.emom', 'strengthSummary.protocol.amrap', 'strengthPlayer.timed.list.queueSuffix',
+    'timedLabels.title.minutes', 'timedLabels.target.text', 'timedLabels.eyebrow.prefixed',
+    'timedLabels.ready.emomWithTarget', 'timedLabels.mini.line', 'timedLabels.playlist.doneDetail',
+    'hybrid.v2.header.titleOf',
+  ]),
+  summary: new Set(['identity.xp']),
+};
+
+
+/** Text outside any `{arg, plural, …}` block: nouns inside a plural branch are already governed by that plural. */
+function outsidePlurals(msg: string): string {
+  let out = '';
+  let i = 0;
+  while (i < msg.length) {
+    const m = /\{\w+, plural,/y;
+    m.lastIndex = i;
+    if (m.test(msg)) {
+      let depth = 0;
+      let j = i;
+      for (; j < msg.length; j++) {
+        if (msg[j] === '{') depth++;
+        else if (msg[j] === '}') { depth--; if (depth === 0) { j++; break; } }
+      }
+      out += '\u0000';
+      i = j;
+    } else {
+      out += msg[i++];
+    }
+  }
+  return out;
+}
+
+/** Keys where a count noun sits inside a select branch that is only reached for n > 1 (select 1 / other). */
+export const COUNT_NOUN_EXEMPT = new Set(['timedLabels.info.amrap.line2']);
 
 /** Strings that may equal the Hebrew (do-not-translate items). */
 const SAME_AS_HEBREW_OK = /^[\s\d.,:;/\-–+·×%#A-Za-z{}]*$/u; // only latin/digits/punctuation (brand words, XP...)
@@ -55,10 +98,21 @@ interface Walked {
   plurals: Map<string, string[]>;
   tags: string[];
   texts: string[];
+  bare: string[]; // {arg} + countable noun outside any plural
 }
 
-function walk(els: any[], w: Walked): void {
-  for (const el of els as any[]) {
+const COUNTABLE = /^\s*(?:reps?|sets?|rounds?|exercises?|blocks?|laps?|minutes?|seconds?|steps?|stars?|people|persons?|calories|intervals?|items?|loops?|routes?|participants?)\b/i;
+
+function walk(els: any[], w: Walked, inPlural = false): void {
+  for (let i = 0; i < els.length; i++) {
+    const el = els[i];
+    if (!inPlural && (el.type as number) === TYPE.argument) {
+      const next = els[i + 1];
+      if (next && next.type === TYPE.literal) {
+        const m = (next.value as string).match(COUNTABLE);
+        if (m) w.bare.push(`{${el.value}}${m[0]}`);
+      }
+    }
     switch (el.type as number) {
       case TYPE.literal: w.texts.push(el.value); break;
       case TYPE.argument: if (!w.args.has(el.value)) w.args.set(el.value, 'arg'); break;
@@ -66,14 +120,14 @@ function walk(els: any[], w: Walked): void {
       case TYPE.select:
         w.args.set(el.value, 'select');
         w.selects.set(el.value, Object.keys(el.options));
-        for (const o of Object.values(el.options)) walk(o.value, w);
+        for (const o of Object.values(el.options)) walk(o.value, w, true); // a select with a count key (1 / other) is the Hebrew-style plural
         break;
       case TYPE.plural:
         w.args.set(el.value, 'plural');
         w.plurals.set(el.value, Object.keys(el.options));
-        for (const o of Object.values(el.options)) walk(o.value, w);
+        for (const o of Object.values(el.options)) walk(o.value, w, true);
         break;
-      case TYPE.tag: w.tags.push(el.value); walk(el.children, w); break;
+      case TYPE.tag: w.tags.push(el.value); walk(el.children, w, inPlural); break;
       default: break;
     }
   }
@@ -82,7 +136,7 @@ function walk(els: any[], w: Walked): void {
 function analyze(message: string): Walked | Error {
   try {
     const ast = new IntlMessageFormat(message, 'en', undefined, { ignoreTag: false }).getAst();
-    const w: Walked = { args: new Map(), selects: new Map(), plurals: new Map(), tags: [], texts: [] };
+    const w: Walked = { args: new Map(), selects: new Map(), plurals: new Map(), tags: [], texts: [], bare: [] };
     walk(ast, w);
     return w;
   } catch (e) {
@@ -150,6 +204,11 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
       for (const b of eb) if (['zero', 'two', 'few', 'many'].includes(b)) add(key, 'V4', 'error', `English plural has category "${b}"`);
       for (const b of hb) if (b.startsWith('=') && !eb.includes(b) && !(b === '=1' && eb.includes('one'))) add(key, 'V4', 'error', `explicit branch ${b} dropped`);
     }
+    // V16 every English plural has one (or =1) and other
+    for (const [n, eb] of e.plurals) {
+      if (!eb.includes('one') && !eb.includes('=1')) add(key, 'V16', 'error', `English plural {${n}} lacks "one" (or =1)`);
+      if (!eb.includes('other')) add(key, 'V16', 'error', `English plural {${n}} lacks "other"`);
+    }
     for (const n of e.plurals.keys()) if (!h.plurals.has(n)) add(key, 'V4', 'warn', `plural {${n}} added in en (Hebrew has none)`);
 
     // V5 non-gender selects
@@ -204,11 +263,11 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     if (/fitness park/i.test(enMsg)) add(key, 'V13', 'error', '"fitness park" is not the approved term (outdoor gym / calisthenics park)');
 
     // V15 a count/number interpolated next to a noun must be an ICU plural (one/other), not "{n} workouts"
-    const flat = enMsg.replace(/\{(\w+), plural,/g, '\u0000');
+    const flat = outsidePlurals(enMsg);
     const COUNT_NOUN = /\{\w+(?:, number)?\}\s+(minutes?|weeks?|days?|hours?|runs?|walks?|steps?|workouts?|exercises?|stations?|stops?|members?|sessions?|questions?|reps|sets|users|people|friends|points?|kudos)\b/i;
     const cm = COUNT_NOUN.exec(flat);
     const cmArg = cm && /^\{(\w+)/.exec(cm[0])![1];
-    if (cm && !e.plurals.has(cmArg!)) add(key, 'V15', 'error', `count next to a noun without an ICU plural: ${cm[0]}`);
+    if (cm && !e.plurals.has(cmArg!) && !COUNT_NOUN_EXEMPT.has(key)) add(key, 'V15', 'error', `count next to a noun without an ICU plural: ${cm[0]}`);
     for (const [n, eb] of e.plurals) {
       if (!eb.includes('other')) add(key, 'V15', 'error', `plural {${n}} has no "other"`);
       // English needs a real `one` branch: `=1` + `other` is not accepted (no allowlist; the former =1 keys were converted)
@@ -222,7 +281,7 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     for (const m of noLabels.matchAll(AFTER)) {
       const [, arg, word] = m;
       const w = word!;
-      if (e.plurals.has(arg!) || UNIT_OK.has(w)) continue;
+      if (e.plurals.has(arg!) || UNIT_OK.has(w) || COUNT_NOUN_EXEMPT.has(key)) continue;
       if (COUNT_NOUNS.test(w)) add(key, 'V18', 'error', `{${arg}} ${w}: count next to a noun without a plural`);
       else add(key, 'V18', 'warn', `{${arg}} ${w}: placeholder next to a word, check it needs a plural`);
     }

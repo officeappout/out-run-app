@@ -47,6 +47,9 @@ export const SKILL_RULES: Readonly<Record<SkillId, SkillRule>> = {
   muscle_up: { family: 'pull', group: 'pull', minLevel: 10, pendingOwner: true },
 };
 
+/** R31 (owner 27.10.2026): core 5-10 minutes at the end of each strength day. */
+export const CORE_FINISHER = { minMinutes: 5, maxMinutes: 10, gate: 'weekly_target' } as const;
+
 /** Movement days (walk / mobility / short core) do NOT count toward the weekly strength set targets (owner 26.10). */
 export const MOVEMENT_COUNTS_TOWARD_SET_TARGETS = false;
 

@@ -59,6 +59,18 @@ export const W = {
   TIE_DOUBLE_DAY: 1,
   /** Tie-break: spread same-program sessions (× Σ 1/gap). */
   TIE_SPREAD: 0.5,
+  /**
+   * R29 (owner 27.10.2026): heavy legs belong on an easy-run day. Per heavy-legs day that is
+   * not on an easy / recovery run day, when the week has one. Legs + easy run is exempt from S5.
+   */
+  R29_LEGS_OFF_EASY_DAY: 3,
+  /**
+   * Owner 27.10.2026: the run-day streak is no longer a hard cap (old H8). Per run day over the
+   * level's streak, a small cost, so the engine spreads runs when the days allow it.
+   */
+  RUN_STREAK_OVER_CAP: 3,
+  /** Light legs (an easy-run-day legs session the day before intervals / tempo), owner 27.10.2026. */
+  LIGHT_LEGS: 1,
   /** A full body swapped to its no-legs variant (cheaper than S7). */
   VARIANT_SWAP: 4,
 } as const;
@@ -70,7 +82,7 @@ export const STREAK_COMFORT: Record<TrainingLevel, number> = {
   advanced: 6,
 };
 
-/** H8 run-day streak cap by level — the existing RUN-04 table. */
+/** Run-day streak by level (the RUN-04 table). Soft since 27.10.2026: over it, the extra runs are short and easy. */
 export const RUN_STREAK_CAP = MAX_CONSECUTIVE_TRAINING_DAYS;
 
 /** Hard-skill count → recommended strength days (the existing ERR_DAYS_MIN table). */
@@ -93,6 +105,11 @@ export const DROP = {
   /** + S3 / priority. */
   STRENGTH_EXTRA: 6,
   EASY: 5,
+  /**
+   * Owner 27.10.2026: the user's running days are kept. An easy run on a day the user chose for
+   * running (run focus, or an added running day) is dropped only when nothing else fits.
+   */
+  EASY_KEPT_RUN_DAY: 30,
   RECOVERY: 4,
   /** The calisthenics_upper overflow day added for skill users. */
   OVERFLOW: 2,
@@ -170,6 +187,15 @@ export const RUN_SLOT_MINUTES: Record<RunSlot, number> = {
 export const isQualitySlot = (s: RunSlot | undefined): boolean =>
   s === 'quality_primary' || s === 'quality_secondary';
 export const isKeySlot = (s: RunSlot | undefined): boolean => isQualitySlot(s) || s === 'long_run';
+
+/** Owner 27.10.2026: at most two quality runs a week (never back to back, H4); more become easy runs. */
+export const MAX_QUALITY_RUNS = 2;
+/** Extra (over-the-streak) easy runs are short: this many minutes, volume kept for the week. */
+export const EXTRA_EASY_MINUTES = 20;
+/** The long run gives up at most this share when the week has no easy minutes to split. */
+export const LONG_RUN_MIN_SHARE = 0.75;
+/** Light legs (on an easy-run day the day before a quality run) run at this volume. */
+export const LIGHT_LEGS_VOLUME_PCT = 60;
 
 // ── Free slots, walks, makeups ──────────────────────────────────────────────
 

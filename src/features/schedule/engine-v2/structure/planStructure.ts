@@ -2,7 +2,7 @@
 import { applySkillFocus } from './skillFocus';
 import { splitSkills } from './skills';
 import { applyStyles } from './styles';
-import { BEGINNER_STRENGTH_DAYS, MAX_WEEK_DAYS, MOVEMENT_ROTATION, SKILL_HINT_MAX_DAYS } from './config';
+import { BEGINNER_STRENGTH_DAYS, CORE_FINISHER, MAX_WEEK_DAYS, MOVEMENT_ROTATION, SHORT_SESSION_MINUTES, SKILL_HINT_MAX_DAYS } from './config';
 import { strengthTemplate } from './table';
 import { weekLevelOf } from './weekLevel';
 import { bandOf } from './config';
@@ -60,6 +60,11 @@ export function planStructure(input: StructureInput): StructurePlan {
     notes.push({ code: 'advanced_varied_styles' });
   }
 
+  // R27: an upper day is push + pull together; supersets when the session is short.
+  if (input.sessionMinutes != null && input.sessionMinutes <= SHORT_SESSION_MINUTES) {
+    strengthDays = strengthDays.map((d) => (d.kind === 'upper' ? { ...d, pairing: 'push_pull_supersets' as const } : d));
+  }
+
   const sequence = interleave(strengthDays, moveCount);
   return {
     weekLevel, band, days, sequence,
@@ -68,5 +73,6 @@ export function planStructure(input: StructureInput): StructurePlan {
     unlockedSkills: sk.unlocked.map((s) => s.id),
     lockedSkills: sk.locked.map((s) => s.id),
     notes,
+    coreFinisher: { ...CORE_FINISHER },
   };
 }

@@ -65,6 +65,8 @@
   "engine.reason.STRENGTH_OWN_DAY": "כוח ביום בלי ריצה.",
   "engine.reason.DOUBLE_ON_QUALITY_DAY": "ב{day} יום כפול על יום האיכות: קודם הריצה, אחר כך הכוח.",
   "engine.reason.EASY_DOUBLE_STRENGTH_FIRST": "ב{day} קודם כוח, אחריו ריצה קלה.",
+  "engine.reason.RUN_VOLUME_SPLIT": "שמרנו על כל ימי הריצה שבחרת. נפח הריצה השבועי לא משתנה, והריצות הנוספות קצרות וקלות.",
+  "engine.reason.LEGS_AFTER_EASY_RUN": "ב{day} רגליים אחרי ריצה קלה, כך שימי האיכות נשארים טריים.",
   "engine.reason.COMBINED_SESSION": "שתי תוכניות באימון אחד משולב, כל אחת בנפח מופחת.",
   "engine.reason.OAPU_RECOVERY_SESSION": "אימון התאוששות קל, פחות משלושה ימים אחרי מתח ביד אחת.",
   "engine.reason.HANDSTAND_FREE_SLOT": "עמידת ידיים קצרה בתחילת האימון.",

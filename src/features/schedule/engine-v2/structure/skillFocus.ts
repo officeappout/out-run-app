@@ -3,6 +3,12 @@
  * Hosts: push / pull / upper / full_body days (never lower, legs, movement).
  * The lead skill gets most of the session (or a fixed block in a short one); a second skill
  * of the SAME family gets a small part; leads rotate between sessions.
+ *
+ * R28 (owner 27.10.2026), split weeks (upper / lower and up): with a push skill and a pull skill,
+ * the first upper / full-body host focuses skill A, the second skill B, and any further upper /
+ * full-body host is a combined push + pull day without a skill lead. A focus day on an upper /
+ * full-body host keeps a little of the other side (`otherSide`). Push / pull days (6+ days) keep
+ * their own family. 1-3 day full-body weeks keep the alternating leads (decision 7).
  */
 import { SKILL_LEAD_SHARE, SKILL_MINOR_SHARE, SKILL_RULES, SKILL_SHORT_SESSION_MINUTES, SHORT_SESSION_MINUTES } from './config';
 import type { SkillChoice, SkillFocus, SkillId, StrengthDay } from './types';
@@ -24,8 +30,14 @@ export function applySkillFocus(days: StrengthDay[], unlocked: SkillChoice[], se
   const leadCount = new Map<SkillId, number>(ids.map((id) => [id, 0]));
   const short = sessionMinutes != null && sessionMinutes <= SHORT_SESSION_MINUTES;
   const plain = days.every((d) => d.kind === 'full_body');
+  const families = new Set(ids.map((id) => SKILL_RULES[id].family));
+  const splitTwoFamilies = !plain && families.size > 1;
+  let mixedHostsLed = 0;
 
   return days.map((d) => {
+    const mixedHost = d.kind === 'upper' || d.kind === 'full_body';
+    if (splitTwoFamilies && mixedHost && mixedHostsLed >= 2) return d; // R28: the combined day
+
     let cands = ids.filter((id) => hosts(d, id));
     // Full-body days with an emphasis prefer a skill of that family.
     if (plain && d.emphasis && d.emphasis !== 'legs') {
@@ -35,6 +47,7 @@ export function applySkillFocus(days: StrengthDay[], unlocked: SkillChoice[], se
     if (!cands.length) return d;
     const lead = [...cands].sort((a, b) => leadCount.get(a)! - leadCount.get(b)! || ids.indexOf(a) - ids.indexOf(b))[0];
     leadCount.set(lead, leadCount.get(lead)! + 1);
+    if (mixedHost) mixedHostsLed++;
     const family = SKILL_RULES[lead].family;
     const minor = ids.find((id) => id !== lead && SKILL_RULES[id].family === family && hosts(d, id));
     const skill: SkillFocus = {
@@ -42,6 +55,7 @@ export function applySkillFocus(days: StrengthDay[], unlocked: SkillChoice[], se
       leadShare: SKILL_LEAD_SHARE,
       ...(short ? { leadMinutes: SKILL_SHORT_SESSION_MINUTES } : {}),
       ...(minor ? { minor, minorShare: SKILL_MINOR_SHARE } : {}),
+      ...(mixedHost ? { otherSide: family === 'push' ? ('pull' as const) : ('push' as const) } : {}),
     };
     // Full-body host: emphasis follows the lead skill's family.
     const emphasis = d.kind === 'full_body' ? family : d.emphasis;

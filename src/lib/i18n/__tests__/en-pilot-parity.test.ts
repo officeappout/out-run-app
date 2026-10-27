@@ -1,6 +1,6 @@
 /**
- * English pilot: flag-off behaviour is byte-identical Hebrew.
- * Registering the three en catalogs must not change what a Hebrew user sees (fallback chain only
+ * English pilot + batch 3 (player, summary): flag-off behaviour is byte-identical Hebrew.
+ * Registering the en catalogs must not change what a Hebrew user sees (fallback chain only
  * ever reads the requested locale, then he), and keys outside the pilot still fall back to Hebrew.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -16,6 +16,12 @@ import { common } from '@/messages/ns/common';
 import { pages } from '@/messages/ns/pages';
 import { home } from '@/messages/ns/home';
 import { onboarding } from '@/messages/ns/onboarding';
+import hePlayer from '@/messages/he/player.json';
+import heSummary from '@/messages/he/summary.json';
+import enPlayer from '@/messages/en/player.json';
+import enSummary from '@/messages/en/summary.json';
+import { player } from '@/messages/ns/player';
+import { summary } from '@/messages/ns/summary';
 import { registerCatalog } from '../catalogs';
 import { messageArgNames } from '../core/i18n-core';
 import { formatIcu } from '../core/icu';
@@ -27,6 +33,8 @@ const SETS = [
   { ns: pages, he: hePages as Cat, en: enPages as Cat },
   { ns: home, he: heHome as Cat, en: enHome as Cat },
   { ns: onboarding, he: heOnboarding as Cat, en: enOnboarding as Cat },
+  { ns: player, he: hePlayer as Cat, en: enPlayer as Cat },
+  { ns: summary, he: heSummary as Cat, en: enSummary as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
 const values = (msg: string) => Object.fromEntries(messageArgNames(msg).map((n) => [n, SELECTS[n] ?? 3]));

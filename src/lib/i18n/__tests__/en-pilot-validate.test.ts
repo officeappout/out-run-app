@@ -6,16 +6,16 @@ import fs from 'fs';
 import path from 'path';
 import { IntlMessageFormat } from 'intl-messageformat';
 import { describe, expect, it } from 'vitest';
-import { ONBOARDING_SKIPPED, PILOT_SCOPE, validateAll, validateCatalog } from '../../../../scripts/i18n/validate-en-catalog';
+import { LANGUAGE_NEUTRAL, ONBOARDING_SKIPPED, PILOT_SCOPE, validateAll, validateCatalog } from '../../../../scripts/i18n/validate-en-catalog';
 
 const messages = path.resolve(__dirname, '../../../messages');
 
-describe('en pilot catalogs (common, pages, home settings.*)', () => {
+describe('en catalogs (pilot: common, pages, home settings.*; batch 3: player, summary)', () => {
   const { issues, reports } = validateAll(messages);
 
-  it('has 370 pilot keys (186 + 17 + 167) and 1005 onboarding keys', () => {
+  it('has the expected key counts per catalog (pilot 370 + onboarding 1005 + player 902 + summary 167)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 186, pages: 17, home: 167, onboarding: 1005 });
+    expect(by).toEqual({ common: 186, pages: 17, home: 167, onboarding: 1005, player: 902, summary: 167 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {
@@ -23,7 +23,7 @@ describe('en pilot catalogs (common, pages, home settings.*)', () => {
   });
 
   it('home en holds only settings.* keys', () => {
-    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding']);
+    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary']);
     const rep = reports.find((r) => r.ns === 'home')!;
     expect(rep.enKeys).toBe(rep.scoped);
   });
@@ -62,6 +62,43 @@ describe('en onboarding (batch 2)', () => {
       expect(/<b>\s|\s<\/b>/.test(v), k).toBe(false);
       expect(v.includes('—'), k).toBe(false);
       expect(v.includes("'"), k).toBe(false);
+    }
+  });
+});
+
+describe('batch 3: player + summary', () => {
+  const he = (ns: string) => JSON.parse(fs.readFileSync(path.join(messages, 'he', `${ns}.json`), 'utf8')) as Record<string, string>;
+  const en = (ns: string) => JSON.parse(fs.readFileSync(path.join(messages, 'en', `${ns}.json`), 'utf8')) as Record<string, string>;
+  const { issues } = validateAll(messages);
+
+  it('translates every key except the language-neutral ones (identical in Hebrew), nothing extra', () => {
+    for (const ns of ['player', 'summary'] as const) {
+      const missing = Object.keys(he(ns)).filter((k) => !(k in en(ns)));
+      expect(missing.sort()).toEqual(Array.from(LANGUAGE_NEUTRAL[ns]).sort());
+      expect(Object.keys(en(ns)).filter((k) => !(k in he(ns)))).toEqual([]);
+    }
+  });
+
+  it('every key parses as ICU, has no Hebrew, and keeps the Hebrew key order', () => {
+    for (const ns of ['player', 'summary'] as const) {
+      const keys = Object.keys(en(ns));
+      expect(keys).toEqual(Object.keys(he(ns)).filter((k) => keys.includes(k)));
+      for (const [k, v] of Object.entries(en(ns))) {
+        expect(() => new IntlMessageFormat(v, 'en', undefined, { ignoreTag: false }), k).not.toThrow();
+        expect(/[\u0590-\u05FF]/.test(v), k).toBe(false);
+      }
+    }
+  });
+
+  it('plural policy: no count placeholder next to a noun without an ICU plural (V15)', () => {
+    expect(issues.filter((i) => i.check === 'V15' && ['player', 'summary'].includes(i.ns))).toEqual([]);
+  });
+
+  it('plural coverage: English never uses categories other than one/other and =N', () => {
+    for (const ns of ['player', 'summary'] as const) {
+      for (const [k, v] of Object.entries(en(ns))) {
+        expect(/\b(zero|two|few|many)\s*\{/.test(v), `${ns}:${k} uses a non-English plural category`).toBe(false);
+      }
     }
   });
 });

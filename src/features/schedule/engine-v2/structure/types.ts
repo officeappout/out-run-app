@@ -43,6 +43,11 @@ export interface SkillFocus {
   leadShare: number;
   leadMinutes?: number;
   minorShare?: number;
+  /**
+   * R28 (owner 27.10.2026): on an upper / full-body host the focus day still trains a little of
+   * the other side (push on a pull-skill day and the reverse), so every muscle works twice a week.
+   */
+  otherSide?: SkillFamily;
 }
 
 export interface StyleChoice {
@@ -57,6 +62,16 @@ export interface StrengthDay {
   emphasis?: Emphasis;
   skill?: SkillFocus;
   style?: StyleChoice;
+  /** R27: an upper day is push + pull together; in a short session they run as supersets. */
+  pairing?: 'push_pull_supersets';
+}
+
+/** R31: core 5-10 minutes at the end of every strength day, gated by the weekly core set target. */
+export interface CoreFinisher {
+  minMinutes: number;
+  maxMinutes: number;
+  /** The slot is skipped once the week's core set target is met (workout-engine core-weekly-target). */
+  gate: 'weekly_target';
 }
 
 export interface MovementDay {
@@ -96,4 +111,6 @@ export interface StructurePlan {
   unlockedSkills: SkillId[];
   lockedSkills: SkillId[];
   notes: StructureNote[];
+  /** R31: every strength day ends with a short core block (skipped once the weekly target is met). */
+  coreFinisher: CoreFinisher;
 }

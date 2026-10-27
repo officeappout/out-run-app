@@ -239,3 +239,9 @@ None of these is in the 368-key pilot; when `community` is translated they must 
 | `{count} אימונים ממתינים` | ICU plural: **1 workout / N workouts waiting to sync** | Policy: any `{n}` next to a noun gets an English `one`/`other` plural; Hebrew key unchanged, same argument name. |
 | שם פארק גנרי בפוסטים | **place** | Generic park names in feed copy, e.g. "place name". |
 | `אפליקציה בלבד` (perm.native) | **App only** | Not "Native". |
+| `סיימתי` (button) | **Done** | One label for every "I finished" button and every hint that says "tap Done" (includes `wide.done`). Status captions use **Completed**. |
+| `הגעתי` / `הגעתי לתחנה` | **I’m here** | One phrase for both arrival buttons. |
+| `סיום אימון` | **Finish workout** | Pause menu and exit dialog use the same label. |
+| `סל` (exercise basket in timed blocks) | **exercise pool** | Not "basket". |
+| `התאמת התרגיל` (swap tab) | **Easier/Harder** | Not "Adaptation". |
+| Validator V16 | every English plural has `one` (or `=1`) and `other` | Blocking error. |
