@@ -4,6 +4,7 @@
  */
 import {
   DROP,
+  MAX_QUALITY_RUNS,
   PRIORITY_TUNING,
   SHORT_DISTANCE_KM,
   SKILL_DAYS_MIN,
@@ -49,6 +50,10 @@ export interface Unit {
   combined?: boolean;
   /** strength_first: this easy run was Q2. */
   downgraded?: boolean;
+  /** An added running day (RunPlanInput.runDays): a short easy run. */
+  extra?: boolean;
+  /** Light legs variant (easy-run day before a quality run). */
+  lightLegs?: boolean;
 }
 
 const RUN_LOAD: Record<RunSlot, { load: LoadVector; intensity: Intensity }> = {
@@ -126,7 +131,17 @@ export function buildUnits(input: ScheduleEngineInput, priority: SchedulePriorit
   const runUnits: Unit[] = [];
   const fixed = [...(input.running?.fixed ?? [])];
   const slotSeen: Record<string, number> = {};
-  for (const s of input.running?.sessions ?? []) {
+  // Owner 27.10.2026: at most two quality runs a week; any further quality session becomes easy.
+  let quality = 0;
+  const sessions = (input.running?.sessions ?? []).map((s) => {
+    if (s.slot !== 'quality_primary' && s.slot !== 'quality_secondary') return s;
+    quality++;
+    return quality > MAX_QUALITY_RUNS ? { ...s, slot: 'easy_run' as RunSlot, workout: 'easy' as const } : s;
+  });
+  const extraDays = Math.max(0, Math.round(input.running?.runDays ?? 0) - sessions.length);
+  for (let i = 0; i < extraDays; i++) sessions.push({ slot: 'easy_run' });
+  sessions.forEach((s, idx) => {
+    const isExtra = idx >= sessions.length - extraDays;
     const n = (slotSeen[s.slot] = (slotSeen[s.slot] ?? 0) + 1);
     const fixIdx = fixed.findIndex((f) => f.fills === s.slot);
     const fx = fixIdx >= 0 ? fixed.splice(fixIdx, 1)[0] : undefined;
@@ -137,9 +152,10 @@ export function buildUnits(input: ScheduleEngineInput, priority: SchedulePriorit
         fixedDow: fx?.dow,
         fixedTime: fx?.time,
         identity: fx ? `run:${s.slot}:fixed` : `run:${s.slot}`,
+        ...(isExtra ? { extra: true } : {}),
       }),
     );
-  }
+  });
 
   // ── strength ──
   const programs = [...input.strength].sort((a, b) => a.priority - b.priority);
@@ -235,7 +251,12 @@ export function buildUnits(input: ScheduleEngineInput, priority: SchedulePriorit
     overflow: [...overflow].reverse().map((u) => ({ action: 'drop', unitId: u.id, cost: DROP.OVERFLOW, group: 'overflow' })),
     easy: [
       ...runsBy('recovery').map((u): LadderStep => ({ action: 'drop', unitId: u.id, cost: travel(DROP.RECOVERY), group: 'easy' })),
-      ...runsBy('easy_run').map((u): LadderStep => ({ action: 'drop', unitId: u.id, cost: travel(DROP.EASY), group: 'easy' })),
+      ...runsBy('easy_run').map((u): LadderStep => ({
+        action: 'drop',
+        unitId: u.id,
+        cost: travel(u.extra || priority === 'run_first' ? DROP.EASY_KEPT_RUN_DAY : DROP.EASY),
+        group: 'easy',
+      })),
     ],
     strength_rest: [],
     q2: [],

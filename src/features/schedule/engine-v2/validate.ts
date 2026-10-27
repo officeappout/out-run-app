@@ -6,6 +6,7 @@ import { isQualitySlot } from './config';
 import { maxLoad, profileOf } from './programProfiles';
 import { checkHardRules, emptyGrid, type CapacityCtx, type Grid, type HardViolation } from './rules';
 import { makeRunUnit, makeStrengthUnit, type Unit } from './units';
+import { lightLegsOf } from './search';
 import type { PlacedSession, TrainingLevel } from './types';
 
 /** Main sessions only; combined / several strength sessions on a day become one unit. */
@@ -16,7 +17,8 @@ export function gridFromLayout(days: ReadonlyArray<readonly PlacedSession[]>): G
       if (s.optional) continue;
       if (s.kind === 'run' && s.slot) g.run[d] = makeRunUnit(s.slot, `run:${s.slot}:${d}`);
       if (s.kind === 'strength' && s.slug && profileOf(s.slug).slotKind === 'main') {
-        const u = makeStrengthUnit(s.slug, `strength:${s.slug}:${d}`);
+        const base = makeStrengthUnit(s.slug, `strength:${s.slug}:${d}`);
+        const u = s.lightLegs ? lightLegsOf(base) : base;
         const prev: Unit | null = g.strength[d];
         g.strength[d] = prev
           ? { ...prev, slugs: [...prev.slugs, ...u.slugs], load: maxLoad(prev.load, u.load), minRecH: Math.max(prev.minRecH, u.minRecH), combined: true }

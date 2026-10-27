@@ -74,6 +74,7 @@ import {
   buildCoreTabataBlock,
   resolveFollowAlongCoreExercise,
 } from './protocols/core-block';
+import { coreSlotOpen } from './protocols/core-weekly-target';
 
 // Budgeting utils
 import {
@@ -1360,6 +1361,18 @@ export class WorkoutGenerator {
     // If no core exercise is present, this step is a no-op — core's normal
     // entry rules (assessment gate, Full-Body Guarantee, duration/goal/
     // manual-builder gates) are unchanged by this feature.
+    // R31: core is a weekly target. Once it is met, the core slot is skipped in this workout
+    // (never in a core-only request, never when core is the only exercise).
+    if (
+      context.weeklyCoreTarget != null &&
+      !context.forcedCoreForm &&
+      !coreSlotOpen({ weeklyTarget: context.weeklyCoreTarget, setsThisWeek: context.weeklyCoreSets })
+    ) {
+      const skipIdx = workoutExercises.findIndex(
+        (ex) => (ex.exerciseRole ?? 'main') === 'main' && hasExplicitCoreLevel(ex.exercise),
+      );
+      if (skipIdx !== -1 && workoutExercises.length > 1) workoutExercises.splice(skipIdx, 1);
+    }
     const coreIdx = workoutExercises.findIndex(
       (ex) => (ex.exerciseRole ?? 'main') === 'main' && hasExplicitCoreLevel(ex.exercise),
     );

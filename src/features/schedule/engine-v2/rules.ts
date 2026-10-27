@@ -4,7 +4,7 @@
  * scope for this PR (owner, 19.10.2026).
  */
 import { isKeySlot, isQualitySlot, RUN_STREAK_CAP, WRAP_WEEK } from './config';
-import { canonicalSlug, H6_PATTERNS, HEAVY_LEGS, isMuscleUp, isOapu, SHARED_PATTERN_LOAD, SKILL_CNS } from './programProfiles';
+import { canonicalSlug, H6_PATTERNS, HEAVY_LEGS, isMuscleUp, isOapu, MODERATE_LEGS, SHARED_PATTERN_LOAD, SKILL_CNS } from './programProfiles';
 import type { TrainingLevel } from './types';
 import type { Unit } from './units';
 
@@ -17,7 +17,7 @@ export interface Grid {
 export const emptyGrid = (): Grid => ({ run: Array(7).fill(null), strength: Array(7).fill(null) });
 export const cloneGrid = (g: Grid): Grid => ({ run: [...g.run], strength: [...g.strength] });
 
-export type HardRuleId = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9';
+export type HardRuleId = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H11';
 
 export interface HardViolation {
   rule: HardRuleId;
@@ -48,6 +48,10 @@ export function prevDay(d: number): number | null {
 
 export const isKeyRun = (u: Unit | null | undefined): boolean => !!u && u.kind === 'run' && isKeySlot(u.slot);
 export const isQualityRun = (u: Unit | null | undefined): boolean => !!u && u.kind === 'run' && isQualitySlot(u.slot);
+export const isEasyRun = (u: Unit | null | undefined): boolean =>
+  !!u && u.kind === 'run' && (u.slot === 'easy_run' || u.slot === 'recovery');
+/** A legs day in the R29 sense: heavy legs, or light legs on an easy-run day. */
+export const isLegsUnit = (u: Unit | null | undefined): boolean => !!u && u.kind === 'strength' && (u.load.legs >= HEAVY_LEGS || !!u.lightLegs);
 export const isLongRun = (u: Unit | null | undefined): boolean => !!u && u.kind === 'run' && u.slot === 'long_run';
 
 /** H2: strength never on the long-run day. */
@@ -57,7 +61,7 @@ export function breaksH2(strength: Unit, run: Unit | null): boolean {
 
 /** H3: heavy legs (≥0.8) never the day before a quality / long run (Sat → Sun included). */
 export function breaksH3(strength: Unit, day: number, grid: Grid): boolean {
-  if (strength.load.legs < HEAVY_LEGS) return false;
+  if (strength.load.legs < HEAVY_LEGS) return false; // light legs (0.5) pass: owner 27.10.2026
   const n = nextDay(day);
   return n !== null && isKeyRun(grid.run[n]);
 }
@@ -66,6 +70,15 @@ export function breaksH3(strength: Unit, day: number, grid: Grid): boolean {
 export function keyRunBreaksH3(day: number, grid: Grid): boolean {
   const p = prevDay(day);
   return p !== null && (grid.strength[p]?.load.legs ?? 0) >= HEAVY_LEGS;
+}
+
+/**
+ * H11 (R29 + R30, owner 27.10.2026): hard run days are hard, easy days easy. A quality run
+ * (intervals / tempo) shares its day only with upper-body strength: no session with leg load
+ * (legs program, full body) on a quality day. Legs live on an easy-run day (soft, score.ts).
+ */
+export function breaksH11(strength: Unit, run: Unit | null): boolean {
+  return isQualityRun(run) && strength.load.legs >= MODERATE_LEGS;
 }
 
 /** H4: quality runs ≥48h apart. */
@@ -100,7 +113,7 @@ export function breaksH7(a: Unit, da: number, b: Unit, db: number): boolean {
   return after(a, da, b, db) || after(b, db, a, da);
 }
 
-/** H8: longest streak of run days (linear, like RUN-04). */
+/** Longest streak of run days (linear, like RUN-04). Soft since 27.10.2026 (score.ts RUN_STREAK). */
 export function longestRunStreak(grid: Grid): number {
   let best = 0;
   let cur = 0;
@@ -139,6 +152,7 @@ export function checkHardRules(grid: Grid, cap: CapacityCtx, runLevel: TrainingL
     const s = grid.strength[d];
     if (s && breaksH2(s, grid.run[d])) out.push({ rule: 'H2', days: [d] });
     if (s && breaksH3(s, d, grid)) out.push({ rule: 'H3', days: [d, nextDay(d)!] });
+    if (s && breaksH11(s, grid.run[d])) out.push({ rule: 'H11', days: [d] });
   }
   const q = [0, 1, 2, 3, 4, 5, 6].filter((d) => isQualityRun(grid.run[d]));
   for (let i = 0; i < q.length; i++)
@@ -151,6 +165,7 @@ export function checkHardRules(grid: Grid, cap: CapacityCtx, runLevel: TrainingL
       if (breaksH6(a, s[i], b, s[j])) out.push({ rule: 'H6', days: [s[i], s[j]] });
       if (breaksH7(a, s[i], b, s[j])) out.push({ rule: 'H7', days: [s[i], s[j]] });
     }
-  if (longestRunStreak(grid) > runStreakCap(runLevel)) out.push({ rule: 'H8', days: [] });
+  // H8 (run-day streak) is soft since 27.10.2026 (owner): the user's running days are kept.
+  void runLevel;
   return out;
 }

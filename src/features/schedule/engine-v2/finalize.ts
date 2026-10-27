@@ -6,6 +6,7 @@
 import { RUNNING_MODERATE_EQUIV_FACTOR } from '@/lib/who-strength-target';
 import {
   COMBINED_VOLUME_PCT,
+  LIGHT_LEGS_VOLUME_PCT,
   isKeySlot,
   MOBILITY_MINUTES,
   OAPU_RECOVERY_VOLUME_PCT,
@@ -17,7 +18,8 @@ import {
 } from './config';
 import type { DayAvailability } from './availability';
 import { canonicalSlug, isOapu, profileOfProgram } from './programProfiles';
-import type { Grid } from './rules';
+import { isEasyRun, isLegsUnit, runStreakCap, type Grid } from './rules';
+import { plannedWeeklyRunMinutes, splitRunVolume } from './runVolume';
 import type { PlacedSession, ScheduleEngineInput, SchedulePriority, TimeWindow } from './types';
 import type { Unit } from './units';
 
@@ -27,6 +29,10 @@ function strengthSessions(u: Unit): PlacedSession[] {
   }
   const s: PlacedSession = { kind: 'strength', slug: u.slugs[0] };
   if (u.variantOf) s.variantOf = u.variantOf;
+  if (u.lightLegs) {
+    s.lightLegs = true;
+    s.volumePct = LIGHT_LEGS_VOLUME_PCT;
+  }
   return [s];
 }
 
@@ -34,6 +40,7 @@ function runSession(u: Unit): PlacedSession {
   const s: PlacedSession = { kind: 'run', slot: u.slot };
   if (u.workout) s.workout = u.workout;
   if (u.minutes) s.minutes = u.minutes;
+  if (u.extra) s.extra = true;
   if (u.fixedDow !== undefined) {
     s.fixed = true;
     if (u.fixedTime) s.time = u.fixedTime;
@@ -47,12 +54,46 @@ export function orderDay(run: Unit | null, strength: Unit | null, priority: Sche
   if (!run) return st;
   const r = runSession(run);
   if (!strength) return [r];
-  // H5: a quality / long run always goes first. Easy-run doubles follow the priority.
-  if (!isKeySlot(run.slot) && PRIORITY_TUNING[priority].strengthFirstOnEasyDouble) return [...st, r];
+  // H5: a quality / long run always goes first. Easy-run doubles follow the priority,
+  // except legs on an easy-run day: legs after the run (R29).
+  const legsDay = isLegsUnit(strength);
+  if (!isKeySlot(run.slot) && !legsDay && PRIORITY_TUNING[priority].strengthFirstOnEasyDouble) return [...st, r];
   return [r, ...st];
 }
 
 const isMain = (s: PlacedSession) => s.kind === 'run' || s.kind === 'strength';
+
+/**
+ * Owner 27.10.2026: run days over the level's streak are kept; in each too-long streak the last
+ * easy runs (never fixed ones) become the extra, short ones.
+ */
+function markOverStreakRuns(grid: Grid, days: PlacedSession[][], cap: number): void {
+  let start = 0;
+  for (let d = 0; d <= 7; d++) {
+    if (d < 7 && grid.run[d]) continue;
+    const len = d - start;
+    let over = len - cap;
+    for (let e = d - 1; e >= start && over > 0; e--) {
+      const u = grid.run[e];
+      if (!isEasyRun(u) || u!.fixedDow !== undefined) continue;
+      const s = days[e].find((x) => x.kind === 'run' && !x.optional);
+      if (s && !s.extra) s.extra = true;
+      over--;
+    }
+    start = d + 1;
+  }
+}
+
+/** Keeps the planned weekly run minutes when the week has extra runs (runVolume.ts). */
+function applyRunVolumeSplit(days: PlacedSession[][], weeklyMinutes: number): void {
+  const runs = days.flatMap((ss) => ss.filter((s) => s.kind === 'run' && !s.optional));
+  if (!runs.some((s) => s.extra)) return;
+  const minutes = splitRunVolume(runs.map((s) => ({ slot: s.slot!, minutes: s.minutes, extra: !!s.extra })), weeklyMinutes);
+  runs.forEach((s, i) => {
+    s.minutes = minutes[i];
+    if (s.extra) s.workout = 'easy';
+  });
+}
 
 export interface FinalizeCtx {
   input: ScheduleEngineInput;
@@ -65,6 +106,13 @@ export function finalizeLayout(grid: Grid, ctx: FinalizeCtx): PlacedSession[][] 
   const { input, priority, av } = ctx;
   const days: PlacedSession[][] = [];
   for (let d = 0; d < 7; d++) days.push(orderDay(grid.run[d], grid.strength[d], priority));
+
+  // Weekly minutes of the plan: every run the plan holds (added running days have no planned minutes).
+  const weeklyRunMinutes = plannedWeeklyRunMinutes(
+    days.flatMap((ss) => ss.filter((s) => s.kind === 'run' && !s.optional).map((s) => ({ slot: s.slot!, minutes: s.minutes, extra: !!s.extra }))),
+  );
+  markOverStreakRuns(grid, days, runStreakCap(input.levels.running));
+  applyRunVolumeSplit(days, weeklyRunMinutes);
 
   // Volumes: strength deload (cycle week 5), run deload, FIX-01 recovery after OAPU.
   const strengthDeload = input.strengthCycleWeek === 5;
