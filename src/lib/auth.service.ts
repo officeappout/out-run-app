@@ -1,4 +1,5 @@
 // Firebase Authentication service
+import { clearMapPrefs } from '@/lib/mapPrefs';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -939,6 +940,9 @@ export async function signOutUser() {
       // before signOut() ensures a same-tick reload after logout
       // shows the landing page immediately, never the splash.
       await clearSessionHint();
+      // The saved map-arrival answer is account data: the next account on
+      // this device must get the location ask + globe dive (27.10.2026).
+      clearMapPrefs();
       try {
         await fetch('/api/auth/session', {
           method: 'DELETE',

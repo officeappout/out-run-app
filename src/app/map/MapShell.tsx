@@ -27,7 +27,7 @@ import { useMapLogic } from '@/features/parks';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { useUserStore } from '@/features/user';
 import { syncLocationToFirestore } from '@/lib/firestore.service';
-import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
+import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
@@ -35,7 +35,8 @@ import { usePresenceLayer } from '@/features/safecity/hooks/usePresenceLayer';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useActiveWorkoutHeartbeat } from '@/features/heatmap/hooks/useActiveWorkoutHeartbeat';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { readOwnedMapPrefs, mapPrefsBelongToOtherAccount } from '@/lib/mapPrefs';
 import type { MapPurpose } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-types';
 
 import { useMapMode, MapModeProvider } from '@/features/parks/core/context/MapModeContext';
@@ -330,7 +331,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
     }
     const cachedLat = getOnboardingPref('map_anchor_lat');
     const cachedLng = getOnboardingPref('map_anchor_lng');
-    if (cachedLat && cachedLng) {
+    if (cachedLat && cachedLng && !mapPrefsBelongToOtherAccount(profile?.id)) {
       return {
         initialMapCenter: { lat: parseFloat(cachedLat), lng: parseFloat(cachedLng) },
         hasAccurateLocationSeed: false,
@@ -1005,11 +1006,13 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     mapPrefRestoreAttempted.current = true;
     let cancelled = false;
     (async () => {
-      const authId = await getOnboardingPrefAsync('map_authority_id');
-      const neighborhoodId = await getOnboardingPrefAsync('map_neighborhood_id');
-      const lat = await getOnboardingPrefAsync('map_anchor_lat');
-      const lng = await getOnboardingPrefAsync('map_anchor_lng');
-      if (cancelled || (!authId && !lat)) return;
+      // Only this account's own answer may be promoted (27.10.2026).
+      const saved = await readOwnedMapPrefs({
+        currentUid: auth.currentUser?.uid ?? profile.id ?? null,
+        profileAuthorityId: profile.core?.authorityId ?? null,
+      });
+      if (cancelled || !saved) return;
+      const { authorityId: authId, neighborhoodId, lat, lng } = saved;
       await syncLocationToFirestore({
         authorityId: authId || undefined,
         neighborhoodId: neighborhoodId || undefined,

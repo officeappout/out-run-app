@@ -13,7 +13,7 @@
 
 import React, { Suspense, useState, useEffect, useLayoutEffect, lazy } from 'react';
 import { useRouter } from 'next/navigation';
-import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
+import { readOwnedMapPrefs } from '@/lib/mapPrefs';
 import { syncLocationToFirestore, getUserFromFirestore } from '@/lib/firestore.service';
 import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
@@ -106,12 +106,23 @@ export default function ExplorerPage() {
         setMounted(true);
         return;
       }
-      const authId = await getOnboardingPrefAsync('map_authority_id');
-      const neighborhoodId = await getOnboardingPrefAsync('map_neighborhood_id');
-      const lat = await getOnboardingPrefAsync('map_anchor_lat');
-      const lng = await getOnboardingPrefAsync('map_anchor_lng');
+      // Only an answer given by THIS account counts (27.10.2026): a new
+      // account on a used device must see the location ask + globe dive.
+      // Wait (bounded) for auth restore so a returning user is recognised.
+      await Promise.race([
+        auth.authStateReady().catch(() => undefined),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
+      const currentUid = auth.currentUser?.uid ?? null;
+      const saved = await readOwnedMapPrefs({
+        currentUid,
+        profileAuthorityId: useUserStore.getState().profile?.core?.authorityId ?? null,
+        loadProfileAuthorityId: async () =>
+          currentUid ? (await getUserFromFirestore(currentUid))?.core?.authorityId : null,
+      });
       if (cancelled) return;
-      if (authId || lat) {
+      if (saved) {
+        const { authorityId: authId, neighborhoodId, lat, lng } = saved;
         if (authId) sessionStorage.setItem('selected_authority_id', authId);
         if (neighborhoodId) sessionStorage.setItem('selected_neighborhood_id', neighborhoodId);
         if (lat) sessionStorage.setItem('selected_anchor_lat', lat);
