@@ -7,16 +7,19 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import heCommon from '@/messages/he/common.json';
 import hePages from '@/messages/he/pages.json';
 import heHome from '@/messages/he/home.json';
+import heOnboarding from '@/messages/he/onboarding.json';
 import enCommon from '@/messages/en/common.json';
 import enPages from '@/messages/en/pages.json';
 import enHome from '@/messages/en/home.json';
+import enOnboarding from '@/messages/en/onboarding.json';
+import { common } from '@/messages/ns/common';
+import { pages } from '@/messages/ns/pages';
+import { home } from '@/messages/ns/home';
+import { onboarding } from '@/messages/ns/onboarding';
 import hePlayer from '@/messages/he/player.json';
 import heSummary from '@/messages/he/summary.json';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
-import { common } from '@/messages/ns/common';
-import { pages } from '@/messages/ns/pages';
-import { home } from '@/messages/ns/home';
 import { player } from '@/messages/ns/player';
 import { summary } from '@/messages/ns/summary';
 import { registerCatalog } from '../catalogs';
@@ -29,6 +32,7 @@ const SETS = [
   { ns: common, he: heCommon as Cat, en: enCommon as Cat },
   { ns: pages, he: hePages as Cat, en: enPages as Cat },
   { ns: home, he: heHome as Cat, en: enHome as Cat },
+  { ns: onboarding, he: heOnboarding as Cat, en: enOnboarding as Cat },
   { ns: player, he: hePlayer as Cat, en: enPlayer as Cat },
   { ns: summary, he: heSummary as Cat, en: enSummary as Cat },
 ];

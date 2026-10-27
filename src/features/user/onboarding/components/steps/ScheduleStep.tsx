@@ -39,6 +39,8 @@ import ScheduleWarningsPanel from '@/features/schedule/components/ScheduleWarnin
 import TrainingTimePicker from '@/features/schedule/components/TrainingTimePicker';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 import { useWizardIdentity } from '../../hooks/useWizardIdentity';
+import { common } from '@/messages/ns/common';
+import { weekdayMessageArg } from '@/features/user/onboarding/utils/weekday-message-arg';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 
@@ -159,6 +161,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   // Gender-aware pick (legacy v1 copy) + the catalog translator.
   const g = (male: string, female: string) => gender === 'female' ? female : male;
   const t = useT(onboarding);
+  const tCommon = useT(common);
   // ICU `gender` for catalog copy: male / female / other (neutral for unknown).
   const genderArg = copyGender;
 
@@ -886,9 +889,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                     >
                       <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
                         <h3 className="truncate whitespace-nowrap text-[15px] font-black">
-                          {isHebrew
-                            ? t('steps.schedule.popover.title', { day: DAY_LETTERS[openPopoverDay] })
-                            : `Day ${DAY_LETTERS[openPopoverDay]} — pick programs`}
+                          {t('steps.schedule.popover.title', { day: weekdayMessageArg(openPopoverDay, isHebrew ? 'he' : tCommon.locale, tCommon) })}
                         </h3>
                         <button
                           type="button"
