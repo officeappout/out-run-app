@@ -13,6 +13,7 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import { FIRST_RUN_COACH, firstRunToursEnabled, homeWeekCoachTarget, shouldArmHomeTour, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
 import { ScheduleTutorialHost } from '@/features/schedule/tutorial-v1';
+import { HomeTodayCards, useHomeToday } from '@/features/schedule/home-today';
 import { useCoachTargetPresent } from '@/features/user/onboarding/hooks/useCoachTargetPresent';
 import { consumeWhatNowPlanArrival } from '@/features/user/onboarding/services/entry-whatnow';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
@@ -1751,6 +1752,12 @@ export default function HomePage() {
   // that let a SECOND, buggy local computation (hasCompletedAssessment, removed here) exist
   // right next to this one for months.
   const hasStrengthProgram = hasAssessedStrengthDomain(profile as any);
+  // enable_schedule_tutorial_v1 (Part B): the "היום שלך" cards + the home tour from them. Off = model null.
+  const homeToday = useHomeToday({
+    profile, hasStrengthProgram, strengthDone: todayWorkoutDone, todaysWorkouts,
+    steps: todayActivity?.steps ?? 0, stepsGoal: todayActivity?.stepsGoal ?? 0,
+  });
+  const homeTodaySectionPresent = useCoachTargetPresent(FIRST_RUN_COACH.homeToday, firstRunToursOn && !homeTourClosed && !!homeToday.model);
   // Strength-invite carousel slide — sentinel item prepended to a carousel's own
   // items array, NOT a real Suggestion, NOT produced by the suggestion engine.
   // id is a fixed string the real engine's generators never produce (their ids
@@ -3312,6 +3319,9 @@ export default function HomePage() {
           </motion.div>
         )}
 
+        {/* enable_schedule_tutorial_v1: today's cards (board HomeToday). Off = nothing. */}
+        {homeToday.model && <HomeTodayCards model={homeToday.model} onTrainNow={() => void handleHeroPress()} />}
+
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program).
             enable_home_v2: a running-only user (built running plan, no strength program) gets it
             too, in running mode — their run days with the run icon (runStripOnly below). */}
@@ -4198,17 +4208,18 @@ export default function HomePage() {
         tour="home"
         active={shouldArmHomeTour({
           toursOn: firstRunToursOn,
-          requestedByWelcome: homeTourRequested,
+          requestedByWelcome: homeTourRequested || homeToday.armed,
           entryKind: entryRouterClassification.kind,
           planArrival: whatNowPlanArrival,
-          todayCardPresent: homeTodayCardPresent,
+          todayCardPresent: homeTodayCardPresent || homeTodaySectionPresent,
           surfaceOpen:
             showPlanner || showLifestyleWizard || builderOpen || !!editEntry || !!selectedWorkout || shouldShowBridge ||
             plusDrawerOpen || composeOpen || wizardOpen || reportOpen || schedTutBusy,
         })}
         uid={profile?.id}
         gender={profile?.core?.gender}
-        onClose={() => { setHomeTourRequested(false); setHomeTourClosed(true); }}
+        homeToday={homeTodaySectionPresent ? homeToday.tour : null}
+        onClose={() => { setHomeTourRequested(false); setHomeTourClosed(true); homeToday.consumeArm(); }}
       />
 
       {/* enable_schedule_tutorial_v1 (ל1 to ל5): a new user with a strength program and no schedule yet.

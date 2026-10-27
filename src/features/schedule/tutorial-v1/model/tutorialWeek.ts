@@ -124,7 +124,8 @@ const SKILL_TO_STRUCTURE: Partial<Record<SkillId, StructureSkillId>> = {
 const PUSH_SKILLS = new Set<SkillId>(['PLANCHE', 'HSPU', 'HANDSTAND']);
 const isSkillItem = (id: ScheduleItemId): id is SkillId => id in SKILL_TO_STRUCTURE || id === 'HANDSTAND';
 
-function labelOf(items: readonly ScheduleItemId[], fullBodyIndex: number): StrengthLabel {
+/** A day's strength label from its items (the home today cards read the saved template with it). */
+export function labelOf(items: readonly ScheduleItemId[], fullBodyIndex: number): StrengthLabel {
   const skill = items.find((i): i is SkillId => isSkillItem(i) && i !== 'HANDSTAND');
   if (skill) return { kind: 'skill', family: PUSH_SKILLS.has(skill) ? 'push' : 'pull', skill };
   if (items.includes('LOWER_BODY')) return { kind: 'legs' };
