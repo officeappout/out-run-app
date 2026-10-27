@@ -75,7 +75,7 @@ function resolveImport(from: string, spec: string, root: string): string | null 
 function renderedFiles(file: string, src: string, root: string, scope: string = src): string[] {
   const tags = new Set(Array.from(scope.matchAll(/<([A-Z]\w*)/g), (m) => m[1]));
   const out = new Set<string>();
-  for (const m of src.matchAll(/import\s+(?:type\s+)?([^;]*?)\s+from\s+['"]([^'"]+)['"]/g)) {
+  for (const m of Array.from(src.matchAll(/import\s+(?:type\s+)?([^;]*?)\s+from\s+['"]([^'"]+)['"]/g))) {
     const names: string[] = [];
     const clause = m[1];
     const def = clause.match(/^([A-Za-z_]\w*)\s*(,|$)/);
@@ -92,7 +92,7 @@ function renderedFiles(file: string, src: string, root: string, scope: string = 
   for (const r of Array.from(out)) {
     const rs = fs.readFileSync(r, 'utf8');
     if (!/withWidgetBoundary|export\s+\*\s+from|export\s*\{[^}]*\}\s*from/.test(rs)) continue;
-    for (const m of rs.matchAll(/(?:import|export)\s+[^;]*?\s+from\s+['"]([^'"]+)['"]/g)) {
+    for (const m of Array.from(rs.matchAll(/(?:import|export)\s+[^;]*?\s+from\s+['"]([^'"]+)['"]/g))) {
       const t = resolveImport(r, m[1], root);
       if (t) out.add(path.resolve(t));
     }
@@ -123,18 +123,18 @@ export function scanLtrHosts(root = 'src'): ScanResult {
     const direct = renderedFiles(host, srcOf.get(host)!, root, overrideSubtrees(host, srcOf.get(host)!));
     const isProp = isPropHost(host, srcOf.get(host)!);
     const callers = isProp ? (importers.get(host) ?? []) : [];
-    const set = new Set(direct);
+    const set = new Set<string>(direct);
     // callers -> what they render -> two more levels (cards wrapped by slide/row components)
     let frontier = callers.flatMap((c) => renders(c));
     for (let depth = 0; depth < 3; depth++) {
       frontier.forEach((r) => set.add(r));
       frontier = frontier.flatMap((r) => renders(r)).filter((r) => !set.has(r));
     }
-    for (const t of set) add(t, host);
+    for (const t of Array.from(set)) add(t, host);
     result.push({ host: path.relative(process.cwd(), host), kind: isProp ? 'prop' : 'direct', callers: callers.map((c) => path.relative(process.cwd(), c)), inside: Array.from(set).map((s) => path.relative(process.cwd(), s)) });
   }
   const out = new Map<string, string[]>();
-  for (const [t, h] of inside) out.set(path.relative(process.cwd(), t), Array.from(h).map((x) => path.relative(process.cwd(), x)));
+  for (const [t, h] of Array.from(inside)) out.set(path.relative(process.cwd(), t), Array.from(h).map((x) => path.relative(process.cwd(), x)));
   return { hosts: result, inside: out };
 }
 
