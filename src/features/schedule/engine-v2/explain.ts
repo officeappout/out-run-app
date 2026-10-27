@@ -3,7 +3,7 @@
  * (reasonsV2.ts renders them), so tests and Kelly can read codes and users read Hebrew.
  */
 import { isKeySlot, isQualitySlot } from './config';
-import { canonicalSlug, MODERATE_LEGS, profileOf } from './programProfiles';
+import { canonicalSlug, HEAVY_LEGS, MODERATE_LEGS, profileOf } from './programProfiles';
 import { gapDays, nextDay } from './rules';
 import type { V2Reason } from './reasonsV2';
 import type { DayAvailability } from './availability';
@@ -45,7 +45,9 @@ export function dayReasons(days: PlacedSession[][], ctx: DayReasonCtx): V2Reason
     }
     if (run && mainStrength.length) {
       const runFirst = ss.indexOf(run) < ss.indexOf(mainStrength[0]);
+      const legs = mainStrength.some((s) => profileOf(s.slug ?? '').load.legs >= HEAVY_LEGS);
       if (isKeySlot(run.slot)) r.push({ code: 'QUALITY_RUN_FIRST', day: d });
+      else if (legs && runFirst) r.push({ code: 'LEGS_AFTER_EASY_RUN', day: d });
       else if (!runFirst) r.push({ code: 'EASY_DOUBLE_STRENGTH_FIRST', day: d });
       else r.push({ code: 'EASY_DAY_DOUBLED', day: d });
     }

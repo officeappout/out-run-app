@@ -15,11 +15,11 @@ import { diffWeek, refKey } from './diff';
 import { dayReasons } from './explain';
 import { finalizeLayout } from './finalize';
 import { renderV2ReasonsHe, type V2Reason } from './reasonsV2';
-import { checkHardRules, emptyGrid, isLongRun, runStreakCap, type Grid } from './rules';
+import { checkHardRules, emptyGrid, isEasyRun, isLongRun, runStreakCap, type Grid } from './rules';
 import { streakComfortOf, type ScoreCtx } from './score';
 import { searchWeek, type SearchResult } from './search';
 import { applyLadder, buildUnits, makeRunUnit, makeStrengthUnit, type ReducedSet, type Unit } from './units';
-import { canonicalSlug } from './programProfiles';
+import { canonicalSlug, HEAVY_LEGS } from './programProfiles';
 import type { DayPlan, ScheduleEngineInput, SessionRef, WeekPlan } from './types';
 
 function existingCounts(input: ScheduleEngineInput, frozen: readonly boolean[]): Map<string, number[]> | null {
@@ -179,7 +179,10 @@ export function buildWeek(input: ScheduleEngineInput): WeekPlan {
     longest = Math.max(longest, streak);
   }
   if (longest > streakComfortOf(input.levels)) warnings.push({ code: 'LONG_TRAINING_STREAK', days: longest });
-  const doubles = [0, 1, 2, 3, 4, 5, 6].filter((d) => grid.run[d] && grid.strength[d]);
+  // R29: legs on an easy-run day is the planned home for legs, not a forced double.
+  const doubles = [0, 1, 2, 3, 4, 5, 6].filter(
+    (d) => grid.run[d] && grid.strength[d] && !(isEasyRun(grid.run[d]) && grid.strength[d]!.load.legs >= HEAVY_LEGS),
+  );
   const freeLeft = [0, 1, 2, 3, 4, 5, 6].some((d) => av.open[d] && !grid.run[d] && !grid.strength[d]);
   if (doubles.length && !freeLeft) doubles.forEach((d) => warnings.push({ code: 'DOUBLE_ON_QUALITY_DAY', day: d }));
   const strengthDeload = input.strengthCycleWeek === 5;

@@ -23,6 +23,8 @@ export type V2OnlyReason =
   | { code: 'STRENGTH_OWN_DAY' }
   | { code: 'DOUBLE_ON_QUALITY_DAY'; day: number }
   | { code: 'EASY_DOUBLE_STRENGTH_FIRST'; day: number }
+  /** R29: legs live on an easy-run day, after the run. */
+  | { code: 'LEGS_AFTER_EASY_RUN'; day: number }
   | { code: 'COMBINED_SESSION' }
   | { code: 'OAPU_RECOVERY_SESSION' }
   | { code: 'HANDSTAND_FREE_SLOT' }
@@ -60,7 +62,7 @@ const keyRunHe = (t: ScheduleT, run: KeyRun) => t('engine.keyRun', { run });
 
 const V2_ONLY_CODES = new Set<string>([
   'LONG_RUN_PREFERRED_DAY', 'LONG_RUN_LAST_FREE_DAY', 'UPPER_ONLY_BEFORE_KEY_RUN', 'FULL_BODY_NO_LEGS',
-  'STRENGTH_OWN_DAY', 'DOUBLE_ON_QUALITY_DAY', 'EASY_DOUBLE_STRENGTH_FIRST', 'COMBINED_SESSION',
+  'STRENGTH_OWN_DAY', 'DOUBLE_ON_QUALITY_DAY', 'EASY_DOUBLE_STRENGTH_FIRST', 'LEGS_AFTER_EASY_RUN', 'COMBINED_SESSION',
   'OAPU_RECOVERY_SESSION', 'HANDSTAND_FREE_SLOT', 'MOBILITY_AFTER_RUN', 'WALK_REST_DAY', 'NOT_AVAILABLE',
   'TRAVEL_DAY_OPTIONAL', 'GROUP_RUN_FILLS_SLOT', 'MOVED_FOR_MAKEUP', 'RUN_OWN_DAY', 'STRENGTH_FLOOR_UNMET_AVAILABILITY',
   'OPTIONAL_MIDWEEK_MICRO_SESSION', 'DAYS_BELOW_SKILL_MIN', 'LONG_TRAINING_STREAK',
@@ -78,6 +80,7 @@ function renderV2OnlyHe(r: V2OnlyReason, t: ScheduleT): string {
     case 'LONG_RUN_LAST_FREE_DAY':
     case 'DOUBLE_ON_QUALITY_DAY':
     case 'EASY_DOUBLE_STRENGTH_FIRST':
+    case 'LEGS_AFTER_EASY_RUN':
       return t(`engine.reason.${r.code}`, { day: dayHe(t, r.day) });
     case 'UPPER_ONLY_BEFORE_KEY_RUN':
     case 'FULL_BODY_NO_LEGS':
