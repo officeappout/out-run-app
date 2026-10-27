@@ -11,7 +11,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { ReactElement, ReactNode } from 'react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 
 const flags = vi.hoisted(() => ({ enableHomeV2: false, enableGenerationReview: true }));
 vi.mock('@/hooks/useFeatureFlags', () => ({
@@ -91,6 +91,9 @@ import { useLocaleStore } from '@/store/useLocaleStore';
 const html = (el: ReactElement) => renderToStaticMarkup(el).replaceAll('<!-- -->', '');
 const snap = (name: string) => `./__snapshots__/ay-i18n/${name}.html`;
 const noop = () => {};
+// Props the components don't declare (open/onClose) or require (class names) — kept as recorded from main.
+const LooseClassicSheet = ClassicFormSheet as unknown as ComponentType<Record<string, unknown>>;
+const LooseDraggable = DraggableSheet as unknown as ComponentType<Record<string, unknown>>;
 const cart = [{ color: '#0af', done: true }, { color: '#0af', done: true }, { color: '#fa0', done: false }];
 
 beforeEach(() => {
@@ -145,7 +148,7 @@ describe('components', () => {
 
   it('classic form sheet + v2 primitives', async () => {
     const out = [
-      html(<ClassicFormSheet {...({ isOpen: true, onClose: noop, title: 'כותרת' } as never)}><p>x</p></ClassicFormSheet>),
+      html(<LooseClassicSheet isOpen onClose={noop} title="כותרת"><p>x</p></LooseClassicSheet>),
       html(<CartProgressIcon items={cart} />),
       html(<CartProgressIcon items={cart} ariaLabel="מותאם" />),
       html(<DoneCheck />),
@@ -154,8 +157,8 @@ describe('components', () => {
       html(<StepBar current={2} />),
       html(<LineChart data={[{ key: 'a', value: 1 }, { key: 'b', value: 3 }, { key: 'c', value: 2 }] as never} goal={2} />),
       html(<LineChart data={[{ key: 'a', value: 1 }, { key: 'b', value: 3 }] as never} ariaLabel="גרף שלי" goal={2} goalLabel="מטרה" />),
-      html(<DraggableSheet {...({ open: true, onClose: noop, snapPoints: [200, 500], initialSnap: 0 } as never)}><p>x</p></DraggableSheet>),
-      html(<DraggableSheet {...({ open: true, onClose: noop, snapPoints: [200, 500], initialSnap: 1 } as never)}><p>x</p></DraggableSheet>),
+      html(<LooseDraggable open onClose={noop} snapPoints={[200, 500]} initialSnap={0}><p>x</p></LooseDraggable>),
+      html(<LooseDraggable open onClose={noop} snapPoints={[200, 500]} initialSnap={1}><p>x</p></LooseDraggable>),
     ].join('\n');
     await expect(out).toMatchFileSnapshot(snap('v2-primitives'));
   });
