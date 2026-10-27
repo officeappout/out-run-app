@@ -717,3 +717,7 @@ src/features/workout-engine/summary/blocks/SummaryDrawerShell.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicSummaryShell.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicSummaryView.tsx
 src/features/workout-engine/summary/pages/HybridSummary.tsx
+# RP-14 run drawer "from me" (enable_run_drawer_from_me_v1) — tiles row, shared v2 tile, pure tile list, flag hook.
+src/components/ui/v2/ChoiceTile.tsx
+src/features/workout-engine/players/running/utils/run-overview/run-route-tiles.ts
+src/hooks/useRunDrawerFromMeV1.ts

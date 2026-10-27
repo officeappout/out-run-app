@@ -415,6 +415,19 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
     expect(t('run.drawer.stopAria')).toBe('סיום אימון · לחיצה ארוכה');
   });
 
+  it('run drawer "from me" tiles (enable_run_drawer_from_me_v1, board RP-14)', () => {
+    expect(t('run.overview.tiles.title')).toBe('מסלולים מהמיקום שלך, לפי האימון');
+    expect(t('run.overview.tiles.loopFallback')).toBe('לולאה מכאן');
+    expect(t('run.overview.tiles.official')).toBe('רשמי');
+    expect(t('run.overview.tiles.returnsHere')).toBe('חוזרת לכאן');
+    expect(t('run.overview.tiles.away', { distance: '600 מ׳' })).toBe('600 מ׳ ממך');
+    expect(t('run.overview.tiles.lapsNote', { laps: 1, km: '4.0' })).toBe('סיבוב אחד = כל האימון · ~4.0 ק״מ');
+    expect(t('run.overview.tiles.lapsNote', { laps: 2, km: '4.0' })).toBe('2 סיבובים = כל האימון · ~4.0 ק״מ');
+    expect(t('run.overview.tiles.lapsNote', { laps: 1.5, km: '6.0' })).toBe('1.5 סיבובים = כל האימון · ~6.0 ק״מ');
+    expect(t('run.overview.tiles.lapsNote', { laps: 1000, km: '4.0' })).toBe('1,000 סיבובים = כל האימון · ~4.0 ק״מ');
+    expect(t('run.overview.tiles.another')).toBe('הצעה אחרת');
+  });
+
   it('cycling-fixes-v1: the ride speed label on the legacy stats card', () => {
     expect(t('run.stats.main.avgSpeed')).toBe('מהירות (קמ״ש)');
   });
@@ -422,6 +435,6 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
   it('no key is left untested', () => {
     // Keep in step with the catalog: a new run.* key needs a case above. Counted per prefix
     // (other batches add keys to the same namespace file — e.g. sessionInvite.*, app-pages-he.test.ts).
-    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(329);
+    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(336);
   });
 });

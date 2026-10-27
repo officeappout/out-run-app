@@ -12,6 +12,11 @@
  *               planned run on it through the existing route-run path
  *               (startActiveWorkoutForRoute keeps the planned workout)
  *   none      — no route near → notice + "בחר במפה" (Discover)
+ * enable_run_drawer_from_me_v1 (board RP-14): everything starts from the
+ * runner's location — the search runs on open, the routes are a row of tiles
+ * in the drawer (loops from here + a near, fitting official route;
+ * run-route-tiles.ts), first tile preselected, "הצעה אחרת" = the generator's
+ * next set. No carousel over the map. Off = all of the above unchanged.
  * The runner's edits (level, swapped main set, paces — run-edits.ts) are
  * written to the player's workout just before start.
  */
@@ -33,6 +38,9 @@ import { useRunPaceContext } from './useRunOverviewModel';
 import { useRouteSuggestions } from './useRouteSuggestions';
 import RunWorkoutOverview from './RunWorkoutOverview';
 import RunRouteSuggestCarousel from './RunRouteSuggestCarousel';
+import RunRouteTilesRow from './RunRouteTilesRow';
+import { buildRouteTiles, defaultTileId } from '../../utils/run-overview/run-route-tiles';
+import { useRunDrawerFromMeV1 } from '@/hooks/useRunDrawerFromMeV1';
 import type { RunCtaMode } from './RunOverviewCta';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
@@ -83,6 +91,14 @@ export default function RunOverviewMapHost({
   const active = useMemo(() => applyRunEdits(base, edits, pace.ctx), [base, edits, pace.ctx]);
   const origin = logic.currentUserPos;
   const search = useRouteSuggestions(active, templateCategory, pace.ctx, origin);
+  const fromMe = useRunDrawerFromMeV1();
+  const [attempt, setAttempt] = useState(0);
+  // The position the search ran from — GPS ticks must not reshuffle the tiles.
+  const [searchOrigin, setSearchOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const tiles = useMemo(
+    () => (fromMe && suggesting ? buildRouteTiles(search.suggestions, searchOrigin) : []),
+    [fromMe, suggesting, search.suggestions, searchOrigin],
+  );
 
   const setCarouselRoutes = useMapStore((s) => s.setFreeRunCarouselRoutes);
   const { setFocusedRoute } = logic;
@@ -92,41 +108,66 @@ export default function RunOverviewMapHost({
     setFocusedRoute(s?.route ?? null);
   };
 
-  const startSuggest = () => {
+  const startSuggest = (nextAttempt = 0) => {
     setSuggesting(true);
     setOnMap(false);
-    search.request();
+    if (fromMe) {
+      setAttempt(nextAttempt);
+      setSearchOrigin(origin);
+      search.request({ fromMe: true, attempt: nextAttempt });
+    } else {
+      search.request();
+    }
   };
-  const clearRoute = () => {
+  const resetSearch = () => {
     setSuggesting(false);
     setOnMap(false);
     choose(null);
     search.reset();
   };
+  // From me: "בלי מסלול" only deselects — the tiles stay.
+  const clearRoute = () => {
+    if (!fromMe) return resetSearch();
+    setOnMap(false);
+    choose(null);
+  };
 
   // Home's "הצע לי מסלול" lands here with ?suggest=1 — search once.
   const autoSuggested = useRef(false);
+  // From me: the search always runs on open.
   useEffect(() => {
-    if (!initialSuggest || autoSuggested.current || !origin) return;
+    if (!(initialSuggest || fromMe) || autoSuggested.current || !origin) return;
     autoSuggested.current = true;
     startSuggest();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialSuggest, origin]);
+  }, [initialSuggest, fromMe, origin]);
 
   // First suggestion preselected; the map draws all of them (the free-run carousel slot).
   useEffect(() => {
-    if (!suggesting || search.status !== 'done') return;
+    if (fromMe || !suggesting || search.status !== 'done') return;
     setCarouselRoutes(search.suggestions.length ? search.suggestions.map((s) => s.route) : null);
     if (search.suggestions.length && !chosen) choose(search.suggestions[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggesting, search.status, search.suggestions]);
+  // From me: the map draws the tiles' routes; the best tile (or the one still chosen) is selected.
+  useEffect(() => {
+    if (!fromMe || !suggesting || search.status !== 'done') return;
+    setCarouselRoutes(tiles.length ? tiles.map((x) => x.suggestion.route) : null);
+    const id = defaultTileId(tiles, chosen?.route.id ?? null);
+    const next = tiles.find((x) => x.id === id)?.suggestion ?? null;
+    if (next !== chosen) choose(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromMe, suggesting, search.status, tiles]);
   useEffect(() => () => {
     setCarouselRoutes(null);
   }, [setCarouselRoutes]);
 
   // A suggestion search started on a different structure (level / swap) is stale.
+  // From me: search again for the new structure.
   useEffect(() => {
-    if (suggesting) clearRoute();
+    if (!suggesting) return;
+    resetSearch();
+    if (fromMe) startSuggest();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edits.variant, edits.swap]);
 
@@ -153,6 +194,7 @@ export default function RunOverviewMapHost({
     ? 'free'
     : search.status === 'loading' ? 'searching'
     : chosen ? 'route'
+    : fromMe && tiles.length > 0 ? 'free'
     : search.status === 'done' ? 'none' : 'searching';
 
   // enable_hill_finder_v1 — search.hill is only ever set with the flag on (useRouteSuggestions).
@@ -179,7 +221,7 @@ export default function RunOverviewMapHost({
 
   return (
     <>
-      {suggesting && !onMap && search.suggestions.length > 0 && (
+      {!fromMe && suggesting && !onMap && search.suggestions.length > 0 && (
         <RunRouteSuggestCarousel
           suggestions={search.suggestions}
           selectedId={chosen?.route.id ?? null}
@@ -208,15 +250,23 @@ export default function RunOverviewMapHost({
         origin={origin}
         ctaMode={ctaMode}
         routeLineInHeader={onMap}
-        onBack={chosen ? clearRoute : onExit}
+        onBack={chosen && !fromMe ? clearRoute : onExit}
         onStart={startFree}
-        onSuggest={startSuggest}
+        onSuggest={fromMe && tiles.length > 0 ? undefined : () => startSuggest()}
         onStartOnRoute={startOnRoute}
         onClearRoute={clearRoute}
         onShowOnMap={() => { setOnMap(true); setSnap((p) => ({ to: 'peek', n: (p?.n ?? 0) + 1 })); }}
         onPickOnMap={onPickOnMap}
         hillHint={hillHint}
         snapRequest={snap}
+        routeTiles={fromMe && tiles.length > 0 ? (
+          <RunRouteTilesRow
+            tiles={tiles}
+            selectedId={chosen?.route.id ?? null}
+            onSelect={(x) => choose(x.suggestion)}
+            onAnother={() => startSuggest(attempt + 1)}
+          />
+        ) : undefined}
       />
     </>
   );

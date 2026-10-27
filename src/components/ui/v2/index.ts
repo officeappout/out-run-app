@@ -20,6 +20,8 @@ export type { GlassSurfaceProps, GlassRecipe } from './GlassSurface';
 export { default as Chip } from './Chip';
 export type { ChipProps, ChipTone } from './Chip';
 export { default as IconTile } from './IconTile';
+export { default as ChoiceTile } from './ChoiceTile';
+export type { ChoiceTileProps } from './ChoiceTile';
 export type { IconTileProps, IconTileTone } from './IconTile';
 export { default as DoneRow, DoneCheck, DONE_SURFACE_STYLE, DONE_GREEN } from './DoneRow';
 export type { DoneRowProps } from './DoneRow';

@@ -20,7 +20,7 @@
  * route search, the start paths and the map.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { lazyOverlay } from '@/components/system/lazyOverlay';
 import { ChevronDown } from 'lucide-react';
@@ -82,6 +82,8 @@ export interface RunWorkoutOverviewProps {
   onPickOnMap?: () => void;
   /** enable_hill_finder_v1: "the nearest suitable hill" line above the CTA (null/absent = nothing). */
   hillHint?: string | null;
+  /** enable_run_drawer_from_me_v1 (board RP-14): the route tiles row under the header; absent = none. */
+  routeTiles?: ReactNode;
   initialDetent?: DetentId;
   snapRequest?: { to: DetentId; n: number } | null;
 }
@@ -146,6 +148,7 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
       onBack={props.onBack}
       initialDetent={props.initialDetent}
       snapRequest={props.snapRequest}
+      aboveStrip={props.routeTiles}
       header={<RunOverviewHeader model={model} finishText={finishText} customized={isCustomized(edits)} routeLine={props.routeLineInHeader ? view?.headerLine : null} />}
       strip={<JourneyStrip v2 items={journeyItemsFromLegs(legs)} />}
       graphs={graphs}

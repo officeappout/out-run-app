@@ -750,6 +750,13 @@ export const FLAG_DEFS = [
   // slider's bolt chips and help link, skills offered only after the assessment (pull 14 = front lever, push 16 =
   // planche), the summary as progress-tab program cards and three explainers. Fail-closed; super admins preview it.
   // Off = the signup is byte-identical to today.
+  // Run drawer "from me" (27.10.2026, owner-approved canvas page 11, board RP-14). In the planned run's overview on
+  // the map (RunOverviewMapHost), everything starts from the runner's location: the drawer opens with a row of route
+  // tiles under the header — loops the existing generator made from here for this workout, plus one official route
+  // only when it is near (≤ 1 km) and fits — first tile preselected, "הצעה אחרת" asks the generator for another set.
+  // No "from a route" mode, no carousel over the map. Same route-fit engine + official-routes cache. Fail-closed;
+  // super admins preview it. Off = identical to today.
+  { key: 'enableRunDrawerFromMeV1', firestoreKey: 'enable_run_drawer_from_me_v1', defaultValue: false, superAdminValue: true },
   { key: 'enableStrengthQuizV3', firestoreKey: 'enable_strength_quiz_v3', defaultValue: false, superAdminValue: true },
 ] as const;
 
