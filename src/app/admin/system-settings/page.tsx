@@ -110,6 +110,7 @@ interface FlagState {
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
   push_locale_v1: boolean;
+  hide_he_only_onboarding_steps: boolean;
   enable_app_session_signal: boolean;
   enable_osm_attribution: boolean;
   admin_ai_assistant_v1: boolean;
@@ -896,6 +897,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-indigo-600',
     title: 'פושים לפי שפה',
     description: 'פוש נשלח בשפת המשתמש (core.locale): שורות הספרייה של אותה שפה, אחר כך ברירות מחדל מתורגמות, ואחרת עברית. דורש את מתג השפות הראשי. כבוי = כל הפושים בעברית, בדיוק כמו היום. השרת קורא את הערך השמור (לא את ברירת המחדל של הסופר-אדמין).',
+    parentKey: 'enable_i18n',
+  },
+  {
+    key: 'hide_he_only_onboarding_steps',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'הרשמה: דילוג על שלבים בעברית בלבד',
+    description: 'כשהשפה אינה עברית, ההרשמה מדלגת על שלב הפרסונה (צה"ל / תלמיד / עובד משרד), כי אין פרסונה צבאית באנגלית. כבוי = ההרשמה בדיוק כמו היום לכולם. דלוק + עברית = בלי שינוי.',
     parentKey: 'enable_i18n',
   },
   // Analytics — app-session signal (22.10.2026).

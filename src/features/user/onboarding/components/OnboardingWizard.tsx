@@ -27,6 +27,7 @@ import { LEGAL_VERSION } from '@/features/legal/legal-content';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
+import { useShowHeOnlySteps } from '../hooks/useShowHeOnlySteps';
 import { useLandingRealFallback } from '../hooks/useLandingRealFallback';
 import { LEGACY_GATEWAY_ROUTE, resolveBackFallback } from '@/lib/landing-fallback/fallback-routes';
 import { useT } from '@/hooks/useT';
@@ -72,7 +73,9 @@ export default function OnboardingWizard() {
   // mid-wizard resume on the correct path branch.
   const onboardingPath = getOnboardingPref('onboarding_path');
 
-  const wizardSteps: OnboardingStepId[] = useMemo(() => {
+  const showHeOnlySteps = useShowHeOnlySteps();
+
+  const allSteps: OnboardingStepId[] = useMemo(() => {
     // JIT mode: only show the specific requested step
     if (isJIT && jitStep) {
       return [jitStep, 'COMPLETED', 'SUMMARY'];
@@ -134,6 +137,13 @@ export default function OnboardingWizard() {
       'SUMMARY',
     ];
   }, [isJIT, jitStep, onboardingPath]);
+
+  // hide_he_only_onboarding_steps + a non-Hebrew UI: no persona step (utils/he-only-steps.ts). Steps, progress bar,
+  // story bar and back navigation all derive from this list, so they follow. Otherwise the very same array.
+  const wizardSteps: OnboardingStepId[] = useMemo(
+    () => (showHeOnlySteps || isJIT ? allSteps : allSteps.filter((s) => s !== 'PERSONA')),
+    [allSteps, showHeOnlySteps, isJIT],
+  );
 
   const currentStepIndex = wizardSteps.indexOf(currentStep);
 
@@ -197,10 +207,19 @@ export default function OnboardingWizard() {
     if (majorRoadmapStep === 2) {
       setStep('HEALTH_DECLARATION');
     } else if (majorRoadmapStep === 1 && !wizardSteps.includes(currentStep)) {
-      setStep('PERSONA');
+      setStep(wizardSteps[0] ?? 'PERSONA');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [majorRoadmapStep, resumeStep, isJIT]);
+
+  // The store starts on 'PERSONA'; when that step is skipped, land on the first real one. (A later locale/flag
+  // change that drops the current step does the same.)
+  useEffect(() => {
+    if (isJIT || showHeOnlySteps) return;
+    if (allSteps.includes('PERSONA') && !data.personaStepSkipped) updateData({ personaStepSkipped: true });
+    if (currentStep === 'PERSONA') setStep(wizardSteps[0] ?? 'PERSONAL_STATS');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJIT, showHeOnlySteps, currentStep]);
 
   // Auto-skip HEALTH_DECLARATION if already accepted (e.g. during running onboarding)
   //
@@ -359,7 +378,8 @@ export default function OnboardingWizard() {
         return <AccessCodeStep onNext={() => handleNext(undefined, 0)} />;
 
       case 'PERSONA':
-        return <PersonaStep onNext={() => handleNext(undefined, 10)} />;
+        // Skipped for non-he (the effect above moves on); never paint the picker meanwhile.
+        return showHeOnlySteps || isJIT ? <PersonaStep onNext={() => handleNext(undefined, 10)} /> : null;
 
       case 'PERSONAL_STATS':
         return <PersonalStatsStep onNext={stepOnNext(10)} isJIT={isJIT} isLastStep={isLastContentStep} />;
@@ -508,7 +528,7 @@ export default function OnboardingWizard() {
         return null;
 
       default:
-        return <PersonaStep onNext={() => handleNext('PERSONAL_STATS', 10)} />;
+        return showHeOnlySteps ? <PersonaStep onNext={() => handleNext('PERSONAL_STATS', 10)} /> : null;
     }
   };
 

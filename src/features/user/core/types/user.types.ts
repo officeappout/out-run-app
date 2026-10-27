@@ -525,6 +525,8 @@ export interface UserFullProfile {
   // lifestyle.selectedPersonaId,.personaAnsweredAt fields outright — no
   // alias, no compat layer (see docs/research/military-persona-unified-architecture.md).
   personas?: AnyPersonaEntry[];
+  /** The persona step was skipped on purpose (hide_he_only_onboarding_steps, non-he UI): counts as answered for the gates. */
+  personaStepSkipped?: boolean;
   profileCompleted?: boolean; // Whether deep dive refinement questionnaire was completed
 
   // --- Onboarding & Completion Tracking ---

@@ -24,6 +24,7 @@ import RunningScheduleStep from './steps/RunningScheduleStep';
 import { hasRunningTrack } from '@/lib/track-ownership';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 import { useWizardIdentity } from '../hooks/useWizardIdentity';
+import { useShowHeOnlySteps } from '../hooks/useShowHeOnlySteps';
 import { buildLifestyleWizardFinalWrite } from '../utils/lifestyle-wizard-final-write';
 import { writeLifestyleWizardCompletion } from '../services/lifestyle-wizard-submit.service';
 import { resolvePersonaGoalMode } from '../utils/persona-goals';
@@ -68,7 +69,11 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   // track they'd call "primary."
   const isRunningTrack = hasRunningTrack(profile);
 
-  const [currentStep, setCurrentStep] = useState<WizardStep>('persona');
+  // hide_he_only_onboarding_steps + non-he UI: no persona step (utils/he-only-steps.ts). Flag off / he: all three.
+  const showHeOnlySteps = useShowHeOnlySteps();
+  const steps: WizardStep[] = showHeOnlySteps ? ['persona', 'schedule', 'notifications'] : ['schedule', 'notifications'];
+  const [rawStep, setCurrentStep] = useState<WizardStep>('persona');
+  const currentStep: WizardStep = steps.includes(rawStep) ? rawStep : steps[0];
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
   const router = useRouter();
@@ -93,8 +98,8 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   const strengthScheduleEditedRef = useRef(false);
   const t = useT(onboarding);
 
-  const stepIndex = ['persona', 'schedule', 'notifications'].indexOf(currentStep);
-  const totalSteps = 3;
+  const stepIndex = steps.indexOf(currentStep);
+  const totalSteps = steps.length;
 
   // Navigate steps
   const goToNextStep = useCallback(() => {
@@ -104,8 +109,8 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
   const goToPreviousStep = useCallback(() => {
     if (currentStep === 'notifications') setCurrentStep('schedule');
-    else if (currentStep === 'schedule') setCurrentStep('persona');
-  }, [currentStep]);
+    else if (currentStep === 'schedule' && showHeOnlySteps) setCurrentStep('persona');
+  }, [currentStep, showHeOnlySteps]);
 
   // Final submit — persists persona + schedule + completion status only.
   // Push-notification preferences are handled by handleNotificationsNext
@@ -148,7 +153,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
       // Personas + lifestyle + completion markers, one merge write
       // (services/lifestyle-wizard-submit.service.ts).
-      await writeLifestyleWizardCompletion(db, uid, storePersonaIds, lifestyleWrite);
+      await writeLifestyleWizardCompletion(db, uid, storePersonaIds, lifestyleWrite, { omitPersonas: !showHeOnlySteps });
 
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('skipped_bridge');
@@ -168,7 +173,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
     } finally {
       setIsSubmitting(false);
     }
-  }, [onComplete, onboardingData, profile, v2, t]);
+  }, [onComplete, onboardingData, profile, v2, t, showHeOnlySteps]);
 
   // Write-once guard for the early `personas` write: goToPreviousStep lets a
   // user go back to persona and forward again within the same open wizard

@@ -859,6 +859,11 @@ export async function syncOnboardingToFirestore(
       }));
     }
 
+    // Persona step skipped on purpose (non-he UI, hide_he_only_onboarding_steps): no `personas`, just the marker.
+    if (!selectedPersonaIdsList && (data as any).personaStepSkipped === true) {
+      updateData.personaStepSkipped = true;
+    }
+
     // Goals
     if ((data as any).selectedGoalIds && (data as any).selectedGoalIds.length > 0) {
       onboardingAnswers.allGoals = (data as any).selectedGoalIds;
