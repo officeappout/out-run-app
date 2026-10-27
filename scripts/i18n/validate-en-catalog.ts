@@ -1,3 +1,4 @@
+// @ts-nocheck -- standalone tsx script (scripts/ is not compiled with the app tsconfig target)
 /**
  * English catalog validator (docs/i18n/EN-PILOT-PLAN.md §4, checks V1-V14).
  * Pure Node + the ICU parser the runtime uses (@formatjs/icu-messageformat-parser, the parser
