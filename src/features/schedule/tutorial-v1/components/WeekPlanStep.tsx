@@ -22,7 +22,6 @@ export interface WeekPlanStepProps {
   saving: boolean;
   error: boolean;
   onConfirm: () => void;
-  onTrainNow: () => void;
   onChange: () => void;
 }
 
@@ -58,7 +57,7 @@ export default function WeekPlanStep(p: WeekPlanStepProps) {
         summary={summary}
         chips={chips}
       />
-      <WeekDayRows week={week} dates={p.dates} todayDow={p.todayDow} stepsToday={p.stepsToday} onTrainNow={p.saving ? undefined : p.onTrainNow} />
+      <WeekDayRows week={week} dates={p.dates} todayDow={p.todayDow} stepsToday={p.stepsToday} />
       <p className="flex items-start gap-2 px-1 text-[12.5px] font-bold leading-[18px] text-v2-muted">
         <Info size={15} strokeWidth={2.2} className="mt-px shrink-0" aria-hidden />
         {t('tutorial.week.cardsHint')}
