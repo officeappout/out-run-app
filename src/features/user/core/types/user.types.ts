@@ -119,6 +119,10 @@ export interface UserProgression {
   stepGoalMode?: 'auto' | 'manual';
   /** 'YYYY-MM-DD' of the last weekly auto recompute (null/absent = never). */
   stepGoalComputedOn?: string | null;
+  /** 'ramp_v1' = the gradual goal (schedule tutorial, owner 27.10.2026); absent = adaptive. */
+  stepGoalPolicy?: 'ramp_v1';
+  /** The gradual goal's ceiling (by age), written with stepGoalPolicy. */
+  stepGoalCap?: number;
   dailyFloorGoal: number;    // Adaptive floor goal (starts at 3, adjusts +10%/-5%)
   currentStreak: number;     // Days meeting at least baseline (1500 steps OR 1 floor)
   /** Mirrored from streaks/{uid} by useActivityStore.syncToServer (best-effort). */
@@ -484,10 +488,24 @@ export interface UserFullProfile {
      * Example: { 'א': ['push_prog_id'], 'ג': ['pull_prog_id', 'core_prog_id'], 'ה': [] }
      */
     recurringTemplate?: RecurringTemplate;
+    /**
+     * Strength session length in minutes (20 / 30 / 45 / 60), the schedule tutorial's
+     * "כמה זמן לאימון?". Optional, additive; absent = today's defaults. Read through
+     * features/schedule/goals/plannedSessionMinutes.ts (first-weeks ramp applied).
+     */
+    sessionMinutes?: number;
+    /** Runners: "two workouts on the same day is OK" from the schedule tutorial. Optional. */
+    allowTwoPerDay?: boolean;
     /** Per-track reminder times (HH:MM). Written by RunningScheduleStep / ScheduleStep. */
     reminders?: {
       runningTime?: string;   // preferred running workout time
       strengthTime?: string;  // preferred strength workout time
+      /**
+       * Per-day strength start time ('HH:MM'), keyed by Hebrew day letter like
+       * recurringTemplate. Written by the schedule tutorial; template hydration uses it
+       * before strengthTime (recurring-day.core recurringStartTime). Optional.
+       */
+      strengthTimesByDay?: Partial<Record<string, string>>;
       /**
        * Durable per-weekday reminder slots — the real backend for the
        * SettingsModal "תזכורות אימון" accordion (previously in-memory-only,

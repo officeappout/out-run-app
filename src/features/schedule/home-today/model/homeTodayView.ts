@@ -32,7 +32,7 @@ export function homeTodayView(t: ScheduleT, tc: CommonT, locale: Locale, m: Home
         title: strengthTitle(t, s.label),
         subtitle: s.done
           ? s.minutes ? t('homeToday.done', { min: withUnit('min', formatNumber(s.minutes, locale), tc) }) : t('homeToday.doneNoMin')
-          : undefined,
+          : s.plannedMinutes ? t('dayCards.strength.subtitle', { min: withUnit('min', formatNumber(s.plannedMinutes, locale), tc), note: 'none' }) : undefined,
         time: s.done ? undefined : s.time ?? undefined,
         timeTone: morningOrEvening(s.time),
         iconSrc: strengthIcon(s.label),

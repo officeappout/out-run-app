@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tutorialPhase, type LaunchInput } from '../model/launch';
+import { replacesBridge, tutorialPhase, type LaunchInput } from '../model/launch';
 
 const base: LaunchInput = { candidate: true, isNew: true, seen: false, stage: 'idle', calm: true, targetPresent: true };
 
@@ -23,5 +23,14 @@ describe('schedule tutorial launch', () => {
 
   it('the flow stays open even if home becomes busy', () => {
     expect(tutorialPhase({ ...base, stage: 'flow', calm: false, candidate: false })).toEqual({ show: 'flow', busy: true });
+  });
+});
+
+describe('the tutorial replaces the old lifestyle bridge (Part C)', () => {
+  it('for new candidates (and while that is still loading), never for old users or non-candidates', () => {
+    expect(replacesBridge({ candidate: true, isNew: true })).toBe(true);
+    expect(replacesBridge({ candidate: true, isNew: null })).toBe(true);
+    expect(replacesBridge({ candidate: true, isNew: false })).toBe(false);
+    expect(replacesBridge({ candidate: false, isNew: true })).toBe(false);
   });
 });

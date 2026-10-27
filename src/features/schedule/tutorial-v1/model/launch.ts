@@ -26,3 +26,11 @@ export function tutorialPhase(i: LaunchInput): LaunchPhase {
   const ready = i.isNew === true && i.seen === false;
   return { show: ready && i.calm && i.targetPresent ? 'coach' : 'none', busy: true };
 }
+
+/**
+ * The schedule tutorial replaces the old lifestyle bridge (BlurryBridge) for the users it serves
+ * (owner 27.10): a candidate who is new, or still loading. Seen / skipped counts too, so a user
+ * who skipped ל1 is not sent to the old wizard. Old users (not new) keep the bridge, and users
+ * who finished the old wizard never reach it (they have schedule days).
+ */
+export const replacesBridge = (i: Pick<LaunchInput, 'candidate' | 'isNew'>): boolean => i.candidate && i.isNew !== false;

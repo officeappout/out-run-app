@@ -90,3 +90,18 @@ describe('templateSessionsToMaterialize', () => {
     expect(templateSessionsToMaterialize(template, WED, [{ type: 'training', source: 'community' }])).toHaveLength(1);
   });
 });
+
+describe('per-day strength time (schedule tutorial, Part C)', () => {
+  const letters = ['א', 'ב'];
+  it("a day's own time comes first, only with its letter and a valid HH:MM", () => {
+    const r = { strengthTime: '18:00', strengthTimesByDay: { [letters[0]]: '06:15', [letters[1]]: '25:00' } };
+    expect(recurringStartTime(r, letters[0])).toBe('06:15');
+    expect(recurringStartTime(r, letters[1])).toBe('18:00');
+    expect(recurringStartTime(r)).toBe('18:00');
+    expect(recurringStartTime({ strengthTimesByDay: { [letters[0]]: '06:15' } }, letters[1])).toBe(DEFAULT_RECURRING_START_TIME);
+  });
+  it('recurringDayPlan stamps the weekday time (2026-10-25 is a Sunday)', () => {
+    const plan = recurringDayPlan({ [letters[0]]: ['FULL_BODY'] }, '2026-10-25', { strengthTimesByDay: { [letters[0]]: '20:30' } });
+    expect(plan).toEqual({ kind: 'training', sessions: [{ programId: 'FULL_BODY', startTime: '20:30', category: 'strength' }] });
+  });
+});

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveHomeToday, strengthLabelOn, type HomeTodayInput } from '../model/homeToday';
-import { homeTourToday, strengthMinutesOf } from '../model/homeTodayInputs';
+import { homeTourToday, optionalDoneOf, strengthMinutesOf } from '../model/homeTodayInputs';
+import { DAY_LETTERS_HE as LETTERS } from '@/features/schedule/utils/strengthWeekRecommendation';
 
 const base: HomeTodayInput = {
   todayDow: 0,
@@ -16,7 +17,7 @@ const base: HomeTodayInput = {
 describe('resolveHomeToday', () => {
   it('a strength day: workout + steps, flames out of 2, no optional card', () => {
     const m = resolveHomeToday(base);
-    expect(m.strength).toEqual({ label: { kind: 'full_body', emphasis: 'push' }, time: '07:00', done: false, minutes: null });
+    expect(m.strength).toEqual({ label: { kind: 'full_body', emphasis: 'push' }, time: '07:00', done: false, minutes: null, plannedMinutes: null });
     expect(m.optional).toBeNull();
     expect(m.steps).toEqual({ steps: 5200, goal: 8000, pct: 65, done: false });
     expect(m.flames).toEqual({ closed: 0, total: 2 });
@@ -66,5 +67,23 @@ describe('inputs', () => {
   it('the tour view of today', () => {
     expect(homeTourToday(null)).toBeNull();
     expect(homeTourToday(resolveHomeToday({ ...base, todayDow: 1 }))).toEqual({ strengthToday: false, optionalMinutes: 8, next: { dow: 2, time: '07:00' } });
+  });
+});
+
+describe('Part C: per-day time, planned minutes, short session done', () => {
+  it("a day's own time wins over the one training time, also for the next day", () => {
+    const own = resolveHomeToday({ ...base, timesByDay: { [LETTERS[base.todayDow]]: '06:30', [LETTERS[2]]: '20:15' } });
+    expect(own.strength?.time).toBe('06:30');
+    expect(own.next).toEqual({ dow: 2, time: '20:15' });
+    expect(resolveHomeToday({ ...base, timesByDay: { [LETTERS[base.todayDow]]: 'bad' } }).strength?.time).toBe('07:00');
+  });
+  it('planned minutes ride on the strength card', () => {
+    expect(resolveHomeToday({ ...base, plannedMinutes: 20 }).strength?.plannedMinutes).toBe(20);
+  });
+  it('optionalDoneOf: a strength / hybrid / recovery session today, not a run or walk', () => {
+    expect(optionalDoneOf([{ workoutType: 'running' }, { category: 'walking' }])).toBe(false);
+    expect(optionalDoneOf([{ workoutType: 'strength' }])).toBe(true);
+    expect(optionalDoneOf([{ category: 'recovery' }])).toBe(true);
+    expect(optionalDoneOf(null)).toBe(false);
   });
 });

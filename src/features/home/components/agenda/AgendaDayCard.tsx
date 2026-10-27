@@ -918,6 +918,9 @@ export default function AgendaDayCard({
 }: AgendaDayCardProps) {
   const t = useT(home);
   const { profile } = useUserStore();
+  // Per-day strength times (schedule tutorial). Only this map is passed, so a user without it
+  // hydrates exactly as before (07:00).
+  const dayTimes = profile?.lifestyle?.reminders?.strengthTimesByDay;
   /**
    * `undefined` while the initial fetch is in flight, then a (possibly empty)
    * array.  The first element after migration plays the role of the legacy
@@ -986,7 +989,7 @@ export default function AgendaDayCard({
 
         // Recurring-template fallback — only if Firestore returned nothing.
         if (result.length === 0 && recurringTemplate) {
-          const hydrated = await hydrateFromTemplate(userId, date, recurringTemplate);
+          const hydrated = await hydrateFromTemplate(userId, date, recurringTemplate, dayTimes ? { strengthTimesByDay: dayTimes } : undefined);
           if (hydrated.length > 0) result = hydrated;
         }
 
@@ -1067,7 +1070,7 @@ export default function AgendaDayCard({
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, runningReplacesDay, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode, suppressScheduleDaysFallback]);
+  }, [userId, date, recurringTemplate, dayTimes, refreshKey, runningReplacesDay, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode, suppressScheduleDaysFallback]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
