@@ -1,6 +1,6 @@
 # English pilot plan — for owner approval
 
-> Status: **proposal, no translation done.** Wave 6 of [PLAN.md](./PLAN.md): "LLM translation of all `en` catalogs with glossary + brand voice, then an English-speaker check". This file defines a small **pilot** to prove the pipeline and your approval loop before the other ~7,500 keys.
+> Status: **approved by the owner 27.10 (12 decisions below); translation in progress.** Wave 6 of [PLAN.md](./PLAN.md): "LLM translation of all `en` catalogs with glossary + brand voice, then an English-speaker check". This file defines a small **pilot** to prove the pipeline and your approval loop before the other ~7,500 keys.
 > Read first: [EN-GLOSSARY.md](./EN-GLOSSARY.md), [EN-VOICE.md](./EN-VOICE.md). Hebrew source: `src/messages/he/*.json`. Catalog mechanics: [HOW-TO.md](./HOW-TO.md).
 
 ## 1. Where we stand (counts measured on `origin/main` @ `d5e4a7bd`)
@@ -129,19 +129,19 @@ Contains: the three markdown files. Does not contain: any catalog change, any co
 
 ---
 
-## 8. Open questions for the owner (answer each in one line)
+## 8. Owner decisions (all 12 APPROVED 27.10)
 
-1. **Fitness park wording:** the site says "fitness park(s)" (alternatives: "outdoor gym", "calisthenics park"). Use "fitness park" in the app too? (glossary #97)
-2. **Program vs plan vs schedule:** program = the skill track you progress in; plan = what OUT built for the week; schedule = the user's slots (`לו״ז`). OK? (glossary #10–#13)
-3. **Level vs stage vs step:** level = your rank in a program; stage = milestone on the progression map; step = a step in a flow. OK? (#31–#33)
-4. **Units for English users:** keep metric only (PLAN decision 6), or make km/miles work (the setting exists, but the formatters only do km), or default to miles for US devices?
-5. **Time format for English:** follow the device (12-hour for `en-US`) or force 24-hour like the Hebrew app?
-6. **Kelly's pronoun in English:** avoid pronouns (my proposal), or "he", or "they"? (#59)
-7. **Deload week:** user-facing "lighter week" (proposal) or "deload week" or "recovery week"? (#16)
-8. **`אווטיר`:** what English do you want for a user of OUT in community copy ("OUTer", "member", other)? (#62)
-9. **Municipality wording:** "municipality" throughout (as on the site) and "city hall" only in the resident-to-city outreach message? (#126–#127)
-10. **Streak shield:** is "shield" right, or is the concept a "freeze"? (#77)
-11. **Quick test:** `מבדק` = "quick test" / "assessment" / "check"? (#24)
-12. **Military league units:** show brigade/battalion/company wording to English users, or hide the unit league from non-Hebrew users? (#86)
+1. **Outdoor gym terms:** generic place = **"outdoor gym"** (not "fitness park"); calisthenics-specific park (pull-up bars, parallel bars, rings) = **"calisthenics park"**; plain "park" only for ordinary parks (run/walk). (#97)
+2. **Program / plan / schedule:** Program = a skill track (e.g. pull-up program); Plan = OUT's weekly plan; Schedule = the user's slots (`לו״ז`). (#10-#13)
+3. **Level / stage / step:** Level = rank; Stage = map milestone; Step = a step in a flow. (#31-#33)
+4. **Units:** metric only for the pilot (km/miles toggle later).
+5. **Time format:** follow the device.
+6. **Kelly:** "he"; "your coach Kelly". (#59)
+7. **Deload week:** "lighter week". (#16)
+8. **`אווטיר`:** "avatar". (#62)
+9. **Municipality:** "municipality" everywhere; "city hall" only in the resident-outreach message. (#126-#127)
+10. **Streak shield:** "shield". (#77)
+11. **`מבדק`:** "quick test". (#24)
+12. **Military league units (brigade/battalion/company):** HIDDEN from English users in the pilot; the keys are not translated and fall back to Hebrew (the exact list is in the pilot PR description).
 
-*(Not asked, my default is stated:* US spelling; sentence case; no emoji added; `’` apostrophes; Kelly stays out of English until wave 5F; `legal`/`push` outside the pilot.)*
+*(Defaults not asked: US spelling; sentence case; no emoji added; `’` apostrophes; `legal`/`push` outside the pilot.)*

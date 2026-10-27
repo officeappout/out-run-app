@@ -30,7 +30,7 @@ Four traits, with a test for each:
 
 - **Second person singular, imperative for actions**: "Try again", "Choose a park", "Add a friend". Never "Users can…", never "The user".
 - **We** = the OUT team, used sparingly and only where the Hebrew uses `אנחנו`/`בנינו לך` ("We built you a 20-minute route"). The app itself speaks as **OUT** or says nothing ("OUT needs access to Apple Health to show your activity").
-- Kelly speaks in **first person singular** ("I'm pausing here for a moment. I'm not a doctor…"). About Kelly, in the app's voice: say **Kelly**, avoid pronouns (open question 6).
+- Kelly speaks in **first person singular** ("I'm pausing here for a moment. I'm not a doctor…"). About Kelly, in the app's voice: say **"your coach Kelly"** and use **"he"** (APPROVED 27.10, consistent with the masculine Hebrew decision); avoid the pronoun when a rephrase is equally natural.
 - Do not use "please" in routine instructions ("Try again", not "Please try again"). Use it only in errors that are the app's fault and the user must wait ("Please wait a moment").
 
 ## 4. Gender: collapsing Hebrew variants into one English string
@@ -89,7 +89,7 @@ Why sentence case: it matches the site, reads friendlier, avoids arguments about
 ## 8. Units, dates, times, numbers
 
 - **Numbers, dates and times are never typed in a translation.** They come from the wave-3 formatters (`formatNumber`, `formatDate`, `formatTime`, `formatRelative`, `formatDistanceKm`, `weekdayName`, `monthName`, `formatDateRange`) via `Intl` with the active locale, and from `withUnit` / `unitLabel` for unit labels. The translator writes only the unit **label** (`km`, `m`, `min`, `h`, `km/h`, `kg`, `min/km`, `steps`).
-- **Units: metric by default** (PLAN decision 6: "metric only, imperial only if the US opens"). `distanceUnit` exists today as a user setting in home settings (`settings.tools.unitName`: kilometers / miles), but `formatDistanceKm` only formats km. **This is open question 4**: for English users do we (a) stay metric, (b) default to km but make the miles toggle work, (c) default to miles for `en-US` device locales? Until the owner decides: (a).
+- **Units: metric by default** (PLAN decision 6: "metric only, imperial only if the US opens"). `distanceUnit` exists today as a user setting in home settings (`settings.tools.unitName`: kilometers / miles), but `formatDistanceKm` only formats km. **APPROVED 27.10**: metric only for the pilot (km/miles toggle later). Time format follows the device locale.
 - **Dates**: `Intl` long forms for English: “Mon, Oct 27” in compact UI, “October 27, 2026” in full. Week starts **Sunday** in logic (PLAN decision 7); display follows `weekdayName`; weekday strings in `common` (`weekdays.long.0` = Sunday … `short` = Sun, `letter` = S).
 - **Time**: the Hebrew app shows a 24-hour clock; `Intl` with `en-US` would produce 12-hour (“7:00 PM”) and the site’s English copy writes “7:00pm”. **Open question 5**: 12-hour for English? Proposal: follow the formatter and device locale, do not force.
 - **Thousands**: “10,000 steps”. **Decimals**: dot (“2.9 km”, not “2,9”). **Percent**: “35%” (no space).
