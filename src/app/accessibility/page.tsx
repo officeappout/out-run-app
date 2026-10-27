@@ -19,7 +19,7 @@ export function generateMetadata(): Metadata {
 }
 
 /** Bump on every material change to the statement or to the real conformance status. */
-const ACCESSIBILITY_LAST_UPDATED_HE = '12 באוקטובר 2026'; // i18n-allow-hebrew: date text — wave 3 (fmt)
+const ACCESSIBILITY_LAST_UPDATED_HE = '27 באוקטובר 2026'; // i18n-allow-hebrew: date text — wave 3 (fmt)
 
 const COORDINATOR = {
   name: 'דוד מובשוביץ', // i18n-allow-hebrew: a person's name (data)
@@ -75,6 +75,25 @@ export default function AccessibilityStatementPage() {
               <li className={P}>{t('accessibility.done.iconButtons')}</li>
               <li className={P}>{t('accessibility.done.contrast')}</li>
               <li className={P}>{t('accessibility.done.intervalLabel')}</li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="a11y-adjust" className={SECTION}>
+            <h2 id="a11y-adjust" className={H2}>{t('accessibility.adjust.title')}</h2>
+            <ul className="list-disc ps-5 space-y-1.5">
+              <li className={P}>{t('accessibility.adjust.rtl')}</li>
+              <li className={P}>{t('accessibility.adjust.zoom')}</li>
+              <li className={P}>{t('accessibility.adjust.reducedMotion')}</li>
+              <li className={P}>{t('accessibility.adjust.altText')}</li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="a11y-limits" className={SECTION}>
+            <h2 id="a11y-limits" className={H2}>{t('accessibility.limits.title')}</h2>
+            <p className={P}>{t('accessibility.limits.intro')}</p>
+            <ul className="list-disc ps-5 space-y-1.5 mt-2">
+              <li className={P}>{t('accessibility.limits.maps')}</li>
+              <li className={P}>{t('accessibility.limits.videos')}</li>
             </ul>
           </section>
 
