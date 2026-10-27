@@ -46,7 +46,7 @@ describe('graduated flags (owner 27.10.2026: open to everyone)', () => {
     const { FLAG_DEFS } = await import('../feature-flag-defs');
     const off = Object.fromEntries(FLAG_DEFS.map((d) => [d.key, false])) as never;
     const out = resolveViewerFlags(off, { isSuperAdmin: false, isQaTester: false }, off) as Record<string, boolean>;
-    expect(GRADUATED_OVERRIDES).toEqual({ enableStrengthQuizV3: true, enableScheduleTutorialV1: true });
+    expect(GRADUATED_OVERRIDES).toEqual({ enableEntryGlobeV1: true, enableEntryIntroV1: true, enableStrengthQuizV3: true, enableScheduleTutorialV1: true });
     expect(out.enableStrengthQuizV3).toBe(true);
     expect(out.enableScheduleTutorialV1).toBe(true);
     expect(out.enableHomeV2).toBe(false);

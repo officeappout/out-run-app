@@ -428,7 +428,7 @@ export const FLAG_DEFS = [
   // drag-to-refine, handleConfirm) is unchanged. Confirm lands on /map?fromExplorer=true&entry=v2
   // + sessionStorage entry_v2_landing=1 (read by the entry flow's step 2). Fail-closed; super
   // admins preview it. Off = byte-identical location step.
-  { key: 'enableEntryGlobeV1', firestoreKey: 'enable_entry_globe_v1', defaultValue: false, superAdminValue: true },
+  { key: 'enableEntryGlobeV1', firestoreKey: 'enable_entry_globe_v1', defaultValue: true, superAdminValue: true, graduated: true },
   // JIT identity before the health declaration (20.10.2026, entry flow v2 brief B) — a user with
   // no known identity (quick signup "הרשמה מהירה" → MAP_ONLY, no name / birth date) who starts a
   // workout first fills the existing identity screen (gender, birth date, name — same validation,
@@ -444,7 +444,7 @@ export const FLAG_DEFS = [
   // location step's globe. Pending invites keep their own redirects. Fail-closed; super admins
   // preview it once signed in (the landing itself is pre-auth, so it follows the global value).
   // Off = today's landing and flow, byte-identical.
-  { key: 'enableEntryIntroV1', firestoreKey: 'enable_entry_intro_v1', defaultValue: false, superAdminValue: true },
+  { key: 'enableEntryIntroV1', firestoreKey: 'enable_entry_intro_v1', defaultValue: true, superAdminValue: true, graduated: true },
   // Entry flow v2 — strength quiz drag hint (20.10.2026, owner-approved design Q1–Q3, brief G).
   // The v2 coverflow strip in the strength assessment teaches itself: no blur mask, no bubble
   // card; on the first category the strip demos itself (harder, harder, back — the video and the
