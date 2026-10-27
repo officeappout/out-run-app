@@ -50,7 +50,9 @@ export type V2OnlyReason =
   | { code: 'RE_ENTRY' }
   | { code: 'MAKEUP_DROPPED'; kind: 'strength' | 'run'; why: 'too_old' | 'no_room' | 'easy_run' | 'week_limit' }
   | { code: 'LONG_RUN_NEXT_CAP' }
-  | { code: 'SEARCH_TRUNCATED' };
+  | { code: 'SEARCH_TRUNCATED' }
+  /** Owner 27.10.2026: more run days than the streak, weekly volume kept, extra runs short and easy. */
+  | { code: 'RUN_VOLUME_SPLIT' };
 
 export type V2Reason = ScheduleReason | V2OnlyReason;
 export type V2ReasonCode = V2Reason['code'];
@@ -68,6 +70,7 @@ const V2_ONLY_CODES = new Set<string>([
   'OPTIONAL_MIDWEEK_MICRO_SESSION', 'DAYS_BELOW_SKILL_MIN', 'LONG_TRAINING_STREAK',
   'STRENGTH_REDUCED_LONG_RUN_PROTECTED', 'STRENGTH_MERGED', 'Q2_TO_EASY', 'DELOAD_WEEK', 'TRAVEL_WEEK',
   'STEPS_DAILY', 'RUN_WEEK_REPEATED', 'RE_ENTRY', 'MAKEUP_DROPPED', 'LONG_RUN_NEXT_CAP', 'SEARCH_TRUNCATED',
+  'RUN_VOLUME_SPLIT',
 ]);
 
 function isV2Only(r: V2Reason): r is V2OnlyReason {
@@ -103,6 +106,7 @@ function renderV2OnlyHe(r: V2OnlyReason, t: ScheduleT): string {
     case 'RE_ENTRY':
     case 'LONG_RUN_NEXT_CAP':
     case 'SEARCH_TRUNCATED':
+    case 'RUN_VOLUME_SPLIT':
       return t(`engine.reason.${r.code}`);
     case 'GROUP_RUN_FILLS_SLOT':
       return t('engine.reason.GROUP_RUN_FILLS_SLOT', {

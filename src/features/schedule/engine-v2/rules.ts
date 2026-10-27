@@ -50,6 +50,8 @@ export const isKeyRun = (u: Unit | null | undefined): boolean => !!u && u.kind =
 export const isQualityRun = (u: Unit | null | undefined): boolean => !!u && u.kind === 'run' && isQualitySlot(u.slot);
 export const isEasyRun = (u: Unit | null | undefined): boolean =>
   !!u && u.kind === 'run' && (u.slot === 'easy_run' || u.slot === 'recovery');
+/** A legs day in the R29 sense: heavy legs, or light legs on an easy-run day. */
+export const isLegsUnit = (u: Unit | null | undefined): boolean => !!u && u.kind === 'strength' && (u.load.legs >= HEAVY_LEGS || !!u.lightLegs);
 export const isLongRun = (u: Unit | null | undefined): boolean => !!u && u.kind === 'run' && u.slot === 'long_run';
 
 /** H2: strength never on the long-run day. */
@@ -59,7 +61,7 @@ export function breaksH2(strength: Unit, run: Unit | null): boolean {
 
 /** H3: heavy legs (≥0.8) never the day before a quality / long run (Sat → Sun included). */
 export function breaksH3(strength: Unit, day: number, grid: Grid): boolean {
-  if (strength.load.legs < HEAVY_LEGS) return false;
+  if (strength.load.legs < HEAVY_LEGS) return false; // light legs (0.5) pass: owner 27.10.2026
   const n = nextDay(day);
   return n !== null && isKeyRun(grid.run[n]);
 }
@@ -111,7 +113,7 @@ export function breaksH7(a: Unit, da: number, b: Unit, db: number): boolean {
   return after(a, da, b, db) || after(b, db, a, da);
 }
 
-/** H8: longest streak of run days (linear, like RUN-04). */
+/** Longest streak of run days (linear, like RUN-04). Soft since 27.10.2026 (score.ts RUN_STREAK). */
 export function longestRunStreak(grid: Grid): number {
   let best = 0;
   let cur = 0;
@@ -163,6 +165,7 @@ export function checkHardRules(grid: Grid, cap: CapacityCtx, runLevel: TrainingL
       if (breaksH6(a, s[i], b, s[j])) out.push({ rule: 'H6', days: [s[i], s[j]] });
       if (breaksH7(a, s[i], b, s[j])) out.push({ rule: 'H7', days: [s[i], s[j]] });
     }
-  if (longestRunStreak(grid) > runStreakCap(runLevel)) out.push({ rule: 'H8', days: [] });
+  // H8 (run-day streak) is soft since 27.10.2026 (owner): the user's running days are kept.
+  void runLevel;
   return out;
 }

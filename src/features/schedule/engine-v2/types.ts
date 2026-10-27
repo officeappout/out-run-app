@@ -115,6 +115,11 @@ export interface RunPlanInput {
   sessions: RunSessionInput[];
   isDeloadWeek?: boolean;
   fixed?: FixedRun[];
+  /**
+   * Running days the user chose (owner 27.10.2026). More days than sessions: the extra days get
+   * short easy runs and the planned weekly volume is split across all runs, never capped.
+   */
+  runDays?: number;
 }
 
 export type SessionRef =
@@ -179,6 +184,10 @@ export interface PlacedSession {
   continuous?: boolean;
   /** Two strength programs merged into one combined session. */
   combined?: boolean;
+  /** Extra short easy run: over the user's streak or an added running day (weekly volume kept). */
+  extra?: boolean;
+  /** Light legs: legs after an easy run the day before intervals / tempo (reduced volume). */
+  lightLegs?: boolean;
   /** This session replaces `variantOf` (full body → upper body before a key run). */
   variantOf?: string;
   equipment?: 'none' | 'bands' | 'full';

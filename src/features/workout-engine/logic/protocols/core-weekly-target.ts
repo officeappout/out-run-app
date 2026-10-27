@@ -13,9 +13,9 @@ import type { CoreBlockForm } from './core-block';
 
 /**
  * How many core sets one block counts for. A single exercise counts its real sets; a 4-minute
- * tabata or follow-along counts like a 2-set single (TUNABLE, not an owner number yet).
+ * tabata or follow-along counts as 4 sets (owner 27.10.2026).
  */
-export const CORE_BLOCK_SET_EQUIVALENT = 2;
+export const CORE_BLOCK_SET_EQUIVALENT = 4;
 /** Minutes of one core tabata / follow-along block (TABATA_BLOCK_SECONDS / 60). */
 export const CORE_BLOCK_MINUTES = 4;
 /** The optional short core card offered on non-workout days (owner 27.10: 8 minutes). */

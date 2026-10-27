@@ -37,7 +37,10 @@ function hybridRuleFailures(plan: WeekPlan): string[] {
     const next = days[(d + 1) % 7];
     if (ss.some(isQuality) && st.some((s) => legsOf(s) >= MODERATE_LEGS)) out.push(`R30 day ${d}: legs next to a quality run`);
     if (ss.some((s) => s.kind === 'run' && s.slot === 'long_run') && st.length) out.push(`H2 day ${d}: strength on the long-run day`);
-    if (st.some((s) => legsOf(s) >= HEAVY_LEGS) && next.some(isKey)) out.push(`R29 day ${d}: legs the day before a key run`);
+    // Owner 27.10.2026: light legs (easy-run day) may precede intervals / tempo, never the long run; heavy legs neither.
+    if (st.some((s) => !s.lightLegs && legsOf(s) >= HEAVY_LEGS) && next.some(isKey)) out.push(`H3 day ${d}: heavy legs the day before a key run`);
+    if (st.some((s) => s.lightLegs) && next.some((s) => s.kind === 'run' && s.slot === 'long_run')) out.push(`R29 day ${d}: legs the day before the long run`);
+    if (st.some((s) => s.lightLegs) && !ss.some(isEasy)) out.push(`day ${d}: light legs without an easy run`);
     const legsAt = ss.findIndex((s) => s.kind === 'strength' && legsOf(s) >= HEAVY_LEGS);
     const easyAt = ss.findIndex(isEasy);
     if (legsAt >= 0 && easyAt >= 0 && legsAt < easyAt) out.push(`R29 day ${d}: legs before the easy run`);
@@ -107,13 +110,108 @@ describe('5-day hybrid templates through buildWeek (R26)', () => {
     expect(compact(p)).toBe('upper_body | quality_primary | easy_run+legs | upper_body | long_run | - | -');
   });
 
-  it('run focus needs room: 5 run days in a row break the run-streak cap (H8), so a full week spreads them', () => {
-    const tight = run('run', SUN_THU);
-    expect(tight.warnings.map((w) => w.code)).toContain('RUNNING_REDUCED');
+  it('run focus on 5 days in a row: every run day kept, weekly volume kept, the extra runs short and easy', () => {
+    const p5 = run('run', SUN_THU);
+    expect(p5.dropped).toEqual([]);
+    expect(hybridRuleFailures(p5)).toEqual([]);
+    const runs = p5.days.flatMap((d) => d.sessions.filter((s) => s.kind === 'run'));
+    expect(runs).toHaveLength(5);
+    expect(p5.days.slice(0, 5).every((d) => d.sessions.some((s) => s.kind === 'run'))).toBe(true);
+    // At most two quality runs, never back to back.
+    const q = p5.days.filter((d) => d.sessions.some(isQuality)).map((d) => d.dow);
+    expect(q.length).toBeLessThanOrEqual(2);
+    for (let i = 1; i < q.length; i++) expect(q[i] - q[i - 1]).toBeGreaterThan(1);
+    // Planned week: easy 30 x2 + intervals 40 + tempo 40 + long 55 = 195 minutes, still 195.
+    expect(runs.reduce((t, s) => t + (s.minutes ?? 0), 0)).toBe(195);
+    const extras = runs.filter((s) => s.extra);
+    expect(extras.length).toBe(2);
+    expect(extras.every((s) => s.slot === 'easy_run' && s.workout === 'easy' && s.minutes! <= 20)).toBe(true);
+    expect(p5.warnings.map((w) => w.code)).toContain('RUN_VOLUME_SPLIT');
+    expect(p5.warnings.map((w) => w.code)).not.toContain('RUNNING_REDUCED');
     const p = run('run', [0, 1, 2, 3, 4, 5, 6]);
     expect(p.dropped).toEqual([]);
     expect(hybridRuleFailures(p)).toEqual([]);
     expect(p.days.flatMap((d) => strengthOf(d.sessions)).length).toBe(2);
+  });
+});
+
+describe('owner 27.10.2026 answers', () => {
+  it('the exact half-half and run-focus templates are valid weeks on Sun-Thu (light legs before intervals / tempo)', () => {
+    const balanced: PlacedSession[][] = [
+      [{ kind: 'strength', slug: 'upper_body' }],
+      [{ kind: 'run', slot: 'easy_run' }, { kind: 'strength', slug: 'legs', lightLegs: true }],
+      [{ kind: 'run', slot: 'quality_primary' }],
+      [{ kind: 'strength', slug: 'upper_body' }],
+      [{ kind: 'run', slot: 'long_run' }],
+      [],
+      [],
+    ];
+    const runFocus: PlacedSession[][] = [
+      [{ kind: 'run', slot: 'easy_run' }, { kind: 'strength', slug: 'upper_body' }],
+      [{ kind: 'run', slot: 'quality_primary' }],
+      [{ kind: 'run', slot: 'easy_run' }, { kind: 'strength', slug: 'legs', lightLegs: true }],
+      [{ kind: 'run', slot: 'quality_secondary' }],
+      [{ kind: 'run', slot: 'long_run' }],
+      [],
+      [],
+    ];
+    const cap = { open: [true, true, true, true, true, false, false], maxPerDay: 2 };
+    expect(validateLayout(balanced, cap, 'intermediate')).toEqual([]);
+    expect(validateLayout(runFocus, cap, 'beginner')).toEqual([]); // no run-streak cap any more
+    // Heavy legs the day before intervals stays forbidden (H3).
+    const heavy = balanced.map((d) => d.map((s) => ({ ...s, lightLegs: undefined })));
+    expect(validateLayout(heavy, cap, 'intermediate').map((v) => v.rule)).toContain('H3');
+  });
+
+  it('the engine places light legs after an easy run the day before a quality run, at reduced volume', () => {
+    const p = buildWeek({
+      // Two days only, intervals fixed on Monday: legs can live only on Sunday's easy-run day.
+      availability: { days: [0, 1], maxSessionsPerDay: 2 },
+      strength: [{ slug: 'legs', sessionsPerWeek: 1, priority: 1 }],
+      running: {
+        level: 'intermediate',
+        targetDistance: '10k',
+        sessions: [{ slot: 'easy_run' }, { slot: 'quality_primary' }],
+        fixed: [{ dow: 1, fills: 'quality_primary' }], // a group intervals session on Monday
+      },
+      levels: { strength: 'intermediate', running: 'intermediate' },
+    });
+    expect(hybridRuleFailures(p)).toEqual([]);
+    const legs = p.days.flatMap((d) => d.sessions).find((s) => s.slug === 'legs')!;
+    expect(legs.lightLegs).toBe(true);
+    expect(legs.volumePct).toBe(60);
+    expect(legsOnEasyDay(p)).toBe(true);
+  });
+
+  it('more running days than sessions: the added days get short easy runs, weekly volume kept', () => {
+    const p = buildWeek({
+      availability: { days: [0, 1, 2, 3, 4, 5], maxSessionsPerDay: 1 },
+      strength: [],
+      running: { level: 'beginner', targetDistance: '10k', runDays: 5, sessions: [{ slot: 'quality_primary' }, { slot: 'easy_run' }, { slot: 'long_run' }] },
+      levels: { strength: null, running: 'beginner' },
+    });
+    const runs = p.days.flatMap((d) => d.sessions.filter((s) => s.kind === 'run'));
+    expect(runs).toHaveLength(5);
+    expect(runs.reduce((t, s) => t + (s.minutes ?? 0), 0)).toBe(40 + 30 + 55);
+    expect(runs.filter((s) => s.extra).every((s) => s.slot === 'easy_run' && s.minutes! <= 20)).toBe(true);
+    expect(p.hardViolations).toEqual([]);
+  });
+
+  it('three quality sessions: two stay quality (48h apart), the third becomes an easy run', () => {
+    const p = buildWeek({
+      availability: { days: [0, 1, 2, 3, 4, 5], maxSessionsPerDay: 1 },
+      strength: [],
+      running: {
+        level: 'advanced',
+        targetDistance: '10k',
+        sessions: [{ slot: 'quality_primary' }, { slot: 'quality_secondary' }, { slot: 'quality_secondary' }, { slot: 'long_run' }],
+      },
+      levels: { strength: null, running: 'advanced' },
+    });
+    const slots = p.days.flatMap((d) => d.sessions.filter((s) => s.kind === 'run').map((s) => s.slot));
+    expect(slots.filter((s) => s === 'quality_primary' || s === 'quality_secondary')).toHaveLength(2);
+    expect(slots).toContain('easy_run');
+    expect(p.hardViolations).toEqual([]);
   });
 });
 
