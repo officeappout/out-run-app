@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { LeagueFilterSheet } from '@/app/community/CommunityOverlays';
-import { CityArenaView, NeighborhoodLeaderboard, GroupLeaderboard, ScopeCompetitionLeaderboard, ScopeBattleCard, MunicipalPressureCard } from '@/app/community/CommunityWidgets';
+import { CityArenaView, NeighborhoodLeaderboard, GroupLeaderboard, ScopeCompetitionLeaderboard, ScopeBattleCard } from '@/app/community/CommunityWidgets';
 import { CompetitionToggle } from '../CompetitionToggle';
 import { GroupAxisChooser } from '../GroupAxisChooser';
 import { ScopeContributionCard } from '../ScopeContributionCard';
@@ -46,11 +46,8 @@ export function CitySegment({ vm }: { vm: LeaguesVM }) {
     <div className="space-y-4" dir="rtl">
       {!isLeagueActive && (
         <>
-          <MunicipalPressureCard
-            cityName={access.cityName ?? t('communityPage.city.fallbackName')}
-            authority={authority}
-          />
-
+          {/* Pilot 26.10 (owner): no "the municipality hasn't opened the league" card for now,
+              just the leagues screen. MunicipalPressureCard stays in the codebase. */}
           <NeighborhoodLeaderboard
             scope="city"
             scopeId={access.cityAuthorityId}

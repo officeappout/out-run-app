@@ -17,7 +17,7 @@ import VisualSlider from '@/features/user/onboarding/components/visual-assessmen
 import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
-import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABEL_KEYS } from '@/features/user/onboarding/constants/onboarding-phases';
+import { strengthStoryBar } from '@/features/user/onboarding/constants/onboarding-phases';
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
 import { evaluateRules } from '@/features/user/onboarding/services/assessment-rule-engine.service';
 import {
@@ -198,6 +198,9 @@ export default function VisualAssessmentPage() {
   const { runAfterIdentity, identityOverlay } = useDeferredIdentity(v2, () => router.back());
   // enable_strength_quiz_v3: no tier screen, a transition before each muscle group, the v3 slider.
   const quizV3 = !!quizV3Flag;
+  // Owner 27.10: the v3 flow counts 4 phases (no goal screen); spinners match the quiz bars.
+  const assessBar = strengthStoryBar('assessment', quizV3);
+  const healthBar = strengthStoryBar('health', quizV3);
 
   // ── Auth state ───────────────────────────────────────────────
 
@@ -1280,10 +1283,10 @@ export default function VisualAssessmentPage() {
               className={v2 ? 'flex-1 min-h-0 flex flex-col' : 'flex-1 flex flex-col'}
             >
               <OnboardingStoryBar
-                totalPhases={TOTAL_PHASES}
-                currentPhase={STRENGTH_PHASES.ASSESSMENT}
+                totalPhases={assessBar.total}
+                currentPhase={assessBar.current}
                 phaseFillPercent={100}
-                phaseLabel={t(STRENGTH_LABEL_KEYS[STRENGTH_PHASES.ASSESSMENT])}
+                phaseLabel={t(assessBar.labelKey)}
               />
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
@@ -1437,9 +1440,9 @@ export default function VisualAssessmentPage() {
               className={v2 ? 'flex-1 min-h-0 flex flex-col' : 'flex-1 flex flex-col'}
             >
               <OnboardingStoryBar
-                totalPhases={TOTAL_PHASES}
-                currentPhase={STRENGTH_PHASES.HEALTH}
-                phaseLabel={t(STRENGTH_LABEL_KEYS[STRENGTH_PHASES.HEALTH])}
+                totalPhases={healthBar.total}
+                currentPhase={healthBar.current}
+                phaseLabel={t(healthBar.labelKey)}
               />
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
