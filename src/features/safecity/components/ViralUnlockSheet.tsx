@@ -9,7 +9,9 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
-import { pickGendered } from '@/lib/i18n/gender-copy';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
 
 interface ViralUnlockSheetProps {
   isOpen: boolean;
@@ -22,27 +24,29 @@ function generateInviteLink(userId: string): string {
   return `${APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK}?ref=${userId}`;
 }
 
-function resolveLocationName(profile: ReturnType<typeof useUserStore>['profile']): string {
+type MapT = ReactTFunction<NamespaceKey<typeof map>>;
+
+function resolveLocationName(profile: ReturnType<typeof useUserStore>['profile'], t: MapT): string {
   const cityAffiliation = profile?.core?.affiliations?.find((a) => a.type === 'city');
   if (cityAffiliation?.name) return cityAffiliation.name;
 
   const anyAffiliation = profile?.core?.affiliations?.[0];
   if (anyAffiliation?.name) return anyAffiliation.name;
 
-  return 'השכונה שלך';
+  return t('safecity.viral.fallbackLocation');
 }
 
 /** Recipient's gender is unknown → plural "בואו" (decision 7); the sender speaks in their own gender. */
-function generateInviteMessage(location: string, inviteLink: string, senderGender: unknown): string {
-  const me = pickGendered(senderGender, {
-    male: `אני מתאמן ב${location} עם Out`,
-    female: `אני מתאמנת ב${location} עם Out`,
-    other: `אני ב-Out ב${location}`,
+function generateInviteMessage(location: string, inviteLink: string, senderGender: unknown, t: MapT): string {
+  return t('safecity.viral.invite', {
+    location,
+    link: inviteLink,
+    gender: typeof senderGender === 'string' ? senderGender : 'other',
   });
-  return `היי! ${me} — בואו להצטרף אליי ונפתח ביחד את מפת השותפים ודירוגי הליגה! 🤘 ${inviteLink}`;
 }
 
 export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetProps) {
+  const t = useT(map);
   const { profile } = useUserStore();
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -54,19 +58,19 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
   const userId = profile?.id ?? '';
 
   const inviteLink = useMemo(() => generateInviteLink(userId), [userId]);
-  const location = useMemo(() => resolveLocationName(profile), [profile]);
+  const location = useMemo(() => resolveLocationName(profile, t), [profile, t]);
 
   const senderGender = profile?.core?.gender;
   const message = useMemo(
-    () => generateInviteMessage(location, inviteLink, senderGender),
-    [location, inviteLink, senderGender],
+    () => generateInviteMessage(location, inviteLink, senderGender, t),
+    [location, inviteLink, senderGender, t],
   );
 
   const handleShareWhatsApp = useCallback(async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Out — בואו להתאמן איתי!',
+          title: t('safecity.viral.shareTitle'),
           text: message,
           url: inviteLink,
         });
@@ -76,7 +80,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
     } else {
       window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
     }
-  }, [message, inviteLink]);
+  }, [message, inviteLink, t]);
 
   const handleCopyLink = useCallback(async () => {
     try {
@@ -117,10 +121,10 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
       {/* Headline */}
       <div className="text-center">
         <h3 className="text-lg font-black text-gray-900">
-          בונים נבחרת!
+          {t('safecity.viral.title')}
         </h3>
         <p className="text-[13px] text-gray-500 mt-1.5 max-w-[280px] mx-auto leading-relaxed">
-          הזמן שותף אחד כדי לפתוח את מפת השותפים ודירוגי הליגה
+          {t('safecity.viral.subtitle')}
         </p>
       </div>
 
@@ -128,7 +132,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
       <div className="w-full max-w-[300px]">
         <div className="flex items-center justify-center gap-1.5 mb-3">
           <span className="text-[12px] font-black text-gray-800 tracking-wide">
-            ({referralCount}/{REFERRAL_GOAL}) שותפים הצטרפו
+            {t('safecity.viral.progress', { count: String(referralCount), goal: String(REFERRAL_GOAL) })}
           </span>
         </div>
 
@@ -144,7 +148,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
             >
               <Check size={28} strokeWidth={3} />
             </div>
-            <span className="text-sm font-black text-[#00BAF7]">נפתח! 🎉</span>
+            <span className="text-sm font-black text-[#00BAF7]">{t('safecity.viral.unlocked')}</span>
           </motion.div>
         ) : (
           <div className="flex flex-col items-center gap-2">
@@ -156,7 +160,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
             >
               <span className="text-lg font-black">1</span>
             </motion.div>
-            <span className="text-[11px] font-bold text-gray-400">חסר עוד שותף אחד</span>
+            <span className="text-[11px] font-bold text-gray-400">{t('safecity.viral.missing')}</span>
           </div>
         )}
       </div>
@@ -171,7 +175,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
         }}
       >
         <Share2 size={20} />
-        <span>שלח הזמנה בוואטסאפ</span>
+        <span>{t('safecity.viral.shareWhatsApp')}</span>
       </button>
 
       {/* Secondary actions row */}
@@ -181,7 +185,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
           className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-gray-100 text-gray-700 font-bold text-[13px] transition-all active:scale-[0.97] hover:bg-gray-200"
         >
           {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-          <span>{copied ? 'הקישור הועתק!' : 'העתק קישור'}</span>
+          <span>{copied ? t('safecity.viral.copied') : t('safecity.viral.copy')}</span>
         </button>
         <button
           onClick={() => setShowQR(!showQR)}
@@ -212,7 +216,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
               />
             </div>
             <p className="text-[11px] text-gray-400 text-center">
-              תן לשותף לסרוק — ייכנס ישירות לאפליקציה
+              {t('safecity.viral.qrHint')}
             </p>
           </motion.div>
         )}
@@ -233,9 +237,9 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
         scroll="panel"
         className="relative max-h-[85vh]"
         transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-        ariaLabel="בונים נבחרת!"
+        ariaLabel={t('safecity.viral.title')}
       >
-        <IconButton aria-label="סגירה" tone="surface" size={36} className="absolute left-4 top-4 z-10" onClick={onClose}>
+        <IconButton aria-label={t('safecity.viral.close')} tone="surface" size={36} className="absolute left-4 top-4 z-10" onClick={onClose}>
           <X className="h-4 w-4" />
         </IconButton>
         {body}

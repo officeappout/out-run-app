@@ -68,6 +68,8 @@ import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import RouteRunLiveV2Controller from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteRunLiveV2Controller';
 import { hasMapDeepLink } from '@/features/user/onboarding/services/first-run-tour';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 import { consumeEntryV2Landing } from '@/features/user/onboarding/entry-v2-landing';
 
 const UnifiedLocationStep = lazy(
@@ -127,6 +129,10 @@ interface MapShellInnerProps {
 }
 
 function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false, initialOpenHybridSlots = false, initialOpenDiscover = false, firstRunTourEligible = false, entryV2Landing = false }: MapShellInnerProps) {
+  const t = useT(map);
+  // The referral listener below lives in an effect that must not resubscribe on a locale change.
+  const tRef = useRef(t);
+  tRef.current = t;
   const { mode, setMode, activityType: contextActivity } = useMapMode();
 
   // devSim + profile hoisted above useMapLogic (David, 22.09.2026, field-test
@@ -146,11 +152,11 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   const confirmStartWithMockLocation = useCallback((): boolean => {
     if (!devSim.isMockEnabled) return true;
     const label = devSim.selectedCity
-      ?? (devSim.mockLocation ? `${devSim.mockLocation.lat.toFixed(4)}, ${devSim.mockLocation.lng.toFixed(4)}` : 'מיקום מדומה');
+      ?? (devSim.mockLocation ? `${devSim.mockLocation.lat.toFixed(4)}, ${devSim.mockLocation.lng.toFixed(4)}` : t('mapLayers.mockLocation.label'));
     return window.confirm(
-      `מיקום מדומה פעיל (${label}) — האימון יעקוב אחרי המיקום המדומה, לא GPS אמיתי. להמשיך?`,
+      t('mapLayers.mockLocation.confirm', { label }),
     );
-  }, [devSim.isMockEnabled, devSim.selectedCity, devSim.mockLocation]);
+  }, [devSim.isMockEnabled, devSim.selectedCity, devSim.mockLocation, t]);
 
   const logic = useMapLogic(mode, contextActivity, confirmStartWithMockLocation);
 
@@ -425,7 +431,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       const newCount: number = data.core?.referralCount ?? 0;
       const prev = prevReferralCount.current;
       if (prev !== null && newCount > prev) {
-        setReferralToast(`שותף חדש הצטרף לנבחרת! עכשיו אווטיר ב-Out 🤘`);
+        setReferralToast(tRef.current('mapLayers.referralToast'));
         setTimeout(() => setReferralToast(null), 4000);
         if (newCount >= 1 && prev < 1) {
           celebrate('referral_unlock', 300);

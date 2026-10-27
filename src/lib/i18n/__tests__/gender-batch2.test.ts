@@ -12,7 +12,6 @@ import { home } from '@/messages/ns/home';
 import { onboarding } from '@/messages/ns/onboarding';
 import { makeT } from '../t';
 import { pickGendered, type GenderedText } from '../gender-copy';
-import { FREE_RUN_COPY } from '@/features/parks/core/components/free-run/free-run-gender-copy';
 import { LEAGUE_COPY } from '@/features/arena/components/league-gender-copy';
 import { achievementName, ACHIEVEMENT_MAP } from '@/features/user/progression/config/achievement-definitions';
 
@@ -47,6 +46,19 @@ const CATALOG_CASES: Array<[string, string, string, string]> = [
   ["community:outreach.company.cta", "🏢 שלח הודעה ל-HR", "🏢 שלחי הודעה ל-HR", "🏢 שליחת הודעה ל-HR"],
   ["community:outreach.youth.subtitle", "דבר עם צוות התנועה ושתפו את החניכים בוואטסאפ.", "דברי עם צוות התנועה ושתפו את החניכים בוואטסאפ.", "דברו עם צוות התנועה ושתפו את החניכים בוואטסאפ."],
   ["community:outreach.youth.cta", "⛺ שלח הודעה לצוות התנועה", "⛺ שלחי הודעה לצוות התנועה", "⛺ שליחת הודעה לצוות התנועה"],
+  // Free run drawer (moved from free-run-gender-copy.ts in batch ar) + the other gender selects extracted in batch ar
+  ["map:freeRun.startFree", "התחל חופשי", "התחילי חופשי", "בלי מסלול"],
+  ["map:freeRun.startFreeAria", "התחל אימון חופשי", "התחילי אימון חופשי", "יוצאים לאימון חופשי"],
+  ["map:freeRun.startRouteAria", "התחל אימון עם מסלול מותאם", "התחילי אימון עם מסלול מותאם", "יוצאים לאימון עם מסלול מותאם"],
+  ["map:freeRun.skipWeight", "אפשר לדלג — יישמר לפרופיל אם תבחר", "אפשר לדלג — יישמר לפרופיל אם תבחרי", "אפשר לדלג — מה שנבחר יישמר לפרופיל"],
+  ["map:freeRun.tapToChange", "הקש לשינוי היעד", "הקישי לשינוי היעד", "הקשה לשינוי היעד"],
+  ["map:freeRun.routeToAddress", "מסלול מכאן לכתובת שתבחר", "מסלול מכאן לכתובת שתבחרי", "מסלול מכאן לכתובת לבחירתך"],
+  ["map:freeRun.startToAddress", "התחל לכתובת הזו", "התחילי לכתובת הזו", "יוצאים לכתובת הזו"],
+  ["map:freeRun.compileError", "משהו השתבש בהרכבת המסלול. נסה שוב.", "משהו השתבש בהרכבת המסלול. נסי שוב.", "משהו השתבש בהרכבת המסלול. נסו שוב."],
+  ["map:freeRun.noStops", "עדיין לא הוספת עצירות. הוסף עצירה כדי להתחיל להרכיב את המסלול.", "עדיין לא הוספת עצירות. הוסיפי עצירה כדי להתחיל להרכיב את המסלול.", "עדיין אין עצירות. אפשר להוסיף עצירה כדי להתחיל להרכיב את המסלול."],
+  ["map:wizard.photo.uploadError", "שגיאה בהעלאת התמונה. נסה שוב.", "שגיאה בהעלאת התמונה. נסי שוב.", "שגיאה בהעלאת התמונה. נסו שוב."],
+  ["map:mapLayers.builder.retry", "נסה שוב", "נסי שוב", "נסו שוב"],
+  ["map:mapLayers.planned.start", "התחל אימון", "התחילי אימון", "יוצאים לאימון"],
   ["map:partners.empty.live.sub", "היה הראשון, סמן את עצמך פנוי לפני האימון", "היי הראשונה, סמני את עצמך פנויה לפני האימון", "היו הראשונים, סמנו שאתם פנויים לפני האימון"],
   ["map:partners.empty.scheduled.sub", "הוסף אימון ללוז ושתף אותו עם הקהילה", "הוסיפי אימון ללוז ושתפי אותו עם הקהילה", "הוסיפו אימון ללוז ושתפו אותו עם הקהילה"],
   ["player:run.controls.resume", "המשך אימון", "המשיכי אימון", "ממשיכים באימון"],
@@ -165,7 +177,7 @@ describe('gender batch 2 — catalog keys, three outputs', () => {
 
 describe('gender batch 2 — code copy modules: every entry', () => {
   const modules: Record<string, Record<string, GenderedText>> = {
-    FREE_RUN_COPY, LEAGUE_COPY,
+    LEAGUE_COPY,
   };
   for (const [mod, entries] of Object.entries(modules)) {
     for (const [id, text] of Object.entries(entries)) {
@@ -177,10 +189,7 @@ describe('gender batch 2 — code copy modules: every entry', () => {
     }
   }
 
-  it('pins: free run, league', () => {
-    expectThree('startFree', FREE_RUN_COPY.startFree, 'התחל חופשי', 'התחילי חופשי', 'בלי מסלול');
-    expectThree('startToAddress', FREE_RUN_COPY.startToAddress, 'התחל לכתובת הזו', 'התחילי לכתובת הזו', 'יוצאים לכתובת הזו');
-    expectThree('compileError', FREE_RUN_COPY.compileError, 'משהו השתבש בהרכבת המסלול. נסה שוב.', 'משהו השתבש בהרכבת המסלול. נסי שוב.', 'משהו השתבש בהרכבת המסלול. נסו שוב.');
+  it('pins: league', () => {
     expectThree('lockedCity', LEAGUE_COPY.lockedCity, 'לחץ על העירייה כדי לפתוח את הליגה הרשמית', 'לחצי על העירייה כדי לפתוח את הליגה הרשמית', 'לוחצים על העירייה כדי לפתוח את הליגה הרשמית');
   });
 });

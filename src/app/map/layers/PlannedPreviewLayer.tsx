@@ -19,8 +19,8 @@ import { applyRunEdits, isCustomized, readRunEditParams } from '@/features/worko
 import { useRunPreviewModel } from '@/features/workout-engine/players/running/components/preview-v2/useRunPreviewModel';
 import { parseRunWeekParams } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { useUiGender } from '@/hooks/useUiGender';
-import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -29,7 +29,7 @@ interface PlannedPreviewLayerProps {
 }
 
 export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps) {
-  const gender = useUiGender();
+  const t = useT(map);
   // Hide the global BottomNavbar while this layer is mounted — the bottom
   // CTA card below would otherwise be partially covered by the floating tab
   // bar. Auto-released on unmount.
@@ -174,7 +174,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
         <div className="absolute left-0 right-0 z-20 flex justify-center" style={{ bottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
           <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3" dir="rtl">
             <div className="animate-spin w-5 h-5 border-[3px] border-[#00BAF7] border-t-transparent rounded-full" />
-            <span className="text-sm font-bold text-gray-700">מכין את האימון...</span>
+            <span className="text-sm font-bold text-gray-700">{t('mapLayers.planned.preparing')}</span>
           </div>
         </div>
       );
@@ -187,7 +187,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
       <div className="absolute left-0 right-0 z-20 flex justify-center" style={{ bottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
         <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3" dir="rtl">
           <div className="animate-spin w-5 h-5 border-[3px] border-[#00BAF7] border-t-transparent rounded-full" />
-          <span className="text-sm font-bold text-gray-700">טוען אימון מתוכנן...</span>
+          <span className="text-sm font-bold text-gray-700">{t('mapLayers.planned.loading')}</span>
         </div>
       </div>
     );
@@ -235,7 +235,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
             <div>
               <h3 className="text-base font-black text-gray-800">{currentWorkout.title}</h3>
               <p className="text-[11px] text-gray-500 font-medium">
-                {currentWorkout.blocks?.length ?? 0} בלוקים
+                {t('mapLayers.planned.blocks', { count: String(currentWorkout.blocks?.length ?? 0) })}
               </p>
             </div>
           </div>
@@ -244,7 +244,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
             {currentWorkout.blocks?.slice(0, 4).map((block: any, i: number) => (
               <div key={i} className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100">
                 <p className="text-[10px] font-bold text-gray-600 whitespace-nowrap">
-                  {block.label || block.type || `בלוק ${i + 1}`}
+                  {block.label || block.type || t('mapLayers.planned.blockN', { n: String(i + 1) })}
                 </p>
               </div>
             ))}
@@ -255,7 +255,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00BAF7] text-white font-black text-lg shadow-2xl active:scale-[0.97] transition-all flex items-center justify-center gap-3"
           >
             <Play size={22} fill="white" />
-            <span>{pickGendered(gender, GENDERED_COPY.startWorkout)}</span>
+            <span>{t('mapLayers.planned.start')}</span>
           </button>
 
           <button
@@ -263,14 +263,14 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
             className="w-full mt-2 py-2.5 rounded-xl text-[#00BAF7] font-bold text-sm hover:bg-blue-50/60 transition-all flex items-center justify-center gap-1"
           >
             <ChevronDown size={16} />
-            <span>פרטי האימון</span>
+            <span>{t('mapLayers.planned.details')}</span>
           </button>
 
           <button
             onClick={() => setMode('discover')}
             className="w-full mt-1 py-2 rounded-xl text-gray-400 font-bold text-xs hover:bg-gray-50 transition-all"
           >
-            ביטול
+            {t('mapLayers.planned.cancel')}
           </button>
         </div>
       </div>

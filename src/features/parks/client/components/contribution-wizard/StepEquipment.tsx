@@ -35,6 +35,8 @@ import EquipmentCard from '../equipment-detail/EquipmentCard';
 import { EquipmentPillIcon } from './EquipmentPillIcon';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface Props {
   data: WizardData;
@@ -44,6 +46,7 @@ interface Props {
 }
 
 export default function StepEquipment({ data, updateData, onNext, onBack }: Props) {
+  const t = useT(map);
   const v2 = useWizardV2();
   const [catalog, setCatalog] = useState<GymEquipment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,11 +108,11 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
     return (
       <div className="flex h-full flex-col px-4 pb-6">
         <div className="mb-3 flex-shrink-0">
-          <p className={V2_LABEL}>אילו מתקנים יש במיקום?</p>
+          <p className={V2_LABEL}>{t('wizard.equipment.question')}</p>
 
           {selectedNames.length > 0 && (
             <p className="mb-2 text-[12.5px] font-bold leading-relaxed text-v2-muted">
-              <span className="font-extrabold text-v2-ink-2">נבחרו: </span>
+              <span className="font-extrabold text-v2-ink-2">{t('wizard.equipment.selected')}</span>
               {selectedNames.join(', ')}
             </p>
           )}
@@ -121,7 +124,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="חיפוש מתקן..."
+              placeholder={t('wizard.equipment.search')}
               className={`${V2_INPUT} !pr-10`}
             />
           </div>
@@ -134,7 +137,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
             </div>
           ) : visible.length === 0 ? (
             <p className="py-12 text-center text-[14px] font-bold text-v2-muted">
-              {catalog.length === 0 ? 'אין מתקני-פארק בקטלוג' : 'לא נמצאו מתקנים'}
+              {catalog.length === 0 ? t('wizard.equipment.emptyCatalog') : t('wizard.equipment.noMatch')}
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
@@ -165,7 +168,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
         {/* Equipment is optional, so forward is always enabled. */}
         <div className="mt-4 flex flex-shrink-0 items-center gap-3">
           <V2BackButton onClick={onBack} />
-          <V2PrimaryButton onClick={onNext}>{selectedIds.size > 0 ? 'המשך' : 'דלג'}</V2PrimaryButton>
+          <V2PrimaryButton onClick={onNext}>{selectedIds.size > 0 ? t('wizard.continue') : t('wizard.skip')}</V2PrimaryButton>
         </div>
       </div>
     );
@@ -177,7 +180,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
           out of view regardless of how long the equipment grid gets. */}
       <div className="mb-3 flex-shrink-0">
         <label className="text-slate-500 text-xs font-bold mb-2 block">
-          אילו מתקנים יש במיקום?
+          {t('wizard.equipment.question')}
         </label>
 
         {selectedNames.length > 0 && (
@@ -189,7 +192,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
           // if on-device testing shows this getting unwieldy with a large
           // selection.
           <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
-            <span className="font-bold text-slate-600">נבחרו: </span>
+            <span className="font-bold text-slate-600">{t('wizard.equipment.selected')}</span>
             {selectedNames.join(', ')}
           </p>
         )}
@@ -201,7 +204,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="חיפוש מתקן..."
+            placeholder={t('wizard.equipment.search')}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-4 py-2.5 text-slate-900 text-sm placeholder:text-slate-400 outline-none focus:border-[#00E5FF] transition-colors"
           />
         </div>
@@ -215,7 +218,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
           </div>
         ) : visible.length === 0 ? (
           <p className="text-center text-slate-400 text-sm py-12">
-            {catalog.length === 0 ? 'אין מתקני-פארק בקטלוג' : 'לא נמצאו מתקנים'}
+            {catalog.length === 0 ? t('wizard.equipment.emptyCatalog') : t('wizard.equipment.noMatch')}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-2">
@@ -238,13 +241,13 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
           onClick={onBack}
           className="px-6 py-3.5 rounded-2xl bg-slate-100 text-slate-600 text-sm font-bold active:scale-[0.98]"
         >
-          חזרה
+          {t('wizard.back')}
         </button>
         <button
           onClick={onNext}
           className="flex-1 py-3.5 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-1 bg-[#00E5FF] text-slate-900 active:scale-[0.97] shadow-lg shadow-cyan-500/25"
         >
-          {selectedIds.size > 0 ? 'המשך' : 'דלג'}
+          {selectedIds.size > 0 ? t('wizard.continue') : t('wizard.skip')}
           <ChevronRight size={16} className="rotate-180" />
         </button>
       </div>

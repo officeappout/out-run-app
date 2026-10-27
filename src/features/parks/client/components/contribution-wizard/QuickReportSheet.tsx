@@ -11,6 +11,8 @@ import { V2_LABEL, v2Chip, V2PrimaryButton } from './wizard-v2';
 import { createContribution } from '@/features/parks/core/services/contribution.service';
 import { useUserStore } from '@/features/user';
 import { XP_REWARDS } from '@/types/contribution.types';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface QuickReportSheetProps {
   isOpen: boolean;
@@ -19,14 +21,14 @@ interface QuickReportSheetProps {
 }
 
 const ISSUE_TYPES = [
-  { id: 'broken_equipment', label: 'ציוד פגום', icon: '🔧' },
-  { id: 'no_lighting', label: 'תאורה לא עובדת', icon: '💡' },
-  { id: 'no_water', label: 'חוסר מים', icon: '🚰' },
-  { id: 'vandalism', label: 'ונדליזם', icon: '🚫' },
-  { id: 'cleanliness', label: 'ניקיון', icon: '🧹' },
-  { id: 'safety', label: 'בעיית בטיחות', icon: '⚠️' },
-  { id: 'other', label: 'אחר', icon: '📝' },
-];
+  { id: 'broken_equipment', labelKey: 'wizard.report.issue.broken_equipment', icon: '🔧' },
+  { id: 'no_lighting', labelKey: 'wizard.report.issue.no_lighting', icon: '💡' },
+  { id: 'no_water', labelKey: 'wizard.report.issue.no_water', icon: '🚰' },
+  { id: 'vandalism', labelKey: 'wizard.report.issue.vandalism', icon: '🚫' },
+  { id: 'cleanliness', labelKey: 'wizard.report.issue.cleanliness', icon: '🧹' },
+  { id: 'safety', labelKey: 'wizard.report.issue.safety', icon: '⚠️' },
+  { id: 'other', labelKey: 'wizard.report.issue.other', icon: '📝' },
+] as const;
 
 /** v2 icons for the issue chips (replace the emoji). */
 const ISSUE_V2_ICONS: Record<string, LucideIcon> = {
@@ -40,6 +42,7 @@ const ISSUE_V2_ICONS: Record<string, LucideIcon> = {
 };
 
 export default function QuickReportSheet({ isOpen, onClose, userLocation }: QuickReportSheetProps) {
+  const t = useT(map);
   const { profile } = useUserStore();
   // Home v2 (enable_home_v2): styling only.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
@@ -90,14 +93,14 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
         safeArea="1.5rem"
         grabberClassName="mb-3 flex justify-center pt-2.5"
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        ariaLabel="דיווח מהיר"
+        ariaLabel={t('wizard.report.title')}
         header={
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Zap size={20} strokeWidth={2.4} className="text-v2-deep" />
-              <h3 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">דיווח מהיר</h3>
+              <h3 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('wizard.report.title')}</h3>
             </div>
-            <IconButton aria-label="סגירה" tone="surface" size={36} onClick={onClose}>
+            <IconButton aria-label={t('wizard.close')} tone="surface" size={36} onClick={onClose}>
               <X size={18} strokeWidth={2.4} />
             </IconButton>
           </div>
@@ -119,14 +122,14 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
               >
                 <Zap size={30} strokeWidth={2.4} className="text-v2-deep" />
               </motion.div>
-              <p className="mb-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הדיווח נשלח!</p>
+              <p className="mb-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('wizard.report.success')}</p>
               <p className="text-[15px] font-extrabold text-v2-deep">+{XP_REWARDS.report} XP</p>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Issue type chips */}
-        <p className={V2_LABEL}>מה הבעיה?</p>
+        <p className={V2_LABEL}>{t('wizard.report.question')}</p>
         <div className="mb-4 flex flex-wrap gap-2">
           {ISSUE_TYPES.map((issue) => {
             const on = selectedIssue === issue.id;
@@ -140,7 +143,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
                 className={`flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold ${v2Chip(on)}`}
               >
                 <Icon size={16} strokeWidth={2.4} className={on ? 'flex-shrink-0 text-v2-deep' : 'flex-shrink-0 text-v2-muted'} />
-                {issue.label}
+                {t(issue.labelKey)}
               </button>
             );
           })}
@@ -150,7 +153,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="פרטים נוספים (לא חובה)..."
+          placeholder={t('wizard.report.details')}
           rows={2}
           className="mb-4 w-full resize-none rounded-[16px] bg-white px-4 py-3 text-[15px] font-bold text-v2-ink shadow-v2-ring outline-none transition-shadow placeholder:font-semibold placeholder:text-v2-muted focus:ring-2 focus:ring-v2-accent"
         />
@@ -158,7 +161,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
         {/* Submit */}
         <div className="flex">
           <V2PrimaryButton onClick={handleSubmit} disabled={!selectedIssue || submitting} loading={submitting} arrow={false}>
-            {submitting ? 'שולח...' : 'שלח דיווח'}
+            {submitting ? t('wizard.sending') : t('wizard.report.submit')}
           </V2PrimaryButton>
         </div>
       </Sheet>
@@ -202,7 +205,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
               >
                 ⚡
               </motion.div>
-              <p className="text-slate-900 text-lg font-bold mb-1">הדיווח נשלח!</p>
+              <p className="text-slate-900 text-lg font-bold mb-1">{t('wizard.report.success')}</p>
               <p className="text-[#00E5FF] text-sm font-bold">+{XP_REWARDS.report} XP</p>
             </motion.div>
           )}
@@ -212,7 +215,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Zap size={18} className="text-[#00E5FF]" />
-            <h3 className="text-slate-900 text-base font-bold">דיווח מהיר</h3>
+            <h3 className="text-slate-900 text-base font-bold">{t('wizard.report.title')}</h3>
           </div>
           <button onClick={onClose} className="p-2 rounded-full bg-slate-100 text-slate-500 active:scale-90 transition-transform">
             <X size={16} />
@@ -220,7 +223,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
         </div>
 
         {/* Issue type chips */}
-        <p className="text-slate-400 text-xs font-bold mb-2">מה הבעיה?</p>
+        <p className="text-slate-400 text-xs font-bold mb-2">{t('wizard.report.question')}</p>
         <div className="grid grid-cols-4 gap-2 mb-4">
           {ISSUE_TYPES.map((issue) => (
             <button
@@ -233,7 +236,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
               }`}
             >
               <span className="text-lg">{issue.icon}</span>
-              <span>{issue.label}</span>
+              <span>{t(issue.labelKey)}</span>
             </button>
           ))}
         </div>
@@ -242,7 +245,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="פרטים נוספים (לא חובה)..."
+          placeholder={t('wizard.report.details')}
           rows={2}
           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 outline-none focus:border-[#00E5FF] transition-colors resize-none mb-4"
         />
@@ -258,9 +261,9 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
           }`}
         >
           {submitting ? (
-            <><Loader2 size={16} className="animate-spin" /> שולח...</>
+            <><Loader2 size={16} className="animate-spin" /> {t('wizard.sending')}</>
           ) : (
-            'שלח דיווח ⚡'
+            t('wizard.report.submitClassic')
           )}
         </button>
       </motion.div>

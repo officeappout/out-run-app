@@ -11,6 +11,9 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface SuggestEditSheetProps {
   isOpen: boolean;
@@ -18,23 +21,25 @@ interface SuggestEditSheetProps {
   park: Park;
 }
 
-const ALL_FEATURE_TAGS: { id: ParkFeatureTag; label: string; icon: string }[] = [
-  { id: 'shaded', label: 'מוצל', icon: '☀️' },
-  { id: 'night_lighting', label: 'תאורת לילה', icon: '💡' },
-  { id: 'water_fountain', label: 'ברזיית מים', icon: '🚰' },
-  { id: 'has_toilets', label: 'שירותים', icon: '🚻' },
-  { id: 'has_benches', label: 'ספסלים', icon: '🪑' },
-  { id: 'rubber_floor', label: 'ריצפת גומי', icon: '🟫' },
-  { id: 'parkour_friendly', label: 'פארקור', icon: '🤸' },
-  { id: 'stairs_training', label: 'מדרגות', icon: '🪜' },
-  { id: 'near_water', label: 'ליד מים', icon: '🌊' },
-  { id: 'dog_friendly', label: 'כלבים', icon: '🐕' },
-  { id: 'wheelchair_accessible', label: 'נגישות', icon: '♿' },
-  { id: 'safe_zone', label: 'מיגונית', icon: '🛡️' },
-  { id: 'nearby_shelter', label: 'מקלט קרוב', icon: '🏠' },
+/** `label` = the Hebrew text stored in the contribution's editSummary (data); the tile shows `labelKey`. */
+const ALL_FEATURE_TAGS: { id: ParkFeatureTag; label: string; labelKey: NamespaceKey<typeof map>; icon: string }[] = [
+  { id: 'shaded', label: 'מוצל', labelKey: 'wizard.suggest.tag.shaded', icon: '☀️' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'night_lighting', label: 'תאורת לילה', labelKey: 'wizard.suggest.tag.night_lighting', icon: '💡' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'water_fountain', label: 'ברזיית מים', labelKey: 'wizard.suggest.tag.water_fountain', icon: '🚰' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'has_toilets', label: 'שירותים', labelKey: 'wizard.suggest.tag.has_toilets', icon: '🚻' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'has_benches', label: 'ספסלים', labelKey: 'wizard.suggest.tag.has_benches', icon: '🪑' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'rubber_floor', label: 'ריצפת גומי', labelKey: 'wizard.suggest.tag.rubber_floor', icon: '🟫' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'parkour_friendly', label: 'פארקור', labelKey: 'wizard.suggest.tag.parkour_friendly', icon: '🤸' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'stairs_training', label: 'מדרגות', labelKey: 'wizard.suggest.tag.stairs_training', icon: '🪜' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'near_water', label: 'ליד מים', labelKey: 'wizard.suggest.tag.near_water', icon: '🌊' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'dog_friendly', label: 'כלבים', labelKey: 'wizard.suggest.tag.dog_friendly', icon: '🐕' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'wheelchair_accessible', label: 'נגישות', labelKey: 'wizard.suggest.tag.wheelchair_accessible', icon: '♿' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'safe_zone', label: 'מיגונית', labelKey: 'wizard.suggest.tag.safe_zone', icon: '🛡️' }, // i18n-allow-hebrew: data — label stored in editSummary
+  { id: 'nearby_shelter', label: 'מקלט קרוב', labelKey: 'wizard.suggest.tag.nearby_shelter', icon: '🏠' }, // i18n-allow-hebrew: data — label stored in editSummary
 ];
 
 export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditSheetProps) {
+  const t = useT(map);
   const { profile } = useUserStore();
   const existingTags = useMemo(() => park.featureTags ?? [], [park.featureTags]);
   const [selectedTags, setSelectedTags] = useState<ParkFeatureTag[]>([...existingTags]);
@@ -46,23 +51,23 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
 
   const toggleTag = (tag: ParkFeatureTag) => {
     setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+      prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag],
     );
   };
 
-  const addedTags = selectedTags.filter((t) => !existingTags.includes(t));
-  const removedTags = existingTags.filter((t) => !selectedTags.includes(t));
+  const addedTags = selectedTags.filter((x) => !existingTags.includes(x));
+  const removedTags = existingTags.filter((x) => !selectedTags.includes(x));
   const hasChanges = addedTags.length > 0 || removedTags.length > 0;
 
   const editSummary = useMemo(() => {
     const parts: string[] = [];
     if (addedTags.length > 0) {
-      const labels = addedTags.map((t) => ALL_FEATURE_TAGS.find((f) => f.id === t)?.label ?? t);
-      parts.push(`הוסיף: ${labels.join(', ')}`);
+      const labels = addedTags.map((x) => ALL_FEATURE_TAGS.find((f) => f.id === x)?.label ?? x);
+      parts.push(`הוסיף: ${labels.join(', ')}`); // i18n-allow-hebrew: data — stored in editSummary
     }
     if (removedTags.length > 0) {
-      const labels = removedTags.map((t) => ALL_FEATURE_TAGS.find((f) => f.id === t)?.label ?? t);
-      parts.push(`הסיר: ${labels.join(', ')}`);
+      const labels = removedTags.map((x) => ALL_FEATURE_TAGS.find((f) => f.id === x)?.label ?? x);
+      parts.push(`הסיר: ${labels.join(', ')}`); // i18n-allow-hebrew: data — stored in editSummary
     }
     return parts.join(' | ');
   }, [addedTags, removedTags]);
@@ -106,7 +111,7 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
             <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} transition={{ duration: 0.4 }} className="text-4xl mb-3">
               ✏️
             </motion.div>
-            <p className="text-slate-900 text-lg font-bold mb-1">העדכון נשלח!</p>
+            <p className="text-slate-900 text-lg font-bold mb-1">{t('wizard.suggest.success')}</p>
             <p className="text-[#00E5FF] text-sm font-bold">+{XP_REWARDS.suggest_edit} XP</p>
           </motion.div>
         )}
@@ -116,7 +121,7 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
 
   const form = (
     <>
-      <p className="text-slate-400 text-xs mb-3">סמנו מה קיים במיקום. שינויים נשלחים לאישור.</p>
+      <p className="text-slate-400 text-xs mb-3">{t('wizard.suggest.hint')}</p>
 
       {/* Feature tags grid */}
       <div className="grid grid-cols-4 gap-2 mb-4">
@@ -161,7 +166,7 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
                 </span>
               )}
               <span className="text-base">{tag.icon}</span>
-              <span>{tag.label}</span>
+              <span>{t(tag.labelKey)}</span>
             </button>
           );
         })}
@@ -170,7 +175,7 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
       {/* Change summary */}
       {hasChanges && (
         <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-4">
-          <p className="text-slate-400 text-[10px] font-bold mb-1">שינויים:</p>
+          <p className="text-slate-400 text-[10px] font-bold mb-1">{t('wizard.suggest.changes')}</p>
           <p className="text-slate-600 text-xs">{editSummary}</p>
         </div>
       )}
@@ -186,9 +191,9 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
         }`}
       >
         {submitting ? (
-          <><Loader2 size={16} className="animate-spin" /> שולח...</>
+          <><Loader2 size={16} className="animate-spin" /> {t('wizard.sending')}</>
         ) : (
-          'שלח עדכון ✏️'
+          t('wizard.suggest.submit')
         )}
       </button>
     </>
@@ -209,14 +214,14 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
         scroll="panel"
         className="relative max-h-[80vh]"
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        ariaLabel={`עדכן פרטים — ${park.name}`}
+        ariaLabel={t('wizard.suggest.title', { name: park.name })}
         header={
           <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-1">
             <div className="flex min-w-0 items-center gap-2">
               <Pencil className="h-4 w-4 shrink-0 text-v2-deep" aria-hidden="true" />
-              <h3 className="truncate text-[17px] font-black text-v2-ink">עדכן פרטים — {park.name}</h3>
+              <h3 className="truncate text-[17px] font-black text-v2-ink">{t('wizard.suggest.title', { name: park.name })}</h3>
             </div>
-            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+            <IconButton aria-label={t('wizard.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
             </IconButton>
           </div>
@@ -254,7 +259,7 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Pencil size={16} className="text-slate-500" />
-            <h3 className="text-slate-900 text-base font-bold">עדכן פרטים — {park.name}</h3>
+            <h3 className="text-slate-900 text-base font-bold">{t('wizard.suggest.title', { name: park.name })}</h3>
           </div>
           <button onClick={onClose} className="p-2 rounded-full bg-slate-100 text-slate-500 active:scale-90 transition-transform">
             <X size={16} />

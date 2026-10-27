@@ -103,7 +103,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   if (distText) infoParts.push(distText);
   // Machine count — no fetch, park.gymEquipment is already on the loaded doc.
   const machineCount = park.gymEquipment?.length ?? 0;
-  if (machineCount > 0) infoParts.push(polish ? t('parkCard.machines', { count: String(machineCount) }) : `${machineCount} מתקנים`);
+  if (machineCount > 0) infoParts.push(t('parkCard.machines', { count: String(machineCount) }));
 
   return (
     <>
@@ -158,7 +158,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
                 around one small icon button. Removes that whole row. */}
             <button
               onClick={handleNavigate}
-              aria-label="נווט לפארק"
+              aria-label={t('parkCard.navigateClassic')}
               className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
             >
               <Navigation size={14} fill="currentColor" />
