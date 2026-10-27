@@ -11,13 +11,15 @@ import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel'
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import OnboardingLayout from '../OnboardingLayout';
-import { STRENGTH_PHASES, STRENGTH_LABEL_KEYS } from '../../constants/onboarding-phases';
+import { strengthStoryBar } from '../../constants/onboarding-phases';
 import { resetStaleStrengthEntryState } from '../../utils/strength-entry-reset';
 import { persistFullBodyProgramSelection } from '../../utils/program-path-persist';
 import { GOAL_NOTE_STORAGE_KEY } from '../../utils/goal-note';
 import { INTRO_STEP_STORAGE_KEY, NEXT_ROUTE, parseIntroStep, type IntroStep } from './quiz-v3-entry';
 import WelcomeCalisthenicsScreen from './WelcomeCalisthenicsScreen';
 import AssessmentIntroScreen from './AssessmentIntroScreen';
+
+const BAR = strengthStoryBar('assessment', true);
 
 /** The assessment phase has just started on both intro screens (the board's 8%). */
 const SEGMENT_FILL = 8;
@@ -87,10 +89,10 @@ export default function StrengthQuizV3Intro({ onExplainerVideo }: StrengthQuizV3
   const welcome = step === 'welcome';
   return (
     <OnboardingLayout
-      totalSegments={STRENGTH_PHASES.TOTAL}
-      currentSegment={STRENGTH_PHASES.ASSESSMENT}
+      totalSegments={BAR.total}
+      currentSegment={BAR.current}
       segmentFillPercent={SEGMENT_FILL}
-      phaseLabel={t(STRENGTH_LABEL_KEYS[STRENGTH_PHASES.ASSESSMENT])}
+      phaseLabel={t(BAR.labelKey)}
       onBack={handleBack}
       onContinue={welcome ? () => go('assessment') : handleStart}
       continueLabel={welcome ? t('quizV3.welcome.cta') : t('quizV3.main.cta')}

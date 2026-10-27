@@ -105,6 +105,41 @@ export function getLabelForScreen(
   return labels[phase] ?? '';
 }
 
+// ── Strength questionnaire v3 flow (enable_strength_quiz_v3) ──────────
+// Owner 27.10.2026: the bars count the screens the user really passes. Under v3 the goal
+// screen (phase 2 "בחירת מסלול") is skipped, so the strength flow is 4 phases:
+// details (profile) → level check (v3 intro + quiz) → program summary → health.
+
+export const STRENGTH_V3_PHASES = {
+  TOTAL: 4,
+  PROFILE: 1,
+  ASSESSMENT: 2,
+  RESULT: 3,
+  HEALTH: 4,
+} as const;
+
+export const STRENGTH_V3_LABEL_KEYS = {
+  1: 'phases.strength.profile',
+  2: 'phases.strengthV3.assessment',
+  3: 'phases.strengthV3.summary',
+  4: 'phases.strengthV3.health',
+} as const satisfies Record<number, NamespaceKey<typeof onboarding>>;
+
+export type StrengthStoryStep = 'profile' | 'assessment' | 'result' | 'health';
+
+/** PURE: the story bar for a strength screen: v3 flow (4 phases) or the legacy 5-phase flow. */
+export function strengthStoryBar(
+  step: StrengthStoryStep,
+  v3: boolean,
+): { total: number; current: number; labelKey: NamespaceKey<typeof onboarding> } {
+  if (v3) {
+    const current = { profile: 1, assessment: 2, result: 3, health: 4 }[step];
+    return { total: STRENGTH_V3_PHASES.TOTAL, current, labelKey: STRENGTH_V3_LABEL_KEYS[current as 1 | 2 | 3 | 4] };
+  }
+  const current = { profile: PHASE.PROFILE, assessment: PHASE.TRACK_3, result: PHASE.SUMMARY, health: PHASE.HEALTH }[step];
+  return { total: TOTAL_PHASES, current, labelKey: STRENGTH_LABEL_KEYS[current as 1 | 3 | 4 | 5] };
+}
+
 // ── Legacy convenience aliases ─────────────────────────────────────
 // Used by existing pages that import STRENGTH_PHASES / RUNNING_PHASES.
 
