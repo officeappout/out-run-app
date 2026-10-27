@@ -6,16 +6,16 @@ import fs from 'fs';
 import path from 'path';
 import { IntlMessageFormat } from 'intl-messageformat';
 import { describe, expect, it } from 'vitest';
-import { LANGUAGE_NEUTRAL, PILOT_SCOPE, validateAll, validateCatalog } from '../../../../scripts/i18n/validate-en-catalog';
+import { LANGUAGE_NEUTRAL, ONBOARDING_SKIPPED, PILOT_SCOPE, validateAll, validateCatalog } from '../../../../scripts/i18n/validate-en-catalog';
 
 const messages = path.resolve(__dirname, '../../../messages');
 
 describe('en catalogs (pilot: common, pages, home settings.*; batch 3: player, summary)', () => {
   const { issues, reports } = validateAll(messages);
 
-  it('has the expected key counts per catalog (pilot 370 + batch 3: player 902, summary 167)', () => {
+  it('has the expected key counts per catalog (pilot 370 + onboarding 1005 + player 902 + summary 167)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 186, pages: 17, home: 167, player: 902, summary: 167 });
+    expect(by).toEqual({ common: 186, pages: 17, home: 167, onboarding: 1005, player: 902, summary: 167 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {
@@ -23,9 +23,46 @@ describe('en catalogs (pilot: common, pages, home settings.*; batch 3: player, s
   });
 
   it('home en holds only settings.* keys', () => {
-    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'player', 'summary']);
+    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary']);
     const rep = reports.find((r) => r.ns === 'home')!;
     expect(rep.enKeys).toBe(rep.scoped);
+  });
+});
+
+describe('en onboarding (batch 2)', () => {
+  const { reports, issues } = validateAll(messages);
+  const he = JSON.parse(fs.readFileSync(path.join(messages, 'he/onboarding.json'), 'utf8')) as Record<string, string>;
+  const en = JSON.parse(fs.readFileSync(path.join(messages, 'en/onboarding.json'), 'utf8')) as Record<string, string>;
+
+  it('translates every key except the 91 deliberately skipped ones', () => {
+    const skipped = Object.keys(he).filter((k) => ONBOARDING_SKIPPED.test(k));
+    expect(skipped.length).toBe(91);
+    expect(Object.keys(en).length + skipped.length).toBe(Object.keys(he).length);
+    expect(skipped.some((k) => k in en)).toBe(false);
+  });
+
+  it('has 0 errors (parity, plurals, ICU parse, no Hebrew)', () => {
+    expect(issues.filter((i) => i.ns === 'onboarding' && i.severity === 'error')).toEqual([]);
+    expect(reports.find((r) => r.ns === 'onboarding')!.errors).toBe(0);
+  });
+
+  it('every English string parses as ICU', () => {
+    for (const [k, v] of Object.entries(en)) expect(() => new IntlMessageFormat(v, 'en'), k).not.toThrow();
+  });
+
+  it('plural coverage: every plural has one and other; no stray digit-noun counts', () => {
+    for (const [k, v] of Object.entries(en)) {
+      if (/\{\w+, plural,/.test(v)) expect(v, k).toMatch(/other \{/);
+      expect(/\{\w+\}\s+(minutes|weeks|days|hours|runs|walks|workouts|exercises|stations|members)\b/.test(v.replace(/\{\w+, plural,[^]*$/, '')), k).toBe(false);
+    }
+  });
+
+  it('no spaces inside <b>…</b>, no em dashes, no ASCII apostrophes', () => {
+    for (const [k, v] of Object.entries(en)) {
+      expect(/<b>\s|\s<\/b>/.test(v), k).toBe(false);
+      expect(v.includes('—'), k).toBe(false);
+      expect(v.includes("'"), k).toBe(false);
+    }
   });
 });
 
@@ -79,12 +116,6 @@ describe('validator catches defects', () => {
     expect(run('א {n}', 'a')).toContain('V3');
     expect(run('א {n}', 'a {n} {m}')).toContain('V3');
   });
-  it('V16 English plural without one or other', () => {
-    expect(run('{n, plural, one {א} other {ב}}', '{n, plural, other {a}}')).toContain('V16');
-    expect(run('{n, plural, one {א} other {ב}}', '{n, plural, one {a} other {b}}')).not.toContain('V16');
-    expect(run('{n, plural, =1 {א} other {ב}}', '{n, plural, =1 {a} other {b}}')).not.toContain('V16');
-    expect(run('{n, plural, one {א} other {ב}}', '{n, plural, one {a}}')).toContain('V2'); // missing other fails to parse
-  });
   it('V4 plural turned into text, or a "two" category', () => {
     expect(run('{n, plural, one {א} other {ב}}', 'a {n}')).toContain('V4');
     expect(run('{n, plural, one {א} other {ב}}', '{n, plural, one {a} two {b} other {c}}')).toContain('V4');
@@ -96,6 +127,35 @@ describe('validator catches defects', () => {
   it('V9 ASCII apostrophe', () => expect(run('א', "don't")).toContain('V9'));
   it('V10 stray digit', () => expect(run('א', 'a 5')).toContain('V10'));
   it('V13 old term "fitness park"', () => expect(run('גינת כושר', 'fitness park')).toContain('V13'));
+  it('V15 a count next to a noun needs an ICU plural', () => {
+    expect(run('{n} אימונים', '{n} workouts')).toContain('V15');
+    expect(run('{n, plural, =1 {אחד} other {{n} אימונים}}', '{n, plural, one {One} other {{n} workouts}}')).toEqual([]);
+    expect(run('{n, plural, =1 {אחד} other {{n} אימונים}}', '{n, plural, =1 {One} other {{n} workouts}}')).toContain('V15');
+    expect(run('{n, plural, one {א} other {ב}}', '{n, plural, other {# workouts}}')).toContain('V15');
+  });
+  it('V15 a plural needs a `one` branch, `=1` + `other` is an error', () => {
+    expect(run('{n, plural, =1 {א} other {ב}}', '{n, plural, =1 {One day} other {# days}}')).toContain('V15');
+    expect(run('{n, plural, =1 {א} other {ב}}', '{n, plural, one {One day} other {# days}}')).toEqual([]);
+  });
+  it('V18 a placeholder next to a count noun outside a plural', () => {
+    expect(run('{perWeek} פעמים', '{perWeek, select, 2 {twice} other {{perWeek} times}} a week')).toContain('V18');
+    expect(run('{n} פריטים', '{n} items')).toContain('V18');
+    expect(run('{n} מסלולים', '{n, plural, one {# route} other {# routes}}')).toEqual([]);
+  });
+  it('V18 other words after a placeholder only warn', () => {
+    const w = validateCatalog({ ns: 't', he: { k: 'א' }, en: { k: '{n} stuff' } }).filter((i) => i.check === 'V18');
+    expect(w.map((i) => i.severity)).toEqual(['warn']);
+  });
+  it('V19 zero-width characters and NBSP', () => {
+    expect(run('א', 'a\u200Bb')).toContain('V19');
+    expect(run('א', 'a\u00A0b')).toContain('V19');
+  });
+  it('V13 "lighter week" also triggers on שבוע קל', () => {
+    const w = validateCatalog({ ns: 't', he: { k: 'שבוע קל' }, en: { k: 'Easy week' } }).filter((i) => i.check === 'V13');
+    expect(w.length).toBe(1);
+  });
+  it('V16 space inside a rich tag', () => expect(run('<b>א</b>', '<b> a </b>')).toContain('V16'));
+  it('V17 "log in"', () => expect(run('התחברות', 'Log in')).toContain('V17'));
   it('V14 untranslated', () => expect(run('שלום', 'שלום')).toContain('V14'));
   it('accepts a good collapsed gender select', () => expect(run('{gender, select, male {א} other {ב}}', 'Try again')).toEqual([]));
 });

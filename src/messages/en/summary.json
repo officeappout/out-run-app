@@ -34,7 +34,7 @@
   "rings.pace": "{activityType, select, walking {min/km} other {Avg pace}}",
   "rings.time": "Time",
   "rings.calories": "kcal",
-  "together.people": "{n, plural, =1 {{count} person walked together} other {{count} people walked together}}",
+  "together.people": "{n, plural, one {{count} person walked together} other {{count} people walked together}}",
   "together.unit": "km total",
   "fallback.header.title": "Workout complete!",
   "fallback.stats.distance.label": "Distance",
