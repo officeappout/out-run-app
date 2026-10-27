@@ -1,0 +1,102 @@
+{
+ "aerobic": [
+  {
+   "key": "distance",
+   "value": "6.50",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "4:52",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "42:18",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  }
+ ],
+ "aerobicEmpty": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "pace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב ממוצע",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "--",
+   "label": "זמן",
+   "pct": 0,
+   "color": "#00baf7"
+  }
+ ],
+ "ride": [
+  {
+   "key": "speed",
+   "value": "24.0",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 100,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "1:00:00",
+   "label": "זמן",
+   "pct": 100,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "182",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 100,
+   "color": "#84cc16"
+  }
+ ],
+ "rideEmpty": [
+  {
+   "key": "speed",
+   "value": "--",
+   "unit": "קמ״ש",
+   "label": "מהירות ממוצעת",
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "time",
+   "value": "--",
+   "label": "זמן",
+   "pct": 0,
+   "color": "#00baf7"
+  },
+  {
+   "key": "elevation",
+   "value": "--",
+   "unit": "מ׳",
+   "label": "טיפוס מצטבר",
+   "pct": 0,
+   "color": "#84cc16"
+  }
+ ]
+}

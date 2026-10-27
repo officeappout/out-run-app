@@ -1,0 +1,126 @@
+{
+ "planned": [
+  {
+   "key": "distance",
+   "value": "3.70",
+   "unit": "ק״מ",
+   "label": "ריצה",
+   "sub": "מתוך 4.0 ק״מ",
+   "pct": 93,
+   "color": "#84cc16"
+  },
+  {
+   "key": "sets",
+   "value": "11/12",
+   "unit": "סטים",
+   "label": "כוח",
+   "pct": 92,
+   "color": "#00baf7"
+  },
+  {
+   "key": "segments",
+   "value": "4/4",
+   "unit": "מקטעים",
+   "label": "הושלמו",
+   "pct": 100,
+   "color": "#0284c7"
+  }
+ ],
+ "noPlan": [
+  {
+   "key": "distance",
+   "value": "--",
+   "unit": "ק״מ",
+   "label": "ריצה",
+   "sub": null,
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "sets",
+   "value": "0",
+   "unit": "סטים",
+   "label": "כוח",
+   "pct": 0,
+   "color": "#00baf7"
+  },
+  {
+   "key": "segments",
+   "value": "0/0",
+   "unit": "מקטעים",
+   "label": "הושלמו",
+   "pct": 0,
+   "color": "#0284c7"
+  }
+ ],
+ "tablesTwo": [
+  {
+   "key": "station-1",
+   "title": "תחנת כוח 1",
+   "rows": [
+    {
+     "key": "pu-0",
+     "name": "מתח",
+     "subtitle": "יעד 6–8 חזרות",
+     "tiles": [
+      {
+       "value": "7",
+       "tone": "in"
+      },
+      {
+       "value": "6",
+       "tone": "in"
+      }
+     ],
+     "muted": false
+    }
+   ]
+  },
+  {
+   "key": "station-3",
+   "title": "תחנת כוח 2",
+   "rows": [
+    {
+     "key": "dip-0",
+     "name": "מקבילים",
+     "subtitle": "יעד 8 חזרות",
+     "tiles": [
+      {
+       "value": "8",
+       "tone": "in"
+      },
+      {
+       "value": "8",
+       "tone": "in"
+      }
+     ],
+     "muted": false
+    }
+   ]
+  }
+ ],
+ "tablesOne": [
+  {
+   "key": "station-1",
+   "title": "תחנת כוח",
+   "rows": [
+    {
+     "key": "pu-0",
+     "name": "מתח",
+     "subtitle": "יעד 6–8 חזרות",
+     "tiles": [
+      {
+       "value": "7",
+       "tone": "in"
+      },
+      {
+       "value": "6",
+       "tone": "in"
+      }
+     ],
+     "muted": false
+    }
+   ]
+  }
+ ]
+}
