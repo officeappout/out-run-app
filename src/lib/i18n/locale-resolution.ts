@@ -26,6 +26,15 @@ export function allowedLocales(flags: LocaleFlags): Locale[] {
   return out;
 }
 
+/**
+ * The flags the language setting and LocaleSync both use. A super admin sees English
+ * before enable_locale_en is on (so the owner can test), only while enable_i18n is on.
+ */
+export function effectiveLocaleFlags(flags: LocaleFlags, isSuperAdmin: boolean): LocaleFlags {
+  if (!flags.enableI18n || !isSuperAdmin) return flags;
+  return { ...flags, enableLocaleEn: true };
+}
+
 export interface LocaleSources {
   profileLocale?: unknown;
   storedLocale?: unknown;
