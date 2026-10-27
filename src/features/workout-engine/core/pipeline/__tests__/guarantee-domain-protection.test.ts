@@ -140,3 +140,57 @@ describe('runVerticalFoundationGuarantee — never sacrifices the sole represent
     expect(log.some(l => l.includes('no safe victim to replace'))).toBe(true);
   });
 });
+
+describe('runVerticalFoundationGuarantee — skill victims are domain-protected too', () => {
+  // Audit 2026-10-27: push 10 / pull 4 / legs 2 full-body week came out with
+  // zero push in 2 of 3 sessions. The week's only push exercise was a skill-
+  // tagged push-up variant; the pass took it as the "free" skill victim to
+  // inject a vertical_pull foundation, leaving the session with no push.
+  const pullFoundationPool = [
+    makeExercise('pool-vpull-found', 'foundation pull', {
+      movementGroup: 'vertical_pull',
+      targetPrograms: [{ programId: 'pull', level: 5 }],
+      recommendedLevel: 5,
+      tags: ['foundation'],
+    } as any),
+  ];
+
+  it('keeps a skill-tagged exercise that is the ONLY push exercise', () => {
+    const soleSkillPush = makeWorkoutExercise(
+      makeExercise('push-skill', 'skill push-up', { movementGroup: 'horizontal_push', tags: ['skill'] } as any),
+      { score: 10 },
+    );
+    const squat = makeWorkoutExercise(makeExercise('legs-1', 'squat', { movementGroup: 'squat' } as any), { score: 40 });
+    const core = makeWorkoutExercise(makeExercise('core-1', 'crunch', { movementGroup: 'core' } as any), { score: 30 });
+    const log: string[] = [];
+    const result = runVerticalFoundationGuarantee(
+      [soleSkillPush, squat, core],
+      baseContext({ globalExercisePool: pullFoundationPool }),
+      FULL_BODY_BLUEPRINT, 2 as any, log,
+    );
+
+    expect(result.some(e => e.exercise.id === 'push-skill')).toBe(true);
+    expect(log.some(l => l.includes('no safe victim to replace'))).toBe(true);
+  });
+
+  it('still swaps a skill exercise when its domain keeps another representative', () => {
+    const skillPush = makeWorkoutExercise(
+      makeExercise('push-skill', 'skill push-up', { movementGroup: 'horizontal_push', tags: ['skill'] } as any),
+      { score: 10 },
+    );
+    const otherPush = makeWorkoutExercise(
+      makeExercise('push-2', 'dips-ish', { movementGroup: 'vertical_push' } as any),
+      { score: 50 },
+    );
+    const log: string[] = [];
+    const result = runVerticalFoundationGuarantee(
+      [skillPush, otherPush],
+      baseContext({ globalExercisePool: pullFoundationPool }),
+      FULL_BODY_BLUEPRINT, 2 as any, log,
+    );
+
+    expect(result.some(e => e.exercise.id === 'push-skill')).toBe(false);
+    expect(result.some(e => e.exercise.id === 'push-2')).toBe(true);
+    expect(result.some(e => e.exercise.id === 'pool-vpull-found')).toBe(true);
+  });
+});
