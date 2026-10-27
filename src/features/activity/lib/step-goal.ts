@@ -58,6 +58,10 @@ export interface StepGoalProgressionFields {
   dailyStepGoal?: unknown;
   stepGoalMode?: unknown;
   stepGoalComputedOn?: unknown;
+  /** 'ramp_v1' = the gradual goal (schedule tutorial, owner 27.10.2026); absent = the adaptive goal above. */
+  stepGoalPolicy?: unknown;
+  /** The ramp's ceiling for this user (by age), written with the policy. */
+  stepGoalCap?: unknown;
 }
 
 export interface StepDay {
@@ -155,6 +159,8 @@ export function resolveStepGoal(
     // A manual mode without a usable number falls through to auto.
   }
 
+  if (p.stepGoalPolicy === STEP_RAMP_POLICY) return resolveRampStepGoal(p, recentDays, today);
+
   const computedOn = isDateString(p.stepGoalComputedOn) ? p.stepGoalComputedOn : null;
   const storedRaw = Number(p.dailyStepGoal);
   const stored =
@@ -188,4 +194,91 @@ export function stepGoalNeedsRecentDays(
   today: string,
 ): boolean {
   return resolveStepGoal(progression, [], today).source === 'auto-recomputed';
+}
+
+// ── Gradual goal (stepGoalPolicy 'ramp_v1', owner 27.10.2026, adherence-and-goals.md) ──
+//   start  = the personal baseline (average of the last 14 days with data) + 500..1,000
+//            (rounded UP to the 500 grid), or 4,000 with fewer than 3 days of data;
+//   weekly = +500 (+1,000 when the goal was met on 5+ of the last 7 days), never after a
+//            weak week (goal met on fewer than 3 of the last 7 days, or no data);
+//   cap    = stepGoalCap (by age: 7,000 for 60+, 9,000 younger). Never lowered here.
+// Only users the schedule tutorial put on it carry the policy; everyone else is unchanged.
+
+export const STEP_RAMP_POLICY = 'ramp_v1';
+export const STEP_RAMP_NO_DATA_GOAL = 4000;
+export const STEP_RAMP_MIN_DAYS_WITH_DATA = 3;
+export const STEP_RAMP_BASELINE_BUMP = 500;
+export const STEP_RAMP_RAISE = 500;
+export const STEP_RAMP_STRONG_RAISE = 1000;
+export const STEP_RAMP_WEEK_DAYS = 7;
+export const STEP_RAMP_WEAK_BELOW_DAYS = 3;
+export const STEP_RAMP_STRONG_FROM_DAYS = 5;
+export const STEP_RAMP_CAP_60_PLUS = 7000;
+export const STEP_RAMP_CAP_YOUNGER = 9000;
+
+/** The ramp's ceiling for an age in years (unknown age = the younger cap). */
+export function stepRampCapForAge(age: number | null | undefined): number {
+  return typeof age === 'number' && Number.isFinite(age) && age >= 60 ? STEP_RAMP_CAP_60_PLUS : STEP_RAMP_CAP_YOUNGER;
+}
+
+function rampCapOf(v: unknown): number {
+  const n = Number(v);
+  return typeof v === 'number' && Number.isFinite(n) && n > 0
+    ? clamp(roundToIncrement(n), MANUAL_STEP_GOAL_MIN, AUTO_STEP_GOAL_MAX)
+    : STEP_RAMP_CAP_YOUNGER;
+}
+
+/** Days strictly before `today` and at most `window` days back, steps > 0, one per date (the higher). */
+function stepsByDate(days: StepDay[], today: string, window: number): Map<string, number> {
+  const byDate = new Map<string, number>();
+  for (const d of days ?? []) {
+    if (!d || !isDateString(d.date)) continue;
+    const steps = Number(d.steps);
+    if (!Number.isFinite(steps) || steps <= 0) continue;
+    const age = daysBetween(d.date, today);
+    if (age < 1 || age > window) continue;
+    byDate.set(d.date, Math.max(byDate.get(d.date) ?? 0, steps));
+  }
+  return byDate;
+}
+
+/** The first goal: baseline + 500..1,000 on the 500 grid, else 4,000; within [2,000, cap]. */
+export function rampStartStepGoal(days: StepDay[], today: string, cap: number): number {
+  const byDate = stepsByDate(days, today, STEP_GOAL_WINDOW_DAYS);
+  const top = rampCapOf(cap);
+  if (byDate.size < STEP_RAMP_MIN_DAYS_WITH_DATA) return Math.min(STEP_RAMP_NO_DATA_GOAL, top);
+  const values = Array.from(byDate.values());
+  const avg = values.reduce((n, v) => n + v, 0) / values.length;
+  const start = Math.ceil((avg + STEP_RAMP_BASELINE_BUMP) / STEP_GOAL_INCREMENT) * STEP_GOAL_INCREMENT;
+  return clamp(start, MANUAL_STEP_GOAL_MIN, top);
+}
+
+/** The weekly step: 0 after a weak week, +500, or +1,000 after a strong one. */
+export function rampWeeklyRaise(days: StepDay[], today: string, goal: number): number {
+  const met = Array.from(stepsByDate(days, today, STEP_RAMP_WEEK_DAYS).values()).filter((s) => s >= goal).length;
+  if (met < STEP_RAMP_WEAK_BELOW_DAYS) return 0;
+  return met >= STEP_RAMP_STRONG_FROM_DAYS ? STEP_RAMP_STRONG_RAISE : STEP_RAMP_RAISE;
+}
+
+function resolveRampStepGoal(p: StepGoalProgressionFields, recentDays: StepDay[], today: string): ResolvedStepGoal {
+  const cap = rampCapOf(p.stepGoalCap);
+  const computedOn = isDateString(p.stepGoalComputedOn) ? p.stepGoalComputedOn : null;
+  const storedRaw = Number(p.dailyStepGoal);
+  const stored =
+    computedOn && typeof p.dailyStepGoal === 'number' && Number.isFinite(storedRaw) && storedRaw > 0
+      ? clamp(roundToIncrement(storedRaw), MANUAL_STEP_GOAL_MIN, AUTO_STEP_GOAL_MAX)
+      : null;
+  if (stored != null && computedOn && daysBetween(computedOn, today) < STEP_GOAL_RECOMPUTE_DAYS) {
+    return { goal: stored, mode: 'auto', source: 'auto-stored', shouldPersist: false, persist: null };
+  }
+  const goal = stored == null
+    ? rampStartStepGoal(recentDays, today, cap)
+    : Math.max(stored, Math.min(cap, stored + rampWeeklyRaise(recentDays, today, stored)));
+  return {
+    goal,
+    mode: 'auto',
+    source: 'auto-recomputed',
+    shouldPersist: true,
+    persist: { dailyStepGoal: goal, stepGoalMode: 'auto', stepGoalComputedOn: today },
+  };
 }

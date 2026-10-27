@@ -26,6 +26,7 @@ import {
   stepGoalNeedsRecentDays,
   STEP_GOAL_RECOMPUTE_DAYS,
   STEP_GOAL_WINDOW_DAYS,
+  STEP_RAMP_POLICY,
   type StepDay,
   type ResolvedStepGoal,
   type StepGoalMode,
@@ -62,7 +63,7 @@ async function persist(uid: string, fields: { dailyStepGoal: number; stepGoalMod
 
 /** Last days' steps. Unlike getStepsTrend this THROWS on failure / offline,
  *  so a failed read never persists a recompute made from "no data". */
-async function fetchRecentDays(uid: string): Promise<StepDay[]> {
+export async function fetchRecentDays(uid: string): Promise<StepDay[]> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('offline');
   const snap = await getDocs(query(
     collection(db, 'dailyActivity'),
@@ -134,4 +135,26 @@ export async function setStepGoalChoice(uid: string, choice: 'auto' | number): P
   resolvedFor.delete(`${uid}_${getTodayString()}`);
   const resolved = await refreshStepGoal(uid);
   return resolved?.goal ?? current ?? 0;
+}
+
+/**
+ * The schedule tutorial's save (owner 27.10.2026): puts the user on the gradual goal
+ * (lib/step-goal.ts, stepGoalPolicy 'ramp_v1') starting at `goal`, unless they chose their own
+ * goal (manual) or are already on it. Returns whether it wrote.
+ */
+export async function startStepGoalRamp(uid: string, goal: number, cap: number): Promise<boolean> {
+  const p = progressionOf();
+  if (p.stepGoalMode === 'manual' || p.stepGoalPolicy === STEP_RAMP_POLICY) return false;
+  const today = getTodayString();
+  await updateDoc(doc(db, 'users', uid), {
+    'progression.dailyStepGoal': goal,
+    'progression.stepGoalMode': 'auto',
+    'progression.stepGoalComputedOn': today,
+    'progression.stepGoalPolicy': STEP_RAMP_POLICY,
+    'progression.stepGoalCap': cap,
+  });
+  mirrorToProfile({ dailyStepGoal: goal, stepGoalMode: 'auto', stepGoalComputedOn: today, stepGoalPolicy: STEP_RAMP_POLICY, stepGoalCap: cap });
+  useActivityStore.getState().applyResolvedStepGoal(goal);
+  resolvedFor.delete(`${uid}_${today}`);
+  return true;
 }

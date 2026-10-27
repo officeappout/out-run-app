@@ -23,6 +23,7 @@ import {
   type StrengthSeed,
   type StrengthWeekRecommendation,
 } from '@/features/schedule/utils/strengthWeekRecommendation';
+import { rampSessionMinutes, walkMinutesToTarget, weeklyActiveTarget, type RampInput } from '@/features/schedule/goals/activeMinutesRamp';
 import { freeDays, timeOfChoice, type DaysState } from './days';
 
 // ── Output shapes ──────────────────────────────────────────────────
@@ -79,6 +80,10 @@ export interface TutorialWeek {
   /** In the display order passed in (default Sunday first). */
   days: TutorialDay[];
   minutes: { strength: number; run: number; walk: number };
+  /** The week's active-minutes target when the first-weeks ramp is known (else null). */
+  target: number | null;
+  /** The planned strength session length this week (the choice, capped by the ramp). */
+  sessionMinutes: number;
   strengthCount: number;
   movementCount: number;
   runCount: number;
@@ -102,12 +107,14 @@ export interface TutorialWeekInput {
   stepsGoal: number;
   /** Display order of the seven days (e.g. the coming week from today). */
   order?: readonly number[];
+  /** The first-weeks ramp (level + week since the program start); absent = no ramp. */
+  ramp?: RampInput | null;
 }
 
 // ── STUB constants (no engine source yet) ──────────────────────────
 
-/** STUB: a walking movement day raises the steps goal by this much (board: 8,000 → 10,000). */
-export const MOVEMENT_DAY_EXTRA_STEPS = 2000;
+/** A walking movement day raises the steps goal by this much (owner 27.10: a modest +1,000). */
+export const MOVEMENT_DAY_EXTRA_STEPS = 1000;
 /** STUB: brisk-walk minutes a walking movement day adds to the weekly ring. */
 export const WALK_MINUTES_PER_MOVEMENT_DAY = 15;
 /** STUB: run minutes when the engine leaves them out. */
@@ -150,13 +157,14 @@ const runMinutes = (s: PlacedSession): number => s.minutes ?? RUN_MINUTES_BY_SLO
 
 export function buildTutorialWeek(input: TutorialWeekInput): TutorialWeek {
   const free = freeDays(input.days);
+  const sessionMinutes = input.ramp ? rampSessionMinutes(input.minutes, input.ramp) : input.minutes;
   const mainItems = strengthMainItems(input.seed);
   const hardSkills = input.seed.skills.filter((s) => s.id !== 'HANDSTAND');
   const structure = planStructure({
     days: Math.max(1, free.length),
     levels: input.levels,
     skills: hardSkills.map((s) => SKILL_TO_STRUCTURE[s.id]).filter((s): s is StructureSkillId => !!s).map((id) => ({ id })),
-    sessionMinutes: input.minutes,
+    sessionMinutes,
   });
   const frequency = Math.min(structure.strengthDays, free.length);
 
@@ -205,10 +213,10 @@ export function buildTutorialWeek(input: TutorialWeekInput): TutorialWeek {
       if (label.kind === 'full_body') fullBodyIndex++;
       const afterRun = runs.length > 0;
       strength = {
-        label, items, minutes: input.minutes, window: afterRun ? 'evening' : choice.window,
+        label, items, minutes: sessionMinutes, window: afterRun ? 'evening' : choice.window,
         time: afterRun ? AFTER_RUN_TIME : timeOfChoice(choice), afterRun, skillLed: skillLed && label.kind === 'skill',
       };
-      strengthDays.push({ dow, items, window: strength.window, minutes: input.minutes, reasonHe: '' });
+      strengthDays.push({ dow, items, window: strength.window, minutes: sessionMinutes, reasonHe: '' });
     }
 
     const movement: MovementKind | null =
@@ -233,14 +241,21 @@ export function buildTutorialWeek(input: TutorialWeekInput): TutorialWeek {
   const runCount = all.reduce((n, d) => n + d.runs.length, 0);
   const movementCount = all.filter((d) => d.movement).length;
   const complex = skillLed || !!input.running;
+  const strengthMinutes = strengthList.reduce((n, s) => n + s.minutes, 0);
+  const runMinutesTotal = all.reduce((n, d) => n + d.runs.reduce((m, r) => m + r.minutes, 0), 0);
+  const movementWalk = all.filter((d) => d.movement === 'walk').length * WALK_MINUTES_PER_MOVEMENT_DAY;
+  const target = input.ramp ? weeklyActiveTarget(input.ramp) : null;
 
   return {
     days,
     minutes: {
-      strength: strengthList.reduce((n, s) => n + s.minutes, 0),
-      run: all.reduce((n, d) => n + d.runs.reduce((m, r) => m + r.minutes, 0), 0),
-      walk: all.filter((d) => d.movement === 'walk').length * WALK_MINUTES_PER_MOVEMENT_DAY,
+      strength: strengthMinutes,
+      run: runMinutesTotal,
+      // With the ramp, brisk walking fills the week up to its target (it counts toward it).
+      walk: target != null ? Math.max(movementWalk, walkMinutesToTarget(target, strengthMinutes + runMinutesTotal)) : movementWalk,
     },
+    target,
+    sessionMinutes,
     strengthCount: strengthList.length,
     movementCount,
     runCount,

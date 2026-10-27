@@ -11,6 +11,7 @@
  * but are no longer used for rendering.
  */
 
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
@@ -349,7 +350,9 @@ export default function MonthlyCalendarGrid({
           // hydrateFromTemplate is transactional/idempotent, so this is safe
           // even when RollingAgenda races to hydrate the same day at once.
           if (dayEntries.length === 0 && recurringTemplate) {
-            const hydrated = await hydrateFromTemplate(userId, iso, recurringTemplate);
+            // Per-day strength times only (schedule tutorial); absent = 07:00 as before.
+            const dayTimes = useUserStore.getState().profile?.lifestyle?.reminders?.strengthTimesByDay;
+            const hydrated = await hydrateFromTemplate(userId, iso, recurringTemplate, dayTimes ? { strengthTimesByDay: dayTimes } : undefined);
             if (hydrated.length > 0) dayEntries = hydrated;
           }
           return { iso, dayEntries };

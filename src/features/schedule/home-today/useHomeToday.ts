@@ -12,7 +12,8 @@ import { useCallback, useMemo, useState } from 'react';
 import type { HomeTourToday } from '@/features/user/onboarding/services/first-run-tour';
 import { consumeHomeTourArm, isHomeTourArmedAfterScheduleTutorial, useScheduleTutorialV1 } from '@/features/schedule/tutorial-v1';
 import { resolveHomeToday, type HomeTodayModel } from './model/homeToday';
-import { homeTourToday, strengthMinutesOf } from './model/homeTodayInputs';
+import { homeTourToday, optionalDoneOf, strengthMinutesOf } from './model/homeTodayInputs';
+import { plannedSessionMinutes, type PlannedMinutesProfile } from '@/features/schedule/goals/plannedSessionMinutes';
 
 interface ProfileSlice {
   id?: string;
@@ -20,7 +21,10 @@ interface ProfileSlice {
     scheduleDays?: string[] | null;
     trainingTime?: string | null;
     recurringTemplate?: unknown;
+    sessionMinutes?: unknown;
+    reminders?: { strengthTimesByDay?: Partial<Record<string, string>> | null } | null;
   } | null;
+  progression?: unknown;
 }
 
 export interface UseHomeTodayInput {
@@ -47,7 +51,10 @@ export function useHomeToday(input: UseHomeTodayInput): HomeToday {
   const minutes = strengthMinutesOf(input.todaysWorkouts);
   const template = input.profile?.lifestyle?.recurringTemplate as Partial<Record<string, readonly string[]>> | undefined;
   const trainingTime = input.profile?.lifestyle?.trainingTime;
+  const timesByDay = input.profile?.lifestyle?.reminders?.strengthTimesByDay;
+  const optionalDone = optionalDoneOf(input.todaysWorkouts);
   const now = new Date();
+  const plannedMinutes = plannedSessionMinutes(input.profile as PlannedMinutesProfile | null | undefined, now);
   const dow = now.getDay();
   const dom = now.getDate();
   const model = useMemo(
@@ -58,13 +65,16 @@ export function useHomeToday(input: UseHomeTodayInput): HomeToday {
           scheduleDays: days ?? [],
           recurringTemplate: template,
           trainingTime,
+          timesByDay,
+          plannedMinutes,
+          optionalDone,
           strengthDone: input.strengthDone,
           strengthMinutes: minutes,
           steps: input.steps,
           stepsGoal: input.stepsGoal,
         })
       : null),
-    [show, dow, dom, days, template, trainingTime, input.strengthDone, minutes, input.steps, input.stepsGoal],
+    [show, dow, dom, days, template, trainingTime, timesByDay, plannedMinutes, optionalDone, input.strengthDone, minutes, input.steps, input.stepsGoal],
   );
   const tour = useMemo(() => homeTourToday(model), [model]);
   // Read once per uid; cleared when the tour closes.
