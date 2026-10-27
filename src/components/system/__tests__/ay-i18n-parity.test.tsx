@@ -145,17 +145,17 @@ describe('components', () => {
 
   it('classic form sheet + v2 primitives', async () => {
     const out = [
-      html(<ClassicFormSheet isOpen onClose={noop} title="כותרת"><p>x</p></ClassicFormSheet>),
+      html(<ClassicFormSheet {...({ isOpen: true, onClose: noop, title: 'כותרת' } as never)}><p>x</p></ClassicFormSheet>),
       html(<CartProgressIcon items={cart} />),
       html(<CartProgressIcon items={cart} ariaLabel="מותאם" />),
       html(<DoneCheck />),
       html(<SheetHeader title="כותרת" onClose={noop} />),
       html(<SheetHeader title="כותרת" onClose={noop} closeLabel="סגור" />),
       html(<StepBar current={2} />),
-      html(<LineChart data={[{ key: 'a', value: 1 }, { key: 'b', value: 3 }, { key: 'c', value: 2 }]} goal={2} />),
-      html(<LineChart data={[{ key: 'a', value: 1 }, { key: 'b', value: 3 }]} ariaLabel="גרף שלי" goal={2} goalLabel="מטרה" />),
-      html(<DraggableSheet open onClose={noop} snapPoints={[200, 500]} initialSnap={0}><p>x</p></DraggableSheet>),
-      html(<DraggableSheet open onClose={noop} snapPoints={[200, 500]} initialSnap={1}><p>x</p></DraggableSheet>),
+      html(<LineChart data={[{ key: 'a', value: 1 }, { key: 'b', value: 3 }, { key: 'c', value: 2 }] as never} goal={2} />),
+      html(<LineChart data={[{ key: 'a', value: 1 }, { key: 'b', value: 3 }] as never} ariaLabel="גרף שלי" goal={2} goalLabel="מטרה" />),
+      html(<DraggableSheet {...({ open: true, onClose: noop, snapPoints: [200, 500], initialSnap: 0 } as never)}><p>x</p></DraggableSheet>),
+      html(<DraggableSheet {...({ open: true, onClose: noop, snapPoints: [200, 500], initialSnap: 1 } as never)}><p>x</p></DraggableSheet>),
     ].join('\n');
     await expect(out).toMatchFileSnapshot(snap('v2-primitives'));
   });
