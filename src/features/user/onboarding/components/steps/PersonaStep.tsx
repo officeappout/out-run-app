@@ -62,6 +62,11 @@ const PERSONA_TENANT_TYPE: Record<string, AccessCodeResult['tenantType']> = {
 
 interface PersonaStepProps {
   onNext: () => void;
+  /**
+   * enable_schedule_tutorial_v1 (ל2, board SchedPersona): the lemur's tip, drawn under the v2 header.
+   * Absent = today's screen, byte-identical.
+   */
+  coach?: React.ReactNode;
 }
 
 // Lifestyle persona options with gender-specific labels
@@ -181,7 +186,7 @@ const PERSONA_ICONS_V2: Record<string, LucideIcon> = {
   pro_athlete: Dumbbell,
 };
 
-export default function PersonaStep({ onNext }: PersonaStepProps) {
+export default function PersonaStep({ onNext, coach }: PersonaStepProps) {
   const { updateData, data } = useOnboardingStore();
   const v2 = useOnboardingV2();
   const t = useT(onboarding);
@@ -507,6 +512,8 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
             </p>
           )}
         </motion.div>
+
+        {coach && <div className="mb-3">{coach}</div>}
 
         {/* Mad-libs sentence — sticky summary card */}
         <motion.div
