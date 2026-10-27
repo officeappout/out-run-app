@@ -1,6 +1,8 @@
 'use client';
 
 import { formatDuration } from '../format';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface IdentityUnitsRowProps {
   durationSeconds: number;
@@ -25,6 +27,7 @@ export default function IdentityUnitsRow({
   xp = 0,
   variant = 'boxes',
 }: IdentityUnitsRowProps) {
+  const t = useT(summary);
   const time = formatDuration(durationSeconds);
   const cal = Math.round(calories || 0);
   const xpVal = Math.round(xp || 0);
@@ -32,15 +35,15 @@ export default function IdentityUnitsRow({
   if (variant === 'inline') {
     return (
       <span dir="rtl" style={{ fontSize: 11, color: '#9aa3a1', fontFamily: 'var(--font-simpler)' }}>
-        {time} · {cal} קק״ל{xpVal > 0 ? ` · +${xpVal} XP` : ''}
+        {xpVal > 0 ? t('identity.inlineXp', { time, cal: String(cal), xp: String(xpVal) }) : t('identity.inline', { time, cal: String(cal) })}
       </span>
     );
   }
 
   const cells = [
-    { label: 'זמן', value: time },
-    { label: 'קק״ל', value: String(cal) },
-    { label: 'XP', value: String(xpVal) },
+    { label: t('rings.time'), value: time },
+    { label: t('rings.calories'), value: String(cal) },
+    { label: t('identity.xp'), value: String(xpVal) },
   ];
   return (
     <div dir="rtl" style={{ display: 'flex', gap: 8, fontFamily: 'var(--font-simpler)' }}>

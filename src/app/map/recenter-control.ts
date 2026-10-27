@@ -10,13 +10,16 @@
  * This control: NOT following (flag false, or a turn-preview lock) → "מרכז אותי" = release the
  * lock + re-enable follow. Following → toggle the follow bearing heading-up ⇄ north-up.
  */
+import type { MapT } from '@/messages/ns/map';
+import { defaultMapT } from '@/features/parks/core/default-map-t';
+
 export type HeadingMode = 'course' | 'north';
 
 export function isFollowingNow(isMapFollowEnabled: boolean, cameraMode: string): boolean {
   return isMapFollowEnabled && cameraMode !== 'preview_step';
 }
 
-export function recenterControlLabel(following: boolean, headingMode: HeadingMode): string {
-  if (!following) return 'מרכז אותי';
-  return headingMode === 'course' ? 'כיוון הליכה' : 'צפון למעלה';
+export function recenterControlLabel(following: boolean, headingMode: HeadingMode, t: MapT = defaultMapT()): string {
+  if (!following) return t('recenter.me');
+  return headingMode === 'course' ? t('recenter.course') : t('recenter.north');
 }

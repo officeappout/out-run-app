@@ -12,6 +12,7 @@ import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
 import type { LegResult, LegStatus } from '../../engines/hybrid/sequencer.selectors';
 import { fmtClock, fmtPace } from '../../players/running/lib/planned-rep-results';
 import { legLabel, legTargetText, repsText, stationExercises, type ContentExercise, type ExerciseNameOf } from './hybrid-v2-view';
+import { defaultPlayerT, type PlayerT } from '../hybrid-t';
 
 export interface HybridListSection {
   key: string;
@@ -22,19 +23,22 @@ export interface HybridListSection {
   rows: ExerciseSetsRow[];
 }
 
-const STATUS_TEXT: Partial<Record<LegStatus, string>> = { done: 'הושלם', skipped: 'דילגת', active: 'עכשיו' };
+/** "הושלם" / "דילגת" / "עכשיו"; a leg not reached yet has no status text. */
+function statusText(status: LegStatus, t: PlayerT): string | undefined {
+  return status === 'done' || status === 'skipped' || status === 'active' ? t(`hybrid.v2.list.status.${status}`) : undefined;
+}
 
 function exerciseId(x: unknown): string | null {
   const id = (x as { id?: unknown } | null)?.id;
   return typeof id === 'string' ? id : null;
 }
 
-function runRow(leg: Extract<LegResult, { kind: 'run' | 'cooldown' }>, seg: HybridPlannedSegment, title: string): ExerciseSetsRow {
+function runRow(leg: Extract<LegResult, { kind: 'run' | 'cooldown' }>, seg: HybridPlannedSegment, title: string, t: PlayerT): ExerciseSetsRow {
   const km = leg.distanceM / 1000;
   const covered = leg.distanceM > 0 || leg.durationSec > 0;
   const subtitle = !covered
-    ? leg.status === 'skipped' ? 'דילגת' : 'עוד לא התחיל'
-    : [fmtClock(leg.durationSec), leg.paceSecPerKm ? `${fmtPace(leg.paceSecPerKm)} לק״מ` : ''].filter(Boolean).join(' · ');
+    ? leg.status === 'skipped' ? t('hybrid.v2.list.status.skipped') : t('hybrid.v2.list.notStarted')
+    : [fmtClock(leg.durationSec), leg.paceSecPerKm ? t('hybrid.v2.list.pacePerKm', { pace: fmtPace(leg.paceSecPerKm) }) : ''].filter(Boolean).join(' · ');
   const tile: SetTile =
     leg.status === 'done' ? { value: km.toFixed(2), tone: 'in' } : covered ? { value: km.toFixed(2), tone: 'missed' } : { value: '–', tone: 'missed' };
   return { key: `leg-${leg.index}`, name: legTargetText(seg) || title, subtitle, tiles: [tile], active: leg.status === 'active', muted: leg.status === 'skipped' };
@@ -54,6 +58,7 @@ export function stationListRows(
   nameOf: ExerciseNameOf,
   imageOf: (entry: ContentExercise) => string | undefined,
   skipped = false,
+  t: PlayerT = defaultPlayerT(),
 ): ExerciseSetsRow[] {
   const used = new Set<string>();
   const planned = stationExercises(seg).map((e, k): ExerciseSetsRow => {
@@ -66,7 +71,7 @@ export function stationListRows(
       key: `${id ?? 'ex'}-${k}`,
       name: nameOf(e.exercise),
       ...(image ? { imageUrl: image } : {}),
-      subtitle: skipped ? STATUS_TEXT.skipped ?? '' : repsText(e) || `${e.sets ?? 1} סטים`,
+      subtitle: skipped ? t('hybrid.v2.list.status.skipped') : repsText(e, t) || t('hybrid.v2.meta.sets', { n: String(e.sets ?? 1) }),
       tiles: setTiles(row?.confirmedReps ?? [], e.sets ?? 0, target),
       muted: skipped,
     };
@@ -76,7 +81,7 @@ export function stationListRows(
     .map((r, k): ExerciseSetsRow => ({
       key: `log-${r.exerciseId}-${k}`,
       name: r.exerciseName,
-      subtitle: r.targetReps > 0 ? `${r.targetReps} חזרות` : `${r.confirmedReps.length} סטים`,
+      subtitle: r.targetReps > 0 ? t('hybrid.v2.list.repsCount', { n: String(r.targetReps) }) : t('hybrid.v2.meta.sets', { n: String(r.confirmedReps.length) }),
       tiles: setTiles(r.confirmedReps, 0, r.targetReps > 0 ? r.targetReps : null),
     }));
   return [...planned, ...extra];
@@ -94,19 +99,20 @@ export function hybridListSections(
   names: Record<string, string>,
   nameOf: ExerciseNameOf,
   imageOf: (entry: ContentExercise) => string | undefined,
+  t: PlayerT = defaultPlayerT(),
 ): HybridListSection[] {
   return legs.map((leg): HybridListSection => {
     const seg = plan[leg.index];
-    const title = legLabel(plan, leg.index, names);
-    const statusText = STATUS_TEXT[leg.status];
+    const title = legLabel(plan, leg.index, names, t);
+    const status = statusText(leg.status, t);
     if (leg.kind === 'station') {
-      const rows = stationListRows(seg, leg.exerciseLog, nameOf, imageOf, leg.status === 'skipped');
+      const rows = stationListRows(seg, leg.exerciseLog, nameOf, imageOf, leg.status === 'skipped', t);
       const s = doneSets(rows);
       return {
         key: `st-${leg.index}`,
         kind: 'station',
         title,
-        meta: [`${rows.length} תרגילים`, `${s.done}/${s.planned} סטים`, statusText].filter(Boolean).join(' · '),
+        meta: [t('hybrid.v2.meta.exercises', { n: String(rows.length) }), t('hybrid.v2.list.setsDone', { done: String(s.done), planned: String(s.planned) }), status].filter(Boolean).join(' · '),
         status: leg.status,
         rows,
       };
@@ -115,15 +121,15 @@ export function hybridListSections(
       key: `leg-${leg.index}`,
       kind: 'run',
       title,
-      meta: [legTargetText(seg), statusText].filter(Boolean).join(' · '),
+      meta: [legTargetText(seg), status].filter(Boolean).join(' · '),
       status: leg.status,
-      rows: [runRow(leg, seg, title)],
+      rows: [runRow(leg, seg, title, t)],
     };
   });
 }
 
 /** "עד עכשיו" totals: "28:12 · 4.40 ק״מ · 4/9 סטים". */
-export function listTotals(sections: readonly HybridListSection[], totalSec: number, totalKm: number): string {
+export function listTotals(sections: readonly HybridListSection[], totalSec: number, totalKm: number, t: PlayerT = defaultPlayerT()): string {
   const sets = sections.filter((s) => s.kind === 'station').reduce(
     (a, s) => {
       const d = doneSets(s.rows);
@@ -131,5 +137,5 @@ export function listTotals(sections: readonly HybridListSection[], totalSec: num
     },
     { done: 0, planned: 0 },
   );
-  return [fmtClock(totalSec), withUnit('km', totalKm.toFixed(2)), sets.planned > 0 ? `${sets.done}/${sets.planned} סטים` : ''].filter(Boolean).join(' · ');
+  return [fmtClock(totalSec), withUnit('km', totalKm.toFixed(2)), sets.planned > 0 ? t('hybrid.v2.list.setsDone', { done: String(sets.done), planned: String(sets.planned) }) : ''].filter(Boolean).join(' · ');
 }

@@ -53,6 +53,8 @@ import StationWelcomeScreen from './StationWelcomeScreen';
 import { firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
 import { COACH_TARGET_SKIP } from './station-tutorial';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import {
   readGuidedSettings, resolveGuidedMode, isCompletedStation, shouldShowFastPrompt,
 } from './guided-station';
@@ -76,6 +78,7 @@ export interface HybridStationLayerProps {
 }
 
 export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {}) {
+  const t = useT(player);
   const active = useHybridRun((s) => s.active);
   const phase = useHybridRun((s) => s.phase);
   const stationPlan = useHybridRun((s) => s.stationPlan);
@@ -204,8 +207,8 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
     if (phase !== 'aerobic' || isFinalLeg || approaching || upcomingStation == null) return;
     introShownRef.current = true;
     setShowIntro(true);
-    const t = setTimeout(() => setShowIntro(false), INTRO_AUTO_HIDE_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowIntro(false), INTRO_AUTO_HIDE_MS);
+    return () => clearTimeout(timer);
   }, [phase, isFinalLeg, approaching, upcomingStation, walkFlag]);
   // Hide immediately once the real approach CTA takes over — never show both.
   useEffect(() => {
@@ -277,7 +280,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
               import('@/features/parks/core/services/parks.service')
                 .then(({ getPark }) => getPark(parkId))
                 .then((park) => {
-                  if (park) setSwapTarget((t) => (t && t.segIdx === segIdx && t.exIdx === exIdx ? { ...t, park } : t));
+                  if (park) setSwapTarget((cur) => (cur && cur.segIdx === segIdx && cur.exIdx === exIdx ? { ...cur, park } : cur));
                 })
                 .catch(() => { /* no park → generic park methods */ });
             }
@@ -345,7 +348,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
           className="fixed left-4 z-[121] pointer-events-auto rounded-full px-3 py-1.5 text-[12px] font-bold text-gray-500 bg-white/90 border border-gray-200 shadow-sm active:scale-95 transition-transform"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         >
-          דלג על התחנה
+          {t('hybrid.layer.skip')}
         </button>
         )}
       </div>
@@ -385,7 +388,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
             className="pointer-events-auto fixed left-4 z-[121] rounded-full px-3 py-1.5 text-[12px] font-bold text-gray-500 bg-white/90 border border-gray-200 shadow-sm active:scale-95 transition-transform"
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
           >
-            דלג על התחנה
+            {t('hybrid.layer.skip')}
           </button>
         )}
       </div>
@@ -409,14 +412,14 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
           style={{ backgroundColor: 'rgba(5,8,18,0.82)', backdropFilter: 'blur(10px)' }}
         >
           <span className="text-[14px] font-bold">
-            🚶 {walkingLine(userGender, nextStationNumber, distanceToStationM)}
+            🚶 {walkingLine(userGender, nextStationNumber, distanceToStationM, t)}
           </span>
           <button
             type="button"
             onClick={() => arrive()}
             className="rounded-full border border-white/40 px-3 py-1.5 text-[12px] font-bold text-white/90 active:scale-95 transition-transform"
           >
-            הגעתי
+            {t('hybrid.layer.arrived')}
           </button>
         </div>
       </div>
@@ -436,10 +439,9 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
           className="pointer-events-none rounded-2xl px-4 py-3 text-center text-white text-[14px] font-bold shadow-xl"
           style={{ backgroundColor: 'rgba(5,8,18,0.82)', backdropFilter: 'blur(10px)' }}
         >
-          🚶 התחל ללכת
-          {distanceToStationM != null && (
-            <> — בעוד {formatApproxDistance(distanceToStationM)} יש גינת כושר</>
-          )}
+          {distanceToStationM != null
+            ? t('hybrid.layer.introWithDistance', { distance: formatApproxDistance(distanceToStationM) })
+            : t('hybrid.layer.intro')}
         </div>
       </div>
     );

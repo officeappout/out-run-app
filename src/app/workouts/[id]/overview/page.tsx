@@ -16,11 +16,13 @@ import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { library, type LibraryT } from '@/messages/ns/library';
 
 /**
  * Fetch workout from Firestore and convert to WorkoutPlan format
  */
-async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan | null> {
+async function fetchWorkoutFromFirestore(workoutId: string, t: LibraryT): Promise<WorkoutPlan | null> {
   try {
     const exercises = await getAllExercisesCached();
     
@@ -81,13 +83,13 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
       segments.push({
         id: 'warmup-segment',
         type: 'station',
-        title: 'חימום',
+        title: t('workoutOverview.segment.warmup'),
         icon: '🔥',
         target: { type: 'time', value: warmupExercises.length * 60 },
         exercises: warmupExercises.slice(0, 3).map((ex) => ({
           id: ex.id,
           name: getLocalizedText(ex.name),
-          duration: '60 שניות',
+          duration: t('workoutOverview.seconds', { n: '60' }),
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
           equipment: mergeEquipment(ex),
@@ -101,14 +103,14 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
       segments.push({
         id: 'strength-segment',
         type: 'station',
-        title: 'תרגילי כוח',
+        title: t('workoutOverview.segment.strength'),
         icon: '💪',
         target: { type: 'reps', value: 12 },
         exercises: mainExercises.slice(0, 6).map((ex) => ({
           id: ex.id,
           name: getLocalizedText(ex.name),
-          reps: ex.type === 'reps' ? '12 חזרות' : undefined,
-          duration: ex.type === 'time' ? '45 שניות' : undefined,
+          reps: ex.type === 'reps' ? t('workoutOverview.reps', { n: '12' }) : undefined,
+          duration: ex.type === 'time' ? t('workoutOverview.seconds', { n: '45' }) : undefined,
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
           equipment: mergeEquipment(ex),
@@ -122,13 +124,13 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
       segments.push({
         id: 'cooldown-segment',
         type: 'station',
-        title: 'קירור',
+        title: t('workoutOverview.segment.cooldown'),
         icon: '🧘',
         target: { type: 'time', value: cooldownExercises.length * 60 },
         exercises: cooldownExercises.slice(0, 2).map((ex) => ({
           id: ex.id,
           name: getLocalizedText(ex.name),
-          duration: '60 שניות',
+          duration: t('workoutOverview.seconds', { n: '60' }),
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
           equipment: mergeEquipment(ex),
@@ -142,13 +144,13 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
       segments.push({
         id: 'main-segment',
         type: 'station',
-        title: 'אימון כוח',
+        title: t('workoutOverview.name'),
         icon: '💪',
         target: { type: 'reps', value: 12 },
         exercises: exercises.slice(0, 5).map((ex) => ({
           id: ex.id,
           name: getLocalizedText(ex.name),
-          reps: '12 חזרות',
+          reps: t('workoutOverview.reps', { n: '12' }),
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
           equipment: mergeEquipment(ex),
@@ -159,7 +161,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
 
     return {
       id: workoutId,
-      name: 'אימון כוח',
+      name: t('workoutOverview.name'),
       segments,
       totalDuration: segments.reduce((sum, seg) => sum + (seg.target?.value || 60), 0),
       difficulty: 'medium' as const,
@@ -172,6 +174,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
 
 export default function WorkoutOverviewPage() {
   const uiGender = useUiGender();
+  const t = useT(library);
   const mounted = useIsMounted();
   const params = useParams();
   const router = useRouter();
@@ -181,27 +184,29 @@ export default function WorkoutOverviewPage() {
   const [scrollY, setScrollY] = useState(0);
   const [workout, setWorkout] = useState<WorkoutPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<boolean>(false);
 
   // Fetch workout from Firestore
   useEffect(() => {
     async function loadWorkout() {
       setIsLoading(true);
-      setError(null);
+      setError(false);
       
       console.log('[WorkoutOverviewPage] Fetching workout, ID:', workoutId);
-      const firestoreWorkout = await fetchWorkoutFromFirestore(workoutId);
+      const firestoreWorkout = await fetchWorkoutFromFirestore(workoutId, t);
       
       if (firestoreWorkout) {
         setWorkout(firestoreWorkout);
       } else {
-        setError('לא הצלחנו לטעון את האימון');
+        setError(true);
       }
       
       setIsLoading(false);
     }
     
     loadWorkout();
+    // `t` is deliberately not a dependency: a locale/catalog change must not refetch the workout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workoutId]);
   const workoutType = 'strength' as 'strength' | 'running' | 'hybrid'; // Determine from workout data
 
@@ -284,7 +289,7 @@ export default function WorkoutOverviewPage() {
       <div className="flex items-center justify-center h-screen bg-gradient-to-b from-white to-gray-50">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">טוען את האימון...</p>
+          <p className="text-gray-600 font-medium">{t('sharedWorkout.loading')}</p>
         </div>
       </div>
     );
@@ -297,13 +302,13 @@ export default function WorkoutOverviewPage() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">😕</span>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">לא הצלחנו לטעון את האימון</h2>
-          <p className="text-gray-500 mb-6">{error || pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('sharedWorkout.error.title')}</h2>
+          <p className="text-gray-500 mb-6">{error ? t('sharedWorkout.error.title') : pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
           <button
             onClick={() => router.push('/home')}
             className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-xl transition-all"
           >
-            חזרה לדף הבית
+            {t('sharedWorkout.error.home')}
           </button>
         </div>
       </div>
@@ -328,7 +333,7 @@ export default function WorkoutOverviewPage() {
           <button
             onClick={() => router.back()}
             className="w-10 h-10 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 active:scale-90 transition-transform"
-            aria-label="חזור"
+            aria-label={t('workoutOverview.back')}
           >
             <ArrowRight size={20} />
           </button>
@@ -337,7 +342,7 @@ export default function WorkoutOverviewPage() {
           </h1>
           <button
             className="w-10 h-10 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 active:scale-90 transition-transform"
-            aria-label="שתף"
+            aria-label={t('preview.list.share')}
           >
             <Share2 size={20} />
           </button>
@@ -380,13 +385,13 @@ export default function WorkoutOverviewPage() {
           <button
             onClick={() => router.back()}
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
-            aria-label="חזור"
+            aria-label={t('workoutOverview.back')}
           >
             <ArrowRight size={20} />
           </button>
           <button
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
-            aria-label="שתף"
+            aria-label={t('preview.list.share')}
           >
             <Share2 size={20} />
           </button>

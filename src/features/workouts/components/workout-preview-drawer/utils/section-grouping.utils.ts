@@ -8,6 +8,8 @@
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { pyramidLabel } from '@/features/workout-engine/logic/protocols/pyramid.processor';
 import type { ExerciseSection } from '../types';
+import type { LibraryT } from '@/messages/ns/library';
+import { defaultLibraryT } from '@/features/workouts/default-library-t';
 
 /** Verbose per-exercise tracing is opt-in to avoid console-storming production. */
 const VERBOSE_GROUP_LOG = process.env.NODE_ENV !== 'production';
@@ -44,6 +46,7 @@ export function groupExercisesIntoSections(
    * Absent → today's grouping, unchanged.
    */
   opts: { timedMainTitle?: string } = {},
+  t: LibraryT = defaultLibraryT(),
 ): ExerciseSection[] {
   const byId = new Map<string, EngineWorkoutExercise>();
   for (const ex of exercises) {
@@ -115,7 +118,7 @@ export function groupExercisesIntoSections(
         const equalizedRounds = Math.max(ex.sets || 3, partner!.sets || 3);
         mainSections.push({
           id: `superset-${supersetCounter++}`,
-          title: 'סופר סט',
+          title: t('preview.section.title.superset'),
           rounds: equalizedRounds,
           exercises: [ex, partner!],
         });
@@ -138,7 +141,7 @@ export function groupExercisesIntoSections(
           id: `regular-${mainSections.length}`,
           title: isPyramidExercise
             ? pyramidLabel((ex as any).pyramidSequence)
-            : 'סט רגיל',
+            : t('preview.section.title.regular'),
           rounds: ex.sets || 3,
           exercises: [ex],
         });
@@ -161,7 +164,7 @@ export function groupExercisesIntoSections(
     } else {
       mainSections.push({
         id: `regular-${mainSections.length}`,
-        title: 'סט רגיל',
+        title: t('preview.section.title.regular'),
         rounds: ex.sets || 3,
         exercises: [ex],
       });
@@ -170,13 +173,13 @@ export function groupExercisesIntoSections(
 
   const sections: ExerciseSection[] = [];
   if (warmup.length > 0) {
-    sections.push({ id: 'warmup', title: 'חימום', rounds: 1, exercises: warmup });
+    sections.push({ id: 'warmup', title: t('preview.section.title.warmup'), rounds: 1, exercises: warmup });
   }
   sections.push(...mainSections);
   if (tabataMembers.length > 0) {
     // Finisher position — after the standard mains, exactly where the player
     // runs seg-tabata. `rounds` = total work intervals (display only).
-    sections.push({ id: 'tabata', title: 'טבטה', rounds: 8, exercises: tabataMembers });
+    sections.push({ id: 'tabata', title: t('preview.section.tabata.title'), rounds: 8, exercises: tabataMembers });
     if (VERBOSE_GROUP_LOG) {
       console.log(
         `[UI][groupSections] 🔥 Tabata block: ${tabataMembers.length} member(s) — ` +
@@ -185,7 +188,7 @@ export function groupExercisesIntoSections(
     }
   }
   if (cooldown.length > 0) {
-    sections.push({ id: 'cooldown', title: 'מתיחות', rounds: 1, exercises: cooldown });
+    sections.push({ id: 'cooldown', title: t('preview.section.title.cooldown'), rounds: 1, exercises: cooldown });
   }
 
   if (VERBOSE_GROUP_LOG) {

@@ -12,6 +12,8 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/v2';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import ContinuousRunCardV2 from '../../players/running/components/Continuous/v2/ContinuousRunCardV2';
 import { useFreeRunLive } from '../../players/running/components/FreeRun/v2/useFreeRunLive';
 import { useZoneTracking } from '../../players/running/hooks/useZoneTracking';
@@ -20,15 +22,16 @@ import type { HybridPlayerV2Api } from './HybridPlayerV2Context';
 import { legZone, nextBlockView } from './hybrid-v2-view';
 
 export default function HybridRunLegV2({ api }: { api: HybridPlayerV2Api }) {
+  const t = useT(player);
   const live = useFreeRunLive();
   const view = api.view;
   const seg = view?.segment ?? null;
-  const zone = legZone(seg);
+  const zone = legZone(seg, t);
   const tracking = useZoneTracking(zone, view?.cursor ?? 0);
   if (!view) return null;
 
   const leg = view.leg;
-  const next = nextBlockView(view, api.names);
+  const next = nextBlockView(view, api.names, t);
   const hasStation = view.canArriveManually;
   const shortLeft = leg && !leg.showPace && leg.remainingM != null ? fmtDistance(leg.remainingM) : null;
 
@@ -38,16 +41,16 @@ export default function HybridRunLegV2({ api }: { api: HybridPlayerV2Api }) {
         {hasStation ? (
           view.approaching ? (
             <Button variant="cta" onClick={api.arriveNow} className="whitespace-nowrap">
-              {next ? `הגעתי · ${next.label}` : 'הגעתי לתחנה'}
+              {next ? t('hybrid.v2.run.arriveNamed', { label: next.label }) : t('hybrid.cta.arrive')}
             </Button>
           ) : (
             <Button variant="ghost" size="sm" onClick={api.arriveNow} className="whitespace-nowrap">
-              הגעתי
+              {t('hybrid.layer.arrived')}
             </Button>
           )
         ) : (
           <Button variant="cta" onClick={api.finish} className="min-w-[160px] whitespace-nowrap">
-            סיום
+            {t('hybrid.v2.run.finish')}
           </Button>
         )}
       </div>

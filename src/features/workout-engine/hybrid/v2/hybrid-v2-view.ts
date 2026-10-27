@@ -11,6 +11,7 @@ import { STRIP_COLORS } from '../../engines/strip-item';
 import { fmtClock, fmtDistance } from '../../players/running/lib/planned-rep-results';
 import { zoneTypeLabel, type ZoneTarget } from '../../players/running/lib/continuous-run';
 import { aerobicKindLabel } from '../aerobic-kind';
+import { defaultPlayerT, type PlayerT } from '../hybrid-t';
 
 export const HYBRID_V2_COLORS = { run: STRIP_COLORS.cardio, strength: STRIP_COLORS.strength } as const;
 
@@ -43,17 +44,20 @@ function stationBefore(plan: readonly HybridPlannedSegment[], i: number): boolea
 }
 
 /** Row / header label of plan[i]. */
-export function legLabel(plan: readonly HybridPlannedSegment[], i: number, names: Record<string, string>): string {
+export function legLabel(plan: readonly HybridPlannedSegment[], i: number, names: Record<string, string>, t: PlayerT = defaultPlayerT()): string {
   const seg = plan[i];
   if (!seg) return '';
-  if (seg.kind === 'strength') return stationName(seg, names) ? `תחנת כוח · ${stationName(seg, names)}` : 'תחנת כוח';
+  if (seg.kind === 'strength') {
+    const own = stationName(seg, names);
+    return own ? t('hybrid.v2.label.stationNamed', { name: own }) : t('hybrid.v2.label.station');
+  }
   const verb = verbOf(seg);
   const next = stationAfterIndex(plan, i);
   if (next >= 0) {
     const name = stationName(plan[next], names);
-    return name ? `${verb} אל ${name}` : `${verb} אל התחנה`;
+    return name ? t('hybrid.v2.label.toNamed', { verb, name }) : t('hybrid.v2.label.toStation', { verb });
   }
-  if (stationBefore(plan, i) && !plan.slice(i + 1).some((s) => s.kind === 'strength')) return walking(seg) ? 'הליכת שחרור' : cycling(seg) ? 'רכיבת שחרור' : 'ריצת שחרור';
+  if (stationBefore(plan, i) && !plan.slice(i + 1).some((s) => s.kind === 'strength')) return t('hybrid.v2.label.cooldown', { kind: walking(seg) ? 'walking' : cycling(seg) ? 'cycling' : 'running' });
   return verb;
 }
 
@@ -66,14 +70,14 @@ export function legTargetText(seg: HybridPlannedSegment | null | undefined): str
 }
 
 /** The pace band of a leg for the run card, or null (no band, or a leg under 400 m). */
-export function legZone(seg: HybridPlannedSegment | null | undefined): ZoneTarget | null {
+export function legZone(seg: HybridPlannedSegment | null | undefined, t: PlayerT = defaultPlayerT()): ZoneTarget | null {
   const band = seg?.targetPaceSecPerKm;
   if (!seg || !band || !(band.min > 0) || !(band.max > 0)) return null;
   if (isShortLegTarget({ distanceM: seg.distanceKm ? seg.distanceKm * 1000 : null, durationSec: seg.durationSec ?? null })) return null;
   return {
     minSec: Math.min(band.min, band.max),
     maxSec: Math.max(band.min, band.max),
-    label: cycling(seg) ? 'רכיבה' : zoneTypeLabel(seg.zone) ?? (walking(seg) ? 'הליכה' : 'ריצה קלה'),
+    label: cycling(seg) ? t('hybrid.v2.zone.fallback', { kind: 'cycling' }) : zoneTypeLabel(seg.zone) ?? t('hybrid.v2.zone.fallback', { kind: walking(seg) ? 'walking' : 'running' }),
     showNumbers: true,
   };
 }
@@ -91,18 +95,19 @@ export function headerView(
   names: Record<string, string>,
   /** The session's own name (route + stops: "מסלול + עצירות"); omitted → "הליכה/ריצה + כוח". */
   sessionLabel?: string | null,
+  t: PlayerT = defaultPlayerT(),
 ): HybridHeaderView {
   const firstLeg = plan.find((s) => s.kind === 'aerobic');
-  const eyebrow = sessionLabel || `${verbOf(firstLeg)} + כוח`;
-  const of = `${Math.min(plan.length, view.cursor + 1)} מתוך ${plan.length}`;
+  const eyebrow = sessionLabel || t('hybrid.v2.header.session', { verb: verbOf(firstLeg) });
+  const of = t('hybrid.v2.header.of', { n: String(Math.min(plan.length, view.cursor + 1)), total: String(plan.length) });
   if (view.phase === 'transition') {
-    return { eyebrow, title: `מעבר לכוח · ${of}`, color: HYBRID_V2_COLORS.strength };
+    return { eyebrow, title: t('hybrid.v2.header.transition', { of }), color: HYBRID_V2_COLORS.strength };
   }
   if (view.phase === 'station') {
-    return { eyebrow, title: `${legLabel(plan, view.cursor, names)} · ${of}`, color: HYBRID_V2_COLORS.strength };
+    return { eyebrow, title: t('hybrid.v2.header.titleOf', { label: legLabel(plan, view.cursor, names, t), of }), color: HYBRID_V2_COLORS.strength };
   }
-  if (view.phase === 'done') return { eyebrow, title: 'האימון הסתיים', color: HYBRID_V2_COLORS.run };
-  const label = view.phase === 'idle' ? legLabel(plan, 0, names) : legLabel(plan, view.cursor, names);
+  if (view.phase === 'done') return { eyebrow, title: t('hybrid.v2.header.done'), color: HYBRID_V2_COLORS.run };
+  const label = view.phase === 'idle' ? legLabel(plan, 0, names, t) : legLabel(plan, view.cursor, names, t);
   const toGo =
     view.distanceToStationM != null
       ? fmtDistance(view.distanceToStationM)
@@ -121,15 +126,15 @@ export interface NextBlockView {
 }
 
 /** The run card's "הבא" strip: the station the leg leads to. */
-export function nextBlockView(view: SequencerView, names: Record<string, string>): NextBlockView | null {
+export function nextBlockView(view: SequencerView, names: Record<string, string>, t: PlayerT = defaultPlayerT()): NextBlockView | null {
   const st = view.upcomingStation;
   if (!st) return null;
   const n = stationExercises(st).length;
   const min = Math.round((st.durationSec ?? st.content?.estimatedDurationSec ?? 0) / 60);
   const name = stationName(st, names);
   return {
-    label: name ? `בלוק כוח · ${name}` : 'בלוק כוח',
-    meta: [n > 0 ? `${n} תרגילים` : '', min > 0 ? `${min}′` : ''].filter(Boolean).join(' · '),
+    label: name ? t('hybrid.v2.next.label', { name }) : t('hybrid.v2.next.labelBare'),
+    meta: [n > 0 ? t('hybrid.v2.meta.exercises', { n: String(n) }) : '', min > 0 ? `${min}′` : ''].filter(Boolean).join(' · '),
     color: HYBRID_V2_COLORS.strength,
   };
 }
@@ -147,10 +152,12 @@ export interface TransitionView {
 }
 
 /** "6–8 חזרות" / "30 שנ׳". */
-export function repsText(e: ContentExercise): string {
-  const unit = e.isTimeBased ? 'שנ׳' : 'חזרות';
-  if (e.repsRange && e.repsRange.max > 0 && e.repsRange.max !== e.repsRange.min) return `${e.repsRange.min}–${e.repsRange.max} ${unit}`;
-  return e.reps && e.reps > 0 ? `${e.reps} ${unit}` : '';
+export function repsText(e: ContentExercise, t: PlayerT = defaultPlayerT()): string {
+  const unit = e.isTimeBased ? 'seconds' : 'reps';
+  if (e.repsRange && e.repsRange.max > 0 && e.repsRange.max !== e.repsRange.min) {
+    return t('hybrid.v2.reps.range', { min: String(e.repsRange.min), max: String(e.repsRange.max), unit });
+  }
+  return e.reps && e.reps > 0 ? t('hybrid.v2.reps.value', { value: String(e.reps), unit }) : '';
 }
 
 /** Transition card (F-2c / U-D2): countdown, the station and its first exercise. */
@@ -160,6 +167,7 @@ export function transitionView(
   names: Record<string, string>,
   nameOf: ExerciseNameOf,
   transitionSec: number,
+  t: PlayerT = defaultPlayerT(),
 ): TransitionView {
   const seg = plan[view.cursor];
   const ms = Math.max(0, view.transitionRemainingMs ?? 0);
@@ -170,18 +178,18 @@ export function transitionView(
   return {
     countdown: fmtClock(Math.ceil(ms / 1000)),
     fraction: transitionSec > 0 ? Math.min(1, ms / (transitionSec * 1000)) : 0,
-    stationLabel: legLabel(plan, view.cursor, names),
-    stationMeta: [list.length ? `${list.length} תרגילים` : '', sets ? `${sets} סטים` : '', min ? withUnit('min', min) : ''].filter(Boolean).join(' · '),
+    stationLabel: legLabel(plan, view.cursor, names, t),
+    stationMeta: [list.length ? t('hybrid.v2.meta.exercises', { n: String(list.length) }) : '', sets ? t('hybrid.v2.meta.sets', { n: String(sets) }) : '', min ? withUnit('min', min) : ''].filter(Boolean).join(' · '),
     first: first
-      ? { name: nameOf(first.exercise), target: repsText(first), setsText: first.sets ? `סט 1 מתוך ${first.sets}` : '' }
+      ? { name: nameOf(first.exercise), target: repsText(first, t), setsText: first.sets ? t('hybrid.v2.transition.setOf', { sets: String(first.sets) }) : '' }
       : null,
-    moreText: list.length > 1 ? `עוד ${list.length - 1} תרגילים` : null,
+    moreText: list.length > 1 ? t('hybrid.v2.transition.more', { n: String(list.length - 1) }) : null,
   };
 }
 
 /** Mini-player lines. */
-export function miniView(view: SequencerView, plan: readonly HybridPlannedSegment[], names: Record<string, string>, totalSec: number, totalKm: number) {
-  const label = view.phase === 'transition' ? 'מעבר לכוח' : legLabel(plan, view.cursor, names);
+export function miniView(view: SequencerView, plan: readonly HybridPlannedSegment[], names: Record<string, string>, totalSec: number, totalKm: number, t: PlayerT = defaultPlayerT()) {
+  const label = view.phase === 'transition' ? t('hybrid.v2.mini.transition') : legLabel(plan, view.cursor, names, t);
   const extra = view.phase === 'transition' && view.transitionRemainingMs != null ? fmtClock(Math.ceil(view.transitionRemainingMs / 1000)) : null;
   return {
     color: view.phase === 'transition' || view.phase === 'station' ? HYBRID_V2_COLORS.strength : HYBRID_V2_COLORS.run,

@@ -13,7 +13,8 @@
  * "התחל ללכת · בעוד X מ׳ תחנה ראשונה" (live distance) with a small secondary "הגעתי" — so a user
  * who genuinely starts at the park can still arrive. Same for every stop.
  */
-import { g, type AppGender } from '@/lib/utils/gendered-text';
+import type { AppGender } from '@/lib/utils/gendered-text';
+import { defaultPlayerT, type PlayerT } from './hybrid-t';
 import { formatApproxDistance } from './hybrid-intro-format';
 
 export type WalkUiState = 'none' | 'final' | 'approach' | 'walking';
@@ -49,13 +50,12 @@ export function walkingLine(
   gender: AppGender | null | undefined,
   stationNumber: number | null,
   distanceM: number | null,
+  t: PlayerT = defaultPlayerT(),
 ): string {
   const first = stationNumber == null || stationNumber <= 1;
-  const verb = first
-    ? g(gender, 'התחל ללכת', 'התחילי ללכת', 'מתחילים ללכת')
-    : g(gender, 'המשך ללכת', 'המשיכי ללכת', 'ממשיכים ללכת');
-  const target = first ? 'תחנה ראשונה' : 'התחנה הבאה';
-  return distanceM != null
-    ? `${verb} · בעוד ${formatApproxDistance(distanceM)} ${target}`
-    : `${verb} · ${first ? 'לתחנה הראשונה' : 'לתחנה הבאה'}`;
+  const g = gender ?? 'other';
+  if (distanceM != null) {
+    return t(first ? 'hybrid.walk.firstNear' : 'hybrid.walk.nextNear', { gender: g, distance: formatApproxDistance(distanceM) });
+  }
+  return t(first ? 'hybrid.walk.firstNoDistance' : 'hybrid.walk.nextNoDistance', { gender: g });
 }

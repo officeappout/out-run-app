@@ -40,7 +40,7 @@ import StationWelcomeScreen from '../StationWelcomeScreen';
 import HybridTransitionCardV2 from '../v2/HybridTransitionCardV2';
 import HybridRunLegV2 from '../v2/HybridRunLegV2';
 import HybridSessionListV2 from '../v2/HybridSessionListV2';
-import { guidanceLine, welcomeCta, WELCOME_GREETING } from '../guided-station';
+import { guidanceLine, welcomeCta, welcomeGreeting } from '../guided-station';
 import { stationTutorialEntrySteps, stationTutorialSteps } from '../station-tutorial';
 import { walkingLine } from '../hybrid-walk-state';
 
@@ -155,7 +155,7 @@ describe('guided station / tutorial / walking line copy', () => {
         } : {}),
       };
     }
-    out.greeting = WELCOME_GREETING;
+    out.greeting = welcomeGreeting();
     await expect(json(out)).toMatchFileSnapshot(jsnap('guided-copy'));
   });
 });
