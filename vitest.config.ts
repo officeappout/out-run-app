@@ -91,6 +91,9 @@ export default defineConfig({
       // i18n wave 2 (app pages: legal / join / session / settings / map error / league / workout history) —
       // Hebrew markup parity of the route pages' own copy (static markup + jsdom).
       'src/app/__tests__/app-pages-i18n/**/*.test.tsx',
+      // i18n batch au (onboarding namespace) — /gateway + /onboarding-new/dynamic Hebrew markup parity, static markup.
+      'src/app/gateway/__tests__/**/*.test.tsx',
+      'src/app/onboarding-new/dynamic/__tests__/**/*.test.tsx',
       // i18n wave 2 batch ae (onboarding namespace, programPath.page.*) — strength program-path page, Hebrew markup parity (jsdom).
       'src/app/onboarding-new/program-path/__tests__/**/*.test.tsx',
       // Strength questionnaire v3 (enable_strength_quiz_v3): intro screens, routing (jsdom).
