@@ -4,7 +4,7 @@
  * `<!-- -->` stripped before comparing. State reached only through clicks (survey "thanks" message, the
  * share texts, "busy" label) is pinned by the key test (player-batch-ap-he.test.ts).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactElement } from 'react';
 
@@ -30,6 +30,10 @@ beforeEach(() => {
 });
 
 describe('RunShareBar', () => {
+  // The "later" date picker's min is today — freeze the clock so the snapshot doesn't break daily.
+  beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-26T12:00:00')); });
+  afterAll(() => { vi.useRealTimers(); });
+
   it.each([false, true])('every timing x activity, v2=%s', async (v2) => {
     const out: string[] = [];
     for (const activityType of ['running', 'walking'] as const) {
