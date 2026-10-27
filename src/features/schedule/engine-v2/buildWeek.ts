@@ -15,7 +15,7 @@ import { diffWeek, refKey } from './diff';
 import { dayReasons } from './explain';
 import { finalizeLayout } from './finalize';
 import { renderV2ReasonsHe, type V2Reason } from './reasonsV2';
-import { checkHardRules, emptyGrid, isEasyRun, isLegsUnit, isLongRun, runStreakCap, type Grid } from './rules';
+import { breaksH11, checkHardRules, emptyGrid, isEasyRun, isLegsUnit, isLongRun, runStreakCap, type Grid } from './rules';
 import { streakComfortOf, type ScoreCtx } from './score';
 import { searchWeek, type SearchResult } from './search';
 import { applyLadder, buildUnits, makeRunUnit, makeStrengthUnit, type ReducedSet, type Unit } from './units';
@@ -195,6 +195,10 @@ export function buildWeek(input: ScheduleEngineInput): WeekPlan {
   }
   if (plan.travelWeek) warnings.push({ code: 'TRAVEL_WEEK' });
   if (days.some((ss) => ss.some((s) => s.kind === 'run' && s.extra))) warnings.push({ code: 'RUN_VOLUME_SPLIT' });
+  for (let d = 0; d < 7; d++) {
+    const s = grid.strength[d];
+    if (s && breaksH11(s, grid.run[d])) warnings.push({ code: 'LEGS_ON_QUALITY_DAY', day: d });
+  }
   if (input.walking?.dailyStepGoal) warnings.push({ code: 'STEPS_DAILY', goal: input.walking.dailyStepGoal });
 
   const dayPlans: DayPlan[] = days.map((sessions, d) => ({

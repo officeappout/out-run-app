@@ -69,6 +69,8 @@ export const W = {
    * level's streak, a small cost, so the engine spreads runs when the days allow it.
    */
   RUN_STREAK_OVER_CAP: 3,
+  /** R30 soft: a session with leg load on an intervals / tempo day (the no-legs variant costs less). */
+  R30_LEGS_ON_QUALITY_DAY: 8,
   /** Light legs (an easy-run-day legs session the day before intervals / tempo), owner 27.10.2026. */
   LIGHT_LEGS: 1,
   /** A full body swapped to its no-legs variant (cheaper than S7). */

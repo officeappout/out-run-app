@@ -11,7 +11,6 @@ import {
   breaksH4,
   breaksH6,
   breaksH7,
-  breaksH11,
   cloneGrid,
   isEasyRun,
   isKeyRun,
@@ -127,7 +126,6 @@ export function searchWeek(runs: Unit[], strength: Unit[], ctx: SearchCtx, extra
       if (u.load.legs >= HEAVY_LEGS && isEasyRun(grid.run[d]) && n !== null && isQualityRun(grid.run[n])) options.push(lightLegsOf(u));
       for (const cand of options) {
         if (breaksH3(cand, d, grid)) continue;
-        if (breaksH11(cand, grid.run[d])) continue;
         let ok = true;
         for (let e = 0; e < 7 && ok; e++) {
           const o = grid.strength[e];

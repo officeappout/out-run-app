@@ -6,7 +6,7 @@
  */
 import { PRIORITY_TUNING, STREAK_COMFORT, W } from './config';
 import { canonicalSlug, H6_PATTERNS, HEAVY_LEGS, MODERATE_LEGS, SKILL_CNS, SPREAD_PATTERN_LOAD } from './programProfiles';
-import { gapDays, isEasyRun, isKeyRun, isLegsUnit, isLongRun, isQualityRun, longestRunStreak, nextDay, type Grid } from './rules';
+import { breaksH11, gapDays, isEasyRun, isKeyRun, isLegsUnit, isLongRun, isQualityRun, longestRunStreak, nextDay, type Grid } from './rules';
 import type { SchedulePriority, TrainingLevel } from './types';
 import type { Unit } from './units';
 
@@ -122,6 +122,7 @@ export function scoreFull(grid: Grid, ctx: ScoreCtx): { total: number; breakdown
     const legsOnEasy = isLegsUnit(s) && isEasyRun(r);
     if (s && easyDays > 0 && isLegsUnit(s) && !legsOnEasy) add(b, 'R29', W.R29_LEGS_OFF_EASY_DAY);
     if (s?.lightLegs) add(b, 'LIGHT_LEGS', W.LIGHT_LEGS);
+    if (s && breaksH11(s, r)) add(b, 'R30', W.R30_LEGS_ON_QUALITY_DAY);
     if (s && r) {
       doubles++;
       if (!isQualityRun(r) && !legsOnEasy) add(b, 'S5', W.S5_DOUBLE_NOT_QUALITY);

@@ -54,7 +54,7 @@ const legsOnEasyDay = (plan: WeekPlan) =>
 
 const SUN_THU = [0, 1, 2, 3, 4];
 
-describe('H11 = R29 + R30 (hard)', () => {
+describe('R29 + R30 (soft since the owner\'s 27.10 "not rigid" answer)', () => {
   it('no leg load next to intervals / tempo; upper body is fine; easy days are fine', () => {
     const q = makeRunUnit('quality_primary');
     expect(breaksH11(makeStrengthUnit('legs'), q)).toBe(true);
@@ -64,9 +64,20 @@ describe('H11 = R29 + R30 (hard)', () => {
     expect(breaksH11(makeStrengthUnit('legs'), makeRunUnit('easy_run'))).toBe(false);
     expect(breaksH11(makeStrengthUnit('legs'), null)).toBe(false);
   });
-  it('validateLayout reports a legs + quality day as H11', () => {
+  it('a user edit with legs next to a quality run is accepted (no hard violation), the engine avoids it by cost', () => {
     const layout: PlacedSession[][] = [[{ kind: 'run', slot: 'quality_primary' }, { kind: 'strength', slug: 'legs' }], [], [], [], [], [], []];
-    expect(validateLayout(layout, { open: Array(7).fill(true), maxPerDay: 2 }, 'intermediate').map((v) => v.rule)).toEqual(['H11']);
+    expect(validateLayout(layout, { open: Array(7).fill(true), maxPerDay: 2 }, 'intermediate')).toEqual([]);
+  });
+  it('when only that fits, the engine places it with a warning instead of refusing', () => {
+    const p = buildWeek({
+      availability: { days: [0], maxSessionsPerDay: 2 },
+      strength: [{ slug: 'legs', sessionsPerWeek: 1, priority: 1 }],
+      running: { level: 'intermediate', targetDistance: '5k', sessions: [{ slot: 'quality_primary' }] },
+      levels: { strength: 'intermediate', running: 'intermediate' },
+    });
+    expect(p.hardViolations).toEqual([]);
+    expect(p.dropped).toEqual([]);
+    expect(p.warnings.map((w) => w.code)).toContain('LEGS_ON_QUALITY_DAY');
   });
   it('legs on an easy-run day go after the run, even with strength first', () => {
     const order = orderDay(makeRunUnit('easy_run'), makeStrengthUnit('legs'), 'strength_first');

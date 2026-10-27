@@ -73,9 +73,9 @@ export function keyRunBreaksH3(day: number, grid: Grid): boolean {
 }
 
 /**
- * H11 (R29 + R30, owner 27.10.2026): hard run days are hard, easy days easy. A quality run
- * (intervals / tempo) shares its day only with upper-body strength: no session with leg load
- * (legs program, full body) on a quality day. Legs live on an easy-run day (soft, score.ts).
+ * R30 (owner 27.10.2026): hard run days are hard, easy days easy. A quality run (intervals /
+ * tempo) should share its day only with upper-body strength. SOFT (score.ts, W.R30): the owner
+ * wants the engine flexible; hard rules stay for safety only (H3 heavy legs before a key run, H4).
  */
 export function breaksH11(strength: Unit, run: Unit | null): boolean {
   return isQualityRun(run) && strength.load.legs >= MODERATE_LEGS;
@@ -152,7 +152,6 @@ export function checkHardRules(grid: Grid, cap: CapacityCtx, runLevel: TrainingL
     const s = grid.strength[d];
     if (s && breaksH2(s, grid.run[d])) out.push({ rule: 'H2', days: [d] });
     if (s && breaksH3(s, d, grid)) out.push({ rule: 'H3', days: [d, nextDay(d)!] });
-    if (s && breaksH11(s, grid.run[d])) out.push({ rule: 'H11', days: [d] });
   }
   const q = [0, 1, 2, 3, 4, 5, 6].filter((d) => isQualityRun(grid.run[d]));
   for (let i = 0; i < q.length; i++)
