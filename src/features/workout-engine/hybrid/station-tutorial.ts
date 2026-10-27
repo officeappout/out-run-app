@@ -45,7 +45,7 @@ export function stationTutorialSteps(gender: AppGender | null | undefined, t: Pl
       legend: [
         { icon: 'time', text: t('hybrid.tutorial.legendTime') },
         // No slash forms ("את/ה") — the unspecified gender gets neutral wording (the `other` branch).
-        { icon: 'reps', text: t('hybrid.tutorial.legendReps', { gender: gender ?? 'other' }) },
+        { icon: 'reps', text: t('hybrid.tutorial.legendReps', { gender: gender ?? 'male' }) },
       ],
     },
     // Gender-neutral for everyone (David, 15.10.2026).
@@ -80,7 +80,7 @@ export function stationTutorialEntrySteps(gender: AppGender | null | undefined, 
     {
       target: COACH_TARGET_CHIPS,
       title: t('hybrid.tutorial.entryChipsTitle'),
-      text: t('hybrid.tutorial.entryChips', { gender: gender ?? 'other' }),
+      text: t('hybrid.tutorial.entryChips', { gender: gender ?? 'male' }),
     },
     { target: COACH_TARGET_SKIP, title: t('hybrid.tutorial.entrySkipTitle'), text: t('hybrid.tutorial.skip') },
   ];

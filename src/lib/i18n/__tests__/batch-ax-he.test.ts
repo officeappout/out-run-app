@@ -175,6 +175,21 @@ describe('batch ax — map (hybrid.axis.*, hybrid.questionnaire.*, recenter.*)',
   });
 });
 
+describe('batch ax — unknown gender stays masculine (old g() helper: null/undefined = male)', () => {
+  it('tutorial steps, walking line: unknown gender reads exactly like male', () => {
+    for (const unknown of [null, undefined] as const) {
+      expect(stationTutorialSteps(unknown)).toEqual(stationTutorialSteps('male'));
+      expect(stationTutorialEntrySteps(unknown)).toEqual(stationTutorialEntrySteps('male'));
+      for (const [n, d] of [[1, 350], [2, 1200], [1, null], [3, null]] as const) {
+        expect(walkingLine(unknown, n, d)).toBe(walkingLine('male', n, d));
+      }
+    }
+  });
+  it('explicit "other" keeps the neutral branch (unchanged)', () => {
+    expect(walkingLine('other', 1, null)).not.toBe(walkingLine('male', 1, null));
+  });
+});
+
 describe('batch ax — summary (mapping.*, identity.*)', () => {
   it('mapping labels', () => {
     expect(s('mapping.speed')).toBe('מהירות ממוצעת');

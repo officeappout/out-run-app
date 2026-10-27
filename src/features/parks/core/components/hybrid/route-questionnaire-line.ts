@@ -46,6 +46,6 @@ export function routeQuestionnaireLine(
   const hasLocked = locked.length > 0;
   const text = hasLocked
     ? t('hybrid.questionnaire.locked')
-    : t('hybrid.questionnaire.nudge', { gender: gender ?? 'other' });
+    : t('hybrid.questionnaire.nudge', { gender: gender ?? 'male' });
   return { domains, hasLocked, text };
 }

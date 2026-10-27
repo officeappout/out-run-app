@@ -132,9 +132,9 @@ describe('hybrid v2 view + list labels', () => {
 });
 
 describe('guided station / tutorial / walking line copy', () => {
-  // Unknown gender (null / undefined) is NOT recorded for the 3-way copy (tutorial reps line, walking verb):
-  // there the old g() helper gave the masculine form, while the catalog serves unknown the neutral `other` branch
-  // (owner decision 21.10: neutral for unknown). The two-way lines (guidance, cta) read the same either way.
+  // Unknown gender (null / undefined) is not recorded in this snapshot for the 3-way copy; it is pinned in
+  // src/lib/i18n/__tests__/batch-ax-he.test.ts ('unknown gender stays masculine'): the old g() helper gave the
+  // masculine form and the call sites keep `gender ?? 'male'`. The neutral wording is a separate owner decision.
   it('per gender', async () => {
     const out: Record<string, unknown> = {};
     for (const g of [...GENDERS, null, undefined] as const) {

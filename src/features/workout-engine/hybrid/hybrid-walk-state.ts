@@ -53,7 +53,7 @@ export function walkingLine(
   t: PlayerT = defaultPlayerT(),
 ): string {
   const first = stationNumber == null || stationNumber <= 1;
-  const g = gender ?? 'other';
+  const g = gender ?? 'male'; // unknown gender = masculine, exactly as the old g() (neutral wording is a separate decision)
   if (distanceM != null) {
     return t(first ? 'hybrid.walk.firstNear' : 'hybrid.walk.nextNear', { gender: g, distance: formatApproxDistance(distanceM) });
   }
