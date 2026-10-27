@@ -4,14 +4,13 @@
  * Run signup · Q2 "באילו ימים?" — the recommended days pre-marked, each with
  * a time-of-day chip (enable_home_v2; boards jr/J2-07, sch/S-5e). One CTA.
  */
-import { Check, Plus, Sparkles, Sun, Sunrise, Sunset } from 'lucide-react';
+import { Check, Plus, Sparkles } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import type { TimeWindow } from '@/features/schedule/engine-v2/types';
 import { DAY_LETTERS_HE, RUN_TIME_PRESETS, TIME_WINDOWS, DEFAULT_RUN_WINDOW } from '@/features/schedule/utils/runWeekRecommendation';
-
-const WINDOW_ICON: Record<TimeWindow, typeof Sun> = { morning: Sunrise, noon: Sun, evening: Sunset };
+import { WINDOW_ICON } from '@/features/schedule/utils/timeWindowIcons';
 
 export interface RunDaysStepProps {
   frequency: number;

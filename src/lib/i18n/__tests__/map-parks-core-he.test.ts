@@ -229,7 +229,7 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
     expect(count('mapSearch.')).toBe(13);
     expect(count('pick.')).toBe(25);
     expect(count('session.')).toBe(1);
-    expect(count('hybrid.')).toBe(16);
+    expect(count('hybrid.')).toBe(27); // batch ax: +9 hybrid.axis.* +2 hybrid.questionnaire.*
     expect(count('overview.shell.')).toBe(1);
     expect(count('overview.axis.')).toBe(7);
     expect(count('overview.roundTrip.')).toBe(2);

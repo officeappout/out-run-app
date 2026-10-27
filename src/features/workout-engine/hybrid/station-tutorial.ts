@@ -5,7 +5,8 @@
  * StationWelcomeScreen renders them with the reusable CoachMarks component. The seen-once flag
  * lives in onboardingPrefs (survives a hard close on native), keyed by uid.
  */
-import { g, type AppGender } from '@/lib/utils/gendered-text';
+import type { AppGender } from '@/lib/utils/gendered-text';
+import { defaultPlayerT, type PlayerT } from './hybrid-t';
 
 /** Coach-mark target ids (`data-coach="…"` on the welcome screen / station layer). */
 export const COACH_TARGET_START = 'station-start';
@@ -35,33 +36,25 @@ export interface StationTutorialStep {
   legend?: { icon: StationTutorialIcon; text: string }[];
 }
 
-export function stationTutorialSteps(gender: AppGender | null | undefined): StationTutorialStep[] {
+export function stationTutorialSteps(gender: AppGender | null | undefined, t: PlayerT = defaultPlayerT()): StationTutorialStep[] {
   return [
-    { target: COACH_TARGET_START, text: 'כשמוכנים, לוחצים כאן', finger: true },
+    { target: COACH_TARGET_START, text: t('hybrid.tutorial.start'), finger: true },
     {
       target: COACH_TARGET_CHIPS,
-      text: 'כל תרגיל מסומן לפי הסוג שלו',
+      text: t('hybrid.tutorial.chips'),
       legend: [
-        { icon: 'time', text: 'זמן: אנחנו סופרים' },
-        {
-          icon: 'reps',
-          text: g(
-            gender,
-            'חזרות: אתה סופר ולוחץ סיימתי',
-            'חזרות: את סופרת ולוחצת סיימתי',
-            // No slash forms ("את/ה") — the unspecified gender gets neutral wording.
-            'חזרות: סופרים ולוחצים סיימתי',
-          ),
-        },
+        { icon: 'time', text: t('hybrid.tutorial.legendTime') },
+        // No slash forms ("את/ה") — the unspecified gender gets neutral wording (the `other` branch).
+        { icon: 'reps', text: t('hybrid.tutorial.legendReps', { gender: gender ?? 'male' }) },
       ],
     },
     // Gender-neutral for everyone (David, 15.10.2026).
     {
       target: COACH_TARGET_SKIP,
-      text: 'בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה',
+      text: t('hybrid.tutorial.skip'),
       legend: [
-        { icon: 'pause', text: 'עצירה' },
-        { icon: 'skip', text: 'דילוג' },
+        { icon: 'pause', text: t('hybrid.tutorial.legendPause') },
+        { icon: 'skip', text: t('hybrid.tutorial.legendSkip') },
       ],
     },
   ];
@@ -81,19 +74,14 @@ export interface StationTutorialEntryStep {
  * (enable_onboarding_tutorial_v1 + enable_home_v2) and by the station tour replay; flags off →
  * stationTutorialSteps above, unchanged.
  */
-export function stationTutorialEntrySteps(gender: AppGender | null | undefined): StationTutorialEntryStep[] {
+export function stationTutorialEntrySteps(gender: AppGender | null | undefined, t: PlayerT = defaultPlayerT()): StationTutorialEntryStep[] {
   return [
-    { target: COACH_TARGET_START, title: 'מתחילים', text: 'כשמוכנים, לוחצים כאן', finger: true },
+    { target: COACH_TARGET_START, title: t('hybrid.welcome.cta'), text: t('hybrid.tutorial.start'), finger: true },
     {
       target: COACH_TARGET_CHIPS,
-      title: 'זמן או חזרות',
-      text: g(
-        gender,
-        'בזמן אנחנו סופרים. בחזרות אתה סופר ולוחץ סיימתי',
-        'בזמן אנחנו סופרים. בחזרות את סופרת ולוחצת סיימתי',
-        'בזמן אנחנו סופרים. בחזרות סופרים ולוחצים סיימתי',
-      ),
+      title: t('hybrid.tutorial.entryChipsTitle'),
+      text: t('hybrid.tutorial.entryChips', { gender: gender ?? 'male' }),
     },
-    { target: COACH_TARGET_SKIP, title: 'עצירה ודילוג', text: 'בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה' },
+    { target: COACH_TARGET_SKIP, title: t('hybrid.tutorial.entrySkipTitle'), text: t('hybrid.tutorial.skip') },
   ];
 }

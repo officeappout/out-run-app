@@ -8,6 +8,7 @@
  */
 
 import { common } from '@/messages/ns/common';
+import { player } from '@/messages/ns/player';
 import { useT } from '@/hooks/useT';
 import { withUnit } from '@/lib/i18n/units';
 import React from 'react';
@@ -21,13 +22,18 @@ import { exerciseNameOf } from './exercise-display';
 
 export default function HybridTransitionCardV2({ api }: { api: HybridPlayerV2Api }) {
   const tc = useT(common);
+  const t = useT(player);
   const view = api.view;
   if (!view) return null;
-  const t = transitionView(view, api.plan, api.names, exerciseNameOf, api.transitionSec);
+  const tv = transitionView(view, api.plan, api.names, exerciseNameOf, api.transitionSec, t);
   const prevLeg = api.legs[view.cursor - 1];
   const ran =
     prevLeg && prevLeg.kind !== 'station' && prevLeg.distanceM > 0
-      ? `${prevLeg.aerobicType === 'walking' ? 'הליכה' : 'ריצה'} הושלמה · ${withUnit('km', (prevLeg.distanceM / 1000).toFixed(2), tc)} · ${fmtClock(prevLeg.durationSec)}`
+      ? t('hybrid.v2.ranDone', {
+          kind: prevLeg.aerobicType === 'walking' ? 'walking' : 'running',
+          distance: withUnit('km', (prevLeg.distanceM / 1000).toFixed(2), tc),
+          time: fmtClock(prevLeg.durationSec),
+        })
       : null;
 
   return (
@@ -36,48 +42,48 @@ export default function HybridTransitionCardV2({ api }: { api: HybridPlayerV2Api
       <div className="mt-1 flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="whitespace-nowrap text-[13px] font-extrabold" style={{ color: HYBRID_V2_COLORS.strength }}>
-            {view.paused ? 'המעבר מושהה' : 'עוברים לכוח'}
+            {view.paused ? t('hybrid.v2.transition.paused') : t('hybrid.v2.transition.going')}
           </p>
-          <h3 className="truncate whitespace-nowrap text-[20px] font-black !tracking-[-0.02em] text-v2-ink">{t.stationLabel}</h3>
-          {t.stationMeta && <p className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-ink-2">{t.stationMeta}</p>}
+          <h3 className="truncate whitespace-nowrap text-[20px] font-black !tracking-[-0.02em] text-v2-ink">{tv.stationLabel}</h3>
+          {tv.stationMeta && <p className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-ink-2">{tv.stationMeta}</p>}
         </div>
         <span dir="ltr" className="shrink-0 whitespace-nowrap text-[44px] font-black leading-none tracking-[-0.03em] tabular-nums text-v2-ink">
-          {t.countdown}
+          {tv.countdown}
         </span>
       </div>
       <div className="mt-2.5">
-        <HeaderProgressBar progress={t.fraction} color={HYBRID_V2_COLORS.strength} />
+        <HeaderProgressBar progress={tv.fraction} color={HYBRID_V2_COLORS.strength} />
       </div>
 
-      {t.first && (
+      {tv.first && (
         <div className="mt-3 flex items-center gap-3 rounded-[16px] bg-v2-surface px-3 py-2.5 ring-1 ring-inset ring-v2-hairline">
           <div className="min-w-0 flex-1">
-            <span className="block whitespace-nowrap text-[11.5px] font-extrabold text-v2-muted">התרגיל הראשון</span>
-            <span className="block truncate whitespace-nowrap text-[15px] font-black text-v2-ink">{t.first.name}</span>
-            {t.moreText && <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{t.moreText}</span>}
+            <span className="block whitespace-nowrap text-[11.5px] font-extrabold text-v2-muted">{t('hybrid.v2.transition.firstExercise')}</span>
+            <span className="block truncate whitespace-nowrap text-[15px] font-black text-v2-ink">{tv.first.name}</span>
+            {tv.moreText && <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{tv.moreText}</span>}
           </div>
           <div className="shrink-0 text-left">
-            {t.first.target && <span className="block whitespace-nowrap text-[16px] font-black text-v2-ink">{t.first.target}</span>}
-            {t.first.setsText && <span className="block whitespace-nowrap text-[12px] font-bold text-v2-muted">{t.first.setsText}</span>}
+            {tv.first.target && <span className="block whitespace-nowrap text-[16px] font-black text-v2-ink">{tv.first.target}</span>}
+            {tv.first.setsText && <span className="block whitespace-nowrap text-[12px] font-bold text-v2-muted">{tv.first.setsText}</span>}
           </div>
         </div>
       )}
 
       <div className="mt-3 flex items-center justify-center gap-2">
         <Button variant="ghost" size="sm" onClick={api.skipStation} className="whitespace-nowrap">
-          דלג
+          {t('hybrid.v2.transition.skip')}
         </Button>
-        <Button variant="ghost" size="sm" onClick={api.extendTransition} className="whitespace-nowrap" aria-label="עוד 20 שניות מנוחה">
+        <Button variant="ghost" size="sm" onClick={api.extendTransition} className="whitespace-nowrap" aria-label={t('hybrid.v2.transition.extendAria')}>
           <span className="inline-flex items-center gap-1">
             <Plus size={14} strokeWidth={2.6} aria-hidden />
-            {`${api.state?.options.extendSec ?? 20} שנ׳`}
+            {t('hybrid.v2.transition.extend', { sec: String(api.state?.options.extendSec ?? 20) })}
           </span>
         </Button>
         <Button
           variant="ghost"
           size="sm"
           onClick={api.toggleTransitionPause}
-          aria-label={view.paused ? 'המשך הספירה' : 'השהה את הספירה'}
+          aria-label={view.paused ? t('hybrid.v2.transition.resumeAria') : t('hybrid.v2.transition.pauseAria')}
           className="w-9 !px-0"
         >
           <span className="grid place-items-center">
@@ -86,7 +92,7 @@ export default function HybridTransitionCardV2({ api }: { api: HybridPlayerV2Api
         </Button>
       </div>
       <Button variant="cta" block onClick={api.startStationNow} className="mt-3">
-        התחל עכשיו
+        {t('hybrid.v2.transition.start')}
       </Button>
     </div>
   );

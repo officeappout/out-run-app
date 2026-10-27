@@ -12,6 +12,7 @@
  * Copy is gender-neutral by construction ("סיימת" is spelled the same for both forms).
  */
 import { common } from '@/messages/ns/common';
+import { player } from '@/messages/ns/player';
 import { useT } from '@/hooks/useT';
 import { withUnit } from '@/lib/i18n/units';
 import { useState } from 'react';
@@ -35,6 +36,7 @@ interface Props {
 
 export default function StationCompleteScreen({ summary, context, onContinue, fastPrompt }: Props) {
   const tc = useT(common);
+  const t = useT(player);
   const [fastPromptState, setFastPromptState] = useState<'open' | 'accepted' | 'dismissed'>('open');
   const hasNext = !!context && !context.isFinalStation && context.nextWalkSec != null;
   return (
@@ -52,11 +54,11 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
         <BicepsFlexed size={40} strokeWidth={2.4} />
       </div>
       <h1 className="text-[28px] font-black text-gray-900 mb-2" style={{ fontFamily: 'var(--font-simpler)' }}>
-        סיימת את התחנה!
+        {t('hybrid.complete.title')}
       </h1>
 
       <div className="flex items-center gap-3 mb-8 text-[15px] font-bold text-gray-600">
-        {summary.exercises > 0 && <span>{summary.exercises === 1 ? 'תרגיל אחד' : `${summary.exercises} תרגילים`}</span>}
+        {summary.exercises > 0 && <span>{t('hybrid.complete.exercises', { n: summary.exercises })}</span>}
         {summary.exercises > 0 && summary.minutes > 0 && <span aria-hidden className="text-gray-300">·</span>}
         {summary.minutes > 0 && <span>{withUnit('min', summary.minutes, tc)}</span>}
       </div>
@@ -66,12 +68,12 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
           className="w-full max-w-sm rounded-2xl px-4 py-3 mb-6 text-center"
           style={{ border: '1px solid #E0E9FF', background: '#F5FBFF' }}
         >
-          <div className="text-[12px] font-bold mb-0.5" style={{ color: ACCENT }}>התחנה הבאה</div>
+          <div className="text-[12px] font-bold mb-0.5" style={{ color: ACCENT }}>{t('hybrid.complete.next')}</div>
           <div className="text-[16px] font-black text-gray-900">
-            {context!.nextStationName ?? 'גינת כושר'}
+            {context!.nextStationName ?? t('hybrid.parkFallback')}
           </div>
           <div className="text-[13px] font-bold text-gray-500 mt-0.5">
-            בעוד {formatApproxWalkMinutes(context!.nextWalkSec!, context!.nextLegKind)}
+            {t('hybrid.complete.in', { time: formatApproxWalkMinutes(context!.nextWalkSec!, context!.nextLegKind) })}
           </div>
         </div>
       )}
@@ -86,11 +88,11 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-v2-tint text-v2-deep shrink-0" aria-hidden>
                 <Check size={13} strokeWidth={3} />
               </span>
-              <span>עברנו למצב מהיר · אפשר לשנות בהגדרות</span>
+              <span>{t('hybrid.complete.fastAccepted')}</span>
             </div>
           ) : (
             <>
-              <div className="text-[15px] font-black text-gray-900 mb-2">כבר הבנת? לעבור למצב מהיר</div>
+              <div className="text-[15px] font-black text-gray-900 mb-2">{t('hybrid.complete.fastAsk')}</div>
               <div className="flex items-center justify-center gap-2">
                 <button
                   type="button"
@@ -98,14 +100,14 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
                   className="rounded-full px-4 py-2 text-[13px] font-bold text-white active:scale-95 transition-transform"
                   style={{ background: ACCENT }}
                 >
-                  כן, למצב מהיר
+                  {t('hybrid.complete.fastYes')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFastPromptState('dismissed')}
                   className="rounded-full px-4 py-2 text-[13px] font-bold text-gray-500 border border-gray-200 active:scale-95 transition-transform"
                 >
-                  לא עכשיו
+                  {t('hybrid.complete.fastNo')}
                 </button>
               </div>
             </>
@@ -119,7 +121,7 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
         className="w-full max-w-sm h-14 rounded-full text-black text-[16px] font-bold active:scale-[0.98] transition-transform shadow-md shadow-cyan-400/25"
         style={{ background: CTA_GRADIENT, fontFamily: 'var(--font-simpler)' }}
       >
-        המשך במסלול
+        {t('hybrid.complete.continue')}
       </button>
     </motion.div>
   );

@@ -1,0 +1,62 @@
+{
+ "scored": {
+  "rows": [
+   {
+    "key": "1-0",
+    "n": 1,
+    "title": "1:55",
+    "sub": "יעד 4:45–4:55",
+    "status": "בטווח",
+    "tone": "in",
+    "value": "4:48",
+    "paceSec": 288,
+    "paceLabel": "4:48"
+   },
+   {
+    "key": "3-1",
+    "n": 2,
+    "title": "1:59",
+    "sub": "יעד 4:45–4:55",
+    "status": "איטי ב-3 שנ׳",
+    "tone": "off",
+    "value": "4:58",
+    "paceSec": 298,
+    "paceLabel": "4:58"
+   },
+   {
+    "key": "5-2",
+    "n": 3,
+    "title": "1:56",
+    "sub": "יעד 4:45–4:55",
+    "status": "בטווח",
+    "tone": "in",
+    "value": "4:50",
+    "paceSec": 290,
+    "paceLabel": "4:50"
+   }
+  ],
+  "band": {
+   "min": 285,
+   "max": 295
+  },
+  "summaryLabel": "2 מתוך 3 חזרות בטווח",
+  "shortLabel": "2/3 בטווח",
+  "reps": 3
+ },
+ "unscored": {
+  "rows": [
+   {
+    "key": "1-0",
+    "n": 1,
+    "title": "0:40",
+    "tone": "none",
+    "value": "0:40",
+    "paceSec": null
+   }
+  ],
+  "band": null,
+  "summaryLabel": null,
+  "shortLabel": null,
+  "reps": 1
+ }
+}

@@ -23,7 +23,7 @@ import { useIsNewUserForTours } from '../hooks/useIsNewUserForTours';
 import { coachTargetVisible } from '../hooks/useCoachTargetPresent';
 import {
   firstRunTourChrome, firstRunTourSeenKey, firstRunTourSteps, presentSteps, shouldShowFirstRunTour,
-  type FirstRunTourId,
+  type FirstRunTourId, type HomeTourToday,
 } from '../services/first-run-tour';
 
 export type FirstRunTourCloseReason = 'done' | 'skip' | 'seen' | 'empty' | 'not-new';
@@ -37,16 +37,21 @@ interface Props {
   onClose?: (reason: FirstRunTourCloseReason) => void;
   /** Let the host's entry animation settle before measuring targets. */
   delayMs?: number;
+  /** enable_schedule_tutorial_v1 ('home' only): start from today's cards. Absent = the steps as before. */
+  homeToday?: HomeTourToday | null;
 }
 
 const targetPresent = coachTargetVisible;
 
-export default function FirstRunTour({ tour, active, uid, gender, onClose, delayMs = 600 }: Props) {
+export default function FirstRunTour({ tour, active, uid, gender, onClose, delayMs = 600, homeToday }: Props) {
   const [steps, setSteps] = useState<CoachMarkStep[] | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // Read when the steps are built (a new object each render must not restart the check).
+  const homeTodayRef = useRef(homeToday);
+  homeTodayRef.current = homeToday;
   const closedRef = useRef(false);
   // New-user check only once the screen has been calm at least once (no work for anyone else).
   const [everActive, setEverActive] = useState(false);
@@ -71,7 +76,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
       }
       timer = setTimeout(() => {
         if (!alive || !activeRef.current) return; // the screen got busy — wait for the next calm
-        const shown = presentSteps(firstRunTourSteps(tour, gender), targetPresent);
+        const shown = presentSteps(firstRunTourSteps(tour, gender, { homeToday: homeTodayRef.current }), targetPresent);
         if (shown.length === 0) {
           closedRef.current = true;
           onCloseRef.current?.('empty');

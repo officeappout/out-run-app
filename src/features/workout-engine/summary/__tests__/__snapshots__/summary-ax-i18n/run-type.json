@@ -1,0 +1,618 @@
+{
+ "intervals": {
+  "kind": "intervals",
+  "hero": {
+   "label": "אינטרוולים קצרים",
+   "repsTitle": "6 × 400 מ׳"
+  },
+  "rings": [
+   {
+    "key": "reps",
+    "value": "6/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "4:52",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": "5/6 בטווח",
+    "pct": 83,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "6.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "42:18"
+   }
+  ],
+  "splits": null,
+  "splitsFromLaps": false,
+  "course": [
+   {
+    "id": "warmup",
+    "label": "חימום",
+    "detail": "12 דק׳ · 1.9 ק״מ"
+   },
+   {
+    "id": "reps-0",
+    "label": "חזרות 1–3",
+    "detail": "4:48 · 4:52 · 4:58"
+   },
+   {
+    "id": "reps-3",
+    "label": "חזרות 4–6",
+    "detail": "4:50 · 4:53 · 4:51"
+   },
+   {
+    "id": "cooldown",
+    "label": "שחרור",
+    "detail": "8 דק׳ · 1.2 ק״מ"
+   }
+  ],
+  "plan": {
+   "name": "תוכנית 10 ק״מ",
+   "weekLabel": "שבוע 1/2",
+   "positionLabel": "אימון 2 מתוך 2 השבוע",
+   "nextLabel": "הבא: ריצה קלה",
+   "ring": {
+    "percent": 50,
+    "basePercent": 25,
+    "gainPercent": 25
+   },
+   "gain": 25
+  },
+  "extras": []
+ },
+ "intervalsNoName": {
+  "kind": "intervals",
+  "hero": {
+   "label": "אינטרוולים קצרים",
+   "repsTitle": "6 × 400 מ׳"
+  },
+  "rings": [
+   {
+    "key": "reps",
+    "value": "6/6",
+    "unit": "חזרות",
+    "label": "חזרות",
+    "sub": "400 מ׳",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "repPace",
+    "value": "4:52",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב חזרה",
+    "sub": "5/6 בטווח",
+    "pct": 83,
+    "color": "#10b981"
+   },
+   {
+    "key": "distance",
+    "value": "6.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16",
+    "sub": "42:18"
+   }
+  ],
+  "splits": null,
+  "splitsFromLaps": false,
+  "course": [
+   {
+    "id": "warmup",
+    "label": "חימום",
+    "detail": "12 דק׳ · 1.9 ק״מ"
+   },
+   {
+    "id": "reps-0",
+    "label": "חזרות 1–3",
+    "detail": "4:48 · 4:52 · 4:58"
+   },
+   {
+    "id": "reps-3",
+    "label": "חזרות 4–6",
+    "detail": "4:50 · 4:53 · 4:51"
+   },
+   {
+    "id": "cooldown",
+    "label": "שחרור",
+    "detail": "8 דק׳ · 1.2 ק״מ"
+   }
+  ],
+  "plan": {
+   "name": "תוכנית ריצה",
+   "weekLabel": "שבוע 2/2",
+   "positionLabel": "אימון 2 מתוך 2 השבוע",
+   "nextLabel": null,
+   "ring": {
+    "percent": 100,
+    "basePercent": 75,
+    "gainPercent": 25
+   },
+   "gain": 25
+  },
+  "extras": []
+ },
+ "easy": {
+  "kind": "easy",
+  "hero": {
+   "label": "ריצה קלה",
+   "repsTitle": null
+  },
+  "rings": [
+   {
+    "key": "distance",
+    "value": "6.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "6:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": "טווח 6:20–6:50"
+   },
+   {
+    "key": "zone",
+    "value": "92%",
+    "label": "זמן בטווח",
+    "pct": 92,
+    "color": "#0284c7"
+   }
+  ],
+  "splits": {
+   "rows": [
+    {
+     "key": "km-0",
+     "n": 1,
+     "title": "6:24",
+     "sub": "ק״מ 1",
+     "tone": "in",
+     "value": "6:24",
+     "paceSec": 384,
+     "paceLabel": "6:24"
+    },
+    {
+     "key": "km-1",
+     "n": 2,
+     "title": "6:12",
+     "sub": "ק״מ 2",
+     "status": "הכי מהיר",
+     "tone": "best",
+     "value": "6:12",
+     "paceSec": 372,
+     "paceLabel": "6:12"
+    },
+    {
+     "key": "km-2",
+     "n": 2.6,
+     "title": "3:50",
+     "sub": "2.6 ק״מ (חלקי)",
+     "tone": "in",
+     "value": "6:23",
+     "paceSec": 383,
+     "paceLabel": "6:23"
+    }
+   ],
+   "band": {
+    "min": 380,
+    "max": 410
+   },
+   "fastestLabel": "הכי מהיר: ק״מ 2",
+   "lastKmPace": "6:12"
+  },
+  "splitsFromLaps": false,
+  "course": [],
+  "plan": null,
+  "extras": []
+ },
+ "easyNoZone": {
+  "kind": "easy",
+  "hero": {
+   "label": "ריצה קלה",
+   "repsTitle": null
+  },
+  "rings": [
+   {
+    "key": "distance",
+    "value": "6.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "pace",
+    "value": "6:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981",
+    "sub": "טווח 6:20–6:50"
+   },
+   {
+    "key": "time",
+    "value": "42:18",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   }
+  ],
+  "splits": null,
+  "splitsFromLaps": false,
+  "course": [],
+  "plan": null,
+  "extras": []
+ },
+ "long": {
+  "kind": "long",
+  "hero": {
+   "label": "ריצה ארוכה",
+   "repsTitle": null
+  },
+  "rings": [
+   {
+    "key": "distance",
+    "value": "6.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "42:18",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  "splits": {
+   "rows": [
+    {
+     "key": "km-0",
+     "n": 1,
+     "title": "6:24",
+     "sub": "ק״מ 1",
+     "tone": "in",
+     "value": "6:24",
+     "paceSec": 384,
+     "paceLabel": "6:24"
+    },
+    {
+     "key": "km-1",
+     "n": 2,
+     "title": "6:12",
+     "sub": "ק״מ 2",
+     "status": "הכי מהיר",
+     "tone": "best",
+     "value": "6:12",
+     "paceSec": 372,
+     "paceLabel": "6:12"
+    },
+    {
+     "key": "km-2",
+     "n": 3,
+     "title": "7:00",
+     "sub": "ק״מ 3",
+     "tone": "off",
+     "value": "7:00",
+     "paceSec": 420,
+     "paceLabel": "7:00"
+    },
+    {
+     "key": "km-3",
+     "n": 3.5,
+     "title": "2:50",
+     "sub": "3.5 ק״מ (חלקי)",
+     "tone": "off",
+     "value": "5:40",
+     "paceSec": 340,
+     "paceLabel": "5:40"
+    }
+   ],
+   "band": {
+    "min": 380,
+    "max": 410
+   },
+   "fastestLabel": "הכי מהיר: ק״מ 2",
+   "lastKmPace": "7:00"
+  },
+  "splitsFromLaps": false,
+  "course": [],
+  "plan": null,
+  "extras": [
+   {
+    "key": "ascent",
+    "label": "עלייה",
+    "value": "+182 מ׳"
+   },
+   {
+    "key": "lastKm",
+    "label": "ק״מ אחרון",
+    "value": "7:00"
+   }
+  ]
+ },
+ "free": {
+  "kind": "free",
+  "hero": {
+   "label": "ריצה",
+   "repsTitle": null
+  },
+  "rings": [
+   {
+    "key": "distance",
+    "value": "6.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "42:18",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  "splits": null,
+  "splitsFromLaps": false,
+  "course": [],
+  "plan": null,
+  "extras": []
+ },
+ "freeSplits": {
+  "kind": "free",
+  "hero": {
+   "label": "ריצה",
+   "repsTitle": null
+  },
+  "rings": [
+   {
+    "key": "distance",
+    "value": "6.50",
+    "unit": "ק״מ",
+    "label": "מרחק",
+    "pct": 100,
+    "color": "#84cc16"
+   },
+   {
+    "key": "time",
+    "value": "42:18",
+    "label": "זמן",
+    "pct": 100,
+    "color": "#00baf7"
+   },
+   {
+    "key": "pace",
+    "value": "6:30",
+    "unit": "דק׳/ק״מ",
+    "label": "קצב ממוצע",
+    "pct": 100,
+    "color": "#10b981"
+   }
+  ],
+  "splits": {
+   "rows": [
+    {
+     "key": "km-0",
+     "n": 1,
+     "title": "6:24",
+     "sub": "ק״מ 1",
+     "tone": "none",
+     "value": "6:24",
+     "paceSec": 384,
+     "paceLabel": "6:24"
+    },
+    {
+     "key": "km-1",
+     "n": 2,
+     "title": "6:12",
+     "sub": "ק״מ 2",
+     "status": "הכי מהיר",
+     "tone": "best",
+     "value": "6:12",
+     "paceSec": 372,
+     "paceLabel": "6:12"
+    }
+   ],
+   "band": null,
+   "fastestLabel": "הכי מהיר: ק״מ 2",
+   "lastKmPace": "6:12"
+  },
+  "splitsFromLaps": false,
+  "course": [],
+  "plan": null,
+  "extras": []
+ },
+ "heroes": [
+  {
+   "label": "אינטרוולים",
+   "repsTitle": null
+  },
+  {
+   "label": "ריצה ארוכה",
+   "repsTitle": null
+  },
+  {
+   "label": "ריצה קלה",
+   "repsTitle": null
+  },
+  {
+   "label": "ריצה",
+   "repsTitle": null
+  },
+  {
+   "label": "ריצת בוקר",
+   "repsTitle": null
+  }
+ ],
+ "ringsIntervalsNoReps": [
+  {
+   "key": "reps",
+   "value": "0/0",
+   "unit": "חזרות",
+   "label": "חזרות",
+   "sub": null,
+   "pct": 0,
+   "color": "#84cc16"
+  },
+  {
+   "key": "repPace",
+   "value": "--",
+   "unit": "דק׳/ק״מ",
+   "label": "קצב חזרה",
+   "sub": null,
+   "pct": 0,
+   "color": "#10b981"
+  },
+  {
+   "key": "distance",
+   "value": "6.50",
+   "unit": "ק״מ",
+   "label": "מרחק",
+   "pct": 100,
+   "color": "#84cc16",
+   "sub": "42:18"
+  }
+ ],
+ "course": [
+  {
+   "id": "warmup",
+   "label": "חימום",
+   "detail": "12 דק׳ · 1.9 ק״מ"
+  },
+  {
+   "id": "reps-0",
+   "label": "חזרות 1–3",
+   "detail": "4:48 · 4:52 · 4:58"
+  },
+  {
+   "id": "reps-3",
+   "label": "חזרות 4–6",
+   "detail": "4:50 · 4:53 · 4:51"
+  },
+  {
+   "id": "cooldown",
+   "label": "שחרור",
+   "detail": "8 דק׳ · 1.2 ק״מ"
+  }
+ ],
+ "courseOne": [
+  {
+   "id": "reps-0",
+   "label": "חזרה 1",
+   "detail": "4:48"
+  }
+ ],
+ "splits": {
+  "rows": [
+   {
+    "key": "km-0",
+    "n": 1,
+    "title": "6:24",
+    "sub": "ק״מ 1",
+    "tone": "in",
+    "value": "6:24",
+    "paceSec": 384,
+    "paceLabel": "6:24"
+   },
+   {
+    "key": "km-1",
+    "n": 2,
+    "title": "6:12",
+    "sub": "ק״מ 2",
+    "status": "הכי מהיר",
+    "tone": "best",
+    "value": "6:12",
+    "paceSec": 372,
+    "paceLabel": "6:12"
+   },
+   {
+    "key": "km-2",
+    "n": 3,
+    "title": "7:00",
+    "sub": "ק״מ 3",
+    "tone": "off",
+    "value": "7:00",
+    "paceSec": 420,
+    "paceLabel": "7:00"
+   },
+   {
+    "key": "km-3",
+    "n": 3.5,
+    "title": "2:50",
+    "sub": "3.5 ק״מ (חלקי)",
+    "tone": "off",
+    "value": "5:40",
+    "paceSec": 340,
+    "paceLabel": "5:40"
+   }
+  ],
+  "band": {
+   "min": 380,
+   "max": 410
+  },
+  "fastestLabel": "הכי מהיר: ק״מ 2",
+  "lastKmPace": "7:00"
+ },
+ "planLast": {
+  "name": "x",
+  "weekLabel": "שבוע 2/2",
+  "positionLabel": "אימון 2 מתוך 2 השבוע",
+  "nextLabel": null,
+  "ring": {
+   "percent": 100,
+   "basePercent": 75,
+   "gainPercent": 25
+  },
+  "gain": 25
+ },
+ "planDefault": {
+  "name": "תוכנית ריצה",
+  "weekLabel": "שבוע 1/2",
+  "positionLabel": "אימון 1 מתוך 2 השבוע",
+  "nextLabel": "הבא: אינטרוולים קצרים",
+  "ring": {
+   "percent": 25,
+   "basePercent": 0,
+   "gainPercent": 25
+  },
+  "gain": 25
+ }
+}

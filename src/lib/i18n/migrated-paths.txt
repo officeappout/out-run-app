@@ -803,3 +803,33 @@ src/features/content/exercises/client/components/EquipmentFilterSheet.tsx
 src/features/content/exercises/client/components/EquipmentFilterShell.tsx
 src/features/weather/components/WeatherChip.tsx
 src/lib/app-help/chapters.ts
+# i18n batch ax — hybrid station / v2 player, hybrid overview axis, v2 summary mappings, workout overview page (namespaces player / map / summary / library)
+src/app/map/recenter-control.ts
+src/app/workouts/[id]/overview/
+src/features/workout-engine/hybrid/HybridStationCta.tsx
+src/features/workout-engine/hybrid/HybridStationLayer.tsx
+src/features/workout-engine/hybrid/StationCompleteScreen.tsx
+src/features/workout-engine/hybrid/StationWelcomeScreen.tsx
+src/features/workout-engine/hybrid/guided-station.ts
+src/features/workout-engine/hybrid/station-tutorial.ts
+src/features/workout-engine/hybrid/hybrid-walk-state.ts
+src/features/workout-engine/hybrid/v2/HybridOverlayV2.tsx
+src/features/workout-engine/hybrid/v2/HybridRunLegV2.tsx
+src/features/workout-engine/hybrid/v2/HybridSessionListV2.tsx
+src/features/workout-engine/hybrid/v2/HybridTransitionCardV2.tsx
+src/features/workout-engine/hybrid/v2/HybridMiniV2.tsx
+src/features/workout-engine/hybrid/v2/hybrid-v2-view.ts
+src/features/workout-engine/hybrid/v2/hybrid-v2-list.ts
+src/features/parks/core/components/hybrid/HybridJourneyAxis.tsx
+src/features/parks/core/components/hybrid/route-questionnaire-line.ts
+src/features/workout-engine/summary/blocks/IdentityUnitsRow.tsx
+src/features/workout-engine/summary/blocks/SummarySheet.tsx
+src/features/workout-engine/summary/v2-summary.mapping.ts
+src/features/workout-engine/summary/run-type/run-type.mapping.ts
+src/features/workouts/components/ExpandableText.tsx
+src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts
+src/features/workout-engine/players/strength/logic/player-controls.utils.ts
+# schedule tutorial v1 (namespace schedule, keys tutorial.* / dayCards.*): new folders, translation-ready from the start.
+src/features/schedule/tutorial-v1
+src/features/schedule/day-cards
+src/features/schedule/home-today

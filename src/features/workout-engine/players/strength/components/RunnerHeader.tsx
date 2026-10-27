@@ -243,7 +243,7 @@ export default function RunnerHeader({
         {!isResting && !tabataInterval && totalRounds > 1 && !isWarmupSegment && !isCooldownSegment && (
           <div className="flex justify-end items-center gap-1.5 mb-2">
             {(() => {
-              const label = setCounterLabel(firstIncompleteSetIdx, currentRound, currentExLoggedReps.length || totalRounds);
+              const label = setCounterLabel(firstIncompleteSetIdx, currentRound, currentExLoggedReps.length || totalRounds, t);
               return label ? (
                 <span
                   className={v2 ? 'text-[12px] font-extrabold text-v2-deep me-1 whitespace-nowrap tabular-nums' : 'text-[11px] font-bold text-[#007EA8] me-1 tabular-nums'}

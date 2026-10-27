@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface ExpandableTextProps {
   text: string;
@@ -19,6 +21,7 @@ export default function ExpandableText({
   maxLines = 3,
   className = '',
 }: ExpandableTextProps) {
+  const t = useT(library);
   const [isExpanded, setIsExpanded] = useState(false);
   const [needsExpansion, setNeedsExpansion] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
@@ -61,16 +64,16 @@ export default function ExpandableText({
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="mt-2 text-[#00ADEF] hover:text-[#0099D6] text-sm font-medium flex items-center gap-1 transition-colors"
-          aria-label={isExpanded ? 'הצג פחות' : 'קרא עוד'}
+          aria-label={isExpanded ? t('workouts.expandable.less') : t('workouts.expandable.more')}
         >
           {isExpanded ? (
             <>
-              <span>הצג פחות</span>
+              <span>{t('workouts.expandable.less')}</span>
               <ChevronUp size={16} />
             </>
           ) : (
             <>
-              <span>קרא עוד...</span>
+              <span>{t('workouts.expandable.moreDots')}</span>
               <ChevronDown size={16} />
             </>
           )}
