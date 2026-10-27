@@ -131,7 +131,7 @@ describe('pure helpers', () => {
     expect(suppressedByWindow(QUIET)).toBe('quiet_hours');
     expect(suppressedByWindow(SHABBAT)).toBe('shabbat');
     expect(suppressedByWindow(DELIVERED)).toBeNull();
-    expect(suppressedByWindow({ attempted: 1, delivered: 0 })).toBeNull(); // prefs / caps: never retried
+    expect(suppressedByWindow({ delivered: 0 })).toBeNull(); // prefs / caps: never retried
     expect(suppressedByWindow(null)).toBeNull();
   });
   it('reminder: sent only while planned, same owner + start, and not started', () => {
