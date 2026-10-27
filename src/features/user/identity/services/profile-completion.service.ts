@@ -88,6 +88,8 @@ export interface CompletionResult {
 export function calculateProfileCompletion(
   profile: UserFullProfile | null,
   enableRunningPrograms = true,
+  /** The persona step is not part of this UI (utils/he-only-steps.ts): its item counts as done, never a dead tap. */
+  personaStepHidden = false,
 ): CompletionResult {
   if (!profile) {
     return { percentage: 0, items: [], pending: [], isVerified: false };
@@ -182,7 +184,7 @@ export function calculateProfileCompletion(
     {
       id: 'persona',
       label: 'סגנון חיים',
-      completed: hasAnsweredPersona(profile),
+      completed: personaStepHidden || hasAnsweredPersona(profile),
       weight: 10,
       bucket: 'strength',
       step: 'PERSONA',

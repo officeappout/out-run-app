@@ -111,6 +111,7 @@ import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user
 import { getWorkoutsForDate, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useShowHeOnlySteps } from '@/features/user/onboarding/hooks/useShowHeOnlySteps';
 import { loadingLook } from '@/hooks/feature-flag-viewer-cache';
 import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 import { useCalmReturn } from '@/features/home/hooks/useCalmReturn';
@@ -186,6 +187,7 @@ const GROUP_VERB: Record<string, string> = {
 // ════════════════════════════════════════════════════════════════════
 
 function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
+  const showHeOnlySteps = useShowHeOnlySteps();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -199,8 +201,8 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
   // percentage still short because strength items counted against them
   // invisibly). completion.items is now correct to render directly.
   const completion = useMemo(
-    () => calculateProfileCompletion(profile),
-    [profile],
+    () => calculateProfileCompletion(profile, undefined, !showHeOnlySteps),
+    [profile, showHeOnlySteps],
   );
 
   if (completion.isVerified || completion.percentage >= 100) return null;
