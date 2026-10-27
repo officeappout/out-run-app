@@ -20,15 +20,27 @@ const TYPE = { literal: 0, argument: 1, number: 2, date: 3, time: 4, select: 5, 
 export type Severity = 'error' | 'warn';
 export interface Issue { ns: string; key: string; check: string; severity: Severity; message: string }
 
+/**
+ * Batch 2 (onboarding): keys deliberately left Hebrew (they fall back per key). Reasons:
+ * persona step (composed sentences needing articles; the component hard-codes English today; term pending),
+ * identity.gender.* (the Hebrew asks "how should we address you", meaning changes in English),
+ * hierarchy.* / unitDeclaration.* / personaDrawer.staleUnit (military unit picker, hidden by owner decision),
+ * healthDeclaration.* (legal / medical text, lawyer-reviewed), goalNote examples about enlistment and reserve duty.
+ */
+export const ONBOARDING_SKIPPED = new RegExp(
+  '^(steps\\.persona\\.(?!code\\.)|steps\\.processing\\.(persona|personaGendered|msg\\.building)$|identity\\.gender\\.|hierarchy\\.|unitDeclaration\\.|personaDrawer\\.staleUnit$|healthDeclaration\\.|goalNote\\.example\\.(a18_29\\.(3|4)|a30_44\\.1)$)',
+);
+
 /** Pilot scope (EN-PILOT-PLAN §2): every key of common and pages, the settings.* keys of home. */
 export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   common: () => true,
   pages: () => true,
   home: (k) => k.startsWith('settings.'),
+  onboarding: (k) => !ONBOARDING_SKIPPED.test(k),
 };
 
 /** Strings that may equal the Hebrew (do-not-translate items). */
-const SAME_AS_HEBREW_OK = /^[\s\d.,:;/\-+·×%#A-Za-z]*$/u; // only latin/digits/punctuation (brand words, XP...)
+const SAME_AS_HEBREW_OK = /^[\s\d.,:;/\-–+·×%#A-Za-z{}]*$/u; // only latin/digits/punctuation (brand words, XP...)
 const HEBREW = /[֐-׿־׳״]/u;
 const GENDER_BRANCHES = new Set(['female', 'male', 'other']);
 const BANNED = [
@@ -90,7 +102,7 @@ const capFor = (key: string): number | null => {
   return null;
 };
 
-const numbers = (s: string) => (s.replace(/\{[^}]*\}/g, '').match(/\d+(?:[.,]\d+)*/g) ?? []).sort();
+const numbers = (w: Walked) => (w.texts.join(' ').match(/\d+(?:[.,]\d+)*/g) ?? []).sort();
 
 export interface ValidateInput {
   ns: string;
@@ -158,11 +170,11 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     if (/\b(he\/she|she\/he|s\/he|\(s\)he|his\/her|him\/her)\b/i.test(enMsg)) add(key, 'V6', 'error', 'gendered slash form');
 
     // V7 rich tags
-    if ([...h.tags].sort().join(',') !== [...e.tags].sort().join(',')) add(key, 'V7', 'error', `tags differ: he [${h.tags}] en [${e.tags}]`);
+    if ([...new Set(h.tags)].sort().join(',') !== [...new Set(e.tags)].sort().join(',')) add(key, 'V7', 'error', `tags differ: he [${h.tags}] en [${e.tags}]`);
 
     // V10 stray digits
-    const hn = numbers(heMsg);
-    for (const d of numbers(enMsg)) if (!hn.includes(d)) add(key, 'V10', 'error', `number ${d} not in Hebrew`);
+    const hn = numbers(h);
+    for (const d of numbers(e)) if (!hn.includes(d)) add(key, 'V10', 'error', `number ${d} not in Hebrew`);
 
     // V11 length (warning)
     const cap = capFor(key);
@@ -190,6 +202,21 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     ];
     for (const [he_, en_, term] of GLOSS) if (he_.test(heMsg) && !en_.test(enMsg)) add(key, 'V13', 'warn', `Hebrew trigger ${he_} but English lacks "${term}"`);
     if (/fitness park/i.test(enMsg)) add(key, 'V13', 'error', '"fitness park" is not the approved term (outdoor gym / calisthenics park)');
+
+    // V15 a count/number interpolated next to a noun must be an ICU plural (one/other), not "{n} workouts"
+    const flat = enMsg.replace(/\{(\w+), plural,/g, '\u0000');
+    const COUNT_NOUN = /\{\w+(?:, number)?\}\s+(minutes?|weeks?|days?|hours?|runs?|walks?|steps?|workouts?|exercises?|stations?|stops?|members?|sessions?|questions?|reps|sets|users|people|friends|points?|kudos)\b/i;
+    const cm = COUNT_NOUN.exec(flat);
+    const cmArg = cm && /^\{(\w+)/.exec(cm[0])![1];
+    if (cm && !e.plurals.has(cmArg!)) add(key, 'V15', 'error', `count next to a noun without an ICU plural: ${cm[0]}`);
+    for (const [n, eb] of e.plurals) {
+      if (!eb.includes('other')) add(key, 'V15', 'error', `plural {${n}} has no "other"`);
+      if (!eb.includes('one') && !eb.some((b) => b.startsWith('='))) add(key, 'V15', 'error', `plural {${n}} has no "one" (or =N) branch`);
+    }
+    // V16 no spaces just inside a rich tag
+    if (/<(\w+)>\s|\s<\/\w+>/.test(enMsg)) add(key, 'V16', 'error', 'space inside a rich tag (<b> text </b>)');
+    // V17 Sign in / Sign out, never "log"
+    if (/\blog(ged)?[ -]?(in|out|into)\b/i.test(enMsg)) add(key, 'V17', 'error', 'use "Sign in" / "Sign out", never "log in/out"');
 
     // V14 untranslated
     if (enMsg === heMsg && !SAME_AS_HEBREW_OK.test(enMsg)) add(key, 'V14', 'error', 'English equals Hebrew');
