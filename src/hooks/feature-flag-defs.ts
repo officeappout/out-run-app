@@ -771,6 +771,12 @@ export const FLAG_DEFS = [
   // (real minutes ring, day cards scrolled sideways: workout, steps ring, short optional), flames explainer, then the
   // home tour starts from today's cards (no-workout day variant). Fail-closed; super admins preview it. Off = identical.
   { key: 'enableScheduleTutorialV1', firestoreKey: 'enable_schedule_tutorial_v1', defaultValue: true, superAdminValue: true, graduated: true },
+  // First-run map tutorial (27.10.2026, owner-approved canvas boards M1-M8, pilot notes L3, L5, L7-L13): the location
+  // drawer explains the league and the drag (chip above a smaller lemur, closer zoom), the what-now route card copy,
+  // "just look around" promises 3 things, the route tour (details, garden stop, order, "יאללה, בואו נתחיל" opens it),
+  // the real route card with an "i" ("why this route") drawer and a whole-card tap, the workout drawer tour, and the
+  // new questionnaire card. Fail-closed; super admins preview it. NOT graduated: the owner tests it on the phone first.
+  { key: 'enableMapTutorialV1', firestoreKey: 'enable_map_tutorial_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

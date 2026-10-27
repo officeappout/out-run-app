@@ -31,6 +31,10 @@ import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybri
 import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
 import { resolveSwipeNudge, SWIPE_HINT_V2 } from './swipe-hint';
 import PlannedRunSlotCard from './PlannedRunSlotCard';
+import QuizPromptCard from './QuizPromptCard';
+import RouteWhySheet from './RouteWhySheet';
+import { routeWhy } from './route-why';
+import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
 
 // When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
 // (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
@@ -174,7 +178,7 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
 // — pointerdown on card A must not let a click on card B fire (id match); (c) stale
 // arms from a carousel drag — the track's onDragStart clears the armed id. The card
 // body is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
-function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal, slim = false, guardInactiveCta = false, onFocusCard, coach = false, footnote = null }: {
+function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal, slim = false, guardInactiveCta = false, onFocusCard, coach = false, footnote = null, tutorialV1 = false, onInfo }: {
   slot: HybridSlot;
   onSelect: () => void;
   onArm: () => void;
@@ -191,6 +195,10 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
   /** enable_entry_whatnow_v1: the focused card → the first-route tutorial's targets. */
   coach?: boolean;
   footnote?: string | null;
+  /** enable_map_tutorial_v1 (boards M4/M8, L10-L12): description into the "i" drawer, whole-card tap,
+   *  no footnote (it moved under the drawer's start), the new questionnaire card. */
+  tutorialV1?: boolean;
+  onInfo?: () => void;
 }) {
   // route_stops only: the real total as a compact framed pill (same border/shadow language as the
   // overview's calorie/distance chips). The wrapper keeps a fixed height so the card doesn't jump
@@ -240,6 +248,9 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
   const extraLine = reasonLine
     ? <div className="flex flex-col items-center gap-1">{reasonLine}{totalLine}</div>
     : totalLine;
+  if (slot.kind === 'assessment_prompt' && tutorialV1) {
+    return <QuizPromptCard onSelect={onSelect} onArm={onArm} consumeArmed={consumeArmed} />;
+  }
   if (slot.kind === 'assessment_prompt') {
     return <AssessmentPromptCard onSelect={onSelect} onArm={onArm} consumeArmed={consumeArmed} />;
   }
@@ -265,10 +276,15 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
     return (
       <RouteCardUnified
         name={slot.title}
-        subtitle={slot.subtitle}
+        subtitle={tutorialV1 ? undefined : slot.subtitle}
         difficulty={slot.bolts}
         recommended={slot.recommended}
-        extraContent={extraLine}
+        extraContent={tutorialV1 ? totalLine : extraLine}
+        onInfo={tutorialV1 ? onInfo : undefined}
+        // L12: the whole focused card opens the route (same arming as the CTA; a peeking card's tap
+        // is the carousel wrapper's "centre me").
+        onCardPointerDown={tutorialV1 ? onArm : undefined}
+        onClick={tutorialV1 && isActive ? () => { if (consumeArmed()) onSelect(); } : undefined}
         variant={slim ? 'slim' : 'default'}
         // slim: fill the carousel wrapper (cardW) instead of the 85vw token, so the card can't overflow it
         className={slim ? '!w-full !max-w-none' : undefined}
@@ -276,7 +292,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         // first-route tour targets (FIRST_RUN_COACH.routeCard / routeStart) — literals, no cross-domain import
         coachId={coach ? 'route-card' : undefined}
         ctaCoachId={coach ? 'route-start' : undefined}
-        footnote={footnote}
+        footnote={tutorialV1 ? null : footnote}
         onCtaPointerDown={onArm}
         onCta={(e) => {
           e.stopPropagation();
@@ -422,6 +438,9 @@ export default function HybridSlotCarousel({
   firstWorkoutNote = null,
 }: HybridSlotCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  // enable_map_tutorial_v1 (boards M4/M5/M8): the tutorial's card + the "why this route" drawer.
+  const tutorialV1 = useMapTutorialV1();
+  const [whySlot, setWhySlot] = useState<HybridSlot | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [cardW, setCardW] = useState(CARD_MAX_W);
   const [viewportW, setViewportW] = useState(390);
@@ -608,6 +627,8 @@ export default function HybridSlotCarousel({
                     guardInactiveCta={swipeHint}
                     coach={entryTutorial && isActive}
                     footnote={entryTutorial ? firstWorkoutNote : null}
+                    tutorialV1={tutorialV1}
+                    onInfo={() => setWhySlot(slot)}
                     onFocusCard={() => handleSelect(i)}
                     onSelect={() => onSelectSlot(slot)}
                     onArm={() => { armedSlotIdRef.current = slot.id; }}
@@ -637,6 +658,21 @@ export default function HybridSlotCarousel({
             />
           ))}
         </div>
+      )}
+
+      {tutorialV1 && (
+        <RouteWhySheet
+          open={whySlot != null}
+          description={whySlot?.subtitle || null}
+          why={whySlot ? routeWhy({
+            reason: whySlot.reason,
+            total: whySlot.id === 'route_stops' ? routeStopsTotal : null,
+            walks: (whySlot.kind === 'hybrid' && whySlot.preset.aerobicKind === 'walking') || (whySlot.kind === 'aerobic_quick' && whySlot.aerobicKind === 'walking'),
+            hasStrength: whySlot.kind === 'hybrid',
+          }) : null}
+          onClose={() => setWhySlot(null)}
+          onView={() => { const s = whySlot; setWhySlot(null); if (s) onSelectSlot(s); }}
+        />
       )}
 
       {/* build-yourself escape hatch */}

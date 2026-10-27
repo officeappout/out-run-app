@@ -23,6 +23,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { hasKnownIdentity, seedOnboardingTrackEntry } from '../../utils/onboarding-entry';
 import { isStrengthSignupHref, whatNowPlanHref } from '../../utils/strength-choice-route';
 import { hasAnyProgram } from '@/lib/landing-fallback/fallback-routes';
+import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
 
 export interface EntryWhatNowHostProps {
   enabled: boolean;
@@ -45,7 +46,8 @@ export default function EntryWhatNowHost(props: EntryWhatNowHostProps) {
 
 function EntryWhatNowInner({ enabled, landing, uid, position, route, blocked, kellyAvailable, onRoute, onAnswered }: EntryWhatNowHostProps) {
   const router = useRouter();
-  const state = useEntryWhatNow({ enabled, landing, uid, position, route, blocked });
+  const mapTutorialV1 = useMapTutorialV1();
+  const state = useEntryWhatNow({ enabled, landing, uid, position, route, blocked, copyV1: mapTutorialV1 });
   const { open: aerobicOpen } = useAerobicProgramsOpen();
   const profile = useUserStore((s) => s.profile);
 
@@ -70,6 +72,7 @@ function EntryWhatNowInner({ enabled, landing, uid, position, route, blocked, ke
       routeCopy={state.routeCopy}
       routeMapUrl={whatNowMiniMapUrl(state.routeCenter, process.env.NEXT_PUBLIC_MAPBOX_TOKEN)}
       showKelly={kellyAvailable}
+      browseV1={mapTutorialV1}
       onAnswer={onAnswer}
     />
   );
