@@ -6,7 +6,7 @@
  */
 import { PRIORITY_TUNING, STREAK_COMFORT, W } from './config';
 import { canonicalSlug, H6_PATTERNS, HEAVY_LEGS, MODERATE_LEGS, SKILL_CNS, SPREAD_PATTERN_LOAD } from './programProfiles';
-import { gapDays, isKeyRun, isLongRun, isQualityRun, nextDay, type Grid } from './rules';
+import { gapDays, isEasyRun, isKeyRun, isLongRun, isQualityRun, nextDay, type Grid } from './rules';
 import type { SchedulePriority, TrainingLevel } from './types';
 import type { Unit } from './units';
 
@@ -104,12 +104,16 @@ export function scoreFull(grid: Grid, ctx: ScoreCtx): { total: number; breakdown
   scoreRuns(grid, ctx, b);
   const tuning = PRIORITY_TUNING[ctx.priority];
   let doubles = 0;
+  const easyDays = grid.run.filter(isEasyRun).length;
   for (let d = 0; d < 7; d++) {
     const s = grid.strength[d];
     const r = grid.run[d];
+    // R29: heavy legs on an easy-run day is the preferred home (no S5), elsewhere a soft cost.
+    const legsOnEasy = !!s && s.load.legs >= HEAVY_LEGS && isEasyRun(r);
+    if (s && easyDays > 0 && s.load.legs >= HEAVY_LEGS && !legsOnEasy) add(b, 'R29', W.R29_LEGS_OFF_EASY_DAY);
     if (s && r) {
       doubles++;
-      if (!isQualityRun(r)) add(b, 'S5', W.S5_DOUBLE_NOT_QUALITY);
+      if (!isQualityRun(r) && !legsOnEasy) add(b, 'S5', W.S5_DOUBLE_NOT_QUALITY);
       if (s.load.cns >= SKILL_CNS && s.isSkill) add(b, 'S12', W.S12_SKILL_WITH_RUN);
       if (s.isSkill) add(b, 'P_SKILL_WITH_RUN', tuning.skillWithRun);
       if (isKeyRun(r)) add(b, 'P_STRENGTH_AFTER_KEY', tuning.strengthAfterKeyRun);

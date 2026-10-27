@@ -4,8 +4,8 @@
  */
 export const ENGINE_CHOICE: Record<string, { week: string; note: string }> = {
   S02: {
-    week: "push | pull | quality_primary+legs | - | - | long_run | -",
-    note: 'one double, on the quality day (legs after Q1); push/pull on their own days.',
+    week: "push | quality_primary+pull | legs | - | - | long_run | -",
+    note: 'R30 (27.10): only upper body next to a quality run, so pull doubles on Q1 and legs gets its own day (was quality_primary+legs).',
   },
   S04: {
     week: "- | quality_primary | - | quality_secondary | - | long_run | easy_run",
@@ -68,16 +68,16 @@ export const ENGINE_CHOICE: Record<string, { week: string; note: string }> = {
     note: "DEVIATION: Q1 on Wednesday. The fixture forbids Q1 on day 3; the doc's week has legs Tuesday, and its intent (no legs the day before Q1, H3) holds here (legs Monday). Pinned, constraint waived below.",
   },
   S27: {
-    week: "quality_primary+upper_body | easy_run | upper_body | quality_secondary+legs | upper_body | long_run | -",
-    note: 'two doubles on the quality days; legs Wednesday (2 days before the long run).',
+    week: "quality_primary+upper_body | easy_run+legs | upper_body | quality_secondary | upper_body | long_run | -",
+    note: 'R29 (27.10): legs after the easy run on Monday (was quality_secondary+legs on Wednesday).',
   },
   S28: {
     week: "- | quality_primary | - | quality_secondary | - | long_run | -",
     note: 'Q1 Mon, Q2 Wed, long Fri.',
   },
   S31: {
-    week: "quality_primary+full_body | - | quality_secondary+full_body | - | long_run | - | -",
-    note: 'both full bodies doubled on the quality days, run first.',
+    week: "quality_primary | upper_body | quality_secondary | upper_body | long_run | - | -",
+    note: 'R30 (27.10): no full body next to a quality run; every free day precedes a key run, so both full bodies run as upper body (was both doubled on the quality days).',
   },
   S32: {
     week: "- | - | - | quality_primary | - | long_run | -",
@@ -86,4 +86,27 @@ export const ENGINE_CHOICE: Record<string, { week: string; note: string }> = {
 };
 
 /** Fixture constraints the engine deliberately does not meet (index into expected.constraints). */
+/**
+ * Exact fixtures whose expected layout contradicts a rule the owner approved later (27.10.2026:
+ * R29 legs on an easy-run day, R30 quality runs alone or with upper body only). The new week is
+ * pinned here; the fixture's reasons that described the old double are listed as retired.
+ */
+export const RULE_CHANGED_LAYOUT: Record<string, { week: string; retiredReasons: string[]; note: string }> = {
+  S01: {
+    week: "quality_primary | planche | quality_secondary | front_lever | long_run | - | -",
+    retiredReasons: ['QUALITY_RUN_FIRST'],
+    note: 'R30: legs may not follow the intervals; no easy-run day exists and every other day precedes a key run (H3), so legs is dropped and reported (STRENGTH_REDUCED_LONG_RUN_PROTECTED). Was quality_primary+legs on Sunday.',
+  },
+  S10: {
+    week: "full_body | - | quality_primary+upper_body | - | long_run | - | -",
+    retiredReasons: [],
+    note: 'R30: the full body that doubles with Q1 becomes its no-legs variant (upper body).',
+  },
+  S31: {
+    week: "quality_primary | upper_body | quality_secondary | upper_body | long_run | - | -",
+    retiredReasons: ['QUALITY_RUN_FIRST'],
+    note: 'R30: no doubles on the quality days any more (see ENGINE_CHOICE.S31).',
+  },
+};
+
 export const WAIVED_CONSTRAINTS: Record<string, number[]> = { S26: [1] };

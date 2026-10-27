@@ -541,6 +541,13 @@ export interface WorkoutGenerationContext {
   straightArmRatio?: number;
   weeklySASets?: number;
   weeklySACap?: number;
+  /**
+   * Core weekly target (owner 27.10.2026, R31): the week's core set target and the core sets
+   * done so far. When the target is met the core slot is skipped (protocols/core-weekly-target.ts).
+   * Absent = unchanged behavior.
+   */
+  weeklyCoreTarget?: number;
+  weeklyCoreSets?: number;
   maxSets?: number;
   /** @deprecated */
   levelDefaultRestSeconds?: number;

@@ -16,7 +16,7 @@ import {
   WALK_MINUTES,
 } from './config';
 import type { DayAvailability } from './availability';
-import { canonicalSlug, isOapu, profileOfProgram } from './programProfiles';
+import { canonicalSlug, HEAVY_LEGS, isOapu, profileOfProgram } from './programProfiles';
 import type { Grid } from './rules';
 import type { PlacedSession, ScheduleEngineInput, SchedulePriority, TimeWindow } from './types';
 import type { Unit } from './units';
@@ -47,8 +47,10 @@ export function orderDay(run: Unit | null, strength: Unit | null, priority: Sche
   if (!run) return st;
   const r = runSession(run);
   if (!strength) return [r];
-  // H5: a quality / long run always goes first. Easy-run doubles follow the priority.
-  if (!isKeySlot(run.slot) && PRIORITY_TUNING[priority].strengthFirstOnEasyDouble) return [...st, r];
+  // H5: a quality / long run always goes first. Easy-run doubles follow the priority,
+  // except legs on an easy-run day: legs after the run (R29).
+  const legsDay = strength.load.legs >= HEAVY_LEGS;
+  if (!isKeySlot(run.slot) && !legsDay && PRIORITY_TUNING[priority].strengthFirstOnEasyDouble) return [...st, r];
   return [r, ...st];
 }
 

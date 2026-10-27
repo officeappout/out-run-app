@@ -23,7 +23,7 @@ import {
   toEngineInput,
   type Fixture,
 } from './fixtureHarness';
-import { ENGINE_CHOICE, WAIVED_CONSTRAINTS } from './engineChoices';
+import { ENGINE_CHOICE, RULE_CHANGED_LAYOUT, WAIVED_CONSTRAINTS } from './engineChoices';
 import type { WeekPlan } from '../types';
 
 function compact(plan: WeekPlan): string {
@@ -61,14 +61,19 @@ describe('schedule engine v2 — fixtures (layout scenarios)', () => {
       const ctx = `\n${describe7(plan)}\npenalty ${plan.penalty} ${JSON.stringify(plan.penaltyBreakdown)}`;
 
       expect(plan.hardViolations, `hard violations${ctx}`).toEqual([]);
-      if (exp.exact) expect(layoutDiffs(exp.layout, layout), `exact layout${ctx}`).toEqual([]);
+      const changed = RULE_CHANGED_LAYOUT[f.id];
+      if (changed) expect(compact(plan), `rule-changed layout (${changed.note})`).toBe(changed.week);
+      else if (exp.exact) expect(layoutDiffs(exp.layout, layout), `exact layout${ctx}`).toEqual([]);
       expect(mustHoldFailures(exp.mustHold ?? [], plan, input), `mustHold${ctx}`).toEqual([]);
       const waived = WAIVED_CONSTRAINTS[f.id] ?? [];
       const constraints = (exp.constraints ?? []).filter((_: unknown, i: number) => !waived.includes(i));
       expect(constraintFailures(constraints, layout), `constraints${ctx}`).toEqual([]);
       if (!exp.exact) expect(compact(plan), `pinned engine choice (${ENGINE_CHOICE[f.id]?.note})`).toBe(ENGINE_CHOICE[f.id]?.week);
       const codes = reasonCodes(plan);
-      const missing = (exp.reasons ?? []).map((r: string) => REASON_ALIASES[r] ?? r).filter((r: string) => !codes.has(r));
+      const missing = (exp.reasons ?? [])
+        .filter((r: string) => !changed?.retiredReasons.includes(r))
+        .map((r: string) => REASON_ALIASES[r] ?? r)
+        .filter((r: string) => !codes.has(r));
       expect(missing, `reasons${ctx}\n${Array.from(codes).join(', ')}`).toEqual([]);
       for (const d of plan.days) expect(d.reasonsHe.length, `day ${d.dow} has a Hebrew reason`).toBeGreaterThan(0);
     });

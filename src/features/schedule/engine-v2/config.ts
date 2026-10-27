@@ -59,6 +59,11 @@ export const W = {
   TIE_DOUBLE_DAY: 1,
   /** Tie-break: spread same-program sessions (× Σ 1/gap). */
   TIE_SPREAD: 0.5,
+  /**
+   * R29 (owner 27.10.2026): heavy legs belong on an easy-run day. Per heavy-legs day that is
+   * not on an easy / recovery run day, when the week has one. Legs + easy run is exempt from S5.
+   */
+  R29_LEGS_OFF_EASY_DAY: 3,
   /** A full body swapped to its no-legs variant (cheaper than S7). */
   VARIANT_SWAP: 4,
 } as const;

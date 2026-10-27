@@ -11,6 +11,7 @@ import {
   breaksH4,
   breaksH6,
   breaksH7,
+  breaksH11,
   cloneGrid,
   isKeyRun,
   isQualityRun,
@@ -108,10 +109,12 @@ export function searchWeek(runs: Unit[], strength: Unit[], ctx: SearchCtx, extra
       const options: Unit[] = [u];
       const n = nextDay(d);
       const keyTomorrow = n !== null && isKeyRun(grid.run[n]);
-      const v = keyTomorrow ? variantOfUnit(u) : null;
+      // The no-legs variant also serves a quality day (H11: upper body only next to intervals / tempo).
+      const v = keyTomorrow || isQualityRun(grid.run[d]) ? variantOfUnit(u) : null;
       if (v) options.push(v);
       for (const cand of options) {
         if (breaksH3(cand, d, grid)) continue;
+        if (breaksH11(cand, grid.run[d])) continue;
         let ok = true;
         for (let e = 0; e < 7 && ok; e++) {
           const o = grid.strength[e];
