@@ -229,3 +229,8 @@
 - Kelly: "he"; "your coach Kelly".
 - Hidden from English users in the pilot: brigade/battalion/company/unit-league wording (military terms). Those keys stay untranslated and fall back to Hebrew.
 - Remaining `needs owner decision` rows that are not in the 12 (#66, #73, #83, #89, #96, #101, #112, #132): the proposed English applies provisionally; they are not in the pilot scope except where noted by the English-speaker review.
+
+### Keys hidden from English users (decision 12)
+
+None of these is in the 368-key pilot; when `community` is translated they must stay untranslated (fallback to Hebrew) or be gated by locale:
+`community:leagues.units.range.myBattalionCompanies`, `community:leagues.units.range.myBrigadeBattalions`, `community:leagues.units.range.allCompanies`, `community:leagues.units.range.allBrigades`, `community:communityPage.leagues.v2.tab.units`, `community:communityPage.reserve.scopeLabel`, `community:communityPage.cards.reserve`, `community:arenaCreate.card.military.label`, `community:group.location.military`.
