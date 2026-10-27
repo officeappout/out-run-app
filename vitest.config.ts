@@ -55,7 +55,7 @@ export default defineConfig({
       'src/features/search/__tests__/**/*.test.tsx',
       // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.
       'src/features/user/onboarding/intro/__tests__/**/*.test.tsx',
-      // Schedule tutorial v1 (enable_schedule_tutorial_v1) + shared day cards — static-markup render tests.
+      // Schedule tutorial v1 (enable_schedule_tutorial_v1) + shared day cards: static-markup render tests.
       'src/features/schedule/tutorial-v1/__tests__/**/*.test.tsx',
       'src/features/schedule/day-cards/__tests__/**/*.test.tsx',
       // i18n wave 2 pilot (profile namespace) — Hebrew markup parity, static markup.

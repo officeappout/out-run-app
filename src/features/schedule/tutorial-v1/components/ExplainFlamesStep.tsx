@@ -22,7 +22,7 @@ export default function ExplainFlamesStep({ onDone }: { onDone: () => void }) {
     <div className="relative flex min-h-full flex-col items-center gap-3.5 overflow-hidden bg-[#fffaf5] px-5 pb-7 pt-4 text-v2-ink">
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[70px] h-[380px] w-[380px] -translate-x-1/2 rounded-full"
+        className="pointer-events-none absolute inset-x-0 top-[70px] mx-auto h-[380px] w-[380px] rounded-full"
         style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2), rgba(249,115,22,0) 65%)' }}
       />
       <span className="relative self-start rounded-full bg-[#ffedd5] px-3 py-1.5 text-[13px] font-extrabold text-[#9a3412]">{t('tutorial.flames.badge')}</span>
