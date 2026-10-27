@@ -52,7 +52,7 @@ export default function PlannedDayPreview({ dateISO, plan }: PlannedDayPreviewPr
   const t = useT(home);
   const tc = useT(common);
   return (
-    <div className="mx-auto mb-4 w-full max-w-[358px] px-4" data-planned-day-preview={dateISO}>
+    <div className="mx-auto mb-4 w-full max-w-[358px] px-4" dir="rtl" data-planned-day-preview={dateISO}>
       <Card padding="md">
         <SectionHeader as="h3" size={17} title={plannedForTitle(dateISO, t, tc)} />
         <div className="mt-3 flex flex-col gap-2">

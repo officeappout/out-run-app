@@ -273,7 +273,7 @@ export default function NearbyGroupsRow() {
 
   return (
     <>
-      <section className="space-y-2">
+      <section dir="rtl" className="space-y-2">
         {/* Header row: title + count + filter icon + "all" link */}
         <div className="flex items-center justify-between">
           <h3

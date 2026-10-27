@@ -274,7 +274,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   // build your plan" / "no running plan" for a moment on every app open.
   if (!_hasHydrated) {
     return (
-      <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE}>
+      <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-gray-200 dark:bg-zinc-700 animate-pulse flex-shrink-0" />
           <div className="flex-1 min-w-0 space-y-2">
@@ -298,7 +298,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
     // State A — stuck, but everything needed to rebuild is already there.
     if (isStuck && canRebuild) {
       return (
-        <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE}>
+        <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
           <div className="flex items-center gap-3">
             <div
               className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -368,7 +368,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
     // pattern already used elsewhere in onboarding-sync.service.ts).
     if (isStuck && !canRebuild) {
       return (
-        <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE}>
+        <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
           <div className="flex items-center gap-3">
             <div
               className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -390,7 +390,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
     }
 
     return (
-      <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE}>
+      <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
         <div className="flex items-center gap-3">
           <div
             className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -474,7 +474,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
     const nextWorkoutDisplayName = nextRun?.workoutName ?? null;
 
     return (
-      <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE}>
+      <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
         <div className="flex items-center gap-3">
           <div
             className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -510,7 +510,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   }
 
   return (
-    <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE}>
+    <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
       <div className="flex items-center justify-between mb-1">
         <p className="text-xs font-bold text-slate-600">
           {calmWelcomeBack

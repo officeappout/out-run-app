@@ -67,7 +67,7 @@ export default function AddStrengthProgramCard({ profile, onNavigate, compact = 
         whileTap={{ scale: loading ? 1 : 0.97 }}
         onClick={handleTap}
         disabled={loading}
-        className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-32 text-start disabled:opacity-60 group"
+        className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-32 text-right disabled:opacity-60 group"
       >
         <div
           className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
@@ -79,7 +79,7 @@ export default function AddStrengthProgramCard({ profile, onNavigate, compact = 
             <Loader2 size={28} className="text-[#5BC2F2] animate-spin" />
           </div>
         )}
-        <div className="absolute bottom-0 start-0 end-0 p-4 flex flex-col items-start">
+        <div className="absolute bottom-0 right-0 left-0 p-4 flex flex-col items-start">
           <div className="flex items-center gap-2 mb-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -92,7 +92,7 @@ export default function AddStrengthProgramCard({ profile, onNavigate, compact = 
               {t('addStrength.title')}
             </h2>
           </div>
-          <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }}>
+          <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }} dir="rtl">
             {t('addStrength.body')}
           </p>
         </div>

@@ -5,7 +5,8 @@
  *   1. physical Tailwind classes inside className attributes -> RTL-pixel-identical logical ones
  *   2. hard-coded dir="rtl" attributes (removed; the element inherits <html dir>)
  *   3. directional lucide icons get `ltr:-scale-x-100` (no-op in Hebrew)
- * Never touches: dir="ltr" subtrees, dynamic dir, conditionals on direction/lang,
+ * Never touches: files rendered inside a direction override owned by ANOTHER file (LTR-HOST category: a carousel
+ * with direction:'ltr' whose cards relied on their own dir="rtl"; see wave4-ltr-hosts.ts), dir="ltr" subtrees, dynamic dir, conditionals on direction/lang,
  * strings outside className, inline styles, canvas/map/gesture math (reported only).
  */
 import fs from 'fs';
@@ -17,6 +18,7 @@ import {
   MANUAL_REVIEW_PATTERNS,
   mapClassString,
 } from '../../src/lib/i18n/wave4/logical-classes';
+import { scanLtrHosts } from './wave4-ltr-hosts';
 
 type Edit = { start: number; end: number; text: string };
 export type FileReport = {
@@ -202,10 +204,18 @@ if (require.main === module || process.argv[1]?.endsWith('wave4-codemod.ts')) {
   const args = process.argv.slice(2);
   const write = args.includes('--write');
   const targets = args.filter((a) => !a.startsWith('--'));
-  const totals = { files: 0, touched: 0, classTokens: 0, dirRemoved: 0, iconsFlipped: 0, skipped: 0 };
+  const totals = { files: 0, touched: 0, classTokens: 0, dirRemoved: 0, iconsFlipped: 0, skipped: 0, ltrHost: 0 };
+  const ltrInside = scanLtrHosts('src').inside;
   for (const t of targets) {
     for (const f of walkFiles(t)) {
       const src = fs.readFileSync(f, 'utf8');
+      const hosts = ltrInside.get(path.relative(process.cwd(), path.resolve(f)));
+      if (hosts) {
+        totals.files++;
+        totals.ltrHost++;
+        console.log(`LTR-HOST ${f}: rendered inside a direction override (${hosts.join(', ')}); left untouched, needs a dedicated English fix`);
+        continue;
+      }
       const { out, report } = transform(f, src);
       totals.files++;
       totals.classTokens += report.classTokens;

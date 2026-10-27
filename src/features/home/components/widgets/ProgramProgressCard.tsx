@@ -195,6 +195,7 @@ export function ProgramProgressCard({
           borderRadius: 12,
           border: '1px dashed #CBD5E1',
         }}
+        dir="rtl"
       >
         <div className="flex items-start gap-2 min-h-[40px]">
           <span className="text-gray-400 flex-shrink-0 mt-0.5">
@@ -253,6 +254,7 @@ export function ProgramProgressCard({
               isolation: 'isolate',
             }
       }
+      dir="rtl"
     >
       {/* ── Top section: clickable to expand ──────────────────── */}
       {/* Using <div role="button"> instead of <button> so this component can
@@ -264,7 +266,7 @@ export function ProgramProgressCard({
         aria-disabled={!hasGoals || undefined}
         onClick={() => hasGoals && setExpanded(v => !v)}
         onKeyDown={(e) => { if (hasGoals && (e.key === 'Enter' || e.key === ' ')) setExpanded(v => !v); }}
-        className={`w-full text-start flex items-center justify-between${hasGoals ? ' cursor-pointer' : ''}`}
+        className={`w-full text-right flex items-center justify-between${hasGoals ? ' cursor-pointer' : ''}`}
         style={{ padding: 16 }}
       >
         {/* Right side: program info */}

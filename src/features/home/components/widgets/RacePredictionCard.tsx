@@ -71,7 +71,7 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
 
   if (view.state === 'empty') {
     return (
-      <div className="flex w-full items-center gap-3 rounded-v2-card bg-white p-4 shadow-v2-card">
+      <div className="flex w-full items-center gap-3 rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep">
           <Timer size={20} strokeWidth={2.4} />
         </span>
@@ -97,7 +97,7 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
   const trend = view.trendSeconds !== null ? formatTrend(view.trendSeconds) : null;
 
   return (
-    <div className="w-full rounded-v2-card bg-white p-4 shadow-v2-card">
+    <div className="w-full rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-baseline gap-2">
           <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('racePrediction.title')}</p>

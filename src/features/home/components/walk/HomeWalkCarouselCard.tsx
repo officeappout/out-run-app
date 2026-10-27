@@ -54,7 +54,7 @@ export default function HomeWalkCarouselCard({ slot, onStart, onOpenGroup, stand
   const tile = <IconTile icon={Footprints} tone="steps" size="md" />;
 
   return (
-    <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} data-home-walk-card={slot.kind}>
+    <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} dir="rtl" data-home-walk-card={slot.kind}>
       <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
         {isToday ? t('walkCard.kicker.today') : t('walkCard.kicker.gap')}
       </p>

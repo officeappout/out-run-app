@@ -39,7 +39,7 @@ export default function AnchorLocationChip({ value, onSelect }: AnchorLocationCh
   const t = useT(home);
 
   return (
-    <div className="relative flex-shrink-0">
+    <div className="relative flex-shrink-0" dir="rtl">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -57,7 +57,7 @@ export default function AnchorLocationChip({ value, onSelect }: AnchorLocationCh
           {/* click-away */}
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
           <div
-            className={`absolute z-30 mt-1 end-0 min-w-[160px] overflow-hidden bg-white dark:bg-slate-800 ${v2 ? 'p-1.5' : 'shadow-lg'}`}
+            className={`absolute z-30 mt-1 left-0 min-w-[160px] overflow-hidden bg-white dark:bg-slate-800 ${v2 ? 'p-1.5' : 'shadow-lg'}`}
             style={
               v2
                 ? { borderRadius: 18, boxShadow: '0 28px 56px -24px rgba(9,30,50,0.45), 0 0 0 1px rgba(14,27,42,0.06)' }
@@ -75,7 +75,7 @@ export default function AnchorLocationChip({ value, onSelect }: AnchorLocationCh
                     setOpen(false);
                     if (o.id !== value) onSelect(o.id);
                   }}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-start transition-colors ${v2 ? 'rounded-[14px]' : ''} ${
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-right transition-colors ${v2 ? 'rounded-[14px]' : ''} ${
                     isActive ? (v2 ? 'bg-[#eef8fc] dark:bg-slate-700' : 'bg-[#F0FBFF] dark:bg-slate-700') : ''
                   }`}
                 >

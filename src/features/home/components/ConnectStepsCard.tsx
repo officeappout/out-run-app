@@ -33,7 +33,8 @@ export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCa
       <button
         type="button"
         onClick={onConnect}
-        className="w-full bg-white rounded-2xl p-3 shadow-[0_6px_16px_rgba(0,0,0,0.10)] text-start"
+        dir="rtl"
+        className="w-full bg-white rounded-2xl p-3 shadow-[0_6px_16px_rgba(0,0,0,0.10)] text-right"
       >
         <p className="text-[13px] font-black text-gray-900">{t('connectSteps.compact.title')}</p>
         <p className="text-[11px] font-semibold text-gray-500 mt-0.5">{subtitle}</p>
@@ -44,6 +45,7 @@ export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCa
   return (
     <div className="h-full w-full flex items-center justify-center">
       <div
+        dir="rtl"
         className="w-full bg-white rounded-3xl p-5 shadow-[0_10px_28px_rgba(0,0,0,0.14)]"
       >
         <div>
