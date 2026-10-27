@@ -365,7 +365,7 @@ export const FUNCTIONS_CATALOGS = {
       "ui.sheet.collapse": "Collapse",
       "ui.sheet.expand": "Expand",
       "ui.improvement.title": "Improvement since last time",
-      "ui.improvement.count": "{n, plural, =1 {One exercise improved} other {{n} exercises improved}}",
+      "ui.improvement.count": "{n, plural, one {One exercise improved} other {{n} exercises improved}}",
       "ui.improvement.compare": "Last time <prev></prev> · Today <today></today>",
       "ui.journey.repeat": "Reps",
       "ui.chart.aria": "Chart",

@@ -25,10 +25,10 @@ export interface Issue { ns: string; key: string; check: string; severity: Sever
  * persona step (composed sentences needing articles; the component hard-codes English today; term pending),
  * identity.gender.* (the Hebrew asks "how should we address you", meaning changes in English),
  * hierarchy.* / unitDeclaration.* / personaDrawer.staleUnit (military unit picker, hidden by owner decision),
- * healthDeclaration.* (legal / medical text, lawyer-reviewed), goalNote examples about enlistment and reserve duty.
+ * healthDeclaration.* and health.* (the whole health-declaration step stays Hebrew until a legal / medical translation, so one screen never mixes languages), goalNote examples about enlistment and reserve duty.
  */
 export const ONBOARDING_SKIPPED = new RegExp(
-  '^(steps\\.persona\\.(?!code\\.)|steps\\.processing\\.(persona|personaGendered|msg\\.building)$|identity\\.gender\\.|hierarchy\\.|unitDeclaration\\.|personaDrawer\\.staleUnit$|healthDeclaration\\.|goalNote\\.example\\.(a18_29\\.(3|4)|a30_44\\.1)$)',
+  '^(steps\\.persona\\.(?!code\\.)|steps\\.processing\\.(persona|personaGendered|msg\\.building)$|identity\\.gender\\.|hierarchy\\.|unitDeclaration\\.|personaDrawer\\.staleUnit$|healthDeclaration\\.|health\\.|goalNote\\.example\\.(a18_29\\.(3|4)|a30_44\\.1)$)',
 );
 
 /** Pilot scope (EN-PILOT-PLAN §2): every key of common and pages, the settings.* keys of home. */
@@ -148,7 +148,7 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
       const eb = e.plurals.get(n);
       if (!eb) { add(key, 'V4', 'error', `plural {${n}} is not a plural in en`); continue; }
       for (const b of eb) if (['zero', 'two', 'few', 'many'].includes(b)) add(key, 'V4', 'error', `English plural has category "${b}"`);
-      for (const b of hb) if (b.startsWith('=') && !eb.includes(b)) add(key, 'V4', 'error', `explicit branch ${b} dropped`);
+      for (const b of hb) if (b.startsWith('=') && !eb.includes(b) && !(b === '=1' && eb.includes('one'))) add(key, 'V4', 'error', `explicit branch ${b} dropped`);
     }
     for (const n of e.plurals.keys()) if (!h.plurals.has(n)) add(key, 'V4', 'warn', `plural {${n}} added in en (Hebrew has none)`);
 
@@ -194,7 +194,7 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     const GLOSS: Array<[RegExp, RegExp, string]> = [
       [/גינ(ת|ות) כושר/, /outdoor gym|calisthenics park/i, 'outdoor gym / calisthenics park'],
       [/רצף/, /streak/i, 'streak'],
-      [/הורדת עומס/, /lighter week/i, 'lighter week'],
+      [/הורדת עומס|שבוע קל/, /lighter week/i, 'lighter week'],
       [/מבדק/, /quick test/i, 'quick test'],
       [/אווטיר/, /avatar/i, 'avatar'],
       [/(^|[\s"(])[הבלמו]?(עירייה|רשות)(?![א-ת])/, /municipalit|city hall/i, 'municipality'],
@@ -211,8 +211,23 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     if (cm && !e.plurals.has(cmArg!)) add(key, 'V15', 'error', `count next to a noun without an ICU plural: ${cm[0]}`);
     for (const [n, eb] of e.plurals) {
       if (!eb.includes('other')) add(key, 'V15', 'error', `plural {${n}} has no "other"`);
-      if (!eb.includes('one') && !eb.some((b) => b.startsWith('='))) add(key, 'V15', 'error', `plural {${n}} has no "one" (or =N) branch`);
+      // English needs a real `one` branch: `=1` + `other` is not accepted (no allowlist; the former =1 keys were converted)
+      if (!eb.includes('one')) add(key, 'V15', 'error', `plural {${n}} has no "one" branch (use one/other, not =1)`);
     }
+    // V18 a {placeholder} followed by a plain word, outside a plural: error for count nouns, warning for any other lowercase word
+    const AFTER = /\{(\w+)(?:, number)?\}\s+([a-z]+)/g;
+    const UNIT_OK = new Set(['min', 'km', 'kg', 'm', 'sec', 'cal', 'kcal', 'xp', 'and', 'or', 'of', 'to', 'in', 'at', 'on', 'for', 'a', 'the', 'is', 'are', 'has', 'have', 'was', 'will', 'you', 'your', 'per', 'by', 'from', 'with', 'out', 'more', 'left', 'ago', 'later', 'today', 'tomorrow']);
+    const COUNT_NOUNS = /^(times|routes?|items?|days?|minutes?|hours?|weeks?|runs?|walks?|steps?|workouts?|exercises?|sets?|reps?|people|members?|users?|friends?)$/;
+    const noLabels = /, select,/.test(flat) ? flat.replace(/\}\s+\w+\s+\{/g, '}{') : flat; // drop select branch labels: `{push} pull {pull}`
+    for (const m of noLabels.matchAll(AFTER)) {
+      const [, arg, word] = m;
+      const w = word!;
+      if (e.plurals.has(arg!) || UNIT_OK.has(w)) continue;
+      if (COUNT_NOUNS.test(w)) add(key, 'V18', 'error', `{${arg}} ${w}: count next to a noun without a plural`);
+      else add(key, 'V18', 'warn', `{${arg}} ${w}: placeholder next to a word, check it needs a plural`);
+    }
+    // V19 no zero-width characters and no non-breaking space
+    if (/[\u200B-\u200F\u2060\uFEFF\u00A0\u202F]/.test(enMsg)) add(key, 'V19', 'error', 'zero-width character or non-breaking space');
     // V16 no spaces just inside a rich tag
     if (/<(\w+)>\s|\s<\/\w+>/.test(enMsg)) add(key, 'V16', 'error', 'space inside a rich tag (<b> text </b>)');
     // V17 Sign in / Sign out, never "log"
