@@ -109,6 +109,8 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => {
     updateData: (updates) => {
       const state = get();
       const newData = { ...state.data, ...updates };
+      // Answering personas later (e.g. back in a Hebrew UI) retires the "persona step skipped" marker.
+      if (state.data.personaStepSkipped && updates.selectedPersonaIds?.length) newData.personaStepSkipped = false;
       set({ data: newData });
       scheduleSync();
     },

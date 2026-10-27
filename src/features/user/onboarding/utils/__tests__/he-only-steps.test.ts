@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldShowHeOnlySteps } from '../he-only-steps';
+import { shouldShowHeOnlySteps, withoutHeOnlyPersonas } from '../he-only-steps';
 
 describe('shouldShowHeOnlySteps', () => {
   it('flag off: always shown, any locale', () => {
@@ -14,5 +14,12 @@ describe('shouldShowHeOnlySteps', () => {
     for (const locale of ['en', 'ru', 'de']) {
       expect(shouldShowHeOnlySteps({ locale, flagOn: true })).toBe(false);
     }
+  });
+});
+
+describe('withoutHeOnlyPersonas', () => {
+  it('keeps everything when shown, drops military when hidden', () => {
+    expect(withoutHeOnlyPersonas(['student', 'military'], true)).toEqual(['student', 'military']);
+    expect(withoutHeOnlyPersonas(['student', 'military'], false)).toEqual(['student']);
   });
 });

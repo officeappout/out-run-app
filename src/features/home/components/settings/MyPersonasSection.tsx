@@ -1,5 +1,7 @@
 'use client';
 
+import { withoutHeOnlyPersonas } from '@/features/user/onboarding/utils/he-only-steps';
+import { useShowHeOnlySteps } from '@/features/user/onboarding/hooks/useShowHeOnlySteps';
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { auth } from '@/lib/firebase';
@@ -117,7 +119,9 @@ export default function MyPersonasSection() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const personas = profile?.personas ?? [];
-  const addableIds = ALL_PERSONA_IDS.filter((id) => !personas.some((p) => p.id === id));
+  // No military persona outside a Hebrew UI (hide_he_only_onboarding_steps): not offered as a new persona.
+  const showHeOnly = useShowHeOnlySteps();
+  const addableIds = withoutHeOnlyPersonas(ALL_PERSONA_IDS.filter((id) => !personas.some((p) => p.id === id)), showHeOnly);
 
   const handleAdd = async (personaId: PersonaId) => {
     const uid = auth.currentUser?.uid;

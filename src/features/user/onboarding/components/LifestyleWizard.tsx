@@ -24,7 +24,7 @@ import RunningScheduleStep from './steps/RunningScheduleStep';
 import { hasRunningTrack } from '@/lib/track-ownership';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 import { useWizardIdentity } from '../hooks/useWizardIdentity';
-import { useShowHeOnlySteps } from '../hooks/useShowHeOnlySteps';
+import { useHeOnlyStepsState } from '../hooks/useShowHeOnlySteps';
 import { buildLifestyleWizardFinalWrite } from '../utils/lifestyle-wizard-final-write';
 import { writeLifestyleWizardCompletion } from '../services/lifestyle-wizard-submit.service';
 import { resolvePersonaGoalMode } from '../utils/persona-goals';
@@ -70,8 +70,8 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   const isRunningTrack = hasRunningTrack(profile);
 
   // hide_he_only_onboarding_steps + non-he UI: no persona step (utils/he-only-steps.ts). Flag off / he: all three.
-  const showHeOnlySteps = useShowHeOnlySteps();
-  const steps: WizardStep[] = showHeOnlySteps ? ['persona', 'schedule', 'notifications'] : ['schedule', 'notifications'];
+  const { show: showHeOnlySteps, ready: heReady } = useHeOnlyStepsState();
+  const steps: WizardStep[] = showHeOnlySteps || !heReady ? ['persona', 'schedule', 'notifications'] : ['schedule', 'notifications'];
   const [rawStep, setCurrentStep] = useState<WizardStep>('persona');
   const currentStep: WizardStep = steps.includes(rawStep) ? rawStep : steps[0];
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -153,7 +153,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
       // Personas + lifestyle + completion markers, one merge write
       // (services/lifestyle-wizard-submit.service.ts).
-      await writeLifestyleWizardCompletion(db, uid, storePersonaIds, lifestyleWrite, { omitPersonas: !showHeOnlySteps });
+      await writeLifestyleWizardCompletion(db, uid, storePersonaIds, lifestyleWrite, { omitPersonas: !showHeOnlySteps, clearSkipMarker: (profile as { personaStepSkipped?: boolean } | null)?.personaStepSkipped === true });
 
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('skipped_bridge');
@@ -314,6 +314,9 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   // (outside OnboardingLayout's <main>), so it pads the top and bottom
   // safe-area insets itself — once, on the root. The step CTAs inside
   // (StickyActionButton variant="v2") add only their own 12px.
+  // Non-he UI and flags not known yet: hold (never paint the persona step in a UI that may not have it).
+  if (!heReady) return null;
+
   if (v2) {
     const handleBackV2 = () => {
       if (currentStep === 'schedule' && !isRunningTrack && scheduleSub > 0) {

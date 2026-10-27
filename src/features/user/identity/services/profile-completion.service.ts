@@ -36,6 +36,7 @@
  *   never held to items they have no track for and no way to complete.
  */
 
+import { hasAnsweredPersona } from '@/lib/persona-declaration';
 import type { UserFullProfile } from '../../core/types/user.types';
 import type { OnboardingStepId } from '../../onboarding/types';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
@@ -181,7 +182,7 @@ export function calculateProfileCompletion(
     {
       id: 'persona',
       label: 'סגנון חיים',
-      completed: !!profile.personas?.length,
+      completed: hasAnsweredPersona(profile),
       weight: 10,
       bucket: 'strength',
       step: 'PERSONA',

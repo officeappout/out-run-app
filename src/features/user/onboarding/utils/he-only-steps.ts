@@ -19,3 +19,10 @@ export function shouldShowHeOnlySteps({ locale, flagOn }: HeOnlyStepsInput): boo
   if (!flagOn) return true;
   return locale === SOURCE_LOCALE;
 }
+
+/** Persona ids offered only when the Hebrew-only steps show (no military persona in English). */
+export const HE_ONLY_PERSONA_IDS: readonly string[] = ['military'];
+
+export function withoutHeOnlyPersonas<T extends string>(ids: readonly T[], show: boolean): T[] {
+  return show ? [...ids] : ids.filter((id) => !HE_ONLY_PERSONA_IDS.includes(id));
+}

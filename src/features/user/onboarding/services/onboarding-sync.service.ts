@@ -862,6 +862,9 @@ export async function syncOnboardingToFirestore(
     // Persona step skipped on purpose (non-he UI, hide_he_only_onboarding_steps): no `personas`, just the marker.
     if (!selectedPersonaIdsList && (data as any).personaStepSkipped === true) {
       updateData.personaStepSkipped = true;
+    } else if (selectedPersonaIdsList && (data as any).personaStepSkipped === false) {
+      // Answered personas after skipping once: retire the marker (false, not deleted: hasAnsweredPersona reads === true).
+      updateData.personaStepSkipped = false;
     }
 
     // Goals

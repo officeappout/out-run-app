@@ -16,7 +16,7 @@ export async function writeLifestyleWizardCompletion(
   personaIds: string[],
   lifestyleWrite: LifestyleWizardFinalWrite,
   /** The persona step was skipped (hide_he_only_onboarding_steps, non-he): leave `personas` as stored, never write []. */
-  opts?: { omitPersonas?: boolean },
+  opts?: { omitPersonas?: boolean; clearSkipMarker?: boolean },
 ): Promise<void> {
   await setDoc(
     doc(db, 'users', uid),
@@ -25,7 +25,7 @@ export async function writeLifestyleWizardCompletion(
       // LifestyleWizard's handlePersonaNext in case the user went back and
       // changed their selection.
       // Skipped step: no `personas`, but mark it so the home schedule card gate (lib/persona-declaration) is satisfied.
-      ...(opts?.omitPersonas ? { personaStepSkipped: true } : { personas: personaIds.map((id) => ({ id, answers: {}, updatedAt: Timestamp.now() })) }),
+      ...(opts?.omitPersonas ? { personaStepSkipped: true } : { personas: personaIds.map((id) => ({ id, answers: {}, updatedAt: Timestamp.now() })), ...(opts?.clearSkipMarker && personaIds.length > 0 ? { personaStepSkipped: false } : {}) }),
       ...lifestyleWrite,
       onboardingStatus: 'COMPLETED',
       onboardingStep: 'COMPLETED',
