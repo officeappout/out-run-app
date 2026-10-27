@@ -4,6 +4,7 @@
  * scope for this PR (owner, 19.10.2026).
  */
 import { isKeySlot, isQualitySlot, RUN_STREAK_CAP, WRAP_WEEK } from './config';
+import { isLightStrength, LIGHT_RECOVERY_HOURS } from './strengthTier';
 import { canonicalSlug, H6_PATTERNS, HEAVY_LEGS, isMuscleUp, isOapu, MODERATE_LEGS, SHARED_PATTERN_LOAD, SKILL_CNS } from './programProfiles';
 import type { TrainingLevel } from './types';
 import type { Unit } from './units';
@@ -92,7 +93,8 @@ const hasSlug = (u: Unit, pred: (s: string) => boolean) => u.slugs.some(pred);
 export function breaksH6(a: Unit, da: number, b: Unit, db: number): boolean {
   if (da === db) return false;
   const gapH = gapDays(da, db) * 24;
-  const need = Math.max(a.minRecH, b.minRecH);
+  // Light sessions (strengthTier, owner 27.10.2026) only need a day: the day after a hard one is fine.
+  const need = isLightStrength(a) || isLightStrength(b) ? Math.min(LIGHT_RECOVERY_HOURS, Math.max(a.minRecH, b.minRecH)) : Math.max(a.minRecH, b.minRecH);
   for (const p of H6_PATTERNS) {
     if (a.load[p] >= SHARED_PATTERN_LOAD && b.load[p] >= SHARED_PATTERN_LOAD && gapH < need) return true;
   }
