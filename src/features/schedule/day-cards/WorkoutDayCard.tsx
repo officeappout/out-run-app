@@ -1,6 +1,6 @@
 /** A workout card of a day (strength / run): icon, title, minutes line, time. */
 import CardCheck from './CardCheck';
-import type { TimeTone, WorkoutCardData } from './types';
+import type { DayCardSize, TimeTone, WorkoutCardData } from './types';
 
 export const TIME_TONE_COLOR: Record<TimeTone, string> = {
   morning: '#00C9F2',
@@ -9,13 +9,14 @@ export const TIME_TONE_COLOR: Record<TimeTone, string> = {
   run: '#4d7c0f',
 };
 
-export default function WorkoutDayCard({ card }: { card: WorkoutCardData }) {
+export default function WorkoutDayCard({ card, size = 'row' }: { card: WorkoutCardData; size?: DayCardSize }) {
   const run = card.tone === 'run';
+  const home = size === 'home';
   return (
     <div
-      className={`relative flex min-h-[48px] items-center gap-2 rounded-[14px] px-2.5 py-1.5 shadow-[0_0_0_1px_rgba(14,27,42,0.06),0_1px_2px_rgba(14,27,42,0.06)] ${
-        run ? 'w-[170px] bg-[#f6fce9]' : 'w-[176px] bg-white'
-      }`}
+      className={`relative flex items-center gap-2 px-2.5 py-1.5 shadow-[0_0_0_1px_rgba(14,27,42,0.06),0_1px_2px_rgba(14,27,42,0.06)] ${
+        home ? 'min-h-[72px] w-[200px] rounded-[18px]' : `min-h-[48px] rounded-[14px] ${run ? 'w-[170px]' : 'w-[176px]'}`
+      } ${run ? 'bg-[#f6fce9]' : 'bg-white'}`}
     >
       <CardCheck done={card.done} />
       {card.iconSrc && (

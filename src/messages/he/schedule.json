@@ -226,5 +226,13 @@
   "tutorial.flames.text": "אימון, יעד צעדים או אימון קצר. ימים ברצף בונים את הרצף שלך.",
   "tutorial.flames.bigger": "<b>להבה גדולה יותר</b> לכל כרטיס שסוגרים היום: אימון, יעד צעדים. סוגרים את שניהם? הלהבה הכי גדולה.",
   "tutorial.flames.shield": "<b>מגן</b> שומר על הרצף ביום שפספסת. ימי מנוחה מתוכננים לא שוברים את הרצף.",
-  "tutorial.flames.cta": "יאללה, להדליק את הראשונה"
+  "tutorial.flames.cta": "יאללה, להדליק את הראשונה",
+  "homeToday.title": "היום שלך",
+  "homeToday.date": "{day} · {date}",
+  "homeToday.flames": "{closed} מתוך {total}",
+  "homeToday.flamesAria": "{closed} מתוך {total} יעדים נסגרו היום",
+  "homeToday.done": "בוצע · {min}",
+  "homeToday.doneNoMin": "בוצע",
+  "homeToday.optionalRole": "רשות · להבה גדולה יותר",
+  "homeToday.hint": "{kind, select, workout {סוגרים אימון וצעדים: להבה גדולה.} other {סוגרים צעדים: להבה גדולה. האימון הקצר הוא רשות.}}"
 }

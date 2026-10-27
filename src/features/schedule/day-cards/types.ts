@@ -5,6 +5,9 @@
  * Used by the schedule tutorial week (ל4) and the home "today" cards.
  */
 
+/** 'row' = a day row of the week (ל4); 'home' = the bigger home today cards (board HomeToday). */
+export type DayCardSize = 'row' | 'home';
+
 export type TimeTone = 'morning' | 'noon' | 'evening' | 'run';
 
 export interface WorkoutCardData {

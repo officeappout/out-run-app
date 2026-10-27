@@ -1,11 +1,12 @@
 /** A short optional session (core tabata / mobility / recovery): lights the day's flame, never advances a program. */
 import { StretchHorizontal } from 'lucide-react';
 import CardCheck from './CardCheck';
-import type { OptionalCardData } from './types';
+import type { DayCardSize, OptionalCardData } from './types';
 
-export default function OptionalSessionCard({ card }: { card: OptionalCardData }) {
+export default function OptionalSessionCard({ card, size = 'row' }: { card: OptionalCardData; size?: DayCardSize }) {
+  const home = size === 'home';
   return (
-    <div className="relative flex min-h-[48px] w-[140px] items-center gap-2 rounded-[14px] bg-[#f3fcf8] px-2.5 py-1.5 shadow-[0_0_0_1px_rgba(14,27,42,0.06),0_1px_2px_rgba(14,27,42,0.06)]">
+    <div className={`relative flex items-center gap-2 bg-[#f3fcf8] ${home ? 'min-h-[72px] w-[200px] rounded-[18px]' : 'min-h-[48px] w-[140px] rounded-[14px]'} px-2.5 py-1.5 shadow-[0_0_0_1px_rgba(14,27,42,0.06),0_1px_2px_rgba(14,27,42,0.06)]`}>
       <CardCheck done={card.done} />
       {card.iconSrc ? (
         // eslint-disable-next-line @next/next/no-img-element

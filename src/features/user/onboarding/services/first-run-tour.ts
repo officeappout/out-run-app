@@ -11,6 +11,7 @@
 import type { AppGender } from '@/lib/utils/gendered-text';
 import { makeT } from '@/lib/i18n/t';
 import { onboarding } from '@/messages/ns/onboarding';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 const t = makeT('he', onboarding);
 
@@ -24,6 +25,12 @@ export const FIRST_RUN_COACH = {
   homeWorkout: 'home-today-workout',
   homePlus: 'home-plus',
   homeWeek: 'home-week',
+  /** enable_schedule_tutorial_v1: the home "היום שלך" cards section (board HomeToday). */
+  homeToday: 'home-today-cards',
+  /** Its steps card (the rest-day step's bubble). */
+  homeTodaySteps: 'home-today-steps',
+  /** Its "להתאמן עכשיו" (a strength day not done yet). */
+  homeTodayTrain: 'home-today-train',
   /** The v2 nav bar's raised map circle — the home tour's 3rd step when there is no week strip. */
   homeNavMap: 'nav-map',
   mapSearch: 'map-search',
@@ -170,11 +177,63 @@ export function presentSteps(steps: FirstRunTourStep[], isPresent: (target: stri
   return out;
 }
 
-export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null | undefined): FirstRunTourStep[] {
+/**
+ * enable_schedule_tutorial_v1: what today holds, so the home tour starts from today's cards
+ * (decisions/schedule-tutorial.md, 27.10). Absent = the tour as before.
+ */
+export interface HomeTourToday {
+  strengthToday: boolean;
+  /** Minutes of the rest day's short session ("8 דק׳ בטן"). */
+  optionalMinutes: number;
+  /** The next strength day: 0 = Sunday; time "HH:MM" or null. */
+  next: { dow: number; time: string | null } | null;
+}
+
+/** The home tour from today's cards; then "+" and the map, as before. */
+export function homeTourFromTodaySteps(today: HomeTourToday): FirstRunTourStep[] {
+  const plus: FirstRunTourStep = { target: FIRST_RUN_COACH.homePlus, title: t('tour.home.plus.title'), text: t('tour.home.plus.text') };
+  const map: FirstRunTourStep = { target: FIRST_RUN_COACH.homeNavMap, title: t('tour.home.weekAlt.title'), text: t('tour.home.weekAlt.text') };
+  const rest: FirstRunTourStep = {
+    target: FIRST_RUN_COACH.homeTodaySteps,
+    title: t('tour.home.rest.title'),
+    text: t('tour.home.rest.text', { n: today.optionalMinutes }),
+    alt: { target: FIRST_RUN_COACH.homeToday, title: t('tour.home.rest.title'), text: t('tour.home.rest.text', { n: today.optionalMinutes }) },
+  };
+  if (today.strengthToday) {
+    return [
+      // The workout is already done (no "להתאמן עכשיו"): the bubble sits on the cards instead.
+      {
+        target: FIRST_RUN_COACH.homeTodayTrain,
+        title: t('tour.home.today.title'),
+        text: t('tour.home.today.text'),
+        finger: true,
+        alt: { target: FIRST_RUN_COACH.homeToday, title: t('tour.home.today.title'), text: t('tour.home.today.text') },
+      },
+      plus,
+      map,
+    ];
+  }
+  const steps: FirstRunTourStep[] = [rest];
+  if (today.next) {
+    steps.push({
+      target: FIRST_RUN_COACH.homeWeek,
+      title: t('tour.home.next.title'),
+      text: t('tour.home.next.text', { day: weekdayLabel(today.next.dow, 'long'), time: today.next.time ?? 'none' }),
+    });
+  }
+  return [...steps, plus, map];
+}
+
+export function firstRunTourSteps(
+  tour: FirstRunTourId,
+  gender: AppGender | null | undefined,
+  opts?: { homeToday?: HomeTourToday | null },
+): FirstRunTourStep[] {
   // g(): null / undefined gender -> the male form (the old convention); 'other' -> the neutral branch.
   const gd = { gender: gender ?? 'male' };
   switch (tour) {
     case 'home':
+      if (opts?.homeToday) return homeTourFromTodaySteps(opts.homeToday);
       return [
         { target: FIRST_RUN_COACH.homeWorkout, title: t('tour.home.workout.title'), text: t('tour.home.workout.text'), finger: true },
         { target: FIRST_RUN_COACH.homePlus, title: t('tour.home.plus.title'), text: t('tour.home.plus.text') },

@@ -799,3 +799,4 @@ src/features/workout-engine/players/strength/timed/logic/
 # schedule tutorial v1 (namespace schedule, keys tutorial.* / dayCards.*): new folders, translation-ready from the start.
 src/features/schedule/tutorial-v1
 src/features/schedule/day-cards
+src/features/schedule/home-today
