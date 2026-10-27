@@ -33,6 +33,9 @@
  * flag must read the document first and only fill keys that are genuinely absent —
  * never assume a value that was correct when first written is still correct.
  *
+ * graduated (optional, 27.10.2026, owner: "open to everyone, fewer panel toggles"): the feature is on for
+ * everyone and the stored panel value is ignored (feature-flag-resolve.ts). Remove the flag and its gates later.
+ *
  * qaTesterValue (optional, 20.10.2026): the value an AI tester sees (uid demo_qa_* + token claim
  * qa, only while enable_demo_users && enable_ai_testers are on). Flags without it keep their
  * stored value for testers. Testers NEVER get superAdminValue. See feature-flag-resolve.ts.
@@ -425,7 +428,7 @@ export const FLAG_DEFS = [
   // drag-to-refine, handleConfirm) is unchanged. Confirm lands on /map?fromExplorer=true&entry=v2
   // + sessionStorage entry_v2_landing=1 (read by the entry flow's step 2). Fail-closed; super
   // admins preview it. Off = byte-identical location step.
-  { key: 'enableEntryGlobeV1', firestoreKey: 'enable_entry_globe_v1', defaultValue: false, superAdminValue: true },
+  { key: 'enableEntryGlobeV1', firestoreKey: 'enable_entry_globe_v1', defaultValue: true, superAdminValue: true, graduated: true },
   // JIT identity before the health declaration (20.10.2026, entry flow v2 brief B) — a user with
   // no known identity (quick signup "הרשמה מהירה" → MAP_ONLY, no name / birth date) who starts a
   // workout first fills the existing identity screen (gender, birth date, name — same validation,
@@ -441,7 +444,7 @@ export const FLAG_DEFS = [
   // location step's globe. Pending invites keep their own redirects. Fail-closed; super admins
   // preview it once signed in (the landing itself is pre-auth, so it follows the global value).
   // Off = today's landing and flow, byte-identical.
-  { key: 'enableEntryIntroV1', firestoreKey: 'enable_entry_intro_v1', defaultValue: false, superAdminValue: true },
+  { key: 'enableEntryIntroV1', firestoreKey: 'enable_entry_intro_v1', defaultValue: true, superAdminValue: true, graduated: true },
   // Entry flow v2 — strength quiz drag hint (20.10.2026, owner-approved design Q1–Q3, brief G).
   // The v2 coverflow strip in the strength assessment teaches itself: no blur mask, no bubble
   // card; on the first category the strip demos itself (harder, harder, back — the video and the
@@ -757,12 +760,12 @@ export const FLAG_DEFS = [
   // No "from a route" mode, no carousel over the map. Same route-fit engine + official-routes cache. Fail-closed;
   // super admins preview it. Off = identical to today.
   { key: 'enableRunDrawerFromMeV1', firestoreKey: 'enable_run_drawer_from_me_v1', defaultValue: false, superAdminValue: true },
-  { key: 'enableStrengthQuizV3', firestoreKey: 'enable_strength_quiz_v3', defaultValue: false, superAdminValue: true },
+  { key: 'enableStrengthQuizV3', firestoreKey: 'enable_strength_quiz_v3', defaultValue: true, superAdminValue: true, graduated: true },
   // Schedule tutorial + home tour (27.10.2026, owner-approved quiz canvas boards ל1-ל5 + HomeToday). After the strength
   // quiz: lemur points at the schedule, routine question, which days (simple vs complex by programs), "השבוע שלך מוכן!"
   // (real minutes ring, day cards scrolled sideways: workout, steps ring, short optional), flames explainer, then the
   // home tour starts from today's cards (no-workout day variant). Fail-closed; super admins preview it. Off = identical.
-  { key: 'enableScheduleTutorialV1', firestoreKey: 'enable_schedule_tutorial_v1', defaultValue: false, superAdminValue: true },
+  { key: 'enableScheduleTutorialV1', firestoreKey: 'enable_schedule_tutorial_v1', defaultValue: true, superAdminValue: true, graduated: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

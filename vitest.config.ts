@@ -53,6 +53,8 @@ export default defineConfig({
       'src/features/tv-mode/__tests__/**/*.test.tsx',
       // Unified search (enable_unified_search) — flag-off parity + card render tests, static markup.
       'src/features/search/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch az — WeatherChip aria-label parity, static markup.
+      'src/features/weather/components/__tests__/**/*.test.tsx',
       // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.
       'src/features/user/onboarding/intro/__tests__/**/*.test.tsx',
       // Schedule tutorial v1 (enable_schedule_tutorial_v1) + shared day cards: static-markup render tests.

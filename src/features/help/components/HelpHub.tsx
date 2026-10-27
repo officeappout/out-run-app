@@ -91,7 +91,7 @@ export default function HelpHub({ onClose }: { onClose: () => void }) {
         )}
 
         <h2 className="mb-2 mt-5 text-[13px] font-black text-v2-muted">
-          {query.trim().length >= 2 ? t('help.hub.results') : chapter ? HELP_CHAPTERS.find((c) => c.id === chapter)?.title : t('help.hub.faq')}
+          {query.trim().length >= 2 ? t('help.hub.results') : chapter ? t(`help.chapter.${chapter}.title`) : t('help.hub.faq')}
         </h2>
         <div className="overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.06)]">
           {shown.map((e) => (

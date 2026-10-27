@@ -857,6 +857,8 @@
   "liveUser.stageFallback": "שלב {stage}",
   "mapLayers.mockLocation.label": "מיקום מדומה",
   "mapLayers.mockLocation.confirm": "מיקום מדומה פעיל ({label}) — האימון יעקוב אחרי המיקום המדומה, לא GPS אמיתי. להמשיך?",
+  "weather.chip.aria": "מזג האוויר: {temp} מעלות",
+  "weather.chip.ariaHint": "מזג האוויר: {temp} מעלות, {hint}",
   "hybrid.axis.zone": "{zone, select, jogging {ריצה קלה} easy {קל} recovery {שחרור} walk {הליכה} tempo {טמפו} long_run {ריצה ממושכת} fartlek_medium {פרטלק} fartlek_fast {פרטלק מהיר} other {אירובי}}",
   "hybrid.axis.walkThere": "הליכה אל המסלול",
   "hybrid.axis.walkBack": "הליכה חזרה",

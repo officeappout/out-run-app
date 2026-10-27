@@ -797,6 +797,12 @@ src/features/user/progression/components/IdentityHeroCard.tsx
 # wave 2 batch aw (namespace player, timedLabels.*) — the timed player's pure label builders (makeT('he', player) at module scope; exported signatures unchanged).
 src/features/workout-engine/players/strength/timed/logic/
 
+# wave 2 batch az (library exercises.equipSheet.*, map weather.chip.*, legal help.chapter.<id>.*) — equipment & location sheet,
+# WeatherChip aria-label, help-hub chapter titles / blurbs (chapters.ts keeps only ids / tours / entry ids; Kelly's tutorial title via makeT('he')).
+src/features/content/exercises/client/components/EquipmentFilterSheet.tsx
+src/features/content/exercises/client/components/EquipmentFilterShell.tsx
+src/features/weather/components/WeatherChip.tsx
+src/lib/app-help/chapters.ts
 # i18n batch ax — hybrid station / v2 player, hybrid overview axis, v2 summary mappings, workout overview page (namespaces player / map / summary / library)
 src/app/map/recenter-control.ts
 src/app/workouts/[id]/overview/

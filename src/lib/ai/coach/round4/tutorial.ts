@@ -5,6 +5,8 @@
  */
 import { firstRunTourSteps } from '@/features/user/onboarding/services/first-run-tour';
 import { helpChapter } from '@/lib/app-help/chapters';
+import { makeT } from '@/lib/i18n/t';
+import { legal } from '@/messages/ns/legal';
 import type { CoachGender } from '../persona';
 import type { StartTutorialInputT } from './tool-specs';
 
@@ -15,7 +17,7 @@ export function tutorialToolResult(input: StartTutorialInputT, gender: CoachGend
   return {
     started: true,
     topic: ch.id,
-    title: ch.title,
+    title: makeT('he', legal)(`help.chapter.${ch.id}.title`),
     tourSteps: steps,
     noteForCoach: ch.tour
       ? 'A button under your reply starts the short guided tour on the real screen. Your whole reply: at most two short sentences, what the tour shows (from tourSteps, in your words) and that the button under your reply starts it. Do not list the steps one by one.'

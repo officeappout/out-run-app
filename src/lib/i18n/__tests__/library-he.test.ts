@@ -367,6 +367,7 @@ describe('library (he) — exercises.* byte-identical to the pre-extraction lite
   });
 
   it('no exercises.* key is left untested', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('exercises.')).length).toBe(95);
+    // exercises.equipSheet.* (batch az) is pinned in batch-az-he.test.ts
+    expect(Object.keys(he).filter((k) => k.startsWith('exercises.') && !k.startsWith('exercises.equipSheet.')).length).toBe(95);
   });
 });
