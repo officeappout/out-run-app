@@ -21,6 +21,8 @@ import type { CategoryBrandingConfig } from '@/features/admin/services/category-
 import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
 import { resolveParkImage } from '@/lib/park-image';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { stampMapPrefsOwner } from '@/lib/mapPrefs';
+import { auth } from '@/lib/firebase';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 // ── Refactored Module Imports ────────────────────────────
@@ -837,6 +839,9 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
         setOnboardingPref('map_anchor_lat', String(userLocation.lat));
         setOnboardingPref('map_anchor_lng', String(userLocation.lng));
       }
+      // Owner stamp (27.10.2026): readers only trust this answer for the
+      // account that gave it, so a new account on this device is asked again.
+      if (resolvedAuthorityId || userLocation) stampMapPrefsOwner(auth.currentUser?.uid);
     }
 
     // Bridge mode: persist authority and dismiss — no onboarding state changes
