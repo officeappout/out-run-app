@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allowedLocales, decideHtmlLangDir, pickAppLocale } from '../locale-resolution';
+import { allowedLocales, decideHtmlLangDir, deviceLocalesFor, effectiveLocaleFlags, pickAppLocale } from '../locale-resolution';
 import { parseLocaleCookie } from '../locale-cookie';
 import { formatDate, formatNumber, formatTime, weekdayName } from '../core/fmt';
 import { getTranslation, he as legacyHe } from '../dictionaries';
@@ -61,5 +61,21 @@ describe('legacy dictionary (folded into src/messages, behaviour unchanged)', ()
     expect(getTranslation('onboarding.continue')).toBe(heLegacy['onboarding.continue']);
     expect(getTranslation('challenge.booth.participants', 'en')).toBe('Participants');
     expect(getTranslation('onboarding.continue', 'en')).toBe('onboarding.continue');
+  });
+});
+
+describe('deviceLocalesFor — super-admin English is never an automatic device default', () => {
+  it('real enable_locale_en off: en devices are dropped, other languages stay', () => {
+    expect(deviceLocalesFor(['en-US', 'ru', 'en'], { enableLocaleEn: false })).toEqual(['ru']);
+    expect(deviceLocalesFor(['he-IL'], { enableLocaleEn: false })).toEqual(['he-IL']);
+    expect(deviceLocalesFor(['english'], { enableLocaleEn: false })).toEqual(['english']);
+  });
+  it('real enable_locale_en on: untouched', () => {
+    expect(deviceLocalesFor(['en-US'], { enableLocaleEn: true })).toEqual(['en-US']);
+  });
+  it('a super admin on an English device resolves to Hebrew until they pick English', () => {
+    const flags = effectiveLocaleFlags({ enableI18n: true, enableLocaleEn: false, enableLocaleRu: false, enableLocaleDe: false }, true);
+    expect(pickAppLocale(flags, { deviceLocales: deviceLocalesFor(['en-US'], { enableLocaleEn: false }) })).toBe('he');
+    expect(pickAppLocale(flags, { storedLocale: 'en', deviceLocales: deviceLocalesFor(['en-US'], { enableLocaleEn: false }) })).toBe('en');
   });
 });
