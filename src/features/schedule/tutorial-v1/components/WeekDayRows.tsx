@@ -5,7 +5,6 @@
  * the date on the start side, then the day's cards scrolled sideways (shared day-cards). Today's date
  * is the brand circle; a strength day today gets "להתאמן עכשיו". No "why" line under days (C8).
  */
-import { Play } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { schedule } from '@/messages/ns/schedule';
 import { common } from '@/messages/ns/common';
@@ -20,10 +19,9 @@ export interface WeekDayRowsProps {
   dates: readonly number[];
   todayDow: number;
   stepsToday: number;
-  onTrainNow?: () => void;
 }
 
-export default function WeekDayRows({ week, dates, todayDow, stepsToday, onTrainNow }: WeekDayRowsProps) {
+export default function WeekDayRows({ week, dates, todayDow, stepsToday }: WeekDayRowsProps) {
   const t = useT(schedule);
   const tc = useT(common);
   const locale = useLocaleStore((s) => s.locale);
@@ -60,16 +58,6 @@ export default function WeekDayRows({ week, dates, todayDow, stepsToday, onTrain
                 <StepsDayCard card={{ ...view.steps, subtitle: view.steps.subtitle ?? restSubtitle }} />
                 {view.optional.map((o, k) => <OptionalSessionCard key={`o${k}`} card={o} />)}
               </DayCardsRow>
-              {isToday && day.strength && onTrainNow && (
-                <button
-                  type="button"
-                  onClick={onTrainNow}
-                  className="flex items-center gap-1.5 self-start rounded-full bg-gradient-to-br from-[#00baf7] to-[#0cf2e3] px-3 py-[5px] text-[13px] font-black text-[#04222b] transition-transform duration-150 ease-v2 active:scale-[0.97]"
-                >
-                  <Play size={12} fill="currentColor" strokeWidth={0} className="ltr:-scale-x-100" aria-hidden />
-                  {t('tutorial.week.trainNow')}
-                </button>
-              )}
             </div>
           </div>
         );

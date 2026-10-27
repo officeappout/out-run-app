@@ -128,7 +128,6 @@ export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWo
             saving={saving}
             error={error}
             onConfirm={() => void confirm(false)}
-            onTrainNow={() => void confirm(true)}
             onChange={() => setStep('days')}
           />
         )}
