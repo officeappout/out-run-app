@@ -73,6 +73,8 @@ export interface PushLibraryRow {
   subjectGender: PushRowSubjectGender;
   /** Shared by a male row and its female twin. */
   pairId: string | null;
+  /** Language of the copy (wave 5B). 'he' when the doc has no locale. */
+  locale: string;
 }
 
 function strList(v: unknown): string[] | undefined {
@@ -117,6 +119,7 @@ export function toPushLibraryRow(id: string, data: DocumentData): PushLibraryRow
     gender: (data.gender === 'male' || data.gender === 'female' ? data.gender : 'both') as PushRowGender,
     subjectGender: (data.subjectGender === 'male' || data.subjectGender === 'female' ? data.subjectGender : 'any') as PushRowSubjectGender,
     pairId: typeof data.pairId === 'string' && data.pairId ? data.pairId : null,
+    locale: typeof data.locale === 'string' && data.locale.trim() ? data.locale.trim().toLowerCase() : 'he',
   };
   if (typeof data.pushType === 'string' && PUSH_CATALOG_BY_TYPE[data.pushType]) {
     const a = (data.audience ?? {}) as Record<string, unknown>;

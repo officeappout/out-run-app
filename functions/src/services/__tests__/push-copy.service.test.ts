@@ -10,10 +10,20 @@ const state = vi.hoisted(() => ({
   docs: [] as Array<{ id: string; data: Record<string, unknown> }>,
   reads: 0,
   failNext: false,
+  flags: undefined as Record<string, unknown> | undefined,
+  flagReads: 0,
+  flagFail: false,
 }));
 
 vi.mock('firebase-admin', () => {
   const db = {
+    doc: (_path: string) => ({
+      get: async () => {
+        state.flagReads++;
+        if (state.flagFail) throw new Error('down');
+        return { data: () => state.flags };
+      },
+    }),
     collection: (_name: string) => ({
       get: async () => {
         state.reads++;
@@ -37,6 +47,8 @@ vi.mock('firebase-functions', () => ({ logger: { info: vi.fn(), warn: vi.fn(), e
 
 import {
   __resetPushCopyCache,
+  __resetPushLocaleFlagsCache,
+  effectivePushLocale,
   adaptLibraryDoc,
   audienceFromUserData,
   firstNameFromUserData,
@@ -51,7 +63,11 @@ beforeEach(() => {
   state.docs = [];
   state.reads = 0;
   state.failNext = false;
+  state.flags = undefined;
+  state.flagReads = 0;
+  state.flagFail = false;
   __resetPushCopyCache();
+  __resetPushLocaleFlagsCache();
 });
 
 describe('adaptLibraryDoc', () => {
@@ -203,5 +219,56 @@ describe('recipient helpers', () => {
   it('first name only', () => {
     expect(firstNameFromUserData({ core: { name: '  דנה  כהן ' } })).toBe('דנה');
     expect(firstNameFromUserData({})).toBe('');
+  });
+});
+
+describe('push by locale (wave 5B)', () => {
+  const ctxFor = (locale?: string) => ({ uid: 'u1', audience: audienceFromUserData(locale ? { core: { locale } } : { core: {} }) });
+
+  it('adaptLibraryDoc: no locale stays absent (identical row); a locale is lower-cased', () => {
+    const base = { pushType: 'level_up', title: 'a', body: 'b' };
+    expect('locale' in adaptLibraryDoc('r', base)!).toBe(false);
+    expect(adaptLibraryDoc('r', { ...base, locale: 'EN' })!.locale).toBe('en');
+    expect('locale' in adaptLibraryDoc('r', { ...base, locale: 'he' })!).toBe(false);
+  });
+  it('audienceFromUserData carries core.locale only when set', () => {
+    expect(audienceFromUserData({ core: { locale: 'en' } }).locale).toBe('en');
+    expect('locale' in audienceFromUserData({ core: {} })).toBe(false);
+  });
+  it('no recipient locale or he: Hebrew without reading the flags doc', async () => {
+    expect(await effectivePushLocale(ctxFor())).toBe('he');
+    expect(await effectivePushLocale(ctxFor('he'))).toBe('he');
+    expect(state.flagReads).toBe(0);
+  });
+  it('en recipient: Hebrew unless enable_i18n AND push_locale_v1 are both true in the stored doc', async () => {
+    expect(await effectivePushLocale(ctxFor('en'))).toBe('he'); // no doc
+    for (const flags of [{ enable_i18n: true }, { push_locale_v1: true }, { enable_i18n: true, push_locale_v1: 'true' }]) {
+      __resetPushLocaleFlagsCache();
+      state.flags = flags;
+      expect(await effectivePushLocale(ctxFor('en'))).toBe('he');
+    }
+    __resetPushLocaleFlagsCache();
+    state.flags = { enable_i18n: true, push_locale_v1: true };
+    expect(await effectivePushLocale(ctxFor('en'))).toBe('en');
+    await effectivePushLocale(ctxFor('en'));
+  });
+  it('a failed flags read fails closed (Hebrew)', async () => {
+    state.flagFail = true;
+    expect(await effectivePushLocale(ctxFor('en'))).toBe('he');
+  });
+  it('resolvePushCopy: flags on + an en library row → that row; flags off → the Hebrew row; payload tags the locale only when not he', async () => {
+    state.docs = [
+      { id: 'he1', data: { pushType: 'level_up', title: 'כותרת', body: 'גוף' } },
+      { id: 'en1', data: { pushType: 'level_up', title: 'Level up', body: 'Nice one', locale: 'en' } },
+    ];
+    const off = await resolvePushCopy('level_up', ctxFor('en'));
+    expect(off?.rowId).toBe('he1');
+    expect(pushCopyData(off!)).toEqual({ pushType: 'level_up', copyRowId: 'he1' });
+    state.flags = { enable_i18n: true, push_locale_v1: true };
+    __resetPushLocaleFlagsCache();
+    const on = await resolvePushCopy('level_up', ctxFor('en'));
+    expect(on?.rowId).toBe('en1');
+    expect(pushCopyData(on!)).toEqual({ pushType: 'level_up', copyRowId: 'en1', copyLocale: 'en' });
+    expect((await resolvePushCopy('level_up', ctxFor()))?.rowId).toBe('he1');
   });
 });

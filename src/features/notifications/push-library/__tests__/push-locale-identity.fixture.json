@@ -1,0 +1,394 @@
+{
+ "cases": [
+  {
+   "pushType": "workout_reminder_day",
+   "gender": "male",
+   "subjectGender": null,
+   "uid": "u-workout_reminder_day-0",
+   "result": {
+    "title": "אימון כוח היום",
+    "body": "האימון שלך מוכן. יוצאים?",
+    "deepLink": "/home",
+    "rowId": "default:workout_reminder_day:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "retention_lapse",
+   "gender": "male",
+   "subjectGender": null,
+   "uid": "u-retention_lapse-0",
+   "result": {
+    "title": "איתי, מוכן לחזור?",
+    "body": "אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.",
+    "deepLink": "/home",
+    "rowId": "default:retention_lapse:4",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "level_up",
+   "gender": "male",
+   "subjectGender": null,
+   "uid": "u-level_up-0",
+   "result": {
+    "title": "רמה 5, חצי הדרך",
+    "body": "הגעת לחצי הדרך לרמה 10. כל הכבוד.",
+    "deepLink": "/progression",
+    "rowId": "default:level_up:3",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "group_join_welcome",
+   "gender": "male",
+   "subjectGender": null,
+   "uid": "u-group_join_welcome-0",
+   "result": {
+    "title": "הצטרפת לרצים בפארק",
+    "body": "אפשר לראות מתי המפגש הבא ומי מגיע.",
+    "deepLink": "/community",
+    "rowId": "default:group_join_welcome:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "contribution_approved",
+   "gender": "male",
+   "subjectGender": null,
+   "uid": "u-contribution_approved-0",
+   "result": {
+    "title": "הפארק שהוספת עלה למפה",
+    "body": "\"גן הבנים\" על המפה. מעכשיו כולם יכולים להתאמן שם. תודה!",
+    "deepLink": "/map",
+    "rowId": "default:contribution_approved:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "streak_milestone",
+   "gender": "male",
+   "subjectGender": null,
+   "uid": "u-streak_milestone-0",
+   "result": {
+    "title": "5 ימים ברצף",
+    "body": "כל יום נספר. ממשיכים בקצב שלך.",
+    "deepLink": "/progression",
+    "rowId": "default:streak_milestone:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "second_workout",
+   "gender": "male",
+   "subjectGender": null,
+   "uid": "u-second_workout-0",
+   "result": {
+    "title": "הגוף שלך שואל מתי שוב",
+    "body": "15 דקות. הוא מוכן אם גם אתם",
+    "deepLink": "/home",
+    "rowId": "default:second_workout:1",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "session_waitlist_promoted",
+   "gender": "male",
+   "subjectGender": null,
+   "uid": "u-session_waitlist_promoted-0",
+   "result": {
+    "title": "התפנה מקום ברצים בפארק",
+    "body": "המקום שלך במפגש ב-18:30 שמור. מחכים לכם.",
+    "deepLink": "/community",
+    "rowId": "default:session_waitlist_promoted:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "training_here_partner",
+   "gender": "male",
+   "subjectGender": "female",
+   "uid": "u-training_here_partner-0",
+   "result": {
+    "title": "נועה מגיעה ב-18:30 לגן הבנים",
+    "body": "מצטרף?",
+    "deepLink": "/map",
+    "rowId": "default:training_here_partner:2",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "league_overtaken",
+   "gender": "male",
+   "subjectGender": "male",
+   "uid": "u-league_overtaken-0",
+   "result": {
+    "title": "יואב עקף אותך. בנימוס",
+    "body": "אבל עדיין. אימון אחד וחזרתם",
+    "deepLink": "/community",
+    "rowId": "default:league_overtaken:1",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "workout_reminder_day",
+   "gender": "female",
+   "subjectGender": null,
+   "uid": "u-workout_reminder_day-1",
+   "result": {
+    "title": "אימון כוח היום",
+    "body": "גם 15 דקות נחשבות. מתחילים?",
+    "deepLink": "/home",
+    "rowId": "default:workout_reminder_day:1",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "retention_lapse",
+   "gender": "female",
+   "subjectGender": null,
+   "uid": "u-retention_lapse-1",
+   "result": {
+    "title": "דנה, מוכנה לחזור?",
+    "body": "אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.",
+    "deepLink": "/home",
+    "rowId": "default:retention_lapse:5",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "level_up",
+   "gender": "female",
+   "subjectGender": null,
+   "uid": "u-level_up-1",
+   "result": {
+    "title": "רמה 5, חצי הדרך",
+    "body": "הגעת לחצי הדרך לרמה 10. כל הכבוד.",
+    "deepLink": "/progression",
+    "rowId": "default:level_up:3",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "group_join_welcome",
+   "gender": "female",
+   "subjectGender": null,
+   "uid": "u-group_join_welcome-1",
+   "result": {
+    "title": "הצטרפת לרצים בפארק",
+    "body": "אפשר לראות מתי המפגש הבא ומי מגיע.",
+    "deepLink": "/community",
+    "rowId": "default:group_join_welcome:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "contribution_approved",
+   "gender": "female",
+   "subjectGender": null,
+   "uid": "u-contribution_approved-1",
+   "result": {
+    "title": "הפארק שהוספת עלה למפה",
+    "body": "\"גן הבנים\" על המפה. מעכשיו כולם יכולים להתאמן שם. תודה!",
+    "deepLink": "/map",
+    "rowId": "default:contribution_approved:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "streak_milestone",
+   "gender": "female",
+   "subjectGender": null,
+   "uid": "u-streak_milestone-1",
+   "result": {
+    "title": "5 ימים ברצף",
+    "body": "כל יום נספר. ממשיכים בקצב שלך.",
+    "deepLink": "/progression",
+    "rowId": "default:streak_milestone:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "second_workout",
+   "gender": "female",
+   "subjectGender": null,
+   "uid": "u-second_workout-1",
+   "result": {
+    "title": "הגוף שלך שואל מתי שוב",
+    "body": "15 דקות. הוא מוכן אם גם אתם",
+    "deepLink": "/home",
+    "rowId": "default:second_workout:1",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "session_waitlist_promoted",
+   "gender": "female",
+   "subjectGender": null,
+   "uid": "u-session_waitlist_promoted-1",
+   "result": {
+    "title": "התפנה מקום ברצים בפארק",
+    "body": "המקום שלך במפגש ב-18:30 שמור. מחכים לכם.",
+    "deepLink": "/community",
+    "rowId": "default:session_waitlist_promoted:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "training_here_partner",
+   "gender": "female",
+   "subjectGender": "female",
+   "uid": "u-training_here_partner-1",
+   "result": {
+    "title": "נועה מגיעה ב-18:30 לגן הבנים",
+    "body": "מצטרפת?",
+    "deepLink": "/map",
+    "rowId": "default:training_here_partner:4",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "league_overtaken",
+   "gender": "female",
+   "subjectGender": "male",
+   "uid": "u-league_overtaken-1",
+   "result": {
+    "title": "יואב עקף אותך. בנימוס",
+    "body": "אבל עדיין. אימון אחד וחזרתם",
+    "deepLink": "/community",
+    "rowId": "default:league_overtaken:1",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "workout_reminder_day",
+   "gender": null,
+   "subjectGender": null,
+   "uid": "u-workout_reminder_day-2",
+   "result": {
+    "title": "אימון כוח היום",
+    "body": "רגע קטן בשבילך היום. האימון כבר מחכה.",
+    "deepLink": "/home",
+    "rowId": "default:workout_reminder_day:2",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "retention_lapse",
+   "gender": null,
+   "subjectGender": null,
+   "uid": "u-retention_lapse-2",
+   "result": {
+    "title": "דנה, הגינה עדיין שם",
+    "body": "אימון קצר של 10 דקות, בלי ציוד. חוזרים?",
+    "deepLink": "/home",
+    "rowId": "default:retention_lapse:1",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "level_up",
+   "gender": null,
+   "subjectGender": null,
+   "uid": "u-level_up-2",
+   "result": {
+    "title": "רמה 5, חצי הדרך",
+    "body": "הגעת לחצי הדרך לרמה 10. כל הכבוד.",
+    "deepLink": "/progression",
+    "rowId": "default:level_up:3",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "group_join_welcome",
+   "gender": null,
+   "subjectGender": null,
+   "uid": "u-group_join_welcome-2",
+   "result": {
+    "title": "הצטרפת לרצים בפארק",
+    "body": "אפשר לראות מתי המפגש הבא ומי מגיע.",
+    "deepLink": "/community",
+    "rowId": "default:group_join_welcome:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "contribution_approved",
+   "gender": null,
+   "subjectGender": null,
+   "uid": "u-contribution_approved-2",
+   "result": {
+    "title": "הפארק שהוספת עלה למפה",
+    "body": "\"גן הבנים\" על המפה. מעכשיו כולם יכולים להתאמן שם. תודה!",
+    "deepLink": "/map",
+    "rowId": "default:contribution_approved:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "streak_milestone",
+   "gender": null,
+   "subjectGender": null,
+   "uid": "u-streak_milestone-2",
+   "result": {
+    "title": "5 ימים ברצף",
+    "body": "כל יום נספר. ממשיכים בקצב שלך.",
+    "deepLink": "/progression",
+    "rowId": "default:streak_milestone:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "second_workout",
+   "gender": null,
+   "subjectGender": null,
+   "uid": "u-second_workout-2",
+   "result": {
+    "title": "הגוף שלך שואל מתי שוב",
+    "body": "15 דקות. הוא מוכן אם גם אתם",
+    "deepLink": "/home",
+    "rowId": "default:second_workout:1",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "session_waitlist_promoted",
+   "gender": null,
+   "subjectGender": null,
+   "uid": "u-session_waitlist_promoted-2",
+   "result": {
+    "title": "התפנה מקום ברצים בפארק",
+    "body": "המקום שלך במפגש ב-18:30 שמור. מחכים לכם.",
+    "deepLink": "/community",
+    "rowId": "default:session_waitlist_promoted:0",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "training_here_partner",
+   "gender": null,
+   "subjectGender": "female",
+   "uid": "u-training_here_partner-2",
+   "result": {
+    "title": "נועה מגיעה ב-18:30 לגן הבנים",
+    "body": "מצטרפים?",
+    "deepLink": "/map",
+    "rowId": "default:training_here_partner:6",
+    "source": "default"
+   }
+  },
+  {
+   "pushType": "league_overtaken",
+   "gender": null,
+   "subjectGender": "male",
+   "uid": "u-league_overtaken-2",
+   "result": {
+    "title": "יואב עקף אותך. בנימוס",
+    "body": "אבל עדיין. אימון אחד וחזרתם",
+    "deepLink": "/community",
+    "rowId": "default:league_overtaken:1",
+    "source": "default"
+   }
+  }
+ ]
+}
