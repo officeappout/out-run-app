@@ -625,6 +625,8 @@
   "settings.privacy.analytics": "שיתוף אנליטיקס",
   "settings.privacy.analyticsSub": "שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה",
   "settings.section.tools": "כלים",
+  "settings.language.label": "שפה",
+  "settings.language.aria": "בחירת שפת האפליקציה",
   "settings.tools.nativeOnly": "זמין באפליקציה הנייטיב בלבד",
   "settings.tools.healthConnected": "מחובר — לחץ לניהול הרשאות ב-OS",
   "settings.tools.healthIdle": "סנכרן צעדים, קלוריות ודקות פעילות",

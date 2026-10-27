@@ -155,6 +155,8 @@ export interface PushAudience {
   primaryGoal?: string | null;
   /** The recipient's gender (users core.gender). null/'other' → only 'both' rows. */
   gender?: PushGender | null;
+  /** The recipient's raw users core.locale (wave 5B). Only read by resolvePushLocale, behind the flags. */
+  locale?: string | null;
 }
 
 export function ageBandFromBirthDate(birthMillis: number | null | undefined, now: Date = new Date()): string | null {
@@ -1290,6 +1292,11 @@ export interface PushCopyRow {
   subjectGender?: PushRowSubjectGender | null;
   /** Ties a male row to its female twin. */
   pairId?: string | null;
+  /**
+   * Language of title/body (wave 5B). Absent = 'he' (every existing row). One doc = one locale; a
+   * row without gender variants (gender 'both', typical for en) is chosen for any recipient gender.
+   */
+  locale?: string | null;
 }
 
 /**
@@ -1318,6 +1325,38 @@ export function legacyPushMapping(data: {
 
 export function isRowLive(row: PushCopyRow): boolean {
   return row.active !== false && row.archived !== true && row.needsRewrite !== true;
+}
+
+/** Row language: absent / empty → 'he' (the source of truth). */
+export function rowLocale(row: { locale?: unknown }): string {
+  return typeof row.locale === 'string' && row.locale.trim() ? row.locale.trim().toLowerCase() : 'he';
+}
+
+export interface PushLocaleGate {
+  /** Master flag enable_i18n. */
+  i18nEnabled: boolean;
+  /** Flag push_locale_v1. */
+  pushLocaleEnabled: boolean;
+  /** users/{uid}.core.locale (optional, any string). */
+  userLocale?: unknown;
+}
+
+/**
+ * The language a push is sent in: the recipient's core.locale ONLY when both flags are on, else 'he'
+ * (so with a flag off, selection is exactly the pre-5B Hebrew path). Unknown / malformed → 'he'.
+ */
+export function resolvePushLocale(g: PushLocaleGate): string {
+  if (!g.i18nEnabled || !g.pushLocaleEnabled) return 'he';
+  const l = typeof g.userLocale === 'string' ? g.userLocale.trim().toLowerCase() : '';
+  return /^[a-z]{2}$/.test(l) ? l : 'he';
+}
+
+/** Code defaults of another locale that are really translated (an untranslated key falls back to Hebrew text, so it is dropped). */
+function translatedDefaultRowsFor(pushType: string, locale: string): PushCopyRow[] {
+  const he = defaultRowsFor(pushType, 'he');
+  return defaultRowsFor(pushType, locale)
+    .filter((r, i) => r.title !== he[i]?.title && r.body !== he[i]?.body)
+    .map((r) => ({ ...r, locale }));
 }
 
 export function defaultRowsFor(pushType: string, locale: string = 'he'): PushCopyRow[] {
@@ -1505,7 +1544,10 @@ export interface PushCopyContext {
    * is audience.gender.
    */
   subjectGender?: PushGender | null;
-  /** Locale of the code defaults (wave 5B passes the user's). Default 'he'. */
+  /**
+   * Language to send in, ALREADY gated by resolvePushLocale (the callers never pass a raw
+   * core.locale here). Default 'he'.
+   */
   locale?: string;
 }
 
@@ -1523,6 +1565,8 @@ export interface ResolvedPushCopy {
   source: PushCopySource;
   /** The chosen row's conditions (e.g. { tone: ['cute'] }) — the sender records the tone it really got. */
   conditions?: Record<string, string[]> | null;
+  /** Language of the copy actually sent. Only present when it is not 'he' (so Hebrew results are unchanged). */
+  locale?: string;
 }
 
 function hashString(s: string): number {
@@ -1598,6 +1642,7 @@ export function pickFromRows(
   const eligible = rows.filter(
     (r) =>
       r.pushType === entry.pushType &&
+      rowLocale(r) === (ctx.locale ?? 'he') &&
       isRowLive(r) &&
       conditionsMatch(r.conditions, ctx.conditions) &&
       audienceMatches(r.audience, ctx.audience) &&
@@ -1630,6 +1675,7 @@ export function pickFromRows(
     rowId: chosen.row.id,
     source,
     conditions: chosen.row.conditions ?? null,
+    ...(rowLocale(chosen.row) !== 'he' ? { locale: rowLocale(chosen.row) } : {}),
   };
 }
 
@@ -1646,9 +1692,19 @@ export function selectPushCopy(
 ): ResolvedPushCopy | null {
   const entry = PUSH_CATALOG_BY_TYPE[pushType];
   if (!entry) return null;
+  const locale = (ctx.locale ?? 'he').toLowerCase();
+  const he = { ...ctx, locale: 'he' };
+  if (locale === 'he') {
+    return pickFromRows(entry, libraryRows, he, 'library') ?? pickFromRows(entry, defaultRowsFor(pushType, 'he'), he, 'default');
+  }
+  // Wave 5B chain (docs/i18n/PLAN.md §2.6): library rows of the recipient's locale (gender chain inside) →
+  // translated code defaults of that locale → the Hebrew library → the Hebrew code defaults.
+  const own = { ...ctx, locale };
   return (
-    pickFromRows(entry, libraryRows, ctx, 'library') ??
-    pickFromRows(entry, defaultRowsFor(pushType, ctx.locale), ctx, 'default')
+    pickFromRows(entry, libraryRows, own, 'library') ??
+    pickFromRows(entry, translatedDefaultRowsFor(pushType, locale), own, 'default') ??
+    pickFromRows(entry, libraryRows, he, 'library') ??
+    pickFromRows(entry, defaultRowsFor(pushType, 'he'), he, 'default')
   );
 }
 

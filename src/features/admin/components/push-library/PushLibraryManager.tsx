@@ -216,6 +216,8 @@ function RowCard({
         )}
         <div className="flex flex-wrap gap-1.5">
           {genderLabel && <Chip tone="indigo">{genderLabel}</Chip>}
+          {/* Wave 5B: read-only language code (the editor for locale text comes later). */}
+          <Chip tone={row.locale === 'he' ? undefined : 'violet'}>{row.locale.toUpperCase()}</Chip>
           {row.legacy && <Chip tone="violet">ספרייה ישנה</Chip>}
           {row.needsRewrite && <Chip tone="amber">לשכתוב{row.rewriteReasons.length ? `: ${row.rewriteReasons.join(', ')}` : ''}</Chip>}
           {row.archived && <Chip>בארכיון{row.archivedReason ? `: ${row.archivedReason}` : ''}</Chip>}

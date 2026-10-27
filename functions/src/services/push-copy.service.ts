@@ -43,6 +43,7 @@ import {
   legacyPushMapping,
   normalizePushGender,
   normalizeLegacyPlaceholders,
+  resolvePushLocale,
   selectPushCopy,
   type PushAudience,
   type PushAudienceFilter,
@@ -136,6 +137,10 @@ export function adaptLibraryDoc(id: string, data: Record<string, unknown>): Push
     gender: adaptGender(data.gender),
     subjectGender: adaptSubjectGender(data.subjectGender),
     pairId: str(data.pairId) || null,
+    // Wave 5B: absent = Hebrew (every existing doc). Lower-cased, anything non-string → Hebrew.
+    ...(typeof data.locale === 'string' && data.locale.trim() && data.locale.trim().toLowerCase() !== 'he'
+      ? { locale: data.locale.trim().toLowerCase() }
+      : {}),
   };
 
   if (pushType) {
@@ -196,6 +201,39 @@ export async function getPushLibraryRows(now: number = Date.now()): Promise<Push
   }
 }
 
+// ─── Locale gate (wave 5B) ────────────────────────────────────────────────────
+
+/** system_config/feature_flags (the doc FLAG_DEFS writes) — cached 60s, read only for a recipient with a non-Hebrew locale. */
+const FLAGS_TTL_MS = 60_000;
+let pushLocaleFlagsCache: { at: number; i18nEnabled: boolean; pushLocaleEnabled: boolean } | null = null;
+
+export function __resetPushLocaleFlagsCache(): void {
+  pushLocaleFlagsCache = null;
+}
+
+/** Fails closed: a failed read means Hebrew. */
+async function readPushLocaleFlags(nowMs: number): Promise<{ i18nEnabled: boolean; pushLocaleEnabled: boolean }> {
+  if (pushLocaleFlagsCache && nowMs - pushLocaleFlagsCache.at < FLAGS_TTL_MS) return pushLocaleFlagsCache;
+  let flags = { i18nEnabled: false, pushLocaleEnabled: false };
+  try {
+    const data = (await getDb().doc('system_config/feature_flags').get()).data() as Record<string, unknown> | undefined;
+    flags = { i18nEnabled: data?.enable_i18n === true, pushLocaleEnabled: data?.push_locale_v1 === true };
+  } catch (err) {
+    logger.warn('[push-copy] feature_flags read failed, sending Hebrew', err);
+    return flags;
+  }
+  pushLocaleFlagsCache = { at: nowMs, ...flags };
+  return flags;
+}
+
+/** The language this push goes out in. No recipient locale (or Hebrew) → 'he' without touching Firestore. */
+export async function effectivePushLocale(ctx: PushCopyContext, nowMs: number = Date.now()): Promise<string> {
+  const raw = ctx.audience?.locale;
+  if (typeof raw !== 'string' || !raw.trim() || raw.trim().toLowerCase() === 'he') return 'he';
+  const flags = await readPushLocaleFlags(nowMs);
+  return resolvePushLocale({ ...flags, userLocale: raw });
+}
+
 /**
  * Title + body + deep link for one recipient, or null when there is no copy
  * that fits (the caller sends nothing). See the module header.
@@ -206,7 +244,10 @@ export async function resolvePushCopy(pushType: string, ctx: PushCopyContext): P
     return null;
   }
   const rows = await getPushLibraryRows();
-  const resolved = selectPushCopy(pushType, rows, ctx);
+  // Wave 5B: the recipient's core.locale (carried on ctx.audience) counts only behind enable_i18n +
+  // push_locale_v1; otherwise 'he' and the selection is exactly the pre-5B path.
+  const locale = await effectivePushLocale(ctx);
+  const resolved = selectPushCopy(pushType, rows, { ...ctx, locale });
   if (!resolved) {
     logger.info(`[push-copy] no copy fits pushType=${pushType} uid=${ctx.uid}`);
   }
@@ -246,6 +287,7 @@ export function audienceFromUserData(data: Record<string, unknown> | undefined, 
     ageBand: ageBandFromBirthDate(toMillis(core.birthDate), now),
     primaryGoal: typeof core.mainGoal === 'string' && core.mainGoal ? core.mainGoal : null,
     gender: genderFromUserData(data),
+    ...(typeof core.locale === 'string' && core.locale ? { locale: core.locale } : {}),
   };
 }
 
@@ -292,5 +334,6 @@ export async function loadPushRecipient(uid: string): Promise<PushRecipientProfi
 
 /** FCM data fields that tie a delivered push back to its library row (per-row analytics). */
 export function pushCopyData(copy: ResolvedPushCopy): Record<string, string> {
-  return { pushType: copy.pushType, copyRowId: copy.rowId };
+  // copyLocale (wave 5B) only when the copy is not Hebrew, so a Hebrew payload is unchanged.
+  return { pushType: copy.pushType, copyRowId: copy.rowId, ...(copy.locale && copy.locale !== 'he' ? { copyLocale: copy.locale } : {}) };
 }

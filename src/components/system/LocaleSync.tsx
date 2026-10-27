@@ -24,6 +24,8 @@ import {
   LOCALE_PREF_KEY,
   decideHtmlLangDir,
   deviceLocales,
+  deviceLocalesFor,
+  effectiveLocaleFlags,
   pickAppLocale,
 } from '@/lib/i18n/locale-resolution';
 
@@ -67,17 +69,17 @@ export default function LocaleSync() {
       return;
     }
     let cancelled = false;
-    const localeFlags = { enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe };
+    const localeFlags = effectiveLocaleFlags({ enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe }, isSuperAdmin);
     void getOnboardingPrefAsync(LOCALE_PREF_KEY).then((storedLocale) => {
       if (cancelled) return;
-      const next = pickAppLocale(localeFlags, { profileLocale, storedLocale, deviceLocales: deviceLocales() });
+      const next = pickAppLocale(localeFlags, { profileLocale, storedLocale, deviceLocales: deviceLocalesFor(deviceLocales(), { enableLocaleEn }) });
       setLocaleState({ i18nEnabled: true, locale: next });
       writeLocaleCookie(next);
     });
     return () => {
       cancelled = true;
     };
-  }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, profileLocale, setLocaleState]);
+  }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, isSuperAdmin, profileLocale, setLocaleState]);
 
   // <html lang dir> — the old LanguageProvider effect, unchanged while i18n is off / Hebrew.
   useEffect(() => {

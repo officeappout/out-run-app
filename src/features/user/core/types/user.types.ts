@@ -329,6 +329,8 @@ export interface UserFullProfile {
 
     mainGoal: 'healthy_lifestyle' | 'performance_boost' | 'weight_loss' | 'skill_mastery';
     gender: 'male' | 'female' | 'other';
+    /** App language chosen in Settings (i18n wave 5A). Absent = not chosen. */
+    locale?: 'he' | 'en' | 'ru' | 'de';
     weight: number;
     birthDate?: Date;
     photoURL?: string;

@@ -20,7 +20,6 @@ export function SectionHeader({ title, className = '' }: SectionHeaderProps) {
   return (
     <div
       className={`w-full max-w-[358px] mx-auto px-1 ${className}`}
-      dir="rtl"
     >
       <h3 className="text-[15px] font-bold text-gray-900 dark:text-white mb-1.5">
         {title}

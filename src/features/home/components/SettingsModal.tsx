@@ -72,6 +72,7 @@ import {
 } from '@/features/notifications/services/reminder-schedule.service';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { useT } from '@/hooks/useT';
+import { useLanguageSetting } from '@/hooks/useLanguageSetting';
 import { home, type HomeKey } from '@/messages/ns/home';
 import { common } from '@/messages/ns/common';
 import { weekdayLabel, type WeekdayIndex } from '@/lib/i18n/units';
@@ -390,6 +391,7 @@ function PermissionStatusBadge({
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const t = useT(home);
   const tc = useT(common);
+  const language = useLanguageSetting(); // i18n 5A: options empty (row hidden) while enable_i18n is off
   // Opt-in third-party accessibility toolbar (UserWay). Default OFF; the actual
   // script load lives in AccessibilityWidgetLoader, driven by this preference.
   const [a11yWidgetOn, setA11yWidgetOn] = useState(false);
@@ -2132,6 +2134,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     6. כלים
                    ══════════════════════════════════════════════════════════ */}
                 <Section title={t('settings.section.tools')}>
+                  {language.options.length > 1 && (
+                    <SettingsRow
+                      icon={<Globe size={20} className="text-gray-700" />}
+                      label={t('settings.language.label')}
+                      right={
+                        <select
+                          aria-label={t('settings.language.aria')}
+                          value={language.locale}
+                          onChange={(e) => void language.choose(e.target.value as typeof language.locale)}
+                          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm font-bold text-gray-800"
+                        >
+                          {language.options.map((o) => (
+                            <option key={o.value} value={o.value}>{o.name}</option>
+                          ))}
+                        </select>
+                      }
+                    />
+                  )}
                   {/* ── Health Tracking (HealthKit / Health Connect) ──────── */}
                   <SettingsRow
                     icon={
