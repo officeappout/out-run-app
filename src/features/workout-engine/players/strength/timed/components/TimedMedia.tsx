@@ -24,7 +24,7 @@ export interface TimedMediaProps {
 }
 
 export default function TimedMedia({ item, planExercise, next, isPaused, tutorialPlacement = 'legacy' }: TimedMediaProps) {
-  const { safeVideoUrl } = usePlayerMedia({
+  const { safeVideoUrl, safeImageUrl } = usePlayerMedia({
     exerciseVideoUrl: planExercise?.videoUrl ?? null,
     bunnyVideoId: planExercise?.bunnyVideoId ?? null,
     exerciseImageUrl: planExercise?.imageUrl ?? item?.imageUrl ?? null,
@@ -46,6 +46,7 @@ export default function TimedMedia({ item, planExercise, next, isPaused, tutoria
         key={`timed-${item.key}`}
         exerciseId={item.exerciseId ?? item.key}
         videoUrl={safeVideoUrl}
+        imageUrl={safeImageUrl}
         exerciseName={item.name}
         exerciseType={item.targetHoldSec && !item.targetReps ? 'time' : 'reps'}
         isPaused={isPaused}

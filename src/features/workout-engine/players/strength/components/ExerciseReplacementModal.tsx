@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Exercise, ExecutionMethod, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
-import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { resolveSwapOptionImage } from '../logic/swap-option-media';
 import { getExerciseVariations, getAlternativeExercises, AlternativeExerciseOption } from '../../../generator/services/exercise-replacement.service';
 import {
   getMuscleGroupLabel,
@@ -254,8 +254,8 @@ export default function ExerciseReplacementModal({
   const getImage = (ex: Exercise, chosen?: ExecutionMethod | null): string => {
     // Flag on: the photo follows the method the option will actually use (station / brand).
     const method = swapOptionImageMethod(fixesOn, chosen, () => findMethodForLocation(ex, location));
-    const { imageUrl } = resolveExerciseMedia(ex as any, method as any);
-    return imageUrl || '/images/park-placeholder.svg';
+    // S3: a photo filmed at this workout's location (home / park) first, any media after.
+    return resolveSwapOptionImage(ex as any, method as any, location) || '/images/park-placeholder.svg';
   };
 
   const getLevelConfig = (c: 'lower' | 'same' | 'higher') =>

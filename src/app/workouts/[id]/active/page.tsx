@@ -1075,7 +1075,10 @@ export default function ActiveWorkoutPage() {
   }, [isRecoveryVideoExitEligible]);
 
   /**
-   * handleRecoveryVideoExit — plain, always-visible, NO-confirmation exit for
+   * S1 (pilot wave 2): also the strength exit modal's "יציאה בלי שמירה" (StrengthRunner
+   * onDiscard) for every workout, after its own two-tap confirm. Same no-write cleanup.
+   *
+   * handleExitWithoutSaving — plain, always-visible, NO-confirmation exit for
    * a recovery-video-trio session. Deliberately NOT routed through
    * onComplete/handleComplete — it must never converge with the real
    * completion writes RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED added to that
@@ -1102,7 +1105,7 @@ export default function ActiveWorkoutPage() {
    * tradeoff (a manual toggle choice from earlier in the same app session can
    * get cleared too).
    */
-  const handleRecoveryVideoExit = useCallback(() => {
+  const handleExitWithoutSaving = useCallback(() => {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('active_workout_data');
       sessionStorage.removeItem('currentWorkoutPlanId');
@@ -1127,9 +1130,9 @@ export default function ActiveWorkoutPage() {
   // on its own — untouched, still live for every other workout type.
   useEffect(() => {
     if (!isRecoveryVideoExitEligible) return;
-    window.addEventListener('nativeBackRecoveryExit', handleRecoveryVideoExit);
-    return () => window.removeEventListener('nativeBackRecoveryExit', handleRecoveryVideoExit);
-  }, [isRecoveryVideoExitEligible, handleRecoveryVideoExit]);
+    window.addEventListener('nativeBackRecoveryExit', handleExitWithoutSaving);
+    return () => window.removeEventListener('nativeBackRecoveryExit', handleExitWithoutSaving);
+  }, [isRecoveryVideoExitEligible, handleExitWithoutSaving]);
 
   // === FLOW HANDLERS ===
   
@@ -1992,6 +1995,7 @@ export default function ActiveWorkoutPage() {
         <StrengthRunner
           workout={stableWorkoutPlan}
           onComplete={handleComplete}
+          onDiscard={handleExitWithoutSaving}
           onPause={handlePause}
           onResume={handleResume}
           onSwapExercise={handleSwapExercise}
@@ -2069,7 +2073,7 @@ export default function ActiveWorkoutPage() {
             forcing a placement. Left at bottom-[236px] pending direction. */}
         {isRecoveryVideoExitEligible && (
           <button
-            onClick={handleRecoveryVideoExit}
+            onClick={handleExitWithoutSaving}
             className="absolute bottom-[236px] right-4 z-[46] inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
             style={{ fontFamily: 'var(--font-simpler)' }}
             aria-label="סגור"

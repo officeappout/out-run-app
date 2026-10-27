@@ -104,6 +104,9 @@ const noop = () => {};
 interface StrengthRunnerProps {
   workout: WorkoutPlan;
   onComplete?: (exerciseLog?: ExerciseResultLog[]) => void;
+  /** S1: "יציאה בלי שמירה" in the exit modal — the caller leaves without saving anything.
+   *  Omitted (hybrid station) → no discard link. */
+  onDiscard?: () => void;
   onPause?: () => void;
   onResume?: () => void;
   /**
@@ -151,6 +154,7 @@ interface StrengthRunnerProps {
 export default function StrengthRunner({
   workout,
   onComplete,
+  onDiscard,
   onPause,
   onResume,
   onSwapExercise,
@@ -586,6 +590,13 @@ export default function StrengthRunner({
     );
   }, [sm.getExerciseLog, sm.currentSegmentIndex, onComplete, timed.active, timed.store, workout]);
 
+  // S1: leave without saving. No log is handed back, so nothing is written (history, XP, volume).
+  const handleDiscardExit = useCallback(() => {
+    setShowExitConfirmModal(false);
+    markGenerationOutcome('strength', 'abandoned'); // generation review (flag-gated)
+    onDiscard?.();
+  }, [onDiscard]);
+
   // Android hardware back / iOS edge-swipe-back → open the exit confirmation
   // modal instead of popping the route (which would silently discard all
   // workout progress). Dispatched by src/lib/native/init.ts (Android) /
@@ -693,6 +704,7 @@ export default function StrengthRunner({
           activeKey={inputKey}
           fadeIn={sm.fadeIn}
           safeVideoUrl={safeVideoUrl}
+          safeImageUrl={safeImageUrl}
           exerciseId={sm.activeExercise?.id || `ex-${sm.currentExerciseIndex}`}
           exerciseName={sm.exerciseName}
           exerciseType={sm.exerciseType}
@@ -1035,6 +1047,7 @@ export default function StrengthRunner({
           if (sm.isPaused) sm.togglePause();
         }}
         onExit={handleEarlyExit}
+        onDiscard={onDiscard ? handleDiscardExit : undefined}
       />
 
     </div>
