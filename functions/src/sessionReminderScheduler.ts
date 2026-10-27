@@ -11,6 +11,8 @@
  *
  * Second pass on the same tick (26.10.2026): the "I'm training here later" owner reminder
  * (trainingHere/send-training-here-push.ts), gated separately by enableTrainingHereReminders.
+ * Third pass: training-here pushes held back by quiet hours / Shabbat, re-tried once the window ends
+ * if still relevant (trainingHere/training-here-deferred.ts), same flag.
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
@@ -18,6 +20,7 @@ import * as admin from 'firebase-admin';
 import { loadSessionGroup, sendSessionPushes, sessionPushesEnabled } from './sessionPushes/send-session-push';
 import { reminderRecipients, reminderScanDates } from './sessionPushes/session-time';
 import { runTrainingHereReminderPass } from './trainingHere/send-training-here-push';
+import { runTrainingHereDeferredPass } from './trainingHere/training-here-deferred';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -64,6 +67,11 @@ export const sessionReminderScheduler = onSchedule(
       await runTrainingHereReminderPass(db, now);
     } catch (err) {
       logger.error('[session-reminder] training-here pass failed', err);
+    }
+    try {
+      await runTrainingHereDeferredPass(db, now);
+    } catch (err) {
+      logger.error('[session-reminder] training-here deferred pass failed', err);
     }
   },
 );
