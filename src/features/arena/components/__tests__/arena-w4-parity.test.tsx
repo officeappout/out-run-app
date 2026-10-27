@@ -29,8 +29,8 @@ it('locked arena card (all three locks)', async () => {
 it('unit league table view (loading + empty + ranges)', async () => {
   const noop = () => {};
   const parts = [
-    html(<UnitLeagueTableView range="week" onRangeChange={noop} isLoading onRefresh={noop} result={null} />),
-    html(<UnitLeagueTableView range="month" onRangeChange={noop} isLoading={false} onRefresh={noop} result={null} showKm />),
+    html(<UnitLeagueTableView range={"week" as never} onRangeChange={noop} isLoading onRefresh={noop} result={null} />),
+    html(<UnitLeagueTableView range={"month" as never} onRangeChange={noop} isLoading={false} onRefresh={noop} result={null} showKm />),
   ];
   await expect(parts.join('\n')).toMatchFileSnapshot(snap('unit-table'));
 });
