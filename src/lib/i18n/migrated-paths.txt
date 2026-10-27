@@ -852,6 +852,5 @@ src/features/generation-review/components/ReportProblemButton.tsx
 src/features/generation-review/components/ReportProblemSheet.tsx
 src/features/profile/components/widgets/RecentActivityList.tsx
 src/features/streak-celebration/components/CelebrationHero.tsx
-src/features/weather/components/WeatherChip.tsx
 src/app/roadmap/page.tsx
 src/app/explorer/page.tsx

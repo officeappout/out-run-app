@@ -1,14 +1,13 @@
 /**
- * i18n wave 2 batch ay (namespaces common ui.* / library favorites.* / profile recentActivity.* / home / map / pages):
+ * i18n wave 2 batch ay (namespaces common ui.* / library favorites.* / profile recentActivity.* / home / pages):
  * every key equals the old literal / template, copied verbatim — including what a static render can't reach (the
- * ErrorBoundary default UI, the link-account / report errors, the weather aria label, the roadmap + explorer toast).
+ * ErrorBoundary default UI, the link-account / report errors the roadmap + explorer toast).
  */
 import { describe, expect, it } from 'vitest';
 import { common } from '@/messages/ns/common';
 import { library } from '@/messages/ns/library';
 import { profile } from '@/messages/ns/profile';
 import { home } from '@/messages/ns/home';
-import { map } from '@/messages/ns/map';
 import { pages } from '@/messages/ns/pages';
 import { makeT } from '../t';
 import { pickGendered } from '../gender-copy';
@@ -87,7 +86,7 @@ describe('common (plain)', () => {
   });
 });
 
-describe('library / profile / home / map / pages', () => {
+describe('library / profile / home / pages', () => {
   it('favorites', () => {
     const t = makeT('he', library);
     const DIFFICULTY_MAP: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
@@ -114,11 +113,8 @@ describe('library / profile / home / map / pages', () => {
     }
   });
 
-  it('home / map / pages', () => {
+  it('home / pages', () => {
     expect(makeT('he', home)('streakCelebration.milestoneDays')).toBe('ימים');
-    const tm = makeT('he', map);
-    expect(tm('weather.chip.aria', { temp: String(28) })).toBe(`מזג האוויר: ${28} מעלות`);
-    expect(tm('weather.chip.ariaHint', { temp: String(-2), hint: 'קר' })).toBe(`מזג האוויר: ${-2} מעלות, ${'קר'}`);
     const tp = makeT('he', pages);
     expect(tp('roadmap.welcome')).toBe('ברוכים הבאים!');
     expect(tp('roadmap.sub')).toBe('האימונים שלך מתחילים עכשיו');
