@@ -1,7 +1,7 @@
 {
-  "name": "Out — אימון כושר אישי",
+  "name": "OUT: אימון כושר אישי",
   "short_name": "Out",
-  "description": "אימוני כושר מותאמים אישית — בפארק, בבית, או בשטח",
+  "description": "אימוני כושר מותאמים אישית: בפארק, בבית או בשטח",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -9,13 +9,28 @@
   "lang": "he",
   "background_color": "#F8FAFC",
   "theme_color": "#00BAF7",
-  "categories": ["fitness", "health"],
+  "categories": [
+    "fitness",
+    "health"
+  ],
   "icons": [
     {
-      "src": "/assets/logo/Kind=logotype.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icons/app/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icons/app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
