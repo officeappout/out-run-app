@@ -10,7 +10,11 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { parse, TYPE, type MessageFormatElement } from '@formatjs/icu-messageformat-parser';
+import { IntlMessageFormat } from 'intl-messageformat';
+
+// ICU AST node types (stable numeric enum of the parser bundled inside intl-messageformat, a declared dependency).
+type MessageFormatElement = ReturnType<IntlMessageFormat['getAst']>[number];
+const TYPE = { literal: 0, argument: 1, number: 2, date: 3, time: 4, select: 5, plural: 6, pound: 7, tag: 8 } as const;
 
 export type Severity = 'error' | 'warn';
 export interface Issue { ns: string; key: string; check: string; severity: Severity; message: string }
@@ -40,9 +44,9 @@ interface Walked {
   texts: string[];
 }
 
-function walk(els: MessageFormatElement[], w: Walked): void {
-  for (const el of els) {
-    switch (el.type) {
+function walk(els: any[], w: Walked): void {
+  for (const el of els as any[]) {
+    switch (el.type as number) {
       case TYPE.literal: w.texts.push(el.value); break;
       case TYPE.argument: if (!w.args.has(el.value)) w.args.set(el.value, 'arg'); break;
       case TYPE.number: case TYPE.date: case TYPE.time: if (!w.args.has(el.value)) w.args.set(el.value, 'other'); break;
@@ -64,7 +68,7 @@ function walk(els: MessageFormatElement[], w: Walked): void {
 
 function analyze(message: string): Walked | Error {
   try {
-    const ast = parse(message, { ignoreTag: false, requiresOtherClause: true });
+    const ast = new IntlMessageFormat(message, 'en', undefined, { ignoreTag: false }).getAst();
     const w: Walked = { args: new Map(), selects: new Map(), plurals: new Map(), tags: [], texts: [] };
     walk(ast, w);
     return w;

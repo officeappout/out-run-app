@@ -234,3 +234,8 @@
 
 None of these is in the 368-key pilot; when `community` is translated they must stay untranslated (fallback to Hebrew) or be gated by locale:
 `community:leagues.units.range.myBattalionCompanies`, `community:leagues.units.range.myBrigadeBattalions`, `community:leagues.units.range.allCompanies`, `community:leagues.units.range.allBrigades`, `community:communityPage.leagues.v2.tab.units`, `community:communityPage.reserve.scopeLabel`, `community:communityPage.cards.reserve`, `community:arenaCreate.card.military.label`, `community:group.location.military`.
+| `התנתקות` / `התחברות` | **Sign out** / **Sign in** | Never "log out" / "log in". |
+| `מתקן` | **station** (workout flow, "Find the station") / **equipment** (generic gear) | |
+| `{count} אימונים ממתינים` | ICU plural: **1 workout / N workouts waiting to sync** | Policy: any `{n}` next to a noun gets an English `one`/`other` plural; Hebrew key unchanged, same argument name. |
+| שם פארק גנרי בפוסטים | **place** | Generic park names in feed copy, e.g. "place name". |
+| `אפליקציה בלבד` (perm.native) | **App only** | Not "Native". |

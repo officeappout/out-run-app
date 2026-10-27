@@ -11,9 +11,9 @@ const messages = path.resolve(__dirname, '../../../messages');
 describe('en pilot catalogs (common, pages, home settings.*)', () => {
   const { issues, reports } = validateAll(messages);
 
-  it('has 368 pilot keys: 186 + 17 + 165', () => {
+  it('has 370 pilot keys: 186 + 17 + 167', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 186, pages: 17, home: 165 });
+    expect(by).toEqual({ common: 186, pages: 17, home: 167 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {
