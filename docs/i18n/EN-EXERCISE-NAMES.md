@@ -15,12 +15,12 @@
 
 1. **Never translate literally.** Look the Hebrew up here; if it is missing, ask (add to UNMAPPED), do not improvise.
 2. **Stage words come before the skill, in this fixed order:** `[Stage] [Skill]` → "Advanced Tuck Front Lever", one stage per name, so never "One-Leg Straddle Planche". Stage ladder (easy to hard): **Tuck → Advanced Tuck → One-Leg → Straddle → Half Lay → Full**. "Full" is dropped in names ("Front Lever" = the full version) except when contrasting stages ("Full Front Lever" in a progression list).
-3. **Order of modifiers:** `[Assist/Level] [Grip/Width/Angle] [Base exercise] [Variant]`: "Band-Assisted Wide-Grip Pull-Up", "Eccentric Archer Pull-Up".
+3. **Order of modifiers:** `[Assist/Level] [Grip/Width/Angle] [Base exercise] [Variant]`: "Band-Assisted Wide-Grip Pull-Up", "Negative Archer Pull-Up".
 4. **Capitalization:** exercise names are **Title Case** wherever they appear as a name (titles, labels, buttons, chips, lists): "Front Lever", "Pull-Up", "Bulgarian Split Squat". In running sentences use lowercase for generic movements ("do three pull-ups", "a front lever hold") but proper adjectives stay capitalized always (Bulgarian, Cossack, Romanian, Nordic, German, Australian, Copenhagen). Small words stay lowercase in Title Case ("Skin the Cat", "Toes-to-Bar", "L-Sit to Pike Press").
 5. **Hyphens:** Pull-Up, Push-Up, Chin-Up, Muscle-Up, Sit-Up, Step-Up, V-Up, L-Sit, V-Sit, One-Arm, One-Leg, Toes-to-Bar, Cat-Cow, Band-Assisted. Never "Pullup", "Muscle Up".
 6. **Angles and heights:** keep the number and degree sign: "Push-Up (45° Incline)", "Pull-Up Hold at 90°". Hebrew `גובה אגן / ברך / שוק` = **Hip-Height / Knee-Height / Shin-Height** (box/foot elevation).
 7. **Bands:** `בעזרת גומייה / עם גומייה` (helps you) → **Band-Assisted X**. `בהתנגדות גומיה / כנגד גומייה` (makes it harder) → **X with Resistance Band** (or "Banded X" in tight UI). Thickness: דקה = Light, בינונית = Medium, עבה = Heavy.
-8. **Holds vs reps:** `החזקת X` = **X Hold**; `הרמות / עליות X` (raises) = **X Raises**; `הליכות X` = **X Walks**; `... אקצנטרי` = **Eccentric/Negative** (see OWNER CHOICE #1); `... טווח חלקי` = **Partial Range**; `... מוגבה` = **Elevated**.
+8. **Holds vs reps:** `החזקת X` = **X Hold**; `הרמות / עליות X` (raises) = **X Raises**; `הליכות X` = **X Walks**; `... אקצנטרי` / `... שלילי` = **Negative** (owner decided 27.10); `... טווח חלקי` = **Partial Range**; `... מוגבה` = **Elevated**.
 9. **Do not expand abbreviations the sources keep short:** EMOM, AMRAP, HSPU only if the Hebrew uses them; otherwise write "Handstand Push-Up".
 10. **Gotchas:** `דגל` alone = **Human Flag** (not Dragon Flag; that is `דרגון פלאג`). `פלאנץ׳` = **Planche** (with a geresh), `פלאנק` = **Plank**; they are different movements. `מתח` = **Pull-Up** (it also means "tension" in other Hebrew; here always the exercise). `סמוך קום` = **Burpee**. `מקבילים` = **Dips** (the bars are "Parallettes/Parallel Bars", the movement is the dip).
 
@@ -31,12 +31,12 @@
 | Hebrew | English canonical | Alternates | Notes / source |
 |---|---|---|---|
 | מתח | Pull-Up | pullup | Standard everywhere |
-| מתח סופינציה | Chin-Up | Supinated Pull-Up | OWNER CHOICE #4 |
+| מתח סופינציה | Chin-Up | Supinated Pull-Up | Owner decided 27.10 |
 | מתח באחיזה מעורבת | Mixed-Grip Pull-Up | Alternating-Grip Pull-Up | |
 | מתח צר | Close-Grip Pull-Up | Narrow-Grip | |
 | מתח רחב | Wide-Grip Pull-Up | | |
 | מתח עם גומייה דקה / בינונית / עבה | Band-Assisted Pull-Up (Light / Medium / Heavy Band) | | Rule 7 |
-| מתח אקצנטרי | Negative Pull-Up | Eccentric Pull-Up | OWNER CHOICE #1; BWF ladder uses "negative" (std) |
+| מתח אקצנטרי | Negative Pull-Up | Eccentric Pull-Up | Owner decided 27.10: Negative |
 | מתח אקצנטרי עם תמיכה / עם החזקות | Assisted Negative Pull-Up / Negative Pull-Up with Holds | | |
 | מתח עם החזקות | Pull-Up with Holds | Pull-Up with Pauses | Pauses at set positions |
 | מתח טווח עליון / תחתון | Top-Range Pull-Up / Bottom-Range Pull-Up | Partial Pull-Up (top/bottom half) | `?` check meaning |
@@ -57,8 +57,8 @@
 | החזקת מתח ב-15° / 90° / 120° | Pull-Up Hold at 15° / 90° / 120° | Flexed-arm hang (90°) | Angle = elbow angle `?` |
 | החזקת מתח ... עם תמיכה | Assisted Pull-Up Hold at ... | | |
 | החזקת מתח יד אחת ב-... | One-Arm Pull-Up Hold at ... | | |
-| מתח אוסטרלי ב-15° / 30° / 60° | Australian Pull-Up (15° / 30° / 60°) | Inverted Row | OWNER CHOICE #2 |
-| חתירות ב-15° ... 75° | Inverted Row (15° ... 75°) | Bodyweight Row, Row | OWNER CHOICE #2; BWF/Overcoming Gravity: "row" (std) |
+| מתח אוסטרלי ב-15° / 30° / 60° | Australian Pull-Up (15° / 30° / 60°) | Inverted Row | Owner decided 27.10: Australian Pull-Up |
+| חתירות ב-15° ... 75° | Australian Pull-Up (15° ... 75°) | Inverted Row, Bodyweight Row | Owner decided 27.10: Australian Pull-Up for both Hebrew names |
 | חתירות ב-15° עם ברכיים כפופות | Bent-Knee Inverted Row (15°) | | |
 | חתירות יד אחת ב-45° | One-Arm Inverted Row (45°) | | |
 | חתירות קשתים ב-30° / 45° | Archer Row (30° / 45°) | | |
@@ -230,7 +230,7 @@ Stage ladder for all lever/planche skills: **Tuck → Advanced Tuck → One-Leg 
 | סקוואט כנגד קיר רגל אחת | One-Leg Wall Squat | | |
 | סקוואט כנגד גומייה | Banded Squat | | |
 | סקוואט בעזרת רצועות | Strap-Assisted Squat | | |
-| סקוואט קשתים | Archer Squat | Cossack Squat | OWNER CHOICE #5 |
+| סקוואט קשתים | Cossack Squat | Archer Squat | Owner decided 27.10 |
 | סומו סקוואט | Sumo Squat | | |
 | דרגון סקוואט (+ וריאציות) | Dragon Squat | | Known term; check content before reuse `?` |
 | פיסטול סקוואט | Pistol Squat | | Standard |
@@ -329,11 +329,11 @@ Stage ladder for all lever/planche skills: **Tuck → Advanced Tuck → One-Leg 
 
 | # | Question | Options | Recommendation |
 |---|---|---|---|
-| 1 | `אקצנטרי` and `שלילי`: **Negative** or **Eccentric**? The app uses both words for the same idea. | Negative (BWF/Overcoming Gravity usage, friendlier) vs Eccentric (more technical, GMB/physio usage) | **Negative** in names; "eccentric" only in explanatory copy. Merge both Hebrew words to it. |
-| 2 | `מתח אוסטרלי` vs `חתירות`: the app has both. **Australian Pull-Up** vs **Inverted Row**? | Australian Pull-Up (popular, confusing for non-natives); Inverted Row (BWF/OG standard) | Name rows **Inverted Row** and keep "Australian Pull-Up" only as the alternate in search. Decide whether the two Hebrew items are really the same exercise. |
+| 1 | `אקצנטרי` and `שלילי`: **Negative** or **Eccentric**? The app uses both words for the same idea. | Negative (BWF/Overcoming Gravity usage, friendlier) vs Eccentric (more technical, GMB/physio usage) | **DECIDED 27.10: Negative.** |
+| 2 | `מתח אוסטרלי` vs `חתירות`: the app has both. **Australian Pull-Up** vs **Inverted Row**? | Australian Pull-Up (popular, confusing for non-natives); Inverted Row (BWF/OG standard) | **DECIDED 27.10: Australian Pull-Up** (for both Hebrew names). |
 | 3 | Pull-up angle holds (`החזקת מתח ב-120°`): is the number the elbow angle? | "Pull-Up Hold at 120°" (angle) vs descriptive ("Bottom / Mid / Top Hold") | Keep the angle, confirm it is elbow angle. |
-| 4 | `מתח סופינציה`: **Chin-Up** or **Supinated Pull-Up**? | Chin-Up (universal) vs Supinated (precise, matches the grip name) | **Chin-Up**. |
-| 5 | `סקוואט קשתים`: **Archer Squat** or **Cossack Squat**? | Same movement family; Cossack is the more common name | **Cossack Squat** if the movement is a deep lateral shift; "Archer Squat" if one leg stays straight with arms held out. Owner to confirm movement. |
+| 4 | `מתח סופינציה`: **Chin-Up** or **Supinated Pull-Up**? | Chin-Up (universal) vs Supinated (precise, matches the grip name) | **DECIDED 27.10: Chin-Up.** |
+| 5 | `סקוואט קשתים`: **Archer Squat** or **Cossack Squat**? | Same movement family; Cossack is the more common name | **DECIDED 27.10: Cossack Squat.** |
 | 6 | Stage spelling: **One-Leg / Single-Leg / One-Legged**; **Straddle / Straddled**; **Half Lay / Half-Layout / Half Lay**. Sources split (Antranik: One Legged, Straddled, Half-Lay; Wikipedia: single leg, straddle, half lay). | see left | **One-Leg**, **Straddle**, **Half Lay**: shortest, no tense. |
 | 7 | `יהלום` on front lever / planche (Diamond): not a standard progression term. | "Diamond" (literal, matches app) vs drop into an existing stage name | Keep **Diamond** (it is the app's own progression step); owner to confirm the position. |
 | 8 | `לאנג׳ בולגרי`: **Bulgarian Split Squat** (standard) vs "Bulgarian Lunge". | | **Bulgarian Split Squat**. |
