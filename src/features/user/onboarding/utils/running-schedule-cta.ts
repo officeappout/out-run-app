@@ -7,6 +7,12 @@
  * choice says "שמירה" / "לוח ריצה נשמר!". A user who already chose days keeps
  * the edit wording.
  */
+import { makeT } from '@/lib/i18n/t';
+import { common } from '@/messages/ns/common';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
+const tc = makeT('he', common);
 
 export interface RunningScheduleCtaInput {
   isJIT: boolean | undefined;
@@ -22,10 +28,10 @@ export interface RunningScheduleCta {
 
 export function resolveRunningScheduleCta(input: RunningScheduleCtaInput): RunningScheduleCta {
   if (!input.isJIT) {
-    return { label: input.isLastStep ? 'בואו נרוץ!' : 'המשך', successLabel: undefined };
+    return { label: input.isLastStep ? t('runCta.letsRun') : tc('actions.continue'), successLabel: undefined };
   }
   const isFirstChoice = input.scheduleDaysSource !== 'user-chosen';
   return isFirstChoice
-    ? { label: 'שמירה', successLabel: 'לוח ריצה נשמר!' }
-    : { label: 'שמירת שינויים', successLabel: 'לוח ריצה עודכן!' };
+    ? { label: tc('actions.save'), successLabel: t('runCta.saved') }
+    : { label: t('steps.schedule.cta.save'), successLabel: t('runCta.updated') };
 }

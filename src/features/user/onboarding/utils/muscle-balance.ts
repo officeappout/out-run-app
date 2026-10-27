@@ -10,6 +10,11 @@
  * already reasonably balanced — no recommendation.
  */
 
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
+
 const PUSH_MUSCLE_LIST = ['chest', 'shoulders', 'triceps'] as const;
 const PULL_MUSCLE_LIST = ['back', 'biceps'] as const;
 
@@ -27,10 +32,10 @@ const FULL_BODY_ID = 'full_body';
 export type MuscleBalanceCase = 'push_only' | 'pull_only' | 'upper_only' | 'lower_only';
 
 export const MUSCLE_BALANCE_MESSAGES_HE: Record<MuscleBalanceCase, string> = {
-  push_only: 'בחרת רק שרירי דחיפה — שווה להוסיף משיכה לאיזון.',
-  pull_only: 'בחרת רק שרירי משיכה — שווה להוסיף דחיפה לאיזון.',
-  upper_only: 'בחרת רק פלג גוף עליון — רגליים או ליבה יתנו לך גוף שלם וחזק יותר.',
-  lower_only: 'בחרת רק פלג גוף תחתון — קצת דחיפה/משיכה לעליון ישלימו את התמונה.',
+  push_only: t('muscleBalance.push_only'),
+  pull_only: t('muscleBalance.pull_only'),
+  upper_only: t('muscleBalance.upper_only'),
+  lower_only: t('muscleBalance.lower_only'),
 };
 
 /**

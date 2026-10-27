@@ -14,6 +14,8 @@ import { TIER_LABELS_HE, TIER_EMOJI } from '../types/achievement.types';
 import type { NewlyUnlockedItem } from '../types/achievement.types';
 import { achievementName } from '../config/achievement-definitions';
 import { useUiGender } from '@/hooks/useUiGender';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface AchievementUnlockToastProps {
   item: NewlyUnlockedItem | null;
@@ -23,6 +25,7 @@ interface AchievementUnlockToastProps {
 const AUTO_DISMISS_MS = 4000;
 
 export function AchievementUnlockToast({ item, onDismiss }: AchievementUnlockToastProps) {
+  const t = useT(profileNs);
   const gender = useUiGender();
   useEffect(() => {
     if (!item) return;
@@ -53,7 +56,7 @@ export function AchievementUnlockToast({ item, onDismiss }: AchievementUnlockToa
             {/* Center — text */}
             <div className="flex-1 text-start">
               <p className="text-xs font-semibold text-yellow-600 font-hebrew mb-0.5">
-                🏆 הישג חדש נפתח!
+                {t('achievements.toast.unlocked')}
               </p>
               <p className="text-sm font-bold text-gray-900 font-hebrew leading-snug">
                 {achievementName(item.achievement, gender)}

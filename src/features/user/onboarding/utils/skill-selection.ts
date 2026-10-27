@@ -6,6 +6,10 @@
  */
 import { SKILL_MASTER_ID } from '../constants/program-path.constants';
 import { HIDDEN_PROGRAM_SLUGS } from '@/lib/hidden-programs';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 /** Hidden in the v2 step for now (owner's request) — the shared
  *  HIDDEN_PROGRAM_SLUGS, the same set the legacy picker (SKILL_PROGRAMS)
@@ -15,20 +19,20 @@ export const V2_HIDDEN_SKILLS: ReadonlySet<string> = HIDDEN_PROGRAM_SLUGS;
 export const V2_SKILL_GROUPS: { key: 'pull' | 'push'; name: string; hint: string; items: { id: string; label: string }[] }[] = [
   {
     key: 'pull',
-    name: 'משיכה',
-    hint: 'מתח, טבעות',
+    name: t('package.pull'),
+    hint: t('skillGroup.pull.hint'),
     items: [
-      { id: 'front_lever', label: 'פרונט לבר' },
-      { id: 'one_arm_pullup', label: 'מתח יד אחת' },
+      { id: 'front_lever', label: t('skill.frontLever') },
+      { id: 'one_arm_pullup', label: t('skill.oneArmPullup') },
     ],
   },
   {
     key: 'push',
-    name: 'דחיפה',
-    hint: 'מקבילים, רצפה',
+    name: t('package.push'),
+    hint: t('skillGroup.push.hint'),
     items: [
-      { id: 'planche', label: 'פלאנץ׳' },
-      { id: 'hspu', label: 'סמיכה בעמידת ידיים' },
+      { id: 'planche', label: t('skill.planche') },
+      { id: 'hspu', label: t('skill.hspuShort') },
     ],
   },
 ];

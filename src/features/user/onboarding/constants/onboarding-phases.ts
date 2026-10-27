@@ -46,13 +46,17 @@ export const STRENGTH_LABELS: Record<number, string> = Object.fromEntries(
   Object.entries(STRENGTH_LABEL_KEYS).map(([phase, key]) => [phase, onboardingHe[key]]),
 );
 
-export const RUNNING_LABELS: Record<number, string> = {
-  1: 'שלב 1: הכרות',
-  2: 'שלב 2: אבחון ריצה',
-  3: 'שלב 3: הגדרת לו״ז',
-  4: 'שלב 4: סיכום התוכנית',
-  5: 'שלב 5: הצהרת בריאות',
-};
+export const RUNNING_LABEL_KEYS = {
+  1: 'phases.strength.profile',
+  2: 'phases.running.diagnosis',
+  3: 'phases.running.schedule',
+  4: 'phases.strength.summary',
+  5: 'phases.strength.health',
+} as const satisfies Record<number, NamespaceKey<typeof onboarding>>;
+
+export const RUNNING_LABELS: Record<number, string> = Object.fromEntries(
+  Object.entries(RUNNING_LABEL_KEYS).map(([phase, key]) => [phase, onboardingHe[key]]),
+);
 
 // ── Screen → Phase mapping ─────────────────────────────────────────
 

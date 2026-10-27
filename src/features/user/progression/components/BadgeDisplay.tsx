@@ -25,6 +25,8 @@ import {
 import clsx from 'clsx';
 import { ACHIEVEMENT_DEFINITIONS, achievementName } from '../config/achievement-definitions';
 import { useUiGender } from '@/hooks/useUiGender';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 import {
   TIER_COLORS,
   TIER_EMOJI,
@@ -154,6 +156,7 @@ function BadgeCardV2({ badge, locked, onClick }: { badge: EarnedBadge; locked: b
 }
 
 function BadgeGridV2({ unlockedAchievements, onViewAll, maxVisible }: Required<Omit<BadgeDisplayProps, 'v2'>>) {
+  const t = useT(profileNs);
   const gender = useUiGender();
   const earned = buildEarnedBadges(unlockedAchievements, gender);
   const visibleEarned = earned.slice(0, maxVisible);
@@ -163,7 +166,7 @@ function BadgeGridV2({ unlockedAchievements, onViewAll, maxVisible }: Required<O
   return (
     <div dir="rtl">
       {earned.length === 0 && (
-        <p className="mb-3 text-[12.5px] font-bold text-v2-muted">אין הישגים עדיין — התחל לאמן!</p>
+        <p className="mb-3 text-[12.5px] font-bold text-v2-muted">{t('achievements.badges.empty')}</p>
       )}
       <div className="grid grid-cols-3 gap-2.5">
         {visibleEarned.map((badge) => (
@@ -179,7 +182,7 @@ function BadgeGridV2({ unlockedAchievements, onViewAll, maxVisible }: Required<O
           onClick={onViewAll}
           className="mt-3 text-[13px] font-extrabold text-v2-deep"
         >
-          +{remaining} הישגים נוספים
+          {t('achievements.badges.more', { count: String(remaining) })}
         </button>
       )}
     </div>
@@ -192,6 +195,7 @@ export function BadgeDisplay({
   maxVisible = 6,
   v2 = false,
 }: BadgeDisplayProps) {
+  const t = useT(profileNs);
   const gender = useUiGender();
   if (v2) {
     return <BadgeGridV2 unlockedAchievements={unlockedAchievements} onViewAll={onViewAll} maxVisible={maxVisible} />;
@@ -209,7 +213,7 @@ export function BadgeDisplay({
         dir="rtl"
       >
         <Trophy className="w-7 h-7" />
-        <p className="text-xs font-hebrew">אין הישגים עדיין — התחל לאמן!</p>
+        <p className="text-xs font-hebrew">{t('achievements.badges.empty')}</p>
       </button>
     );
   }
@@ -227,7 +231,7 @@ export function BadgeDisplay({
           className="shrink-0 flex flex-col items-center justify-center gap-1 px-3 py-1.5 rounded-2xl border border-gray-200 bg-gray-50 min-w-[56px] h-full"
         >
           <span className="text-sm font-bold text-gray-600">+{remaining}</span>
-          <span className="text-[9px] text-gray-400 font-hebrew">עוד</span>
+          <span className="text-[9px] text-gray-400 font-hebrew">{t('achievements.badges.moreShort')}</span>
         </button>
       )}
 
@@ -238,7 +242,7 @@ export function BadgeDisplay({
           className="shrink-0 flex flex-col items-center justify-center gap-1 px-3 py-1.5 rounded-2xl border border-gray-200 bg-gray-50 min-w-[64px] h-full"
         >
           <Trophy className="w-4 h-4 text-gray-400" />
-          <span className="text-[9px] text-gray-400 font-hebrew">כולם</span>
+          <span className="text-[9px] text-gray-400 font-hebrew">{t('achievements.badges.all')}</span>
         </button>
       )}
     </div>

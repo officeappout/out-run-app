@@ -12,6 +12,11 @@
  * (the first hybrid slot of the "מה עושים היום?" carousel) and the nearest equipped park.
  */
 
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
+
 /** A park within this distance (metres) counts as "near" on its own. */
 export const WHATNOW_NEAR_PARK_M = 400;
 /**
@@ -75,14 +80,14 @@ export function isWhatNowRoutePending(ctx: WhatNowContext): boolean {
 export function chooseWhatNowCards(ctx: WhatNowContext): WhatNowLayout {
   const near = isNearParkOrRoute(ctx) && ctx.route != null && ctx.route.minutes > 0;
   return near
-    ? { near: true, cards: ['route', 'plan', 'kelly'], title: 'מה בא לך עכשיו?', planTagged: false }
-    : { near: false, cards: ['plan', 'kelly'], title: 'מה בא לך?', planTagged: true };
+    ? { near: true, cards: ['route', 'plan', 'kelly'], title: t('whatNowSvc.title.near'), planTagged: false }
+    : { near: false, cards: ['plan', 'kelly'], title: t('whatNowSvc.title.far'), planTagged: true };
 }
 
 /** "גינת סוטין" → "בגינת סוטין"; unnamed → "בגינה הקרובה". */
 function inPark(name: string | null | undefined): string {
   const n = name?.trim();
-  return n ? `ב${n}` : 'בגינה הקרובה';
+  return n ? t('whatNowSvc.inPark.named', { name: n }) : t('whatNowSvc.inPark.unnamed');
 }
 
 export interface WhatNowRouteCopy {
@@ -94,26 +99,26 @@ export interface WhatNowRouteCopy {
 /** The route card's copy (design N2, verbatim shape). */
 export function whatNowRouteCopy(route: WhatNowRouteSuggestion, parkName: string | null | undefined): WhatNowRouteCopy {
   const min = Math.max(1, Math.round(route.minutes));
-  const verb = route.aerobicKind === 'running' ? 'ריצה מכאן' : 'הליכה מכאן';
+  const verb = route.aerobicKind === 'running' ? t('whatNowSvc.route.verb.running') : t('whatNowSvc.route.verb.walking');
   const stops =
-    route.stops == null ? 'עם עצירות כוח'
-      : route.stops <= 1 ? 'עם עצירת כוח'
-        : `עם ${route.stops} עצירות כוח`;
+    route.stops == null ? t('whatNowSvc.route.stops.unknown')
+      : route.stops <= 1 ? t('whatNowSvc.route.stops.one')
+        : t('whatNowSvc.route.stops.many', { n: String(route.stops) });
   return {
-    tag: 'מומלץ לך עכשיו',
-    title: `מסלול בשכונה שלך · ${min} דק׳`,
-    sub: `${verb}, ${stops} על המתקנים ${inPark(parkName)}`,
+    tag: t('whatNowSvc.route.tag'),
+    title: t('whatNowSvc.route.title', { min: String(min) }),
+    sub: t('whatNowSvc.route.sub', { verb, stops, place: inPark(parkName) }),
   };
 }
 
 /** Kelly's ready chips (design N2k). No prompt changes in this flag — copy only. */
 export const WHATNOW_KELLY_CHIPS = [
-  'אימון ישבן בבית',
-  'מתח ראשון בחיים',
-  'להכיר שותפים לריצה',
-  'סתם למצוא ברזייה',
-  'משהו קל אחרי יום עבודה',
-  'ללמוד עמידת ידיים',
+  t('whatNowSvc.kellyChip.0'),
+  t('whatNowSvc.kellyChip.1'),
+  t('whatNowSvc.kellyChip.2'),
+  t('whatNowSvc.kellyChip.3'),
+  t('whatNowSvc.kellyChip.4'),
+  t('whatNowSvc.kellyChip.5'),
 ] as const;
 
 /** `/ai-coach?starter=entry` → the chat opens with WHATNOW_KELLY_CHIPS as its quick replies. */
@@ -158,7 +163,7 @@ export function shouldOpenWhatNow(input: {
  * The route card's "first workout" line (RouteCardUnified footnote): only with the flag on
  * and while the user has NOT accepted the health declaration yet.
  */
-export const FIRST_WORKOUT_NOTE = 'באימון הראשון: 3 פרטים והצהרת בריאות. דקה, ויוצאים.';
+export const FIRST_WORKOUT_NOTE = t('whatNowSvc.firstWorkoutNote');
 
 export function firstWorkoutNote(enabled: boolean, healthDeclarationAccepted: boolean): string | null {
   return enabled && !healthDeclarationAccepted ? FIRST_WORKOUT_NOTE : null;

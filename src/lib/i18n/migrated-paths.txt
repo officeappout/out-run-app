@@ -131,8 +131,7 @@ src/features/arena/components/WorkoutGoalEditor.tsx
 # wave 2 (namespace onboarding, keys steps.* / location.*) — onboarding + lifestyle-wizard steps and the
 # location step's sheets. Listed per file: steps/ and entry-globe/ also hold files the owner's design
 # agents are editing (AccessCodeStep, UnifiedLocationStep, EntryGlobeHeadline/Layer, EntryLogoSlot,
-# location-types) — not migrated. Also not migrated: entry-copy.ts (the globe headline's copy, read by
-# EntryGlobeHeadline), location-utils.ts (identity hook / badges / pioneer copy, read outside this
+# location-types) — not migrated. Also not migrated: location-utils.ts (identity hook / badges / pioneer copy, read outside this
 # folder), location-constants.ts (data), HistoryStep / SummaryStep / UnifiedLocation/index.ts (dead).
 src/features/user/onboarding/components/steps/AccountSecureStep.tsx
 src/features/user/onboarding/components/steps/EquipmentStep.tsx
@@ -761,3 +760,32 @@ src/features/social/components/ChatThread.tsx
 src/app/community/[id]/page.tsx
 src/app/community/_components/leagues/CompetitionToggle.tsx
 src/app/arena/create/
+
+# batch av (namespaces onboarding + profile) — onboarding non-component code and progression config/components.
+# Files that return Hebrew to outside callers are listed file-level; component folders stay out (batch au / open PRs).
+src/features/user/onboarding/services/first-run-tour.ts
+src/features/user/onboarding/services/tour-catalog.ts
+src/features/user/onboarding/services/entry-whatnow.ts
+src/features/user/onboarding/services/unit-declaration.service.ts
+src/features/user/onboarding/utils/goal-note.ts
+src/features/user/onboarding/utils/persona-goals.ts
+src/features/user/onboarding/utils/muscle-balance.ts
+src/features/user/onboarding/utils/muscle-selection.ts
+src/features/user/onboarding/utils/running-plan-shape.ts
+src/features/user/onboarding/utils/running-schedule-cta.ts
+src/features/user/onboarding/utils/wizard-reminder-plan.ts
+src/features/user/onboarding/utils/required-setup.ts
+src/features/user/onboarding/utils/priority-order.ts
+src/features/user/onboarding/utils/skill-selection.ts
+src/features/user/onboarding/constants/program-path-labels.constants.ts
+src/features/user/onboarding/constants/program-path.constants.ts
+src/features/user/onboarding/constants/program-path-goal-images.ts
+src/features/user/onboarding/constants/onboarding-phases.ts
+src/features/user/onboarding/data/health-questions.ts
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/entry-copy.ts
+src/features/user/progression/config/stage-titles.ts
+src/features/user/progression/config/lemur-stages.ts
+src/features/user/progression/components/BadgeDisplay.tsx
+src/features/user/progression/components/AchievementSheet.tsx
+src/features/user/progression/components/AchievementUnlockToast.tsx
+src/features/user/progression/components/IdentityHeroCard.tsx

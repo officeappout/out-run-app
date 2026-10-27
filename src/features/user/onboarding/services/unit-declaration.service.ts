@@ -15,6 +15,8 @@
  * non-JSON response) that never reached the server at all.
  */
 import { auth } from '@/lib/firebase';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
 
 export interface DeclareUnitResult {
   ok: boolean;
@@ -24,9 +26,10 @@ export interface DeclareUnitResult {
   error?: string;
 }
 
-const NOT_SIGNED_IN_MESSAGE = 'משתמש לא מחובר. רעננו את הדף ונסו שוב.';
-const NETWORK_ERROR_MESSAGE = 'בעיית תקשורת. בדקו את החיבור לאינטרנט ונסו שוב.';
-const GENERIC_SERVER_ERROR_MESSAGE = 'שמירת ההצהרה נכשלה. נסו שוב.';
+const t = makeT('he', onboarding);
+const NOT_SIGNED_IN_MESSAGE = t('unitDeclaration.error.notSignedIn');
+const NETWORK_ERROR_MESSAGE = t('unitDeclaration.error.network');
+const GENERIC_SERVER_ERROR_MESSAGE = t('unitDeclaration.error.generic');
 
 export async function declareUnit(orgId: string, unitId: string): Promise<DeclareUnitResult> {
   let token: string | undefined;

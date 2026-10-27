@@ -13,6 +13,10 @@
  */
 
 import { hasRunningTrack, hasStrengthTrack } from '@/lib/track-ownership';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 export interface GoalOption {
   id: string;
@@ -28,49 +32,49 @@ export interface GoalOption {
 export const GOAL_OPTIONS: GoalOption[] = [
   {
     id: 'routine',
-    shortTitleHe: 'שגרה קבועה',
+    shortTitleHe: t('goals.routine.short'),
     shortTitleEn: 'Routine',
-    longDescHe: 'להתמיד ולבנות שגרה קבועה',
+    longDescHe: t('goals.routine.long'),
     longDescEn: 'build and maintain a steady routine',
     tag: 'goal_routine',
   },
   {
     id: 'aesthetics',
-    shortTitleHe: 'חיטוב ואסתטיקה',
+    shortTitleHe: t('goals.aesthetics.short'),
     shortTitleEn: 'Toning',
-    longDescHe: 'לבנות גוף חטוב ואסתטי',
+    longDescHe: t('goals.aesthetics.long'),
     longDescEn: 'build a toned and aesthetic body',
     tag: 'goal_aesthetics',
   },
   {
     id: 'fitness',
-    shortTitleHe: 'כושר ובריאות',
+    shortTitleHe: t('goals.fitness.short'),
     shortTitleEn: 'Health',
-    longDescHe: 'לשמור על כושר כללי ובריאות לטווח ארוך',
+    longDescHe: t('goals.fitness.long'),
     longDescEn: 'maintain general fitness and long-term health',
     tag: 'goal_fitness',
   },
   {
     id: 'performance',
-    shortTitleHe: 'שיפור ביצועים',
+    shortTitleHe: t('goals.performance.short'),
     shortTitleEn: 'Performance',
-    longDescHe: 'להשתפר בביצועים בענף הספורט שלי',
+    longDescHe: t('goals.performance.long'),
     longDescEn: 'improve performance in my sport',
     tag: 'goal_performance',
   },
   {
     id: 'skills',
-    shortTitleHe: 'מיומנות מתקדמת',
+    shortTitleHe: t('goals.skills.short'),
     shortTitleEn: 'Skills',
-    longDescHe: "ללמוד תרגילים מתקדמים (מתח, פלאנץ' וכו')",
+    longDescHe: t('goals.skills.long'),
     longDescEn: 'learn advanced exercises (pull-ups, planche, etc.)',
     tag: 'goal_skills',
   },
   {
     id: 'community',
-    shortTitleHe: 'קהילה',
+    shortTitleHe: t('goals.community.short'),
     shortTitleEn: 'Community',
-    longDescHe: 'להכיר שותפים חדשים ולהצטרף לקהילה מקומית',
+    longDescHe: t('goals.community.long'),
     longDescEn: 'meet new partners and join a local community',
     tag: 'goal_community',
   },
@@ -80,41 +84,41 @@ export const GOAL_OPTIONS: GoalOption[] = [
 export const RUN_GOAL_OPTIONS: GoalOption[] = [
   {
     id: 'routine',
-    shortTitleHe: 'שגרת ריצה קבועה',
+    shortTitleHe: t('goals.runRoutine.short'),
     shortTitleEn: 'Running routine',
-    longDescHe: 'לרוץ בקביעות ולבנות שגרה',
+    longDescHe: t('goals.runRoutine.long'),
     longDescEn: 'run regularly and build a routine',
     tag: 'goal_routine',
   },
   {
     id: 'fitness',
-    shortTitleHe: 'כושר ובריאות',
+    shortTitleHe: t('goals.fitness.short'),
     shortTitleEn: 'Health',
-    longDescHe: 'לשמור על כושר ובריאות לטווח ארוך',
+    longDescHe: t('goals.runFitness.long'),
     longDescEn: 'stay fit and healthy for the long run',
     tag: 'goal_fitness',
   },
   {
     id: 'run_distance',
-    shortTitleHe: 'לרוץ רחוק יותר',
+    shortTitleHe: t('goals.runDistance.short'),
     shortTitleEn: 'Run farther',
-    longDescHe: 'לרוץ מרחקים ארוכים יותר',
+    longDescHe: t('goals.runDistance.long'),
     longDescEn: 'run longer distances',
     tag: 'goal_run_distance',
   },
   {
     id: 'run_pace',
-    shortTitleHe: 'לשפר קצב',
+    shortTitleHe: t('goals.runPace.short'),
     shortTitleEn: 'Run faster',
-    longDescHe: 'לשפר את הקצב שלי',
+    longDescHe: t('goals.runPace.long'),
     longDescEn: 'improve my pace',
     tag: 'goal_run_pace',
   },
   {
     id: 'community',
-    shortTitleHe: 'קהילה',
+    shortTitleHe: t('goals.community.short'),
     shortTitleEn: 'Community',
-    longDescHe: 'להכיר שותפים לריצה ולהצטרף לקהילה מקומית',
+    longDescHe: t('goals.runCommunity.long'),
     longDescEn: 'meet running partners and join a local community',
     tag: 'goal_community',
   },

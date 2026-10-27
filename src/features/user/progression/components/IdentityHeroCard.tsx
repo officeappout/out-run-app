@@ -33,6 +33,8 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getLevelName } from '@/features/user/progression/config/lemur-stages';
 import { useLevelConfig } from '@/features/user/progression/hooks/useLevelConfig';
 import { auth } from '@/lib/firebase';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 const LEMUR_IMG = '/assets/lemur/king-lemur.png';
 
@@ -41,6 +43,7 @@ export interface IdentityHeroCardProps {
 }
 
 export function IdentityHeroCard({ className = '' }: IdentityHeroCardProps) {
+  const t = useT(profileNs);
   const { globalXP, globalLevel, currentStreak, isHydrated, hydrateFromFirestore } = useProgressionStore();
   const { profile } = useUserStore();
   const gender = profile?.core?.gender ?? 'male';
@@ -100,7 +103,7 @@ export function IdentityHeroCard({ className = '' }: IdentityHeroCardProps) {
 
       {/* Level title (gendered) */}
       <h2 className="text-xl font-black text-gray-900 mt-3">{levelName}</h2>
-      <span className="text-xs font-bold text-[#00ADEF] mt-0.5">שלב {globalLevel}</span>
+      <span className="text-xs font-bold text-[#00ADEF] mt-0.5">{t('identity.stage', { level: String(globalLevel) })}</span>
 
       {/* XP progress bar */}
       <div className="w-full mt-4">
@@ -111,7 +114,7 @@ export function IdentityHeroCard({ className = '' }: IdentityHeroCardProps) {
           </div>
         ) : isMaxLevel ? (
           <div className="bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] rounded-full py-2 px-4 text-center">
-            <span className="text-white text-xs font-black">הגעת לשיא!</span>
+            <span className="text-white text-xs font-black">{t('dashboard.xp.max')}</span>
           </div>
         ) : (
           <>
@@ -128,7 +131,7 @@ export function IdentityHeroCard({ className = '' }: IdentityHeroCardProps) {
                 {globalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
               </span>
               <span className="text-[11px] font-bold text-[#00ADEF]">
-                שלב {globalLevel + 1} →
+                {t('dashboard.xp.nextLevel', { level: String(globalLevel + 1) })}
               </span>
             </div>
           </>
