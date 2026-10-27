@@ -36,7 +36,7 @@ export default function GuestHeroCard() {
             </div>
 
             {/* Decorative Circle */}
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+            <div className="absolute -top-10 -start-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
         </div>
     );
 }

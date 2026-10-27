@@ -24,7 +24,6 @@ export const FloorsWidget: React.FC<FloorsWidgetProps> = ({
   return (
     <div
       className="bg-white dark:bg-[#1E1E1E] rounded-2xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.05)] flex flex-col justify-between h-36 relative border border-gray-100 dark:border-gray-800 overflow-hidden w-full"
-      dir="rtl"
     >
       {/* Header */}
       <div className="flex justify-between items-start z-10">

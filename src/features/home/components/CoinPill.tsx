@@ -57,7 +57,7 @@ export default function CoinPill() {
         <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400 whitespace-nowrap">
           ...
         </span>
-        <div className="w-4 h-4 rounded-full bg-yellow-400 border border-yellow-500 flex items-center justify-center text-[10px] text-yellow-900 font-bold mr-1.5 shadow-sm">
+        <div className="w-4 h-4 rounded-full bg-yellow-400 border border-yellow-500 flex items-center justify-center text-[10px] text-yellow-900 font-bold ms-1.5 shadow-sm">
           $
         </div>
       </div>
@@ -69,7 +69,7 @@ export default function CoinPill() {
       <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400 whitespace-nowrap">
         {isLoading ? '...' : `+${formatNumber(coins, locale)} מטבעות`}
       </span>
-      <div className="w-4 h-4 rounded-full bg-yellow-400 border border-yellow-500 flex items-center justify-center text-[10px] text-yellow-900 font-bold mr-1.5 shadow-sm">
+      <div className="w-4 h-4 rounded-full bg-yellow-400 border border-yellow-500 flex items-center justify-center text-[10px] text-yellow-900 font-bold ms-1.5 shadow-sm">
         $
       </div>
     </div>

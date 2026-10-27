@@ -37,7 +37,7 @@ export default function StatsWidgets({ stats, emphasizeSteps = true, isGuest = f
           onClick={() => router.push('/onboarding')}
           className="bg-white rounded-3xl p-5 shadow-card border border-orange-100/50 flex flex-col items-center justify-center min-h-[165px] cursor-pointer active:scale-95 transition-transform relative overflow-hidden"
         >
-          <div className="absolute top-0 right-0 w-full h-1 bg-orange-400/20" />
+          <div className="absolute top-0 start-0 w-full h-1 bg-orange-400/20" />
 
           <div className="w-16 h-16 rounded-full bg-orange-50 border-4 border-orange-100 flex items-center justify-center mb-3 text-2xl font-black text-orange-300">
             ?

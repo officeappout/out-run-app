@@ -64,7 +64,7 @@ function PersonaRow({
             {summary.icon && (
               <UnitIconBadge unitId={summary.icon.unitId} iconUrl={summary.icon.iconUrl} name={summary.icon.name} size={36} />
             )}
-            <div className="text-right min-w-0">
+            <div className="text-start min-w-0">
               <p className="text-sm font-semibold text-gray-900">{LIFESTYLE_LABELS[entry.id]}</p>
               {sublabel && (
                 <p className={`text-xs mt-0.5 truncate ${!summary.resolved || !summary.isComplete ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
@@ -158,7 +158,7 @@ export default function MyPersonasSection() {
   };
 
   return (
-    <div dir="rtl" className="pt-1">
+    <div className="pt-1">
       <p className="text-sm font-bold text-gray-900 mb-1 px-1">{t('personas.title')}</p>
       <p className="text-xs text-gray-400 mb-2 px-1">{t('personas.privacy')}</p>
       <div className="flex flex-col gap-2">
@@ -219,7 +219,7 @@ export default function MyPersonasSection() {
                     type="button"
                     disabled={busy}
                     onClick={() => handleAdd(id)}
-                    className="flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 border-gray-200 text-right text-sm font-semibold text-gray-900 active:scale-[0.98] transition-transform disabled:opacity-50"
+                    className="flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 border-gray-200 text-start text-sm font-semibold text-gray-900 active:scale-[0.98] transition-transform disabled:opacity-50"
                   >
                     {/* Same emoji assets as the onboarding persona cards
                         (PersonaStep.tsx's LIFESTYLE_OPTIONS) — not a new

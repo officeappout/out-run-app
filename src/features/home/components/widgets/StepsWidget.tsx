@@ -44,7 +44,6 @@ export const StepsWidget: React.FC<StepsWidgetProps> = ({
   return (
     <div
       className="bg-white text-v2-ink rounded-v2-card shadow-v2-card p-4 flex flex-col justify-between h-36 relative overflow-hidden w-full"
-      dir="rtl"
     >
       {/* Header */}
       <div className="flex justify-between items-center">

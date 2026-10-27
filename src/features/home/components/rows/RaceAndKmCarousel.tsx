@@ -82,7 +82,6 @@ export function RaceAndKmCarousel() {
   return (
     <div
       className="w-full h-full overflow-x-auto snap-x snap-mandatory scrollbar-none"
-      dir="rtl"
     >
       <div className="flex gap-2 h-full">
         <div className="snap-center shrink-0 w-full h-full">

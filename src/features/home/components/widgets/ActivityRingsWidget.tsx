@@ -47,7 +47,6 @@ export default function ActivityRingsWidget({ className = '' }: ActivityRingsWid
 
   return (
     <div
-      dir="rtl"
       className={
         'bg-white rounded-2xl shadow-card border border-gray-100 ' +
         'p-4 flex flex-col gap-3 w-full ' +

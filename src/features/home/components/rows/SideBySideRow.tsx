@@ -39,7 +39,6 @@ export function SideBySideRow({
   return (
     <div
       className={`flex flex-row flex-nowrap overflow-x-auto scrollbar-hide snap-x snap-mandatory gap-4 px-4 w-full ${className}`}
-      dir="rtl"
     >
       <div className="flex-shrink-0 snap-start flex flex-col w-[47%]">
         <div className="w-full h-full flex flex-col">{right}</div>

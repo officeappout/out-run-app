@@ -53,7 +53,7 @@ export function CompactMetricTile({
   className = '',
 }: CompactMetricTileProps) {
   const inner = (
-    <div className="flex items-center gap-2.5 w-full" dir="rtl">
+    <div className="flex items-center gap-2.5 w-full">
       <div className="shrink-0">
         {percentage !== undefined ? (
           <CircularProgress percentage={percentage} size={42} strokeWidth={4} colorClass={colorClass}>
