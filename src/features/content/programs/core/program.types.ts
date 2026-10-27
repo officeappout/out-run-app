@@ -187,6 +187,11 @@ export interface ProgramLevelSettings {
    *  Engine uses this list when protocol injection triggers. */
   preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset' | 'tabata')[];
 
+  /** Percent of sessions per protocol at this level (the rest is straight sets), e.g.
+   *  { antagonist_pair: 30, emom: 10, amrap: 5 }. When any scanned program has it, the engine
+   *  uses the merged weights (logic/protocol-weights.ts) instead of protocolProbability. */
+  protocolWeights?: Record<string, number>;
+
   /** DEDICATED probability (0.0-1.0) for the tabata FINISHER — separate from the
    *  main `protocolProbability` because tabata is resolved on its own union track
    *  (a cross-program finisher), not the winner-takes-all lottery. Read only when
