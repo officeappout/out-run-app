@@ -85,7 +85,7 @@ export default function DailyGoalRingsCard() {
   const bothReady = strengthReady && movementReady;
 
   return (
-    <div className="bg-white dark:bg-slate-800 w-full" style={WIDGET_CARD_STYLE} dir="rtl">
+    <div className="bg-white dark:bg-slate-800 w-full" style={WIDGET_CARD_STYLE}>
       <div className={bothReady ? 'flex items-center justify-center gap-6 overflow-x-auto' : 'flex items-center justify-center'}>
         {movementReady && <GoalRing ring={buildGoalRing(todayMovementPct, 'cardio')} label="אירובי" />}
         {strengthReady && <GoalRing ring={buildGoalRing(todayStrengthPct, 'strength')} label="כוח" />}

@@ -132,7 +132,6 @@ export default function RunProgressCircle() {
     return (
       <div
         className="bg-white dark:bg-slate-800"
-        dir="rtl"
         style={{
           borderRadius: 16,
           border: '0.5px solid #E0E9FF',
@@ -164,7 +163,6 @@ export default function RunProgressCircle() {
       {/* ── Collapsed card — always in grid flow, never shifts ── */}
       <div
         className="bg-white dark:bg-slate-800 cursor-pointer active:scale-[0.98] transition-transform"
-        dir="rtl"
         style={{
           borderRadius: 16,
           border: '0.5px solid #E0E9FF',
@@ -221,7 +219,6 @@ export default function RunProgressCircle() {
               opacity: { duration: 0.15 },
             }}
             className="absolute overflow-hidden bg-white dark:bg-slate-800"
-            dir="rtl"
             style={{
               top: 0,
               right: 0,
@@ -280,7 +277,7 @@ export default function RunProgressCircle() {
                   <span className="tabular-nums" style={{ color: '#00BAF7' }}>
                     {formatPace(basePace)}
                   </span>
-                  <span className="text-gray-400 font-bold text-[13px] mr-1">({unitLabel('min', tc)}/{unitLabel('km', tc)})</span>
+                  <span className="text-gray-400 font-bold text-[13px] ms-1">({unitLabel('min', tc)}/{unitLabel('km', tc)})</span>
                 </p>
               )}
 

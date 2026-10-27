@@ -133,7 +133,6 @@ export default function TodayActivityCard({
   return (
     <div
       className="w-full h-full flex items-center gap-3 overflow-hidden"
-      dir="rtl"
       style={{
         borderRadius: 18,
         background: color,
@@ -146,7 +145,7 @@ export default function TodayActivityCard({
         style={{ background: 'rgba(255,255,255,0.24)' }}
       >
         <div className="text-white">{getProgramIcon(iconKey, 'w-5 h-5')}</div>
-        <div className="absolute -bottom-1 -right-1">
+        <div className="absolute -bottom-1 -start-1">
           <CheckMarkBadge size={16} />
         </div>
       </div>

@@ -341,7 +341,7 @@ export default function UserWorkoutAdjuster({
               className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isEquipped ? 'bg-[#2b6cb0]' : 'bg-gray-300 dark:bg-gray-600'}`}
             >
               <div
-                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${isEquipped ? 'left-[22px]' : 'left-0.5'}`}
+                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${isEquipped ? 'end-[22px]' : 'end-0.5'}`}
               />
             </div>
           </div>
@@ -424,7 +424,6 @@ export default function UserWorkoutAdjuster({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 36, mass: 1 }}
-            dir="rtl"
           >
             {/* Drag Handle */}
             <div className="flex justify-center pt-3 pb-1">

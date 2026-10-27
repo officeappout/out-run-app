@@ -38,8 +38,7 @@ export default function ProgramStartCard({ track, title, valueLine, chipLabel, l
       disabled={loading}
       data-program-start={track}
       data-program-start-slide={slide ? '' : undefined}
-      className={`group relative ${slide ? 'h-full w-full' : 'h-[244px] min-w-0 flex-1'} overflow-hidden rounded-[24px] bg-white text-right shadow-lg transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60`}
-      dir="rtl"
+      className={`group relative ${slide ? 'h-full w-full' : 'h-[244px] min-w-0 flex-1'} overflow-hidden rounded-[24px] bg-white text-start shadow-lg transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60`}
     >
       <ProgramArt track={track} crop="tall" fade={slide ? '58%' : '72%'} />
       <div className={`absolute inset-x-0 bottom-0 flex flex-col items-start ${slide ? 'p-4' : 'p-3'}`}>
@@ -55,7 +54,7 @@ export default function ProgramStartCard({ track, title, valueLine, chipLabel, l
         <div className="mt-2 flex w-full items-center justify-between gap-1">
           <Chip tone="accent" className="!h-6 !px-2 !text-[11.5px] !font-extrabold">{chipLabel}</Chip>
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring" aria-hidden="true">
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <ChevronLeft size={16} strokeWidth={2.6} />}
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <ChevronLeft className="ltr:-scale-x-100" size={16} strokeWidth={2.6} />}
           </span>
         </div>
       </div>

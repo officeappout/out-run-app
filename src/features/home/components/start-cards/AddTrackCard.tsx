@@ -30,8 +30,7 @@ export default function AddTrackCard({ track, profile, onNavigate, onDismiss }: 
     <div className="flex h-full w-full items-center justify-center">
       <div
         data-add-track={track}
-        className="flex w-full flex-col overflow-hidden rounded-[24px] bg-white text-right shadow-lg"
-        dir="rtl"
+        className="flex w-full flex-col overflow-hidden rounded-[24px] bg-white text-start shadow-lg"
       >
         <div className="relative h-[124px] w-full">
           <ProgramArt track={track} crop="wide" fade="70%" />

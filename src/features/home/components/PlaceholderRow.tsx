@@ -21,7 +21,6 @@ export function PlaceholderRow({ label, minHeight = 140 }: PlaceholderRowProps) 
 
   return (
     <div
-      dir="rtl"
       className="w-full max-w-[358px] mx-auto rounded-xl border-2 border-dashed border-amber-400/60 bg-amber-50/40 dark:bg-amber-900/20 flex items-center justify-center text-xs font-bold text-amber-700 dark:text-amber-300 px-3 text-center"
       style={{ minHeight }}
     >

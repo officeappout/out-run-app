@@ -70,7 +70,6 @@ export default function StepsSummaryCardView({
         type="button"
         onClick={handleOpen}
         aria-label={ariaLabel}
-        dir="rtl"
         className={[
           'w-full h-full text-center p-4',
           CARD,
@@ -87,7 +86,7 @@ export default function StepsSummaryCardView({
         >
           <div className="flex flex-col items-center leading-none" dir="ltr">
             <Count steps={steps} displaySteps={displaySteps} size="sm" />
-            <span className="text-[10px] font-semibold text-v2-muted mt-1" dir="rtl">
+            <span className="text-[10px] font-semibold text-v2-muted mt-1">
               {connectPromptLabel ?? t('steps.ofGoal', { goal: formatNumber(goal, t.locale) })}
             </span>
           </div>
@@ -101,7 +100,6 @@ export default function StepsSummaryCardView({
       type="button"
       onClick={handleOpen}
       aria-label={ariaLabel}
-      dir="rtl"
       className={[
         'w-full text-start px-4 py-4',
         CARD,
@@ -134,7 +132,7 @@ export default function StepsSummaryCardView({
       </div>
 
       <span className="w-9 h-9 rounded-full bg-v2-surface flex items-center justify-center shrink-0">
-        <ChevronLeft className="w-5 h-5 text-v2-muted" strokeWidth={2.4} aria-hidden="true" />
+        <ChevronLeft className="w-5 h-5 text-v2-muted ltr:-scale-x-100" strokeWidth={2.4} aria-hidden="true" />
       </span>
     </button>
   );
