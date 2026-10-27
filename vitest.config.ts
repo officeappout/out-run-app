@@ -99,6 +99,14 @@ export default defineConfig({
       'src/features/ai-coach/__tests__/**/*.test.tsx',
       // i18n wave 2 (map namespace) — parks/core map UI (cards, search, banners), Hebrew markup parity (static + jsdom).
       'src/features/parks/core/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch ar (map namespace) — add-location wizard / suggest-edit / quick-report parity (static markup).
+      'src/features/parks/client/components/contribution-wizard/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch ar (map namespace) — safecity sheet / switcher / overlay / toast parity (static markup).
+      'src/features/safecity/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch ar (map namespace) — "+" drawer / compose sheet parity (static markup).
+      'src/features/parks/client/components/planned-activity/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch ar (map namespace) — map layers (navigate / builder) parity (static markup).
+      'src/app/map/layers/__tests__/**/*.test.tsx',
       // enable_map_polish_v1 — compact park card / live-user navigate / route credits, static markup.
       'src/features/parks/core/map-polish/__tests__/**/*.test.tsx',
       // i18n wave 2 (player namespace, gps.* / shareLive.* / preview.* / coachNote.* / strengthOverview.*) —
