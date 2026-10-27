@@ -14,6 +14,11 @@ import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/tim
 import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/timed-result';
 import { logStampFromPlanExercise } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import type { ExerciseResultLog } from '../../hooks/useWorkoutStateMachine';
+import { makeT } from '@/lib/i18n/t';
+import { player } from '@/messages/ns/player';
+
+/** Hebrew translator, built once. */
+const t = makeT('he', player);
 
 export interface TimedSegmentGate {
   /** enable_home_v2 */
@@ -74,14 +79,14 @@ export function mergeSegmentLog(
 /** True for a warm-up / cool-down segment (same title / id test the summaries use). */
 export function isBookendSegment(segment: WorkoutSegment | undefined): boolean {
   if (!segment) return false;
-  const t = segment.title ?? '';
+  const title = segment.title ?? '';
   return (
     segment.id.includes('warmup') ||
     segment.id.includes('cooldown') ||
-    t.includes('חימום') ||
-    t.includes('שחרור') ||
-    t.includes('קירור') ||
-    t.includes('מתיחות')
+    title.includes('חימום') || // i18n-allow-hebrew: data — matched against the stored segment title
+    title.includes('שחרור') || // i18n-allow-hebrew: data — matched against the stored segment title
+    title.includes('קירור') || // i18n-allow-hebrew: data — matched against the stored segment title
+    title.includes('מתיחות') // i18n-allow-hebrew: data — matched against the stored segment title
   );
 }
 
@@ -93,7 +98,7 @@ export function timedBlockPrefix(workout: Pick<WorkoutPlan, 'segments'>, segment
   for (let i = 0; i < segmentIndex; i++) {
     const s = workout.segments[i];
     if (!s || isBookendSegment(s) || !(s.exercises && s.exercises.length > 0)) continue;
-    if (!timedSpecFromSegment(s)) return 'פינישר';
+    if (!timedSpecFromSegment(s)) return t('timedLabels.prefix.finisher');
   }
   return null;
 }

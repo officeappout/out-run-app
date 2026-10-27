@@ -13,6 +13,11 @@ import { emomMinuteAt } from '@/features/workout-engine/engines/timed/emom.machi
 import { amrapScore } from '@/features/workout-engine/engines/timed/timed.selectors';
 import type { AmrapState, EmomState, TabataState, TimedItem, TimedState } from '@/features/workout-engine/engines/timed/timed.types';
 import { formatClock, itemTargetText } from './timed-labels';
+import { makeT } from '@/lib/i18n/t';
+import { player } from '@/messages/ns/player';
+
+/** Hebrew translator, built once (the list model is rebuilt every tick). */
+const t = makeT('he', player);
 
 export type PillTone = 'done' | 'partial' | 'missed';
 
@@ -47,7 +52,7 @@ const row = (item: TimedItem, key: string, detail: string, extra: Partial<TimedL
   ...extra,
 });
 
-const repsWord = (n: number) => (n === 1 ? 'חזרה' : 'חזרות');
+const repsText = (n: number) => t('timedLabels.list.reps', { count: String(n) });
 
 function amrapList(s: AmrapState): TimedListModel {
   const n = s.spec.items.length;
@@ -55,22 +60,22 @@ function amrapList(s: AmrapState): TimedListModel {
   let doneItems = 0;
   for (const r of s.data.rounds) {
     for (const it of r.items) {
-      const t = totals[it.itemIndex];
-      if (!t) continue;
+      const tot = totals[it.itemIndex];
+      if (!tot) continue;
       const touched = !it.partial || (it.reps ?? 0) > 0 || (it.distanceM ?? 0) > 0;
       if (!touched) continue;
       doneItems += 1;
-      t.count += 1;
-      t.reps += it.reps ?? 0;
-      t.sec += Math.round(it.durationMs / 1000);
+      tot.count += 1;
+      tot.reps += it.reps ?? 0;
+      tot.sec += Math.round(it.durationMs / 1000);
     }
   }
   const done = s.spec.items.flatMap((item, i) => {
-    const t = totals[i];
-    if (t.count === 0) return [];
+    const tot = totals[i];
+    if (tot.count === 0) return [];
     const isHold = item.kind === 'exercise' && !item.targetReps && !!item.targetHoldSec;
-    const detail = item.kind === 'aerobic_leg' || isHold ? formatClock(isHold ? t.reps : t.sec) : `${t.reps} ${repsWord(t.reps)}`;
-    return [row(item, `done-${i}`, detail, { trailing: `×${t.count}` })];
+    const detail = item.kind === 'aerobic_leg' || isHold ? formatClock(isHold ? tot.reps : tot.sec) : repsText(tot.reps);
+    return [row(item, `done-${i}`, detail, { trailing: `×${tot.count}` })];
   });
   const score = amrapScore(s);
   const totalReps = s.data.rounds.reduce((a, r) => a + r.items.reduce((b, it) => b + (it.reps ?? 0), 0), 0);
@@ -78,14 +83,14 @@ function amrapList(s: AmrapState): TimedListModel {
   const queue = live
     ? s.spec.items.slice(s.data.itemIndex).map((item, k) => {
         const i = s.data.itemIndex + k;
-        return row(item, `q-${i}`, itemTargetText(item), k === 0 ? { trailing: 'עכשיו', now: true } : {});
+        return row(item, `q-${i}`, itemTargetText(item), k === 0 ? { trailing: t('timedLabels.now'), now: true } : {});
       })
     : [];
   return {
-    headline: `${doneItems} ${doneItems === 1 ? 'פריט' : 'פריטים'} בסל`,
-    summary: `${score.fullRounds} ${score.fullRounds === 1 ? 'סבב מלא' : 'סבבים מלאים'} · ${totalReps} ${repsWord(totalReps)}`,
+    headline: t('timedLabels.list.basket', { count: String(doneItems) }),
+    summary: t('timedLabels.list.roundsSummary', { rounds: String(score.fullRounds), reps: String(totalReps) }),
     done,
-    queueTitle: live ? `סבב ${s.data.rounds.length}` : '',
+    queueTitle: live ? t('timedLabels.list.round', { n: String(s.data.rounds.length) }) : '',
     queue: n > 0 ? queue : [],
   };
 }
@@ -98,25 +103,25 @@ function emomList(s: EmomState, activeMs: number): TimedListModel {
       .filter((m) => m.status !== 'pending')
       .map((m) => {
         const target = item.targetReps ?? item.targetHoldSec ?? null;
-        if (m.status === 'done') return { label: m.workMs != null ? formatClock(Math.round(m.workMs / 1000)) : 'בוצע', tone: 'done' as const };
+        if (m.status === 'done') return { label: m.workMs != null ? formatClock(Math.round(m.workMs / 1000)) : t('timedLabels.list.pillDone'), tone: 'done' as const };
         if (m.status === 'partial') return { label: target ? `${m.reps ?? 0}/${target}` : String(m.reps ?? 0), tone: 'partial' as const };
         return { label: '–', tone: 'missed' as const };
       });
     const next = s.status === 'done' ? undefined : mins.find((m) => m.status === 'pending' && m.index >= cur);
-    return row(item, `item-${i}`, itemTargetText(item), { pills, ...(next ? { trailing: `דקה ${next.index + 1}` } : {}) });
+    return row(item, `item-${i}`, itemTargetText(item), { pills, ...(next ? { trailing: t('timedLabels.list.minute', { n: String(next.index + 1) }) } : {}) });
   });
   const doneMinutes = s.data.minutes.filter((m) => m.status === 'done').length;
   const queue = s.status === 'done'
     ? []
     : s.data.minutes.slice(cur, cur + 3).flatMap((m, k) => {
         const item = s.spec.items[m.itemIndex];
-        return item ? [row(item, `q-${m.index}`, `דקה ${m.index + 1} · ${itemTargetText(item)}`, k === 0 ? { trailing: 'עכשיו', now: true } : {})] : [];
+        return item ? [row(item, `q-${m.index}`, t('timedLabels.list.minuteTarget', { n: String(m.index + 1), target: itemTargetText(item) }), k === 0 ? { trailing: t('timedLabels.now'), now: true } : {})] : [];
       });
   return {
-    headline: `${doneMinutes} ${doneMinutes === 1 ? 'דקה הושלמה' : 'דקות הושלמו'}`,
-    summary: `${s.spec.items.length} תרגילים · ${s.data.minutes.length} דקות`,
+    headline: t('timedLabels.list.minutesDone', { count: String(doneMinutes) }),
+    summary: t('timedLabels.list.emomSummary', { items: String(s.spec.items.length), minutes: String(s.data.minutes.length) }),
     done,
-    queueTitle: s.status === 'done' ? '' : 'הבא בתור',
+    queueTitle: s.status === 'done' ? '' : t('strengthPlayer.timed.list.queue'),
     queue,
   };
 }
@@ -128,20 +133,19 @@ function tabataList(s: TabataState, activeMs: number): TimedListModel {
   const done = s.spec.items.map((item, i) => {
     const mine = s.data.intervals.filter((iv) => iv.itemIndex === i);
     const d = mine.filter((iv) => isDone(iv.index)).length;
-    return row(item, `item-${i}`, `${s.spec.config.workSec} שנ׳ · ${d}/${mine.length}`);
+    return row(item, `item-${i}`, t('timedLabels.list.tabataItem', { sec: String(s.spec.config.workSec), done: String(d), total: String(mine.length) }));
   });
   const doneCount = s.data.intervals.filter((iv) => isDone(iv.index)).length;
   const from = s.status === 'done' ? n : pos.phase === 'rest' ? pos.index + 1 : pos.index;
   const queue = s.data.intervals.slice(from, from + 3).flatMap((iv, k) => {
     const item = s.spec.items[iv.itemIndex];
-    const side = iv.side === 'right' ? ' · ימין' : iv.side === 'left' ? ' · שמאל' : '';
-    return item ? [row(item, `q-${iv.index}`, `אינטרוול ${iv.index + 1}${side}`, k === 0 && pos.phase === 'work' ? { trailing: 'עכשיו', now: true } : {})] : [];
+    return item ? [row(item, `q-${iv.index}`, t('timedLabels.list.tabataInterval', { n: String(iv.index + 1), side: iv.side ?? '' }), k === 0 && pos.phase === 'work' ? { trailing: t('timedLabels.now'), now: true } : {})] : [];
   });
   return {
-    headline: `${doneCount}/${n} אינטרוולים`,
-    summary: `${s.spec.config.workSec} שנ׳ עבודה · ${s.spec.config.restSec} שנ׳ מנוחה`,
+    headline: t('strengthSummary.timed.tabata.line', { done: String(doneCount), total: String(n) }),
+    summary: t('timedLabels.list.tabataSummary', { work: String(s.spec.config.workSec), rest: String(s.spec.config.restSec) }),
     done,
-    queueTitle: queue.length > 0 ? 'הבא בתור' : '',
+    queueTitle: queue.length > 0 ? t('strengthPlayer.timed.list.queue') : '',
     queue,
   };
 }
