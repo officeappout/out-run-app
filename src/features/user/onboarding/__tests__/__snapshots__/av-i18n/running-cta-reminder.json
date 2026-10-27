@@ -1,0 +1,66 @@
+{
+ "cta/false/false/user-chosen": {
+  "label": "המשך"
+ },
+ "cta/false/false/default": {
+  "label": "המשך"
+ },
+ "cta/false/true/user-chosen": {
+  "label": "בואו נרוץ!"
+ },
+ "cta/false/true/default": {
+  "label": "בואו נרוץ!"
+ },
+ "cta/true/false/user-chosen": {
+  "label": "שמירת שינויים",
+  "successLabel": "לוח ריצה עודכן!"
+ },
+ "cta/true/false/default": {
+  "label": "שמירה",
+  "successLabel": "לוח ריצה נשמר!"
+ },
+ "cta/true/true/user-chosen": {
+  "label": "שמירת שינויים",
+  "successLabel": "לוח ריצה עודכן!"
+ },
+ "cta/true/true/default": {
+  "label": "שמירה",
+  "successLabel": "לוח ריצה נשמר!"
+ },
+ "empty": {
+  "subtitle": "לפי הימים שבחרת",
+  "sampleWorkoutName": "אימון",
+  "sampleTime": "19:00",
+  "sessions": []
+ },
+ "one": {
+  "subtitle": "ריצה אחת בשבוע · ב׳",
+  "sampleWorkoutName": "ריצה",
+  "sampleTime": "07:30",
+  "sessions": [
+   {
+    "dow": 1,
+    "time": "07:30"
+   }
+  ]
+ },
+ "three": {
+  "subtitle": "3 ריצות בשבוע · א׳ ג׳ ה׳",
+  "sampleWorkoutName": "ריצה",
+  "sampleTime": "07:00",
+  "sessions": [
+   {
+    "dow": 0,
+    "time": "07:00"
+   },
+   {
+    "dow": 2,
+    "time": "07:00"
+   },
+   {
+    "dow": 4,
+    "time": "07:00"
+   }
+  ]
+ }
+}

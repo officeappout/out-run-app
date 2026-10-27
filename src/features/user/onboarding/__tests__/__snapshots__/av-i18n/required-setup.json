@@ -1,0 +1,30 @@
+{
+ "strength": [
+  {
+   "id": "identity",
+   "label": "פרטים אישיים",
+   "step": "IDENTITY",
+   "isHardBlock": true
+  },
+  {
+   "id": "health",
+   "label": "הצהרת בריאות",
+   "step": "HEALTH_DECLARATION",
+   "isHardBlock": true
+  },
+  {
+   "id": "equipment",
+   "label": "ציוד אימון",
+   "step": "EQUIPMENT",
+   "isHardBlock": false
+  }
+ ],
+ "running": [
+  {
+   "id": "health",
+   "label": "הצהרת בריאות",
+   "step": "HEALTH_DECLARATION",
+   "isHardBlock": true
+  }
+ ]
+}
