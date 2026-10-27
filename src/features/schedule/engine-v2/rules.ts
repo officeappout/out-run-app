@@ -54,7 +54,7 @@ export const isEasyRun = (u: Unit | null | undefined): boolean =>
 export const isLegsUnit = (u: Unit | null | undefined): boolean => !!u && u.kind === 'strength' && (u.load.legs >= HEAVY_LEGS || !!u.lightLegs);
 export const isLongRun = (u: Unit | null | undefined): boolean => !!u && u.kind === 'run' && u.slot === 'long_run';
 
-/** H2: strength never on the long-run day. */
+/** H2: strength on the long-run day. Soft since 27.10.2026 (owner): a cost in score.ts, not a cap. */
 export function breaksH2(strength: Unit, run: Unit | null): boolean {
   return isLongRun(run);
 }
@@ -150,7 +150,6 @@ export function checkHardRules(grid: Grid, cap: CapacityCtx, runLevel: TrainingL
   if (cap.maxTrainingDays !== undefined && trainingDays > cap.maxTrainingDays) out.push({ rule: 'H1', days: [] });
   for (let d = 0; d < 7; d++) {
     const s = grid.strength[d];
-    if (s && breaksH2(s, grid.run[d])) out.push({ rule: 'H2', days: [d] });
     if (s && breaksH3(s, d, grid)) out.push({ rule: 'H3', days: [d, nextDay(d)!] });
     if (s && breaksH11(s, grid.run[d])) out.push({ rule: 'H11', days: [d] });
   }
@@ -165,7 +164,7 @@ export function checkHardRules(grid: Grid, cap: CapacityCtx, runLevel: TrainingL
       if (breaksH6(a, s[i], b, s[j])) out.push({ rule: 'H6', days: [s[i], s[j]] });
       if (breaksH7(a, s[i], b, s[j])) out.push({ rule: 'H7', days: [s[i], s[j]] });
     }
-  // H8 (run-day streak) is soft since 27.10.2026 (owner): the user's running days are kept.
+  // H2 (strength on the long-run day) and H8 (run-day streak) are soft since 27.10.2026 (owner): the user's running days are kept.
   void runLevel;
   return out;
 }

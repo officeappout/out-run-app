@@ -76,12 +76,12 @@ describe('countCoreSetsThisWeek (Sunday week start)', () => {
 });
 
 describe('defaultWeeklyCoreTarget (GlobalLevelConfig.weeklyTargetCore tiers)', () => {
-  it('4 / 6 / 8 by level', () => {
-    expect(defaultWeeklyCoreTarget(1)).toBe(4);
-    expect(defaultWeeklyCoreTarget(5)).toBe(4);
-    expect(defaultWeeklyCoreTarget(6)).toBe(6);
-    expect(defaultWeeklyCoreTarget(12)).toBe(6);
-    expect(defaultWeeklyCoreTarget(13)).toBe(8);
-    expect(defaultWeeklyCoreTarget(undefined)).toBe(4);
+  it('6 / 8 / 10 by level (owner 27.10.2026)', () => {
+    expect(defaultWeeklyCoreTarget(1)).toBe(6);
+    expect(defaultWeeklyCoreTarget(5)).toBe(6);
+    expect(defaultWeeklyCoreTarget(6)).toBe(8);
+    expect(defaultWeeklyCoreTarget(12)).toBe(8);
+    expect(defaultWeeklyCoreTarget(13)).toBe(10);
+    expect(defaultWeeklyCoreTarget(undefined)).toBe(6);
   });
 });

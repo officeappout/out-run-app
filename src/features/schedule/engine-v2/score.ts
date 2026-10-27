@@ -122,6 +122,8 @@ export function scoreFull(grid: Grid, ctx: ScoreCtx): { total: number; breakdown
     const legsOnEasy = isLegsUnit(s) && isEasyRun(r);
     if (s && easyDays > 0 && isLegsUnit(s) && !legsOnEasy) add(b, 'R29', W.R29_LEGS_OFF_EASY_DAY);
     if (s?.lightLegs) add(b, 'LIGHT_LEGS', W.LIGHT_LEGS);
+    // H2 (soft since 27.10.2026): strength on the long-run day.
+    if (s && isLongRun(r)) add(b, 'H2', W.H2_STRENGTH_ON_LONG_RUN);
     if (s && r) {
       doubles++;
       if (!isQualityRun(r) && !legsOnEasy) add(b, 'S5', W.S5_DOUBLE_NOT_QUALITY);

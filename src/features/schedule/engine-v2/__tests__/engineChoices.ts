@@ -16,8 +16,8 @@ export const ENGINE_CHOICE: Record<string, { week: string; note: string }> = {
     note: "'half' is treated as a >5k plan (long run protected first); no half-marathon plan type is built here.",
   },
   S06: {
-    week: "- | - | - | - | - | quality_primary+upper_body | long_run",
-    note: 'second full body dropped (floor explained, not forced); Friday full body becomes upper body (no legs before the long run).',
+    week: "- | - | - | - | - | quality_primary+upper_body | long_run+upper_body",
+    note: 'both full bodies kept as upper body: Friday has no legs before the long run, and since 27.10.2026 (owner, H2 soft) Saturday adds an upper body after the long run (legs never share the long-run day).',
   },
   S09: {
     week: "quality_primary+upper_body | - | quality_secondary+upper_body | - | upper_body | long_run | -",

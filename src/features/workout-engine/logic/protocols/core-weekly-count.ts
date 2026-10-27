@@ -22,12 +22,13 @@ const CORE_MUSCLES = new Set(['core', 'abs', 'obliques']);
 
 /**
  * Weekly core set target by core level. Mirrors GlobalLevelConfig.weeklyTargetCore defaults
- * (global-training-config.service.ts: L1-5 -> 4, L6-12 -> 6, L13+ -> 8), the source #888 names.
+ * (global-training-config.service.ts: L1-5 -> 6, L6-12 -> 8, L13+ -> 10; raised from 4/6/8 by the
+ * owner 27.10.2026), the source #888 names.
  * That service is deprecated and reads Firestore, so the tier is kept here as a pure function.
  */
 export function defaultWeeklyCoreTarget(level: number | null | undefined): number {
   const l = Number.isFinite(level as number) && (level as number) > 0 ? (level as number) : 1;
-  return l <= 5 ? 4 : l <= 12 ? 6 : 8;
+  return l <= 5 ? 6 : l <= 12 ? 8 : 10;
 }
 
 // ── Completion side: core sets of ONE finished workout ─────────────────────

@@ -64,7 +64,7 @@ export function getDefaultGlobalLevelConfig(level: number): GlobalLevelConfig {
     weeklyTargetPush: level <= 5 ? 8 : level <= 12 ? 12 : 16,
     weeklyTargetPull: level <= 5 ? 8 : level <= 12 ? 12 : 16,
     weeklyTargetLegs: level <= 5 ? 6 : level <= 12 ? 10 : 14,
-    weeklyTargetCore: level <= 5 ? 4 : level <= 12 ? 6 : 8,
+    weeklyTargetCore: level <= 5 ? 6 : level <= 12 ? 8 : 10,
     maxIntenseWorkoutsPerWeek: level <= 5 ? 0 : level <= 12 ? 2 : 99,
   };
 }

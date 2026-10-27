@@ -48,9 +48,9 @@ describe('resolveCoreWeeklyContext (pipeline wiring)', () => {
     sessionLogs: coreSets.map((n, i) => ({ completedAt: new Date(2026, 9, 25 + i, 8, 0), coreSets: n })),
   });
 
-  it('target by core level + sets from the device logs: one tabata (4) meets a level-3 week', () => {
-    const ctx = resolveCoreWeeklyContext({ coreLevel: 3, userId: 'u1', now, readLogs: logs('u1', [4]) });
-    expect(ctx).toEqual({ weeklyCoreTarget: 4, weeklyCoreSets: 4 });
+  it('target by core level + sets from the device logs: two tabatas (8) meet a level-3 week (6)', () => {
+    const ctx = resolveCoreWeeklyContext({ coreLevel: 3, userId: 'u1', now, readLogs: logs('u1', [4, 4]) });
+    expect(ctx).toEqual({ weeklyCoreTarget: 6, weeklyCoreSets: 8 });
     const list = workout();
     expect(dropCoreSlotWhenWeeklyTargetMet(list, ctx)).toBe(true);
   });

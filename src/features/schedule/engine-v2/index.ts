@@ -7,7 +7,7 @@ export { buildWeek } from './buildWeek';
 export { defaultTrainingDays, saturdayMarked } from './availability';
 export { planMakeup, type MakeupInput, type MakeupPlan, type MakeupChange, type MakeupAction } from './makeup';
 export { planReturn, type ReturnInput, type ReturnPlan } from './returnPlan';
-export { validateLayout, breaksH5 } from './validate';
+export { validateLayout, breaksH5, softLayoutIssues } from './validate';
 export { PROGRAM_PROFILES, profileOf } from './programProfiles';
 export { renderV2ReasonHe, renderV2ReasonsHe, type V2Reason, type V2ReasonCode } from './reasonsV2';
 export * from './config';

@@ -195,6 +195,7 @@ export function buildWeek(input: ScheduleEngineInput): WeekPlan {
   }
   if (plan.travelWeek) warnings.push({ code: 'TRAVEL_WEEK' });
   if (days.some((ss) => ss.some((s) => s.kind === 'run' && s.extra))) warnings.push({ code: 'RUN_VOLUME_SPLIT' });
+  for (let d = 0; d < 7; d++) if (grid.strength[d] && isLongRun(grid.run[d])) warnings.push({ code: 'STRENGTH_ON_LONG_RUN_DAY', day: d });
   if (input.walking?.dailyStepGoal) warnings.push({ code: 'STEPS_DAILY', goal: input.walking.dailyStepGoal });
 
   const dayPlans: DayPlan[] = days.map((sessions, d) => ({
