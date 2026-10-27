@@ -121,7 +121,7 @@ export default function VSSlide() {
           style={{ color: iLead || tied ? myColor : 'rgba(255,255,255,0.55)' }}
         >
           {totalDistance.toFixed(2)}
-          <span className="text-[11px] font-semibold me-0.5">{t('run.vs.km')}</span>
+          <span className="text-[11px] font-semibold ml-0.5">{t('run.vs.km')}</span>
         </span>
         <span className="text-gray-500 text-xs w-4 text-center">—</span>
         <span
@@ -129,7 +129,7 @@ export default function VSSlide() {
           style={{ color: !iLead || tied ? rival.color : 'rgba(255,255,255,0.55)' }}
         >
           {rival.distanceKm.toFixed(2)}
-          <span className="text-[11px] font-semibold me-0.5">{t('run.vs.km')}</span>
+          <span className="text-[11px] font-semibold ml-0.5">{t('run.vs.km')}</span>
         </span>
       </div>
 

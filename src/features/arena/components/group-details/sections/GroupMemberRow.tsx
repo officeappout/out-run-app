@@ -34,7 +34,7 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${isGroupCreator ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-cyan-400 to-blue-500'}`}>
           {initials.toUpperCase() || '?'}
         </div>
-        <div className="flex-1 min-w-0 text-start">
+        <div className="flex-1 min-w-0 text-right">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
             {member.name}
           </p>
@@ -58,7 +58,7 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
 
       {/* Inline action panel */}
       {isExpanded && (
-        <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1">
+        <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1" dir="rtl">
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
             {t('group.members.actions', { name: member.name })}
           </p>
@@ -70,7 +70,7 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
             >
               {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-blue-500" />}
               {t('group.members.promote')}
-              <span className="text-xs text-gray-400 font-normal ms-auto">{t('group.members.promoteHint')}</span>
+              <span className="text-xs text-gray-400 font-normal mr-auto">{t('group.members.promoteHint')}</span>
             </button>
           )}
           {canDemote && (

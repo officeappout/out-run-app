@@ -193,6 +193,8 @@ export default defineConfig({
       'functions/src/**/__tests__/**/*.test.ts',
       // CI tooling — the tsc baseline gate's normalizer + compare mode (17.10.2026).
       'scripts/ci/__tests__/**/*.test.ts',
+      // i18n wave 4 LTR-host scan — by-reference + transitive fixtures.
+      'scripts/i18n/__tests__/**/*.test.ts',
       // Demo world scripts (seed / purge / add-viewer) — pure units + one emulator suite (:8089).
       'scripts/demo/__tests__/**/*.test.ts',
       // AI tester runner + overseer (scripts/qa) — pure units only (no browser, no network).

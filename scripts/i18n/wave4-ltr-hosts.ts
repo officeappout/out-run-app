@@ -8,6 +8,8 @@
  *     components those callers render, plus two more levels (cards wrapped by slide/row components; barrels such as HomeWidgets are looked through).
  * A file in that set may rely on its own explicit dir="rtl" to undo the override, so removing the dir (or
  * flipping physical classes) is NOT Hebrew-safe: the codemod skips it as LTR-HOST.
+ * By-reference (v2): components passed as identifiers (`component: X`, `render: X`, `slides: [X]`, createElement, lazy/dynamic import)
+ * count as rendered, and any file mentioning a carousel host / useDrag / Embla / swiper is a host whose used components (transitively, 4 levels) are inside.
  * Over-approximation is intentional: a false positive only costs a manual English fix later.
  */
 import fs from 'fs';
@@ -15,6 +17,8 @@ import path from 'path';
 import ts from 'typescript';
 
 const OVERRIDE_RE = /direction:\s*['"`]ltr['"`]|\bdir=\{?['"`]ltr['"`]\}?|style=\{\{\s*direction:[ \t]*(?![ \t]|['"`]rtl['"`])/;
+/** Files that mention a carousel-style direction host by name, or use drag/slider machinery, are hosts by reference. */
+export const HOST_MENTION_RE = /\b(?:StatsCarousel|SuggestionCarousel|WorkoutSelectionCarousel|DashedGoalCarousel)\b|\buseDrag\b|\bembla\b|\bswiper\b/i;
 const PROP_SUBTREE_RE = /\{children\}|\bchildren\b|\.map\(|\brender[A-Z]\w*\(|\bslides\b/;
 
 /** True when an element carrying the override wraps caller-supplied content (children / mapped items / render props). */
@@ -71,10 +75,24 @@ function resolveImport(from: string, spec: string, root: string): string | null 
   return null;
 }
 
-/** Component files whose tag is rendered in `file` (one level), resolved through the file's imports. */
+/** Import statements (static, multi-line safe) removed so imported names are not counted as usages. */
+function stripImports(src: string): string {
+  return src.replace(/import\s+(?:type\s+)?[^;'"]*?\s+from\s+['"][^'"]+['"];?/g, '').replace(/^\s*import\s+['"][^'"]+['"];?/gm, '');
+}
+
+/**
+ * Component files used in `file` (one level), resolved through the file's imports. A component counts when it appears
+ * as a JSX tag OR as a bare identifier (passed BY REFERENCE: `component: X`, `Component={X}`, `render: X`, `slides: [X, Y]`,
+ * `createElement(X)`, objects/arrays a host iterates). Dynamic `import('./X')` / `lazy(() => import(...))` specifiers count too.
+ */
 function renderedFiles(file: string, src: string, root: string, scope: string = src): string[] {
-  const tags = new Set(Array.from(scope.matchAll(/<([A-Z]\w*)/g), (m) => m[1]));
+  const body = stripImports(scope);
+  const tags = new Set([...Array.from(body.matchAll(/<([A-Z]\w*)/g), (m) => m[1]), ...Array.from(body.matchAll(/(?<![.\w$])([A-Z]\w*)\b/g), (m) => m[1])]);
   const out = new Set<string>();
+  for (const m of Array.from(scope.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g))) {
+    const r = resolveImport(file, m[1], root);
+    if (r) out.add(path.resolve(r));
+  }
   for (const m of Array.from(src.matchAll(/import\s+(?:type\s+)?([^;]*?)\s+from\s+['"]([^'"]+)['"]/g))) {
     const names: string[] = [];
     const clause = m[1];
@@ -119,7 +137,17 @@ export function scanLtrHosts(root = 'src'): ScanResult {
     inside.get(target)!.add(host);
   };
   const result: HostInfo[] = [];
-  for (const host of hosts) {
+  // Hosts by reference: files naming a carousel host / drag machinery; everything they use (tag or bare identifier) plus 3 levels is inside.
+  const mentionHosts = files.filter((f) => !hosts.includes(f) && HOST_MENTION_RE.test(srcOf.get(f)!));
+  for (const host of [...hosts, ...mentionHosts]) {
+    if (!OVERRIDE_RE.test(srcOf.get(host)!)) {
+      let frontier = renders(host);
+      const set = new Set<string>();
+      for (let depth = 0; depth < 4; depth++) { frontier.forEach((r) => set.add(r)); frontier = frontier.flatMap((r) => renders(r)).filter((r) => !set.has(r)); }
+      for (const t of Array.from(set)) add(t, host);
+      result.push({ host: path.relative(process.cwd(), host), kind: 'prop', callers: [], inside: Array.from(set).map((x) => path.relative(process.cwd(), x)) });
+      continue;
+    }
     const direct = renderedFiles(host, srcOf.get(host)!, root, overrideSubtrees(host, srcOf.get(host)!));
     const isProp = isPropHost(host, srcOf.get(host)!);
     const callers = isProp ? (importers.get(host) ?? []) : [];
