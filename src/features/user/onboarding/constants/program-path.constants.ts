@@ -7,6 +7,10 @@
  */
 import type { MuscleGroup } from '@/features/content/exercises/core/exercise.types';
 import { isHiddenProgram } from '@/lib/hidden-programs';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 /** Muscle icon paths — used inside chips */
 export const MUSCLE_ICON_PATHS: Record<string, string> = {
@@ -22,14 +26,14 @@ export const MUSCLE_ICON_PATHS: Record<string, string> = {
 
 /** Hebrew chip labels for each muscle group ID */
 export const MUSCLE_CHIP_LABELS: Record<string, string> = {
-  chest: 'חזה',
-  back: 'גב',
-  shoulders: 'כתפיים',
-  biceps: 'יד קדמית',
-  triceps: 'יד אחורית',
-  legs: 'רגליים',
-  core: 'בטן וליבה',
-  glutes: 'ישבן',
+  chest: t('muscle.chest'),
+  back: t('muscle.back'),
+  shoulders: t('muscle.shoulders'),
+  biceps: t('muscle.biceps'),
+  triceps: t('muscle.triceps'),
+  legs: t('muscle.legs'),
+  core: t('muscle.core'),
+  glutes: t('muscle.glutes'),
 };
 
 /** Calisthenics skill programs — slug matches Firestore program IDs.
@@ -38,13 +42,13 @@ export const SKILL_MASTER_ID = 'calisthenics_upper';
 
 /** Every skill chip, including ones hidden for now (HIDDEN_PROGRAM_SLUGS). */
 const ALL_SKILL_PROGRAMS: { id: string; nameHe: string }[] = [
-  { id: 'calisthenics_upper', nameHe: 'קליסטניקס עליון (כל האלמנטים)' },
-  { id: 'front_lever',        nameHe: 'פרונט לבר' },
-  { id: 'muscle_up',          nameHe: 'עליית כוח' },
-  { id: 'planche',            nameHe: 'פלאנץ׳' },
-  { id: 'handstand',          nameHe: 'עמידת ידיים' },
-  { id: 'hspu',               nameHe: 'שכיבות סמיכה בעמידת ידיים' },
-  { id: 'one_arm_pullup',     nameHe: 'מתח יד אחת' },
+  { id: 'calisthenics_upper', nameHe: t('skill.calisthenicsUpper') },
+  { id: 'front_lever',        nameHe: t('skill.frontLever') },
+  { id: 'muscle_up',          nameHe: t('skill.muscleUp') },
+  { id: 'planche',            nameHe: t('skill.planche') },
+  { id: 'handstand',          nameHe: t('skill.handstand') },
+  { id: 'hspu',               nameHe: t('skill.hspu') },
+  { id: 'one_arm_pullup',     nameHe: t('skill.oneArmPullup') },
 ];
 
 /** The skills offered in the onboarding picker — muscle_up / handstand /
@@ -102,8 +106,8 @@ export type MusclePackageKey = 'pull' | 'push' | 'legs' | 'core';
  * (targetArea = index 0 in assessment-visual/page.tsx).
  */
 export const MUSCLE_PACKAGES: { key: MusclePackageKey; nameHe: string; muscles: MuscleGroup[] }[] = [
-  { key: 'pull', nameHe: 'משיכה', muscles: ['back', 'biceps'] },
-  { key: 'push', nameHe: 'דחיפה', muscles: ['shoulders', 'chest', 'triceps'] },
-  { key: 'legs', nameHe: 'רגליים', muscles: ['glutes', 'legs'] },
-  { key: 'core', nameHe: 'ליבה', muscles: ['core'] },
+  { key: 'pull', nameHe: t('package.pull'), muscles: ['back', 'biceps'] },
+  { key: 'push', nameHe: t('package.push'), muscles: ['shoulders', 'chest', 'triceps'] },
+  { key: 'legs', nameHe: t('package.legs'), muscles: ['glutes', 'legs'] },
+  { key: 'core', nameHe: t('package.core'), muscles: ['core'] },
 ];

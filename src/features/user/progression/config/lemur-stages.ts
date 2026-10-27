@@ -13,6 +13,11 @@
  * Gendered variants are driven by profile.core.gender at render time.
  */
 
+import { makeT } from '@/lib/i18n/t';
+import { profile } from '@/messages/ns/profile';
+
+const t = makeT('he', profile);
+
 export interface LevelStage {
   level: number;
   nameMale: string;
@@ -21,16 +26,16 @@ export interface LevelStage {
 }
 
 export const LEVEL_STAGES: readonly LevelStage[] = [
-  { level: 1,  nameMale: 'המטפס',       nameFemale: 'המטפסת',      minXP: 0 },
-  { level: 2,  nameMale: 'הסטודנט',     nameFemale: 'הסטודנטית',   minXP: 300 },
-  { level: 3,  nameMale: 'הנתלה',       nameFemale: 'הנתלית',      minXP: 800 },
-  { level: 4,  nameMale: 'ההרפתקן',     nameFemale: 'ההרפתקנית',   minXP: 2_000 },
-  { level: 5,  nameMale: 'המקפץ',       nameFemale: 'המקפצת',      minXP: 5_000 },
-  { level: 6,  nameMale: 'הדוחף',       nameFemale: 'הדוחפת',      minXP: 11_000 },
-  { level: 7,  nameMale: 'הפרופסור',    nameFemale: 'הפרופסורית',  minXP: 22_000 },
-  { level: 8,  nameMale: 'המאמן',       nameFemale: 'המאמנת',      minXP: 40_000 },
-  { level: 9,  nameMale: 'מלך הפארק',  nameFemale: 'מלכת הפארק', minXP: 65_000 },
-  { level: 10, nameMale: 'המעופף',      nameFemale: 'המעופפת',     minXP: 100_000 },
+  { level: 1,   nameMale: t('levelStage.1', { gender: 'male' }), nameFemale: t('levelStage.1', { gender: 'female' }), minXP: 0 },
+  { level: 2,   nameMale: t('levelStage.2', { gender: 'male' }), nameFemale: t('levelStage.2', { gender: 'female' }), minXP: 300 },
+  { level: 3,   nameMale: t('levelStage.3', { gender: 'male' }), nameFemale: t('levelStage.3', { gender: 'female' }), minXP: 800 },
+  { level: 4,   nameMale: t('levelStage.4', { gender: 'male' }), nameFemale: t('levelStage.4', { gender: 'female' }), minXP: 2_000 },
+  { level: 5,   nameMale: t('levelStage.5', { gender: 'male' }), nameFemale: t('levelStage.5', { gender: 'female' }), minXP: 5_000 },
+  { level: 6,   nameMale: t('levelStage.6', { gender: 'male' }), nameFemale: t('levelStage.6', { gender: 'female' }), minXP: 11_000 },
+  { level: 7,   nameMale: t('levelStage.7', { gender: 'male' }), nameFemale: t('levelStage.7', { gender: 'female' }), minXP: 22_000 },
+  { level: 8,   nameMale: t('levelStage.8', { gender: 'male' }), nameFemale: t('levelStage.8', { gender: 'female' }), minXP: 40_000 },
+  { level: 9,   nameMale: t('levelStage.9', { gender: 'male' }), nameFemale: t('levelStage.9', { gender: 'female' }), minXP: 65_000 },
+  { level: 10,  nameMale: t('levelStage.10', { gender: 'male' }), nameFemale: t('levelStage.10', { gender: 'female' }), minXP: 100_000 },
 ] as const;
 
 export function getLevelStage(level: number): LevelStage {

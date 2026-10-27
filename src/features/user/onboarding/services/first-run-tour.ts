@@ -8,7 +8,11 @@
  *
  * Gated behind BOTH enable_onboarding_tutorial_v1 AND enable_home_v2 — either off → no tour.
  */
-import { g, type AppGender } from '@/lib/utils/gendered-text';
+import type { AppGender } from '@/lib/utils/gendered-text';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 export type FirstRunTourId = 'home' | 'map' | 'community' | 'player' | 'route' | 'route-player' | 'plan';
 
@@ -167,69 +171,61 @@ export function presentSteps(steps: FirstRunTourStep[], isPresent: (target: stri
 }
 
 export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null | undefined): FirstRunTourStep[] {
+  // g(): null / undefined gender -> the male form (the old convention); 'other' -> the neutral branch.
+  const gd = { gender: gender ?? 'male' };
   switch (tour) {
     case 'home':
       return [
-        { target: FIRST_RUN_COACH.homeWorkout, title: 'האימון של היום', text: 'כאן האימון של היום — לחיצה ומתחילים', finger: true },
-        { target: FIRST_RUN_COACH.homePlus, title: 'הכפתור +', text: 'ה־+ מוסיף אימון, יציאה לאימון או הזמנת חבר' },
+        { target: FIRST_RUN_COACH.homeWorkout, title: t('tour.home.workout.title'), text: t('tour.home.workout.text'), finger: true },
+        { target: FIRST_RUN_COACH.homePlus, title: t('tour.home.plus.title'), text: t('tour.home.plus.text') },
         // No week strip yet (no program — most new users): point at the map instead of dropping.
         {
           target: FIRST_RUN_COACH.homeWeek,
-          title: 'השבוע שלך',
-          text: 'כאן הלו״ז השבועי שלך',
-          alt: { target: FIRST_RUN_COACH.homeNavMap, title: 'המפה', text: 'כאן מוצאים גינות כושר ומסלולים קרובים' },
+          title: t('tour.home.week.title'),
+          text: t('tour.home.week.text'),
+          alt: { target: FIRST_RUN_COACH.homeNavMap, title: t('tour.home.weekAlt.title'), text: t('tour.home.weekAlt.text') },
         },
       ];
     case 'map':
       return [
-        { target: FIRST_RUN_COACH.mapSearch, title: 'חיפוש', text: 'חיפוש פארק או כתובת' },
+        { target: FIRST_RUN_COACH.mapSearch, title: t('tour.map.search.title'), text: t('tour.map.search.text') },
         {
           target: FIRST_RUN_COACH.mapLayers,
-          title: 'מה רואים במפה',
-          text: g(
-            gender,
-            'כאן אתה בוחר מה רואים במפה: מתקני כושר, ברזיות ושירותים',
-            'כאן את בוחרת מה רואים במפה: מתקני כושר, ברזיות ושירותים',
-            'כאן בוחרים מה רואים במפה: מתקני כושר, ברזיות ושירותים',
-          ),
+          title: t('tour.map.layers.title'),
+          text: t('tour.map.layers.text', gd),
         },
         // Anchored to the nearest park pin (ParkCoachAnchor); no pin in view → the step drops.
-        { target: FIRST_RUN_COACH.mapPark, title: 'פארקים', text: 'לחיצה על פארק מראה מתקנים ומי מתאמן שם' },
+        { target: FIRST_RUN_COACH.mapPark, title: t('tour.map.park.title'), text: t('tour.map.park.text') },
       ];
     case 'community':
       return [
-        { target: FIRST_RUN_COACH.communityLeague, title: 'הליגה של השכונה', text: 'כאן הליגה של השכונה והעיר שלך' },
-        // The leagues open on "אישי"; the invite card exists only under "שכונות" (city scope).
-        // Invite card on screen → point at it; otherwise the "שכונות" tab (always there).
+        { target: FIRST_RUN_COACH.communityLeague, title: t('tour.community.league.title'), text: t('tour.community.league.text') },
+        // The leagues open on the personal tab; the invite card exists only under the neighborhoods tab (city scope).
+        // Invite card on screen → point at it; otherwise the neighborhoods tab (always there).
         {
           target: FIRST_RUN_COACH.communityInvite,
-          title: 'הזמנת חבר',
-          text: 'הזמנת חבר מוסיפה +50 לשכונה',
-          alt: { target: FIRST_RUN_COACH.communityHoodsTab, title: 'ליגת השכונות', text: 'כאן השכונה שלך מול השכונות בעיר. הזמנת חבר מוסיפה לה +50' },
+          title: t('tour.community.invite.title'),
+          text: t('tour.community.invite.text'),
+          alt: { target: FIRST_RUN_COACH.communityHoodsTab, title: t('tour.community.hoodsTab.title'), text: t('tour.community.hoodsTab.text') },
         },
       ];
     case 'player':
       return [
         {
           target: FIRST_RUN_COACH.playerProgress,
-          title: 'הפסים למעלה',
-          text: g(
-            gender,
-            'הפסים למעלה מראים איפה אתה באימון ומה עוד נשאר',
-            'הפסים למעלה מראים איפה את באימון ומה עוד נשאר',
-            'הפסים למעלה מראים איפה עומדים באימון ומה עוד נשאר',
-          ),
+          title: t('tour.player.progress.title'),
+          text: t('tour.player.progress.text', gd),
         },
         // how-to before done: the instructions sit below the fold of the reps card, so the
-        // last step scrolls the "סיימתי" button back into view.
-        // Drawer collapsed -> the how-to block is not rendered; point at the video's "הסבר" chip instead.
+        // last step scrolls the done button back into view.
+        // Drawer collapsed -> the how-to block is not rendered; point at the video's explain chip instead.
         {
           target: FIRST_RUN_COACH.playerHowTo,
-          title: 'איך מבצעים',
-          text: 'כאן ההסבר איך מבצעים את התרגיל',
-          alt: { target: FIRST_RUN_COACH.playerExplain, title: 'איך מבצעים', text: 'הכפתור "הסבר" פותח וידאו על ביצוע התרגיל' },
+          title: t('tour.player.howTo.title'),
+          text: t('tour.player.howTo.text'),
+          alt: { target: FIRST_RUN_COACH.playerExplain, title: t('tour.player.explain.title'), text: t('tour.player.explain.text') },
         },
-        { target: FIRST_RUN_COACH.playerDone, title: 'סיימתי', text: 'סיימת סט? לחיצה על "סיימתי" ועוברים לתרגיל הבא', finger: true },
+        { target: FIRST_RUN_COACH.playerDone, title: t('tour.player.done.title'), text: t('tour.player.done.text'), finger: true },
       ];
     // enable_entry_whatnow_v1 (entry flow v2, designs R1–R3): the first floating route card.
     // Owner note 21.10 #6: one idea per step (title + one line), every step anchored to the
@@ -237,17 +233,17 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
     // instead of floating a centred bubble over a dimmed map.
     case 'route':
       return [
-        { target: FIRST_RUN_COACH.routeCard, title: 'המסלול שלך', text: 'מחליקים הצידה כדי לראות עוד מסלולים באזור.', finger: 'swipe' },
+        { target: FIRST_RUN_COACH.routeCard, title: t('tour.route.card.title'), text: t('tour.route.card.text'), finger: 'swipe' },
         {
           target: FIRST_RUN_COACH.routeStop,
-          title: 'עצירות כוח',
-          text: 'בכל עצירה כמה דקות כוח על המתקנים. הנגן יגיד לך מתי.',
+          title: t('tour.route.stop.title'),
+          text: t('tour.route.stop.text'),
           finger: true,
         },
         {
           target: FIRST_RUN_COACH.routeStart,
-          title: 'יוצאים לדרך',
-          text: 'לחיצה כאן מתחילה. בפעם הראשונה נבקש 3 פרטים והצהרת בריאות קצרה.',
+          title: t('tour.route.start.title'),
+          text: t('tour.route.start.text'),
           ring: true,
         },
       ];
@@ -256,23 +252,18 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
       return [
         {
           target: FIRST_RUN_COACH.routePlayerControls,
-          title: 'סיום האימון',
-          text: 'לחיצה ארוכה מסיימת, כדי שלא ייגמר בטעות בכיס.',
+          title: t('tour.routePlayer.controls.title'),
+          text: t('tour.routePlayer.controls.text'),
         },
       ];
-    // enable_entry_whatnow_v1: "תוכנית" in "מה בא לך עכשיו?" → home, pointing at the start cards
+    // enable_entry_whatnow_v1: the plan card in the what-now drawer → home, pointing at the start cards
     // (instead of a second "what first?" drawer).
     case 'plan':
       return [
         {
           target: FIRST_RUN_COACH.homeWorkout,
-          title: 'בוחרים תוכנית',
-          text: g(
-            gender,
-            'כוח או ריצה: לוחץ על כרטיס, עונה על כמה שאלות קצרות, והתוכנית מוכנה.',
-            'כוח או ריצה: לוחצת על כרטיס, עונה על כמה שאלות קצרות, והתוכנית מוכנה.',
-            'כוח או ריצה: לוחצים על כרטיס, עונים על כמה שאלות קצרות, והתוכנית מוכנה.',
-          ),
+          title: t('tour.plan.pick.title'),
+          text: t('tour.plan.pick.text', gd),
           finger: true,
         },
       ];

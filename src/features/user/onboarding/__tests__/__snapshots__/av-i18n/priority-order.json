@@ -1,0 +1,55 @@
+[
+ {
+  "key": "cards",
+  "titleHe": "כיוונים",
+  "items": [
+   {
+    "id": "health",
+    "order": 1,
+    "labelHe": "בריאות, כוח ואנרגיה"
+   },
+   {
+    "id": "skills",
+    "order": 2,
+    "labelHe": "קליסטניקס מתקדם"
+   }
+  ]
+ },
+ {
+  "key": "muscles",
+  "titleHe": "אזורי מיקוד",
+  "items": [
+   {
+    "id": "chest",
+    "order": 1,
+    "labelHe": "חזה"
+   },
+   {
+    "id": "back",
+    "order": 2,
+    "labelHe": "גב"
+   },
+   {
+    "id": "glutes",
+    "order": 3,
+    "labelHe": "ישבן"
+   }
+  ]
+ },
+ {
+  "key": "skills",
+  "titleHe": "אלמנטים",
+  "items": [
+   {
+    "id": "planche",
+    "order": 1,
+    "labelHe": "פלאנץ׳"
+   },
+   {
+    "id": "front_lever",
+    "order": 2,
+    "labelHe": "פרונט לבר"
+   }
+  ]
+ }
+]

@@ -10,6 +10,8 @@ import { X, Lock, Trophy } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { ACHIEVEMENT_DEFINITIONS, achievementName } from '../config/achievement-definitions';
 import { useUiGender } from '@/hooks/useUiGender';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 import {
   CATEGORY_ORDER,
   CATEGORY_LABELS_HE,
@@ -63,6 +65,7 @@ function AchievementCard({
   achievement: AchievementDefinition;
   unlocked: UnlockedAchievementsMap;
 }) {
+  const t = useT(profileNs);
   const gender = useUiGender();
   const isOneTime = achievement.type === 'one_time';
   const isUnlocked = isOneTime
@@ -99,7 +102,7 @@ function AchievementCard({
           {isUnlocked ? (
             <span className="flex items-center gap-1 text-xs text-emerald-600 font-semibold font-hebrew">
               <Trophy className="w-3 h-3" />
-              נפתח! +{achievement.xp} XP
+              {t('achievements.sheet.unlockedXp', { xp: String(achievement.xp) })}
             </span>
           ) : (
             <span className="flex items-center gap-1 text-xs text-gray-400 font-hebrew">
@@ -122,7 +125,7 @@ function AchievementCard({
       {/* Highest tier XP earned */}
       {!isOneTime && highestTier && achievement.tiers && (
         <p className="text-[10px] text-gray-400 font-hebrew">
-          השגת: {TIER_LABELS_HE[highestTier]} +{achievement.tiers[highestTier].xp} XP
+          {t('achievements.sheet.reachedTier', { tier: TIER_LABELS_HE[highestTier], xp: String(achievement.tiers[highestTier].xp) })}
         </p>
       )}
     </div>
@@ -167,6 +170,7 @@ function CategorySection({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AchievementSheet({ isOpen, onClose, unlockedAchievements, v2 = false }: AchievementSheetProps) {
+  const t = useT(profileNs);
   const { flags: featureFlags } = useFeatureFlags();
   const visibleCategories = featureFlags.enableLeagues
     ? CATEGORY_ORDER
@@ -191,16 +195,16 @@ export function AchievementSheet({ isOpen, onClose, unlockedAchievements, v2 = f
         transition={{ type: 'spring', stiffness: 300, damping: 35 }}
         className="max-h-[92dvh]"
         grabberClassName="flex shrink-0 justify-center pb-1 pt-2.5"
-        ariaLabel="הישגים שלי"
+        ariaLabel={t('achievements.sheet.title')}
         header={
           <div className="flex items-center justify-between px-5 pb-3 pt-2">
             <div className="min-w-0">
-              <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הישגים שלי</h2>
+              <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('achievements.sheet.title')}</h2>
               <p className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                {totalUnlocked} מתוך {ACHIEVEMENT_DEFINITIONS.length} נפתחו
+                {t('achievements.sheet.progress', { unlocked: String(totalUnlocked), total: String(ACHIEVEMENT_DEFINITIONS.length) })}
               </p>
             </div>
-            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+            <IconButton aria-label={t('achievements.sheet.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
             </IconButton>
           </div>
@@ -245,16 +249,16 @@ export function AchievementSheet({ isOpen, onClose, unlockedAchievements, v2 = f
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-gray-100">
               <div>
-                <h2 className="text-lg font-bold text-gray-900 font-hebrew">הישגים שלי</h2>
+                <h2 className="text-lg font-bold text-gray-900 font-hebrew">{t('achievements.sheet.title')}</h2>
                 <p className="text-xs text-gray-500 font-hebrew">
-                  {totalUnlocked} מתוך {ACHIEVEMENT_DEFINITIONS.length} נפתחו
+                  {t('achievements.sheet.progress', { unlocked: String(totalUnlocked), total: String(ACHIEVEMENT_DEFINITIONS.length) })}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500"
-                aria-label="סגור"
+                aria-label={t('achievements.sheet.close')}
               >
                 <X className="w-4 h-4" />
               </button>

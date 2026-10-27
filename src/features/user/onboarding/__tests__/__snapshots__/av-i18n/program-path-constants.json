@@ -1,0 +1,177 @@
+{
+ "PROGRAM_CARD_LABELS_HE": {
+  "health": "בריאות, כוח ואנרגיה",
+  "body_focus": "עיצוב ושרירים",
+  "skills": "קליסטניקס מתקדם"
+ },
+ "MUSCLE_NAME_HE": {
+  "chest": "חזה",
+  "back": "גב",
+  "shoulders": "כתפיים",
+  "biceps": "יד קדמית",
+  "triceps": "יד אחורית",
+  "legs": "רגליים",
+  "core": "בטן וליבה",
+  "glutes": "ישבן"
+ },
+ "SKILL_NAME_HE": {
+  "calisthenics_upper": "קליסטניקס עליון (כל האלמנטים)",
+  "front_lever": "פרונט לבר",
+  "muscle_up": "עליית כוח",
+  "planche": "פלאנץ׳",
+  "handstand": "עמידת ידיים",
+  "hspu": "שכיבות סמיכה בעמידת ידיים",
+  "one_arm_pullup": "מתח יד אחת"
+ },
+ "MUSCLE_CHIP_LABELS": {
+  "chest": "חזה",
+  "back": "גב",
+  "shoulders": "כתפיים",
+  "biceps": "יד קדמית",
+  "triceps": "יד אחורית",
+  "legs": "רגליים",
+  "core": "בטן וליבה",
+  "glutes": "ישבן"
+ },
+ "SKILL_PROGRAMS": [
+  {
+   "id": "calisthenics_upper",
+   "nameHe": "קליסטניקס עליון (כל האלמנטים)"
+  },
+  {
+   "id": "front_lever",
+   "nameHe": "פרונט לבר"
+  },
+  {
+   "id": "planche",
+   "nameHe": "פלאנץ׳"
+  },
+  {
+   "id": "hspu",
+   "nameHe": "שכיבות סמיכה בעמידת ידיים"
+  },
+  {
+   "id": "one_arm_pullup",
+   "nameHe": "מתח יד אחת"
+  }
+ ],
+ "MUSCLE_PACKAGES": [
+  {
+   "key": "pull",
+   "nameHe": "משיכה",
+   "muscles": [
+    "back",
+    "biceps"
+   ]
+  },
+  {
+   "key": "push",
+   "nameHe": "דחיפה",
+   "muscles": [
+    "shoulders",
+    "chest",
+    "triceps"
+   ]
+  },
+  {
+   "key": "legs",
+   "nameHe": "רגליים",
+   "muscles": [
+    "glutes",
+    "legs"
+   ]
+  },
+  {
+   "key": "core",
+   "nameHe": "ליבה",
+   "muscles": [
+    "core"
+   ]
+  }
+ ],
+ "BUNDLED_GOAL_PHOTOS": {
+  "womanPullUp": {
+   "src": "/images/landing/bg-2.jpg",
+   "alt": "מתח",
+   "heroPosition": "50% 20%",
+   "thumbPosition": "50% 12%",
+   "thumbZoom": 1.4
+  },
+  "womanPistolSquat": {
+   "src": "/images/landing/bg-3.jpg",
+   "alt": "פיסטול סקוואט",
+   "heroPosition": "50% 17%",
+   "thumbPosition": "50% 8%",
+   "thumbZoom": 1.4
+  },
+  "manLSit": {
+   "src": "/images/onboarding/strength/goal-lsit.jpg",
+   "alt": "L-sit על מקבילים",
+   "heroPosition": "62% 30%",
+   "thumbPosition": "62% 45%"
+  }
+ },
+ "GOAL_IMAGE_CONFIG": {
+  "female": {
+   "health": {
+    "kind": "library",
+    "programIds": [
+     "lower_body",
+     "legs"
+    ],
+    "level": 1,
+    "alt": "סקוואט",
+    "fallback": null
+   },
+   "body_focus": {
+    "kind": "bundled",
+    "photo": {
+     "src": "/images/landing/bg-2.jpg",
+     "alt": "מתח",
+     "heroPosition": "50% 20%",
+     "thumbPosition": "50% 12%",
+     "thumbZoom": 1.4
+    }
+   },
+   "skills": {
+    "kind": "bundled",
+    "photo": {
+     "src": "/images/landing/bg-3.jpg",
+     "alt": "פיסטול סקוואט",
+     "heroPosition": "50% 17%",
+     "thumbPosition": "50% 8%",
+     "thumbZoom": 1.4
+    }
+   }
+  },
+  "male": {
+   "health": {
+    "kind": "library",
+    "programIds": [
+     "push"
+    ],
+    "level": 2,
+    "alt": "שכיבת סמיכה בשיפוע",
+    "fallback": null
+   },
+   "body_focus": {
+    "kind": "library",
+    "programIds": [
+     "pull"
+    ],
+    "level": 10,
+    "alt": "מתח",
+    "fallback": null
+   },
+   "skills": {
+    "kind": "bundled",
+    "photo": {
+     "src": "/images/onboarding/strength/goal-lsit.jpg",
+     "alt": "L-sit על מקבילים",
+     "heroPosition": "62% 30%",
+     "thumbPosition": "62% 45%"
+    }
+   }
+  }
+ }
+}

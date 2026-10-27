@@ -1,17 +1,22 @@
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
+
 export const HEALTH_QUESTIONS = [
-  { id: 'heart_disease', text: '1. האם הרופא שלך אמר לך שאת/ה סובל/ת ממחלות לב?' },
-  { id: 'chest_pain_rest', text: '2. האם את/ה חש כאבים בחזה בזמן מנוחה?' },
-  { id: 'chest_pain_daily', text: '3. האם את/ה חש כאבים בחזה במהלך פעילויות שיגרה ביום-יום?' },
-  { id: 'chest_pain_activity', text: '4. האם את/ה חש כאבים בחזה בזמן שאת/ה מבצע פעילות גופנית?' },
-  { id: 'dizziness', text: '5. האם במהלך השנה החולפת איבדת שיווי משקל עקב סחרחורת?' },
-  { id: 'fainting', text: '6. האם במהלך השנה החולפת איבדת את הכרתך?' },
-  { id: 'asthma_meds', text: '7. האם רופא אבחן שאת/ה סובל/ת ממחלת האסתמה ולכן בשלושת החודשים האחרונים נזקקת לטיפול תרופתי?' },
-  { id: 'asthma_symptoms', text: '8. האם רופא אבחן שאת/ה סובל/ת ממחלת האסתמה ולכן בשלושת החודשים האחרונים סבלת מקוצר נשימה או צפצופים?' },
-  { id: 'family_heart', text: '9. האם אחד מבני משפחתך מדרגת קרבה ראשונה נפטר ממחלת לב?' },
-  { id: 'family_sudden', text: '10. האם אחד מבני משפחתך מדרגת קרבה ראשונה נפטר ממות פתאומי בגיל מוקדם? (לפני גיל 55 לגבר, 65 לאישה)' },
-  { id: 'doctor_supervision', text: '11. האם הרופא שלך אמר לך ב-5 השנים האחרונות לבצע פעילות גופנית רק תחת השגחה רפואית?' },
-  { id: 'chronic_disease', text: '12. האם הינך סובל ממחלה קבועה (כרונית) שאינה נזכרת בשאלות לעיל ועשויה למנוע או להגביל אותך בביצוע פעילות גופנית?' },
-  { id: 'pregnancy', text: '13. לנשים בהריון: האם ההריון הזה או כל הריון קודם הוגדר הריון בסיכון?' },
+  { id: 'heart_disease', text: t('healthDeclaration.q.heart_disease') },
+  { id: 'chest_pain_rest', text: t('healthDeclaration.q.chest_pain_rest') },
+  { id: 'chest_pain_daily', text: t('healthDeclaration.q.chest_pain_daily') },
+  { id: 'chest_pain_activity', text: t('healthDeclaration.q.chest_pain_activity') },
+  { id: 'dizziness', text: t('healthDeclaration.q.dizziness') },
+  { id: 'fainting', text: t('healthDeclaration.q.fainting') },
+  { id: 'asthma_meds', text: t('healthDeclaration.q.asthma_meds') },
+  { id: 'asthma_symptoms', text: t('healthDeclaration.q.asthma_symptoms') },
+  { id: 'family_heart', text: t('healthDeclaration.q.family_heart') },
+  { id: 'family_sudden', text: t('healthDeclaration.q.family_sudden') },
+  { id: 'doctor_supervision', text: t('healthDeclaration.q.doctor_supervision') },
+  { id: 'chronic_disease', text: t('healthDeclaration.q.chronic_disease') },
+  { id: 'pregnancy', text: t('healthDeclaration.q.pregnancy') },
 ];
 
-export const LEGAL_TEXT = `אני מצהיר/ה כי קראתי והבנתי את כל השאלון הרפואי וכל התשובות לשאלות בטופס זה הן שליליות. אני מצהיר/ה כי מסרתי ידיעות מלאות ונכונות על מצבי הרפואי. ידוע לי כי האחריות לכל פגיעה ו/או נזק למצבי הבריאותי ככל שתהא בעת הפעילות תחול עלי בלבד.`;
+export const LEGAL_TEXT = t('healthDeclaration.legalText');

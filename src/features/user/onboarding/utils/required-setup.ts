@@ -7,6 +7,10 @@ import type { UserFullProfile } from '../../core/types/user.types';
 import type { OnboardingStepId } from '../types';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { hasKnownIdentity } from '@/lib/identity';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 export interface MissingRequirement {
   id: string;
@@ -58,7 +62,7 @@ export function getMissingRequirements(
   ) {
     missing.push({
       id: 'identity',
-      label: 'פרטים אישיים',
+      label: t('requirement.identity'),
       step: 'IDENTITY',
       isHardBlock: true,
     });
@@ -69,7 +73,7 @@ export function getMissingRequirements(
   if (!hasAcceptedHealthDeclaration(profile)) {
     missing.push({
       id: 'health',
-      label: 'הצהרת בריאות',
+      label: t('health.title'),
       step: 'HEALTH_DECLARATION',
       isHardBlock: true,
     });
@@ -87,7 +91,7 @@ export function getMissingRequirements(
   if (!hasEquipment && !skipsEquipment) {
     missing.push({
       id: 'equipment',
-      label: 'ציוד אימון',
+      label: t('requirement.equipment'),
       step: 'EQUIPMENT',
       isHardBlock: false,
     });
