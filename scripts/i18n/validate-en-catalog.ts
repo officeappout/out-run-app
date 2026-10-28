@@ -39,6 +39,7 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   onboarding: (k) => !ONBOARDING_SKIPPED.test(k),
   player: (k) => !LANGUAGE_NEUTRAL.player.has(k),
   summary: (k) => !LANGUAGE_NEUTRAL.summary.has(k),
+  map: () => true,
 };
 
 /**
@@ -265,7 +266,8 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     // V15 a count/number interpolated next to a noun must be an ICU plural (one/other), not "{n} workouts"
     const flat = outsidePlurals(enMsg);
     const COUNT_NOUN = /\{\w+(?:, number)?\}\s+(minutes?|weeks?|days?|hours?|runs?|walks?|steps?|workouts?|exercises?|stations?|stops?|members?|sessions?|questions?|reps|sets|users|people|friends|points?|kudos)\b/i;
-    const cm = COUNT_NOUN.exec(flat);
+    const flatNoLabels = /, select,/.test(flat) ? flat.replace(/\}\s+\w+\s+\{/g, '}{') : flat; // drop select branch labels (`{Cycling} workout {Workout}`)
+    const cm = COUNT_NOUN.exec(flatNoLabels);
     const cmArg = cm && /^\{(\w+)/.exec(cm[0])![1];
     if (cm && !e.plurals.has(cmArg!) && !COUNT_NOUN_EXEMPT.has(key)) add(key, 'V15', 'error', `count next to a noun without an ICU plural: ${cm[0]}`);
     for (const [n, eb] of e.plurals) {

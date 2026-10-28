@@ -13,9 +13,9 @@ const messages = path.resolve(__dirname, '../../../messages');
 describe('en catalogs (pilot: common, pages, home settings.*; batch 3: player, summary)', () => {
   const { issues, reports } = validateAll(messages);
 
-  it('has the expected key counts per catalog (pilot 370 + onboarding 1005 + player 905 + summary 167)', () => {
+  it('has the expected key counts per catalog (pilot 370 + onboarding 1005 + player 905 + summary 167 + map 919)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 186, pages: 17, home: 167, onboarding: 1005, player: 905, summary: 167 });
+    expect(by).toEqual({ common: 186, pages: 17, home: 167, onboarding: 1005, player: 905, summary: 167, map: 919 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {
@@ -23,7 +23,7 @@ describe('en catalogs (pilot: common, pages, home settings.*; batch 3: player, s
   });
 
   it('home en holds only settings.* keys', () => {
-    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary']);
+    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary', 'map']);
     const rep = reports.find((r) => r.ns === 'home')!;
     expect(rep.enKeys).toBe(rep.scoped);
   });

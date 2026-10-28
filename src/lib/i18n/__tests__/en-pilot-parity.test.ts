@@ -20,6 +20,9 @@ import hePlayer from '@/messages/he/player.json';
 import heSummary from '@/messages/he/summary.json';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
+import heMap from '@/messages/he/map.json';
+import enMap from '@/messages/en/map.json';
+import { map } from '@/messages/ns/map';
 import { player } from '@/messages/ns/player';
 import { summary } from '@/messages/ns/summary';
 import { registerCatalog } from '../catalogs';
@@ -35,6 +38,7 @@ const SETS = [
   { ns: onboarding, he: heOnboarding as Cat, en: enOnboarding as Cat },
   { ns: player, he: hePlayer as Cat, en: enPlayer as Cat },
   { ns: summary, he: heSummary as Cat, en: enSummary as Cat },
+  { ns: map, he: heMap as Cat, en: enMap as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
 const values = (msg: string) => Object.fromEntries(messageArgNames(msg).map((n) => [n, SELECTS[n] ?? 3]));
@@ -72,5 +76,9 @@ describe('en pilot — Hebrew is untouched', () => {
 
   it('home: only settings.* is translated; hidden military/league keys are not in the pilot at all', () => {
     expect(Object.keys(enHome).every((k) => k.startsWith('settings.'))).toBe(true);
+  });
+
+  it('map: every he key is translated in batch 5', () => {
+    expect(Object.keys(enMap)).toEqual(Object.keys(heMap));
   });
 });
