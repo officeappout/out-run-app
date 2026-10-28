@@ -65,10 +65,10 @@ async function main() {
     docCounts[col] = snap.size;
     for (const d of snap.docs) walk(col, d.id, d.data(), '');
   }
-  const rows = [...aggs.entries()].map(([k, a]) => {
+  const rows = Array.from(aggs.entries()).map(([k, a]) => {
     const [col, field] = k.split('::');
     const shape = a.plain && a.localized ? 'mixed' : a.localized ? 'LocalizedText' : 'string';
-    const wordsToTranslate = [...a.missingEn].reduce((n, s) => n + words(s), 0);
+    const wordsToTranslate = Array.from(a.missingEn).reduce((n, s) => n + words(s), 0);
     return { collection: col, field, shape, docs: a.docs.size, totalDocs: docCounts[col], uniqueHe: a.heStrings.size, uniqueMissingEn: a.missingEn.size, hebrewWordsToTranslate: wordsToTranslate };
   }).sort((a, b) => a.collection.localeCompare(b.collection) || b.hebrewWordsToTranslate - a.hebrewWordsToTranslate);
   console.table(rows);
