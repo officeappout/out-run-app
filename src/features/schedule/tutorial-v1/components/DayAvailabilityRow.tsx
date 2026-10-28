@@ -3,7 +3,7 @@
 /**
  * One day of ל3 (boards SchedDays / SchedDaysPro, S-2b rows): weekday + date, then either the
  * morning / noon / evening chips and the check (free day) or "לא פנוי" and a plus.
- * Tapping the selected chip again opens an exact time for that day only.
+ * Tapping the selected chip again opens the phone's time picker: an exact time for that day only.
  */
 import { Check, Clock, Pencil, Plus } from 'lucide-react';
 import { useT } from '@/hooks/useT';
@@ -19,11 +19,9 @@ export interface DayAvailabilityRowProps {
   dayOfMonth: number;
   first: boolean;
   choice: DayChoice | undefined;
-  editingTime: boolean;
   onToggle: () => void;
   onWindow: (w: TimeWindow) => void;
   onTime: (time: string) => void;
-  onTimeDone: () => void;
 }
 
 const CHIP = 'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13.5px] transition-transform duration-150 ease-v2 active:scale-[0.97]';
@@ -43,24 +41,9 @@ export default function DayAvailabilityRow(p: DayAvailabilityRowProps) {
           <div className="flex min-w-0 gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden" role="radiogroup" aria-label={t('tutorial.days.windowAria', { day: p.dayName })}>
             {TIME_WINDOWS.map((w) => {
               const sel = p.choice!.window === w;
-              if (sel && p.editingTime) {
-                return (
-                  <input
-                    key={w}
-                    type="time"
-                    dir="ltr"
-                    autoFocus
-                    aria-label={t('tutorial.days.timeAria', { day: p.dayName })}
-                    defaultValue={timeOfChoice(p.choice!)}
-                    onChange={(e) => p.onTime(e.target.value)}
-                    onBlur={p.onTimeDone}
-                    className="h-8 w-[92px] shrink-0 rounded-full bg-v2-tint px-2.5 text-[13.5px] font-black text-v2-deep ring-[1.5px] ring-inset ring-v2-accent"
-                  />
-                );
-              }
               const Icon = WINDOW_ICON[w];
               const exact = sel && p.choice!.time;
-              return (
+              const chip = (
                 <button
                   key={w}
                   type="button"
@@ -86,6 +69,23 @@ export default function DayAvailabilityRow(p: DayAvailabilityRowProps) {
                     </>
                   )}
                 </button>
+              );
+              if (!sel) return chip;
+              // The selected chip carries a native time input on top: the second tap opens the
+              // phone's own picker straight away (autoFocus on a swapped-in input does not on iOS).
+              return (
+                <span key={w} className="relative inline-flex shrink-0">
+                  {chip}
+                  <input
+                    type="time"
+                    dir="ltr"
+                    aria-label={t('tutorial.days.timeAria', { day: p.dayName })}
+                    value={timeOfChoice(p.choice!)}
+                    onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not supported: the native tap still opens it */ } }}
+                    onChange={(e) => p.onTime(e.target.value)}
+                    className="absolute inset-0 h-full w-full cursor-pointer appearance-none opacity-0"
+                  />
+                </span>
               );
             })}
           </div>

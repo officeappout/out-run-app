@@ -26,7 +26,8 @@ export interface SchedDaysStepProps {
   /** Day of month per weekday. */
   dates: readonly number[];
   days: DaysState;
-  editingDow: number | null;
+  /** Days the week was built for (the recommended ones): the pill reads "5 מתוך 5" as on the board. */
+  target: number;
   minutes: number;
   /** The smart note (already translated, may hold <b>). */
   note: ReactNode;
@@ -40,7 +41,6 @@ export interface SchedDaysStepProps {
   onToggleDay: (dow: number) => void;
   onWindow: (dow: number, w: TimeWindow) => void;
   onTime: (dow: number, time: string) => void;
-  onTimeDone: () => void;
   onMinutes: (m: number) => void;
   onBack: () => void;
   onNext: () => void;
@@ -77,7 +77,7 @@ export default function SchedDaysStep(p: SchedDaysStepProps) {
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <span className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-muted">{t('tutorial.days.tapHint')}</span>
           <span className="inline-flex h-[26px] shrink-0 items-center whitespace-nowrap rounded-full bg-v2-tint px-2.5 text-[12.5px] font-extrabold tabular-nums text-v2-deep">
-            {t('tutorial.days.count', { done: count, total: p.order.length })}
+            {t('tutorial.days.count', { done: count, total: Math.max(p.target, count) })}
           </span>
         </div>
         <div className="overflow-hidden rounded-[22px] bg-white shadow-v2-card ring-1 ring-v2-accent/40">
@@ -89,11 +89,9 @@ export default function SchedDaysStep(p: SchedDaysStepProps) {
               dayName={weekdayLabel(dow, 'long', tc)}
               dayOfMonth={p.dates[dow]}
               choice={p.days[dow]}
-              editingTime={p.editingDow === dow}
               onToggle={() => p.onToggleDay(dow)}
               onWindow={(w) => p.onWindow(dow, w)}
               onTime={(time) => p.onTime(dow, time)}
-              onTimeDone={p.onTimeDone}
             />
           ))}
         </div>
