@@ -937,5 +937,15 @@
   "hybrid.v2.list.pacePerKm": "{pace} לק״מ",
   "hybrid.v2.list.repsCount": "{n} חזרות",
   "hybrid.v2.list.setsDone": "{done}/{planned} סטים",
-  "strengthPlayer.header.setCounter": "סט {current} מתוך {total}"
+  "strengthPlayer.header.setCounter": "סט {current} מתוך {total}",
+  "sweep.paused": "מושהה",
+  "sweep.station.exercises": "{n} תרגילים",
+  "sweep.station.startExercise": "התחל תרגיל",
+  "sweep.segment.pace": "קצב: {value}",
+  "sweep.segment.heartRate": "דופק: {value}",
+  "sweep.planned.workoutTab": "אימון",
+  "sweep.guided.progressAria": "התקדמות במסלול",
+  "sweep.guided.progressText": "{done} / {total} ק\"מ",
+  "sweep.metrics.settingsAria": "הגדרות אימון",
+  "sweep.milestone.together": "יחד עברתם {distance}"
 }

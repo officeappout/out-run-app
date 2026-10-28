@@ -24,6 +24,8 @@ import type { CSSProperties } from 'react';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '../hooks/useSheetDrag';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Layout constants
@@ -130,6 +132,7 @@ export default function MetricsDrawer({
 }: MetricsDrawerProps) {
   // Paused-state theming (same contract as AdaptiveMetricsWrapper).
   const sessionStatus = useSessionStore((s) => s.status);
+  const tx = useT(player);
   const isPaused = sessionStatus === 'paused';
 
   // Mirror card position to useMapStore for camera padding (same contract
@@ -232,7 +235,7 @@ export default function MetricsDrawer({
             {onOpenSettings && (
               <button
                 type="button"
-                aria-label="הגדרות אימון"
+                aria-label={tx('sweep.metrics.settingsAria')}
                 onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
