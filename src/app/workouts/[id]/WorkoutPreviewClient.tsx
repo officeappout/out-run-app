@@ -385,14 +385,13 @@ function SmartAppBanner({ onDismiss }: SmartAppBannerProps) {
   return (
     <div
       className="flex items-center gap-3 px-3 py-2.5 bg-white border-b border-gray-100 shadow-sm"
-      dir="rtl"
       role="banner"
       aria-label={t('sharedWorkout.banner.label')}
     >
       {/* Dismiss */}
       <button
         onClick={onDismiss}
-        className="flex-shrink-0 text-gray-400 active:text-gray-600 transition-colors p-1 -ml-1"
+        className="flex-shrink-0 text-gray-400 active:text-gray-600 transition-colors p-1 -me-1"
         aria-label={t('sharedWorkout.banner.close')}
       >
         <X size={15} strokeWidth={2.5} />
@@ -655,7 +654,7 @@ export default function WorkoutPreviewClient({
   // ── Error state ──
   if (error && !workout) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white to-gray-50 dark:from-gray-950 dark:to-gray-900" dir="rtl">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white to-gray-50 dark:from-gray-950 dark:to-gray-900">
         <div className="text-center px-6">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">:(</span>
@@ -676,7 +675,6 @@ export default function WorkoutPreviewClient({
   return (
     <div
       className="min-h-screen bg-white dark:bg-gray-900 flex flex-col overflow-hidden"
-      dir="rtl"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
       {/* ── Smart App Banner — web-only, not shown inside native app ── */}
@@ -732,7 +730,7 @@ export default function WorkoutPreviewClient({
                       </span>
                       <div className="flex-1 h-px bg-cyan-200/60 dark:bg-cyan-800/40" />
                     </div>
-                    <div className="border-r-[3px] border-cyan-400/70 dark:border-cyan-600/50 pr-3 space-y-2 mr-1">
+                    <div className="border-s-[3px] border-cyan-400/70 dark:border-cyan-600/50 ps-3 space-y-2 ms-1">
                       {group.exercises.map((ex) => (
                         <StrengthExerciseCard
                           key={ex.id}
@@ -801,8 +799,8 @@ export default function WorkoutPreviewClient({
           onJoin={handleJoinInvite}
         />
       ) : (
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/80 dark:border-gray-800 z-50">
-        <div className="px-4 py-4 flex items-center gap-3" dir="rtl">
+      <div className="fixed bottom-0 end-0 start-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/80 dark:border-gray-800 z-50">
+        <div className="px-4 py-4 flex items-center gap-3">
           <button
             onClick={handleStartWorkout}
             className="flex-1 text-white font-bold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 border-0 outline-none"

@@ -27,7 +27,7 @@ export default function AskKellyRow({ query }: { query?: string }) {
           </>
         )}
       </span>
-      <ChevronLeft size={16} strokeWidth={2} aria-hidden />
+      <ChevronLeft className="ltr:-scale-x-100" size={16} strokeWidth={2} aria-hidden />
     </Link>
   );
 }

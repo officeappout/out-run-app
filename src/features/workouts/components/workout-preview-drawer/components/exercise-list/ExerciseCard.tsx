@@ -85,7 +85,6 @@ function ExerciseCardImpl({
 
   return (
     <div
-      dir="rtl"
       role="button"
       tabIndex={0}
       onClick={handleTap}
@@ -105,7 +104,7 @@ function ExerciseCardImpl({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img alt={name} className="w-full h-full object-cover" src={cachedImageUrl} loading="lazy" />
         </div>
-        <div className="flex-1 min-w-0 flex flex-col justify-center py-1.5 pr-3 pl-1">
+        <div className="flex-1 min-w-0 flex flex-col justify-center py-1.5 ps-3 pe-1">
           <div className="flex items-center gap-2">
             <span className={`font-bold text-[14px] leading-tight truncate ${isGoal ? 'text-cyan-700 dark:text-cyan-300' : 'text-black dark:text-white'}`}>
               {name}
@@ -126,7 +125,7 @@ function ExerciseCardImpl({
             {volume}
           </div>
         </div>
-        <div className="flex items-center pl-3 flex-shrink-0">
+        <div className="flex items-center pe-3 flex-shrink-0">
           <SwapIcon size={18} onClick={handleSwap} isSwapped={exercise.wasSwapped} />
         </div>
       </div>
