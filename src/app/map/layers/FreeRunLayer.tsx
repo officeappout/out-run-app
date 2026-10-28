@@ -105,7 +105,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const { flags: runFlags } = useFeatureFlags();
   const runnerGender = useUserStore((s) => s.profile?.core?.gender) as 'male' | 'female' | 'other' | undefined;
   // Home v2 (enable_home_v2): the continuous-run player (R2-prop-easy / U-B / U-C).
-  // Commute keeps today's UI (its own ETA carousel). Off ⇒ today's UI, unchanged.
+  // Commute keeps today's UI (its own ETA carousel) unless enable_commute_v2_player_v1. Off ⇒ today's UI, unchanged.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const { flags: adminAwareFlags, loading: adminAwareFlagsLoading } = useFeatureFlags(isSuperAdmin);
   const homeV2 = adminAwareFlags.enableHomeV2;
@@ -117,7 +117,9 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   // The runner's own avatar on the map (discover passes it; free run didn't → generic lemur).
   const runnerPersonaId = useUserStore((s) => s.profile?.personas?.[0]?.id);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
-  const v2 = homeV2 && sessionMode !== 'commute';
+  // enable_commute_v2_player_v1 (phone test AA2): navigating to a park / place also gets the v2 player.
+  const commuteV2 = !adminAwareFlagsLoading && adminAwareFlags.enableCommuteV2PlayerV1;
+  const v2 = homeV2 && (sessionMode !== 'commute' || commuteV2);
   // Home v2 hybrid player (run + strength): the sequencer-driven player replaces today's
   // hybrid overlay for v2 users. Off (or no hybrid session) ⇒ today's flow, unchanged.
   const hybridActive = useHybridRun((s) => s.active);

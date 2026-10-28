@@ -67,16 +67,20 @@ describe('screens', () => {
     const days = setDayTime(initialDays([0, 1, 2, 3, 4], 'morning'), 0, '07:30');
     const out = html(
       <SchedDaysStep
-        step={2} total={3} order={order} dates={dates} days={days} editingDow={null} minutes={30} note="note"
+        step={2} total={3} order={order} dates={dates} days={days} target={5} minutes={30} note="note"
         running={{ twoPerDay: true, onTwoPerDay: noop, longRunLabel: 'ה׳ · היום הפנוי האחרון', longRunAria: 'a', onCycleLongRun: noop }}
-        onToggleDay={noop} onWindow={noop} onTime={noop} onTimeDone={noop} onMinutes={noop} onBack={noop} onNext={noop}
+        onToggleDay={noop} onWindow={noop} onTime={noop} onMinutes={noop} onBack={noop} onNext={noop}
       />,
     );
-    for (const s of ['באילו ימים?', 'כמה זמן לאימון?', '5 מתוך 7', '30 דק׳', 'לא פנוי', '07:30', 'שני אימונים באותו יום, בסדר', 'יום הריצה הארוכה']) {
+    for (const s of ['באילו ימים?', 'כמה זמן לאימון?', '5 מתוך 5', '30 דק׳', 'לא פנוי', '07:30', 'שני אימונים באותו יום, בסדר', 'יום הריצה הארוכה']) {
       expect(out).toContain(s);
     }
     expect(out).not.toContain('—');
     expect(out).not.toMatch(PHYSICAL);
+    // Z1: every free day's selected chip carries the native time input (the phone's picker on the
+    // second tap), with that day's time: exact on Sunday, the window's preset elsewhere.
+    expect(out.match(/type="time"/g)?.length).toBe(5);
+    expect(out).toContain('value="07:30"');
   });
 
   it('ל4 simple week: hero, ring legend, rows, confirm', () => {

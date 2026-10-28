@@ -8,9 +8,9 @@
  * shelter strip moved to the park page (ParkShelterTag). 24px side insets,
  * v2 tokens. Tap → the park page (the caller's onOpen). Render-only.
  *
- * layout="inline" (enable_where_to_train_v1) is the same card as a carousel item: fixed width, in
- * flow (no floating position / slide-in), optional selected ring; the close / navigate buttons
- * render only when their handlers are passed.
+ * layout="inline" (enable_where_to_train_v1) is the same card as a carousel item: smaller (200×104,
+ * name + one meta line, no chips), in flow (no floating position / slide-in), optional selected
+ * ring; the close / navigate buttons render only when their handlers are passed.
  */
 
 import { Navigation, X } from 'lucide-react';
@@ -25,8 +25,9 @@ export const COMPACT_CARD_PX = 148;
 /** Bottom-up scrim so white text reads on any photo; the top stays clear. */
 export const COMPACT_GRADIENT = 'linear-gradient(to top, rgba(9,20,30,0.86) 0%, rgba(9,20,30,0.55) 42%, rgba(9,20,30,0) 78%)';
 export const COMPACT_MAX_CHIPS = 3;
-/** Carousel item width (layout="inline"). */
-export const COMPACT_INLINE_WIDTH_PX = 280;
+/** Carousel item size (layout="inline"): smaller than the map card, no chips (phone test AA5). */
+export const COMPACT_INLINE_WIDTH_PX = 200;
+export const COMPACT_INLINE_CARD_PX = 104;
 
 export interface ParkCardCompactProps {
   name: string;
@@ -55,8 +56,8 @@ export default function ParkCardCompact({
   layout = 'floating', selected = false,
 }: ParkCardCompactProps) {
   const t = useT(map);
-  const chips = amenityTags.slice(0, COMPACT_MAX_CHIPS);
   const inline = layout === 'inline';
+  const chips = inline ? [] : amenityTags.slice(0, COMPACT_MAX_CHIPS);
   return (
     <div
       className={inline ? INLINE_WRAPPER : FLOATING_WRAPPER}
@@ -74,7 +75,7 @@ export default function ParkCardCompact({
           as a white line, and isolation + translateZ makes WebKit (iOS) clip the
           photo to the radius during the slide-in animation. */}
       <div className={`relative overflow-hidden rounded-v2-card ${inline ? (selected ? 'shadow-v2-ring ring-2 ring-v2-accent' : 'shadow-v2-ring') : 'shadow-v2-float'}`} dir="rtl"
-        style={{ height: COMPACT_CARD_PX, background: '#0e1419', isolation: 'isolate', transform: 'translateZ(0)' }}>
+        style={{ height: inline ? COMPACT_INLINE_CARD_PX : COMPACT_CARD_PX, background: '#0e1419', isolation: 'isolate', transform: 'translateZ(0)' }}>
         {heroSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={heroSrc} alt={name} className="absolute inset-0 h-full w-full object-cover"
@@ -100,10 +101,10 @@ export default function ParkCardCompact({
         </button>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 z-[1] px-3.5 pb-3">
-          <h3 className="truncate text-[16px] font-black leading-snug !tracking-[-0.02em] text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.35)]">{name}</h3>
+        <div className={`absolute inset-x-0 bottom-0 z-[1] ${inline ? 'px-3 pb-2.5' : 'px-3.5 pb-3'}`}>
+          <h3 className={`truncate ${inline ? 'text-[14px]' : 'text-[16px]'} font-black leading-snug !tracking-[-0.02em] text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.35)]`}>{name}</h3>
           {(rating || metaParts.length > 0) && (
-            <div className="mt-0.5 flex items-center gap-1 truncate text-[12.5px] font-bold text-white/85">
+            <div className={`mt-0.5 flex items-center gap-1 truncate ${inline ? 'text-[11.5px]' : 'text-[12.5px]'} font-bold text-white/85`}>
               {rating && (
                 <>
                   <span>{rating.avg}</span>

@@ -71,6 +71,13 @@ describe('WhereToTrainSection', () => {
     const out = html(<WhereToTrainSection {...base} homeGearLabels={[]} location="home" parks={[]} loading={false} />);
     expect(out).toContain('בבית · משקל גוף');
   });
+  it('AA4: no home version, no בית / פארק toggle and no notice, the parks alone', () => {
+    const out = html(<WhereToTrainSection {...base} homeBlocked blockedNotice="המעבר לבית לא זמין באימון הזה" location="park" parks={parks} loading={false} />);
+    expect(out).not.toContain('role="group"');
+    expect(out).not.toContain('לא זמין');
+    expect(out).toContain('גינת הירקון');
+    expect(html(<WhereToTrainSection {...base} location="park" parks={parks} loading={false} />)).toContain('role="group"');
+  });
   it('park, loading: skeleton cards; no GPS / no parks: no carousel', async () => {
     await expect(html(<WhereToTrainSection {...base} location="park" parks={[]} loading />)).toMatchFileSnapshot(snap('section-loading'));
     expect(html(<WhereToTrainSection {...base} location="park" parks={[]} loading={false} />)).not.toContain('data-v2-hscroller');

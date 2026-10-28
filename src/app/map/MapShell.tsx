@@ -539,7 +539,9 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   ]);
 
   return (
-    <main className="relative h-[100dvh] w-full bg-[#f3f4f6] overflow-hidden font-sans" style={{ height: '100dvh' }}>
+    // Pinned to the viewport (phone test AA1): a scroll of the parent #main-content (or the document) used
+    // to carry the map up with it, leaving the park card at the top and a white lower half.
+    <main className="fixed inset-0 w-full bg-[#f3f4f6] overflow-hidden font-sans">
       {/* ══════ BRAND HEADER ══════
            Suppressed during active workouts: the story bar + TurnCarousel
            already occupy the top chrome, and the header's z-[75] layer
