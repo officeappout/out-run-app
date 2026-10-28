@@ -18,6 +18,10 @@ export const DEFAULT_STATION_DIFFICULTY: StationDifficulty = 'easy';
 export const STATION_MESSAGE_M = 300;
 
 /** A machine-tabata block: work + rest = one ladder rung (60 s), never the 20/10 core tabata. */
+export function isMachineTabataSegment(seg: WorkoutSegment | null | undefined): boolean {
+  return !!seg && isMachineTabata(seg);
+}
+
 function isMachineTabata(seg: WorkoutSegment): seg is WorkoutSegment & { protocolConfig: TabataProtocolConfig } {
   if (seg.protocol !== 'tabata' || !seg.protocolConfig) return false;
   const c = seg.protocolConfig as TabataProtocolConfig;
@@ -137,4 +141,16 @@ export function stationMessageM(view: SequencerView | null): number | null {
 /** A walking leg? (The walk card replaces the run card only for walking; running keeps its pace.) */
 export function isWalkingLeg(view: SequencerView | null): boolean {
   return view?.segment?.kind === 'aerobic' && view.segment.aerobicType === 'walking';
+}
+
+/**
+ * Rest between intervals (board Park 9, pilot M19): the index of the NEXT machine when the next
+ * interval is a different machine than the current one, else null (round 2 on the same machine,
+ * or nothing next). Matched by name after the current position (exercise-major order).
+ */
+export function nextMachineIndex(names: readonly string[], currentIdx: number, nextName: string | null): number | null {
+  if (!nextName || names[currentIdx] === nextName) return null;
+  for (let i = currentIdx + 1; i < names.length; i += 1) if (names[i] === nextName) return i;
+  const first = names.indexOf(nextName);
+  return first >= 0 && first !== currentIdx ? first : null;
 }

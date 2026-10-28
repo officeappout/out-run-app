@@ -4,7 +4,7 @@ vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 
 import {
   applyStationDifficulty, planStationDifficulty, stationIntroView, walkCardView, stationMessageM, isWalkingLeg,
-  DEFAULT_STATION_DIFFICULTY,
+  DEFAULT_STATION_DIFFICULTY, nextMachineIndex, isMachineTabataSegment,
 } from '../park-live-v2';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
 import type { SequencerView } from '../../engines/hybrid/sequencer.selectors';
@@ -108,5 +108,22 @@ describe('walk card + station message (M2, M22)', () => {
     expect(isWalkingLeg(view({}))).toBe(true);
     expect(isWalkingLeg(view({ segment: { kind: 'aerobic', aerobicType: 'running' } as never }))).toBe(false);
     expect(isWalkingLeg(null)).toBe(false);
+  });
+});
+
+describe('rest: find the next machine (M19)', () => {
+  const names = ['א', 'ב', 'ג'];
+  it('points at the next machine, not at round 2 of the same one', () => {
+    expect(nextMachineIndex(names, 0, 'ב')).toBe(1);
+    expect(nextMachineIndex(names, 0, 'א')).toBeNull();
+    expect(nextMachineIndex(names, 2, null)).toBeNull();
+    expect(nextMachineIndex(names, 2, 'א')).toBe(0);
+  });
+
+  it('machine tabata only', () => {
+    const p = plan();
+    expect(isMachineTabataSegment(p.segments[1])).toBe(true);
+    expect(isMachineTabataSegment(p.segments[2])).toBe(false);
+    expect(isMachineTabataSegment(null)).toBe(false);
   });
 });
