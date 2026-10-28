@@ -7,6 +7,7 @@ import { BoardSheet, ScopePointsContent } from '@/features/arena/components/Leag
 import {
   GroupDetailsDrawer, SessionDrawer, PostJoinSuccessDrawer, CreateGroupWizard, PlannedActivityComposeSheet,
 } from '@/app/community/CommunityOverlays';
+import { DEFAULT_JOIN_VERB_KEY } from '@/features/arena/utils/join-verb';
 import type { CommunityOverlaysState } from '../_hooks/useCommunityOverlays';
 import type { useCommunityJoinActions } from '../_hooks/useCommunityJoinActions';
 
@@ -81,7 +82,7 @@ export function CommunityDrawers({
         isOpen={!!successData}
         onClose={() => setSuccessData(null)}
         name={successData?.name ?? ''}
-        verb={successData?.verb ?? 'יתאמן'}
+        verbKey={successData?.verbKey ?? DEFAULT_JOIN_VERB_KEY}
         onOpenChat={() => { setSuccessData(null); openChat(); }}
         scheduleSlots={successData?.scheduleSlots}
         category={successData?.category}
