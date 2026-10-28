@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 
 const srcPath = fileURLToPath(new URL('../HybridSlotCarousel.tsx', import.meta.url));
 const src = readFileSync(srcPath, 'utf8');
+const he = JSON.parse(readFileSync(fileURLToPath(new URL('../../../../../../messages/he/map.json', import.meta.url)), 'utf8')) as Record<string, string>;
 
 describe('G1.3 — "צא לדרך" (implies immediate start) replaced with "צפה במסלול" (view)', () => {
   it('no non-aerobic_quick CTA still says צא לדרך as an active string', () => {
@@ -24,12 +25,14 @@ describe('G1.3 — "צא לדרך" (implies immediate start) replaced with "צפ
   });
 
   it('both CTA render sites (inline ctaContent + the fallback button) now say צפה במסלול', () => {
-    const occurrences = src.split("'יוצאים מיד' : 'צפה במסלול'").length - 1;
+    // i18n extraction batch ui-2: the labels moved to the map catalog (slotCarousel.cta.*), the ternary stayed.
+    const occurrences = src.split("t('slotCarousel.cta.start') : t('slotCarousel.cta.view')").length - 1;
     expect(occurrences).toBe(2);
+    expect(he['slotCarousel.cta.view']).toBe('צפה במסלול');
   });
 
   it('the aerobic_quick immediate-start label is untouched — this fix is type-specific, not a global replace', () => {
-    expect(src).toContain("'יוצאים מיד'");
+    expect(he['slotCarousel.cta.start']).toBe('יוצאים מיד');
   });
 });
 

@@ -241,6 +241,7 @@ function VolumeBreakdownBadge({
 }: {
   volumeBreakdown: VolumeBreakdownDisplay;
 }) {
+  const t = useT(player);
   const { setsPerformed, requiredSets, isFullVolume } = volumeBreakdown;
   
   return (
@@ -269,11 +270,11 @@ function VolumeBreakdownBadge({
           )}
           <div>
             <p className={`text-sm font-bold ${isFullVolume ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'}`}>
-              ביצעת {setsPerformed} מתוך {requiredSets} סטים נדרשים לרמה זו
+              {t('volumeBadge.progress', { performed: String(setsPerformed), required: String(requiredSets) })}
             </p>
             {isFullVolume && (
               <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                🏆 Full Volume - קיבלת 100% מהרווח!
+                {t('volumeBadge.full')}
               </p>
             )}
           </div>

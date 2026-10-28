@@ -280,11 +280,11 @@ export default function ExerciseLibraryPage() {
               type="button"
               onClick={() => router.back()}
               className="p-2 -ms-2 text-gray-500 hover:text-gray-800 rounded-full"
-              aria-label="חזרה"
+              aria-label={t('exerciseLibraryPage.back.aria')}
             >
               <ArrowRight size={22} />
             </button>
-            <h1 className="text-lg font-bold text-gray-900">ספריית תרגילים</h1>
+            <h1 className="text-lg font-bold text-gray-900">{t('exerciseLibraryPage.title')}</h1>
           </div>
 
           {/* Search bar */}
@@ -297,7 +297,7 @@ export default function ExerciseLibraryPage() {
               type="text"
               value={query}
               onChange={handleQueryChange}
-              placeholder="חפש תרגיל..."
+              placeholder={t('exerciseLibraryPage.search.placeholder')}
               className="w-full ps-10 pe-10 py-2.5 text-sm bg-gray-100 border border-transparent rounded-2xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-gray-400"
             />
             {query && (
@@ -305,7 +305,7 @@ export default function ExerciseLibraryPage() {
                 type="button"
                 onClick={() => setQuery('')}
                 className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                aria-label="נקה חיפוש"
+                aria-label={t('exerciseLibraryPage.search.clearAria')}
               >
                 <X size={16} />
               </button>

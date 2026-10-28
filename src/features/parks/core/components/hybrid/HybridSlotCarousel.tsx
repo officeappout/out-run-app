@@ -17,7 +17,7 @@
  * HybridOverviewScreen (mutually exclusive freeRunStep — no new z-index value).
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { motion, type PanInfo } from 'framer-motion';
 import { ArrowRight, Play } from 'lucide-react';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -35,6 +35,10 @@ import QuizPromptCard from './QuizPromptCard';
 import RouteWhySheet from './RouteWhySheet';
 import { routeWhy } from './route-why';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import { common } from '@/messages/ns/common';
+import { withUnit } from '@/lib/i18n/units';
 
 // When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
 // (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
@@ -68,10 +72,11 @@ const SWIPE_HINT_SEEN_KEY = 'hybrid_slot_carousel_swipe_hint_seen';
 // G1.1 v2 (flag on): its own seen-key, so users who got #207's quick nudge get the clearer one once.
 const SWIPE_HINT_V2_SEEN_KEY = 'hybrid_slot_carousel_swipe_hint_v2_seen';
 
+// i18n-allow-hebrew: exported array read by DiscoverLayer (outside this change; follow-up: phrase keys + t at the call site)
 const ENTRY_PHRASES = [
-  'מה עושים היום? ✨',
-  'בא לך לזוז? יש לי רעיון ✨',
-  'תנועה + כוח, בדרך שלך ✨',
+  'מה עושים היום? ✨', // i18n-allow-hebrew: see above
+  'בא לך לזוז? יש לי רעיון ✨', // i18n-allow-hebrew: see above
+  'תנועה + כוח, בדרך שלך ✨', // i18n-allow-hebrew: see above
 ];
 
 type CarouselActivity = AerobicKind | 'cycling';
@@ -86,10 +91,11 @@ function ActivityToggle({
   activity: SlotKind;
   onChange: (k: SlotKind) => void;
 }) {
+  const t = useT(map);
   const items: { key: CarouselActivity; label: string; emoji: string; soon?: boolean }[] = [
-    { key: 'walking', label: 'הליכה', emoji: '🚶' },
-    { key: 'running', label: 'ריצה', emoji: '🏃' },
-    { key: 'cycling', label: 'בקרוב', emoji: '🚴', soon: true },
+    { key: 'walking', label: t('slotCarousel.toggle.walking'), emoji: '🚶' },
+    { key: 'running', label: t('slotCarousel.toggle.running'), emoji: '🏃' },
+    { key: 'cycling', label: t('slotCarousel.toggle.cycling'), emoji: '🚴', soon: true },
   ];
   return (
     <div className="flex items-center justify-center gap-2 mb-2 pointer-events-auto" dir="rtl">
@@ -133,6 +139,7 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
   onArm: () => void;
   consumeArmed: () => boolean;
 }) {
+  const t = useT(map);
   return (
     <div
       className="w-full bg-white"
@@ -145,9 +152,9 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
       dir="rtl"
     >
       <div className="mb-4">
-        <div className="text-[16px] font-black" style={{ color: '#111827' }}>עוד לא מילאת שאלון כוח</div>
+        <div className="text-[16px] font-black" style={{ color: '#111827' }}>{t('slotCarousel.assessment.title')}</div>
         <div className="text-[13px] font-semibold mt-1.5 leading-snug" style={{ color: '#6B7280' }}>
-          שאלון קצר יתאים לך אישית את אימון הכוח בפארק — לפי הרמה והציוד שיש שם.
+          {t('slotCarousel.assessment.body')}
         </div>
       </div>
       <button
@@ -164,7 +171,7 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
         className="w-full text-black font-semibold text-sm rounded-full active:scale-[0.98] transition-transform"
         style={{ height: 44, background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
       >
-        למלא שאלון כוח
+        {t('slotCarousel.assessment.cta')}
       </button>
     </div>
   );
@@ -200,6 +207,8 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
   tutorialV1?: boolean;
   onInfo?: () => void;
 }) {
+  const t = useT(map);
+  const tc = useT(common);
   // route_stops only: the real total as a compact framed pill (same border/shadow language as the
   // overview's calorie/distance chips). The wrapper keeps a fixed height so the card doesn't jump
   // when the number arrives; the pill is rendered only once a real total exists. A small walk glyph
@@ -216,7 +225,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
               <ActivityGlyph kind="aerobic" subtype="walking" className="w-[14px] h-[14px]" />
             </span>
           )}
-          {routeStopsTotal.min} דק׳
+          {withUnit('min', routeStopsTotal.min, tc)}
         </span>
       )}
       {/* Secondary outcome stats (only once the compose landed — same moment as the pill). Calories are an
@@ -224,12 +233,12 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
       {routeStopsTotal && (routeStopsTotal.calories != null || routeStopsTotal.stations != null) && (
         <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: '#6B7280' }}>
           {routeStopsTotal.calories != null && (
-            <><bdi dir="ltr">~{routeStopsTotal.calories}</bdi> קק״ל</>
+            <>{t.rich('slotCarousel.total.calories', { calories: String(routeStopsTotal.calories), n: (chunks: ReactNode) => <bdi dir="ltr">{chunks}</bdi> })}</>
           )}
           {routeStopsTotal.calories != null && routeStopsTotal.stations != null && (
             <span aria-hidden style={{ margin: '0 5px', color: '#CBD5E1' }}>·</span>
           )}
-          {routeStopsTotal.stations != null && <>{routeStopsTotal.stations} עצירות</>}
+          {routeStopsTotal.stations != null && <>{t('slotCarousel.total.stations', { count: routeStopsTotal.stations })}</>}
         </span>
       )}
     </div>
@@ -311,7 +320,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
                 every other non-aerobic_quick slot. "צא לדרך" ("head out") implied an
                 immediate start; "צפה במסלול" is the same phrase this app already uses
                 for the identical "view before starting" case (PreWorkoutCardRenderer.tsx). */}
-            {slot.kind === 'aerobic_quick' ? 'יוצאים מיד' : 'צפה במסלול'}
+            {slot.kind === 'aerobic_quick' ? t('slotCarousel.cta.start') : t('slotCarousel.cta.view')}
           </>
         }
       />
@@ -334,7 +343,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
           <span className="text-[17px] font-black" style={{ color: '#111827' }}>{slot.title}</span>
           {slot.recommended && (
             <span className="text-[11px] font-black rounded-full" style={{ color: slot.accent, background: `${slot.accent}18`, padding: '2px 8px' }}>
-              מומלץ
+              {t('slotCarousel.recommended')}
             </span>
           )}
         </div>
@@ -366,7 +375,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         style={{ height: 44, background: CTA_GRADIENT }}
       >
         {slot.kind === 'aerobic_quick' ? <Play size={16} /> : null}
-        {slot.kind === 'aerobic_quick' ? 'יוצאים מיד' : 'צפה במסלול'}
+        {slot.kind === 'aerobic_quick' ? t('slotCarousel.cta.start') : t('slotCarousel.cta.view')}
       </button>
     </div>
   );
@@ -437,6 +446,7 @@ export default function HybridSlotCarousel({
   entryTutorial = false,
   firstWorkoutNote = null,
 }: HybridSlotCarouselProps) {
+  const t = useT(map);
   const [activeIndex, setActiveIndex] = useState(0);
   // enable_map_tutorial_v1 (boards M4/M5/M8): the tutorial's card + the "why this route" drawer.
   const tutorialV1 = useMapTutorialV1();
@@ -487,8 +497,8 @@ export default function HybridSlotCarousel({
     if (!onSettleSlotRef.current) return;
     const slot = slots[activeIndex];
     if (!slot) return;
-    const t = setTimeout(() => onSettleSlotRef.current?.(slot), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onSettleSlotRef.current?.(slot), 300);
+    return () => clearTimeout(timer);
   }, [activeIndex, slots]);
 
   const stride = cardW + GAP;
@@ -518,7 +528,7 @@ export default function HybridSlotCarousel({
           <button
             type="button"
             onClick={onClose}
-            aria-label="סגור"
+            aria-label={t('slotCarousel.close.aria')}
             className="w-9 h-9 rounded-full bg-white shadow-lg flex items-center justify-center active:scale-90 transition-transform pointer-events-auto"
           >
             <ArrowRight size={17} className="text-gray-600" />
@@ -535,7 +545,7 @@ export default function HybridSlotCarousel({
             className="flex items-center gap-1.5 rounded-full text-[11.5px] font-black animate-pulse"
             style={{ padding: '4px 12px', background: 'rgba(255,255,255,0.92)', color: BRAND, boxShadow: '0 2px 10px rgba(0,0,0,.06)', backdropFilter: 'blur(6px)' }}
           >
-            <span aria-hidden>✨</span> מחשב מסלול…
+            <span aria-hidden>✨</span> {t('slotCarousel.computing')}
           </div>
         </div>
       )}
@@ -651,7 +661,7 @@ export default function HybridSlotCarousel({
           {slots.map((s, i) => (
             <button
               key={s.id}
-              aria-label={`סלוט ${i + 1}`}
+              aria-label={t('slotCarousel.dot.aria', { n: String(i + 1) })}
               onClick={() => handleSelect(i)}
               className="rounded-full transition-all pointer-events-auto"
               style={{ width: i === activeIndex ? 16 : 6, height: 6, background: i === activeIndex ? BRAND : 'rgba(0,173,239,0.28)', border: 'none', padding: 0 }}
@@ -678,7 +688,7 @@ export default function HybridSlotCarousel({
       {/* build-yourself escape hatch */}
       <div className="pointer-events-auto pb-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}>
         <ShimmerPhraseButton
-          messages={['⚙️ הרכב אימון בעצמי']}
+          messages={[t('slotCarousel.build')]}
           onTap={onBuildYourself}
           className="px-4 pt-1"
         />

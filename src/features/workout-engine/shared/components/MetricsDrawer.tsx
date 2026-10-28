@@ -21,6 +21,8 @@
 
 import { motion, useDragControls } from 'framer-motion';
 import type { CSSProperties } from 'react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '../hooks/useSheetDrag';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -128,6 +130,7 @@ export default function MetricsDrawer({
   onAnchorChange,
   children,
 }: MetricsDrawerProps) {
+  const t = useT(player);
   // Paused-state theming (same contract as AdaptiveMetricsWrapper).
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
@@ -232,7 +235,7 @@ export default function MetricsDrawer({
             {onOpenSettings && (
               <button
                 type="button"
-                aria-label="הגדרות אימון"
+                aria-label={t('metricsDrawer.settings.aria')}
                 onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}

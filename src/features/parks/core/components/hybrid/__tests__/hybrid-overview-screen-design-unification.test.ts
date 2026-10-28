@@ -20,6 +20,7 @@ const screenPath = fileURLToPath(new URL('../HybridOverviewScreen.tsx', import.m
 const screenSrc = readFileSync(screenPath, 'utf8');
 const axisPath = fileURLToPath(new URL('../HybridJourneyAxis.tsx', import.meta.url));
 const axisSrc = readFileSync(axisPath, 'utf8');
+const he = JSON.parse(readFileSync(fileURLToPath(new URL('../../../../../../messages/he/map.json', import.meta.url)), 'utf8')) as Record<string, string>;
 
 describe('HybridOverviewScreen — header unified to a single row for every card', () => {
   it('renders ONE header block (no more composed.bolts ternary splitting two separate layouts)', () => {
@@ -29,14 +30,17 @@ describe('HybridOverviewScreen — header unified to a single row for every card
   });
 
   it('the single header still preserves full-park\'s MAP_OVERVIEW_CHROME_V1-aware title text', () => {
-    expect(screenSrc).toContain('אימון מלא בפארק · ${aerobicKind');
+    // i18n extraction batch ui-2: the title moved to the map catalog (hybridOverview.title.fullPark).
+    expect(screenSrc).toContain("MAP_OVERVIEW_CHROME_V1 ? tMap('hybridOverview.title.fullPark'");
+    expect(he['hybridOverview.title.fullPark']).toContain('אימון מלא בפארק · ');
   });
 
   it('budget-split keeps its own title text ("אימון משולב"), just in the unified layout', () => {
     // The ternary now lives in `const overviewTitle = …;` (the header moved to the
     // shared WorkoutOverviewHeader, 19.10.2026) — so it ends with `;`, not the JSX `}`.
-    const match = screenSrc.match(/:\s*composed\.bolts\s*\n?\s*\?\s*\(MAP_OVERVIEW_CHROME_V1[\s\S]*?\)\s*\n?\s*:\s*'אימון משולב'[};]/);
+    const match = screenSrc.match(/:\s*composed\.bolts\s*\n?\s*\?\s*\(MAP_OVERVIEW_CHROME_V1[\s\S]*?\)\s*\n?\s*:\s*tMap\('hybridOverview\.title\.hybrid'\)[};]/);
     expect(match, 'title ternary not found in the expected shape').toBeTruthy();
+    expect(he['hybridOverview.title.hybrid']).toBe('אימון משולב');
   });
 });
 
@@ -54,7 +58,8 @@ describe('HybridOverviewScreen — title keys off fullParkRun, not just bolts (b
     // title for the "zero real stations" case, else unchanged) — so the
     // literal ' 'מסלול + עצירות' is now preceded by `:`, not `?`. The string
     // itself, and the ordering invariant below, are unchanged.
-    expect(screenSrc).toContain("'מסלול + עצירות'");
+    expect(screenSrc).toContain("tMap('hybridOverview.title.routeStops')");
+    expect(he['hybridOverview.title.routeStops']).toBe('מסלול + עצירות');
     // Ordering: the fullParkRun check must come first in the ternary chain,
     // ahead of the bolts check, so route_stops (which also has bolts) never
     // falls into the full-park branch.

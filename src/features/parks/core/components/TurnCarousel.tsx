@@ -44,6 +44,10 @@ import { reverseGeocodeStreet } from '@/features/user/onboarding/components/step
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import NavBannerV2 from './NavBannerV2';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import { common } from '@/messages/ns/common';
+import { withUnit, type CommonT } from '@/lib/i18n/units';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -58,10 +62,10 @@ interface TurnCarouselProps {
   publishOnly?: boolean;
 }
 
-const DEST_INSTRUCTION = 'הגעת ליעד';
-const STRAIGHT_INSTRUCTION = 'ישר';
+const DEST_INSTRUCTION = 'הגעת ליעד'; // i18n-allow-hebrew: data — routing instruction compared with turn.instruction, also rendered as the headline
+const STRAIGHT_INSTRUCTION = 'ישר'; // i18n-allow-hebrew: data — routing instruction compared with turn.instruction
 /** Headline shown when the maneuver has no street name AND is "go straight". */
-const FALLBACK_HEADLINE = 'המשך ישר';
+const FALLBACK_HEADLINE = 'המשך ישר'; // i18n-allow-hebrew: headline paired with the routing-instruction data above (follow-up: a key per instruction)
 
 /**
  * Coordinate-rounding precision for the reverse-geocode cache key.
@@ -108,10 +112,10 @@ const ACTIVE_SHADOW = '0 8px 28px rgba(0, 173, 239, 0.18), 0 2px 8px rgba(0, 0, 
 /** The same mapping as getIconForInstruction, as a plain key (the park message row draws its own arrow). */
 function iconKindForInstruction(instruction: string): ParkTurnInfo['icon'] {
   switch (instruction) {
-    case 'ימינה קל':   return 'slightRight';
-    case 'שמאלה קל':  return 'slightLeft';
-    case 'פנה ימינה': return 'right';
-    case 'פנה שמאלה': return 'left';
+    case 'ימינה קל':   return 'slightRight'; // i18n-allow-hebrew: data — routing instruction
+    case 'שמאלה קל':  return 'slightLeft'; // i18n-allow-hebrew: data — routing instruction
+    case 'פנה ימינה': return 'right'; // i18n-allow-hebrew: data — routing instruction
+    case 'פנה שמאלה': return 'left'; // i18n-allow-hebrew: data — routing instruction
     case DEST_INSTRUCTION: return 'destination';
     default:          return 'straight';
   }
@@ -119,10 +123,10 @@ function iconKindForInstruction(instruction: string): ParkTurnInfo['icon'] {
 
 function getIconForInstruction(instruction: string): React.ElementType {
   switch (instruction) {
-    case 'ימינה קל':   return ArrowUpRight;   // slight right
-    case 'שמאלה קל':  return ArrowUpLeft;    // slight left
-    case 'פנה ימינה': return CornerUpRight;  // sharp right
-    case 'פנה שמאלה': return CornerUpLeft;   // sharp left
+    case 'ימינה קל':   return ArrowUpRight;   // slight right // i18n-allow-hebrew: data — routing instruction
+    case 'שמאלה קל':  return ArrowUpLeft;    // slight left // i18n-allow-hebrew: data — routing instruction
+    case 'פנה ימינה': return CornerUpRight;  // sharp right // i18n-allow-hebrew: data — routing instruction
+    case 'פנה שמאלה': return CornerUpLeft;   // sharp left // i18n-allow-hebrew: data — routing instruction
     case DEST_INSTRUCTION: return Flag;
     default:          return ArrowUp;
   }
@@ -142,10 +146,10 @@ function findNearestPathIdx(
   return idx;
 }
 
-function formatDistance(meters: number): string {
-  if (meters < 100) return `${Math.round(meters)} מ׳`;
-  if (meters < 1000) return `${Math.round(meters / 10) * 10} מ׳`;
-  return `${(meters / 1000).toFixed(1)} ק"מ`;
+function formatDistance(meters: number, tc: CommonT): string {
+  if (meters < 100) return withUnit('m', Math.round(meters), tc);
+  if (meters < 1000) return withUnit('m', Math.round(meters / 10) * 10, tc);
+  return withUnit('kmAscii', (meters / 1000).toFixed(1), tc);
 }
 
 /**
@@ -335,6 +339,8 @@ export default function TurnCarousel({
     ];
   }, [turns, routePath]);
 
+  const tMap = useT(map);
+  const tc = useT(common);
   const setTurnFlyToTarget = useMapStore((s) => s.setTurnFlyToTarget);
   const setNavCardHeight = useMapStore((s) => s.setNavCardHeight);
   const setParkTurn = useMapStore((s) => s.setParkTurn);
@@ -797,7 +803,7 @@ export default function TurnCarousel({
           dir="rtl"
         >
           <ChevronUp size={13} />
-          <span className="text-[11px] font-bold">ניווט</span>
+          <span className="text-[11px] font-bold">{tMap('turnCarousel.collapsed.label')}</span>
         </button>
       </div>
     );
@@ -856,7 +862,7 @@ export default function TurnCarousel({
             className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-white pointer-events-auto"
             style={{ border: `1px solid ${NEUTRAL_BORDER}`, boxShadow: SOFT_SHADOW }}
             onClick={() => useMapStore.getState().setNavCarouselMinimized(true)}
-            aria-label="מזעור ניווט"
+            aria-label={tMap('turnCarousel.minimize.aria')}
           >
             <Minimize2 size={14} style={{ color: NEUTRAL_DIM }} />
           </button>
@@ -892,7 +898,7 @@ export default function TurnCarousel({
                 className="text-sm font-black leading-none flex-shrink-0"
                 style={{ color: PRIMARY_DARK }}
               >
-                {formatDistance(liveDistM)}
+                {formatDistance(liveDistM, tc)}
               </p>
             )}
             {/* Expand chevron */}
@@ -1073,7 +1079,7 @@ export default function TurnCarousel({
                                 className="text-[10px] font-bold leading-tight"
                                 style={{ color: accentDark }}
                               >
-                                {isDestination ? 'כמעט שם!' : 'תפנייה הבאה'}
+                                {isDestination ? tMap('turnCarousel.nearlyThere') : tMap('turnCarousel.nextTurn')}
                               </p>
                             )}
                           </div>
@@ -1102,7 +1108,7 @@ export default function TurnCarousel({
                             className="text-[10px] font-bold mt-0.5"
                             style={{ color: accentDark }}
                           >
-                            {isDestination ? 'כמעט שם!' : 'תפנייה הבאה'}
+                            {isDestination ? tMap('turnCarousel.nearlyThere') : tMap('turnCarousel.nextTurn')}
                           </p>
                         )}
                       </>
@@ -1120,7 +1126,7 @@ export default function TurnCarousel({
                       className="text-base font-black leading-none"
                       style={{ color: isCurrent ? '#000000' : NEUTRAL_DIM }}
                     >
-                      {formatDistance(liveDistM)}
+                      {formatDistance(liveDistM, tc)}
                     </p>
                   </div>
                 )}
@@ -1143,7 +1149,7 @@ export default function TurnCarousel({
           }}
         >
           <Minimize2 size={10} />
-          מזעור
+          {tMap('turnCarousel.minimize.label')}
         </button>
 
         {/* G2.6: the "חזור למיקומי" pill lived here — removed; while a turn card is peeked the
