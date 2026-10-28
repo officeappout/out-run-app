@@ -159,7 +159,7 @@ export default function CommunityHubPage() {
 
   if (!group) {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#F8FAFC] gap-4" dir="rtl">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#F8FAFC] gap-4">
         <Users2 className="w-12 h-12 text-gray-300" />
         <p className="text-sm font-bold text-gray-700">{t('communityHub.notFound')}</p>
         <button
@@ -195,13 +195,13 @@ export default function CommunityHubPage() {
         className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="max-w-md mx-auto px-4 py-1.5 flex items-center justify-between" dir="rtl">
+        <div className="max-w-md mx-auto px-4 py-1.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
               className="p-1.5 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
             >
-              <ArrowRight className="w-5 h-5 text-gray-700" />
+              <ArrowRight className="w-5 h-5 text-gray-700 ltr:-scale-x-100" />
             </button>
             <div>
               <h1 className="text-base font-black text-gray-900 leading-tight">{group.name}</h1>
@@ -234,7 +234,7 @@ export default function CommunityHubPage() {
         </div>
       )}
 
-      <div className="max-w-md mx-auto px-4 pt-5 space-y-6" dir="rtl">
+      <div className="max-w-md mx-auto px-4 pt-5 space-y-6">
         {/* ── About Section ────────────────────────────────── */}
         <section>
           <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">

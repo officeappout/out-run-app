@@ -94,7 +94,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
     const exercisesLabel =
       n === 1 ? t('preview.section.tabata.oneExercise') : t('preview.section.tabata.exercises', { n: String(n) });
     return (
-      <div className="w-full flex items-center justify-between mb-3" dir="rtl">
+      <div className="w-full flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h3
             className="text-[16px] font-semibold text-orange-600 dark:text-orange-400"
@@ -144,7 +144,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
       </>
     );
     return (
-      <div className="w-full flex items-center justify-between mb-3" dir="rtl">
+      <div className="w-full flex items-center justify-between mb-3">
         {hideExpandToggle ? (
           <div className="flex items-center gap-2">{titleBlock}</div>
         ) : (
@@ -177,7 +177,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
   }
 
   return (
-    <div className="w-full flex items-center justify-between mb-3" dir="rtl">
+    <div className="w-full flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
         {isSuperset && <Link2 size={14} className="text-cyan-500" />}
         <h3

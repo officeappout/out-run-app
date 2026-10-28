@@ -188,7 +188,7 @@ function DropdownItem({
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       aria-disabled={disabled}
-      className={`w-full flex items-center gap-2 px-3.5 py-2.5 text-[14px] font-bold transition-colors text-right ${
+      className={`w-full flex items-center gap-2 px-3.5 py-2.5 text-[14px] font-bold transition-colors text-start ${
         disabled ? 'cursor-not-allowed text-v2-muted/60' : isSelected ? 'text-v2-deep' : 'text-v2-ink hover:bg-v2-surface'
       }`}
     >
@@ -587,7 +587,7 @@ export function NeighborhoodLeaderboardView({
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <section dir="rtl">
+    <section>
       <BoardCard
         title={t('leagues.individual.title', { global: isGlobal ? 'yes' : 'no' })}
         subtitle={
@@ -726,7 +726,7 @@ export function NeighborhoodLeaderboardView({
                   <span className="text-[26px] font-black leading-none tracking-v2-tighter text-v2-deep">
                     {splitScore(myEntry.totalCredit, localMode, isSegmentMode, t).value}
                   </span>
-                  <span className="text-[13px] font-bold text-v2-ink-2 mr-1">
+                  <span className="text-[13px] font-bold text-v2-ink-2 ms-1">
                     {splitScore(myEntry.totalCredit, localMode, isSegmentMode, t).unit}
                   </span>
                 </p>

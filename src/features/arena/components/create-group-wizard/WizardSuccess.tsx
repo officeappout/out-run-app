@@ -27,7 +27,7 @@ export function WizardSuccess({
   // ── v2 look ──────────────────────────────────────────────────────────────
   if (v2) {
     return (
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 pb-6 pt-2" dir="rtl">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 pb-6 pt-2">
         <div className="flex flex-col items-center gap-3 rounded-v2-card bg-v2-tint px-5 py-6 text-center">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring" aria-hidden>
             <PartyPopper size={26} strokeWidth={2.4} />
@@ -82,7 +82,7 @@ export function WizardSuccess({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-5 pb-6 flex flex-col gap-5 pt-2" dir="rtl">
+    <div className="flex-1 overflow-y-auto px-5 pb-6 flex flex-col gap-5 pt-2">
       <div className="text-center space-y-1">
         <p className="text-4xl select-none">🎉</p>
         <p className="text-sm text-gray-500 font-semibold">

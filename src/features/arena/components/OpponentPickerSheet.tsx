@@ -83,7 +83,7 @@ export function OpponentPickerSheet({
         >
           {initialsOf(myEntry.scopeName)}
         </div>
-        <div className="flex-1 min-w-0 text-right">
+        <div className="flex-1 min-w-0 text-start">
           <p className="text-sm font-black text-gray-900 truncate">{myEntry.scopeName}</p>
           <p className="text-[11px] font-bold" style={{ color: MINE_ACCENT }}>
             {formatNumber(myEntry.totalScore, t.locale)}
@@ -119,7 +119,7 @@ export function OpponentPickerSheet({
             >
               {initialsOf(c.scopeName)}
             </div>
-            <div className="flex-1 min-w-0 text-right">
+            <div className="flex-1 min-w-0 text-start">
               <p className="text-sm font-bold text-gray-900 truncate">{c.scopeName}</p>
               <p className="text-[11px] text-gray-500 tabular-nums">
                 {c.rank === 1 ? t('leagues.opponent.firstPlace') : t('leagues.opponent.place', { rank: String(c.rank) })} · {formatNumber(c.totalScore, t.locale)}
@@ -201,8 +201,7 @@ export function OpponentPickerSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-[49] bg-white rounded-t-3xl shadow-2xl pointer-events-auto max-w-md mx-auto"
-            dir="rtl"
+            className="fixed bottom-0 end-0 start-0 z-[49] bg-white rounded-t-3xl shadow-2xl pointer-events-auto max-w-md mx-auto"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 56px)' }}
           >
             <div

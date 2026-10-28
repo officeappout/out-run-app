@@ -117,7 +117,6 @@ export default function ChatDeepLinkPage({
 
   return (
     <div
-      dir="rtl"
       className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-10"
     >
       <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl bg-white p-6 text-center shadow-sm">

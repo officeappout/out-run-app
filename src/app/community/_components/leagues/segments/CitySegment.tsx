@@ -43,7 +43,7 @@ export function CitySegment({ vm }: { vm: LeaguesVM }) {
   }
 
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-4">
       {!isLeagueActive && (
         <>
           {/* Pilot 26.10 (owner): no "the municipality hasn't opened the league" card for now,

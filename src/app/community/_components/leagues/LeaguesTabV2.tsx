@@ -49,7 +49,7 @@ export function LeaguesTabV2({ vm }: { vm: LeaguesVM }) {
     if (tab === 'units') setCompetitionMode('group');
   };
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-1.5">
         <span className="inline-flex h-8 items-center rounded-full bg-v2-tint px-3 text-[12.5px] font-extrabold text-v2-deep">
           {t('communityPage.leagues.v2.month', { month })}

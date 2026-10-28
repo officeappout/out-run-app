@@ -23,7 +23,7 @@ export function ParkSegment({ vm }: { vm: LeaguesVM }) {
   const t = useT(community);
   if (!access.preferredParkId) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center" dir="rtl">
+      <div className="flex flex-col items-center justify-center py-16 text-center">
         <IconTile icon={Trees} tone="accent" size="lg" className="mb-3" />
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
           {t('communityPage.park.empty.title')}
@@ -36,7 +36,7 @@ export function ParkSegment({ vm }: { vm: LeaguesVM }) {
   }
 
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-4">
       {/* Park identity row removed — the active league card and the small
           label below the carousel already show the park name + 🌳. */}
 

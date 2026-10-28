@@ -17,7 +17,6 @@ export function CompetitionToggle({ vm }: { vm: LeaguesVM }) {
   return (
     <div
       className="flex p-1 rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
-      dir="rtl"
       role="tablist"
       aria-label={t('competitionToggle.label')}
     >

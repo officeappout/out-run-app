@@ -91,7 +91,7 @@ export default function WorkoutLocationSwitcher({
   }));
 
   return (
-    <div dir="rtl" className="mb-4 flex items-center gap-2">
+    <div className="mb-4 flex items-center gap-2">
       <span className="text-xs font-semibold text-slate-500">{t('preview.location.title')}</span>
       <LocationVariantSwitcher
         activeLocation={currentLocation}
