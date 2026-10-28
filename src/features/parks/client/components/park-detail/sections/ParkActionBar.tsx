@@ -18,10 +18,10 @@ export default function ParkActionBar({ v2, ctaLabel, onStartWorkout, onSuggestE
   const t = useT(mapNs);
   return (
     <div
-      className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
+      className="absolute bottom-0 end-0 start-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
     >
-      <div className="flex items-center gap-2" dir="rtl">
+      <div className="flex items-center gap-2">
         {/* Start Workout — primary CTA. Extra me-2 (on top of the row's
             gap-2) separates it from the secondary icon buttons. */}
         <button

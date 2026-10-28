@@ -30,7 +30,6 @@ export default function RoundTripPill({ v2, on, walkMin, onToggle }: RoundTripPi
   return (
     <button
       type="button"
-      dir="rtl"
       onClick={onToggle}
       aria-pressed={on}
       className={v2

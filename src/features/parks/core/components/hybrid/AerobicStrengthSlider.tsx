@@ -53,7 +53,7 @@ export default function AerobicStrengthSlider({
 
   if (v2) {
     return (
-      <div className="px-5 mb-4" dir="rtl">
+      <div className="px-5 mb-4">
         <div className="mb-1.5 flex items-center justify-between">
           <span className="whitespace-nowrap text-[13px] font-extrabold tabular-nums text-v2-ink">{t('hybrid.split.aerobic', { pct: String(pctAerobic) })}</span>
           {isRecommended && (
@@ -82,7 +82,7 @@ export default function AerobicStrengthSlider({
   }
 
   return (
-    <div className="px-5 mb-3" dir="rtl">
+    <div className="px-5 mb-3">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[12px] font-black text-gray-700">{t('hybrid.split.aerobic', { pct: String(pctAerobic) })}</span>
         {isRecommended && (

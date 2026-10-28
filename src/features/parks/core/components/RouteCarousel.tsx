@@ -455,7 +455,6 @@ export default function RouteCarousel({
   return (
     <div
       className="fixed inset-0 z-[60] pointer-events-none"
-      dir="rtl"
       role="dialog"
       aria-label={t('carousel.dialogLabel')}
     >
@@ -625,7 +624,7 @@ function SearchingState({
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 80, opacity: 0 }}
       transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-      className="absolute bottom-0 left-0 right-0 pointer-events-none"
+      className="absolute bottom-0 end-0 start-0 pointer-events-none"
       style={{
         paddingBottom: 'calc(max(85px, env(safe-area-inset-bottom, 0px) + 75px))',
       }}
@@ -644,7 +643,6 @@ function SearchingState({
       <div className="flex justify-center px-4">
         <div
           className="pointer-events-auto bg-white rounded-3xl shadow-[0_14px_32px_rgba(0,0,0,0.18)] px-5 py-4 flex items-center gap-3 w-full max-w-[300px]"
-          dir="rtl"
         >
           {/* Spinning radar dot — Tailwind's `animate-spin` on a conic
               gradient gives the same visual as RadarAnimation's halo at
@@ -725,7 +723,7 @@ function EmptyState({
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 80, opacity: 0 }}
       transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-      className="absolute bottom-0 left-0 right-0 pointer-events-none"
+      className="absolute bottom-0 end-0 start-0 pointer-events-none"
       style={{
         paddingBottom: 'calc(max(85px, env(safe-area-inset-bottom, 0px) + 75px))',
       }}
@@ -742,7 +740,6 @@ function EmptyState({
       <div className="flex justify-center px-4">
         <div
           className="pointer-events-auto bg-white rounded-3xl shadow-[0_14px_32px_rgba(0,0,0,0.18)] px-5 py-5 w-full max-w-[320px] text-center"
-          dir="rtl"
         >
           <p className="text-[14px] font-black text-gray-900 leading-tight">
             {primaryCopy}
@@ -764,7 +761,7 @@ function EmptyState({
             className="mt-4 w-full py-2.5 rounded-xl text-white text-sm font-black flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
             style={{ backgroundColor: ACCENT }}
           >
-            <ChevronRight size={14} strokeWidth={3} />
+            <ChevronRight className="ltr:-scale-x-100" size={14} strokeWidth={3} />
             {ctaCopy}
           </button>
         </div>
@@ -971,7 +968,7 @@ function CardsState({
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 80, opacity: 0 }}
       transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-      className="absolute bottom-0 left-0 right-0 pointer-events-none"
+      className="absolute bottom-0 end-0 start-0 pointer-events-none"
       style={{
         paddingBottom: 'calc(max(85px, env(safe-area-inset-bottom, 0px) + 75px))',
       }}
@@ -999,7 +996,6 @@ function CardsState({
       <div className="flex justify-center pointer-events-none mb-2 px-4">
         <div
           className="pointer-events-auto bg-white/95 backdrop-blur-sm rounded-full shadow-md border border-gray-100 ps-2 pe-2 py-1.5 flex items-center gap-2"
-          dir="rtl"
         >
           <button
             type="button"
@@ -1008,7 +1004,7 @@ function CardsState({
             style={{ backgroundColor: `${ACCENT}1A` }}
             aria-label={mode === 'commute' ? t('carousel.back.commute') : t('carousel.back.loop')}
           >
-            <ChevronRight size={12} strokeWidth={3} style={{ color: ACCENT }} />
+            <ChevronRight className="ltr:-scale-x-100" size={12} strokeWidth={3} style={{ color: ACCENT }} />
           </button>
           <span className="text-[12px] font-black text-gray-800 leading-tight px-1">
             {mode === 'commute'
@@ -1195,7 +1191,7 @@ function RouteCard({
           <>
             <Play size={14} fill="currentColor" />
             {isTooFar ? tooFarLabels.cta : t('carousel.card.start')}
-            <ChevronLeft size={14} strokeWidth={3} />
+            <ChevronLeft className="ltr:-scale-x-100" size={14} strokeWidth={3} />
           </>
         }
       />
@@ -1204,7 +1200,6 @@ function RouteCard({
 
   return (
     <div
-      dir="rtl"
       data-coach={coachId}
       className={`${ROUTE_CARD_WIDTH} snap-center snap-always flex-shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
         isActive
@@ -1286,7 +1281,7 @@ function RouteCard({
       >
         <Play size={14} fill="currentColor" />
         {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}התחל אימון
-        <ChevronLeft size={14} strokeWidth={3} />
+        <ChevronLeft className="ltr:-scale-x-100" size={14} strokeWidth={3} />
       </button>
     </div>
   );

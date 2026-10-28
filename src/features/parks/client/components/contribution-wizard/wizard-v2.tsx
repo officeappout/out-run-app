@@ -45,7 +45,7 @@ export function V2BackButton({ onClick }: { onClick: () => void }) {
       aria-label={t('wizard.back')}
       className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
     >
-      <ChevronRight size={20} strokeWidth={2.4} />
+      <ChevronRight className="ltr:-scale-x-100" size={20} strokeWidth={2.4} />
     </button>
   );
 }
@@ -75,7 +75,7 @@ export function V2PrimaryButton({
     >
       {loading && <Loader2 size={18} className="animate-spin" />}
       {children}
-      {arrow && !loading && <ChevronLeft size={18} strokeWidth={2.6} />}
+      {arrow && !loading && <ChevronLeft className="ltr:-scale-x-100" size={18} strokeWidth={2.6} />}
     </button>
   );
 }

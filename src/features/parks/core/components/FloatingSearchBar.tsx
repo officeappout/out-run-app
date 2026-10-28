@@ -61,7 +61,6 @@ export default function FloatingSearchBar({
         backdropFilter: 'blur(24px) saturate(160%)',
         WebkitBackdropFilter: 'blur(24px) saturate(160%)',
       }}
-      dir="rtl"
     >
       <Search size={16} className="text-gray-700 shrink-0" />
       <input
@@ -71,7 +70,7 @@ export default function FloatingSearchBar({
         value={searchQuery}
         onFocus={onFocus}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="flex-1 bg-transparent border-none outline-none text-[16px] font-semibold text-gray-900 placeholder:text-gray-500 text-right"
+        className="flex-1 bg-transparent border-none outline-none text-[16px] font-semibold text-gray-900 placeholder:text-gray-500 text-start"
       />
     </div>
   );
