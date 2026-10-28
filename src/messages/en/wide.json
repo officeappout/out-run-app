@@ -20,7 +20,7 @@
   "pair.sheet.code.badge": "Recommended",
   "pair.sheet.mirror.title": "Screen mirroring",
   "pair.sheet.mirror.body": "AirPlay or Cast from your phone",
-  "pair.sheet.mirror.hint": "Open Control Center on iPhone, or the Cast settings on Android, and choose the screen",
+  "pair.sheet.mirror.hint": "iPhone: Control Center. Android: Cast settings. Then pick the screen",
   "pair.sheet.cancel": "Cancel",
   "pair.sheet.url": "On the screen, go to {url}",
 
@@ -41,7 +41,7 @@
   "pair.phone.error.ended": "This connection has ended. Open a new code on the screen.",
   "pair.phone.error.offline": "No network connection",
   "pair.phone.error.unknown": "Something went wrong. Try again.",
-  "pair.phone.error.hostNeedsAccount": "Showing a workout on a big screen needs an OUT account. You can join a room someone else opened as a guest.",
+  "pair.phone.error.hostNeedsAccount": "A big-screen workout needs an OUT account. You can join someone else’s room as a guest.",
   "pair.phone.error.hostRequired": "The host hasn’t connected to the room yet. Try again in a moment.",
 
   "pair.join.eyebrow": "Join the room",
@@ -125,7 +125,7 @@
   "lost.tv.newCode": "New code",
 
   "lobby.title": "Who’s in the living room?",
-  "lobby.hint": "Scan the code and join with a nickname, no sign-up. The host runs the workout from their phone.",
+  "lobby.hint": "Scan the code and join with a nickname. No sign-up. The host runs it from their phone.",
   "lobby.or": "Or type the code",
   "lobby.workout": "Strength workout · {title}",
   "lobby.host": "Host",

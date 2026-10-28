@@ -217,7 +217,7 @@
   "fixed.empty": "I couldn’t put together an answer this time. You can try again in other words.",
   "fixed.truncatedTool": "Something got cut off midway. Can you ask again?",
   "fixed.turnFailed": "Something went wrong on my side and I couldn’t answer that message. Can you send it again?",
-  "safety.call": "call Magen David Adom at 101 right away",
+  "safety.call": "call your local emergency number right away (101 in Israel)",
   "safety.stop": "It’s best to stop the workout and talk to a doctor before you continue.",
   "safety.opener.pregnancy": "During pregnancy, train only with a doctor’s guidance, and I can’t build a workout in this situation.",
   "safety.opener.injury": "I’m pausing here for a moment. I’m not a doctor, and an injury or sharp pain is a reason to stop, not to train that area.",
