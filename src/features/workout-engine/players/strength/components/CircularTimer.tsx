@@ -16,6 +16,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface CircularTimerProps {
   duration: number; // Duration in seconds
@@ -60,6 +62,7 @@ export default function CircularTimer({
   showCountdownInLastSeconds = 3,
 }: CircularTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(duration);
+  const tx = useT(player);
   const [showCountdown, setShowCountdown] = useState(false);
   const [countdownValue, setCountdownValue] = useState(3);
   
@@ -285,7 +288,7 @@ export default function CircularTimer({
       {isPaused && !showCountdown && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full backdrop-blur-sm">
           <div className="text-white text-xl font-bold" style={{ fontFamily: 'var(--font-simpler)' }}>
-            מושהה
+            {tx('sweep.paused')}
           </div>
         </div>
       )}

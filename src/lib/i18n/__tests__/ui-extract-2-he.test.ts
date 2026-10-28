@@ -111,12 +111,6 @@ describe('map: partner bubbles / turn carousel / slot carousel / overview / AppM
     };
     for (const m of [0, 4.4, 99, 100, 349, 999, 1000, 12345, 1234567]) expect(fmt(m), String(m)).toBe(oldFormat(m));
   });
-
-  it('participant strip and milestone feed distances', () => {
-    expect(tPlayer('together.strip.collective', { distance: withUnit('kmAscii', (2.34).toFixed(1), tc) })).toBe(`יחד עברתם ${withUnit('kmAscii', (2.34).toFixed(1), tc)}`);
-    expect(tPlayer('together.strip.collective', { distance: withUnit('kmAscii', (1234.5).toFixed(1), tc) })).toBe('יחד עברתם 1234.5 ק"מ');
-    expect(tPlayer('milestone.collective', { distance: withUnit('kmAscii', '3', tc) })).toBe('יחד עברתם 3 ק"מ 💪');
-  });
 });
 
 describe('profile: saved place sheet and profile page', () => {
@@ -156,7 +150,7 @@ describe('profile: saved place sheet and profile page', () => {
   });
 });
 
-describe('player: lobby, suggestion, metrics drawer, dopamine volume', () => {
+describe('player: lobby, suggestion, dopamine volume badge', () => {
   it('plain strings', () => {
     const cases: Array<[Parameters<typeof tPlayer>[0], string]> = [
       ['lobby.share.groupFallback', 'הקבוצה שלי'],
@@ -169,7 +163,6 @@ describe('player: lobby, suggestion, metrics drawer, dopamine volume', () => {
       ['lobby.empty', 'אין משתתפים עדיין'],
       ['lobby.share.cta', 'שלח קישור הצטרפות 🔗'],
       ['lobby.waitingHost', 'ממתינים שהמנהל יתחיל...'],
-      ['metricsDrawer.settings.aria', 'הגדרות אימון'],
       ['suggestion.cta.start', 'התחל'],
       ['suggestion.loading', 'טוען…'],
       ['volumeBadge.full', '🏆 Full Volume - קיבלת 100% מהרווח!'],
@@ -254,7 +247,7 @@ describe('English (en) for the new keys', () => {
   const prefixes: Record<string, RegExp> = {
     map: /^(partnerBubbles|turnCarousel|slotCarousel|hybridOverview|appMap)\./,
     profile: /^(savedPlace|profilePage)\./,
-    player: /^(lobby|milestone|metricsDrawer|suggestion)\.|^(together\.strip|volumeBadge)\./,
+    player: /^(lobby|suggestion|volumeBadge)\./,
     library: /^(activeWorkout|exerciseLibraryPage)\./,
     community: /^addressSearch\./,
   };

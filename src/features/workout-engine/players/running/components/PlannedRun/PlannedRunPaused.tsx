@@ -6,6 +6,8 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
 import BlockHeader from './BlockHeader';
 import PlannedCarousel from './PlannedCarousel';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface PlannedRunPausedProps {
   onBack: () => void;
@@ -13,6 +15,7 @@ interface PlannedRunPausedProps {
 
 export default function PlannedRunPaused({ onBack }: PlannedRunPausedProps) {
   const { resumeSession } = useSessionStore();
+  const tx = useT(player);
   const engine = usePlannedRunEngine();
 
   const {
@@ -40,7 +43,7 @@ export default function PlannedRunPaused({ onBack }: PlannedRunPausedProps) {
       {/* HEADER — orange (paused) */}
       <header className="bg-[#FF8C00] text-white h-14 min-h-[3.5rem] flex items-center justify-between px-4 shadow-sm z-30 shrink-0 pointer-events-auto">
         <div className="w-11" />
-        <h1 className="text-lg font-bold tracking-wide">מושהה</h1>
+        <h1 className="text-lg font-bold tracking-wide">{tx('sweep.paused')}</h1>
         <button
           onClick={onBack}
           className="w-8 h-8 flex items-center justify-center rounded-full active:bg-white/20 transition-colors min-w-[44px] min-h-[44px]"
@@ -102,7 +105,7 @@ export default function PlannedRunPaused({ onBack }: PlannedRunPausedProps) {
       >
         <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-orange-50 relative min-h-[44px]">
           <div className="absolute top-0 w-full h-[2px] bg-[#FF8C00]" />
-          <span className="text-[#FF8C00] font-medium text-sm">אימון</span>
+          <span className="text-[#FF8C00] font-medium text-sm">{tx('sweep.planned.workoutTab')}</span>
         </div>
       </nav>
     </div>
