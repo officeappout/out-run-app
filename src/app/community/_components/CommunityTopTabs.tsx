@@ -42,7 +42,7 @@ export function CommunityTopTabs({
   );
 
   return (
-    <div className="max-w-md mx-auto px-5" dir="rtl">
+    <div className="max-w-md mx-auto px-5">
       <div
         className="flex border-b border-slate-100 dark:border-slate-800"
         role="tablist"

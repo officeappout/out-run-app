@@ -228,7 +228,7 @@ export default function FeedPostCardV2({
   if (isCardio) {
     const hero = photo || hasRoute;
     return (
-      <article className="overflow-hidden rounded-v2-card bg-white shadow-v2-card" dir="rtl">
+      <article className="overflow-hidden rounded-v2-card bg-white shadow-v2-card">
         {hero ? (
           <div className="relative h-[210px]" style={{ background: act.tint }}>
             {photo ? (
@@ -309,7 +309,7 @@ export default function FeedPostCardV2({
   // ── Strength / maintenance ────────────────────────────────────────────
   const exercises = post.topExercises ?? [];
   return (
-    <article className="overflow-hidden rounded-v2-card bg-white shadow-v2-card" dir="rtl">
+    <article className="overflow-hidden rounded-v2-card bg-white shadow-v2-card">
       {header}
       {report}
       {post.title && post.title !== programLabel && <h3 className="px-4 pb-2 text-[17px] font-black leading-snug text-v2-ink">{post.title}</h3>}

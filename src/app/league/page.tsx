@@ -58,7 +58,6 @@ export default function LeagueDeepLinkPage() {
 
   return (
     <div
-      dir="rtl"
       className="flex min-h-screen items-center justify-center bg-gradient-to-b from-amber-50 to-white"
     >
       <div className="flex flex-col items-center gap-3 text-center text-slate-700">

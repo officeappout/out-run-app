@@ -217,7 +217,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
     : (otherUid ? (thread.participantNames?.[otherUid] ?? t('chatThread.threadFallback')) : t('chatThread.threadFallback'));
 
   return (
-    <div className="relative flex flex-col h-full" dir="rtl">
+    <div className="relative flex flex-col h-full">
       {/* ── Internal header row ────────────────────────────────────────────────
           Promotes the overflow menu from absolute-floating to a proper flow
           element, adds the thread name + support/admin badge so the chat
@@ -225,7 +225,6 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
           Uses border-b to visually separate from the message area. */}
       <div
         className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-100 bg-white shrink-0"
-        dir="rtl"
       >
         {/* Thread identity — name + context badge */}
         <div className="flex items-center gap-1.5 min-w-0">
@@ -265,7 +264,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
                 onClick={() => setMenuOpen(false)}
                 className="fixed inset-0 z-10 cursor-default"
               />
-              <div className="absolute top-9 left-0 z-20 w-44 rounded-2xl bg-white shadow-floating border border-gray-100 overflow-hidden">
+              <div className="absolute top-9 end-0 z-20 w-44 rounded-2xl bg-white shadow-floating border border-gray-100 overflow-hidden">
                 {canBlock &&
                   (isBlocked ? (
                     <button
@@ -312,7 +311,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
       {/* Report overlay — confined to this component (absolute inset-0) so it
           stacks above the messages without needing a new global z value. */}
       {reportOpen && (
-        <div className="absolute inset-0 z-30 bg-white flex flex-col" dir="rtl">
+        <div className="absolute inset-0 z-30 bg-white flex flex-col">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <div className="flex items-center gap-2">
               <Flag className="w-5 h-5 text-red-500" />
@@ -408,7 +407,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
             >
               {/* Sender name — shown for group chats on others' messages */}
               {isGroupThread && !isMine && (
-                <div className="flex items-center gap-1 mb-0.5 mr-1">
+                <div className="flex items-center gap-1 mb-0.5 ms-1">
                   <span className="text-[10px] font-bold text-gray-500">{msg.senderName}</span>
                   {isAdmin && (
                     <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-500 bg-amber-50 rounded-full px-1.5 py-0.5">
@@ -421,8 +420,8 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
               <div
                 className={`max-w-[72%] rounded-2xl px-3.5 py-2.5 text-sm leading-snug shadow-sm ${
                   isMine
-                    ? 'bg-cyan-500 text-white rounded-tr-sm'
-                    : 'bg-white border border-gray-100 text-gray-900 rounded-tl-sm'
+                    ? 'bg-cyan-500 text-white rounded-ss-sm'
+                    : 'bg-white border border-gray-100 text-gray-900 rounded-se-sm'
                 }`}
               >
                 {msg.text}
@@ -452,7 +451,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t('chatThread.placeholder')}
-            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none text-right text-gray-900 placeholder:text-gray-400"
+            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none text-start text-gray-900 placeholder:text-gray-400"
             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
           />
           <button
