@@ -17,6 +17,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface PartnerBubblesProps {
   liveCount: number;
@@ -31,6 +33,7 @@ export function PartnerBubbles({
   onSelectLive,
   onSelectScheduled,
 }: PartnerBubblesProps) {
+  const t = useT(map);
   return (
     <motion.div
       dir="rtl"
@@ -49,13 +52,13 @@ export function PartnerBubbles({
           padding: '10px 18px',
           border: '0.5px solid rgba(0,0,0,0.12)',
         }}
-        aria-label={`מי בחוץ — ${liveCount} מתאמנים פעילים`}
+        aria-label={t('partnerBubbles.live.aria', { count: String(liveCount) })}
       >
         <span className="relative inline-flex items-center justify-center" style={{ width: 8, height: 8 }}>
           <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-500 opacity-70 animate-ping" />
           <span className="relative inline-flex w-full h-full rounded-full bg-emerald-500" />
         </span>
-        <span className="text-[13px] font-black text-gray-900 leading-none">מי בחוץ</span>
+        <span className="text-[13px] font-black text-gray-900 leading-none">{t('partnerBubbles.live.title')}</span>
         <span
           className="text-[11px] font-black text-white rounded-full leading-none flex items-center justify-center min-w-[20px] h-5 px-1.5"
           style={{ backgroundColor: '#00ADEF' }}
@@ -72,10 +75,10 @@ export function PartnerBubbles({
           padding: '10px 18px',
           border: '0.5px solid rgba(0,0,0,0.12)',
         }}
-        aria-label={`מי מתכנן — ${scheduledCount} אימונים מתוכננים`}
+        aria-label={t('partnerBubbles.scheduled.aria', { count: String(scheduledCount) })}
       >
         <CalendarDays size={16} className="text-gray-700" aria-hidden />
-        <span className="text-[13px] font-black text-gray-900 leading-none">מי מתכנן</span>
+        <span className="text-[13px] font-black text-gray-900 leading-none">{t('partnerBubbles.scheduled.title')}</span>
         <span
           className="text-[11px] font-black text-white rounded-full leading-none flex items-center justify-center min-w-[20px] h-5 px-1.5"
           style={{ backgroundColor: '#EF9F27' }}

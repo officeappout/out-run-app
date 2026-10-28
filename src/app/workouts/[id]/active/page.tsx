@@ -83,6 +83,9 @@ import PostWorkoutSurvey, { isSurveyOptedOut, type WorkoutFeedback } from '@/fea
 import { noteGenerationSwap } from '@/features/generation-review/capture/hooks';
 import { currentUiGender, useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { library } from '@/messages/ns/library';
 import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
 
 // ============================================================================
@@ -113,6 +116,9 @@ const MUSCLE_TO_DOMAIN: Record<string, string> = {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/** Module-scope translator for the display strings built outside React (reads the locale at call time). */
+const tl = makeLiveT(library);
 
 /**
  * Helper to extract localized text from various formats
@@ -195,24 +201,25 @@ function enrichExercise(
 
   // REPS: Only for reps-type exercises, never for time-type (like Plank)
   const isUni = (ex as any).symmetry === 'unilateral';
-  const perSideSuffix = isUni ? ' (לכל צד)' : '';
+  const side = isUni ? 'yes' : 'no';
   if (exerciseType === 'reps') {
     if (generatedExData?.repsRange) {
       const { min, max } = generatedExData.repsRange;
       const setsPrefix = generatedExData.sets ? `${generatedExData.sets}×` : '';
-      const goalSuffix = generatedExData.isGoalExercise && generatedExData.rampedTarget
-        ? ` (יעד: ${generatedExData.rampedTarget})`
-        : '';
-      reps = min !== max
-        ? `${setsPrefix}${min}-${max} חזרות${perSideSuffix}${goalSuffix}`
-        : `${setsPrefix}${min} חזרות${perSideSuffix}${goalSuffix}`;
+      const hasGoal = !!(generatedExData.isGoalExercise && generatedExData.rampedTarget);
+      reps = tl(min !== max ? 'activeWorkout.target.range' : 'activeWorkout.target.single', {
+        prefix: setsPrefix, min: String(min), max: String(max), unit: 'reps', side,
+        hasGoal: hasGoal ? 'yes' : 'no', goal: String(generatedExData.rampedTarget ?? ''),
+      });
     } else {
       const firestoreReps = (ex as any).reps || (ex as any).defaultReps;
       if (firestoreReps) {
         const repsValue = typeof firestoreReps === 'number' ? firestoreReps : parseInt(String(firestoreReps), 10);
-        reps = isNaN(repsValue) ? String(firestoreReps) : `${repsValue} חזרות${perSideSuffix}`;
+        reps = isNaN(repsValue)
+          ? String(firestoreReps)
+          : tl('activeWorkout.target.single', { prefix: '', min: String(repsValue), max: '', unit: 'reps', side, hasGoal: 'no', goal: '' });
       } else if (segmentTarget?.type === 'reps' && segmentTarget?.value) {
-        reps = `${segmentTarget.value} חזרות${perSideSuffix}`;
+        reps = tl('activeWorkout.target.single', { prefix: '', min: String(segmentTarget.value), max: '', unit: 'reps', side, hasGoal: 'no', goal: '' });
       }
     }
   }
@@ -222,19 +229,20 @@ function enrichExercise(
     if (generatedExData?.repsRange && generatedExData.isTimeBased) {
       const { min, max } = generatedExData.repsRange;
       const setsPrefix = generatedExData.sets ? `${generatedExData.sets}×` : '';
-      const goalSuffix = generatedExData.isGoalExercise && generatedExData.rampedTarget
-        ? ` (יעד: ${generatedExData.rampedTarget})`
-        : '';
-      duration = min !== max
-        ? `${setsPrefix}${min}-${max} שניות${goalSuffix}`
-        : `${setsPrefix}${min} שניות${goalSuffix}`;
+      const hasGoal = !!(generatedExData.isGoalExercise && generatedExData.rampedTarget);
+      duration = tl(min !== max ? 'activeWorkout.target.range' : 'activeWorkout.target.single', {
+        prefix: setsPrefix, min: String(min), max: String(max), unit: 'seconds', side: 'no',
+        hasGoal: hasGoal ? 'yes' : 'no', goal: String(generatedExData.rampedTarget ?? ''),
+      });
     } else {
       const firestoreDuration = (ex as any).duration || (ex as any).defaultDuration;
       if (firestoreDuration) {
         const durationValue = typeof firestoreDuration === 'number' ? firestoreDuration : parseInt(String(firestoreDuration), 10);
-        duration = isNaN(durationValue) ? String(firestoreDuration) : `${durationValue} שניות`;
+        duration = isNaN(durationValue)
+          ? String(firestoreDuration)
+          : tl('activeWorkout.target.single', { prefix: '', min: String(durationValue), max: '', unit: 'seconds', side: 'no', hasGoal: 'no', goal: '' });
       } else if (segmentTarget?.type === 'time' && segmentTarget?.value) {
-        duration = `${segmentTarget.value} שניות`;
+        duration = tl('activeWorkout.target.single', { prefix: '', min: String(segmentTarget.value), max: '', unit: 'seconds', side: 'no', hasGoal: 'no', goal: '' });
       }
     }
   }
@@ -315,7 +323,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: st
       segments.push({
         id: 'warmup-segment',
         type: 'station',
-        title: 'חימום',
+        title: 'חימום', // i18n-allow-hebrew: data — segment title; matched by includes('חימום') below and stored in the plan
         icon: '🔥',
         target: warmupTarget,
         exercises: warmupExercises.slice(0, 3).map((ex) => enrichExercise(ex, 'warmup', warmupTarget, workoutLocation)),
@@ -330,7 +338,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: st
       segments.push({
         id: 'strength-segment',
         type: 'station',
-        title: 'תרגילי כוח',
+        title: 'תרגילי כוח', // i18n-allow-hebrew: data — segment title stored in the plan
         icon: '💪',
         target: mainTarget,
         exercises: mainExercises.slice(0, 6).map((ex) => enrichExercise(ex, 'main', mainTarget, workoutLocation)),
@@ -345,7 +353,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: st
       segments.push({
         id: 'cooldown-segment',
         type: 'station',
-        title: 'קירור',
+        title: 'קירור', // i18n-allow-hebrew: data — segment title stored in the plan
         icon: '🧘',
         target: cooldownTarget,
         exercises: cooldownExercises.slice(0, 2).map((ex) => enrichExercise(ex, 'cooldown', cooldownTarget, workoutLocation)),
@@ -360,7 +368,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: st
       segments.push({
         id: 'main-segment',
         type: 'station',
-        title: 'אימון כוח',
+        title: 'אימון כוח', // i18n-allow-hebrew: data — segment title stored in the plan
         icon: '💪',
         target: defaultTarget,
         exercises: exercises.slice(0, 5).map((ex) => enrichExercise(ex, 'main', defaultTarget, workoutLocation)),
@@ -373,7 +381,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: st
 
     return {
       id: workoutId,
-      name: 'אימון כוח',
+      name: 'אימון כוח', // i18n-allow-hebrew: data — plan name stored with the session
       segments,
       totalDuration: segments.reduce((sum, seg) => sum + (seg.target?.value || 60), 0),
       difficulty: 'medium' as const,
@@ -612,6 +620,7 @@ let _summaryFinishInFlight = false;
 // ============================================================================
 
 export default function ActiveWorkoutPage() {
+  const t = useT(library);
   const uiGender = useUiGender();
   const params = useParams();
   const router = useRouter();
@@ -848,8 +857,8 @@ export default function ActiveWorkoutPage() {
                 (s) =>
                   s.id !== 'warmup-segment' &&
                   s.id !== 'joints-segment' &&
-                  !s.title?.includes('חימום') &&
-                  !s.title?.includes('מפרקים'),
+                  !s.title?.includes('חימום') && // i18n-allow-hebrew: data — compared with the segment titles built above
+                  !s.title?.includes('מפרקים'), // i18n-allow-hebrew: data — compared with the segment titles built above
               );
               console.log('[ActiveWorkoutPage] Full warmup & joint segments stripped (Priority-1 path).');
             }
@@ -904,8 +913,8 @@ export default function ActiveWorkoutPage() {
                 (s) =>
                   s.id !== 'warmup-segment' &&
                   s.id !== 'joints-segment' &&
-                  !s.title?.includes('חימום') &&
-                  !s.title?.includes('מפרקים'),
+                  !s.title?.includes('חימום') && // i18n-allow-hebrew: data — compared with the segment titles built above
+                  !s.title?.includes('מפרקים'), // i18n-allow-hebrew: data — compared with the segment titles built above
               );
               console.log('[ActiveWorkoutPage] Full warmup & joint segments stripped (Priority-2 path).');
             }
@@ -944,7 +953,7 @@ export default function ActiveWorkoutPage() {
         }
         setWorkoutPlan(resolvedPlan);
       } else {
-        setError(pickGendered(currentUiGender(), { male: 'לא הצלחנו לטעון את האימון. נסה שוב.', female: 'לא הצלחנו לטעון את האימון. נסי שוב.', other: 'לא הצלחנו לטעון את האימון. נסו שוב.' }));
+        setError(tl('activeWorkout.error.load', { gender: currentUiGender() }));
       }
       
       setIsLoading(false);
@@ -1244,7 +1253,7 @@ export default function ActiveWorkoutPage() {
         durationMinutes,
         calories,
         coins,
-        programName: workoutPlan.name || 'אימון כוח',
+        programName: workoutPlan.name || 'אימון כוח', // i18n-allow-hebrew: data — program name stored with the workout record
         programId: userProgression.programId,
         rawExerciseLog: exerciseLog ?? [],
         completedExercises,
@@ -1435,7 +1444,7 @@ export default function ActiveWorkoutPage() {
     if (gain.baseGain > 0) {
       bonuses.push({
         id: 'completion',
-        label: `${Math.round(gain.baseGain)}% על השלמת אימון`,
+        label: t('activeWorkout.gain.completion', { pct: String(Math.round(gain.baseGain)) }),
         percentage: Math.round(gain.baseGain * 10) / 10,
         icon: <Target className="w-3 h-3" />,
         position: 'top-right',
@@ -1444,7 +1453,7 @@ export default function ActiveWorkoutPage() {
     if (gain.bonusGain > 0) {
       bonuses.push({
         id: 'performance',
-        label: `${Math.round(gain.bonusGain)}% על ביצוע מעל המצופה`,
+        label: t('activeWorkout.gain.performance', { pct: String(Math.round(gain.bonusGain)) }),
         percentage: Math.round(gain.bonusGain * 10) / 10,
         icon: <Sparkles className="w-3 h-3" />,
         position: 'top-left',
@@ -1453,7 +1462,7 @@ export default function ActiveWorkoutPage() {
     if (gain.goalBonusGain > 0) {
       bonuses.push({
         id: 'goals',
-        label: `${Math.round(gain.goalBonusGain)}% על השגת יעדים`,
+        label: t('activeWorkout.gain.goals', { pct: String(Math.round(gain.goalBonusGain)) }),
         percentage: Math.round(gain.goalBonusGain * 10) / 10,
         icon: <Flame className="w-3 h-3" />,
         position: 'bottom-left',
@@ -1461,7 +1470,7 @@ export default function ActiveWorkoutPage() {
     }
 
     return bonuses.length > 0 ? bonuses : undefined;
-  }, [progressionResult]);
+  }, [progressionResult, t]);
 
   const dopamineVolumeBreakdown = useMemo((): VolumeBreakdownDisplay | undefined => {
     if (!progressionResult?.success) return undefined;
@@ -1558,7 +1567,7 @@ export default function ActiveWorkoutPage() {
         durationMinutes: durationMin,
         calories,
         coins,
-        programName: stableWorkoutPlan?.name || 'אימון כוח',
+        programName: stableWorkoutPlan?.name || 'אימון כוח', // i18n-allow-hebrew: data — program name stored with the workout record
         programId: userProgression.programId,
         rawExerciseLog: workoutStats.rawExerciseLog,
         completedExercises: workoutStats.completedExercises,
@@ -1601,8 +1610,8 @@ export default function ActiveWorkoutPage() {
     // Firestore writes during the MVP freeze. Re-enable alongside the feed tab.
     if (IS_COMMUNITY_FEED_ENABLED && currentUser && profile?.core?.name) {
       const diffLabel =
-        workoutStats.difficulty === 'easy' ? 'קלה' :
-        workoutStats.difficulty === 'hard' ? 'גבוהה' : 'בינונית';
+        workoutStats.difficulty === 'easy' ? 'קלה' : // i18n-allow-hebrew: data — difficulty label saved in the feed post
+        workoutStats.difficulty === 'hard' ? 'גבוהה' : 'בינונית'; // i18n-allow-hebrew: data — difficulty label saved in the feed post
       const scope = extractFeedScope(profile);
 
       const activeProgramId =
@@ -1886,8 +1895,8 @@ export default function ActiveWorkoutPage() {
         <div className="w-full h-[100dvh] flex items-center justify-center bg-v2-surface" dir="rtl">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-v2-accent border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-[15px] font-extrabold text-v2-ink whitespace-nowrap">טוען את האימון...</p>
-            <p className="text-[12.5px] font-bold text-v2-muted mt-1 whitespace-nowrap">מכין את התרגילים שלך</p>
+            <p className="text-[15px] font-extrabold text-v2-ink whitespace-nowrap">{t('activeWorkout.loading.title')}</p>
+            <p className="text-[12.5px] font-bold text-v2-muted mt-1 whitespace-nowrap">{t('activeWorkout.loading.sub')}</p>
           </div>
         </div>
       );
@@ -1896,8 +1905,8 @@ export default function ActiveWorkoutPage() {
       <div className="w-full h-[100dvh] flex items-center justify-center bg-gradient-to-b from-white to-gray-50">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">טוען את האימון...</p>
-          <p className="text-gray-400 text-sm mt-1">מכין את התרגילים שלך</p>
+          <p className="text-gray-600 font-medium">{t('activeWorkout.loading.title')}</p>
+          <p className="text-gray-400 text-sm mt-1">{t('activeWorkout.loading.sub')}</p>
         </div>
       </div>
     );
@@ -1912,13 +1921,13 @@ export default function ActiveWorkoutPage() {
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white shadow-v2-ring mx-auto mb-4">
               <CircleAlert className="h-8 w-8 text-v2-down" strokeWidth={2.25} aria-hidden />
             </div>
-            <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink mb-2">לא הצלחנו לטעון את האימון</h2>
+            <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink mb-2">{t('activeWorkout.error.title')}</h2>
             <p className="text-[14px] font-bold text-v2-muted mb-6">{error || pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
             <button
               onClick={() => router.push('/home')}
               className="h-12 px-8 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2"
             >
-              חזרה לדף הבית
+              {t('activeWorkout.error.home')}
             </button>
           </div>
         </div>
@@ -1930,13 +1939,13 @@ export default function ActiveWorkoutPage() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">😕</span>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">לא הצלחנו לטעון את האימון</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('activeWorkout.error.title')}</h2>
           <p className="text-gray-500 mb-6">{error || pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
           <button
             onClick={() => router.push('/home')}
             className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-xl transition-all"
           >
-            חזרה לדף הבית
+            {t('activeWorkout.error.home')}
           </button>
         </div>
       </div>
@@ -2076,11 +2085,11 @@ export default function ActiveWorkoutPage() {
             onClick={handleExitWithoutSaving}
             className="absolute bottom-[236px] right-4 z-[46] inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
             style={{ fontFamily: 'var(--font-simpler)' }}
-            aria-label="סגור"
+            aria-label={t('activeWorkout.close')}
             dir="rtl"
           >
             <X size={20} />
-            <span className="text-[13px] font-bold">סגור</span>
+            <span className="text-[13px] font-bold">{t('activeWorkout.close')}</span>
           </button>
         )}
 
@@ -2120,7 +2129,7 @@ export default function ActiveWorkoutPage() {
         pending={!levelup.ready}
         fallback={{ level: userProgression.currentLevel, percent: preWorkoutPercentRef.current }}
         isRecovery={!!stableWorkoutPlan.isRecovery}
-        programName={stableWorkoutPlan.name || 'אימון כוח'}
+        programName={stableWorkoutPlan.name || 'אימון כוח'} // i18n-allow-hebrew: data — program name stored with the workout record
         saveState={levelup.saveState}
         onLevelUp={(level) => celebrate(`levelup_${userProgression.programId}_${level}`)}
         onContinue={handleDopamineComplete}
@@ -2140,7 +2149,7 @@ export default function ActiveWorkoutPage() {
       <StrengthDopamineScreen
         initialProgress={Math.round(preWorkoutPercentRef.current)}
         currentLevel={userProgression.currentLevel}
-        programName={stableWorkoutPlan.name || 'אימון כוח'}
+        programName={stableWorkoutPlan.name || 'אימון כוח'} // i18n-allow-hebrew: data — program name stored with the workout record
         bonuses={dopamineBonuses}
         volumeBreakdown={dopamineVolumeBreakdown}
         celebrationMessage={celebrationText}
@@ -2190,7 +2199,7 @@ export default function ActiveWorkoutPage() {
           difficulty={workoutStats.difficulty}
           streak={userProgression.streak}
           programId={userProgression.programId}
-          programName={stableWorkoutPlan.name || 'אימון כוח'}
+          programName={stableWorkoutPlan.name || 'אימון כוח'} // i18n-allow-hebrew: data — program name stored with the workout record
           currentLevel={userProgression.currentLevel}
           maxLevel={userProgression.maxLevel}
           progressToNextLevel={Math.round(preWorkoutPercentRef.current)}
@@ -2218,7 +2227,7 @@ export default function ActiveWorkoutPage() {
         difficulty={workoutStats.difficulty}
         streak={userProgression.streak}
         programId={userProgression.programId}
-        programName={stableWorkoutPlan.name || 'אימון כוח'}
+        programName={stableWorkoutPlan.name || 'אימון כוח'} // i18n-allow-hebrew: data — program name stored with the workout record
         currentLevel={userProgression.currentLevel}
         maxLevel={userProgression.maxLevel}
         progressToNextLevel={Math.round(preWorkoutPercentRef.current)}

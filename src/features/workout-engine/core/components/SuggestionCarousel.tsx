@@ -28,6 +28,8 @@
 
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { motion, type PanInfo } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const CARD_MAX_W = 260;
 const CARD_VW = 68;
@@ -80,6 +82,7 @@ export function SuggestionCarousel<T>({
   onActiveIndexChange,
   passiveDots = false,
 }: SuggestionCarouselProps<T>) {
+  const t = useT(player);
   const [internalIndex, setInternalIndex] = useState(0);
   const activeIndex = controlledIndex ?? internalIndex;
 
@@ -130,8 +133,8 @@ export function SuggestionCarousel<T>({
   useEffect(() => {
     const item = items[activeIndex];
     if (!item) return;
-    const t = setTimeout(() => onSettleRef.current?.(item, activeIndex), SETTLE_DELAY_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onSettleRef.current?.(item, activeIndex), SETTLE_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [activeIndex, items]);
 
   if (items.length <= 1) {
@@ -192,7 +195,7 @@ export function SuggestionCarousel<T>({
         )) : items.map((item, i) => (
           <button
             key={keyExtractor(item, i)}
-            aria-label={`הצעה ${i + 1}`}
+            aria-label={t('suggestion.dot.aria', { n: String(i + 1) })}
             onClick={() => handleSelect(i)}
             className="transition-all duration-300 rounded-full"
             style={{

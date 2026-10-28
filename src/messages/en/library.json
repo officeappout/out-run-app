@@ -446,5 +446,20 @@
   "favorites.loading": "Loading favorites…",
   "favorites.empty.title": "No saved workouts",
   "favorites.empty.body": "Tap the heart on a workout you like to reach it from anywhere, even offline.",
-  "favorites.savedCount": "{count, plural, one {# saved workout} other {# saved workouts}}"
+  "favorites.savedCount": "{count, plural, one {# saved workout} other {# saved workouts}}",
+  "exerciseLibraryPage.back.aria": "Back",
+  "exerciseLibraryPage.title": "Exercise library",
+  "exerciseLibraryPage.search.placeholder": "Search exercises…",
+  "exerciseLibraryPage.search.clearAria": "Clear search",
+  "activeWorkout.loading.title": "Loading your workout…",
+  "activeWorkout.loading.sub": "Getting your exercises ready",
+  "activeWorkout.error.title": "We couldn’t load your workout",
+  "activeWorkout.error.load": "We couldn’t load your workout. Try again.",
+  "activeWorkout.error.home": "Back to home",
+  "activeWorkout.close": "Close",
+  "activeWorkout.gain.completion": "{pct}% for completing the workout",
+  "activeWorkout.gain.performance": "{pct}% for beating expectations",
+  "activeWorkout.gain.goals": "{pct}% for reaching your goals",
+  "activeWorkout.target.range": "{prefix}{min}-{max} {unit, select, seconds {seconds} other {reps}}{side, select, yes { (per side)} other {}}{hasGoal, select, yes { (goal: {goal})} other {}}",
+  "activeWorkout.target.single": "{prefix}{min} {unit, select, seconds {seconds} other {reps}}{side, select, yes { (per side)} other {}}{hasGoal, select, yes { (goal: {goal})} other {}}"
 }

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Loader2, Search } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
 
@@ -30,10 +32,11 @@ interface CommunityAddressSearchProps {
 export default function CommunityAddressSearch({
   value,
   onChange,
-  placeholder = 'חפש כתובת, פארק או אתר...',
+  placeholder,
   proximity,
   v2 = false,
 }: CommunityAddressSearchProps) {
+  const t = useT(community);
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -142,7 +145,7 @@ export default function CommunityAddressSearch({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={() => { if (suggestions.length > 0 && !selected) setShowDropdown(true); }}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t('addressSearch.placeholder')}
           className={
             v2
               ? `h-12 w-full rounded-[16px] bg-white pl-11 ${selected ? 'pr-11' : 'pr-4'} text-[15px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-v2-accent`
@@ -220,7 +223,7 @@ export default function CommunityAddressSearch({
               : 'absolute z-50 top-full mt-1.5 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 text-sm text-gray-500 text-center'
           }
         >
-          לא נמצאו תוצאות
+          {t('addressSearch.empty')}
         </div>
       )}
     </div>

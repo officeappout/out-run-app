@@ -937,5 +937,21 @@
   "sweep.guided.progressAria": "Route progress",
   "sweep.guided.progressText": "{done} / {total} km",
   "sweep.metrics.settingsAria": "Workout settings",
-  "sweep.milestone.together": "Together you covered {distance}"
+  "sweep.milestone.together": "Together you covered {distance}",
+  "lobby.share.text": "Join the workout with {group} on OUT!",
+  "lobby.share.groupFallback": "my group",
+  "lobby.countdown.starting": "The group is starting",
+  "lobby.go": "🏃 Let’s run",
+  "lobby.startRun": "Start run",
+  "lobby.eyebrow": "Lobby",
+  "lobby.waiting": "Waiting to start…",
+  "lobby.you": "(you)",
+  "lobby.empty": "No participants yet",
+  "lobby.share.cta": "Send join link 🔗",
+  "lobby.waitingHost": "Waiting for the host to start…",
+  "suggestion.cta.start": "Start",
+  "suggestion.loading": "Loading…",
+  "suggestion.dot.aria": "Suggestion {n}",
+  "volumeBadge.progress": "Sets completed for this level: {performed} of {required}",
+  "volumeBadge.full": "🏆 Full Volume: you got 100% of the gain"
 }

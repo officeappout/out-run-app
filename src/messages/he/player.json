@@ -947,5 +947,21 @@
   "sweep.guided.progressAria": "התקדמות במסלול",
   "sweep.guided.progressText": "{done} / {total} ק\"מ",
   "sweep.metrics.settingsAria": "הגדרות אימון",
-  "sweep.milestone.together": "יחד עברתם {distance}"
+  "sweep.milestone.together": "יחד עברתם {distance}",
+  "lobby.share.text": "הצטרפו לאימון עם {group} ב-Out!",
+  "lobby.share.groupFallback": "הקבוצה שלי",
+  "lobby.countdown.starting": "הקבוצה מתחילה!",
+  "lobby.go": "🏃 בואו נרוץ!",
+  "lobby.startRun": "התחל ריצה",
+  "lobby.eyebrow": "לובי",
+  "lobby.waiting": "ממתינים להתחלה...",
+  "lobby.you": "(את/ה)",
+  "lobby.empty": "אין משתתפים עדיין",
+  "lobby.share.cta": "שלח קישור הצטרפות 🔗",
+  "lobby.waitingHost": "ממתינים שהמנהל יתחיל...",
+  "suggestion.cta.start": "התחל",
+  "suggestion.loading": "טוען…",
+  "suggestion.dot.aria": "הצעה {n}",
+  "volumeBadge.progress": "ביצעת {performed} מתוך {required} סטים נדרשים לרמה זו",
+  "volumeBadge.full": "🏆 Full Volume - קיבלת 100% מהרווח!"
 }
