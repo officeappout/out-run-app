@@ -19,6 +19,7 @@ import { LOCATION_OPTIONS, type LocationId } from './WorkoutBuilderSheet';
 import { useUserStore } from '@/features/user';
 import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { useShowHeOnlySurfaces } from '@/features/arena/hooks/useShowHeOnlySurfaces';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 
@@ -31,7 +32,9 @@ export default function AnchorLocationChip({ value, onSelect }: AnchorLocationCh
   const [open, setOpen] = useState(false);
   // Persona gate: the 'service' (military) location is offered only to the military persona.
   const profile = useUserStore((s) => s.profile);
-  const isMilitary = profile ? hasPersona(profile, 'military') : false;
+  // Hidden in non-Hebrew UIs (hide_he_only_onboarding_steps); flag off / Hebrew: unchanged.
+  const showHeOnly = useShowHeOnlySurfaces();
+  const isMilitary = showHeOnly && (profile ? hasPersona(profile, 'military') : false);
   const options = LOCATION_OPTIONS.filter((o) => o.id !== 'service' || isMilitary);
   const current = options.find((o) => o.id === value) ?? options[0];
   const CurrentIcon = current.Icon;

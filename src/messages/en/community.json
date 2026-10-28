@@ -939,5 +939,7 @@
   "arenaCreate.step.schedule": "Schedule and location",
   "arenaCreate.step.invite": "Invite partners",
   "arenaCreate.step.outreach": "Invite an organization",
-  "arenaCreate.step.codeEntry": "Enter with a code"
+  "arenaCreate.step.codeEntry": "Enter with a code",
+  "addressSearch.placeholder": "Search an address, park, or site…",
+  "addressSearch.empty": "No results found"
 }

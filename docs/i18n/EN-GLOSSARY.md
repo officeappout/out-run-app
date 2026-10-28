@@ -141,7 +141,8 @@
 | 93 | שיא / שיא אישי | **record** / **personal best** | `השיא: {best}` → "Best: {best}"; "PR" never (jargon for non-lifters). | PR, PB | proposed |
 | 94 | פוסט / שיתוף / לשתף | **post / share** | | | proposed |
 | 95 | רוח (privacy mode "Ghost") | **Ghost** ("Invisible to everyone") | The Hebrew is the pun. Modes: Ghost / Friends / Global. | Stealth, Hidden | proposed |
-| 96 | פרסונה / הפרסונות שלי (home settings) | **my personas** (placeholder) | I could not infer the feature from the strings alone. | my profiles, private details | needs owner decision (what is it?) |
+| 96 | פרסונה / הפרסונות שלי (home settings) | **profile** ("My profiles", "Add a profile") | Private details (e.g. lifestyle) the user can add. | persona | **APPROVED** (owner 28.10) |
+| 96b | כיף (peer cheer between users) / כיפים | **high five** / **high fives** | "sent you a high five", "High five!". Never "kudos" or "cheer" for this. `עידוד` (social.post.cheer) stays "Cheer". | kudos, cheer | **APPROVED** (owner 28.10) |
 
 ## 4. Places, routes, running, walking
 
