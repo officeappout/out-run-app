@@ -219,7 +219,6 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden px-5"
-            dir="rtl"
           >
             <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2 mb-2">
               <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -243,7 +242,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
 
       {/* Category filters */}
       {!openThread && (
-        <div className="px-5 pb-2" dir="rtl">
+        <div className="px-5 pb-2">
           <div className="flex gap-2">
             {FILTERS.map((f) => (
               <button
@@ -257,7 +256,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
               >
                 {f.label}
                 {f.count !== undefined && f.count > 0 && (
-                  <span className={`mr-1 ${filter === f.key ? 'text-cyan-100' : 'text-gray-400'}`}>
+                  <span className={`ms-1 ${filter === f.key ? 'text-cyan-100' : 'text-gray-400'}`}>
                     ({f.count})
                   </span>
                 )}
@@ -297,7 +296,6 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
               exit={{ x: -30, opacity: 0 }}
               transition={{ duration: 0.2 }}
               className="overflow-y-auto h-full px-4 pb-8"
-              dir="rtl"
             >
               {/* "קלי AI" — the AI coach, pinned above every human thread. A separate
                   AI-labeled screen, never inside the human Kelly support DM. Renders
@@ -349,7 +347,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                     <button
                       key={thread.id}
                       onClick={() => setOpenThread(thread)}
-                      className="w-full flex items-center gap-3 py-3.5 px-1 hover:bg-gray-50 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center gap-3 py-3.5 px-1 hover:bg-gray-50 rounded-xl transition-colors text-start"
                     >
                       {/* Avatar: User initial vs Group icon */}
                       {isGroup ? (
@@ -376,7 +374,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                               </span>
                             )}
                           </div>
-                          <span className="text-[11px] text-gray-400 flex-shrink-0 mr-2">
+                          <span className="text-[11px] text-gray-400 flex-shrink-0 ms-2">
                             {timeAgo(thread.lastMessageAt, t, tc)}
                           </span>
                         </div>
@@ -385,7 +383,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                             {preview}
                           </p>
                           {unread > 0 && (
-                            <span className={`flex-shrink-0 w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center mr-2 ${isGroup ? 'bg-purple-500' : 'bg-cyan-500'}`}>
+                            <span className={`flex-shrink-0 w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center ms-2 ${isGroup ? 'bg-purple-500' : 'bg-cyan-500'}`}>
                               {unread > 9 ? '9+' : unread}
                             </span>
                           )}
@@ -424,11 +422,11 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         ariaLabel={title}
         header={
-          <div className="flex items-center justify-between gap-3 px-5 py-2" dir="rtl">
+          <div className="flex items-center justify-between gap-3 px-5 py-2">
             <div className="flex min-w-0 items-center gap-2">
               {openThread && (
                 <IconButton aria-label={t('chatInbox.backToList')} tone="surface" size={36} className="shrink-0" onClick={() => setOpenThread(null)}>
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 ltr:-scale-x-100" />
                 </IconButton>
               )}
               <h2 className="truncate text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{title}</h2>
@@ -486,7 +484,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
               animation slides cleanly over both the backdrop and the partner
               overlay underneath. */}
           <m.div
-            className="kb-sheet fixed bottom-0 left-0 right-0 z-[101] bg-white rounded-t-3xl h-[90dvh] flex flex-col"
+            className="kb-sheet fixed bottom-0 end-0 start-0 z-[101] bg-white rounded-t-3xl h-[90dvh] flex flex-col"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -497,14 +495,14 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-2" dir="rtl">
+            <div className="flex items-center justify-between px-5 py-2">
               <div className="flex items-center gap-2">
                 {openThread && (
                   <button
                     onClick={() => setOpenThread(null)}
-                    className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center ml-1"
+                    className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center me-1"
                   >
-                    <ChevronLeft className="w-4 h-4 text-gray-600" />
+                    <ChevronLeft className="w-4 h-4 text-gray-600 ltr:-scale-x-100" />
                   </button>
                 )}
                 <h2 className="text-base font-black text-gray-900">

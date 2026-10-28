@@ -62,7 +62,7 @@ export function ReserveSegment({ vm }: { vm: LeaguesVM }) {
   const t = useT(community);
   const showGroupTab = access.hasUnitLeagueAccess;
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-4">
       {showGroupTab && <CompetitionToggle vm={vm} />}
       {(competitionMode === 'individual' || !showGroupTab) && (
         <NeighborhoodLeaderboard
@@ -100,7 +100,7 @@ export function ReserveSegment({ vm }: { vm: LeaguesVM }) {
               rollup itself computes more than one metric — see §8 debt
               item for the exact revisit trigger (5 units past the
               3-participant floor). */}
-          <div className="flex items-center gap-2 mb-3" dir="rtl">
+          <div className="flex items-center gap-2 mb-3">
             <span
               className="whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-muted bg-v2-surface ring-1 ring-inset ring-v2-hairline"
             >

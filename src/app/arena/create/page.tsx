@@ -226,7 +226,7 @@ export default function CreateGroupPage() {
 
   function renderTypeStep() {
     return (
-      <div className="space-y-3" dir="rtl">
+      <div className="space-y-3">
         <p className="text-sm text-gray-500 px-1">{t('arenaCreate.copy.pickType')}</p>
         {TYPE_CARDS.map((card) => (
           <button
@@ -249,7 +249,7 @@ export default function CreateGroupPage() {
                 setStep('info');
               }
             }}
-            className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-right ${
+            className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-start ${
               card.available
                 ? 'bg-white border-gray-100 hover:border-cyan-300 hover:shadow-sm active:scale-[0.98]'
                 : 'bg-gray-50 border-gray-100 opacity-50 cursor-not-allowed'
@@ -274,14 +274,14 @@ export default function CreateGroupPage() {
 
   function renderInfoStep() {
     return (
-      <div className="space-y-4" dir="rtl">
+      <div className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.info.name')}</label>
           <input
             value={state.name}
             onChange={(e) => update('name', e.target.value)}
             placeholder={t('arenaCreate.info.namePlaceholder')}
-            className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-right outline-none focus:ring-2 focus:ring-cyan-400"
+            className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-start outline-none focus:ring-2 focus:ring-cyan-400"
           />
         </div>
 
@@ -311,7 +311,7 @@ export default function CreateGroupPage() {
             onChange={(e) => update('description', e.target.value)}
             placeholder={t('arenaCreate.copy.descriptionPlaceholder')}
             rows={3}
-            className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-right outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
+            className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-start outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
           />
         </div>
 
@@ -331,7 +331,7 @@ export default function CreateGroupPage() {
               onClick={() => update('isPublic', !state.isPublic)}
               className={`relative w-12 h-6 rounded-full transition-colors ${state.isPublic ? 'bg-cyan-500' : 'bg-gray-300'}`}
             >
-              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${state.isPublic ? 'right-1' : 'left-1'}`} />
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${state.isPublic ? 'start-1' : 'end-1'}`} />
             </button>
           </div>
         )}
@@ -351,7 +351,7 @@ export default function CreateGroupPage() {
 
   function renderScheduleStep() {
     return (
-      <div className="space-y-4" dir="rtl">
+      <div className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('arenaCreate.schedule.day')}</label>
           <div className="grid grid-cols-4 gap-2">
@@ -408,7 +408,7 @@ export default function CreateGroupPage() {
             value={state.meetingAddress}
             onChange={(e) => update('meetingAddress', e.target.value)}
             placeholder={t('arenaCreate.schedule.locationPlaceholder')}
-            className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-right outline-none focus:ring-2 focus:ring-cyan-400"
+            className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-start outline-none focus:ring-2 focus:ring-cyan-400"
           />
         </div>
 
@@ -544,7 +544,7 @@ export default function CreateGroupPage() {
     const busy = isSaving || isSharing;
 
     return (
-      <div className="space-y-5 text-center" dir="rtl">
+      <div className="space-y-5 text-center">
         <div className="bg-gradient-to-b from-cyan-50 to-white rounded-3xl p-5 border border-cyan-100">
           <div
             className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center"
@@ -637,7 +637,7 @@ export default function CreateGroupPage() {
     // Success overlay
     if (codeSuccessResult) {
       return (
-        <div className="space-y-5 text-center py-8" dir="rtl">
+        <div className="space-y-5 text-center py-8">
           <div className="text-5xl mb-2">{icon}</div>
           <h3 className="text-xl font-black text-gray-900 mb-3">{t('arenaCreate.copy.welcomeToLeague')}</h3>
           <div className="flex justify-center">
@@ -649,7 +649,7 @@ export default function CreateGroupPage() {
     }
 
     return (
-      <div className="space-y-5" dir="rtl">
+      <div className="space-y-5">
         {/* Explanation card */}
         <div className="bg-gradient-to-b from-indigo-50 to-white rounded-3xl p-5 border border-indigo-200/60">
           <div className="text-3xl text-center mb-2">{icon}</div>
@@ -657,7 +657,7 @@ export default function CreateGroupPage() {
             {isMilitary ? t('arenaCreate.code.howUnit') : t('arenaCreate.code.howSchool')}
           </h3>
           <div className="bg-white rounded-2xl p-3 border border-gray-100">
-            <ol className="text-xs text-gray-700 space-y-2 list-decimal pr-4">
+            <ol className="text-xs text-gray-700 space-y-2 list-decimal ps-4">
               {howItWorks.map((step, i) => (
                 <li key={i} className={i === howItWorks.length - 1 ? 'font-bold text-indigo-600' : ''}>
                   {step}
@@ -721,7 +721,7 @@ export default function CreateGroupPage() {
     }
 
     return (
-      <div className="space-y-5 text-center" dir="rtl">
+      <div className="space-y-5 text-center">
         <div className="bg-gradient-to-b from-amber-50 to-white rounded-3xl p-6 border border-amber-200/60">
           <div className="text-4xl mb-3">{icon}</div>
           <h3 className="text-base font-black text-gray-900">
@@ -732,14 +732,14 @@ export default function CreateGroupPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 text-right">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 text-start">
           <div className="flex items-start gap-3">
             <Megaphone className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-sm font-bold text-gray-900">
                 {t('arenaCreate.outreach.how')}
               </p>
-              <ol className="text-xs text-gray-600 mt-1.5 space-y-1 list-decimal pr-4">
+              <ol className="text-xs text-gray-600 mt-1.5 space-y-1 list-decimal ps-4">
                 <li>{t('arenaCreate.outreach.step1', { kind })}</li>
                 <li>{t('arenaCreate.outreach.step2')}</li>
                 <li>{t('arenaCreate.outreach.step3', { kind })}</li>
@@ -806,7 +806,7 @@ export default function CreateGroupPage() {
         className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="max-w-md mx-auto px-5 py-1.5 flex items-center justify-between" dir="rtl">
+        <div className="max-w-md mx-auto px-5 py-1.5 flex items-center justify-between">
           <button
             onClick={() => {
               if (step === 'type') {
@@ -825,7 +825,7 @@ export default function CreateGroupPage() {
             }}
             className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
           >
-            <ArrowRight className="w-4 h-4 text-gray-600" />
+            <ArrowRight className="w-4 h-4 text-gray-600 ltr:-scale-x-100" />
           </button>
           <h1 className="text-base font-black text-gray-900">{pageTitle}</h1>
           <div className="w-8" />
@@ -843,7 +843,7 @@ export default function CreateGroupPage() {
               />
             ))}
           </div>
-          <p className="text-[11px] text-gray-400 mt-1.5 text-right">{STEP_LABELS[step]}</p>
+          <p className="text-[11px] text-gray-400 mt-1.5 text-start">{STEP_LABELS[step]}</p>
         </div>
       </header>
 

@@ -32,7 +32,7 @@ function Tile({ on, label, onClick, disabled, children }: { on: boolean; label: 
       >
         {children}
         {on && (
-          <span className="absolute -left-1.5 -top-1.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-[#00baf7] shadow-[0_0_0_2.5px_#fff]">
+          <span className="absolute -end-1.5 -top-1.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-[#00baf7] shadow-[0_0_0_2.5px_#fff]">
             <Check size={13} strokeWidth={3.2} className="text-white" aria-hidden />
           </span>
         )}

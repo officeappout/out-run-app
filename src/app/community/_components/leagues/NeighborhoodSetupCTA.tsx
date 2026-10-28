@@ -21,7 +21,7 @@ export function NeighborhoodSetupCTA({ vm }: { vm: LeaguesVM }) {
   } = vm;
   const t = useT(community);
   return (
-    <div className="rounded-v2-card bg-white shadow-v2-card p-5 mb-3 text-center flex flex-col items-center" dir="rtl">
+    <div className="rounded-v2-card bg-white shadow-v2-card p-5 mb-3 text-center flex flex-col items-center">
       <IconTile icon={MapPin} tone="accent" size="lg" />
       <p className="text-[16px] font-black text-v2-ink mt-3">{t('communityPage.setup.title')}</p>
       <p className="text-[13px] text-v2-muted mt-1">{t('communityPage.setup.body')}</p>

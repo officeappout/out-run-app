@@ -48,7 +48,7 @@ export function WizardFooter({
           aria-label={t('createGroup.footer.back')}
           className={v2 ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform active:scale-90' : 'w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0'}
         >
-          <ChevronRight className={v2 ? 'h-5 w-5 text-v2-ink' : 'w-5 h-5 text-gray-600'} />
+          <ChevronRight className={v2 ? 'h-5 w-5 text-v2-ink ltr:-scale-x-100' : 'w-5 h-5 text-gray-600 ltr:-scale-x-100'} />
         </button>
 
         {(outreachMode || step < 5) ? (

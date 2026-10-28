@@ -166,14 +166,14 @@ export default function SessionDrawer({
   const heroBadges = (
     <>
       {/* Category badge */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1.5 rounded-full" dir="rtl">
+      <div className="absolute bottom-4 start-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1.5 rounded-full">
         <span>{catConfig.icon}</span>
         <span>{t('session.category', { category: event.category ?? '' })}</span>
       </div>
 
       {/* Official badge */}
       {event.isOfficial && (
-        <div className="absolute top-4 left-4 flex items-center gap-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
+        <div className="absolute top-4 end-4 flex items-center gap-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
           <ShieldCheck className="w-3 h-3" />
           <span>{t('session.official')}</span>
         </div>
@@ -183,7 +183,7 @@ export default function SessionDrawer({
   const content = (
     <>
       {/* ── Scrollable content ─────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-5 pt-4 pb-8 space-y-5" dir="rtl">
+      <div className="flex-1 overflow-y-auto px-5 pt-4 pb-8 space-y-5">
         {/* Title */}
         <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
           {event.name}
@@ -224,7 +224,7 @@ export default function SessionDrawer({
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between" dir="rtl">
+            <div className="absolute bottom-0 end-0 start-0 p-3 flex items-center justify-between">
               <span className="text-xs font-bold text-white truncate max-w-[75%]">
                 {effectiveAddress || `${effectiveCoords.lat.toFixed(4)}, ${effectiveCoords.lng.toFixed(4)}`}
               </span>
@@ -415,7 +415,7 @@ export default function SessionDrawer({
           <div className="relative h-56 flex-shrink-0 overflow-hidden rounded-t-[28px]">
             {heroImage}
             <SheetGrabber className="absolute inset-x-0 top-0 flex justify-center pt-3" />
-            <IconButton aria-label={t('session.close')} tone="glass" size={36} className="absolute right-4 top-4" onClick={onClose}>
+            <IconButton aria-label={t('session.close')} tone="glass" size={36} className="absolute start-4 top-4" onClick={onClose}>
               <X className="h-4 w-4" />
             </IconButton>
             {heroBadges}
@@ -445,7 +445,7 @@ export default function SessionDrawer({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
-              className="fixed bottom-0 left-0 right-0 z-[81] max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
+              className="fixed bottom-0 end-0 start-0 z-[81] max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
               style={{ height: '85vh' }}
             >
               {/* ── Hero image ───────────────────────────────────── */}
@@ -458,7 +458,7 @@ export default function SessionDrawer({
                 {/* Close */}
                 <button
                   onClick={onClose}
-                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center"
+                  className="absolute top-4 start-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center"
                 >
                   <X size={16} className="text-white" />
                 </button>
