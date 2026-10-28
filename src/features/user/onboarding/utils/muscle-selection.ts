@@ -16,10 +16,10 @@
  * Continue is identical.
  */
 import { MUSCLE_FOCUS_IDS, MUSCLE_PACKAGES, type MusclePackageKey } from '../constants/program-path.constants';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export const FULL_BODY_ID = 'full_body';
 
@@ -53,10 +53,10 @@ export function toPersistedMuscleFocus(selectedMuscles: string[]): string[] {
 export type AreaTileId = 'full' | 'upper' | 'legs' | 'core';
 
 export const AREA_TILES: { id: AreaTileId; label: string; recommended?: boolean }[] = [
-  { id: 'full', label: t('programPath.page.body.fullBody'), recommended: true },
-  { id: 'upper', label: t('areaTile.upper') },
-  { id: 'legs', label: t('areaTile.legs') },
-  { id: 'core', label: t('areaTile.core') },
+  { id: 'full', get label() { return t('programPath.page.body.fullBody'); }, recommended: true },
+  { id: 'upper', get label() { return t('areaTile.upper'); } },
+  { id: 'legs', get label() { return t('areaTile.legs'); } },
+  { id: 'core', get label() { return t('areaTile.core'); } },
 ];
 
 /** Which legacy packages each partial tile stands for. */

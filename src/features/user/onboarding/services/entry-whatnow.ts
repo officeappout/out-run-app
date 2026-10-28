@@ -12,13 +12,13 @@
  * (the first hybrid slot of the "מה עושים היום?" carousel) and the nearest equipped park.
  */
 
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 import { map } from '@/messages/ns/map';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 /** enable_map_tutorial_v1 copy (`mapTutorial.*`, he only until the tutorial graduates). */
-const tm = makeT('he', map);
+const tm = makeLiveT(map);
 
 /** A park within this distance (metres) counts as "near" on its own. */
 export const WHATNOW_NEAR_PARK_M = 400;
@@ -83,8 +83,8 @@ export function isWhatNowRoutePending(ctx: WhatNowContext): boolean {
 export function chooseWhatNowCards(ctx: WhatNowContext): WhatNowLayout {
   const near = isNearParkOrRoute(ctx) && ctx.route != null && ctx.route.minutes > 0;
   return near
-    ? { near: true, cards: ['route', 'plan', 'kelly'], title: t('whatNowSvc.title.near'), planTagged: false }
-    : { near: false, cards: ['plan', 'kelly'], title: t('whatNowSvc.title.far'), planTagged: true };
+    ? { near: true, cards: ['route', 'plan', 'kelly'], get title() { return t('whatNowSvc.title.near'); }, planTagged: false }
+    : { near: false, cards: ['plan', 'kelly'], get title() { return t('whatNowSvc.title.far'); }, planTagged: true };
 }
 
 /** "גינת סוטין" → "בגינת סוטין"; unnamed → "בגינה הקרובה". */
@@ -110,9 +110,9 @@ export function whatNowRouteCopy(route: WhatNowRouteSuggestion, parkName: string
       : route.stops <= 1 ? t('whatNowSvc.route.stops.one')
         : t('whatNowSvc.route.stops.many', { n: String(route.stops) });
   return {
-    tag: t('whatNowSvc.route.tag'),
-    title: t('whatNowSvc.route.title', { min: String(min) }),
-    sub: t('whatNowSvc.route.sub', { verb, stops, place: inPark(parkName) }),
+    get tag() { return t('whatNowSvc.route.tag'); },
+    get title() { return t('whatNowSvc.route.title', { min: String(min) }); },
+    get sub() { return t('whatNowSvc.route.sub', { verb, stops, place: inPark(parkName) }); },
   };
 }
 
@@ -128,30 +128,30 @@ export function whatNowRouteCopyV1(route: WhatNowRouteSuggestion, parkName: stri
       : route.stops <= 1 ? tm('mapTutorial.whatNow.route.stops.one')
         : tm('mapTutorial.whatNow.route.stops.many', { n: String(route.stops) });
   return {
-    tag: t('whatNowSvc.route.tag'),
-    title: tm('mapTutorial.whatNow.route.title'),
-    sub: tm('mapTutorial.whatNow.route.sub', { verb, min: String(min), stops, place: inPark(parkName) }),
-    cta: tm('mapTutorial.whatNow.route.cta'),
+    get tag() { return t('whatNowSvc.route.tag'); },
+    get title() { return tm('mapTutorial.whatNow.route.title'); },
+    get sub() { return tm('mapTutorial.whatNow.route.sub', { verb, min: String(min), stops, place: inPark(parkName) }); },
+    get cta() { return tm('mapTutorial.whatNow.route.cta'); },
   };
 }
 
 /** Kelly's ready chips (design N2k). No prompt changes in this flag — copy only. */
-export const WHATNOW_KELLY_CHIPS = [
+export const whatNowKellyChips = (): readonly string[] => [
   t('whatNowSvc.kellyChip.0'),
   t('whatNowSvc.kellyChip.1'),
   t('whatNowSvc.kellyChip.2'),
   t('whatNowSvc.kellyChip.3'),
   t('whatNowSvc.kellyChip.4'),
   t('whatNowSvc.kellyChip.5'),
-] as const;
+];
 
-/** `/ai-coach?starter=entry` → the chat opens with WHATNOW_KELLY_CHIPS as its quick replies. */
+/** `/ai-coach?starter=entry` → the chat opens with whatNowKellyChips() as its quick replies. */
 export const WHATNOW_KELLY_STARTER = 'entry';
 export const WHATNOW_KELLY_URL = `/ai-coach?starter=${WHATNOW_KELLY_STARTER}`;
 
 /** The chips the chat should open with for a `starter` URL param (null = the chat's own). */
 export function starterChipsFor(starter: string | null | undefined): readonly string[] | null {
-  return starter === WHATNOW_KELLY_STARTER ? WHATNOW_KELLY_CHIPS : null;
+  return starter === WHATNOW_KELLY_STARTER ? whatNowKellyChips() : null;
 }
 
 /** onboardingPrefs key — "this user answered or dismissed step 2" (axioms §19: survives a hard close). */
@@ -187,10 +187,10 @@ export function shouldOpenWhatNow(input: {
  * The route card's "first workout" line (RouteCardUnified footnote): only with the flag on
  * and while the user has NOT accepted the health declaration yet.
  */
-export const FIRST_WORKOUT_NOTE = t('whatNowSvc.firstWorkoutNote');
+export const firstWorkoutNoteText = (): string => t('whatNowSvc.firstWorkoutNote');
 
 export function firstWorkoutNote(enabled: boolean, healthDeclarationAccepted: boolean): string | null {
-  return enabled && !healthDeclarationAccepted ? FIRST_WORKOUT_NOTE : null;
+  return enabled && !healthDeclarationAccepted ? firstWorkoutNoteText() : null;
 }
 
 /** The slice of a map slot (hybrid-slots.ts HybridSlot) this file reads — structural, no import. */
@@ -236,7 +236,7 @@ export function whatNowMiniMapUrl(
 //                    `fromExplorer` deep link, which otherwise keeps that tour off this visit)
 //   plan           → /home: the 'plan' tour points at the start cards, and the home's
 //                    WelcomeDrawer does NOT ask "what first?" a second time on this visit
-//   kelly          → the chat's own ready chips (WHATNOW_KELLY_CHIPS)
+//   kelly          → the chat's own ready chips (whatNowKellyChips)
 
 /** The map's first-run tour should start once the drawer closes with this answer. */
 export function mapTourAfterWhatNow(answer: WhatNowAnswer | null | undefined): boolean {

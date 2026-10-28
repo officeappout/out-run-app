@@ -13,10 +13,10 @@
  * Gendered variants are driven by profile.core.gender at render time.
  */
 
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { profile } from '@/messages/ns/profile';
 
-const t = makeT('he', profile);
+const t = makeLiveT(profile);
 
 export interface LevelStage {
   level: number;
@@ -26,16 +26,16 @@ export interface LevelStage {
 }
 
 export const LEVEL_STAGES: readonly LevelStage[] = [
-  { level: 1,   nameMale: t('levelStage.1', { gender: 'male' }), nameFemale: t('levelStage.1', { gender: 'female' }), minXP: 0 },
-  { level: 2,   nameMale: t('levelStage.2', { gender: 'male' }), nameFemale: t('levelStage.2', { gender: 'female' }), minXP: 300 },
-  { level: 3,   nameMale: t('levelStage.3', { gender: 'male' }), nameFemale: t('levelStage.3', { gender: 'female' }), minXP: 800 },
-  { level: 4,   nameMale: t('levelStage.4', { gender: 'male' }), nameFemale: t('levelStage.4', { gender: 'female' }), minXP: 2_000 },
-  { level: 5,   nameMale: t('levelStage.5', { gender: 'male' }), nameFemale: t('levelStage.5', { gender: 'female' }), minXP: 5_000 },
-  { level: 6,   nameMale: t('levelStage.6', { gender: 'male' }), nameFemale: t('levelStage.6', { gender: 'female' }), minXP: 11_000 },
-  { level: 7,   nameMale: t('levelStage.7', { gender: 'male' }), nameFemale: t('levelStage.7', { gender: 'female' }), minXP: 22_000 },
-  { level: 8,   nameMale: t('levelStage.8', { gender: 'male' }), nameFemale: t('levelStage.8', { gender: 'female' }), minXP: 40_000 },
-  { level: 9,   nameMale: t('levelStage.9', { gender: 'male' }), nameFemale: t('levelStage.9', { gender: 'female' }), minXP: 65_000 },
-  { level: 10,  nameMale: t('levelStage.10', { gender: 'male' }), nameFemale: t('levelStage.10', { gender: 'female' }), minXP: 100_000 },
+  { level: 1,   get nameMale() { return t('levelStage.1', { gender: 'male' }); }, get nameFemale() { return t('levelStage.1', { gender: 'female' }); }, minXP: 0 },
+  { level: 2,   get nameMale() { return t('levelStage.2', { gender: 'male' }); }, get nameFemale() { return t('levelStage.2', { gender: 'female' }); }, minXP: 300 },
+  { level: 3,   get nameMale() { return t('levelStage.3', { gender: 'male' }); }, get nameFemale() { return t('levelStage.3', { gender: 'female' }); }, minXP: 800 },
+  { level: 4,   get nameMale() { return t('levelStage.4', { gender: 'male' }); }, get nameFemale() { return t('levelStage.4', { gender: 'female' }); }, minXP: 2_000 },
+  { level: 5,   get nameMale() { return t('levelStage.5', { gender: 'male' }); }, get nameFemale() { return t('levelStage.5', { gender: 'female' }); }, minXP: 5_000 },
+  { level: 6,   get nameMale() { return t('levelStage.6', { gender: 'male' }); }, get nameFemale() { return t('levelStage.6', { gender: 'female' }); }, minXP: 11_000 },
+  { level: 7,   get nameMale() { return t('levelStage.7', { gender: 'male' }); }, get nameFemale() { return t('levelStage.7', { gender: 'female' }); }, minXP: 22_000 },
+  { level: 8,   get nameMale() { return t('levelStage.8', { gender: 'male' }); }, get nameFemale() { return t('levelStage.8', { gender: 'female' }); }, minXP: 40_000 },
+  { level: 9,   get nameMale() { return t('levelStage.9', { gender: 'male' }); }, get nameFemale() { return t('levelStage.9', { gender: 'female' }); }, minXP: 65_000 },
+  { level: 10,  get nameMale() { return t('levelStage.10', { gender: 'male' }); }, get nameFemale() { return t('levelStage.10', { gender: 'female' }); }, minXP: 100_000 },
 ] as const;
 
 export function getLevelStage(level: number): LevelStage {

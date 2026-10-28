@@ -5,10 +5,10 @@
  * sessionStorage hand-off shape read by onboarding-sync.service.ts.
  */
 
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export const GOAL_NOTE_MAX_LENGTH = 300;
 export const GOAL_NOTE_STORAGE_KEY = 'onboarding_goal_note';
@@ -17,11 +17,11 @@ export type AgeBracket = 'under_18' | '18_29' | '30_44' | '45_59' | '60_plus';
 export type GoalNoteGender = 'male' | 'female';
 
 export const AGE_BRACKET_LABELS_HE: Record<AgeBracket, string> = {
-  under_18: t('goalNote.age.under18'),
-  '18_29': t('goalNote.age.18_29'),
-  '30_44': t('goalNote.age.30_44'),
-  '45_59': t('goalNote.age.45_59'),
-  '60_plus': t('goalNote.age.60plus'),
+  get under_18() { return t('goalNote.age.under18'); },
+  get '18_29'() { return t('goalNote.age.18_29'); },
+  get '30_44'() { return t('goalNote.age.30_44'); },
+  get '45_59'() { return t('goalNote.age.45_59'); },
+  get '60_plus'() { return t('goalNote.age.60plus'); },
 };
 
 /** Whole years between birthDate and now (null for an invalid date). */

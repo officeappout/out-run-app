@@ -6,10 +6,10 @@
  */
 import { SKILL_MASTER_ID } from '../constants/program-path.constants';
 import { HIDDEN_PROGRAM_SLUGS } from '@/lib/hidden-programs';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 /** Hidden in the v2 step for now (owner's request) — the shared
  *  HIDDEN_PROGRAM_SLUGS, the same set the legacy picker (SKILL_PROGRAMS)
@@ -19,20 +19,20 @@ export const V2_HIDDEN_SKILLS: ReadonlySet<string> = HIDDEN_PROGRAM_SLUGS;
 export const V2_SKILL_GROUPS: { key: 'pull' | 'push'; name: string; hint: string; items: { id: string; label: string }[] }[] = [
   {
     key: 'pull',
-    name: t('package.pull'),
-    hint: t('skillGroup.pull.hint'),
+    get name() { return t('package.pull'); },
+    get hint() { return t('skillGroup.pull.hint'); },
     items: [
-      { id: 'front_lever', label: t('skill.frontLever') },
-      { id: 'one_arm_pullup', label: t('skill.oneArmPullup') },
+      { id: 'front_lever', get label() { return t('skill.frontLever'); } },
+      { id: 'one_arm_pullup', get label() { return t('skill.oneArmPullup'); } },
     ],
   },
   {
     key: 'push',
-    name: t('package.push'),
-    hint: t('skillGroup.push.hint'),
+    get name() { return t('package.push'); },
+    get hint() { return t('skillGroup.push.hint'); },
     items: [
-      { id: 'planche', label: t('skill.planche') },
-      { id: 'hspu', label: t('skill.hspuShort') },
+      { id: 'planche', get label() { return t('skill.planche'); } },
+      { id: 'hspu', get label() { return t('skill.hspuShort'); } },
     ],
   },
 ];

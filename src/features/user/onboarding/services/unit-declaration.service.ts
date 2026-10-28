@@ -15,7 +15,7 @@
  * non-JSON response) that never reached the server at all.
  */
 import { auth } from '@/lib/firebase';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
 export interface DeclareUnitResult {
@@ -26,10 +26,7 @@ export interface DeclareUnitResult {
   error?: string;
 }
 
-const t = makeT('he', onboarding);
-const NOT_SIGNED_IN_MESSAGE = t('unitDeclaration.error.notSignedIn');
-const NETWORK_ERROR_MESSAGE = t('unitDeclaration.error.network');
-const GENERIC_SERVER_ERROR_MESSAGE = t('unitDeclaration.error.generic');
+const t = makeLiveT(onboarding);
 
 export async function declareUnit(orgId: string, unitId: string): Promise<DeclareUnitResult> {
   let token: string | undefined;
@@ -39,7 +36,7 @@ export async function declareUnit(orgId: string, unitId: string): Promise<Declar
     token = undefined;
   }
   if (!token) {
-    return { ok: false, error: NOT_SIGNED_IN_MESSAGE };
+    return { ok: false, error: t('unitDeclaration.error.notSignedIn') };
   }
 
   let res: Response;
@@ -53,7 +50,7 @@ export async function declareUnit(orgId: string, unitId: string): Promise<Declar
     // Never reached the server at all — distinct message from a real
     // rejection, since "try again" means something different here (check
     // your connection) than for a 400/429 (pick a different unit / wait).
-    return { ok: false, error: NETWORK_ERROR_MESSAGE };
+    return { ok: false, error: t('unitDeclaration.error.network') };
   }
 
   const data = await res.json().catch(() => ({} as Record<string, unknown>));
@@ -62,7 +59,7 @@ export async function declareUnit(orgId: string, unitId: string): Promise<Declar
     const serverMessage = typeof (data as { error?: unknown }).error === 'string'
       ? (data as { error: string }).error
       : null;
-    return { ok: false, error: serverMessage ?? GENERIC_SERVER_ERROR_MESSAGE };
+    return { ok: false, error: serverMessage ?? t('unitDeclaration.error.generic') };
   }
 
   const body = data as { tenantType?: unknown; unitPath?: unknown };
