@@ -23,6 +23,9 @@ import enProfile from '@/messages/en/profile.json';
 import { profile } from '@/messages/ns/profile';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
+import heMap from '@/messages/he/map.json';
+import enMap from '@/messages/en/map.json';
+import { map } from '@/messages/ns/map';
 import { player } from '@/messages/ns/player';
 import { summary } from '@/messages/ns/summary';
 import { registerCatalog } from '../catalogs';
@@ -39,6 +42,7 @@ const SETS = [
   { ns: player, he: hePlayer as Cat, en: enPlayer as Cat },
   { ns: summary, he: heSummary as Cat, en: enSummary as Cat },
   { ns: profile, he: heProfile as Cat, en: enProfile as Cat },
+  { ns: map, he: heMap as Cat, en: enMap as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
 const values = (msg: string) => Object.fromEntries(messageArgNames(msg).map((n) => [n, SELECTS[n] ?? 3]));
@@ -80,5 +84,9 @@ describe('en pilot — Hebrew is untouched', () => {
 
   it('profile: every he key is translated in batch 4', () => {
     expect(Object.keys(enProfile)).toEqual(Object.keys(heProfile));
+  });
+
+  it('map: every he key is translated in batch 5', () => {
+    expect(Object.keys(enMap)).toEqual(Object.keys(heMap));
   });
 });
