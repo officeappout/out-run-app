@@ -7,17 +7,17 @@ import type { LeaderboardCategory, LeaderboardTimeWindow } from '@/features/aren
 import type { CommunityEvent, CommunityGroup, ScheduleSlot } from '@/types/community.types';
 import type { LeagueT } from '@/features/arena/components/league-t';
 import {
-  EVENT_VERB,
-  GROUP_VERB,
   HEBREW_MONTHS,
   type CommunityTopTab,
   type FeedFilter,
 } from './community-constants';
 
+import { eventJoinVerbKey, groupJoinVerbKey, type JoinVerbKey } from '@/features/arena/utils/join-verb';
+
 /** What the post-join success drawer shows. */
 export interface JoinSuccessData {
   name: string;
-  verb: string;
+  verbKey: JoinVerbKey;
   groupId?: string;
   scheduleSlots?: ScheduleSlot[];
   category?: string;
@@ -57,7 +57,7 @@ export function groupJoinSuccess(group: CommunityGroup): JoinSuccessData {
       : [];
   return {
     name: group.name,
-    verb: GROUP_VERB[group.category] ?? 'יתאמן',
+    verbKey: groupJoinVerbKey(group.category),
     groupId: group.id,
     scheduleSlots: allSlots,
     category: group.category,
@@ -67,7 +67,7 @@ export function groupJoinSuccess(group: CommunityGroup): JoinSuccessData {
 
 /** Success-drawer data after joining an event. */
 export function eventJoinSuccess(event: CommunityEvent): JoinSuccessData {
-  return { name: event.name, verb: EVENT_VERB[event.category] ?? 'יתאמן' };
+  return { name: event.name, verbKey: eventJoinVerbKey(event.category) };
 }
 
 // ── Feed ────────────────────────────────────────────────────────────────────

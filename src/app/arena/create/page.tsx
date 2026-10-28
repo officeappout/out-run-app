@@ -13,6 +13,7 @@ import { common } from '@/messages/ns/common';
 import { community } from '@/messages/ns/community';
 import { weekdayLabels } from '@/lib/i18n/units';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
+import { useShowHeOnlySurfaces, withoutHeOnlyGroupTypes } from '@/features/arena/hooks/useShowHeOnlySurfaces';
 import { createGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { pickTemplate } from '@/features/arena/services/message-templates.service';
@@ -75,6 +76,8 @@ export default function CreateGroupPage() {
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const access = useArenaAccess();
+  // No army structure in English (hide_he_only_onboarding_steps + non-he): the unit card is not offered.
+  const showHeOnly = useShowHeOnlySurfaces();
 
   // Route guard — the whole wizard creates league-type groups only.
   useEffect(() => {
@@ -139,7 +142,7 @@ export default function CreateGroupPage() {
   // Org-code types go to the code-entry step
   const CODE_ENTRY_TYPES = new Set<CommunityGroupType>(['school', 'military']);
 
-  const TYPE_CARDS = [
+  const ALL_TYPE_CARDS = [
     {
       type: 'neighborhood' as CommunityGroupType,
       icon: <Home className="w-6 h-6" />,
@@ -221,6 +224,8 @@ export default function CreateGroupPage() {
       getAuthorityId: () => '',
     },
   ];
+
+  const TYPE_CARDS = withoutHeOnlyGroupTypes(ALL_TYPE_CARDS, showHeOnly, (c) => c.type);
 
   // ── Step: Type Selection ─────────────────────────────────────────────────
 
