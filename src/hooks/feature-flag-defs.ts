@@ -277,6 +277,11 @@ export const FLAG_DEFS = [
   // admin (owner + office) always sees it (superAdminValue true). Off = tool list, prompt, engine
   // options and results exactly as before.
   { key: 'aiCoachWorkoutFormat', firestoreKey: 'ai_coach_workout_format', defaultValue: false, superAdminValue: true },
+  // aiCoachLocaleV1 (28.10.2026, owner-approved) — Kelly answers in the user's language. Server-read (chat
+  // route, src/lib/ai/coach/coach-locale.ts resolveCoachLocale): the reply language follows users/{uid}.core.locale
+  // only while this AND enable_i18n (and the locale's own enable_locale_*) are on. Fail-closed, superAdminValue
+  // false (the server never applies it). Off = Hebrew prompts, fixed replies and stored messages byte-identical.
+  { key: 'aiCoachLocaleV1', firestoreKey: 'ai_coach_locale_v1', defaultValue: false, superAdminValue: false },
   // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
   // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
   // the focused field is scrolled into view, and the Capacitor Keyboard plugin is

@@ -19,11 +19,7 @@
  * persists.
  */
 import type { CoachGender } from './persona';
-import { makeT } from '@/lib/i18n/t';
-import { coach } from '@/messages/ns/coach';
-
-// Hebrew-only server copy (bundled catalog, sync read).
-const t = makeT('he', coach);
+import { coachT, type CoachLocale } from './coach-locale';
 
 export type SafetyTrigger = 'chest' | 'breath' | 'dizziness' | 'pregnancy' | 'injury';
 
@@ -88,7 +84,8 @@ export function detectSafetyTrigger(text: string): SafetyTrigger | null {
  * The fixed reply. No emoji, no dashes, no English, the user addressed by core.gender.
  * Kelly speaks in masculine first person (product decision 18.10.2026).
  */
-export function safetyReply(trigger: SafetyTrigger, gender: CoachGender): string {
+export function safetyReply(trigger: SafetyTrigger, gender: CoachGender, locale: CoachLocale = 'he'): string {
+  const t = coachT(locale);
   const opener = t(trigger === 'pregnancy' ? 'safety.opener.pregnancy' : trigger === 'injury' ? 'safety.opener.injury' : 'safety.opener.chest');
   return t('safety.reply', { opener, stop: t('safety.stop', { gender }), call: t('safety.call', { gender }), gender });
 }
