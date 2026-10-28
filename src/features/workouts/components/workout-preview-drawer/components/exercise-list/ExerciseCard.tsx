@@ -1,5 +1,6 @@
 'use client';
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 import React, { useCallback } from 'react';
 import { Target } from 'lucide-react';
@@ -58,9 +59,10 @@ function ExerciseCardImpl({
 }: ExerciseCardProps) {
   const v2 = useHomeV2();
   const t = useT(library);
+  const lang = useContentLanguage();
   const name = typeof exercise.exercise.name === 'string'
     ? exercise.exercise.name
-    : getLocalizedText(exercise.exercise.name, 'he');
+    : getLocalizedText(exercise.exercise.name, lang);
 
   const isGoal = exercise.isGoalExercise === true;
   const uniLabel = exercise.exercise.symmetry === 'unilateral' ? t('preview.card.unilateral') : '';

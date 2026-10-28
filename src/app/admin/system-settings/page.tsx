@@ -109,6 +109,7 @@ interface FlagState {
   enable_locale_en: boolean;
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
+  enable_content_locale: boolean;
   push_locale_v1: boolean;
   enable_app_session_signal: boolean;
   enable_osm_attribution: boolean;
@@ -888,6 +889,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-indigo-600',
     title: 'שפה: גרמנית',
     description: 'משתמשים שבחרו גרמנית (או שהמכשיר שלהם בגרמנית) יקבלו את האפליקציה בגרמנית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
+    parentKey: 'enable_i18n',
+  },
+  {
+    key: 'enable_content_locale',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'תוכן בשפת המשתמש',
+    description: 'שמות תרגילים, תיאורים והנחיות מוצגים באנגלית למשתמשים באנגלית. שדה שאין לו תרגום מוצג בעברית. דורש את מתג השפות הראשי. כבוי = תוכן בעברית, בדיוק כמו היום.',
     parentKey: 'enable_i18n',
   },
   {

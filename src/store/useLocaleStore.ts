@@ -17,16 +17,19 @@ interface LocaleState {
   locale: Locale;
   /** enable_i18n as last seen by LocaleSync (false = Hebrew only). */
   i18nEnabled: boolean;
+  /** enable_content_locale as last seen by LocaleSync: user-facing content may resolve in English. */
+  contentLocaleOn: boolean;
   /** The signed-in user's gender, injected into t() as the ICU `gender` value. */
   gender: Gender;
   /** Bumped whenever a lazy catalog lands, so useT() re-renders with it. */
   catalogVersion: number;
-  setLocaleState: (next: Partial<Pick<LocaleState, 'locale' | 'i18nEnabled' | 'gender'>>) => void;
+  setLocaleState: (next: Partial<Pick<LocaleState, 'locale' | 'i18nEnabled' | 'gender' | 'contentLocaleOn'>>) => void;
 }
 
 export const useLocaleStore = create<LocaleState>()((set) => ({
   locale: SOURCE_LOCALE,
   i18nEnabled: false,
+  contentLocaleOn: false,
   gender: 'other',
   catalogVersion: 0,
   setLocaleState: (next) => set(next),

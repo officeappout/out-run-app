@@ -19,6 +19,7 @@
  *     so no existing library content is lost.
  */
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import {
@@ -219,7 +220,8 @@ function ChainNode({
   const isCurrent = variant === 'same';
   const thumb = resolveExerciseThumbnail(exercise, location);
   const level = getExerciseLevelForProgram(exercise, activeProgramId);
-  const name = getLocalizedText(exercise.name, 'he');
+  const lang = useContentLanguage();
+  const name = getLocalizedText(exercise.name, lang);
 
   if (v2) {
     return (
