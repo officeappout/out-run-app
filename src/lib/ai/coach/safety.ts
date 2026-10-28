@@ -94,10 +94,6 @@ const RULES: Rule[] = [
   },
 ];
 
-// TODO (owner decision, no wording invented here): self-harm / suicidal ideation is NOT detected in any
-// language. It needs approved crisis wording and a hotline per locale (Hebrew and English) before a detector
-// and fixed reply are added. Until then the model's own prompt rules apply.
-
 /** First matching trigger (most specific first), or null. */
 export function detectSafetyTrigger(text: string): SafetyTrigger | null {
   const t = (text ?? '').normalize('NFC');
