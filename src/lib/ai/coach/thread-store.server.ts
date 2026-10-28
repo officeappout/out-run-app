@@ -37,6 +37,7 @@ import type { WorkoutToolResult } from './tools';
 import { isCoachActionId, type CoachActionId } from './action-chips';
 import { aiPauseReply, needsHumanReasonFor, nextAiPause, pausedMessageNeedsHuman, shouldSendPauseReply, type AiPauseCode, type NeedsHumanReason } from './ai-pause';
 import type { CoachGender } from './persona';
+import type { CoachLocale } from './coach-locale';
 import type { SuggestionChip } from './suggestions/types';
 import type { StoredProposal } from './schedule-proposal/types';
 import type { Round4Extras, Round4TurnState } from './round4/types';
@@ -325,7 +326,7 @@ export async function appendAiPausedUserMessage(
   db: Firestore,
   uid: string,
   text: string,
-  opts: { code: AiPauseCode; gender: CoachGender; retryAfterSec?: number; teamChannel?: boolean; safetyText?: string | null },
+  opts: { code: AiPauseCode; gender: CoachGender; retryAfterSec?: number; teamChannel?: boolean; safetyText?: string | null; locale?: CoachLocale },
   now = Date.now(),
 ): Promise<
   | { ok: true; id: string; replyId: string | null; replyText: string | null; needsHuman: boolean }
@@ -347,7 +348,7 @@ export async function appendAiPausedUserMessage(
     const replyText = safety
       ? (opts.safetyText as string)
       : sendPause
-        ? aiPauseReply(opts.code, opts.gender, { retryAfterSec: opts.retryAfterSec, now: new Date(now), teamChannel: opts.teamChannel })
+        ? aiPauseReply(opts.code, opts.gender, { retryAfterSec: opts.retryAfterSec, now: new Date(now), teamChannel: opts.teamChannel, ...(opts.locale && opts.locale !== 'he' ? { locale: opts.locale } : {}) })
         : null;
 
     tx.set(userRef, { role: 'user', source: 'user', text: text.slice(0, 4000), cards: [], createdAt: at });

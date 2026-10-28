@@ -22,9 +22,12 @@
 import type { CoachGender } from './persona';
 import { makeLiveT } from '@/lib/i18n/live-t';
 import { coach } from '@/messages/ns/coach';
+import { coachT, type CoachLocale } from './coach-locale';
 
-// Locale-aware copy: resolved per call (Hebrew on the server and with the flags off).
-const t = makeLiveT(coach);
+// Client copy follows the app's locale store (Hebrew with the flags off). Server callers pass an explicit
+// per-request `locale` instead (Kelly server locale, ai_coach_locale_v1): the store is never read there.
+const liveT = makeLiveT(coach);
+const tFor = (locale?: CoachLocale) => (locale ? coachT(locale) : liveT);
 
 /** Gate denials the chat route answers itself (stores the message + a paused reply). */
 export const AI_PAUSE_CODES = ['rate_limited', 'kill_switch', 'over_budget', 'unavailable'] as const;
@@ -110,7 +113,8 @@ function israelClock(d: Date): string {
  * "בסביבות 14:35" / "מחר בסביבות 09:10" (Israel time), rounded UP to 5 minutes so Kelly never
  * promises a time before he is actually back.
  */
-export function reopenPhrase(retryAfterSec: number, now: Date): string {
+export function reopenPhrase(retryAfterSec: number, now: Date, locale?: CoachLocale): string {
+  const t = tFor(locale);
   const fiveMin = 5 * 60 * 1000;
   const at = new Date(Math.ceil((now.getTime() + retryAfterSec * 1000) / fiveMin) * fiveMin);
   const today = israelDateKey(now);
@@ -127,14 +131,15 @@ export function reopenPhrase(retryAfterSec: number, now: Date): string {
 export function aiPauseReply(
   code: AiPauseCode,
   gender: CoachGender,
-  opts: { retryAfterSec?: number; now?: Date; teamChannel?: boolean } = {},
+  opts: { retryAfterSec?: number; now?: Date; teamChannel?: boolean; locale?: CoachLocale } = {},
 ): string {
+  const t = tFor(opts.locale);
   const now = opts.now ?? new Date();
   const team = opts.teamChannel !== false;
   if (code === 'rate_limited') {
     const sec = opts.retryAfterSec ?? 0;
     const opener = t(sec > 0 && sec <= 3600 ? 'pause.rate.openerHour' : 'pause.rate.openerDay');
-    const back = sec > 0 ? t('pause.rate.backAt', { when: reopenPhrase(sec, now) }) : t('pause.rate.backLater');
+    const back = sec > 0 ? t('pause.rate.backAt', { when: reopenPhrase(sec, now, opts.locale) }) : t('pause.rate.backLater');
     return [opener, back, team ? t('pause.writeUrgent', { gender }) : ''].filter(Boolean).join(' ');
   }
   if (code === 'over_budget') {

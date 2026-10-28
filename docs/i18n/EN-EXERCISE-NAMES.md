@@ -102,7 +102,7 @@
 | שכיבות סמיכה רצועות ב-45° | Strap Push-Up (45°) | | |
 | שכיבות סמיכה סופינציה | Reverse-Grip Push-Up | Supinated Push-Up | `?` |
 | שכיבות סמיכה בפישוק | UNMAPPED | | See §12 |
-| מקבילים | Dips | Parallel Bar Dip | Singular "Dip" for the exercise name |
+| מקבילים | Dips | Parallel Bar Dip | **APPROVED** (owner 28.10): plural "Dips" for the base exercise name |
 | מקבילים על מוט | Straight Bar Dip | | |
 | מקבילים על טבעות | Ring Dip | | Standard |
 | מקבילים בולגריים | Bulgarian Dip | Bulgarian Ring Dip | Standard ring term `?` |
