@@ -231,7 +231,7 @@ export function homeTourFromTodaySteps(today: HomeTourToday): FirstRunTourStep[]
 export function firstRunTourSteps(
   tour: AnyFirstRunTourId,
   gender: AppGender | null | undefined,
-  opts?: { homeToday?: HomeTourToday | null; mapTutorialV1?: boolean },
+  opts?: { homeToday?: HomeTourToday | null; mapTutorialV1?: boolean; parkLiveV2?: boolean },
 ): FirstRunTourStep[] {
   // g(): null / undefined gender -> the male form (the old convention); 'other' -> the neutral branch.
   const gd = { gender: gender ?? 'male' };
@@ -316,6 +316,10 @@ export function firstRunTourSteps(
       ];
     // enable_entry_whatnow_v1 (design R6): one tip the first time the route player runs.
     case 'route-player':
+      // enable_park_live_v2 (board Park 4, pilot M4): the live park workout opens on the data, the story
+      // bars and the list, and ends on "follow the route" (never on the finish button first). A missing
+      // target drops its step, so a run without the park player still gets the one controls tip.
+      if (opts?.parkLiveV2) return parkLiveTourSteps();
       return [
         {
           target: FIRST_RUN_COACH.routePlayerControls,
@@ -413,4 +417,14 @@ export function isNewUserForTours(input: {
   }
   if (input.everTrained == null) return null;
   return !input.everTrained;
+}
+
+/** enable_park_live_v2 (board Park 4, pilot M4): the live park workout tour, in the approved order. */
+export function parkLiveTourSteps(): FirstRunTourStep[] {
+  return [
+    { target: 'park-live-data', title: t('tour.parkLive.data.title'), text: t('tour.parkLive.data.text') },
+    { target: 'park-live-bars', title: t('tour.parkLive.bars.title'), text: t('tour.parkLive.bars.text') },
+    { target: 'park-live-list', title: t('tour.parkLive.list.title'), text: t('tour.parkLive.list.text') },
+    { target: FIRST_RUN_COACH.routePlayerControls, title: t('tour.parkLive.follow.title'), text: t('tour.parkLive.follow.text') },
+  ];
 }

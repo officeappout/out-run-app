@@ -27,6 +27,10 @@ import { useHybridPlayerV2 } from './HybridPlayerV2Context';
 import { headerView } from './hybrid-v2-view';
 import HybridRunLegV2 from './HybridRunLegV2';
 import HybridTransitionCardV2 from './HybridTransitionCardV2';
+import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { isWalkingLeg } from '../park-live-v2';
+import ParkWalkDrawer from './park/ParkWalkDrawer';
+import ParkMessageRow from './park/ParkMessageRow';
 
 interface Props {
   dragControls: ReturnType<typeof useDragControls>;
@@ -43,11 +47,15 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   const header = usePublishedHeaderHeight();
   // Map camera keeps the runner's marker between the header and the card.
   const chrome = usePublishedPlayerChrome({ bottomGapPx: 12, headerIncludesSafeTop: true });
+  // enable_park_live_v2 (boards Park 1-2): walking legs get the walk drawer + the station message row.
+  const parkLive = useParkLiveV2();
   if (!api?.enabled || !api.view || !api.strip) return null;
 
   const view = api.view;
   const h = headerView(view, api.plan, api.names, api.label, t);
   const cart = toCartItems(api.strip);
+  const walkLeg = view.phase === 'run' || view.phase === 'cooldown' || view.phase === 'idle';
+  const parkWalk = parkLive && walkLeg && isWalkingLeg(view);
 
   return (
     <>
@@ -59,7 +67,9 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
               dragControls.start(e);
             }}
             leading={
-              <CartProgressIcon items={cart} onClick={onMinimize} size={48} ariaLabel={t('hybrid.v2.overlay.cartAria', { count: String(api.strip.doneCount) })} />
+              <span data-coach="park-live-list">
+                <CartProgressIcon items={cart} onClick={onMinimize} size={48} ariaLabel={t('hybrid.v2.overlay.cartAria', { count: String(api.strip.doneCount) })} />
+              </span>
             }
             eyebrow={h.eyebrow}
             eyebrowColor={h.color}
@@ -69,8 +79,13 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
                 {fmtClock(Number.isFinite(totalDuration) ? totalDuration : 0)}
               </span>
             }
-            strip={<StoryBars segments={toStorySegments(api.strip)} currentIndex={api.strip.currentIndex} progress={api.strip.progress} />}
+            strip={
+              <div data-coach="park-live-bars">
+                <StoryBars segments={toStorySegments(api.strip)} currentIndex={api.strip.currentIndex} progress={api.strip.progress} />
+              </div>
+            }
           />
+          {parkLive && <ParkMessageRow api={api} />}
         </div>
       </div>
 
@@ -78,6 +93,11 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
         <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
       </div>
 
+      {parkWalk ? (
+        <div ref={chrome.cardRef} className="absolute inset-x-0 bottom-0 z-10" dir="rtl">
+          <ParkWalkDrawer api={api} onOpenList={onMinimize} />
+        </div>
+      ) : (
       <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }} dir="rtl">
         {view.phase === 'transition' ? (
           <HybridTransitionCardV2 api={api} />
@@ -85,6 +105,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
           <HybridRunLegV2 api={api} />
         ) : null}
       </div>
+      )}
     </>
   );
 }
