@@ -20,7 +20,7 @@ export default function RunningPlanCard({ plan }: { plan: RunningPlanProgress })
     <button
       type="button"
       onClick={() => router.push('/progression/running-plan')}
-      className="w-full rounded-v2-card bg-white p-4 text-right shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.97]"
+      className="w-full rounded-v2-card bg-white p-4 text-start shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.97]"
     >
       <div className="flex items-center gap-3">
         <KindIcon kind="run" size={40} />
@@ -35,7 +35,7 @@ export default function RunningPlanCard({ plan }: { plan: RunningPlanProgress })
             })}
           </p>
         </div>
-        <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+        <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
       </div>
       <div className="mt-3 flex gap-1" aria-hidden>
         {Array.from({ length: plan.weeks }, (_, i) => {

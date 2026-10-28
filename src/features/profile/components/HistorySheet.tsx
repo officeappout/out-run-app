@@ -91,7 +91,6 @@ export default function HistorySheet({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 35 }}
             className="fixed bottom-0 inset-x-0 z-[99] bg-[#F8FAFC] rounded-t-3xl shadow-2xl max-h-[92dvh] flex flex-col"
-            dir="rtl"
           >
             <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 bg-gray-300 rounded-full" />

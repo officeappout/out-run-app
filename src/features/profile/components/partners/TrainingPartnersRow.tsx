@@ -23,7 +23,7 @@ export default function TrainingPartnersRow({ partners, loading, onPartnerClick,
   const t = useT(profileNs);
   const [open, setOpen] = useState(false);
   return (
-    <div dir="rtl">
+    <div>
       <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog"
         className="mb-2.5 flex w-full items-center gap-2 text-start" data-testid="training-partners-row">
         <span className="text-[15px] font-black text-v2-ink">{t('profile.partners.title')}</span>
@@ -33,7 +33,7 @@ export default function TrainingPartnersRow({ partners, loading, onPartnerClick,
           </span>
         )}
         <span className="flex-1" />
-        <ChevronLeft size={18} className="text-v2-muted" aria-hidden />
+        <ChevronLeft size={18} className="text-v2-muted ltr:-scale-x-100" aria-hidden />
       </button>
       <PartnersHighlightsRow partners={[...partners]} isLoading={loading} onPartnerClick={onPartnerClick} onAddClick={onAddClick} />
       <PartnersListSheet open={open} onClose={() => setOpen(false)} partners={partners}

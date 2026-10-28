@@ -168,7 +168,7 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
         sub: 'text-[13px] font-bold text-v2-muted tabular-nums',
         body: 'text-[13.5px] leading-relaxed text-v2-ink-2',
         label: 'text-[13px] font-extrabold text-v2-deep',
-        row: 'flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]',
+        row: 'flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]',
         rowName: 'truncate text-[15px] font-extrabold text-v2-ink',
         rowMeta: 'mt-0.5 truncate text-[12.5px] font-bold text-v2-muted tabular-nums',
         pct: 'whitespace-nowrap text-[13px] font-extrabold text-v2-deep tabular-nums',
@@ -182,7 +182,7 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
         sub: 'text-xs font-bold text-gray-500 tabular-nums',
         body: 'text-sm text-gray-600 leading-relaxed',
         label: 'text-xs font-bold text-gray-400 tracking-wide',
-        row: 'flex w-full items-center gap-3 rounded-xl bg-gray-50 p-3 text-right active:bg-gray-100 transition-colors',
+        row: 'flex w-full items-center gap-3 rounded-xl bg-gray-50 p-3 text-start active:bg-gray-100 transition-colors',
         rowName: 'truncate text-sm font-bold text-gray-900',
         rowMeta: 'mt-0.5 truncate text-xs font-medium text-gray-500 tabular-nums',
         pct: 'whitespace-nowrap text-sm font-black text-gray-900 tabular-nums',
@@ -212,7 +212,7 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
                 </p>
               </div>
               <span className={c.pct}>{r.percent}%</span>
-              <ChevronLeft className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
+              <ChevronLeft className="h-4 w-4 shrink-0 text-gray-400 ltr:-scale-x-100" aria-hidden />
             </button>
           ))}
         </div>
@@ -298,7 +298,6 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            dir="rtl"
           >
             <div className="mx-auto max-w-md">
               <div className="flex justify-center pt-3 pb-1">

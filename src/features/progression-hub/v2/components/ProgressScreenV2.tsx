@@ -134,7 +134,7 @@ export default function ProgressScreenV2() {
     tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
   return (
-    <div className="min-h-screen bg-v2-surface text-v2-ink" dir="rtl">
+    <div className="min-h-screen bg-v2-surface text-v2-ink">
       <AppHeader v2 />
       <div className="mx-auto max-w-md space-y-5 px-4 pb-28 pt-4">
         <header>

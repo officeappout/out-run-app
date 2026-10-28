@@ -167,7 +167,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   const visibleTabs = v2 ? PROFILE_TABS.filter((tab) => tab.id === 'workouts' || tab.id === 'badges') : PROFILE_TABS;
 
   return (
-    <div className="space-y-4 pb-24" dir="rtl">
+    <div className="space-y-4 pb-24">
       {/* ════════════════════════════════════════════════════════════════════
           BLOCK 1 — flat IG-style header (avatar + 3 stats; photo falls back
           to lemur). "פרופיל חלק" round: no card chrome (bg-white/rounded/
@@ -182,7 +182,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         className="relative"
       >
         {/* Top-left action cluster — gear (settings) + bookmark (saved workouts) */}
-        <div className="absolute top-0 left-0 flex items-center gap-2 z-10">
+        <div className="absolute top-0 end-0 flex items-center gap-2 z-10">
           {onOpenSettings && (
             <button
               type="button"

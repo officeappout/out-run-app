@@ -254,13 +254,13 @@ export default function PublicProfilePage() {
         className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-gray-100"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="max-w-md mx-auto px-4 py-1.5 flex items-center gap-3" dir="rtl">
+        <div className="max-w-md mx-auto px-4 py-1.5 flex items-center gap-3">
           <button
             onClick={() => router.back()}
             className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
             aria-label={t('publicProfile.header.back')}
           >
-            <ArrowRight className="w-5 h-5 text-gray-700" />
+            <ArrowRight className="w-5 h-5 text-gray-700 ltr:-scale-x-100" />
           </button>
           <h1 className="text-lg font-black text-gray-900 flex-1 truncate">
             {publicProfile.name}
@@ -349,7 +349,7 @@ export default function PublicProfilePage() {
             tagIds={publicProfile.trainingTags ?? []}
             actions={
               !isSelf && myUid ? (
-                <div className="flex items-center gap-2 mt-4" dir="rtl">
+                <div className="flex items-center gap-2 mt-4">
                   <button
                     type="button"
                     onClick={handleToggleFollow}
@@ -412,7 +412,7 @@ export default function PublicProfilePage() {
           />
         </div>
 
-        <div className="mt-5" dir="rtl">
+        <div className="mt-5">
           <h3 className={v2 ? 'mb-2.5 text-[15px] font-black text-v2-ink' : 'text-sm font-black text-gray-800 mb-3'}>{t('publicProfile.activity.title')}</h3>
           <PublicActivityGrid posts={posts} isLoading={loading} v2={v2} />
         </div>

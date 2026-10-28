@@ -36,7 +36,7 @@ export default function ProgressWeekStrip({ activeDays, currentStreak, onOpenCon
           >
             <Flame className="h-4 w-4" aria-hidden />
             {t('hub.weekStrip.streak', { count: String(currentStreak) })}
-            <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+            <ChevronLeft className="h-3.5 w-3.5 ltr:-scale-x-100" aria-hidden />
           </button>
         )}
       </div>

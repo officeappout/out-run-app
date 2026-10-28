@@ -162,7 +162,13 @@ export function scanLtrHosts(root = 'src'): ScanResult {
     result.push({ host: path.relative(process.cwd(), host), kind: isProp ? 'prop' : 'direct', callers: callers.map((c) => path.relative(process.cwd(), c)), inside: Array.from(set).map((s) => path.relative(process.cwd(), s)) });
   }
   const out = new Map<string, string[]>();
-  for (const [t, h] of Array.from(inside)) out.set(path.relative(process.cwd(), t), Array.from(h).map((x) => path.relative(process.cwd(), x)));
+  // Verified false positives: hosts whose dir=ltr subtree renders no project component (only DOM / third-party / ui-kit leaves).
+  // Documented per PR; opt-in via W4_LTR_HOST_OK="rel/host1.tsx,rel/host2.tsx" (never a default).
+  const okHosts = new Set((process.env.W4_LTR_HOST_OK ?? '').split(',').map((x) => x.trim()).filter(Boolean));
+  for (const [t, h] of Array.from(inside)) {
+    const hs = Array.from(h).map((x) => path.relative(process.cwd(), x)).filter((x) => !okHosts.has(x));
+    if (hs.length) out.set(path.relative(process.cwd(), t), hs);
+  }
   return { hosts: result, inside: out };
 }
 
