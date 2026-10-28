@@ -11,11 +11,11 @@
  */
 import { emomIntervalMs } from '@/features/workout-engine/engines/timed/emom.machine';
 import type { EmomState, TimedItem, TimedState } from '@/features/workout-engine/engines/timed/timed.types';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { player } from '@/messages/ns/player';
 
 /** Hebrew translator, built once. */
-const t = makeT('he', player);
+const t = makeLiveT(player);
 
 export type TimedPrompt =
   | { kind: 'amrap_partial'; itemIndex: number; item: TimedItem; round: number }

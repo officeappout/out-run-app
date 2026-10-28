@@ -13,11 +13,11 @@ import { emomMinuteAt } from '@/features/workout-engine/engines/timed/emom.machi
 import { amrapScore } from '@/features/workout-engine/engines/timed/timed.selectors';
 import type { AmrapState, EmomState, TabataState, TimedItem, TimedState } from '@/features/workout-engine/engines/timed/timed.types';
 import { formatClock, itemTargetText } from './timed-labels';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { player } from '@/messages/ns/player';
 
 /** Hebrew translator, built once (the list model is rebuilt every tick). */
-const t = makeT('he', player);
+const t = makeLiveT(player);
 
 export type PillTone = 'done' | 'partial' | 'missed';
 

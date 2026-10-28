@@ -7,11 +7,11 @@
  */
 import type { CoachGender } from '../persona';
 import type { SuggestionChip } from './types';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { coach } from '@/messages/ns/coach';
 
-// Hebrew-only copy (bundled catalog, sync read; the chat route and the app both build chips).
-const t = makeT('he', coach);
+// Locale-aware copy: resolved per call (Hebrew on the server and with the flags off).
+const t = makeLiveT(coach);
 
 const say = (id: string, label: string, message?: string): SuggestionChip => (message ? { id, label, message } : { id, label });
 

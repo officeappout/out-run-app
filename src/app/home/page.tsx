@@ -168,18 +168,9 @@ import { resolveStripSchedule } from '@/features/home/utils/strip-schedule';
 import { useFastStartGuard } from '@/features/home/hooks/useFastStartGuard';
 import { useBackgroundWorkoutHold } from '@/features/home/hooks/useBackgroundWorkoutHold';
 import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHomeCarouselStartupCache';
+import { DEFAULT_JOIN_VERB_KEY, groupJoinVerbKey, type JoinVerbKey } from '@/features/arena/utils/join-verb';
 import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
 
-// i18n-allow-hebrew (whole map): join verbs = text composed by PostJoinSuccessDrawer (community area), same as
-// app/community/_lib/community-constants.ts — they move together with that drawer.
-const GROUP_VERB: Record<string, string> = {
-  walking:      'ילך', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  running:      'ירוץ', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  yoga:         'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  calisthenics: 'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  cycling:      'ירכב', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  other:        'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-};
 
 
 // ════════════════════════════════════════════════════════════════════
@@ -842,7 +833,7 @@ export default function HomePage() {
   const [bannerGroup, setBannerGroup] = useState<CommunityGroup | null>(null);
   const [joinSuccessData, setJoinSuccessData] = useState<{
     name: string;
-    verb: string;
+    verbKey: JoinVerbKey;
     scheduleSlots?: ScheduleSlot[];
     category?: string;
     address?: string;
@@ -1701,7 +1692,7 @@ export default function HomePage() {
                   : [];
               setJoinSuccessData({
                 name:          group.name,
-                verb:          GROUP_VERB[group.category] ?? 'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+                verbKey:       groupJoinVerbKey(group.category),
                 scheduleSlots: allSlots,
                 category:      group.category,
                 address:       group.meetingLocation?.address,
@@ -4570,7 +4561,7 @@ export default function HomePage() {
           if (g) setBannerGroup(g);
         }}
         name={joinSuccessData?.name ?? ''}
-        verb={joinSuccessData?.verb ?? 'יתאמן'} // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+        verbKey={joinSuccessData?.verbKey ?? DEFAULT_JOIN_VERB_KEY}
         scheduleSlots={joinSuccessData?.scheduleSlots}
         category={joinSuccessData?.category}
         address={joinSuccessData?.address}

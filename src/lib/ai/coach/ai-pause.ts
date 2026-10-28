@@ -20,11 +20,11 @@
  * filter it.
  */
 import type { CoachGender } from './persona';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { coach } from '@/messages/ns/coach';
 
-// Hebrew-only server copy (bundled catalog, sync read).
-const t = makeT('he', coach);
+// Locale-aware copy: resolved per call (Hebrew on the server and with the flags off).
+const t = makeLiveT(coach);
 
 /** Gate denials the chat route answers itself (stores the message + a paused reply). */
 export const AI_PAUSE_CODES = ['rate_limited', 'kill_switch', 'over_budget', 'unavailable'] as const;

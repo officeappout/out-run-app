@@ -9,11 +9,11 @@
  *   route-drawer (M7, L13) the walk block → the strength block → most routes are loops → start
  */
 import type { FirstRunTourStep } from './first-run-tour';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { map } from '@/messages/ns/map';
 
 // The tutorial's copy lives under `mapTutorial.*` in the map catalog (he only until it graduates).
-const t = makeT('he', map);
+const t = makeLiveT(map);
 
 /** `data-coach` targets of the workout drawer (HybridOverviewScreen; literals there, no cross-domain import). */
 export const MAP_TUTORIAL_COACH = {

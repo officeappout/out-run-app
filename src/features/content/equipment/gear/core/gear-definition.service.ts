@@ -257,12 +257,12 @@ export async function duplicateGearDefinition(gearId: string): Promise<string> {
     const duplicateData: GearDefinitionFormData = {
       name: {
         he: `עותק של ${originalGear.name?.he || originalGear.name?.en || ''}`,
-        en: `Copy of ${originalGear.name?.en || originalGear.name?.he || ''}`,
+        en: '', // empty: to be translated
       },
       description: originalGear.description
         ? {
             he: originalGear.description.he || originalGear.description.en || '',
-            en: originalGear.description.en || originalGear.description.he || '',
+            en: originalGear.description.en || '',
           }
         : undefined,
       icon: originalGear.icon,

@@ -9,11 +9,11 @@ import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/t
 import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/timed.types';
 import type { ExerciseResultLog } from '../../hooks/useWorkoutStateMachine';
 import { blockTitle, formatClock, readyItemLine, resultLine } from './timed-labels';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { player } from '@/messages/ns/player';
 
 /** Hebrew translator, built once. */
-const t = makeT('he', player);
+const t = makeLiveT(player);
 
 export type TimedPlaylistStatus = 'done' | 'active' | 'upcoming';
 

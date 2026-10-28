@@ -33,7 +33,7 @@ import { isQualityDay, type RunningDayRole } from '@/features/schedule/engine/ru
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import type { RunningDayState, RunningScheduleEntry } from '@/lib/running-day-resolution';
 import type { RunDoneState } from '@/lib/run-coverage';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { home, type HomeKey } from '@/messages/ns/home';
 
@@ -176,13 +176,13 @@ export function placeRunCard<T>(items: readonly T[], runItem: T, position: HomeR
   return [...items, runItem];
 }
 
-/** Any home-namespace t() — a component's useT(home) or makeT('he', home). */
+/** Any home-namespace t() — a component's useT(home) or makeLiveT(home). */
 export type HomeT = (key: HomeKey, values?: MessageValues) => string;
 
 /** "מחר" / "בעוד 3 ימים" / "הבא" — the "next" card's day hint (Hebrew unless a `t` is passed). */
 export function nextRunDayHint(
   daysAway: number | undefined,
-  t: HomeT = makeT('he', home),
+  t: HomeT = makeLiveT(home),
 ): string {
   if (daysAway === 1) return t('runCard.dayHint.tomorrow');
   if (daysAway != null && daysAway > 1) return t('runCard.dayHint.inDays', { n: daysAway });

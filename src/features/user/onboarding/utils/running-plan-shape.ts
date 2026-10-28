@@ -12,7 +12,7 @@
  * runs later (bridgeRunningOnboarding during sync). So the chart shows
  * RELATIVE volume (multiplier / max multiplier), labelled "נפח יחסי".
  */
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 import {
   buildVolumeMultipliers,
@@ -22,7 +22,7 @@ import { calibrateBasePace, computeZones, determineProfileType } from '@/feature
 import { DEFAULT_PACE_MAP_CONFIG } from '@/features/workout-engine/core/config/pace-map-config';
 import type { RunnerGoal } from '@/features/workout-engine/core/types/running.types';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export type PlanWeekKind = 'build' | 'recovery' | 'goal';
 
