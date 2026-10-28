@@ -39,3 +39,26 @@ export function resolveContentText(value: ContentText, lang: AppLanguage = 'he',
   if (isGendered(value)) return (gender === 'female' ? value.female : value.male) || value.male || '';
   return getLocalizedText(value, lang);
 }
+
+/** Stored copy that may be a legacy plain Hebrew string or a LocalizedText (programs, levels, level settings). */
+export type StoredText = string | LocalizedText;
+
+/** The Hebrew slot of a stored value ('' when empty). Logic that matches on Hebrew names keeps using this. */
+export function hebrewOf(value: StoredText | null | undefined): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return value.he || value.en || '';
+}
+
+/**
+ * Build the value to store from Hebrew + optional English. Returns the plain Hebrew string when there is no
+ * English (so Hebrew-only saves stay byte-identical to before), LocalizedText only once English is entered.
+ * An existing `es` slot is carried over so a save never drops another language.
+ */
+export function buildStoredText(he: string, en?: string | null, prev?: StoredText | null): StoredText {
+  const heT = (he ?? '').trim();
+  const enT = (en ?? '').trim();
+  if (!enT) return heT;
+  const es = prev && typeof prev === 'object' ? prev.es : undefined;
+  return { he: heT, en: enT, ...(es ? { es } : {}) };
+}
