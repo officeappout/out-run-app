@@ -797,7 +797,7 @@ export default function WorkoutPreviewDrawer({
                   {t('preview.parks.title')}
                 </h3>
                 <div
-                  className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 pb-1"
+                  className="flex gap-3 overflow-x-auto overscroll-x-contain no-scrollbar -mx-6 px-6 scroll-px-6 pb-1 snap-x snap-mandatory"
                 >
                   {nearbyParks.map((park, idx) => (
                     <motion.div
@@ -805,7 +805,7 @@ export default function WorkoutPreviewDrawer({
                       initial={{ opacity: 0, x: 30 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.08, duration: 0.35 }}
-                      className="flex-shrink-0 w-[160px] rounded-2xl border-[0.5px] border-[#E0E9FF] dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800/60 shadow-sm"
+                      className="flex-shrink-0 snap-start snap-always w-[160px] rounded-2xl border-[0.5px] border-[#E0E9FF] dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800/60 shadow-sm"
                     >
                       <ParkCardImage
                         src={park.imageUrl}
