@@ -10,7 +10,7 @@ import { LANGUAGE_NEUTRAL, ONBOARDING_SKIPPED, PILOT_SCOPE, validateAll, validat
 
 const messages = path.resolve(__dirname, '../../../messages');
 
-describe('en catalogs (pilot: common, pages, home settings.*; batch 3: player, summary; batch 4: home (all), profile)', () => {
+describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: home (all), profile)', () => {
   const { issues, reports } = validateAll(messages);
 
   it('has the expected key counts per catalog (pilot 370 + onboarding 1005 + player 905 + summary 167 + home rest 581 + profile 576)', () => {
