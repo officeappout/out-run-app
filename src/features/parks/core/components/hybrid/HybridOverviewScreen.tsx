@@ -266,7 +266,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
         >
           <Info size={15} className="flex-shrink-0" />
           <span className="flex-1 underline underline-offset-2">{fallbackHint}</span>
-          <ChevronLeft size={15} className="flex-shrink-0" />
+          <ChevronLeft size={15} className="flex-shrink-0 ltr:-scale-x-100" />
         </button>
       ) : fallbackHint && (
         <div className="flex items-center gap-2 mt-3 rounded-xl text-[12px] font-bold" style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '9px 12px' }}>

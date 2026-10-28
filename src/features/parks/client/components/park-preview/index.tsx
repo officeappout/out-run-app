@@ -121,7 +121,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
         />
       ) : (
       <div
-        className="absolute bottom-[100px] left-4 right-4 z-30 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer"
+        className="absolute bottom-[100px] end-4 start-4 z-30 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer"
         onClick={() => setDetailOpen(true)}
       >
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-gray-100 dark:border-zinc-700">
@@ -148,7 +148,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
             {/* Close */}
             <button
               onClick={(e) => { e.stopPropagation(); setSelectedPark(null); }}
-              className="absolute top-2 left-2 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full p-1 backdrop-blur-sm transition-colors"
+              className="absolute top-2 end-2 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full p-1 backdrop-blur-sm transition-colors"
             >
               <span className="material-icons-round text-[13px] leading-none">close</span>
             </button>
@@ -159,13 +159,13 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
             <button
               onClick={handleNavigate}
               aria-label={t('parkCard.navigateClassic')}
-              className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+              className="absolute top-2 start-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
             >
               <Navigation size={14} fill="currentColor" />
             </button>
 
             {/* Fade into card body */}
-            <div className="absolute bottom-0 left-0 right-0 h-[70px] bg-gradient-to-b from-transparent to-white dark:to-zinc-800 pointer-events-none" />
+            <div className="absolute bottom-0 end-0 start-0 h-[70px] bg-gradient-to-b from-transparent to-white dark:to-zinc-800 pointer-events-none" />
           </div>
 
           {/* ── Body ─────────────────────────────────────── */}

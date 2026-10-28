@@ -166,7 +166,7 @@ export default function RouteOverviewDrawer({
           {onOpenFullDetails && (
             <button type="button" onClick={onOpenFullDetails}
               className="mt-2.5 inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]">
-              {t('overview.route.details.all')} <ChevronLeft size={15} />
+              {t('overview.route.details.all')} <ChevronLeft className="ltr:-scale-x-100" size={15} />
             </button>
           )}
           {showCredits && <RouteCreditsLine route={route} />}

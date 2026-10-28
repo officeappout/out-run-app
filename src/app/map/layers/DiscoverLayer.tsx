@@ -1828,7 +1828,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -160, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="absolute left-0 right-0 z-[70] px-4 pointer-events-none"
+            className="absolute end-0 start-0 z-[70] px-4 pointer-events-none"
             style={{ top: 'calc(52px + env(safe-area-inset-top, 0px))', paddingTop: '0.75rem' }}
           >
             <div className="max-w-md mx-auto w-full space-y-2">
@@ -1877,7 +1877,6 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                     <button
                       onClick={handleSearchArea}
                       className="bg-white text-gray-800 text-sm font-semibold px-5 py-2 rounded-full shadow-md ring-1 ring-black/10 active:scale-95 transition-all"
-                      dir="rtl"
                     >
                       {t('mapLayers.discover.searchArea')}
                     </button>
@@ -2197,7 +2196,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 fix that made it reactive is reverted along with that reorder). */}
             {partnerTab === null && isMapVisuallyReady && !topChromeFolded && (
               <div
-                className="absolute right-4 z-[50] pointer-events-none"
+                className="absolute start-4 z-[50] pointer-events-none"
                 style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 116px)' }}
                 data-coach={FIRST_RUN_COACH.mapLayers}
               >
@@ -2210,7 +2209,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 rest, rather than sitting hidden behind the skeleton during load. */}
             {isMapVisuallyReady && (
             <div
-              className="absolute right-4 z-[40] flex flex-col gap-3"
+              className="absolute start-4 z-[40] flex flex-col gap-3"
               // v2: lower, nearer the bottom like home's "+" (owner's review).
               style={{ bottom: mapFeatureFlags.enableHomeV2 ? 'calc(max(270px, env(safe-area-inset-bottom, 0px) + 240px))' : 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}
             >
@@ -2264,7 +2263,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 Opens the slot layer (resetHybridFlow('slots') — passive, no compose). */}
             {mapFeatureFlags.enableHybridSlots && mapMode === 'idle' && isMapVisuallyReady && (
               <div
-                className="absolute left-0 right-0 z-[100] pointer-events-none"
+                className="absolute end-0 start-0 z-[100] pointer-events-none"
                 style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
               >
                 <ShimmerPhraseButton
