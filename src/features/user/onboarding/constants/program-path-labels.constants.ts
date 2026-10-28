@@ -1,8 +1,8 @@
 import type { ProgramCardId } from '../utils/program-card-selection';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 /**
  * Static Hebrew display labels for the 3 program-path cards, muscle chips,
@@ -18,28 +18,28 @@ const t = makeT('he', onboarding);
 /** Short-form card label (skills shortened from the card's full sentence
  *  copy to fit a compact priority-list row). */
 export const PROGRAM_CARD_LABELS_HE: Record<ProgramCardId, string> = {
-  health: t('programPath.page.health.title'),
-  body_focus: t('programPath.page.body.title'),
-  skills: t('programCard.skills'),
+  get health() { return t('programPath.page.health.title'); },
+  get body_focus() { return t('programPath.page.body.title'); },
+  get skills() { return t('programCard.skills'); },
 };
 
 export const MUSCLE_NAME_HE: Record<string, string> = {
-  chest: t('muscle.chest'),
-  back: t('muscle.back'),
-  shoulders: t('muscle.shoulders'),
-  biceps: t('muscle.biceps'),
-  triceps: t('muscle.triceps'),
-  legs: t('muscle.legs'),
-  core: t('muscle.core'),
-  glutes: t('muscle.glutes'),
+  get chest() { return t('muscle.chest'); },
+  get back() { return t('muscle.back'); },
+  get shoulders() { return t('muscle.shoulders'); },
+  get biceps() { return t('muscle.biceps'); },
+  get triceps() { return t('muscle.triceps'); },
+  get legs() { return t('muscle.legs'); },
+  get core() { return t('muscle.core'); },
+  get glutes() { return t('muscle.glutes'); },
 };
 
 export const SKILL_NAME_HE: Record<string, string> = {
-  calisthenics_upper: t('skill.calisthenicsUpper'),
-  front_lever: t('skill.frontLever'),
-  muscle_up: t('skill.muscleUp'),
-  planche: t('skill.planche'),
-  handstand: t('skill.handstand'),
-  hspu: t('skill.hspu'),
-  one_arm_pullup: t('skill.oneArmPullup'),
+  get calisthenics_upper() { return t('skill.calisthenicsUpper'); },
+  get front_lever() { return t('skill.frontLever'); },
+  get muscle_up() { return t('skill.muscleUp'); },
+  get planche() { return t('skill.planche'); },
+  get handstand() { return t('skill.handstand'); },
+  get hspu() { return t('skill.hspu'); },
+  get one_arm_pullup() { return t('skill.oneArmPullup'); },
 };
