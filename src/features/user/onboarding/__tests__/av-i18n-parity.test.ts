@@ -15,8 +15,8 @@ import { TOUR_CATALOG, tourCatalogEntry } from '../services/tour-catalog';
 import {
   chooseWhatNowCards,
   whatNowRouteCopy,
-  WHATNOW_KELLY_CHIPS,
-  FIRST_WORKOUT_NOTE,
+  whatNowKellyChips,
+  firstWorkoutNoteText,
   firstWorkoutNote,
   starterChipsFor,
 } from '../services/entry-whatnow';
@@ -43,7 +43,7 @@ import {
 } from '../constants/program-path.constants';
 import { BUNDLED_GOAL_PHOTOS, GOAL_IMAGE_CONFIG } from '../constants/program-path-goal-images';
 import { RUNNING_LABELS, STRENGTH_LABELS } from '../constants/onboarding-phases';
-import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
+import { HEALTH_QUESTIONS, legalText } from '../data/health-questions';
 import { makeT } from '@/lib/i18n/t';
 import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
 import { STAGE_TITLES, getStageTitle } from '@/features/user/progression/config/stage-titles';
@@ -75,9 +75,9 @@ describe('av parity — services', () => {
         whatNowRouteCopy({ minutes: 0.2, stops: null, aerobicKind: 'walking' } as never, null),
         whatNowRouteCopy({ minutes: 30, stops: 1, aerobicKind: 'walking' } as never, '  '),
       ],
-      chips: [...WHATNOW_KELLY_CHIPS],
+      chips: [...whatNowKellyChips()],
       starter: starterChipsFor('entry'),
-      note: [FIRST_WORKOUT_NOTE, firstWorkoutNote(true, false), firstWorkoutNote(true, true)],
+      note: [firstWorkoutNoteText(), firstWorkoutNote(true, false), firstWorkoutNote(true, true)],
     };
     await expect(dump(out)).toMatchFileSnapshot(snap('entry-whatnow'));
   });
@@ -153,7 +153,7 @@ describe('av parity — constants + data', () => {
   it('phase labels, health questions, entry copy, stage titles', async () => {
     const entryT = makeT('he', onboardingNs);
     await expect(dump({
-      RUNNING_LABELS, STRENGTH_LABELS, HEALTH_QUESTIONS, LEGAL_TEXT,
+      RUNNING_LABELS, STRENGTH_LABELS, HEALTH_QUESTIONS, LEGAL_TEXT: legalText(),
       headline: {
         pre: entryT('entryHeadline.pre'), goals: ['train', 'health', 'people', 'strong'].map((k) => entryT(`entryHeadline.goal.${k}` as never)), need: entryT('entryHeadline.need'), nothing: entryT('entryHeadline.nothing'),
       },

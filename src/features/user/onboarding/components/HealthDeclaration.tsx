@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
+import { HEALTH_QUESTIONS, legalText } from '../data/health-questions';
 import SignaturePad from './SignaturePad';
 
 interface HealthDeclarationProps {
@@ -108,7 +108,7 @@ export default function HealthDeclaration({
               <div className="space-y-2">
                  <h3 className="font-bold text-gray-900">חתימה על הצהרת בריאות</h3>
                  <p className="text-xs text-gray-500 leading-relaxed text-justify">
-                   {LEGAL_TEXT}
+                   {legalText()}
                  </p>
               </div>
 

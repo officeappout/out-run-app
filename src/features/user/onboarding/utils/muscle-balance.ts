@@ -10,10 +10,10 @@
  * already reasonably balanced — no recommendation.
  */
 
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 const PUSH_MUSCLE_LIST = ['chest', 'shoulders', 'triceps'] as const;
 const PULL_MUSCLE_LIST = ['back', 'biceps'] as const;
@@ -32,10 +32,10 @@ const FULL_BODY_ID = 'full_body';
 export type MuscleBalanceCase = 'push_only' | 'pull_only' | 'upper_only' | 'lower_only';
 
 export const MUSCLE_BALANCE_MESSAGES_HE: Record<MuscleBalanceCase, string> = {
-  push_only: t('muscleBalance.push_only'),
-  pull_only: t('muscleBalance.pull_only'),
-  upper_only: t('muscleBalance.upper_only'),
-  lower_only: t('muscleBalance.lower_only'),
+  get push_only() { return t('muscleBalance.push_only'); },
+  get pull_only() { return t('muscleBalance.pull_only'); },
+  get upper_only() { return t('muscleBalance.upper_only'); },
+  get lower_only() { return t('muscleBalance.lower_only'); },
 };
 
 /**

@@ -3,7 +3,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ShieldCheck, Zap, X, Loader2, Info } from 'lucide-react';
-import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
+import { HEALTH_QUESTIONS, legalText } from '../data/health-questions';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { markHealthDeclarationAcceptedLocally } from '../services/health-declaration-local';
 // pdf-service is NOT statically imported here — see the preload useEffect below.
@@ -683,7 +683,7 @@ export default function HealthDeclarationStep({
               ? 'max-h-40 overflow-y-auto bg-v2-surface p-4 rounded-2xl ring-1 ring-inset ring-v2-hairline text-[14px] text-v2-ink-2 leading-relaxed'
               : 'max-h-40 overflow-y-auto bg-slate-50 p-4 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed'}
           >
-            {LEGAL_TEXT}
+            {legalText()}
           </div>
 
           {/* ── Native HTML5 Canvas Signature Pad ── */}
