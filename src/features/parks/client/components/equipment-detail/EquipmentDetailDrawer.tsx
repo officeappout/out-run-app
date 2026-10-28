@@ -433,7 +433,7 @@ export default function EquipmentDetailDrawer({
             {primaryMuscle && (
               <section className="mb-6">
                 <h3
-                  className="text-right text-[16px] font-semibold mb-3"
+                  className="text-start text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
                   {t('equipment.section.primaryMuscle')}
@@ -466,7 +466,7 @@ export default function EquipmentDetailDrawer({
             {secondaryMuscles.length > 0 && (
               <section className="mb-6">
                 <h3
-                  className="text-right text-[16px] font-semibold mb-3"
+                  className="text-start text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
                   {t('equipment.section.secondaryMuscles')}
@@ -506,7 +506,7 @@ export default function EquipmentDetailDrawer({
             {equipment.targetPrograms && equipment.targetPrograms.length > 0 && (
               <section className="mb-6">
                 <h3
-                  className="text-right text-[16px] font-semibold mb-3"
+                  className="text-start text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
                   {t('equipment.section.programs')}
@@ -536,7 +536,7 @@ export default function EquipmentDetailDrawer({
             {cues.length > 0 && (
               <section className="mb-6">
                 <h3
-                  className="text-right text-[16px] font-semibold mb-3"
+                  className="text-start text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
                   {t('equipment.section.cues')}
@@ -566,7 +566,7 @@ export default function EquipmentDetailDrawer({
             {tips.length > 0 && (
               <section className="mb-6">
                 <h3
-                  className="text-right text-[16px] font-semibold mb-3"
+                  className="text-start text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
                   {t('equipment.section.tips')}
@@ -597,7 +597,7 @@ export default function EquipmentDetailDrawer({
             {cuesSource === 'doc' && equipment.description && (
               <section className="mb-6">
                 <h3
-                  className="text-right text-[16px] font-semibold mb-3"
+                  className="text-start text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
                   {t('equipment.section.description')}
@@ -626,7 +626,7 @@ export default function EquipmentDetailDrawer({
             {!pinnedToPark && equipment.brands && equipment.brands.length > 1 && (
               <section className="mb-6">
                 <h3
-                  className="text-right text-[16px] font-semibold mb-3"
+                  className="text-start text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
                   {t('equipment.section.brands')}
@@ -724,9 +724,8 @@ export default function EquipmentDetailDrawer({
             onDragEnd={(_, info) => {
               if (info.offset.y > 140) onClose();
             }}
-            className="fixed bottom-0 left-0 right-0 z-[201] bg-white dark:bg-slate-900 rounded-t-3xl shadow-drawer flex flex-col"
+            className="fixed bottom-0 end-0 start-0 z-[201] bg-white dark:bg-slate-900 rounded-t-3xl shadow-drawer flex flex-col"
             style={{ maxHeight: '90vh' }}
-            dir="rtl"
           >
             {/* Drag handle — same dimensions as ExerciseDetailSheet */}
             <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
@@ -738,7 +737,7 @@ export default function EquipmentDetailDrawer({
               type="button"
               onClick={onClose}
               aria-label="סגור" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
-              className="absolute top-3 left-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm z-30 shadow-sm"
+              className="absolute top-3 end-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm z-30 shadow-sm"
             >
               <X size={18} />
             </button>

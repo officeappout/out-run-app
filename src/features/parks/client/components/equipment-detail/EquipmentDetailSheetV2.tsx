@@ -45,7 +45,7 @@ export default function EquipmentDetailSheetV2({ isOpen, onClose, ariaLabel, chi
       grabberClassName="flex justify-center pt-2 pb-1 flex-shrink-0"
       ariaLabel={ariaLabel}
     >
-      <IconButton aria-label={t('equipment.sheet.close')} tone="white-ring" size={36} className="absolute left-3 top-3 z-30" onClick={onClose}>
+      <IconButton aria-label={t('equipment.sheet.close')} tone="white-ring" size={36} className="absolute end-3 top-3 z-30" onClick={onClose}>
         <X className="h-4 w-4" />
       </IconButton>
       <div className="min-h-0 flex-auto overflow-y-auto overscroll-contain">{children}</div>

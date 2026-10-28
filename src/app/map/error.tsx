@@ -19,7 +19,6 @@ export default function MapError({
 
   return (
     <div
-      dir="rtl"
       className="fixed inset-0 flex flex-col items-center justify-center bg-[#f3f4f6] gap-4 p-6"
     >
       <div className="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center">

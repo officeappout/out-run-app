@@ -11,7 +11,7 @@
  */
 
 import type { HomeRunSlot, HomeT } from '@/features/home/utils/home-run-slot';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { home } from '@/messages/ns/home';
 import { plannedRunMapUrl } from '@/features/workout-engine/players/running/utils/run-overview/run-overview-url';
 import { inferRunKind, resolveRunCategory, runTypeLabel } from '@/features/workout-engine/players/running/utils/run-preview/run-kind';
@@ -22,7 +22,7 @@ export const PLANNED_RUN_SLOT_ID = 'planned_run';
 /** Cardio green (v2 activity colour). */
 const RUN_ACCENT = '#84cc16';
 
-export function buildPlannedRunSlot(runSlot: HomeRunSlot | null | undefined, t: HomeT = makeT('he', home)): PlannedRunSlot | null {
+export function buildPlannedRunSlot(runSlot: HomeRunSlot | null | undefined, t: HomeT = makeLiveT(home)): PlannedRunSlot | null {
   // A partial (too-short) run keeps its home card but is not offered as a map slot.
   if (!runSlot || runSlot.kind !== 'today' || runSlot.skippedToday || runSlot.partial) return null;
   const { entry } = runSlot;

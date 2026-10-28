@@ -167,7 +167,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onSta
         dragControls={motion.dragControls}
         onDragEnd={motion.handleDragEnd}
         frameStyle={{ height: DRAWER_HEIGHT, maxHeight: '92vh', willChange: 'transform' }}
-        classicClassName="kb-sheet fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
+        classicClassName="kb-sheet fixed bottom-0 end-0 start-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
         keyboardAware
         ariaLabel={park.name}
       >

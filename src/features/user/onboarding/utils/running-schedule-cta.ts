@@ -7,12 +7,12 @@
  * choice says "שמירה" / "לוח ריצה נשמר!". A user who already chose days keeps
  * the edit wording.
  */
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { common } from '@/messages/ns/common';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
-const tc = makeT('he', common);
+const t = makeLiveT(onboarding);
+const tc = makeLiveT(common);
 
 export interface RunningScheduleCtaInput {
   isJIT: boolean | undefined;

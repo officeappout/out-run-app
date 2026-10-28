@@ -16,7 +16,7 @@
  */
 import type { PlanKind } from './day-plan';
 import { doneKindsOfDoc } from '@/features/workout-engine/hybrid/hybrid-counting';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { home } from '@/messages/ns/home';
 import type { HomeT } from './home-run-slot';
 
@@ -111,7 +111,7 @@ export function dropStepsDuplicate<T extends { generatorId: string }>(items: rea
 }
 
 /** The header above the cards after a workout (Hebrew unless a `t` is passed). */
-export function nextHeaderHe(next: NextRecommendation, t: HomeT = makeT('he', home)): string {
+export function nextHeaderHe(next: NextRecommendation, t: HomeT = makeLiveT(home)): string {
   switch (next.kind) {
     case 'walk':
       return next.why === 'planned' ? t('nextHeader.walk.planned') : t('nextHeader.walk.steps');

@@ -85,7 +85,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
 
           {/* 2. סוג פעילות */}
           <div className="space-y-3">
-            <label className="text-sm text-gray-500 font-medium block text-right">{t('workoutPrefs.activity.question')}</label>
+            <label className="text-sm text-gray-500 font-medium block text-start">{t('workoutPrefs.activity.question')}</label>
             <div className="flex gap-3">
               {([
                 { id: 'walking', labelKey: 'workoutPrefs.activity.walking', icon: Footprints },
@@ -109,7 +109,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
 
           {/* 3. קצב / עצימות */}
           <div className="space-y-3">
-            <label className="text-sm text-gray-500 font-medium block text-right">{t('workoutPrefs.intensity.label')}</label>
+            <label className="text-sm text-gray-500 font-medium block text-start">{t('workoutPrefs.intensity.label')}</label>
             <div className="flex bg-gray-100 p-1 rounded-2xl">
               {([
                 { id: 'easy', labelKey: 'workoutPrefs.intensity.easy', emoji: '😌' },
@@ -140,7 +140,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
               <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${includeStrength ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
                 <Dumbbell size={20} />
               </div>
-              <div className="text-right">
+              <div className="text-start">
                 <p className={`font-bold text-sm ${includeStrength ? 'text-green-800' : 'text-gray-800'}`}>{t('workoutPrefs.strength.title')}</p>
                 <p className="text-xs text-gray-500">{t('workoutPrefs.strength.subtitle')}</p>
               </div>

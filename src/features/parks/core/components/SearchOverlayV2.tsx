@@ -167,7 +167,7 @@ export default function SearchOverlayV2({
   };
 
   return (
-    <div className="kb-fit fixed inset-0 z-[100] flex flex-col bg-v2-surface" dir="rtl">
+    <div className="kb-fit fixed inset-0 z-[100] flex flex-col bg-v2-surface">
       {/* ── Search field ─────────────────────────────────────────────── */}
       <div className="px-4 pb-3" style={{ paddingTop: 'calc(52px + max(1rem, env(safe-area-inset-top, 0px)))' }}>
         <div className="flex items-center gap-2">
@@ -179,7 +179,7 @@ export default function SearchOverlayV2({
               placeholder={t('mapSearch.placeholder')}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="min-w-0 flex-1 border-none bg-transparent text-right text-[16px] font-bold text-v2-ink outline-none placeholder:font-semibold placeholder:text-v2-muted"
+              className="min-w-0 flex-1 border-none bg-transparent text-start text-[16px] font-bold text-v2-ink outline-none placeholder:font-semibold placeholder:text-v2-muted"
             />
             {isSearching && <Loader2 size={16} className="shrink-0 animate-spin text-v2-accent" />}
             {searchQuery && !isSearching && (

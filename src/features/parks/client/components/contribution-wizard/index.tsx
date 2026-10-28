@@ -327,7 +327,6 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
         // still short of full-screen so the backdrop stays visible and the
         // sheet reads as dismissible.
         className="kb-cap relative bg-white rounded-t-3xl shadow-2xl min-h-[85vh] max-h-[95vh] flex flex-col overflow-hidden"
-        dir="rtl"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">

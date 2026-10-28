@@ -6,12 +6,12 @@ import type { TimedView } from '@/features/workout-engine/engines/timed/timed.se
 import { emomIntervalMs } from '@/features/workout-engine/engines/timed/emom.machine';
 import type { AmrapState, EmomState, TimedBlockSpec, TimedItem, TimedState } from '@/features/workout-engine/engines/timed/timed.types';
 import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/timed-result';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { unitLabel } from '@/lib/i18n/units';
 import { player } from '@/messages/ns/player';
 
-/** Hebrew translator, built once (these labels are rebuilt every tick mid-workout). */
-const t = makeT('he', player);
+/** Locale-aware translator (resolved per call; these labels are rebuilt every tick mid-workout). */
+const t = makeLiveT(player);
 
 /** Whole seconds left of a countdown (rounded UP, so 0.2 s left still reads 0:01). */
 export function ceilSec(ms: number): number {

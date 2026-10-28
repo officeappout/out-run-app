@@ -30,7 +30,6 @@ export default function StrengthStationsToggle({
       <div className="px-5 mb-3">
         <button
           type="button"
-          dir="rtl"
           onClick={() => onToggle(!enabled)}
           aria-pressed={enabled}
           className={`w-full flex items-center justify-between gap-3 rounded-[20px] px-4 py-3 transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
@@ -58,7 +57,6 @@ export default function StrengthStationsToggle({
     <div className="px-5 mb-3">
       <button
         type="button"
-        dir="rtl"
         onClick={() => onToggle(!enabled)}
         aria-pressed={enabled}
         className="w-full flex items-center justify-between rounded-2xl px-4 py-3 active:scale-[0.98] transition-transform"
