@@ -44,6 +44,10 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   together: () => true,
   community: (k) => !COMMUNITY_HIDDEN.has(k),
   map: () => true,
+  library: () => true,
+  coach: () => true,
+  wide: () => true,
+  push: () => true,
 };
 
 /** Batch 6 (community): military wording hidden from English users (owner decision 12); these 9 keys stay Hebrew via fallback. */
@@ -192,7 +196,8 @@ function analyze(message: string): Walked | Error {
 const isGenderSelect = (name: string, branches: string[]) =>
   name === 'gender' || (branches.length > 0 && branches.every((b) => GENDER_BRANCHES.has(b)));
 
-const capFor = (key: string): number | null => {
+const capFor = (key: string, ns = ''): number | null => {
+  if (ns === 'push') return /\.title$/.test(key) ? 40 : /\.body$/.test(key) ? 110 : null; // push titles <= ~40, bodies <= ~110
   if (/\.(cta|button)$|^actions\./.test(key)) return 24;
   if (/\.(chip|tab)\./.test(key)) return 16;
   if (/\.title$/.test(key)) return 32;
@@ -228,7 +233,9 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     if (typeof enMsg !== 'string' || enMsg === '') { add(key, 'V1', 'error', 'empty or non-string'); continue; }
 
     // V8 no Hebrew, V9 apostrophes
-    if (HEBREW.test(enMsg)) add(key, 'V8', 'error', 'Hebrew characters in English');
+    // push copy keeps the Hebrew @tags (@שם, @שעה ...): they are variable keys the senders substitute, not words
+    const forHebrewCheck = ns === 'push' ? enMsg.replace(/@[\u0590-\u05FF_]+/g, '') : enMsg;
+    if (HEBREW.test(forHebrewCheck)) add(key, 'V8', 'error', 'Hebrew characters in English');
     if (enMsg.includes("'")) add(key, 'V9', 'error', "ASCII apostrophe ' (use the typographic ’)");
 
     // V2 parseable
@@ -281,7 +288,7 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     for (const d of numbers(e)) if (!hn.includes(d)) add(key, 'V10', 'error', `number ${d} not in Hebrew`);
 
     // V11 length (warning)
-    const cap = capFor(key);
+    const cap = capFor(key, ns);
     const visible = enMsg.replace(/\{[^}]*\}|<[^>]*>/g, '');
     if (cap && visible.length > cap) add(key, 'V11', 'warn', `${visible.length} chars > cap ${cap}`);
 
