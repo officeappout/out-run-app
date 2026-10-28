@@ -21,6 +21,15 @@ import heSummary from '@/messages/he/summary.json';
 import heProfile from '@/messages/he/profile.json';
 import enProfile from '@/messages/en/profile.json';
 import { profile } from '@/messages/ns/profile';
+import heLibrary from '@/messages/he/library.json';
+import enLibrary from '@/messages/en/library.json';
+import { library } from '@/messages/ns/library';
+import heCoach from '@/messages/he/coach.json';
+import enCoach from '@/messages/en/coach.json';
+import { coach } from '@/messages/ns/coach';
+import heWide from '@/messages/he/wide.json';
+import enWide from '@/messages/en/wide.json';
+import { wide } from '@/messages/ns/wide';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
 import heMap from '@/messages/he/map.json';
@@ -59,6 +68,9 @@ const SETS = [
   { ns: together, he: heTogether as Cat, en: enTogether as Cat },
   { ns: community, he: heCommunity as Cat, en: enCommunity as Cat },
   { ns: map, he: heMap as Cat, en: enMap as Cat },
+  { ns: library, he: heLibrary as Cat, en: enLibrary as Cat },
+  { ns: coach, he: heCoach as Cat, en: enCoach as Cat },
+  { ns: wide, he: heWide as Cat, en: enWide as Cat },
   { ns: push, he: hePush as Cat, en: enPush as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
@@ -121,5 +133,11 @@ describe('en pilot — Hebrew is untouched', () => {
 
   it('map: every he key is translated in batch 5', () => {
     expect(Object.keys(enMap)).toEqual(Object.keys(heMap));
+  });
+
+  it('library, coach, wide: every he key is translated in batch 7', () => {
+    expect(Object.keys(enLibrary)).toEqual(Object.keys(heLibrary));
+    expect(Object.keys(enCoach)).toEqual(Object.keys(heCoach));
+    expect(Object.keys(enWide)).toEqual(Object.keys(heWide));
   });
 });

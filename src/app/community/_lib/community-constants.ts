@@ -9,24 +9,6 @@ export const INSTITUTIONAL_GROUP_TYPES = new Set<CommunityGroupType>([
 
 export type CommunityTopTab = 'feed' | 'leagues';
 
-// ── Verb mappings for success drawer ──────────────────────────────────────────
-export const GROUP_VERB: Record<string, string> = {
-  walking:      'ילך',
-  running:      'ירוץ',
-  yoga:         'יתאמן',
-  calisthenics: 'יתאמן',
-  cycling:      'ירכב',
-  other:        'יתאמן',
-};
-
-export const EVENT_VERB: Record<string, string> = {
-  race:             'ירוץ',
-  fitness_day:      'יתאמן',
-  workshop:         'ישתתף',
-  community_meetup: 'ישתתף',
-  other:            'יתאמן',
-};
-
 // 16.08.2026 design review: hide "ליגת הפארק" from the league selector for
 // now — the scope='park' data path (ParkSegment, useLeaderboard,
 // getStreakLeaderboard/getStepsLeaderboard park-scope handling) is untouched.

@@ -155,7 +155,7 @@ function FilterDropdown({
       {isOpen && (
         <div
           className="absolute top-full mt-1.5 bg-white rounded-v2-tile shadow-v2-float z-20 overflow-hidden py-1"
-          style={{ minWidth: 160, right: 0 }}
+          style={{ minWidth: 160, insetInlineStart: 0 }}
         >
           {children}
         </div>

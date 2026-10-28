@@ -19,7 +19,7 @@ type Key = keyof typeof he;
 
 const PREFIXES: Record<string, number> = {
   attendees: 1, mapCard: 1, circles: 1, groupCard: 17, eventCard: 4, session: 13, nav: 3, report: 13,
-  postJoin: 10, banner: 28, creator: 23, inviteBonus: 7, cityChallenge: 6, pressure: 7, outreach: 15, goalEditor: 7,
+  postJoin: 20, banner: 28, creator: 23, inviteBonus: 7, cityChallenge: 6, pressure: 7, outreach: 15, goalEditor: 7,
 };
 const GENDERS = ['female', 'male', 'other'] as const;
 const g = (gender: string, f: string, m: string) => (gender === 'female' ? f : m);
