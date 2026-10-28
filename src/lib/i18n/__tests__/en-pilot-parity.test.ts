@@ -45,6 +45,9 @@ import enTogether from '@/messages/en/together.json';
 import { together } from '@/messages/ns/together';
 import heCommunity from '@/messages/he/community.json';
 import enCommunity from '@/messages/en/community.json';
+import hePush from '@/messages/he/push.json';
+import enPush from '@/messages/en/push.json';
+import { push } from '@/messages/ns/push';
 import { community } from '@/messages/ns/community';
 import { COMMUNITY_HIDDEN } from '../../../../scripts/i18n/validate-en-catalog';
 import { registerCatalog } from '../catalogs';
@@ -68,6 +71,7 @@ const SETS = [
   { ns: library, he: heLibrary as Cat, en: enLibrary as Cat },
   { ns: coach, he: heCoach as Cat, en: enCoach as Cat },
   { ns: wide, he: heWide as Cat, en: enWide as Cat },
+  { ns: push, he: hePush as Cat, en: enPush as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
 const values = (msg: string) => Object.fromEntries(messageArgNames(msg).map((n) => [n, SELECTS[n] ?? 3]));
@@ -89,7 +93,8 @@ describe('en pilot — Hebrew is untouched', () => {
     it(`${s.ns.name}: every en key formats without throwing and has no Hebrew`, () => {
       for (const [k, msg] of Object.entries(s.en)) {
         const out = formatIcu(msg, 'en', values(s.he[k]));
-        expect(HEBREW.test(out), k).toBe(false);
+        // push copy keeps the Hebrew @tags (@שם, @שעה ...): variable keys the senders substitute
+        expect(HEBREW.test(s.ns.name === 'push' ? out.replace(/@[֐-׿_]+/g, '') : out), k).toBe(false);
       }
     });
 
@@ -120,6 +125,10 @@ describe('en pilot — Hebrew is untouched', () => {
     const missing = Object.keys(heCommunity).filter((k) => !(k in enCommunity));
     expect(missing).toHaveLength(9);
     expect(missing.sort()).toEqual(Array.from(COMMUNITY_HIDDEN).sort());
+  });
+
+  it('push: every he key is translated (batch 8)', () => {
+    expect(Object.keys(enPush)).toEqual(Object.keys(hePush));
   });
 
   it('map: every he key is translated in batch 5', () => {
