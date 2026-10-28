@@ -948,5 +948,7 @@
   "arenaCreate.step.schedule": "לו\"ז ומיקום",
   "arenaCreate.step.invite": "הזמנת שותפים",
   "arenaCreate.step.outreach": "הזמנת ארגון",
-  "arenaCreate.step.codeEntry": "כניסה בקוד"
+  "arenaCreate.step.codeEntry": "כניסה בקוד",
+  "addressSearch.placeholder": "חפש כתובת, פארק או אתר...",
+  "addressSearch.empty": "לא נמצאו תוצאות"
 }

@@ -22,6 +22,7 @@
  */
 
 import { common } from '@/messages/ns/common';
+import { player } from '@/messages/ns/player';
 import { useT } from '@/hooks/useT';
 import { withUnit } from '@/lib/i18n/units';
 import DifficultyBolts from '../../components/DifficultyBolts';
@@ -34,7 +35,7 @@ interface SuggestionCardProps {
   onStart: () => void;
   isStarting?: boolean;
   /**
-   * CTA button text, defaults to 'התחל' (real-steps-connect plan, Bug 1 fix, 04.09.2026) — every
+   * CTA button text, defaults to the catalog's `suggestion.cta.start` ("התחל") (real-steps-connect plan, Bug 1 fix, 04.09.2026) — every
    * existing caller jumps straight into a workout on tap, so 'התחל' stays byte-identical for
    * them. PreWorkoutCardRenderer's upgraded safety-net slot passes 'צפה במסלול' instead, since
    * that tap opens a route-preview sheet, not a workout.
@@ -42,8 +43,9 @@ interface SuggestionCardProps {
   ctaLabel?: string;
 }
 
-export function SuggestionCard({ suggestion, onStart, isStarting, ctaLabel = 'התחל' }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, onStart, isStarting, ctaLabel }: SuggestionCardProps) {
   const tc = useT(common);
+  const t = useT(player);
   return (
     <div className="h-full w-full flex items-center justify-center">
       <div
@@ -72,7 +74,7 @@ export function SuggestionCard({ suggestion, onStart, isStarting, ctaLabel = 'ה
           className="mt-4 w-full rounded-full py-2.5 text-[14px] font-black text-white transition-opacity disabled:opacity-60"
           style={{ background: BRAND }}
         >
-          {isStarting ? 'טוען…' : ctaLabel}
+          {isStarting ? t('suggestion.loading') : (ctaLabel ?? t('suggestion.cta.start'))}
         </button>
       </div>
     </div>

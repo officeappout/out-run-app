@@ -446,5 +446,20 @@
   "favorites.loading": "טוען מועדפים...",
   "favorites.empty.title": "אין אימונים שמורים",
   "favorites.empty.body": "סמנ/י לב באימון שאהבת כדי לגשת אליו מכל מקום, גם ללא אינטרנט.",
-  "favorites.savedCount": "{count} אימונים שמורים"
+  "favorites.savedCount": "{count} אימונים שמורים",
+  "exerciseLibraryPage.back.aria": "חזרה",
+  "exerciseLibraryPage.title": "ספריית תרגילים",
+  "exerciseLibraryPage.search.placeholder": "חפש תרגיל...",
+  "exerciseLibraryPage.search.clearAria": "נקה חיפוש",
+  "activeWorkout.loading.title": "טוען את האימון...",
+  "activeWorkout.loading.sub": "מכין את התרגילים שלך",
+  "activeWorkout.error.title": "לא הצלחנו לטעון את האימון",
+  "activeWorkout.error.load": "{gender, select, female {לא הצלחנו לטעון את האימון. נסי שוב.} male {לא הצלחנו לטעון את האימון. נסה שוב.} other {לא הצלחנו לטעון את האימון. נסו שוב.}}",
+  "activeWorkout.error.home": "חזרה לדף הבית",
+  "activeWorkout.close": "סגור",
+  "activeWorkout.gain.completion": "{pct}% על השלמת אימון",
+  "activeWorkout.gain.performance": "{pct}% על ביצוע מעל המצופה",
+  "activeWorkout.gain.goals": "{pct}% על השגת יעדים",
+  "activeWorkout.target.range": "{prefix}{min}-{max} {unit, select, seconds {שניות} other {חזרות}}{side, select, yes { (לכל צד)} other {}}{hasGoal, select, yes { (יעד: {goal})} other {}}",
+  "activeWorkout.target.single": "{prefix}{min} {unit, select, seconds {שניות} other {חזרות}}{side, select, yes { (לכל צד)} other {}}{hasGoal, select, yes { (יעד: {goal})} other {}}"
 }

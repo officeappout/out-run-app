@@ -26,6 +26,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { motion } from 'framer-motion';
 import { Activity, Bike, Footprints, X, ChevronLeft } from 'lucide-react';
 import type { ActivityType } from '../types/route.types';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 const ACCENT = '#00ADEF';
 
@@ -88,6 +89,7 @@ export default function ActivityCarousel({
   onClose,
 }: ActivityCarouselProps) {
   const carouselRef = useRef<HTMLDivElement>(null);
+  const { direction, isRtl } = useUiDir();
 
   // Track which card is currently centered in the viewport so the dots
   // indicator can reflect scroll progress, not just the persisted activity.
@@ -160,7 +162,7 @@ export default function ActivityCarousel({
   return (
     <div
       className="fixed inset-0 z-[60] pointer-events-none"
-      dir="rtl"
+      dir={direction}
       role="dialog"
       aria-label="בחירת סוג פעילות"
     >
@@ -176,7 +178,7 @@ export default function ActivityCarousel({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="absolute bottom-0 left-0 right-0 pointer-events-none"
+        className="absolute bottom-0 end-0 start-0 pointer-events-none"
         style={{
           paddingBottom: 'calc(max(85px, env(safe-area-inset-bottom, 0px) + 75px))',
         }}
@@ -187,7 +189,7 @@ export default function ActivityCarousel({
         <div className="flex justify-center pointer-events-none mb-2">
           <div
             className="pointer-events-auto bg-white/95 backdrop-blur-sm rounded-full shadow-md border border-gray-100 px-3.5 py-1.5 flex items-center gap-2"
-            dir="rtl"
+            dir={direction}
           >
             <span className="text-[12px] font-black text-gray-800 leading-tight">
               בחר את סוג הפעילות
@@ -221,7 +223,7 @@ export default function ActivityCarousel({
                 key={card.id}
                 type="button"
                 onClick={() => onSelect(card.id)}
-                dir="rtl"
+                dir={direction}
                 // ── Compact mobile-first card sizing (refinement pass) ──
                 // Field test flagged the old 78vw / 300px / w-24 halo
                 // sizing as "huge on phones". Trimmed all dimensions
@@ -253,7 +255,7 @@ export default function ActivityCarousel({
                   >
                     <card.Icon size={30} className="text-white" strokeWidth={2.2} />
                     <span
-                      className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white flex items-center justify-center text-base shadow-md"
+                      className="absolute -bottom-1 -start-1 w-7 h-7 rounded-full bg-white flex items-center justify-center text-base shadow-md"
                       aria-hidden="true"
                     >
                       {card.emoji}
@@ -275,7 +277,7 @@ export default function ActivityCarousel({
                   style={{ backgroundColor: ACCENT }}
                 >
                   בחר
-                  <ChevronLeft size={13} strokeWidth={3} />
+                  <ChevronLeft size={13} strokeWidth={3} className={isRtl ? undefined : '-scale-x-100'} />
                 </div>
               </button>
             );
