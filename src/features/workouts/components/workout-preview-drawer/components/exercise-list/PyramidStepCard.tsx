@@ -82,7 +82,6 @@ function PyramidStepCardImpl({
 
   return (
     <div
-      dir="rtl"
       role="button"
       tabIndex={0}
       onClick={handleTap}
@@ -114,7 +113,7 @@ function PyramidStepCardImpl({
           accent stays scoped to just the altered twin(s), never the
           whole pyramid.
         */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center py-1.5 pr-3 pl-1">
+        <div className="flex-1 min-w-0 flex flex-col justify-center py-1.5 ps-3 pe-1">
           <div className="flex items-center gap-2">
             <span
               className={`font-bold text-[14px] leading-tight truncate ${
@@ -143,7 +142,7 @@ function PyramidStepCardImpl({
         </div>
 
         {/* Reading-end column — minimal set badge over swap icon */}
-        <div className="flex flex-col items-center justify-center gap-1 pl-3 pr-1 flex-shrink-0">
+        <div className="flex flex-col items-center justify-center gap-1 pe-3 ps-1 flex-shrink-0">
           <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 whitespace-nowrap">
             {setLabel}
           </span>

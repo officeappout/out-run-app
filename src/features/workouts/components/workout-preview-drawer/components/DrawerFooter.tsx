@@ -83,7 +83,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
   return (
     <div
       ref={measureRef}
-      className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
+      className="absolute bottom-0 end-0 start-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
     >
       {/* Row 1 — "X people training near you" hint (Partner Finder discovery) */}
@@ -93,7 +93,6 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
           onClick={onOpenLivePartners}
           className="block w-full text-center pb-1.5 active:scale-[0.99] transition-transform"
           style={{ color: '#00ADEF', fontSize: '13px' }}
-          dir="rtl"
         >
           {t('preview.footer.nearby', { count: String(similarCount) })}
         </button>
@@ -125,7 +124,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
       />
 
       {startDisabled && (
-        <div className="flex items-center justify-center gap-1.5 pb-2" dir="rtl">
+        <div className="flex items-center justify-center gap-1.5 pb-2">
           <WifiOff size={12} className="text-gray-400" />
           <span className="text-[11px] text-gray-400">
             {t('preview.footer.offline')}
@@ -133,7 +132,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
         </div>
       )}
 
-      <div className="flex items-center gap-3" dir="rtl">
+      <div className="flex items-center gap-3">
         {/* Start Workout — gradient pill, full-width (RIGHT in RTL) */}
         <button
           onClick={() => onStart()}

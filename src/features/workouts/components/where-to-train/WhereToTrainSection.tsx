@@ -54,7 +54,7 @@ export default function WhereToTrainSection({
   ];
 
   return (
-    <section className="relative z-20 px-6 pb-3" dir="rtl" aria-label={t('preview.location.title')}>
+    <section className="relative z-20 px-6 pb-3" aria-label={t('preview.location.title')}>
       <div className="mb-3 flex items-center gap-2.5">
         <h3 className="text-[15px] font-black text-v2-ink">{t('preview.location.title')}</h3>
         {isSwapping && <span className="text-xs font-bold text-v2-deep animate-pulse">{t('preview.location.swapping')}</span>}

@@ -151,7 +151,7 @@ export default function WorkoutHistoryPage() {
 
   if (status === 'not-found' || !workout) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-[#F8FAFC]" dir="rtl">
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-[#F8FAFC]">
         <p className="text-gray-500 text-sm">{t('workoutHistory.notFound')}</p>
         <button onClick={handleClose} className="text-[#00ADEF] text-sm font-bold">
           {tCommon('actions.back')}

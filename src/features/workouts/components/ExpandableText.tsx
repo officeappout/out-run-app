@@ -41,7 +41,7 @@ export default function ExpandableText({
   const lineClampClass = maxLines === 3 ? 'line-clamp-3' : maxLines === 2 ? 'line-clamp-2' : 'line-clamp-4';
 
   return (
-    <div className={className} dir="rtl">
+    <div className={className}>
       <motion.div
         initial={false}
         animate={{
@@ -52,7 +52,7 @@ export default function ExpandableText({
       >
         <p
           ref={textRef}
-          className={`text-slate-600 dark:text-slate-400 text-sm leading-relaxed text-right ${
+          className={`text-slate-600 dark:text-slate-400 text-sm leading-relaxed text-start ${
             !isExpanded ? lineClampClass : ''
           }`}
         >

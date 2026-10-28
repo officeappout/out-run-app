@@ -75,7 +75,7 @@ const CLOSE_THRESHOLD = 120; // px dragged DOWN to dismiss
  */
 function WorkoutLoadingSkeleton() {
   return (
-    <div className="space-y-3 pt-2" dir="rtl">
+    <div className="space-y-3 pt-2">
       {[0, 1, 2, 3].map((i) => (
         <div key={i} className="flex items-center gap-3 animate-pulse">
           <div className="w-[72px] h-[72px] rounded-2xl bg-gray-100 dark:bg-slate-800 flex-shrink-0" />
@@ -532,7 +532,7 @@ export default function WorkoutPreviewDrawer({
           fontFamily: 'var(--font-simpler)',
           willChange: 'transform',
         }}
-        classicClassName="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
+        classicClassName="fixed bottom-0 end-0 start-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
         ariaLabel={displayTitle || undefined}
       >
         <DrawerHeader
@@ -623,7 +623,7 @@ export default function WorkoutPreviewDrawer({
 
             {/* Hero close button — fades with hero */}
             <motion.div
-              className="absolute top-0 right-0 px-3 pb-3 z-10 transform-gpu will-change-transform"
+              className="absolute top-0 start-0 px-3 pb-3 z-10 transform-gpu will-change-transform"
               style={{
                 paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
                 opacity: imageOpacity,
@@ -829,12 +829,11 @@ export default function WorkoutPreviewDrawer({
             {/* "Where to Train" — nearest parks carousel */}
             {!whereOn && nearbyParks.length > 0 && (
               <section className="mt-6 mb-2">
-                <h3 className="text-right font-bold text-lg text-slate-900 dark:text-white mb-3">
+                <h3 className="text-start font-bold text-lg text-slate-900 dark:text-white mb-3">
                   {t('preview.parks.title')}
                 </h3>
                 <div
                   className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 pb-1"
-                  dir="rtl"
                 >
                   {nearbyParks.map((park, idx) => (
                     <motion.div
