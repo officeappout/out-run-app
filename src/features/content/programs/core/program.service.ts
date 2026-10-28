@@ -19,6 +19,8 @@ import {
 import { db } from '@/lib/firebase';
 import { Program } from './program.types';
 import { invalidateProgramCatalog } from './program-catalog';
+import { PROGRAM_TEXT_FIELDS, foldLocalizedFieldsForWrite, normalizeStoredTextFields } from './localized-fields';
+import { hebrewOf } from '../../shared/content-locale';
 
 const PROGRAMS_COLLECTION = 'programs';
 
@@ -102,12 +104,12 @@ export async function getAllPrograms(): Promise<Program[]> {
     const q = query(collection(db, PROGRAMS_COLLECTION), orderBy('name', 'asc'));
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => ({
+    return snapshot.docs.map(doc => normalizeStoredTextFields({
       id: doc.id,
       ...doc.data(),
       createdAt: toDate(doc.data().createdAt),
       updatedAt: toDate(doc.data().updatedAt),
-    } as Program));
+    } as Program, PROGRAM_TEXT_FIELDS));
   } catch (error) {
     console.error('Error fetching programs:', error);
     throw error;
@@ -124,12 +126,12 @@ export async function getProgram(programId: string): Promise<Program | null> {
     
     if (!docSnap.exists()) return null;
     
-    return {
+    return normalizeStoredTextFields({
       id: docSnap.id,
       ...docSnap.data(),
       createdAt: toDate(docSnap.data().createdAt),
       updatedAt: toDate(docSnap.data().updatedAt),
-    } as Program;
+    } as Program, PROGRAM_TEXT_FIELDS);
   } catch (error) {
     console.error('Error fetching program:', error);
     throw error;
@@ -196,12 +198,12 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
     const snap = await getDocs(q);
     if (!snap.empty) {
       const d = snap.docs[0];
-      return {
+      return normalizeStoredTextFields({
         id: d.id,
         ...d.data(),
         createdAt: toDate(d.data().createdAt),
         updatedAt: toDate(d.data().updatedAt),
-      } as Program;
+      } as Program, PROGRAM_TEXT_FIELDS);
     }
   } catch {
     // slug field query failed — continue
@@ -222,7 +224,7 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
       templateId,
     );
     if (picked) {
-      return { id: picked.id, ...picked.data, createdAt: toDate(picked.data.createdAt), updatedAt: toDate(picked.data.updatedAt) } as Program;
+      return normalizeStoredTextFields({ id: picked.id, ...picked.data, createdAt: toDate(picked.data.createdAt), updatedAt: toDate(picked.data.updatedAt) } as Program, PROGRAM_TEXT_FIELDS);
     }
   } catch {
     // movementPattern query failed — continue
@@ -233,9 +235,9 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
     const humanName = templateId.replace(/_/g, ' ').toLowerCase();
     const allSnap = await getDocs(collection(db, PROGRAMS_COLLECTION));
     for (const d of allSnap.docs) {
-      const name = String(d.data().name ?? '').toLowerCase();
+      const name = hebrewOf(d.data().name).toLowerCase();
       if (name === humanName || name.replace(/\s+/g, '_') === templateId.toLowerCase()) {
-        return { id: d.id, ...d.data(), createdAt: toDate(d.data().createdAt), updatedAt: toDate(d.data().updatedAt) } as Program;
+        return normalizeStoredTextFields({ id: d.id, ...d.data(), createdAt: toDate(d.data().createdAt), updatedAt: toDate(d.data().updatedAt) } as Program, PROGRAM_TEXT_FIELDS);
       }
     }
   } catch {
@@ -265,7 +267,7 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
 export async function createProgram(data: Omit<Program, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, PROGRAMS_COLLECTION), stripUndefined({
-      ...data,
+      ...foldLocalizedFieldsForWrite(data, PROGRAM_TEXT_FIELDS),
       isMaster: data.isMaster || false, // Default to false
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -288,7 +290,7 @@ export async function updateProgram(
   try {
     const docRef = doc(db, PROGRAMS_COLLECTION, programId);
     await updateDoc(docRef, stripUndefined({
-      ...data,
+      ...foldLocalizedFieldsForWrite(data, PROGRAM_TEXT_FIELDS),
       updatedAt: serverTimestamp(),
     }));
     invalidateProgramCatalog();
