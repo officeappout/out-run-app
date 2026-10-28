@@ -44,6 +44,9 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   together: () => true,
   community: (k) => !COMMUNITY_HIDDEN.has(k),
   map: () => true,
+  library: () => true,
+  coach: () => true,
+  wide: () => true,
 };
 
 /** Batch 6 (community): military wording hidden from English users (owner decision 12); these 9 keys stay Hebrew via fallback. */
