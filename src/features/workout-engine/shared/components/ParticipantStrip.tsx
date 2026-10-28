@@ -2,6 +2,7 @@
 
 import { common } from '@/messages/ns/common';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { withUnit } from '@/lib/i18n/units';
 import { useEffect, useRef } from 'react';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -19,6 +20,7 @@ export default function ParticipantStrip({
   totalDistanceKm,
 }: ParticipantStripProps) {
   const tc = useT(common);
+  const { direction } = useUiDir();
   const setNavCardHeight = useMapStore((s) => s.setNavCardHeight);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
 
@@ -93,7 +95,7 @@ export default function ParticipantStrip({
         {distanceLabel && (
           <span
             className="text-[13px] font-semibold text-gray-800 truncate"
-            style={{ direction: 'rtl' }}
+            style={{ direction }}
           >
             {distanceLabel}
           </span>

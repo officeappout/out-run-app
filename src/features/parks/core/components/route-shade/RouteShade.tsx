@@ -19,6 +19,7 @@ import { useRouteShade, useRouteShadeTagEnabled } from '../../services/route-sha
 import { routeShadeRowView, shadeTagPct } from '@/lib/route-shade-view';
 import RouteQualityBadges from '../RouteQualityBadges';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 
 type ShadeRoute = Pick<Route, 'id' | 'shadeInfo' | 'qualitySignals'>;
@@ -62,6 +63,7 @@ const ROW_CLASS = {
 
 export function RouteShadeRow({ route, variant, now }: { route: ShadeRoute; variant: 'v2' | 'legacy'; now?: Date }) {
   const t = useT(map);
+  const { direction } = useUiDir();
   const info = useRouteShade(route);
   // The lighting line rides on the same switch: flag off → no row at all.
   const on = useRouteShadeTagEnabled();
@@ -76,7 +78,7 @@ export function RouteShadeRow({ route, variant, now }: { route: ShadeRoute; vari
       ].filter((s): s is string => !!s)
     : [];
   return (
-    <div dir="rtl" role="group" aria-label={t('shade.row.label')} className={c.wrap} data-testid="route-shade-row">
+    <div dir={direction} role="group" aria-label={t('shade.row.label')} className={c.wrap} data-testid="route-shade-row">
       {view.shadedPct != null && (
         <span className={`${c.chip} whitespace-nowrap`}><Trees size={15} className={c.icon} aria-hidden />{t('shade.row.shaded', { pct: String(view.shadedPct) })}</span>
       )}

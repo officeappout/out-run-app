@@ -117,6 +117,7 @@ import { useToast } from '@/components/ui/Toast';
 import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
 import { logGeneratedRoutes } from '@/features/generation-review/capture/hooks';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 
 const ACCENT = '#00ADEF';
@@ -290,6 +291,7 @@ export default function RouteCarousel({
 }: RouteCarouselProps) {
   const setFreeRunCarouselRoutes = useMapStore((s) => s.setFreeRunCarouselRoutes);
   const t = useT(map);
+  const { direction } = useUiDir();
 
   const [phase, setPhase] = useState<Phase>('searching');
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -455,7 +457,7 @@ export default function RouteCarousel({
   return (
     <div
       className="fixed inset-0 z-[60] pointer-events-none"
-      dir="rtl"
+      dir={direction}
       role="dialog"
       aria-label={t('carousel.dialogLabel')}
     >
@@ -607,6 +609,7 @@ function SearchingState({
   // ("computing routes to {destination}"), loop mode keeps the
   // "scanning streets near you" framing the radar UX uses today.
   const t = useT(map);
+  const { direction } = useUiDir();
   const primaryCopy =
     mode === 'commute'
       ? destinationLabel
@@ -644,7 +647,7 @@ function SearchingState({
       <div className="flex justify-center px-4">
         <div
           className="pointer-events-auto bg-white rounded-3xl shadow-[0_14px_32px_rgba(0,0,0,0.18)] px-5 py-4 flex items-center gap-3 w-full max-w-[300px]"
-          dir="rtl"
+          dir={direction}
         >
           {/* Spinning radar dot — Tailwind's `animate-spin` on a conic
               gradient gives the same visual as RadarAnimation's halo at
@@ -708,6 +711,7 @@ function EmptyState({
   // "try again / change settings" CTA shape so the back-out gesture
   // is identical.
   const t = useT(map);
+  const { direction, isRtl } = useUiDir();
   const primaryCopy =
     mode === 'commute'
       ? destinationLabel
@@ -742,7 +746,7 @@ function EmptyState({
       <div className="flex justify-center px-4">
         <div
           className="pointer-events-auto bg-white rounded-3xl shadow-[0_14px_32px_rgba(0,0,0,0.18)] px-5 py-5 w-full max-w-[320px] text-center"
-          dir="rtl"
+          dir={direction}
         >
           <p className="text-[14px] font-black text-gray-900 leading-tight">
             {primaryCopy}
@@ -764,7 +768,7 @@ function EmptyState({
             className="mt-4 w-full py-2.5 rounded-xl text-white text-sm font-black flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
             style={{ backgroundColor: ACCENT }}
           >
-            <ChevronRight size={14} strokeWidth={3} />
+            <ChevronRight size={14} strokeWidth={3} className={isRtl ? undefined : '-scale-x-100'} />
             {ctaCopy}
           </button>
         </div>
@@ -807,6 +811,7 @@ function CardsState({
   const carouselRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const t = useT(map);
+  const { direction, isRtl } = useUiDir();
 
   // ── Bidirectional sync refs ──────────────────────────────────────────
   // See the file-header doc comment for the contract these enforce.
@@ -999,7 +1004,7 @@ function CardsState({
       <div className="flex justify-center pointer-events-none mb-2 px-4">
         <div
           className="pointer-events-auto bg-white/95 backdrop-blur-sm rounded-full shadow-md border border-gray-100 ps-2 pe-2 py-1.5 flex items-center gap-2"
-          dir="rtl"
+          dir={direction}
         >
           <button
             type="button"
@@ -1008,7 +1013,7 @@ function CardsState({
             style={{ backgroundColor: `${ACCENT}1A` }}
             aria-label={mode === 'commute' ? t('carousel.back.commute') : t('carousel.back.loop')}
           >
-            <ChevronRight size={12} strokeWidth={3} style={{ color: ACCENT }} />
+            <ChevronRight size={12} strokeWidth={3} style={{ color: ACCENT }} className={isRtl ? undefined : '-scale-x-100'} />
           </button>
           <span className="text-[12px] font-black text-gray-800 leading-tight px-1">
             {mode === 'commute'
@@ -1117,6 +1122,7 @@ function RouteCard({
   const stars = scoreToStars(route.score);
   const highlight = useMemo(() => routeHighlight(route), [route]);
   const t = useT(map);
+  const { direction, isRtl } = useUiDir();
   const displayName = route.name?.trim() || t('carousel.card.nameFallback');
   const distanceText = t('carousel.card.distance', { km: route.distance.toFixed(1) });
   const durationText = t('carousel.card.duration', { min: String(route.duration) });
@@ -1195,7 +1201,7 @@ function RouteCard({
           <>
             <Play size={14} fill="currentColor" />
             {isTooFar ? tooFarLabels.cta : t('carousel.card.start')}
-            <ChevronLeft size={14} strokeWidth={3} />
+            <ChevronLeft size={14} strokeWidth={3} className={isRtl ? undefined : '-scale-x-100'} />
           </>
         }
       />
@@ -1204,7 +1210,7 @@ function RouteCard({
 
   return (
     <div
-      dir="rtl"
+      dir={direction}
       data-coach={coachId}
       className={`${ROUTE_CARD_WIDTH} snap-center snap-always flex-shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
         isActive
@@ -1286,7 +1292,7 @@ function RouteCard({
       >
         <Play size={14} fill="currentColor" />
         {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}התחל אימון
-        <ChevronLeft size={14} strokeWidth={3} />
+        <ChevronLeft size={14} strokeWidth={3} className={isRtl ? undefined : '-scale-x-100'} />
       </button>
     </div>
   );
