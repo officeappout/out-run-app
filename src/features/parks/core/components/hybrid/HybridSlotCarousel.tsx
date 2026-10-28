@@ -35,6 +35,7 @@ import QuizPromptCard from './QuizPromptCard';
 import RouteWhySheet from './RouteWhySheet';
 import { routeWhy } from './route-why';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 // When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
 // (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
@@ -86,13 +87,14 @@ function ActivityToggle({
   activity: SlotKind;
   onChange: (k: SlotKind) => void;
 }) {
+  const { direction } = useUiDir();
   const items: { key: CarouselActivity; label: string; emoji: string; soon?: boolean }[] = [
     { key: 'walking', label: 'הליכה', emoji: '🚶' },
     { key: 'running', label: 'ריצה', emoji: '🏃' },
     { key: 'cycling', label: 'בקרוב', emoji: '🚴', soon: true },
   ];
   return (
-    <div className="flex items-center justify-center gap-2 mb-2 pointer-events-auto" dir="rtl">
+    <div className="flex items-center justify-center gap-2 mb-2 pointer-events-auto" dir={direction}>
       {items.map((it) => {
         const active = !it.soon && it.key === activity;
         return (
@@ -133,6 +135,7 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
   onArm: () => void;
   consumeArmed: () => boolean;
 }) {
+  const { direction } = useUiDir();
   return (
     <div
       className="w-full bg-white"
@@ -142,7 +145,7 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
         boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
         padding: '18px 18px 16px',
       }}
-      dir="rtl"
+      dir={direction}
     >
       <div className="mb-4">
         <div className="text-[16px] font-black" style={{ color: '#111827' }}>עוד לא מילאת שאלון כוח</div>
@@ -200,6 +203,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
   tutorialV1?: boolean;
   onInfo?: () => void;
 }) {
+  const { direction } = useUiDir();
   // route_stops only: the real total as a compact framed pill (same border/shadow language as the
   // overview's calorie/distance chips). The wrapper keeps a fixed height so the card doesn't jump
   // when the number arrives; the pill is rendered only once a real total exists. A small walk glyph
@@ -240,7 +244,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
     <div
       className="text-[12px] font-bold text-center leading-snug line-clamp-2 px-1"
       style={{ color: '#0E7490' }}
-      dir="rtl"
+      dir={direction}
     >
       {slot.reason}
     </div>
@@ -327,7 +331,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         boxShadow: '0 6px 22px rgba(0,0,0,0.1)',
         padding: '16px 18px 14px',
       }}
-      dir="rtl"
+      dir={direction}
     >
       <div>
         <div className="flex items-center gap-2">
@@ -437,6 +441,7 @@ export default function HybridSlotCarousel({
   entryTutorial = false,
   firstWorkoutNote = null,
 }: HybridSlotCarouselProps) {
+  const { direction, isRtl } = useUiDir();
   const [activeIndex, setActiveIndex] = useState(0);
   // enable_map_tutorial_v1 (boards M4/M5/M8): the tutorial's card + the "why this route" drawer.
   const tutorialV1 = useMapTutorialV1();
@@ -511,7 +516,7 @@ export default function HybridSlotCarousel({
   });
 
   return (
-    <div className="absolute inset-0 z-[100] pointer-events-none flex flex-col justify-end" dir="rtl">
+    <div className="absolute inset-0 z-[100] pointer-events-none flex flex-col justify-end" dir={direction}>
       {/* back / close */}
       {onClose && (
         <div className="flex justify-start px-4 mb-2 pointer-events-none">
@@ -521,7 +526,7 @@ export default function HybridSlotCarousel({
             aria-label="סגור"
             className="w-9 h-9 rounded-full bg-white shadow-lg flex items-center justify-center active:scale-90 transition-transform pointer-events-auto"
           >
-            <ArrowRight size={17} className="text-gray-600" />
+            <ArrowRight size={17} className={`text-gray-600${isRtl ? '' : ' -scale-x-100'}`} />
           </button>
         </div>
       )}
