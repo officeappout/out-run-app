@@ -14,11 +14,11 @@ import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/tim
 import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/timed-result';
 import { logStampFromPlanExercise } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import type { ExerciseResultLog } from '../../hooks/useWorkoutStateMachine';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { player } from '@/messages/ns/player';
 
 /** Hebrew translator, built once. */
-const t = makeT('he', player);
+const t = makeLiveT(player);
 
 export interface TimedSegmentGate {
   /** enable_home_v2 */

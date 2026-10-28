@@ -5,11 +5,11 @@
  */
 import { tryPrefix } from './copy';
 import { RETURN_AFTER_DAYS, type ChipSituation } from './types';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { coach } from '@/messages/ns/coach';
 
-// Hebrew-only copy (bundled catalog, sync read).
-const t = makeT('he', coach);
+// Locale-aware copy: resolved per call (Hebrew on the server and with the flags off).
+const t = makeLiveT(coach);
 
 export const PLACEHOLDER_ROTATE_MS = 4500;
 
