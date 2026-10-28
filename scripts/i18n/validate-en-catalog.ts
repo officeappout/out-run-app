@@ -40,6 +40,9 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   player: (k) => !LANGUAGE_NEUTRAL.player.has(k),
   summary: (k) => !LANGUAGE_NEUTRAL.summary.has(k),
   profile: () => true,
+  library: () => true,
+  coach: () => true,
+  wide: () => true,
 };
 
 /**

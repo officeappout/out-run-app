@@ -21,6 +21,15 @@ import heSummary from '@/messages/he/summary.json';
 import heProfile from '@/messages/he/profile.json';
 import enProfile from '@/messages/en/profile.json';
 import { profile } from '@/messages/ns/profile';
+import heLibrary from '@/messages/he/library.json';
+import enLibrary from '@/messages/en/library.json';
+import { library } from '@/messages/ns/library';
+import heCoach from '@/messages/he/coach.json';
+import enCoach from '@/messages/en/coach.json';
+import { coach } from '@/messages/ns/coach';
+import heWide from '@/messages/he/wide.json';
+import enWide from '@/messages/en/wide.json';
+import { wide } from '@/messages/ns/wide';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
 import { player } from '@/messages/ns/player';
@@ -39,6 +48,9 @@ const SETS = [
   { ns: player, he: hePlayer as Cat, en: enPlayer as Cat },
   { ns: summary, he: heSummary as Cat, en: enSummary as Cat },
   { ns: profile, he: heProfile as Cat, en: enProfile as Cat },
+  { ns: library, he: heLibrary as Cat, en: enLibrary as Cat },
+  { ns: coach, he: heCoach as Cat, en: enCoach as Cat },
+  { ns: wide, he: heWide as Cat, en: enWide as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
 const values = (msg: string) => Object.fromEntries(messageArgNames(msg).map((n) => [n, SELECTS[n] ?? 3]));
@@ -80,5 +92,11 @@ describe('en pilot — Hebrew is untouched', () => {
 
   it('profile: every he key is translated in batch 4', () => {
     expect(Object.keys(enProfile)).toEqual(Object.keys(heProfile));
+  });
+
+  it('library, coach, wide: every he key is translated in batch 7', () => {
+    expect(Object.keys(enLibrary)).toEqual(Object.keys(heLibrary));
+    expect(Object.keys(enCoach)).toEqual(Object.keys(heCoach));
+    expect(Object.keys(enWide)).toEqual(Object.keys(heWide));
   });
 });
