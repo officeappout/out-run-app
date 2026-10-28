@@ -101,7 +101,7 @@ describe('validator catches defects (any locale)', () => {
   it('G14 untranslated', () => expect(run('es', 'שלום', 'שלום')).toContain('G8'));
   it('G20 push @tokens are kept byte for byte', () => {
     expect(run('es', 'האימון ב-@שעה', 'Tu entrenamiento a las @hora')).toContain('G20');
-    expect(run('es', 'האימון ב-@שעה', 'Tu entrenamiento a las @שעה')).toContain('G8');
+    expect(run('es', 'האימון ב-@שעה', 'Tu entrenamiento a las @שעה')).toEqual([]); // the kept token is not a stray Hebrew word
   });
   it('G13 per-locale glossary lint file', () => {
     const glossary = parseGlossaryLint('x\n```lint\n# comment\nרצף => racha => streak\n!! parque de fitness => use "gimnasio al aire libre"\n```\n');

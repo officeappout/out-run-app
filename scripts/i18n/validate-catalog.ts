@@ -168,7 +168,7 @@ export function validateLocaleCatalog({ ns, he, target, inScope = () => true, op
     if (typeof heMsg !== 'string') continue;
     if (typeof msg !== 'string' || msg === '') { add(key, 'G1', 'error', 'empty or non-string'); continue; }
 
-    if (HEBREW.test(msg)) add(key, 'G8', 'error', 'Hebrew characters in the target');
+    if (HEBREW.test(msg.replace(/@[\p{L}\p{N}_]+/gu, ''))) add(key, 'G8', 'error', 'Hebrew characters in the target');
     if (msg.includes('—')) add(key, 'G12', heMsg.includes('—') ? 'warn' : 'error', 'long dash "—" (owner rule: no long dash in copy)');
     if (ZERO_WIDTH.test(msg) || (!options.rtl && BIDI_MARKS.test(msg))) add(key, 'G19', 'error', 'zero-width or bidi mark character');
     if (NBSP.test(msg) && !options.allowNbsp) add(key, 'G19', 'error', 'no-break space (set allowNbsp in locale-profiles.ts if this language needs it)');
