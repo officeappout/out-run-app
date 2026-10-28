@@ -61,6 +61,7 @@ import ActiveWorkoutLayer from './layers/ActiveWorkoutLayer';
 import SummaryLayer from './layers/SummaryLayer';
 import TurnCarousel from '@/features/parks/core/components/TurnCarousel';
 import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
+import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
 import { computeRouteTurns } from '@/features/parks/core/services/geoUtils';
 import SessionControlBar from '@/features/parks/core/components/SessionControlBar';
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
@@ -453,6 +454,11 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   // during 'station'. Global store read; false for non-hybrid runs AND hybrid
   // aerobic legs, so those paths stay byte-identical (chrome still shows there).
   const hybridStationLive = useHybridRun((s) => s.phase === 'station');
+  // enable_park_live_v2 (board Park 2, pilot M2): on the v2 hybrid player the next turn moves into
+  // the player's one-line message row; TurnCarousel keeps the camera work but draws nothing.
+  const parkLiveV2 = useParkLiveV2();
+  const hybridRunActive = useHybridRun((s) => s.active);
+  const parkTurnRow = parkLiveV2 && hybridRunActive && !flagsLoading && devToolFlags.enableHomeV2;
 
   // True when TurnCarousel is mounted — ParticipantStrip must yield navCardHeight
   // to TurnCarousel in that case (both write to the same store field).
@@ -678,6 +684,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
             }
             routePath={logic.focusedRoute.path}
             currentLocation={effectivePos}
+            publishOnly={parkTurnRow}
           />
         )
       }

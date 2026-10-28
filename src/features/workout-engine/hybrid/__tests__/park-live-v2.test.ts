@@ -4,7 +4,7 @@ vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 
 import {
   applyStationDifficulty, planStationDifficulty, stationIntroView, walkCardView, stationMessageM, isWalkingLeg,
-  DEFAULT_STATION_DIFFICULTY, nextMachineIndex, isMachineTabataSegment,
+  DEFAULT_STATION_DIFFICULTY, nextMachineIndex, isMachineTabataSegment, messageRowKind,
 } from '../park-live-v2';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
 import type { SequencerView } from '../../engines/hybrid/sequencer.selectors';
@@ -125,5 +125,15 @@ describe('rest: find the next machine (M19)', () => {
     expect(isMachineTabataSegment(p.segments[1])).toBe(true);
     expect(isMachineTabataSegment(p.segments[2])).toBe(false);
     expect(isMachineTabataSegment(null)).toBe(false);
+  });
+});
+
+describe('message row priority (M2)', () => {
+  it('imminent turn > station > turn', () => {
+    expect(messageRowKind({ imminent: true }, 200)).toBe('turnWide');
+    expect(messageRowKind({ imminent: false }, 200)).toBe('station');
+    expect(messageRowKind({ imminent: false }, null)).toBe('turn');
+    expect(messageRowKind(null, 200)).toBe('station');
+    expect(messageRowKind(null, null)).toBeNull();
   });
 });

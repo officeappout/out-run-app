@@ -154,3 +154,15 @@ export function nextMachineIndex(names: readonly string[], currentIdx: number, n
   const first = names.indexOf(nextName);
   return first >= 0 && first !== currentIdx ? first : null;
 }
+
+/**
+ * The message row's one message (board Park 2, pilot M2): a turn under 50 m wins (shown wide), then
+ * "a station is coming", then the next turn (compact). Null = no row.
+ */
+export type MessageRowKind = 'turnWide' | 'station' | 'turn';
+
+export function messageRowKind(turn: { imminent: boolean } | null | undefined, stationM: number | null): MessageRowKind | null {
+  if (turn?.imminent) return 'turnWide';
+  if (stationM != null) return 'station';
+  return turn ? 'turn' : null;
+}
