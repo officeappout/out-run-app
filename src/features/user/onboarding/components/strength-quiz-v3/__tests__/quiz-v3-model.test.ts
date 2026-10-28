@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   assessmentFill,
-  middleStepIndex,
+  easyStartIndex,
+  neighbourSteps,
   moveSelection,
   progressRowItems,
   quizV3Back,
@@ -54,18 +55,26 @@ describe('transitionModel', () => {
 });
 
 describe('slider start', () => {
-  it('middle step', () => {
-    expect(middleStepIndex(7)).toBe(3);
-    expect(middleStepIndex(6)).toBe(2);
-    expect(middleStepIndex(1)).toBe(0);
-    expect(middleStepIndex(0)).toBe(0);
+  it('second (easier) step, Y1', () => {
+    expect(easyStartIndex(7)).toBe(1);
+    expect(easyStartIndex(2)).toBe(1);
+    expect(easyStartIndex(1)).toBe(0);
+    expect(easyStartIndex(0)).toBe(0);
   });
-  it('startMiddle, or the step nearest the last answer', () => {
+  it('startEasy, or the step nearest the last answer', () => {
     const steps = [1, 4, 7, 10, 13, 16, 20];
-    expect(startStepIndex(steps, 1, true)).toBe(3);
+    expect(startStepIndex(steps, 1, true)).toBe(1);
     expect(startStepIndex(steps, 16, false)).toBe(5);
     expect(startStepIndex(steps, 15, false)).toBe(5);
     expect(startStepIndex([], 5, false)).toBe(0);
+  });
+  it('neighbourSteps: the side cards previews', () => {
+    const steps = [1, 4, 7];
+    expect(neighbourSteps(steps, 1)).toEqual({ easier: 1, harder: 7 });
+    expect(neighbourSteps(steps, 0)).toEqual({ easier: null, harder: 4 });
+    expect(neighbourSteps(steps, 2)).toEqual({ easier: 4, harder: null });
+    // The skill "not yet" card (-1): the first step is the harder neighbour.
+    expect(neighbourSteps(steps, -1)).toEqual({ easier: null, harder: 1 });
   });
 });
 

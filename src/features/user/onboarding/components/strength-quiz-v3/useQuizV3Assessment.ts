@@ -60,7 +60,7 @@ export function useQuizV3Assessment(
 
   const sliderProps = useMemo<QuizV3SliderProps | undefined>(
     () => (enabled
-      ? { categories, categoryIndex, startMiddle: !(isQuizV3Group(category) && saved[category]), onChosen }
+      ? { categories, categoryIndex, startEasy: !(isQuizV3Group(category) && saved[category]), onChosen }
       : undefined),
     [enabled, categories, categoryIndex, category, saved, onChosen],
   );
