@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import {
   PROGRAM_TEXT_FIELDS,
   LEVEL_SETTINGS_TEXT_FIELDS,
+  LEVEL_TEXT_FIELDS,
   foldLocalizedFieldsForWrite,
   normalizeStoredTextFields,
   pickProgramText,
@@ -120,5 +121,19 @@ describe('HeEnTextField', () => {
     });
     expect(foldLocalizedFieldsForWrite({ ...last() }, PROGRAM_TEXT_FIELDS).name).toEqual({ he: 'רמה', en: 'Level' });
     act(() => root.unmount());
+  });
+});
+
+describe('raw readers (progression Tier 2 master match, admin getLevels)', () => {
+  it('an object-shaped name no longer breaks name.toLowerCase() once normalized', () => {
+    const raw = { id: 'm1', isMaster: true, name: { he: 'Full Body', en: 'Full Body EN' } };
+    expect(() => (raw.name as unknown as string).toLowerCase()).toThrow();
+    const m = normalizeStoredTextFields(raw, PROGRAM_TEXT_FIELDS) as unknown as { name: string };
+    expect(m.name.toLowerCase().replace(/[\s-]+/g, '_')).toBe('full_body');
+  });
+  it('levels normalize the same way', () => {
+    const l = normalizeStoredTextFields({ id: 'l1', name: { he: 'מתחיל', en: 'Beginner' } }, LEVEL_TEXT_FIELDS) as unknown as { name: string; nameLocalized: { en: string } };
+    expect(l.name).toBe('מתחיל');
+    expect(l.nameLocalized.en).toBe('Beginner');
   });
 });
