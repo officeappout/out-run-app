@@ -76,7 +76,11 @@ export function validateBulkFile(raw: any): BulkFile {
   if (raw.format !== BULK_FORMAT_TAG) throw new Error(`format must be "${BULK_FORMAT_TAG}", got "${raw.format}"`);
   if (typeof raw.version !== 'number' || raw.version > BULK_FORMAT_VERSION) throw new Error(`unsupported version ${raw.version}`);
   if (!Array.isArray(raw.exercises)) throw new Error('"exercises" is not an array');
-  for (const [i, e] of raw.exercises.entries()) if (!e || typeof e.exerciseId !== 'string' || !e.exerciseId.trim()) throw new Error(`exercise ${i}: exerciseId missing`);
+  if (raw.targetLang === 'he' || raw.targetLang === raw.sourceLang) throw new Error(`targetLang "${raw.targetLang}" is not allowed (never the source language or he)`);
+  for (const [i, e] of raw.exercises.entries()) {
+    if (!e || typeof e.exerciseId !== 'string' || !e.exerciseId.trim()) throw new Error(`exercise ${i}: exerciseId missing`);
+    if (e.sourceLang !== undefined && e.sourceLang !== raw.sourceLang) throw new Error(`exercise ${e.exerciseId}: sourceLang ${e.sourceLang} != file sourceLang ${raw.sourceLang}`);
+  }
   return raw as BulkFile;
 }
 
@@ -229,6 +233,7 @@ export function verifyImport(exportFile: BulkFile, importFile: BulkFile, opts: {
 
   if (importFile.sourceLang !== src) add('*', 'file', 'lang', `sourceLang ${importFile.sourceLang} != ${src}`);
   if (importFile.targetLang !== tgt) add('*', 'file', 'lang', `targetLang ${importFile.targetLang} != ${tgt}`);
+  for (const e of importFile.exercises) if (e.sourceLang !== src) add(e.exerciseId, 'file', 'lang', `payload sourceLang ${e.sourceLang} != ${src}`);
   const exIds = exportFile.exercises.map((e) => e.exerciseId);
   const imIds = importFile.exercises.map((e) => e.exerciseId);
   for (const id of exIds) if (!imIds.includes(id)) add(id, 'file', 'ids', 'exercise missing in import');
@@ -275,6 +280,7 @@ export interface Patch { name: any; content: any; execution_methods: any[]; exec
 /** Writes only the `tgt` key of each LocalizedText; the source slot and every other key are kept verbatim. */
 export function buildPatch(d: any, payload: Payload, tgt: string): Patch {
   const src = payload.sourceLang;
+  if (tgt === 'he' || tgt === src) throw new Error(`buildPatch: target "${tgt}" is not allowed (never the source language or he)`);
   const write = (existing: unknown, translated: Slot | undefined) => {
     const base = typeof existing === 'string' ? { [src]: existing } : existing && typeof existing === 'object' ? (existing as Record<string, unknown>) : { he: '', en: '' };
     return { ...base, [tgt]: translated?.[tgt] ?? '' };

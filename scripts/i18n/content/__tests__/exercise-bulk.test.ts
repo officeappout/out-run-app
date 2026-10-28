@@ -164,3 +164,22 @@ describe('apply: patch building mirrors importTranslationJSON', () => {
     expect(verifyApplied(d, { ...after, other: 2 }, payload, 'es').join()).toMatch(/unrelated field "other"/);
   });
 });
+
+describe('target language guard', () => {
+  const base = buildBulkFile(docs, { source: 'he', target: 'es' });
+  it('validateBulkFile rejects target he or target equal to source, and a payload with another sourceLang', () => {
+    expect(() => validateBulkFile({ ...base, targetLang: 'he' })).toThrow(/not allowed/);
+    expect(() => validateBulkFile({ ...base, sourceLang: 'en', targetLang: 'en' })).toThrow(/not allowed/);
+    expect(() => validateBulkFile({ ...base, exercises: [{ ...base.exercises[0], sourceLang: 'en' }] })).toThrow(/sourceLang/);
+  });
+  it('buildPatch throws for he and for the source language', () => {
+    const p = base.exercises[0]!;
+    expect(() => buildPatch(docs[0], p, 'he')).toThrow(/not allowed/);
+    expect(() => buildPatch(docs[0], { ...p, sourceLang: 'en' }, 'en')).toThrow(/not allowed/);
+  });
+  it('verifyImport compares each payload sourceLang', () => {
+    const f = JSON.parse(JSON.stringify(base));
+    f.exercises[0].sourceLang = 'en';
+    expect(verifyImport(base, f).map((i) => i.check)).toContain('lang');
+  });
+});

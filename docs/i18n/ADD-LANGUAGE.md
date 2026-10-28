@@ -78,6 +78,7 @@ When the last batch lands: set `status: 'complete'` in `locale-profiles.ts` (CI 
 
 - RTL/LTR: `dirOf` comes from `RTL_LOCALES`; LTR languages need nothing else. Wave 4 made layouts logical (`ms/me/ps/pe/start/end`). Components that host LTR content inside Hebrew-oriented code must be checked on a device.
 - Numbers, dates, units: `formatNumber/formatDate` use `INTL_TAG`; add the unit and weekday keys to `common` (`units.*`, `weekdays.*`). Test one date and one number in the new locale.
+- RTL target locales (e.g. `ar`): pass `--rtl` to the scaffold (adds `RTL_LOCALES`); the validator's direction checks do not cover RTL (it only allows bidi marks), so layout, mirrored icons and bidi text need a manual device pass.
 - Long languages (de, ru): check the length warnings (V11 for en; review manually elsewhere) on buttons, chips, tabs.
 
 ## Phase 4: he-only surfaces
@@ -106,6 +107,8 @@ npx tsx scripts/i18n/content/apply-import.ts --import $W/import.json --export $W
 npx tsx scripts/i18n/content/apply-import.ts --import $W/import.json --export $W/export.json --confirm-production # backup, write, post-verify
 ```
 `apply-import` refuses unless verify passes, skips any exercise whose Hebrew text/structure or a good target changed since the export, backs up every touched document to `backups/` (aborts if it cannot), writes only the target slot (+ `supportedLangs`, `updatedAt`), then re-reads and verifies source slots unchanged, targets equal the import, nothing else changed. Restore = write the backup file's documents back.
+
+Notes: `hasSourceScript` (corrupt-target detection, "no source-language characters") only knows the scripts he, ar and ru; for another source language add its range in `exercise-bulk.ts`. `apply-import` refuses target `he` or the source language, and re-reads every document right before its batch (skips and reports any edited meanwhile; the write is pinned to the fresh `updateTime`). The dirs the scripts write (`work/`, `backups/`) are git-ignored.
 
 ## Phase 6: server-side text
 

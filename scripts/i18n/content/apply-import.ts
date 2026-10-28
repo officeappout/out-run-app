@@ -27,13 +27,15 @@ async function main() {
   const imp = validateBulkFile(JSON.parse(fs.readFileSync(impPath, 'utf8')));
   const exp = validateBulkFile(JSON.parse(fs.readFileSync(expPath, 'utf8')));
   const tgt = imp.targetLang;
+  if (tgt === 'he' || tgt === imp.sourceLang || tgt === exp.sourceLang) { console.error(`refusing: targetLang "${tgt}" must not be he or the source language`); process.exit(1); }
 
   const issues = verifyImport(exp, imp, { requireComplete: process.argv.includes('--require-complete') });
   if (issues.length) { for (const i of issues.slice(0, 50)) console.error(`${i.check} ${i.exerciseId} ${i.path}: ${i.message}`); console.error(`verify-import failed (${issues.length}); nothing written`); process.exit(1); }
 
   const db = adminDb();
   const live = new Map<string, any>();
-  for (const p of imp.exercises) { const s = await db.collection('exercises').doc(p.exerciseId).get(); if (s.exists) live.set(p.exerciseId, s.data()); }
+  const readTime = new Map<string, string>();
+  for (const p of imp.exercises) { const s = await db.collection('exercises').doc(p.exerciseId).get(); if (s.exists) { live.set(p.exerciseId, s.data()); readTime.set(p.exerciseId, s.updateTime.toDate().toISOString()); } }
 
   const tasks: Array<{ id: string; patch: any; before: any; payload: any }> = [];
   const skipped: Array<{ id: string; reason: string }> = [];
@@ -55,20 +57,31 @@ async function main() {
   if (!fs.existsSync(backup) || fs.statSync(backup).size === 0) throw new Error('backup not written; aborting');
   console.log(`backup: ${backup}`);
 
+  const written: typeof tasks = [];
   for (let i = 0; i < tasks.length; i += BATCH) {
+    // Concurrent-edit guard: re-read right before the batch; skip any doc edited since the first read (source/counts/anything),
+    // and pin the write to the fresh updateTime so a later edit makes Firestore reject it instead of being overwritten.
+    const refs = tasks.slice(i, i + BATCH).map((t) => db.collection('exercises').doc(t.id));
+    const fresh = await db.getAll(...refs);
     const batch = db.batch();
-    for (const t of tasks.slice(i, i + BATCH)) batch.update(db.collection('exercises').doc(t.id), { ...t.patch, updatedAt: FieldValue.serverTimestamp() });
+    fresh.forEach((snap, k) => {
+      const t = tasks[i + k];
+      const changed = !snap.exists || snap.updateTime.toDate().toISOString() !== readTime.get(t.id) || sourceDrift(snap.data(), t.payload, tgt).length > 0;
+      if (changed) { skipped.push({ id: t.id, reason: 'edited concurrently before its batch; skipped' }); console.log(`SKIP ${t.id}: edited concurrently`); return; }
+      batch.update(snap.ref, { ...t.patch, updatedAt: FieldValue.serverTimestamp() }, { lastUpdateTime: snap.updateTime });
+      written.push(t);
+    });
     await batch.commit();
-    console.log(`committed ${Math.min(i + BATCH, tasks.length)}/${tasks.length}`);
+    console.log(`committed batch ${i / BATCH + 1}`);
   }
 
   let bad = 0;
-  for (const t of tasks) {
+  for (const t of written) {
     const after = (await db.collection('exercises').doc(t.id).get()).data();
     const problems = verifyApplied(t.before, after, t.payload, tgt);
     if (problems.length) { bad++; console.error(`POST-VERIFY ${t.id}: ${problems.join('; ')}`); }
   }
-  console.log(bad ? `post-verify FAILED for ${bad} exercises; restore from ${backup}` : `post-verify OK for ${tasks.length} exercises`);
+  console.log(bad ? `post-verify FAILED for ${bad} exercises; restore from ${backup}` : `post-verify OK for ${written.length} exercises (${skipped.length} skipped in total)`);
   process.exit(bad ? 1 : 0);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
