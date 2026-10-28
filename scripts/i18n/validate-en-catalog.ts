@@ -40,7 +40,17 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   player: (k) => !LANGUAGE_NEUTRAL.player.has(k),
   summary: (k) => !LANGUAGE_NEUTRAL.summary.has(k),
   profile: () => true,
+  social: () => true,
+  together: () => true,
+  community: (k) => !COMMUNITY_HIDDEN.has(k),
 };
+
+/** Batch 6 (community): military wording hidden from English users (owner decision 12); these 9 keys stay Hebrew via fallback. */
+export const COMMUNITY_HIDDEN = new Set([
+  'group.location.military', 'leagues.units.range.myBattalionCompanies', 'leagues.units.range.myBrigadeBattalions',
+  'leagues.units.range.allCompanies', 'leagues.units.range.allBrigades', 'communityPage.leagues.v2.tab.units',
+  'communityPage.reserve.scopeLabel', 'communityPage.cards.reserve', 'arenaCreate.card.military.label',
+]);
 
 /**
  * Batch 3 keys that are identical in Hebrew and English (protocol names, symbol-only joiners, brand tokens):
