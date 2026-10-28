@@ -136,6 +136,7 @@ interface FlagState {
   enable_map_tutorial_v1: boolean;
   enable_park_live_v2: boolean;
   enable_commute_v2_player_v1: boolean;
+  enable_workout_coach_note_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1138,6 +1139,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-600',
     title: 'ניווט ליעד בנגן החדש',
     description: 'ניווט לפארק או למקום ("ניווט" בכרטיס הפארק / בדף הפארק) נפתח בנגן הריצה החדש של בית v2 במקום הנגן הישן (רשימת ההקפות הישנה, הדוק הכהה). בכותרת: היעד, המרחק שנותר ושעת ההגעה המשוערת. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Workout coach note (28.10.2026, phone test AB2).
+  {
+    key: 'enable_workout_coach_note_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'דגשי האימון: למה בנינו את האימון הזה',
+    description: 'בתצוגה המקדימה של אימון כוח: בלוק "דגשי האימון" עם 2-4 משפטים על הסיבה לאימון (התאוששות, חזרה אחרי הפסקה, פער שבועי, מיקוד, מקום) ומה מחכה בו (תרגילים, סטים, מנוחה, עצימות). נבנה ב-#415 ולא הופעל אף פעם. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

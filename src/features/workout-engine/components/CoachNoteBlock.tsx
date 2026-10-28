@@ -2,13 +2,14 @@
 
 /**
  * "דגשי האימון" — the coach note block on the workout overview.
- * Renders nothing unless WORKOUT_COACH_NOTE_V1 is on AND the record yields a
+ * Renders nothing unless the note is on (enable_workout_coach_note_v1 or the WORKOUT_COACH_NOTE_V1
+ * constant, useWorkoutCoachNoteV1) AND the record yields a
  * 2–4 sentence note (callers use `useCoachNote` to decide whether to hide the
  * old logicCue line, so both stay in sync).
  */
 
 import React, { useMemo } from 'react';
-import { WORKOUT_COACH_NOTE_V1 } from '@/config/feature-flags';
+import { useWorkoutCoachNoteV1 } from '@/hooks/useWorkoutCoachNoteV1';
 import { renderCoachNote } from '../services/coach-note';
 import type { DecisionRecord } from '../services/decision-record';
 import { useT } from '@/hooks/useT';
@@ -16,14 +17,15 @@ import { player } from '@/messages/ns/player';
 
 /** The note text, or '' when the flag is off / nothing trustworthy to say. */
 export function useCoachNote(record: DecisionRecord | null | undefined): string {
+  const on = useWorkoutCoachNoteV1();
   return useMemo(() => {
-    if (!WORKOUT_COACH_NOTE_V1 || !record) return '';
+    if (!on || !record) return '';
     try {
       return renderCoachNote(record);
     } catch {
       return '';
     }
-  }, [record]);
+  }, [on, record]);
 }
 
 export default function CoachNoteBlock({

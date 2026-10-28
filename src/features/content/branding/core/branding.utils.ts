@@ -187,6 +187,27 @@ function tagPattern(tag: string): RegExp {
   return re;
 }
 
+/** A progress value worth showing: a real number above 0. */
+function hasProgress(v: number | null | undefined): boolean {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0;
+}
+
+/**
+ * Drops every sentence (ending in . ! ? or the text's end) that carries `tag`, so a missing value
+ * removes its whole claim instead of rendering "0%". Exported for tests.
+ */
+export function dropSentencesWithTag(text: string, tag: string): string {
+  const sentences = text.match(/[^.!?]+(?:[.!?]+|$)\s*/g);
+  if (!sentences) return text;
+  const re = tagPattern(tag);
+  const kept = sentences.filter((sentence) => {
+    re.lastIndex = 0;
+    return !re.test(sentence);
+  });
+  re.lastIndex = 0;
+  return kept.join('').trim();
+}
+
 /** Any @tag left in the text after resolution (Hebrew or English).
  *  (RegExp constructor: tsconfig targets ES5, which rejects a `/…/u` literal.) */
 const UNRESOLVED_TAG_RE = new RegExp('@[\\p{L}\\p{N}_]+', 'u');
@@ -380,21 +401,21 @@ export function resolveNotificationText(
   resolved = resolved.replace(tagPattern('@את/ה'), () => {
     if (isFemale) return 'את';
     if (isMale) return 'אתה';
-    return 'את/ה'; // Neutral fallback
+    return 'אתם'; // Neutral (unknown gender): plural, never a slash
   });
   
   // @מוכן/ה -> 'מוכנה' for female, 'מוכן' for male
   resolved = resolved.replace(tagPattern('@מוכן/ה'), () => {
     if (isFemale) return 'מוכנה';
     if (isMale) return 'מוכן';
-    return 'מוכן/ה'; // Neutral fallback
+    return 'מוכנים'; // Neutral (unknown gender): plural, never a slash
   });
   
   // @בוא/י -> 'בואי' for female, 'בוא' for male
   resolved = resolved.replace(tagPattern('@בוא/י'), () => {
     if (isFemale) return 'בואי';
     if (isMale) return 'בוא';
-    return 'בוא/י'; // Neutral fallback
+    return 'בואו'; // Neutral (unknown gender): plural, never a slash
   });
   
   // @עשית/ה -> 'עשית' for female, 'עשית' for male (same in past tense)
@@ -406,14 +427,14 @@ export function resolveNotificationText(
   resolved = resolved.replace(tagPattern('@תוכל/י'), () => {
     if (isFemale) return 'תוכלי';
     if (isMale) return 'תוכל';
-    return 'תוכל/י'; // Neutral fallback
+    return 'תוכלו'; // Neutral (unknown gender): plural, never a slash
   });
   
   // @תרצה/י -> 'תרצי' for female, 'תרצה' for male
   resolved = resolved.replace(tagPattern('@תרצה/י'), () => {
     if (isFemale) return 'תרצי';
     if (isMale) return 'תרצה';
-    return 'תרצה/י'; // Neutral fallback
+    return 'תרצו'; // Neutral (unknown gender): plural, never a slash
   });
   
   return resolved;
@@ -675,31 +696,31 @@ export function resolveDescription(
   resolved = resolved.replace(tagPattern('@את/ה'), () => {
     if (isFemale) return 'את';
     if (isMale) return 'אתה';
-    return 'את/ה';
+    return 'אתם';
   });
   
   resolved = resolved.replace(tagPattern('@מוכן/ה'), () => {
     if (isFemale) return 'מוכנה';
     if (isMale) return 'מוכן';
-    return 'מוכן/ה';
+    return 'מוכנים';
   });
   
   resolved = resolved.replace(tagPattern('@בוא/י'), () => {
     if (isFemale) return 'בואי';
     if (isMale) return 'בוא';
-    return 'בוא/י';
+    return 'בואו';
   });
   
   resolved = resolved.replace(tagPattern('@תוכל/י'), () => {
     if (isFemale) return 'תוכלי';
     if (isMale) return 'תוכל';
-    return 'תוכל/י';
+    return 'תוכלו';
   });
   
   resolved = resolved.replace(tagPattern('@תרצה/י'), () => {
     if (isFemale) return 'תרצי';
     if (isMale) return 'תרצה';
-    return 'תרצה/י';
+    return 'תרצו';
   });
   
   // Muscle tag (@שריר)
@@ -862,13 +883,10 @@ export function resolveDescription(
     return context.currentProgram || 'התוכנית';
   });
 
-  // @אחוז_התקדמות — progress percentage
-  resolved = resolved.replace(tagPattern('@אחוז_התקדמות'), () => {
-    if (context.programProgress !== undefined && context.programProgress !== null) {
-      return `${Math.round(context.programProgress)}%`;
-    }
-    return '0%';
-  });
+  // @אחוז_התקדמות: progress percentage. Unknown or 0 → the sentence carrying it is dropped
+  // ("0% מעיד שאתם בדרך הנכונה" said nothing true; phone test AB2).
+  if (!hasProgress(context.programProgress)) resolved = dropSentencesWithTag(resolved, '@אחוז_התקדמות');
+  resolved = resolved.replace(tagPattern('@אחוז_התקדמות'), () => `${Math.round(context.programProgress as number)}%`);
 
   // @רמה_הבאה — target level
   resolved = resolved.replace(tagPattern('@רמה_הבאה'), () => {
@@ -996,12 +1014,9 @@ export function resolveDescription(
   // @אחוז_התקדמות_רמה — progress toward next level (0-100%)
   // Note: @אחוז_התקדמות already exists for program progress.
   // This is specifically for level XP progress.
-  resolved = resolved.replace(tagPattern('@אחוז_התקדמות_רמה'), () => {
-    if (context.goalProgressPercent !== undefined && context.goalProgressPercent !== null) {
-      return `${Math.round(context.goalProgressPercent)}%`;
-    }
-    return '0%';
-  });
+  // Unknown or 0 → the sentence carrying it is dropped (as @אחוז_התקדמות above).
+  if (!hasProgress(context.goalProgressPercent)) resolved = dropSentencesWithTag(resolved, '@אחוז_התקדמות_רמה');
+  resolved = resolved.replace(tagPattern('@אחוז_התקדמות_רמה'), () => `${Math.round(context.goalProgressPercent as number)}%`);
 
   // ── Running Tags ─────────────────────────────────────────────────
 

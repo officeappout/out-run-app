@@ -17,6 +17,8 @@ export interface HScrollerProps extends HTMLAttributes<HTMLDivElement> {
   edge?: HScrollerEdge;
   /** Scroll snapping. Default 'proximity'; false = free scroll. */
   snap?: 'mandatory' | 'proximity' | false;
+  /** With snap: stop on every item (scroll-snap-stop: always), so a fast flick moves one card. */
+  snapStop?: boolean;
   /** Reading direction. Default 'rtl' (first item on the right). */
   dir?: 'rtl' | 'ltr';
 }
@@ -29,10 +31,12 @@ export interface HScrollerProps extends HTMLAttributes<HTMLDivElement> {
  *   <HScroller gap={2.5}>{cards.map((c) => <Card key={c.id} className="w-[220px]" />)}</HScroller>
  */
 const HScroller = forwardRef<HTMLDivElement, HScrollerProps>(function HScroller(
-  { children, gap = 2, edge = 5, snap = 'proximity', dir = 'rtl', className = '', style, ...rest },
+  { children, gap = 2, edge = 5, snap = 'proximity', snapStop = false, dir = 'rtl', className = '', style, ...rest },
   ref,
 ) {
-  const snapClass = snap ? `snap-x ${snap === 'mandatory' ? 'snap-mandatory' : 'snap-proximity'} [&>*]:snap-start` : '';
+  const snapClass = snap
+    ? `snap-x ${snap === 'mandatory' ? 'snap-mandatory' : 'snap-proximity'} [&>*]:snap-start${snapStop ? ' [&>*]:snap-always' : ''}`
+    : '';
   return (
     <div
       ref={ref}

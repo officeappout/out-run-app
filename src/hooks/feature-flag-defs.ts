@@ -798,6 +798,12 @@ export const FLAG_DEFS = [
   // free-run player with the destination + remaining distance + arrival time in its header. Needs enable_home_v2.
   // Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableCommuteV2PlayerV1', firestoreKey: 'enable_commute_v2_player_v1', defaultValue: false, superAdminValue: true },
+  // Workout coach note (28.10.2026, phone test AB2): the "דגשי האימון" block (#415, CoachNoteBlock) on the
+  // workout preview: 2-4 sentences on WHY this workout was built and WHAT to expect, from the engine's
+  // DecisionRecord. It sat behind the compile-time WORKOUT_COACH_NOTE_V1 (false) and never reached users.
+  // On = the note shows and the description line above it replaces the template "logic cue". Fail-closed;
+  // super admins preview it. Off = identical to today.
+  { key: 'enableWorkoutCoachNoteV1', firestoreKey: 'enable_workout_coach_note_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
