@@ -65,6 +65,7 @@
  * filters.muscles, never narrows results.
  */
 
+import { useProgramText } from '@/features/content/programs/core/useProgramText';
 import { useEffect, useMemo, useState } from 'react';
 import React from 'react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -586,12 +587,13 @@ function ProgramPill({
   emphasized?: boolean;
 }) {
   const iconKey = resolveIconKey(program.iconKey, program.name);
+  const programLabel = useProgramText()(program, 'name');
   const v2 = React.useContext(FiltersV2);
   if (v2) {
     return (
       <button type="button" onClick={onClick} className={`min-w-0 flex-1 ${V2_CHIP} ${isOn ? V2_ON : V2_OFF}`}>
         {getProgramIcon(iconKey, 'w-4 h-4 flex-shrink-0')}
-        <span className="truncate">{program.name}</span>
+        <span className="truncate">{programLabel}</span>
       </button>
     );
   }
@@ -610,7 +612,7 @@ function ProgramPill({
       }`}
     >
       {getProgramIcon(iconKey, 'w-3.5 h-3.5 flex-shrink-0')}
-      <span className="truncate">{program.name}</span>
+      <span className="truncate">{programLabel}</span>
     </button>
   );
 }

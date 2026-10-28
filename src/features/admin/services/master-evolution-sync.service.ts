@@ -104,6 +104,7 @@ export async function runMasterEvolutionSync(): Promise<MasterEvolutionSyncResul
                   programId: program.id,
                   levelNumber: level,
                   levelDescription: existing?.levelDescription ?? `Level ${level}`,
+                  levelDescriptionLocalized: existing?.levelDescriptionLocalized,
                   progressionWeight: existing?.progressionWeight ?? 1.0,
                   intensityModifier: existing?.intensityModifier ?? 1.0,
                   restMultiplier: existing?.restMultiplier ?? 1.0,
