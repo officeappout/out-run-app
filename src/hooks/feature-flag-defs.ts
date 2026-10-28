@@ -575,6 +575,11 @@ export const FLAG_DEFS = [
   // translated code defaults → Hebrew. Read server-side from system_config/feature_flags (the super-admin value
   // is client-only; Cloud Functions see the stored value).
   { key: 'pushLocaleV1', firestoreKey: 'push_locale_v1', defaultValue: false, superAdminValue: true },
+  // Onboarding skips the Hebrew-only steps (the lifestyle persona step: IDF / school / office picker) when the UI
+  // locale is not Hebrew — there is no military persona in English. OFF = onboarding is exactly as before for
+  // everyone; ON + Hebrew = unchanged; only ON + a non-he locale changes. The rule lives in ONE pure helper
+  // (features/user/onboarding/utils/he-only-steps.ts), later to become country-based. Needs enable_i18n to matter.
+  { key: 'hideHeOnlyOnboardingSteps', firestoreKey: 'hide_he_only_onboarding_steps', defaultValue: false, superAdminValue: false },
   // App-session signal (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md open
   // question 10): "came back to the app without tapping a push". The old app_open/session_start
   // event types were removed (#171) because nothing ever fired them — not for cost or noise — so
