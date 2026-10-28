@@ -31,14 +31,15 @@ export const ONBOARDING_SKIPPED = new RegExp(
   '^(steps\\.persona\\.(?!code\\.)|steps\\.processing\\.(persona|personaGendered|msg\\.building)$|identity\\.gender\\.|hierarchy\\.|unitDeclaration\\.|personaDrawer\\.staleUnit$|healthDeclaration\\.|health\\.|goalNote\\.example\\.(a18_29\\.(3|4)|a30_44\\.1)$)',
 );
 
-/** Pilot scope (EN-PILOT-PLAN §2): every key of common and pages, the settings.* keys of home. */
+/** Pilot scope (EN-PILOT-PLAN §2): every key of common, pages, home (batch 4) and profile (batch 4). */
 export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   common: () => true,
   pages: () => true,
-  home: (k) => k.startsWith('settings.'),
+  home: () => true,
   onboarding: (k) => !ONBOARDING_SKIPPED.test(k),
   player: (k) => !LANGUAGE_NEUTRAL.player.has(k),
   summary: (k) => !LANGUAGE_NEUTRAL.summary.has(k),
+  profile: () => true,
 };
 
 /**

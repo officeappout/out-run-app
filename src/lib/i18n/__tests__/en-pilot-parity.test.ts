@@ -18,6 +18,9 @@ import { home } from '@/messages/ns/home';
 import { onboarding } from '@/messages/ns/onboarding';
 import hePlayer from '@/messages/he/player.json';
 import heSummary from '@/messages/he/summary.json';
+import heProfile from '@/messages/he/profile.json';
+import enProfile from '@/messages/en/profile.json';
+import { profile } from '@/messages/ns/profile';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
 import { player } from '@/messages/ns/player';
@@ -35,6 +38,7 @@ const SETS = [
   { ns: onboarding, he: heOnboarding as Cat, en: enOnboarding as Cat },
   { ns: player, he: hePlayer as Cat, en: enPlayer as Cat },
   { ns: summary, he: heSummary as Cat, en: enSummary as Cat },
+  { ns: profile, he: heProfile as Cat, en: enProfile as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
 const values = (msg: string) => Object.fromEntries(messageArgNames(msg).map((n) => [n, SELECTS[n] ?? 3]));
@@ -70,7 +74,11 @@ describe('en pilot — Hebrew is untouched', () => {
     });
   }
 
-  it('home: only settings.* is translated; hidden military/league keys are not in the pilot at all', () => {
-    expect(Object.keys(enHome).every((k) => k.startsWith('settings.'))).toBe(true);
+  it('home: every he key is translated in batch 4', () => {
+    expect(Object.keys(enHome)).toEqual(Object.keys(heHome));
+  });
+
+  it('profile: every he key is translated in batch 4', () => {
+    expect(Object.keys(enProfile)).toEqual(Object.keys(heProfile));
   });
 });
