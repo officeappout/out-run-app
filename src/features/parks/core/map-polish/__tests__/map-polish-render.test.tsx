@@ -46,7 +46,7 @@ describe('ParkCardCompact', () => {
     expect(html).toContain(`height:${COMPACT_CARD_PX}px`);
     expect(html).toContain(COMPACT_GRADIENT);
     expect(html).not.toContain('bg-white shadow-v2-float');
-    expect(html).toContain('left-6 right-6');
+    expect(html).toContain('end-6 start-6');
     expect(html).toContain('rounded-v2-card');
   });
   it('title + ONE meta line + at most 3 chips, no shelter strip', () => {

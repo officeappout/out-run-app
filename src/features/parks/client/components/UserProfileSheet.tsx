@@ -147,13 +147,12 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
           >
             <div
               className="relative bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto w-[280px] max-h-full"
-              dir="rtl"
               style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.04)' }}
             >
               {/* Close button */}
               <button
                 onClick={onClose}
-                className="absolute top-3 left-3 z-10 w-7 h-7 rounded-full bg-gray-100/80 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
+                className="absolute top-3 end-3 z-10 w-7 h-7 rounded-full bg-gray-100/80 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
               >
                 <X size={14} className="text-gray-500" />
               </button>
@@ -177,7 +176,7 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
                   </div>
                   {/* Lemur stage badge */}
                   {display.lemurStage != null && display.lemurStage > 0 && (
-                    <div className="absolute -bottom-1 -left-1 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center border-2 border-cyan-400">
+                    <div className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center border-2 border-cyan-400">
                       <span className="text-[11px] font-black text-cyan-700">L{display.lemurStage}</span>
                     </div>
                   )}

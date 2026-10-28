@@ -28,6 +28,7 @@ import { LEAGUE_COPY_KEYS } from './league-gender-copy';
 import type { LeagueT, CommunityKey } from './league-t';
 
 import { BoardCard, BoardIconButton, BoardRow, BoardRowSkeleton, BoardPodium, type PodiumEntry } from './LeagueBoard';
+import { useProgramText } from '@/features/content/programs/core/useProgramText';
 import { BoardSheet, ParticipantPeek, HowPointsContent } from './LeagueBoardSheets';
 import {
   BOARD_VISIBLE_ROWS,
@@ -416,6 +417,7 @@ export function NeighborhoodLeaderboardView({
   initialHowOpen = false,
 }: NeighborhoodLeaderboardViewProps) {
   const t = useT(community);
+  const programText = useProgramText();
   const [openDropdown, setOpenDropdown]         = useState<OpenDropdown>(null);
   const [showInvite, setShowInvite]             = useState(false);
   const [filterSheetOpen, setFilterSheetOpen]   = useState(false);
@@ -660,7 +662,7 @@ export function NeighborhoodLeaderboardView({
                       onClick={() => { setStrengthProgram(prog.id); setOpenDropdown(null); }}
                     >
                       <Dumbbell size={16} strokeWidth={2.4} aria-hidden />
-                      {prog.name}
+                      {programText(prog, 'name')}
                     </DropdownItem>
                   ))
                 )

@@ -25,6 +25,9 @@ export interface Level {
   name: string; // e.g., "Beginner", "Intermediate"
   order: number; // 1-5 (or more)
   description?: string;
+  /** Set by level.service when the stored name / description is a LocalizedText (see programs/core/program.types Level). */
+  nameLocalized?: { he: string; en: string; es?: string };
+  descriptionLocalized?: { he: string; en: string; es?: string };
 
   // XP Thresholds — used internally to calculate globalLevel from globalXP
   minXP?: number; // Minimum XP to reach this level (e.g., 0 for Level 1)

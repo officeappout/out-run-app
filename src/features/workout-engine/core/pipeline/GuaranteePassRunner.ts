@@ -470,16 +470,19 @@ export function runVerticalFoundationGuarantee(
     // 1. A skill exercise occupying the SAME MG slot (ideal swap)
     // 2. Any skill exercise in the workout (skills are optional accessories)
     // 3. Lowest-scored non-foundation exercise from a non-sole domain
-    const skillInSlot = workoutExercises.find(
+    // All three never take the sole representative of a primary domain: a
+    // skill-tagged push-up is still the session's push work.
+    const skillInSlot = pickVictimProtectingDomains(workoutExercises.filter(
       e => e.exerciseRole === 'main' &&
            e.exercise.movementGroup === targetMg &&
            classifyPriority(e.exercise) === 'skill',
-    );
+    ), mainVFG);
 
     const anySkill = !skillInSlot
-      ? workoutExercises
-          .filter(e => e.exerciseRole === 'main' && classifyPriority(e.exercise) === 'skill')
-          .sort((a, b) => a.score - b.score)[0]
+      ? pickVictimProtectingDomains(
+          workoutExercises.filter(e => e.exerciseRole === 'main' && classifyPriority(e.exercise) === 'skill'),
+          mainVFG,
+        )
       : undefined;
 
     // Protected: unlike skillInSlot/anySkill (skill moves aren't primary-

@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { HeEnTextField } from '@/features/content/shared/components/HeEnTextField';
 import React, { useState, useEffect } from 'react';
 import { Signal, Plus, Pencil, Trash2, Target, X, Save, ChevronDown, ChevronUp, ArrowLeft, Settings, Check } from 'lucide-react';
 import Link from 'next/link';
@@ -63,8 +64,10 @@ async function saveXPSettings(settings: XPSettings): Promise<void> {
 // ============================================================================
 interface LevelFormState {
   name: string;
+  nameEn: string;
   order: number;
   description: string;
+  descriptionEn: string;
   minXP: number;
   maxXP: number;
   targetGoals: LevelGoal[];
@@ -73,8 +76,10 @@ interface LevelFormState {
 
 const EMPTY_FORM: LevelFormState = {
   name: '',
+  nameEn: '',
   order: 1,
   description: '',
+  descriptionEn: '',
   minXP: 0,
   maxXP: 100,
   targetGoals: [],
@@ -174,8 +179,10 @@ export default function LevelsPage() {
   const openEditForm = (level: Level) => {
     setForm({
       name: level.name,
+      nameEn: level.nameLocalized?.en ?? '',
       order: level.order,
       description: level.description || '',
+      descriptionEn: level.descriptionLocalized?.en ?? '',
       minXP: level.minXP || 0,
       maxXP: level.maxXP || 0,
       targetGoals: level.targetGoals || [],
@@ -194,8 +201,10 @@ export default function LevelsPage() {
     try {
       const payload = {
         name: form.name.trim(),
+        nameLocalized: { he: form.name.trim(), en: form.nameEn.trim() },
         order: form.order,
         description: form.description.trim() || '',
+        descriptionLocalized: { he: form.description.trim(), en: form.descriptionEn.trim() },
         minXP: form.minXP,
         maxXP: form.maxXP,
         targetGoals: form.targetGoals.map((g) => ({
@@ -655,16 +664,14 @@ export default function LevelsPage() {
             <div className="p-6 space-y-5">
               {/* Basic Fields */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">שם הרמה *</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="למשל: מתחיל, מתקדם"
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-right"
-                  />
-                </div>
+                <HeEnTextField
+                  label="שם הרמה *"
+                  he={form.name}
+                  en={form.nameEn}
+                  onChange={({ he, en }) => setForm({ ...form, name: he, nameEn: en })}
+                  placeholderHe="למשל: מתחיל, מתקדם"
+                  placeholderEn="e.g. Beginner, Advanced"
+                />
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">סדר (Order)</label>
                   <input
@@ -677,16 +684,15 @@ export default function LevelsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">תיאור (אופציונלי)</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  rows={2}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-right"
-                  placeholder="תיאור קצר של הרמה..."
-                />
-              </div>
+              <HeEnTextField
+                label="תיאור (אופציונלי)"
+                he={form.description}
+                en={form.descriptionEn}
+                onChange={({ he, en }) => setForm({ ...form, description: he, descriptionEn: en })}
+                multiline
+                placeholderHe="תיאור קצר של הרמה..."
+                placeholderEn="Short level description..."
+              />
 
               {/* Required Tier */}
               <div>

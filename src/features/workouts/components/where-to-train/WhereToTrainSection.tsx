@@ -94,7 +94,7 @@ export default function WhereToTrainSection({
             ))}
           </HScroller>
         ) : parks.length > 0 ? (
-          <HScroller gap={2.5} edge={0} className="-mx-6 px-6 pb-1 pt-0.5" aria-label={t('preview.where.parksLabel')}>
+          <HScroller gap={2.5} edge={0} snap="mandatory" snapStop className="-mx-6 px-6 scroll-px-6 pb-1 pt-0.5" aria-label={t('preview.where.parksLabel')}>
             {parks.map((p) => (
               <ParkCardCompact
                 key={p.id}

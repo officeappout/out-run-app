@@ -2311,7 +2311,7 @@ export default function AppMap({
             ) : (
               <div className="flex flex-col items-center pointer-events-none" data-coach={i === 0 ? 'route-strength-stop' : undefined}>
                 {stop.name && (
-                  <div dir="rtl" className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
+                  <div className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
                     style={{ background: '#00BAF7', boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
                     {stop.name}
                   </div>
@@ -2341,7 +2341,7 @@ export default function AppMap({
           <Marker key={`legplan-stop-${stop.id}`} longitude={stop.lng} latitude={stop.lat} anchor="bottom">
             <div className="flex flex-col items-center pointer-events-none">
               {stop.label && (
-                <div dir="rtl" className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
+                <div className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
                   style={{ background: '#7C3AED', boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
                   {stop.label}
                 </div>
@@ -2508,7 +2508,7 @@ export default function AppMap({
         {/* ── Facility popup ── */}
         {selectedFacility && (
           <Popup longitude={selectedFacility.location.lng} latitude={selectedFacility.location.lat} anchor="bottom" offset={40} onClose={() => setSelectedFacility(null)} closeButton={false} className="z-50">
-            <div className="p-3 min-w-[150px] bg-white rounded-xl shadow-xl border border-gray-100 text-right">
+            <div className="p-3 min-w-[150px] bg-white rounded-xl shadow-xl border border-gray-100 text-start">
               <div className="flex items-center gap-2 mb-2 flex-row-reverse justify-between">
                 <div className={`p-1 rounded-lg ${selectedFacility.type === 'water' ? 'bg-blue-100 text-blue-600' : selectedFacility.type === 'toilet' ? 'bg-gray-100 text-gray-600' : selectedFacility.type === 'gym' ? 'bg-orange-100 text-orange-600' : 'bg-indigo-100 text-indigo-600'}`}>
                   {selectedFacility.type === 'water' && '🚰'}
@@ -2518,7 +2518,7 @@ export default function AppMap({
                 </div>
                 <h4 className="font-black text-gray-800 text-sm">{selectedFacility.name}</h4>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 capitalize text-right">{selectedFacility.type}</p>
+              <p className="text-[10px] font-bold text-gray-400 capitalize text-start">{selectedFacility.type}</p>
               <button
                 className="w-full mt-3 py-1.5 bg-blue-600 text-white text-[10px] font-black rounded-lg hover:bg-blue-700 transition-colors"
                 onClick={() => setSelectedFacility(null)}
@@ -2543,7 +2543,7 @@ export default function AppMap({
       {isAdmin && (
         <button
           onClick={() => setShowInfrastructure((prev) => !prev)}
-          className={`absolute top-3 left-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-lg transition-all ${
+          className={`absolute top-3 end-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-lg transition-all ${
             showInfrastructure ? 'bg-amber-500 text-white' : 'bg-white/90 text-gray-500 border border-gray-200'
           }`}
           title="Toggle infrastructure visibility (admin only)"

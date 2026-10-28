@@ -277,7 +277,7 @@ export function SearchDestinationCard({
               {nearRoutes.map((r) => r.name).join(' · ')}
             </span>
           </span>
-          <ChevronLeft size={16} strokeWidth={2.4} className="shrink-0 text-v2-muted" />
+          <ChevronLeft size={16} strokeWidth={2.4} className="shrink-0 text-v2-muted ltr:-scale-x-100" />
         </button>
       )}
 

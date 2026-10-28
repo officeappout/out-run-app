@@ -177,7 +177,7 @@ export function useSwapAll({
             );
             const guideMethod = guide ? selectMethodForContext(guide, newLocation, gear) : null;
             if (guide && guideMethod) {
-              newEntries.push(deriveSwappedEntry(we, guide, guideMethod));
+              newEntries.push(deriveSwappedEntry(we, guide, guideMethod, generatedWorkout?.difficulty));
               systemSwaps.push({ from: we, to: guide });
               exclude.add(guide.id);
               oldToNew.set(we.exercise.id, guide.id);
@@ -209,7 +209,7 @@ export function useSwapAll({
           const hasNewLocationMethod = exerciseHasLocation(we.exercise, newLocation);
           const m = selectMethodForContext(we.exercise, newLocation, gear);
           if (hasNewLocationMethod && m && methodHasCompleteMedia(m)) {
-            newEntries.push(deriveSwappedEntry(we, we.exercise, m));
+            newEntries.push(deriveSwappedEntry(we, we.exercise, m, generatedWorkout?.difficulty));
             swappedMethod++;
             continue;
           }
@@ -236,7 +236,7 @@ export function useSwapAll({
                     a.levelComparison === 'lower' && methodHasCompleteMedia(a.selectedExecutionMethod),
                 ));
           if (pick && pick.selectedExecutionMethod) {
-            newEntries.push(deriveSwappedEntry(we, pick.exercise, pick.selectedExecutionMethod));
+            newEntries.push(deriveSwappedEntry(we, pick.exercise, pick.selectedExecutionMethod, generatedWorkout?.difficulty));
             systemSwaps.push({
               from: we,
               to: pick.exercise,
@@ -259,7 +259,7 @@ export function useSwapAll({
             continue;
           }
           if (m) {
-            newEntries.push(deriveSwappedEntry(we, we.exercise, m));
+            newEntries.push(deriveSwappedEntry(we, we.exercise, m, generatedWorkout?.difficulty));
             swappedMethod++;
             continue;
           }

@@ -120,6 +120,7 @@ import {
  * updated doc comment for why that older, narrower map stays as a fallback
  * rather than being deleted in favor of this one.
  */
+import { PROGRAM_TEXT_FIELDS, normalizeStoredTextFields } from '@/features/content/programs/core/localized-fields';
 import { resolveToSlug, ensureIdSlugMapWarm } from '@/features/workout-engine/services/program-hierarchy.utils';
 import {
   KNOWN_MASTER_PROGRAMS,
@@ -833,7 +834,7 @@ export async function recalculateAncestorMasters(
       where('isMaster', '==', true),
     );
     const snapshot = await getDocs(q);
-    const masterPrograms = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Program));
+    const masterPrograms = snapshot.docs.map(d => normalizeStoredTextFields({ id: d.id, ...d.data() } as Program, PROGRAM_TEXT_FIELDS));
 
     // subPrograms in Firestore stores Firestore hash IDs (e.g. 'J0fLpmJhG0KDN2tQouxh').
     // childProgramId arrives here as a slug (e.g. 'push') from processBottomUpMasterCompletion.
@@ -2073,7 +2074,7 @@ export async function resolveMasterProgram(activeProgramId: string): Promise<Pro
     try {
       const q = query(collection(db, PROGRAMS_COLLECTION), where('isMaster', '==', true));
       const snapshot = await getDocs(q);
-      const masters = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Program));
+      const masters = snapshot.docs.map(d => normalizeStoredTextFields({ id: d.id, ...d.data() } as Program, PROGRAM_TEXT_FIELDS));
       const slug = activeProgramId.toLowerCase().replace(/[\s-]+/g, '_');
       masterProgram = masters.find(m =>
         m.id === activeProgramId ||
