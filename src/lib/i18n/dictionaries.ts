@@ -208,10 +208,10 @@ export type DictionaryKey =
 
 export const he: Record<DictionaryKey, string> = heCatalog;
 
-// אנגלית: מפתח בלי תרגום מחזיר את המפתח עצמו (כמו קודם).
+// אנגלית: מפתח בלי תרגום (למשל טקסט משפטי שמחכה לעורך דין) נופל לעברית, לא למפתח הגולמי.
 export const en: Record<DictionaryKey, string> = {
   ...Object.keys(he).reduce((acc, key) => {
-    acc[key as DictionaryKey] = key;
+    acc[key as DictionaryKey] = he[key as DictionaryKey];
     return acc;
   }, {} as Record<DictionaryKey, string>),
   ...(enCatalog as Partial<Record<DictionaryKey, string>>),

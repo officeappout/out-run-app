@@ -25,11 +25,14 @@
 import React from 'react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '../../../core/store/useSessionStore';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const PRIMARY = '#0EA5E9';
 const PRIMARY_DARK = '#0284C7';
 
 export default function GuidedRouteProgressStrip() {
+  const tx = useT(player);
   const guidedRouteName = useRunningPlayer((s) => s.guidedRouteName);
   const guidedRouteDistanceKm = useRunningPlayer((s) => s.guidedRouteDistanceKm);
   const totalDistance = useSessionStore((s) => s.totalDistance);
@@ -73,7 +76,7 @@ export default function GuidedRouteProgressStrip() {
         <div
           className="relative h-1.5 rounded-full overflow-hidden"
           style={{ background: 'rgba(0, 0, 0, 0.06)' }}
-          aria-label="התקדמות במסלול"
+          aria-label={tx('sweep.guided.progressAria')}
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
@@ -95,7 +98,7 @@ export default function GuidedRouteProgressStrip() {
               dir="ltr"
               style={{ color: 'rgba(0, 0, 0, 0.55)' }}
             >
-              {totalDistance.toFixed(2)} / {totalKm.toFixed(2)} ק&quot;מ
+              {tx('sweep.guided.progressText', { done: totalDistance.toFixed(2), total: totalKm.toFixed(2) })}
             </span>
           </div>
         )}

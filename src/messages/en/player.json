@@ -927,5 +927,15 @@
   "hybrid.v2.list.pacePerKm": "{pace} per km",
   "hybrid.v2.list.repsCount": "{n, plural, one {{n} rep} other {{n} reps}}",
   "hybrid.v2.list.setsDone": "{planned, plural, one {{done}/{planned} set} other {{done}/{planned} sets}}",
-  "strengthPlayer.header.setCounter": "Set {current} of {total}"
+  "strengthPlayer.header.setCounter": "Set {current} of {total}",
+  "sweep.paused": "Paused",
+  "sweep.station.exercises": "{n, plural, one {# exercise} other {# exercises}}",
+  "sweep.station.startExercise": "Start exercise",
+  "sweep.segment.pace": "Pace: {value}",
+  "sweep.segment.heartRate": "Heart rate: {value}",
+  "sweep.planned.workoutTab": "Workout",
+  "sweep.guided.progressAria": "Route progress",
+  "sweep.guided.progressText": "{done} / {total} km",
+  "sweep.metrics.settingsAria": "Workout settings",
+  "sweep.milestone.together": "Together you covered {distance}"
 }

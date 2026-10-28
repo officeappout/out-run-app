@@ -746,5 +746,10 @@
   "addWorkout.save.update": "Update",
   "addWorkout.save.save": "Save",
   "addWorkout.buildCustom": "Build a custom workout →",
-  "streakCelebration.milestoneDays": "days"
+  "streakCelebration.milestoneDays": "days",
+  "sweep.weeklyActivity.title": "Weekly goal",
+  "sweep.runningStats.title": "Weekly run",
+  "sweep.runningStats.of": "of {goal} • {calories} kcal",
+  "sweep.goalRings.cardio": "Cardio",
+  "sweep.goalRings.strength": "Strength"
 }
