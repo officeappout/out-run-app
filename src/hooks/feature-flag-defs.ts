@@ -785,6 +785,14 @@ export const FLAG_DEFS = [
   // the real route card with an "i" ("why this route") drawer and a whole-card tap, the workout drawer tour, and the
   // new questionnaire card. Fail-closed; super admins preview it. NOT graduated: the owner tests it on the phone first.
   { key: 'enableMapTutorialV1', firestoreKey: 'enable_map_tutorial_v1', defaultValue: false, superAdminValue: true },
+  // Live park workout v2 (28.10.2026, owner-approved canvas boards Park 1-12, pilot notes M2-M4, M7, M10-M11, M13,
+  // M15-M16, M19, M22, M25-M26, N1-N2): on the walk + equipment-stations player a walk card (time, distance, to the
+  // station, no pace) with today's controls, a station message under the story bars, the live tutorial in the right
+  // order, one station intro (machines in photos, muscles, how tabata works, difficulty in bolts, default easy),
+  // "put the phone on the floor" before the timer, "find the next machine" + swap in the rest, a weekly-ring screen
+  // before the summary, and summary fixes (walk ring, no minutes bar, questionnaire card). Needs enable_home_v2.
+  // Fail-closed; super admins preview it. NOT graduated: the owner tests it in the park first.
+  { key: 'enableParkLiveV2', firestoreKey: 'enable_park_live_v2', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

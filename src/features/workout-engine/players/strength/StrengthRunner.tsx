@@ -71,6 +71,7 @@ import { resolveWideAction } from './logic/wide-key-actions';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import { guidanceLine } from '@/features/workout-engine/hybrid/guided-station';
+import { isMachineTabataSegment, nextMachineIndex } from '@/features/workout-engine/hybrid/park-live-v2';
 import DemoGateOverlay from './components/DemoGateOverlay';
 import FindEquipmentOverlay from './components/FindEquipmentOverlay';
 import { findEquipmentScreen, idsToMarkFound } from './logic/find-equipment';
@@ -134,6 +135,9 @@ interface StrengthRunnerProps {
   /** PR-B3: guided "מצא את המתקן" screen for machine exercises — a session-wide "found" store.
    *  Omitted → never shown (fast mode). Shown BEFORE the demo gate (welcome → find → gate → set). */
   findEquipment?: DemoSeenStore;
+  /** enable_park_live_v2 (boards Park 8-9): machine tabata gets "put the phone on the floor" on the
+   *  demo gate and "find the next machine" + swap in the rest. Omitted → unchanged. */
+  parkLive?: boolean;
   /**
    * Crash-recovery: seed values from a restored WorkoutCheckpoint, passed
    * down once the page-level resume-offer dialog resolves to "Resume".
@@ -163,6 +167,7 @@ export default function StrengthRunner({
   guided = false,
   demoGate,
   findEquipment,
+  parkLive = false,
   initialCheckpoint,
   firstRunTour = false,
   onFirstRunTourClose,
@@ -481,6 +486,8 @@ export default function StrengthRunner({
   // PREPARING countdown, rest countdown, the rep CTA's auto-fill, and since PR-A the timer
   // card). The gate sheet replaces the pause overlay; the demo clip keeps looping behind it.
   const isTabataBlock = sm.blockProtocol?.id === 'tabata';
+  // enable_park_live_v2: machine tabata only (never the 20/10 bodyweight tabata).
+  const parkMachine = parkLive && isTabataBlock && isMachineTabataSegment(sm.currentSegment);
   const swapFixesOn = useSwapFixesV1();
   const isFirstTabataInterval =
     isTabataBlock && sm.currentRound === 1 && sm.currentExerciseIndex === 0 && sm.currentSide !== 'left';
@@ -729,6 +736,19 @@ export default function StrengthRunner({
 
     // RESTING — circular timer + next-exercise preview + coach hint (extracted to RestingStateView, R-11)
     if (sm.workoutState === 'RESTING') {
+      // enable_park_live_v2 (board Park 9): the next interval is another machine → "find it" + swap.
+      const nextMachineIdx = parkMachine
+        ? nextMachineIndex((sm.currentSegment?.exercises ?? []).map((e) => e.name), sm.currentExerciseIndex, restPreviewExercise?.name ?? null)
+        : null;
+      const nextMachineId = nextMachineIdx != null ? sm.currentSegment?.exercises?.[nextMachineIdx]?.id : undefined;
+      const parkRestProps = nextMachineIdx != null
+        ? {
+            nextLabel: t('parkLive.rest.findNext'),
+            onSwapNext: onSwapExercise && nextMachineId
+              ? () => onSwapExercise(nextMachineId, sm.currentSegmentIndex, nextMachineIdx, { source: 'in_workout_find_equipment' })
+              : undefined,
+          }
+        : {};
       // Tabata: same shared RestScreen as every other exercise type now
       // (16.09.2026 rest-screen unification). Fed by the machine's rest clock
       // (restTimeLeft), which owns the countdown beeps + auto-advance — purely
@@ -749,6 +769,7 @@ export default function StrengthRunner({
             videoKey={`tabata-next-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`}
             onSkip={sm.skipRest}
             autoExpandPreview={guided}
+            {...parkRestProps}
           />
         );
       }
@@ -976,7 +997,8 @@ export default function StrengthRunner({
               <DemoGateOverlay
                 exerciseName={sm.exerciseName}
                 cue={sm.executionSteps?.[0] ?? null}
-                ctaLabel={t('strengthPlayer.demoGate.cta', { gender: userGender })}
+                ctaLabel={parkMachine ? t('parkLive.gate.cta') : t('strengthPlayer.demoGate.cta', { gender: userGender })}
+                hint={parkMachine ? t('parkLive.gate.hint') : null}
                 onStart={handleGateStart}
               />
             )}
