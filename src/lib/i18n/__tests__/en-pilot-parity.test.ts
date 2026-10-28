@@ -32,6 +32,9 @@ import enWide from '@/messages/en/wide.json';
 import { wide } from '@/messages/ns/wide';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
+import heMap from '@/messages/he/map.json';
+import enMap from '@/messages/en/map.json';
+import { map } from '@/messages/ns/map';
 import { player } from '@/messages/ns/player';
 import { summary } from '@/messages/ns/summary';
 import { registerCatalog } from '../catalogs';
@@ -48,6 +51,7 @@ const SETS = [
   { ns: player, he: hePlayer as Cat, en: enPlayer as Cat },
   { ns: summary, he: heSummary as Cat, en: enSummary as Cat },
   { ns: profile, he: heProfile as Cat, en: enProfile as Cat },
+  { ns: map, he: heMap as Cat, en: enMap as Cat },
   { ns: library, he: heLibrary as Cat, en: enLibrary as Cat },
   { ns: coach, he: heCoach as Cat, en: enCoach as Cat },
   { ns: wide, he: heWide as Cat, en: enWide as Cat },
@@ -92,6 +96,10 @@ describe('en pilot — Hebrew is untouched', () => {
 
   it('profile: every he key is translated in batch 4', () => {
     expect(Object.keys(enProfile)).toEqual(Object.keys(heProfile));
+  });
+
+  it('map: every he key is translated in batch 5', () => {
+    expect(Object.keys(enMap)).toEqual(Object.keys(heMap));
   });
 
   it('library, coach, wide: every he key is translated in batch 7', () => {
