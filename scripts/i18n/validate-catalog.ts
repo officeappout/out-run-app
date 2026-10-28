@@ -38,7 +38,7 @@ const BIDI_MARKS = /[‎‏؜]/;
 const NBSP = /[  ]/;
 
 /** Namespaces never validated by default: legal text is an owner-only gate; legacy-* is the old dictionary. */
-export const DEFAULT_SKIPPED_NS = (ns: string) => ns === 'legal' || ns.startsWith('legacy-');
+export const DEFAULT_SKIPPED_NS = (ns: string) => ns.startsWith('legacy-');
 
 export interface LocaleOptions {
   locale: string;
@@ -49,7 +49,7 @@ export interface LocaleOptions {
   rtl?: boolean;
   /** Glossary lint rules (see parseGlossaryLint). */
   glossary?: GlossaryRules;
-  /** Namespaces to validate. Default: every he namespace except legal / legacy-*; for `en` the pilot's PILOT_SCOPE namespaces. */
+  /** Namespaces to validate. Default: every he namespace except legacy-*; for `en` the pilot's PILOT_SCOPE namespaces. */
   namespaces?: string[];
 }
 
@@ -219,7 +219,7 @@ export function validateLocaleCatalog({ ns, he, target, inScope = () => true, op
     if ([...new Set(h.tags)].sort().join(',') !== [...new Set(t.tags)].sort().join(',')) add(key, 'G7', 'error', `tags differ: he [${h.tags}] target [${t.tags}]`);
     if (/<(\w+)>\s|\s<\/\w+>/.test(msg)) add(key, 'G7', 'error', 'space just inside a rich tag');
     const hn = numbers(h);
-    for (const d of numbers(t)) if (!hn.includes(d)) add(key, 'G10', 'error', `number ${d} not in Hebrew`);
+    for (const d of numbers(t)) if (!hn.includes(d) && !(ns === 'legal' && ['5775', '5777', '5718'].includes(d))) add(key, 'G10', 'error', `number ${d} not in Hebrew`);
 
     // G13 glossary
     for (const r of options.glossary?.required ?? []) if (r.he.test(heMsg) && !r.target.test(msg)) add(key, 'G13', 'warn', `Hebrew trigger ${r.he} but target lacks "${r.label}"`);
