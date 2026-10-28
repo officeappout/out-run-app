@@ -15,7 +15,7 @@ describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: 
 
   it('has the expected key counts per catalog (pilot 370 + onboarding 1005 + player 905 + summary 167 + home rest 581 + profile 576 + map 919 + library 448 + coach 339 + wide 155)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 186, pages: 17, home: 748, onboarding: 1005, player: 905, summary: 167, profile: 576, social: 124, together: 129, community: 941, map: 919, library: 448, coach: 339, wide: 155 });
+    expect(by).toEqual({ common: 186, pages: 17, home: 748, onboarding: 1005, player: 905, summary: 167, profile: 576, social: 124, together: 129, community: 941, map: 919, library: 448, coach: 339, wide: 155, push: 471 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {
@@ -23,7 +23,7 @@ describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: 
   });
 
   it('home en holds every he key (batch 4)', () => {
-    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary', 'profile', 'social', 'together', 'community', 'map', 'library', 'coach', 'wide']);
+    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary', 'profile', 'social', 'together', 'community', 'map', 'library', 'coach', 'wide', 'push']);
     const rep = reports.find((r) => r.ns === 'home')!;
     expect(rep.enKeys).toBe(rep.scoped);
   });
