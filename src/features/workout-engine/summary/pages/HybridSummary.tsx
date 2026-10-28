@@ -19,6 +19,7 @@ import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
 import { useSummaryStreakWeek } from '../hooks/useSummaryStreakWeek';
 import { hybridRings, hybridStationTables } from '../v2-summary.mapping';
+import { isWalkSession, relabelWalkRing } from '../park-summary';
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import SummaryDrawerShell, { type DrawerTab } from '../blocks/SummaryDrawerShell';
 import type { SummarySnap } from '../blocks/summary-sheet.util';
@@ -57,6 +58,11 @@ export interface HybridSummaryProps {
   peekHeight?: number;
   /** Snap the drawer opens at — 'full' (default) or 'peek' (dev preview). */
   initialSnap?: SummarySnap;
+  /** enable_park_live_v2 (board Park 12, pilot N2): walk label + title, the streak without the
+   *  minutes bar. The caller reads the flag. Omitted → today's summary. */
+  parkLive?: boolean;
+  /** enable_park_live_v2 (pilot M7): no strength questionnaire yet → the card that opens it. */
+  onStrengthQuiz?: () => void;
   /**
    * History (read-only) view. Only read by the enable_home_v2 overview: the
    * "this week" streak strip describes now, so it is hidden for a past workout.
@@ -111,6 +117,8 @@ export default function HybridSummary({
   peekHeight = 150,
   initialSnap = 'full',
   isReadOnly = false,
+  parkLive = false,
+  onStrengthQuiz,
 }: HybridSummaryProps) {
   const t = useT(summaryNs);
   const tc = useT(common);
@@ -128,13 +136,14 @@ export default function HybridSummary({
   const completedSegments = summary.completedAerobicSegments + summary.completedStrengthSegments;
   const xpVal = Math.round(xpEarned || 0);
   const stationTables = v2 ? hybridStationTables(segments) : [];
+  const parkWalk = parkLive && isWalkSession(segments);
 
   // Hero (drag zone): the combined number — total session time — with the two
   // halves as chips. Stays visible when the drawer is collapsed to its peek.
   const hero = (
     <div className="flex items-end justify-between gap-3 px-4 pt-1 pb-3">
       <div className="min-w-0">
-        <div className="text-[13px] font-extrabold text-v2-deep">{t('hybrid.title')}</div>
+        <div className="text-[13px] font-extrabold text-v2-deep">{parkWalk ? t('parkLive.title.walk') : t('hybrid.title')}</div>
         <StatNumber
           value={totalDurationSec}
           format={(v) => formatDuration(Math.round(v))}
@@ -159,7 +168,7 @@ export default function HybridSummary({
     <div className="mt-4 flex items-center gap-3 rounded-v2-card bg-v2-tint px-4 py-3">
       <IconTile icon={Target} tone="accent" size="sm" className="!bg-white" />
       <span className="text-[14px] font-extrabold text-v2-deep">
-        {t('hybrid.banner')}
+        {parkWalk ? t('parkLive.banner.walk') : t('hybrid.banner')}
       </span>
     </div>
   ) : null;
@@ -168,7 +177,7 @@ export default function HybridSummary({
     overview: v2 ? (
       <div className="space-y-3 px-4 pt-4 pb-6">
         <Card padding="md">
-          <MetricRings rings={hybridRings(result)} />
+          <MetricRings rings={relabelWalkRing(hybridRings(result), parkWalk, t('segment.walking'))} />
         </Card>
         {banner}
         {!isReadOnly && (
@@ -176,7 +185,8 @@ export default function HybridSummary({
             streak={streakDays}
             best={Math.max(streakWeek.best, streakDays)}
             days={streakWeek.days}
-            bars={[
+            // Pilot N2 (enable_park_live_v2): the streak card without the minutes bar.
+            bars={parkLive ? undefined : [
               {
                 label: t('hybrid.activeMinutes'),
                 value: (weeklySummary?.categoryTotals?.strength ?? 0) + (weeklySummary?.categoryTotals?.cardio ?? 0),
@@ -184,6 +194,12 @@ export default function HybridSummary({
               },
             ]}
           />
+        )}
+        {parkLive && onStrengthQuiz && !isReadOnly && (
+          <div className="flex flex-col items-start gap-2 rounded-v2-card bg-[#fff7ed] px-4 py-3">
+            <span className="text-[13.5px] leading-[20px] text-[#7c2d12]">{t('parkLive.quiz.text')}</span>
+            <Button variant="ghost" size="sm" onClick={onStrengthQuiz}>{t('parkLive.quiz.cta')}</Button>
+          </div>
         )}
         <div>
           <SectionLabel>{t('hybrid.course')}</SectionLabel>
