@@ -23,6 +23,9 @@ import enProfile from '@/messages/en/profile.json';
 import { profile } from '@/messages/ns/profile';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
+import heMap from '@/messages/he/map.json';
+import enMap from '@/messages/en/map.json';
+import { map } from '@/messages/ns/map';
 import { player } from '@/messages/ns/player';
 import { summary } from '@/messages/ns/summary';
 import heSocial from '@/messages/he/social.json';
@@ -52,6 +55,7 @@ const SETS = [
   { ns: social, he: heSocial as Cat, en: enSocial as Cat },
   { ns: together, he: heTogether as Cat, en: enTogether as Cat },
   { ns: community, he: heCommunity as Cat, en: enCommunity as Cat },
+  { ns: map, he: heMap as Cat, en: enMap as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
 const values = (msg: string) => Object.fromEntries(messageArgNames(msg).map((n) => [n, SELECTS[n] ?? 3]));
@@ -104,5 +108,9 @@ describe('en pilot — Hebrew is untouched', () => {
     const missing = Object.keys(heCommunity).filter((k) => !(k in enCommunity));
     expect(missing).toHaveLength(9);
     expect(missing.sort()).toEqual(Array.from(COMMUNITY_HIDDEN).sort());
+  });
+
+  it('map: every he key is translated in batch 5', () => {
+    expect(Object.keys(enMap)).toEqual(Object.keys(heMap));
   });
 });

@@ -43,6 +43,7 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   social: () => true,
   together: () => true,
   community: (k) => !COMMUNITY_HIDDEN.has(k),
+  map: () => true,
 };
 
 /** Batch 6 (community): military wording hidden from English users (owner decision 12); these 9 keys stay Hebrew via fallback. */
@@ -90,7 +91,40 @@ function outsidePlurals(msg: string): string {
   return out;
 }
 
+/** Select branch labels removed (`{kind, select, workout {Cycling} other {Run}}` -> `\u0000Cycling\u0000Run\u0000`), so a label is never read as a noun. */
+function withoutSelectLabels(msg: string): string {
+  const head = /\{\w+, select,/g;
+  let out = '';
+  let i = 0;
+  for (let m = head.exec(msg); m; m = head.exec(msg)) {
+    if (m.index < i) continue;
+    out += msg.slice(i, m.index);
+    let j = m.index + m[0].length;
+    for (;;) {
+      while (j < msg.length && /\s/.test(msg[j])) j++;
+      if (msg[j] === '}') { j++; break; }
+      const label = /^[=\w]+/.exec(msg.slice(j));
+      if (!label) break;
+      j += label[0].length;
+      while (j < msg.length && /\s/.test(msg[j])) j++;
+      if (msg[j] !== '{') break;
+      let depth = 0;
+      const start = j;
+      for (; j < msg.length; j++) {
+        if (msg[j] === '{') depth++;
+        else if (msg[j] === '}') { depth--; if (depth === 0) { j++; break; } }
+      }
+      out += '\u0000' + withoutSelectLabels(msg.slice(start + 1, j - 1));
+    }
+    out += '\u0000';
+    i = j;
+    head.lastIndex = j;
+  }
+  return out + msg.slice(i);
+}
+
 /** Keys where a count noun sits inside a select branch that is only reached for n > 1 (select 1 / other). */
+export { withoutSelectLabels };
 export const COUNT_NOUN_EXEMPT = new Set(['timedLabels.info.amrap.line2']);
 
 /** Strings that may equal the Hebrew (do-not-translate items). */
@@ -276,7 +310,8 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     // V15 a count/number interpolated next to a noun must be an ICU plural (one/other), not "{n} workouts"
     const flat = outsidePlurals(enMsg);
     const COUNT_NOUN = /\{\w+(?:, number)?\}\s+(minutes?|weeks?|days?|hours?|runs?|walks?|steps?|workouts?|exercises?|stations?|stops?|members?|sessions?|questions?|reps|sets|users|people|friends|points?|kudos)\b/i;
-    const cm = COUNT_NOUN.exec(flat);
+    const flatNoLabels = withoutSelectLabels(flat);
+    const cm = COUNT_NOUN.exec(flatNoLabels);
     const cmArg = cm && /^\{(\w+)/.exec(cm[0])![1];
     if (cm && !e.plurals.has(cmArg!) && !COUNT_NOUN_EXEMPT.has(key)) add(key, 'V15', 'error', `count next to a noun without an ICU plural: ${cm[0]}`);
     for (const [n, eb] of e.plurals) {
