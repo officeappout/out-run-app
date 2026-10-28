@@ -746,5 +746,10 @@
   "addWorkout.save.update": "עדכן",
   "addWorkout.save.save": "שמור",
   "addWorkout.buildCustom": "בנה אימון מותאם ←",
-  "streakCelebration.milestoneDays": "ימים"
+  "streakCelebration.milestoneDays": "ימים",
+  "sweep.weeklyActivity.title": "יעד שבועי",
+  "sweep.runningStats.title": "ריצה שבועית",
+  "sweep.runningStats.of": "מתוך {goal} • {calories} קל׳",
+  "sweep.goalRings.cardio": "אירובי",
+  "sweep.goalRings.strength": "כוח"
 }

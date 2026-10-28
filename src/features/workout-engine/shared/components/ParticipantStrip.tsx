@@ -6,6 +6,7 @@ import { withUnit } from '@/lib/i18n/units';
 import { useEffect, useRef } from 'react';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import type { PartnerPosition } from '@/features/parks/core/hooks/useGroupPresence';
+import { player } from '@/messages/ns/player';
 
 const MAX_VISIBLE_AVATARS = 5;
 
@@ -19,6 +20,7 @@ export default function ParticipantStrip({
   totalDistanceKm,
 }: ParticipantStripProps) {
   const tc = useT(common);
+  const tx = useT(player);
   const setNavCardHeight = useMapStore((s) => s.setNavCardHeight);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
 
@@ -49,7 +51,7 @@ export default function ParticipantStrip({
   // Never fall back to groupName — it bleeds route/session names into the strip label.
   // Before any distance is covered, show nothing (avatars speak for themselves).
   const distanceLabel =
-    totalDistanceKm > 0 ? `יחד עברתם ${withUnit('kmAscii', totalDistanceKm.toFixed(1), tc)}` : null;
+    totalDistanceKm > 0 ? tx('sweep.milestone.together', { distance: withUnit('kmAscii', totalDistanceKm.toFixed(1), tc) }) : null;
 
   return (
     <div
