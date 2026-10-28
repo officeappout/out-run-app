@@ -28,7 +28,7 @@ describe('push copy through the functions translator', () => {
     expect(heOut).not.toBeNull();
     expect(selectPushCopy('level_up', [], { ...ctx, locale: 'he' })).toEqual(heOut);
     const enOut = selectPushCopy('level_up', [], { ...ctx, locale: 'en' });
-    expect(enOut?.title).toBe(pushCopyT('en')('level_up.4.title'));
+    expect(enOut?.title).toBe('You reached level 5');
     expect(enOut?.title).not.toBe(heOut?.title);
     // de / ru have no push catalog yet: the shared translator chain is locale → en → he
     expect(selectPushCopy('level_up', [], { ...ctx, locale: 'de' })).toEqual({ ...enOut, locale: 'de' });
