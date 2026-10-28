@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * Explainer 7 (board Explain1): "what is level N in <group>", on the user's own ladder for their
- * weakest group (the questionnaire's level ladder, ~5 nodes: locked, next goal, current, two done).
+ * Explainer 7 (board Explain1): "what is level N in <group>", on the user's weakest group. Owner 28.10
+ * (Y7): the progress tab's real map (QuizV3TreeMap). Until it loads (or with no map data) the
+ * questionnaire's own short ladder stands in (~5 nodes: locked, next goal, current, two done).
  */
 import clsx from 'clsx';
 import type { Gender } from '@/lib/i18n/core/i18n-core';
@@ -12,6 +13,10 @@ import type { UserDemographics } from '../../types/visual-assessment.types';
 import type { LadderNode } from './quiz-v3-outro';
 import type { SummaryGroup } from './quiz-v3-summary';
 import { useQuizV3Ladder } from './useQuizV3Ladder';
+import { useGroupSkillTree } from './useGroupSkillTree';
+import QuizV3TreeMap from './QuizV3TreeMap';
+import { RevealBlock, RevealText } from './Reveal';
+import { revealEnd } from './reveal-timing';
 
 const LEMUR_BUBBLE = '/assets/lemur/lemur_curious_peek.png';
 const LEMUR_HERE = '/assets/lemur/lemur-avatar.png';
@@ -75,23 +80,39 @@ export interface ExplainLevelMapProps {
 
 export default function ExplainLevelMap({ group, level, gender, demographics }: ExplainLevelMapProps) {
   const t = useT(onboarding);
-  const ladder = useQuizV3Ladder(group, level, demographics);
+  const tree = useGroupSkillTree(group);
+  const ladder = useQuizV3Ladder(tree ? null : group, level, demographics);
+  const bubble = t('quizV3.explain1.bubble', { level, group });
+  const body = t('quizV3.explain1.body', { group });
+  // Y4: the bubble, then the body type in; the map and the footer follow.
+  const bodyAt = revealEnd(bubble, 0.1);
+  const mapAt = revealEnd(body, bodyAt);
   return (
     <>
       <div className="flex items-end gap-2.5">
         <img src={LEMUR_BUBBLE} alt={t('quizV3.explain1.lemurAlt')} className="h-[72px] w-[72px] flex-shrink-0 object-contain" />
-        <p className="m-0 rounded-[22px] rounded-ee-[6px] bg-white px-3.5 py-3 text-[15px] font-bold leading-[22px] shadow-v2-ring">
-          {t('quizV3.explain1.bubble', { level, group })}
-        </p>
+        <RevealText
+          text={bubble}
+          delay={0.1}
+          className="m-0 rounded-[22px] rounded-ee-[6px] bg-white px-3.5 py-3 text-[15px] font-bold leading-[22px] shadow-v2-ring"
+        />
       </div>
-      <p className="m-0 text-[15px] leading-[23px] text-v2-ink-2">{t('quizV3.explain1.body', { group })}</p>
-      <ol className="relative m-0 flex list-none flex-col rounded-[28px] bg-white p-4 shadow-v2-card" aria-busy={ladder.loading}>
-        <span className="absolute bottom-[34px] top-[34px] w-1 rounded-full bg-v2-pill-border start-[34px]" aria-hidden />
-        {ladder.nodes.map((n) => (
-          <Node key={n.level} node={n} name={ladder.names[n.level] ?? null} gender={gender} />
-        ))}
-      </ol>
-      <p className="m-0 text-[13px] leading-5 text-v2-ink-2">{t('quizV3.explain1.footer', { gender })}</p>
+      <RevealText text={body} delay={bodyAt} className="m-0 text-[15px] leading-[23px] text-v2-ink-2" />
+      <RevealBlock delay={mapAt}>
+        {tree ? (
+          <QuizV3TreeMap tree={tree} level={level} label={body} />
+        ) : (
+          <ol className="relative m-0 flex list-none flex-col rounded-[28px] bg-white p-4 shadow-v2-card" aria-busy={ladder.loading}>
+            <span className="absolute bottom-[34px] top-[34px] w-1 rounded-full bg-v2-pill-border start-[34px]" aria-hidden />
+            {ladder.nodes.map((n) => (
+              <Node key={n.level} node={n} name={ladder.names[n.level] ?? null} gender={gender} />
+            ))}
+          </ol>
+        )}
+      </RevealBlock>
+      <RevealBlock delay={mapAt + 0.3}>
+        <p className="m-0 text-[13px] leading-5 text-v2-ink-2">{t('quizV3.explain1.footer', { gender })}</p>
+      </RevealBlock>
     </>
   );
 }

@@ -17,7 +17,7 @@ import ExplainSchedule from './ExplainSchedule';
 import ProgramSummaryScreen from './ProgramSummaryScreen';
 import SkillUnlockScreen from './SkillUnlockScreen';
 import { explainGroup, weekPreview } from './quiz-v3-outro';
-import { buildProgramSummary, tracksFromLevels } from './quiz-v3-summary';
+import { buildProgramSummary, skillSummaryRows, tracksFromLevels } from './quiz-v3-summary';
 import type { ChosenSkill, QuizV3SkillId } from './skill-unlock';
 import { useQuizV3Outro } from './useQuizV3Outro';
 
@@ -62,6 +62,7 @@ export default function QuizV3Outro({
   const t = useT(onboarding);
   const o = useQuizV3Outro(levels, onFinish, { resume: resume || !!saveError, initialChosen, maxLevels: maxSkillLevels });
   const summary = useMemo(() => buildProgramSummary(tracksFromLevels(levels), masterLevel), [levels, masterLevel]);
+  const skillRows = useMemo(() => skillSummaryRows(levels, o.chosen), [levels, o.chosen]);
   const explained = useMemo(() => explainGroup(levels), [levels]);
   const days = useMemo(() => weekPreview(levels), [levels]);
   const back = () => { if (!o.back()) onExitBack(); };
@@ -98,7 +99,7 @@ export default function QuizV3Outro({
     );
   }
   if (s.kind === 'done') {
-    return <ProgramSummaryScreen summary={summary} gender={gender} onNext={o.next} onBack={back} />;
+    return <ProgramSummaryScreen summary={summary} skills={skillRows} gender={gender} onNext={o.next} onBack={back} />;
   }
   const last = s.index === 3;
   return (

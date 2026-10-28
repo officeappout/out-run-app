@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import OnboardingStoryBar from '../OnboardingStoryBar';
 import { strengthStoryBar } from '../../constants/onboarding-phases';
@@ -12,10 +13,12 @@ interface QuizV3HeaderProps {
   fillPercent: number;
   /** Story-bar phase: the assessment (default) or the summary (after it, part C). */
   phase?: 'assessment' | 'summary';
+  /** The end slot (the explainers' "דלג"); an empty 40px slot keeps the bars centred. */
+  trailing?: ReactNode;
 }
 
 /** Back button + the strength v3 story bars (level check, then summary), same row as the v2 slider header. */
-export default function QuizV3Header({ onBack, fillPercent, phase = 'assessment' }: QuizV3HeaderProps) {
+export default function QuizV3Header({ onBack, fillPercent, phase = 'assessment', trailing }: QuizV3HeaderProps) {
   const t = useT(onboarding);
   const bar = strengthStoryBar(phase === 'summary' ? 'result' : 'assessment', true);
   return (
@@ -41,7 +44,7 @@ export default function QuizV3Header({ onBack, fillPercent, phase = 'assessment'
           noPadding
         />
       </div>
-      <div className="w-10 flex-shrink-0" aria-hidden />
+      {trailing ?? <div className="w-10 flex-shrink-0" aria-hidden />}
     </header>
   );
 }
