@@ -11,6 +11,7 @@
 import { Footprints, MapPin } from 'lucide-react';
 import type { PlannedRunSlot, PlannedWalkSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 
 export interface PlannedRunSlotCardProps {
@@ -23,8 +24,9 @@ export interface PlannedRunSlotCardProps {
 
 export default function PlannedRunSlotCard({ slot, onArm, onCta }: PlannedRunSlotCardProps) {
   const t = useT(map);
+  const { direction } = useUiDir();
   return (
-    <div className="flex h-full w-full flex-col justify-between gap-3 rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
+    <div className="flex h-full w-full flex-col justify-between gap-3 rounded-v2-card bg-white p-4 shadow-v2-card" dir={direction}>
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: `${slot.accent}1f`, color: slot.kind === 'planned_walk' ? '#00865a' : '#65a30d' }}>

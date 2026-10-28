@@ -28,6 +28,7 @@ import { ActivityGlyph } from './hybrid/activity-icons';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 
 // Aerobic-card accent — the single stat-icon colour shared by all three cards.
@@ -139,6 +140,7 @@ export default function RouteCardUnified({
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const t = useT(map);
+  const { direction } = useUiDir();
   const slim = variant === 'slim';
   const hasStats = !!distanceText && !!durationText;
   // G1.4 (Sderot pilot): the curated discover card (slim + stats — BottomJourneyContainer is the only
@@ -162,7 +164,7 @@ export default function RouteCardUnified({
   };
   return (
     <div
-      dir="rtl"
+      dir={direction}
       data-coach={coachId}
       onPointerDown={onCardPointerDown}
       onClick={handleClick}

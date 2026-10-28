@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { DIFFICULTY_DISPLAY } from '@/lib/difficulty-display';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 /**
  * DifficultyBolts — shared 3-bolt difficulty pill.
@@ -82,12 +83,13 @@ export default function DifficultyBolts({
   className = '',
   colorScheme = 'cyan',
 }: DifficultyBoltsProps) {
+  const { direction } = useUiDir();
   const level = normalize(difficulty);
   const px = SIZE_PX[size];
   const severityColor = DIFFICULTY_DISPLAY[level].color;
 
   return (
-    <div className={`inline-flex items-center gap-1.5 ${className}`} dir="rtl">
+    <div className={`inline-flex items-center gap-1.5 ${className}`} dir={direction}>
       <div className="flex items-center gap-0.5">
         {[1, 2, 3].map((n) =>
           colorScheme === 'severity' ? (
