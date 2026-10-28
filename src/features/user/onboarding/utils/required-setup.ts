@@ -7,10 +7,10 @@ import type { UserFullProfile } from '../../core/types/user.types';
 import type { OnboardingStepId } from '../types';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { hasKnownIdentity } from '@/lib/identity';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export interface MissingRequirement {
   id: string;

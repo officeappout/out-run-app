@@ -17,10 +17,10 @@
 
 import { PROGRAM_CARD_LABELS_HE, MUSCLE_NAME_HE, SKILL_NAME_HE } from '../constants/program-path-labels.constants';
 import type { ProgramCardId } from './program-card-selection';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export interface PriorityItem {
   id: string;
