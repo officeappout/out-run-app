@@ -4413,9 +4413,6 @@ export default function HomePage() {
         onStartWorkout={(workoutId) => router.push(`/workouts/${workoutId}/active`)}
         onGeneratedWorkoutUpdate={handleWorkoutGenerated}
         onEditEntry={previewEntry?.entryId ? handleEditFromDrawer : undefined}
-        intensityOptions={trioSelector?.options}
-        selectedIntensityIndex={trioSelector?.selectedIndex}
-        onSelectIntensity={trioSelector?.onSelect}
         surface={openSurface ?? 'home-primary'}
         sourceParkId={previewParkId}
       />

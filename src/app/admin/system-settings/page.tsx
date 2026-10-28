@@ -135,6 +135,7 @@ interface FlagState {
   enable_run_drawer_from_me_v1: boolean;
   enable_map_tutorial_v1: boolean;
   enable_park_live_v2: boolean;
+  enable_commute_v2_player_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1127,6 +1128,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-lime-600',
     title: 'אימון פארק לייב: הליכה + מתקנים',
     description: 'באימון הליכה עם תחנות מתקנים: כרטיס הליכה (זמן, מרחק, מרחק לתחנה, בלי קצב) עם הכפתורים של היום, שורת הודעה מתחת לפסי הסטורי כשמתקרבים לתחנה, טוטוריאל הלייב בסדר החדש, מסך פתיחה אחד לתחנה (מתקנים בתמונות, שרירים, הסבר טבטה, קושי בברקים, ברירת מחדל קל), "הניחו את הטלפון על הרצפה" לפני הטיימר, "מצאו את המתקן הבא" + החלפה במנוחה, מסך טבעת שבועית לפני הסיכום, ותיקוני הסיכום (טבעת הליכה, בלי פס דקות, כרטיס שאלון). דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Navigation on the v2 player (28.10.2026, phone test AA2).
+  {
+    key: 'enable_commute_v2_player_v1',
+    parentKey: 'enable_home_v2',
+    icon: RouteIcon,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-600',
+    title: 'ניווט ליעד בנגן החדש',
+    description: 'ניווט לפארק או למקום ("ניווט" בכרטיס הפארק / בדף הפארק) נפתח בנגן הריצה החדש של בית v2 במקום הנגן הישן (רשימת ההקפות הישנה, הדוק הכהה). בכותרת: היעד, המרחק שנותר ושעת ההגעה המשוערת. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

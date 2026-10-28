@@ -34,6 +34,8 @@ import SideRail from '../SideRail';
 import WorkoutSettingsDrawer from '../WorkoutSettingsDrawer';
 import InviteRunButton from '../InviteRunButton';
 import { useFreeRunLive } from './useFreeRunLive';
+import { useCommuteEta } from '../../Commute/useCommuteEta';
+import { commuteHeaderText } from '../../Commute/commute-format';
 import { useT } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
@@ -144,13 +146,18 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
     if ((e.target as HTMLElement).closest('button')) return;
     dragControls.start(e);
   };
+  // Navigate-to-a-place (commute, enable_commute_v2_player_v1): the destination + remaining + arrival
+  // in the header instead of the lap line (phone test AA2).
+  const commuteContext = useRunningPlayer((s) => (s.sessionMode === 'commute' ? s.commuteContext : null));
+  const commuteEta = useCommuteEta();
+  const commute = commuteContext ? commuteHeaderText(commuteEta, commuteContext.label, t) : null;
   const headerProps = {
     leading: <CartProgressIcon items={cartItems} onClick={onMinimize} size={48} ariaLabel={t('run.free.v2.lapsListAria', { done: String(cartItems.filter((i) => i.done).length) })} />,
-    eyebrow: gv ? `${live.title} · ${gv.targetText}` : live.title,
+    eyebrow: commute ? commute.eyebrow : gv ? `${live.title} · ${gv.targetText}` : live.title,
     eyebrowColor: '#4d7c0f',
-    title: gv ? gv.remainingText : t('run.free.v2.lapTitle', { n: String(lapNo), time: fmtClock(live.totals.durationSec) }),
-    trailing: gv ? <span dir="ltr" className="shrink-0 whitespace-nowrap text-[14px] font-black tabular-nums text-v2-deep">{`${gv.percent}%`}</span> : null,
-    strip: gv ? <HeaderProgressBar progress={gv.progress} color={V2_BLOCK_COLORS.easy} /> : null,
+    title: commute ? commute.title : gv ? gv.remainingText : t('run.free.v2.lapTitle', { n: String(lapNo), time: fmtClock(live.totals.durationSec) }),
+    trailing: !commute && gv ? <span dir="ltr" className="shrink-0 whitespace-nowrap text-[14px] font-black tabular-nums text-v2-deep">{`${gv.percent}%`}</span> : null,
+    strip: !commute && gv ? <HeaderProgressBar progress={gv.progress} color={V2_BLOCK_COLORS.easy} /> : null,
   };
 
   const card = (

@@ -793,6 +793,11 @@ export const FLAG_DEFS = [
   // before the summary, and summary fixes (walk ring, no minutes bar, questionnaire card). Needs enable_home_v2.
   // Fail-closed; super admins preview it. NOT graduated: the owner tests it in the park first.
   { key: 'enableParkLiveV2', firestoreKey: 'enable_park_live_v2', defaultValue: false, superAdminValue: true },
+  // Navigation on the v2 player (28.10.2026, phone test AA2): "navigate to a park / place" (a commute) used to fall
+  // back to the old free-run UI (old laps list, dark dock, ETA carousel) even with enable_home_v2 on. On = the v2
+  // free-run player with the destination + remaining distance + arrival time in its header. Needs enable_home_v2.
+  // Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableCommuteV2PlayerV1', firestoreKey: 'enable_commute_v2_player_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
