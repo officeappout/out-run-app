@@ -38,6 +38,7 @@ import {
 import type { RouteTurn } from '../services/geoUtils';
 import { haversineMeters } from '../services/geoUtils';
 import type { ParkTurnInfo } from '../store/useMapStore';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { useMapStore } from '../store/useMapStore';
 import { isFiniteLatLng, isFiniteNum, isFiniteLngLat, isFiniteBounds, safeNumber } from '@/utils/geoValidation';
 import { reverseGeocodeStreet } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
@@ -319,6 +320,7 @@ export default function TurnCarousel({
   currentLocation,
   publishOnly = false,
 }: TurnCarouselProps) {
+  const { direction } = useUiDir();
   // Append a synthetic destination card so the user can swipe all the way
   // to the finish and see the endpoint highlighted on the map.
   // Memoised so identity is stable across renders — otherwise effects below
@@ -800,7 +802,7 @@ export default function TurnCarousel({
             color: PRIMARY_DARK,
           }}
           onClick={() => useMapStore.getState().setNavCarouselMinimized(false)}
-          dir="rtl"
+          dir={direction}
         >
           <ChevronUp size={13} />
           <span className="text-[11px] font-bold">{tMap('turnCarousel.collapsed.label')}</span>
@@ -878,7 +880,7 @@ export default function TurnCarousel({
               paddingBottom: 8,
             }}
             onClick={() => setIsExpanded(true)}
-            dir="rtl"
+            dir={direction}
           >
             {/* Icon tile (compact) */}
             <div
@@ -974,7 +976,7 @@ export default function TurnCarousel({
             <div
               key={i}
               data-turn-card
-              dir="rtl"
+              dir={direction}
               style={{
                 scrollSnapAlign: 'center',
                 minWidth: '75vw',
@@ -1137,7 +1139,7 @@ export default function TurnCarousel({
       </div>
 
       {/* ── Pills row: minimize (always) + GPS resume (peek only) ── */}
-      <div className="flex items-center justify-between px-4 mt-1.5" dir="rtl">
+      <div className="flex items-center justify-between px-4 mt-1.5" dir={direction}>
         {/* Minimize — visible in FULL state (from both manual expand and proximity) */}
         <button
           onClick={() => useMapStore.getState().setNavCarouselMinimized(true)}
