@@ -81,7 +81,7 @@ export default function DestinationPlanner(props: DestinationPlannerProps) {
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[60] pointer-events-none" dir="rtl" role="dialog" aria-label={t('destPlanner.sheetLabel')}>
+    <div className="fixed inset-x-0 bottom-0 z-[60] pointer-events-none" role="dialog" aria-label={t('destPlanner.sheetLabel')}>
       <div ref={sheetRef} className="pointer-events-auto mx-auto max-w-md bg-[#f6fbfd] rounded-t-[28px] shadow-[0_-18px_40px_-24px_rgba(9,30,50,0.35)] max-h-[72vh] flex flex-col pb-[env(safe-area-inset-bottom)]">
         <motion.div onPanEnd={onPanEnd} style={{ touchAction: 'none' }}>
           <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}
@@ -90,7 +90,7 @@ export default function DestinationPlanner(props: DestinationPlannerProps) {
           </button>
           <div className="px-5 flex items-center gap-3">
             <button type="button" onClick={onBack} aria-label={t('destPlanner.back')} className="w-9 h-9 rounded-full bg-white ring-1 ring-[#e6edf2] grid place-items-center shrink-0">
-              <ChevronRight size={18} strokeWidth={2.6} aria-hidden />
+              <ChevronRight className="ltr:-scale-x-100" size={18} strokeWidth={2.6} aria-hidden />
             </button>
             <div className="min-w-0 flex-1">
               <div className="text-[17px] font-black tracking-tight truncate text-[#0e1419] leading-tight">{destinationLabel}</div>

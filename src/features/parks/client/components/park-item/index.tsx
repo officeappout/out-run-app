@@ -35,7 +35,7 @@ function ParkItem({ park }: ParkItemProps) {
       </div>
 
       {/* תוכן הטקסט */}
-      <div className="flex-1 flex flex-col items-start text-right">
+      <div className="flex-1 flex flex-col items-start text-start">
         <h4 className="font-bold text-gray-900 dark:text-white text-base mb-1">{park.name}</h4>
         
         <div className="flex items-center gap-2 mb-2">
@@ -49,7 +49,7 @@ function ParkItem({ park }: ParkItemProps) {
 
         {/* מרחק מהמשתמש */}
         <div className="flex items-center bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-md">
-          <span className="material-icons-round text-blue-500 text-[12px] ml-1">near_me</span>
+          <span className="material-icons-round text-blue-500 text-[12px] me-1">near_me</span>
           <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">{distanceStr} ממך</span>
         </div>
       </div>

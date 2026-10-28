@@ -91,7 +91,7 @@ export default function ActiveWorkoutOverlay({
       )}
 
       {/* Header - Minimal and Transparent */}
-      <header className="absolute top-0 left-0 right-0 h-14 flex items-center justify-between px-4 z-30 pointer-events-auto">
+      <header className="absolute top-0 end-0 start-0 h-14 flex items-center justify-between px-4 z-30 pointer-events-auto">
         <button
           onClick={onStop}
           className="w-10 h-10 flex items-center justify-center rounded-full bg-black/20 backdrop-blur-md text-white shadow-sm active:scale-95 transition-all"
@@ -121,7 +121,7 @@ export default function ActiveWorkoutOverlay({
             
             {/* ✅ Dynamic Timeline - Only show in Guided Mode */}
             {isGuidedMode && route && (
-              <div className="absolute bottom-32 left-0 right-0 px-4 z-30 pointer-events-none">
+              <div className="absolute bottom-32 end-0 start-0 px-4 z-30 pointer-events-none">
                 <div className="bg-black/60 backdrop-blur-md rounded-2xl p-4 mx-auto max-w-md pointer-events-auto">
                   {/* Progress Bar */}
                   <div className="w-full h-1.5 bg-white/20 rounded-full mb-4 overflow-hidden">
@@ -134,7 +134,7 @@ export default function ActiveWorkoutOverlay({
                   {/* Timeline Steps */}
                   <div className="flex justify-between items-center relative">
                     {/* Connector Lines */}
-                    <div className="absolute top-6 left-0 right-0 h-0.5 bg-white/10 -z-10" />
+                    <div className="absolute top-6 end-0 start-0 h-0.5 bg-white/10 -z-10" />
                     
                     {timelineSteps.map((step, index) => {
                       const Icon = step.icon;
@@ -185,7 +185,7 @@ export default function ActiveWorkoutOverlay({
 
         {/* Location Error Banner */}
         {locationError && currentPage === 'map' && (
-          <div className="absolute top-32 left-4 right-4 p-3 bg-red-500/90 backdrop-blur text-white rounded-xl text-center z-20 pointer-events-auto">
+          <div className="absolute top-32 end-4 start-4 p-3 bg-red-500/90 backdrop-blur text-white rounded-xl text-center z-20 pointer-events-auto">
             <p className="text-sm font-bold">{locationError}</p>
           </div>
         )}
@@ -201,14 +201,14 @@ export default function ActiveWorkoutOverlay({
 
         {/* Map Attribution */}
         {currentPage === 'map' && (
-          <div className="absolute bottom-24 right-2 text-[10px] text-white/50 pointer-events-none z-10">
+          <div className="absolute bottom-24 start-2 text-[10px] text-white/50 pointer-events-none z-10">
             OutRun AI
           </div>
         )}
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/80 to-transparent flex items-end pb-4 justify-center gap-8 pointer-events-auto z-40">
+      <nav className="absolute bottom-0 end-0 start-0 h-16 bg-gradient-to-t from-black/80 to-transparent flex items-end pb-4 justify-center gap-8 pointer-events-auto z-40">
         <button
           onClick={() => setCurrentPage('map')}
           className={`flex flex-col items-center gap-1 transition-all duration-200 ${currentPage === 'map' ? 'text-cyan-400 scale-110' : 'text-white/60 hover:text-white'
