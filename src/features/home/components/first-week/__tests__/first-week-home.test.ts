@@ -26,6 +26,15 @@ describe('first-week home card (enable_home_v2)', () => {
     expect(d2?.href).toBe('/map?openRun=walking');
   });
 
+  it('no button-less card on home: day 1 "מחכה בכניסה · 12 דקות" and days 5-7 stay push-only (Z2)', () => {
+    for (const day of [1, 5, 6, 7]) {
+      expect(firstWeekCardForProfile({ createdAt: NOW - day * D }, NOW)).toBeNull();
+    }
+    for (const day of [2, 3, 4]) {
+      expect(firstWeekCardForProfile({ createdAt: NOW - day * D }, NOW)?.href).toBeTruthy();
+    }
+  });
+
   it('gone after the first workout, after day 7, or with no signup date', () => {
     expect(firstWeekCardForProfile({ createdAt: NOW - 2 * D, progression: { workoutCount: 1 } }, NOW)).toBeNull();
     expect(firstWeekCardForProfile({ createdAt: NOW - 2 * D }, NOW, true)).toBeNull();

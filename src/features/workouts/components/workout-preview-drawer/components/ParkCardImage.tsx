@@ -20,7 +20,7 @@ export default function ParkCardImage({ src, fallback, alt, eager }: ParkCardIma
   const resolvedSrc = errored ? fallback : (src || fallback);
 
   return (
-    <div className="relative w-full h-[120px] overflow-hidden bg-slate-200 dark:bg-slate-700">
+    <div className="relative w-full h-[88px] overflow-hidden bg-slate-200 dark:bg-slate-700">
       {!loaded && (
         <div className="absolute inset-0 animate-pulse bg-slate-200 dark:bg-slate-700" />
       )}

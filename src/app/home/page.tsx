@@ -13,7 +13,7 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import { FIRST_RUN_COACH, firstRunToursEnabled, homeWeekCoachTarget, shouldArmHomeTour, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
 import { ScheduleTutorialHost } from '@/features/schedule/tutorial-v1';
-import { HomeTodayCards, useHomeToday } from '@/features/schedule/home-today';
+import { HOME_TODAY_CARDS_ON_HOME, HomeTodayCards, useHomeToday } from '@/features/schedule/home-today';
 import { useCoachTargetPresent } from '@/features/user/onboarding/hooks/useCoachTargetPresent';
 import { consumeWhatNowPlanArrival } from '@/features/user/onboarding/services/entry-whatnow';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
@@ -3315,8 +3315,8 @@ export default function HomePage() {
           </motion.div>
         )}
 
-        {/* enable_schedule_tutorial_v1: today's cards (board HomeToday). Off = nothing. */}
-        {homeToday.model && <HomeTodayCards model={homeToday.model} onTrainNow={() => void handleHeroPress()} />}
+        {/* enable_schedule_tutorial_v1: today's cards (board HomeToday). Hidden for now (Z3, see visibility.ts). */}
+        {HOME_TODAY_CARDS_ON_HOME && homeToday.model && <HomeTodayCards model={homeToday.model} onTrainNow={() => void handleHeroPress()} />}
 
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program).
             enable_home_v2: a running-only user (built running plan, no strength program) gets it
@@ -4413,9 +4413,6 @@ export default function HomePage() {
         onStartWorkout={(workoutId) => router.push(`/workouts/${workoutId}/active`)}
         onGeneratedWorkoutUpdate={handleWorkoutGenerated}
         onEditEntry={previewEntry?.entryId ? handleEditFromDrawer : undefined}
-        intensityOptions={trioSelector?.options}
-        selectedIntensityIndex={trioSelector?.selectedIndex}
-        onSelectIntensity={trioSelector?.onSelect}
         surface={openSurface ?? 'home-primary'}
         sourceParkId={previewParkId}
       />
