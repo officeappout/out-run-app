@@ -48,11 +48,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const q = query(
-      collection(db, GYM_EQUIPMENT_COLLECTION),
-      where('name', '==', documentName),
-    );
-    const snap = await getDocs(q);
+    // `name` is a plain Hebrew string today, or {he, en} once English is imported: match both shapes.
+    const [byString, byHebrew] = await Promise.all([
+      getDocs(query(collection(db, GYM_EQUIPMENT_COLLECTION), where('name', '==', documentName))),
+      getDocs(query(collection(db, GYM_EQUIPMENT_COLLECTION), where('name.he', '==', documentName))),
+    ]);
+    const snap = { empty: byString.empty && byHebrew.empty, docs: [...byString.docs, ...byHebrew.docs] };
 
     if (snap.empty) {
       return NextResponse.json(

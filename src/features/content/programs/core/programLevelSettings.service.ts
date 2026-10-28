@@ -21,6 +21,7 @@ import {
 import { db } from '@/lib/firebase';
 import { ProgramLevelSettings, ProgramLevelSettingsWithProgram } from './program.types';
 import { LEVEL_SETTINGS_TEXT_FIELDS, foldLocalizedFieldsForWrite, normalizeStoredTextFields } from './localized-fields';
+import { exerciseNameForWrite, normalizeLevelGoals } from './level-goals-localized';
 import { getAllPrograms } from './program.service';
 import { genPerfRead, isGenVerboseEnabled } from '@/lib/gen-perf';
 import { PLS_CACHE_ENABLED } from '@/config/feature-flags';
@@ -142,12 +143,12 @@ export async function getAllProgramLevelSettings(): Promise<ProgramLevelSettings
     );
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => normalizeStoredTextFields({
+    return snapshot.docs.map(doc => normalizeLevelGoals(normalizeStoredTextFields({
       id: doc.id,
       ...doc.data(),
       createdAt: toDate(doc.data().createdAt),
       updatedAt: toDate(doc.data().updatedAt),
-    } as ProgramLevelSettings, LEVEL_SETTINGS_TEXT_FIELDS));
+    } as ProgramLevelSettings, LEVEL_SETTINGS_TEXT_FIELDS)));
   } catch (error) {
     console.error('Error fetching program level settings:', error);
     throw error;
@@ -188,12 +189,12 @@ export async function getProgramLevelSettingsByProgram(programId: string): Promi
     );
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => normalizeStoredTextFields({
+    return snapshot.docs.map(doc => normalizeLevelGoals(normalizeStoredTextFields({
       id: doc.id,
       ...doc.data(),
       createdAt: toDate(doc.data().createdAt),
       updatedAt: toDate(doc.data().updatedAt),
-    } as ProgramLevelSettings, LEVEL_SETTINGS_TEXT_FIELDS));
+    } as ProgramLevelSettings, LEVEL_SETTINGS_TEXT_FIELDS)));
   } catch (error) {
     console.error('Error fetching program level settings by program:', error);
     throw error;
@@ -312,14 +313,14 @@ export async function getProgramLevelSetting(
     }
     // ─────────────────────────────────────────────────────────────────────
 
-    const result = normalizeStoredTextFields({
+    const result = normalizeLevelGoals(normalizeStoredTextFields({
       id: docSnap.id,
       ...rawData,
       ...(preferredProtocols  !== undefined ? { preferredProtocols }  : {}),
       ...(protocolProbability !== undefined ? { protocolProbability } : {}),
       createdAt: toDate(rawData['createdAt']),
       updatedAt: toDate(rawData['updatedAt']),
-    } as ProgramLevelSettings, LEVEL_SETTINGS_TEXT_FIELDS);
+    } as ProgramLevelSettings, LEVEL_SETTINGS_TEXT_FIELDS));
     plsCacheSet(settingsId, result);
     return result;
   } catch (error) {
@@ -363,7 +364,7 @@ export async function saveProgramLevelSettings(
       ...foldLocalizedFieldsForWrite(data, LEVEL_SETTINGS_TEXT_FIELDS),
       targetGoals: (data.targetGoals ?? []).map(g => ({
         exerciseId: g.exerciseId,
-        exerciseName: g.exerciseName,
+        exerciseName: exerciseNameForWrite(g, existingDoc.exists() ? existingDoc.data().targetGoals : undefined),
         targetValue: g.targetValue,
         unit: g.unit,
         ...(g.progressBonus != null ? { progressBonus: g.progressBonus } : {}),

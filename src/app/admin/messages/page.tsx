@@ -50,7 +50,9 @@ import {
 interface MessageFormData {
   type: MessageType;
   text: string;
+  textEn: string;
   subText: string;
+  subTextEn: string;
   priority: number;
   isActive: boolean;
   targetPersona: string;
@@ -65,7 +67,9 @@ interface MessageFormData {
 const INITIAL_FORM_DATA: MessageFormData = {
   type: 'post_workout',
       text: '',
+  textEn: '',
   subText: '',
+  subTextEn: '',
   priority: 5,
   isActive: true,
   targetPersona: '',
@@ -212,6 +216,11 @@ function MessageCard({
   );
 }
 
+/** True when the doc being edited already carries an English slot (so clearing it folds back to plain Hebrew). */
+function initialHadEn(m: SmartMessage | null | undefined, key: 'textLocalized' | 'subTextLocalized'): boolean {
+  return !!m?.[key]?.en;
+}
+
 /**
  * Message Form Modal
  */
@@ -237,7 +246,9 @@ function MessageFormModal({
       setFormData({
         type: initialData.type,
         text: initialData.text,
+        textEn: initialData.textLocalized?.en ?? '',
         subText: initialData.subText || '',
+        subTextEn: initialData.subTextLocalized?.en ?? '',
         priority: initialData.priority,
         isActive: initialData.isActive,
         targetPersona: initialData.targetPersona || '',
@@ -317,6 +328,15 @@ function MessageFormModal({
               placeholder="כל הכבוד!"
               required
               />
+            <input
+              type="text"
+              dir="ltr"
+              value={formData.textEn}
+              onChange={(e) => setFormData({ ...formData, textEn: e.target.value })}
+              aria-label="טקסט ראשי (EN)"
+              className="mt-2 w-full px-3 py-2 border rounded-lg text-left focus:ring-2 focus:ring-primary focus:border-primary"
+              placeholder="English (optional)"
+            />
             </div>
           
           {/* Sub Text */}
@@ -330,6 +350,15 @@ function MessageFormModal({
               onChange={(e) => setFormData({ ...formData, subText: e.target.value })}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               placeholder="סיימת את האימון בהצלחה"
+            />
+            <input
+              type="text"
+              dir="ltr"
+              value={formData.subTextEn}
+              onChange={(e) => setFormData({ ...formData, subTextEn: e.target.value })}
+              aria-label="טקסט משני (EN)"
+              className="mt-2 w-full px-3 py-2 border rounded-lg text-left focus:ring-2 focus:ring-primary focus:border-primary"
+              placeholder="English (optional)"
             />
                         </div>
           
@@ -582,7 +611,10 @@ export default function MessagesAdminPage() {
     const input: SmartMessageInput = {
       type: data.type,
       text: data.text,
+      // English entered (or removed from a doc that had it) -> {he,en}; Hebrew-only saves are unchanged.
+      ...(data.textEn.trim() || false ? { textLocalized: { he: data.text, en: data.textEn.trim() } } : {}),
       subText: data.subText || undefined,
+      ...(data.subText && (data.subTextEn.trim() || false) ? { subTextLocalized: { he: data.subText, en: data.subTextEn.trim() } } : {}),
       priority: data.priority,
       isActive: data.isActive,
       targetPersona: data.targetPersona || undefined,
@@ -604,7 +636,10 @@ export default function MessagesAdminPage() {
     const updates: Partial<SmartMessageInput> = {
       type: data.type,
       text: data.text,
+      // English entered (or removed from a doc that had it) -> {he,en}; Hebrew-only saves are unchanged.
+      ...(data.textEn.trim() || initialHadEn(editingMessage ?? undefined, 'textLocalized') ? { textLocalized: { he: data.text, en: data.textEn.trim() } } : {}),
       subText: data.subText || undefined,
+      ...(data.subText && (data.subTextEn.trim() || initialHadEn(editingMessage ?? undefined, 'subTextLocalized')) ? { subTextLocalized: { he: data.subText, en: data.subTextEn.trim() } } : {}),
       priority: data.priority,
       isActive: data.isActive,
       targetPersona: data.targetPersona || undefined,

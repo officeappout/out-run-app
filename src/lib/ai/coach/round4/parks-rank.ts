@@ -5,6 +5,7 @@
  * a few calisthenics groups; a park qualifies for a focus when it has a matching group.
  * Distances are straight-line from the user's area (never shown as coordinates).
  */
+import { hebrewOrEmpty } from '@/features/content/shared/stored-text-fields';
 import type { FindNearbyParksInputT } from './tool-specs';
 import type { ParkCardView } from './types';
 
@@ -25,7 +26,7 @@ export const GEAR_GROUP_HE: Record<GearGroup, string> = {
 const GROUP_ORDER: GearGroup[] = ['pullup', 'parallel', 'rings', 'straps', 'ladder', 'ab_bench', 'steps', 'machines'];
 
 export function classifyGear(e: { name?: unknown; iconKey?: unknown; isFunctional?: unknown }): GearGroup | null {
-  const name = typeof e.name === 'string' ? e.name : '';
+  const name = hebrewOrEmpty(e.name); // gym_equipment name may be {he,en}
   const icon = typeof e.iconKey === 'string' ? e.iconKey.toLowerCase() : '';
   if (icon.startsWith('pullupbar') || /מתח/.test(name)) return /סולם/.test(name) ? 'ladder' : 'pullup';
   if (icon.startsWith('parallel_bars') || /מקבילים/.test(name)) return 'parallel';
