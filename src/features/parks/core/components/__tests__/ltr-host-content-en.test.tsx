@@ -193,7 +193,7 @@ describe('ltr-host content direction', () => {
   });
 
   it('RouteCarousel (searching): dialog and card follow the locale', () => {
-    const el = <RouteCarousel routes={[]} mode="loop" onBack={noop} onStart={noop} userLocation={near} activity="walking" onActivityChange={noop} /> as ReactElement;
+    const el = <RouteCarousel userPosition={near} activity="running" targetKm={3} focusedRouteId={null} onSelect={noop} onBack={noop} />;
     const en = render(el, 'en');
     expect(en).not.toContain('dir="rtl"');
     expect(render(el, 'he')).toContain('dir="rtl"');
