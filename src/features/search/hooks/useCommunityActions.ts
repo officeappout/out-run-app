@@ -10,14 +10,13 @@ import { useUserStore } from '@/features/user';
 import { joinGroup, leaveGroup } from '@/features/arena/services/group.service';
 import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
+import { eventJoinVerbKey, groupJoinVerbKey, type JoinVerbKey } from '@/features/arena/utils/join-verb';
 import type { CommunityEvent, CommunityGroup, ScheduleSlot } from '@/types/community.types';
 
-const GROUP_VERB: Record<string, string> = { walking: 'ילך', running: 'ירוץ', yoga: 'יתאמן', calisthenics: 'יתאמן', cycling: 'ירכב', other: 'יתאמן' }; // i18n-allow-hebrew: verb fragment composed by arena PostJoinSuccessDrawer (outside this folder), wave 2I
-const EVENT_VERB: Record<string, string> = { race: 'ירוץ', fitness_day: 'יתאמן', workshop: 'ישתתף', community_meetup: 'ישתתף', other: 'יתאמן' }; // i18n-allow-hebrew: verb fragment composed by arena PostJoinSuccessDrawer (outside this folder), wave 2I
 
 export interface JoinSuccess {
   name: string;
-  verb: string;
+  verbKey: JoinVerbKey;
   groupId?: string;
   scheduleSlots?: ScheduleSlot[];
   category?: string;
@@ -55,7 +54,7 @@ export function useCommunityActions() {
       setJoinedGroupIds((prev) => new Set(Array.from(prev).concat(group.id)));
       setSelectedGroup(null);
       const slots = group.scheduleSlots?.length ? group.scheduleSlots : group.schedule ? [group.schedule] : [];
-      setSuccess({ name: group.name, verb: GROUP_VERB[group.category] ?? 'יתאמן', groupId: group.id, scheduleSlots: slots, category: group.category, address: group.meetingLocation?.address }); // i18n-allow-hebrew: verb fragment composed by arena PostJoinSuccessDrawer (outside this folder), wave 2I
+      setSuccess({ name: group.name, verbKey: groupJoinVerbKey(group.category), groupId: group.id, scheduleSlots: slots, category: group.category, address: group.meetingLocation?.address });
     } catch (err) {
       console.error('[unified-search] joinGroup failed:', err);
     } finally {
@@ -84,7 +83,7 @@ export function useCommunityActions() {
       await joinEvent(event.id, userId, userName, photoURL ?? undefined);
       setJoinedEventIds((prev) => new Set(Array.from(prev).concat(event.id)));
       setSelectedEvent(null);
-      setSuccess({ name: event.name, verb: EVENT_VERB[event.category] ?? 'יתאמן' }); // i18n-allow-hebrew: verb fragment composed by arena PostJoinSuccessDrawer (outside this folder), wave 2I
+      setSuccess({ name: event.name, verbKey: eventJoinVerbKey(event.category) });
     } catch (err) {
       console.error('[unified-search] joinEvent failed:', err);
     } finally {

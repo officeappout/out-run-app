@@ -9,12 +9,12 @@
  * Gated behind BOTH enable_onboarding_tutorial_v1 AND enable_home_v2 — either off → no tour.
  */
 import type { AppGender } from '@/lib/utils/gendered-text';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 import { weekdayLabel } from '@/lib/i18n/units';
 import { isMapTutorialTour, mapTutorialSteps } from './map-tutorial-tour';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export type FirstRunTourId = 'home' | 'map' | 'community' | 'player' | 'route' | 'route-player' | 'plan';
 

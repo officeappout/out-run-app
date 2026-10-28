@@ -22,12 +22,16 @@ describe('push copy through the functions translator', () => {
     }
   });
 
-  it('selects the same copy for he, an unset locale and a locale without translations', () => {
+  it('selects the same copy for he and an unset locale; a locale without its own catalog falls back to English (en batch 8), never to Hebrew', () => {
     const ctx = { uid: 'u1', now: NOW, vars: { '@שם': 'דנה', '@רמה': '5', '@תוכנית': 'כוח' } };
     const heOut = selectPushCopy('level_up', [], ctx);
     expect(heOut).not.toBeNull();
     expect(selectPushCopy('level_up', [], { ...ctx, locale: 'he' })).toEqual(heOut);
-    expect(selectPushCopy('level_up', [], { ...ctx, locale: 'de' })).toEqual(heOut);
-    expect(defaultRowsFor('level_up', 'ru')).toEqual(defaultRowsFor('level_up'));
+    const enOut = selectPushCopy('level_up', [], { ...ctx, locale: 'en' });
+    expect(enOut?.title).toBe('You reached level 5');
+    expect(enOut?.title).not.toBe(heOut?.title);
+    // de / ru have no push catalog yet: the shared translator chain is locale → en → he
+    expect(selectPushCopy('level_up', [], { ...ctx, locale: 'de' })).toEqual({ ...enOut, locale: 'de' });
+    expect(defaultRowsFor('level_up', 'he')).toEqual(defaultRowsFor('level_up'));
   });
 });

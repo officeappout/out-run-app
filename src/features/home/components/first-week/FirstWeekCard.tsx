@@ -17,7 +17,7 @@ import type { FirstWeekCard as FirstWeekCardData } from '@/features/notification
 import { ProgramArt, ProgramTrackIcon } from '../start-cards/program-track-visual';
 import { firstWeekArtTrack, firstWeekCardForProfile, firstWeekDismissKey, type FirstWeekArtTrack } from './first-week-home';
 import { useT } from '@/hooks/useT';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { home } from '@/messages/ns/home';
 import type { HomeT } from '../../utils/home-run-slot';
 
@@ -29,7 +29,7 @@ export interface FirstWeekCardProps {
 
 const SIMPLER = { fontFamily: 'var(--font-simpler)' } as const;
 
-export function firstWeekChipLabel(day: number, t: HomeT = makeT('he', home)): string {
+export function firstWeekChipLabel(day: number, t: HomeT = makeLiveT(home)): string {
   return day === 0 ? t('firstWeekCard.chip.first') : t('firstWeekCard.chip.day', { day: String(day) });
 }
 

@@ -25,11 +25,11 @@ import { ClientToolOutcomeSchema, type CoachLocation } from './tools';
 import { BuilderContextSchema } from './schedule-proposal/builder-context';
 import type { CoachGender } from './persona';
 import { aiPauseReply } from './ai-pause';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { coach } from '@/messages/ns/coach';
 
-// Hebrew-only server/client copy (bundled catalog, sync read).
-const t = makeT('he', coach);
+// Locale-aware copy: resolved per call (Hebrew on the server and with the flags off).
+const t = makeLiveT(coach);
 import type { CoachActionId } from './action-chips';
 import type { SuggestionChip } from './suggestions/types';
 import type { ProposalView } from './schedule-proposal/types';

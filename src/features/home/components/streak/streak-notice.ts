@@ -10,7 +10,7 @@
  */
 import { isStreakMilestone, STREAK_SHIELD_MAX } from '@/features/activity/lib/streak-day.core';
 import type { StreakNotice } from '@/features/activity/store/streak-policy';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { home, type HomeKey } from '@/messages/ns/home';
 import type { HomeT } from '@/features/home/utils/home-run-slot';
 
@@ -41,7 +41,7 @@ function days(n: number, t: HomeT): string {
   return t('streakCard.days', { n, count: String(n) });
 }
 
-export function noticeCard(n: StreakNotice, t: HomeT = makeT('he', home)): StreakCardModel {
+export function noticeCard(n: StreakNotice, t: HomeT = makeLiveT(home)): StreakCardModel {
   switch (n.kind) {
     case 'broken':
       return {
@@ -82,7 +82,7 @@ export interface StreakCardInput {
 }
 
 /** The one card to show now, or null. */
-export function pickStreakCard(i: StreakCardInput, t: HomeT = makeT('he', home)): StreakCardModel | null {
+export function pickStreakCard(i: StreakCardInput, t: HomeT = makeLiveT(home)): StreakCardModel | null {
   const candidates: StreakCardModel[] = [];
   if (i.notice && i.notice.kind !== 'shield_earned') candidates.push(noticeCard(i.notice, t));
   if (i.lastStreakDate === i.todayKey && isStreakMilestone(i.currentStreak)) {

@@ -307,7 +307,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
         </div>
 
         {/* Metrics grid */}
-        <div className="grid grid-cols-3 divide-x divide-x-reverse divide-gray-100 dark:divide-gray-700/50">
+        <div className="grid grid-cols-3 divide-x rtl:divide-x-reverse divide-gray-100 dark:divide-gray-700/50">
           {/* Duration — always shown */}
           <div className="flex flex-col items-center py-3 px-2">
             <span className="text-base leading-none mb-1">⏱️</span>

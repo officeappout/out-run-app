@@ -5,6 +5,7 @@ import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import SessionDrawer from '@/features/arena/components/SessionDrawer';
 import PostJoinSuccessDrawer from '@/features/arena/components/PostJoinSuccessDrawer';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
+import { DEFAULT_JOIN_VERB_KEY } from '@/features/arena/utils/join-verb';
 import type { CommunityActions } from '../hooks/useCommunityActions';
 
 export default function CommunityDrawers({ actions }: { actions: CommunityActions }) {
@@ -34,7 +35,7 @@ export default function CommunityDrawers({ actions }: { actions: CommunityAction
         isOpen={!!a.success}
         onClose={() => a.setSuccess(null)}
         name={a.success?.name ?? ''}
-        verb={a.success?.verb ?? 'יתאמן'} // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+        verbKey={a.success?.verbKey ?? DEFAULT_JOIN_VERB_KEY}
         scheduleSlots={a.success?.scheduleSlots}
         category={a.success?.category}
         address={a.success?.address}

@@ -21,6 +21,15 @@ import heSummary from '@/messages/he/summary.json';
 import heProfile from '@/messages/he/profile.json';
 import enProfile from '@/messages/en/profile.json';
 import { profile } from '@/messages/ns/profile';
+import heLibrary from '@/messages/he/library.json';
+import enLibrary from '@/messages/en/library.json';
+import { library } from '@/messages/ns/library';
+import heCoach from '@/messages/he/coach.json';
+import enCoach from '@/messages/en/coach.json';
+import { coach } from '@/messages/ns/coach';
+import heWide from '@/messages/he/wide.json';
+import enWide from '@/messages/en/wide.json';
+import { wide } from '@/messages/ns/wide';
 import enPlayer from '@/messages/en/player.json';
 import enSummary from '@/messages/en/summary.json';
 import heMap from '@/messages/he/map.json';
@@ -28,6 +37,19 @@ import enMap from '@/messages/en/map.json';
 import { map } from '@/messages/ns/map';
 import { player } from '@/messages/ns/player';
 import { summary } from '@/messages/ns/summary';
+import heSocial from '@/messages/he/social.json';
+import enSocial from '@/messages/en/social.json';
+import { social } from '@/messages/ns/social';
+import heTogether from '@/messages/he/together.json';
+import enTogether from '@/messages/en/together.json';
+import { together } from '@/messages/ns/together';
+import heCommunity from '@/messages/he/community.json';
+import enCommunity from '@/messages/en/community.json';
+import hePush from '@/messages/he/push.json';
+import enPush from '@/messages/en/push.json';
+import { push } from '@/messages/ns/push';
+import { community } from '@/messages/ns/community';
+import { COMMUNITY_HIDDEN } from '../../../../scripts/i18n/validate-en-catalog';
 import { registerCatalog } from '../catalogs';
 import { messageArgNames } from '../core/i18n-core';
 import { formatIcu } from '../core/icu';
@@ -42,7 +64,14 @@ const SETS = [
   { ns: player, he: hePlayer as Cat, en: enPlayer as Cat },
   { ns: summary, he: heSummary as Cat, en: enSummary as Cat },
   { ns: profile, he: heProfile as Cat, en: enProfile as Cat },
+  { ns: social, he: heSocial as Cat, en: enSocial as Cat },
+  { ns: together, he: heTogether as Cat, en: enTogether as Cat },
+  { ns: community, he: heCommunity as Cat, en: enCommunity as Cat },
   { ns: map, he: heMap as Cat, en: enMap as Cat },
+  { ns: library, he: heLibrary as Cat, en: enLibrary as Cat },
+  { ns: coach, he: heCoach as Cat, en: enCoach as Cat },
+  { ns: wide, he: heWide as Cat, en: enWide as Cat },
+  { ns: push, he: hePush as Cat, en: enPush as Cat },
 ];
 const SELECTS: Record<string, string> = { gender: 'other', tone: 'in', unit: 'km' };
 const values = (msg: string) => Object.fromEntries(messageArgNames(msg).map((n) => [n, SELECTS[n] ?? 3]));
@@ -64,7 +93,8 @@ describe('en pilot — Hebrew is untouched', () => {
     it(`${s.ns.name}: every en key formats without throwing and has no Hebrew`, () => {
       for (const [k, msg] of Object.entries(s.en)) {
         const out = formatIcu(msg, 'en', values(s.he[k]));
-        expect(HEBREW.test(out), k).toBe(false);
+        // push copy keeps the Hebrew @tags (@שם, @שעה ...): variable keys the senders substitute
+        expect(HEBREW.test(s.ns.name === 'push' ? out.replace(/@[֐-׿_]+/g, '') : out), k).toBe(false);
       }
     });
 
@@ -86,7 +116,28 @@ describe('en pilot — Hebrew is untouched', () => {
     expect(Object.keys(enProfile)).toEqual(Object.keys(heProfile));
   });
 
+  it('social + together: every he key is translated (batch 6)', () => {
+    expect(Object.keys(enSocial)).toEqual(Object.keys(heSocial));
+    expect(Object.keys(enTogether)).toEqual(Object.keys(heTogether));
+  });
+
+  it('community: all keys except the 9 military ones are translated (batch 6)', () => {
+    const missing = Object.keys(heCommunity).filter((k) => !(k in enCommunity));
+    expect(missing).toHaveLength(9);
+    expect(missing.sort()).toEqual(Array.from(COMMUNITY_HIDDEN).sort());
+  });
+
+  it('push: every he key is translated (batch 8)', () => {
+    expect(Object.keys(enPush)).toEqual(Object.keys(hePush));
+  });
+
   it('map: every he key is translated in batch 5', () => {
     expect(Object.keys(enMap)).toEqual(Object.keys(heMap));
+  });
+
+  it('library, coach, wide: every he key is translated in batch 7', () => {
+    expect(Object.keys(enLibrary)).toEqual(Object.keys(heLibrary));
+    expect(Object.keys(enCoach)).toEqual(Object.keys(heCoach));
+    expect(Object.keys(enWide)).toEqual(Object.keys(heWide));
   });
 });
