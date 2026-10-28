@@ -524,7 +524,7 @@
   "result.program.one": "{category} program",
   "result.program.many": "{rest} and {last} program",
   "result.program.custom": "Personalized training program",
-  "result.achievement": "About 1,280 users started at exactly 1%, just like you. Most reached level {level} within about {sessions, plural, one {# workout} other {# workouts}}.",
+  "result.achievement": "Most people who start at exactly 1%, just like you, reach level {level} within about {sessions, plural, one {# workout} other {# workouts}}.",
   "result.continue": "Let’s continue",
   "result.analyzing": "Analyzing your performance…",
   "result.journey": "Your journey starts now! Every workout in the plan moves you forward by a few percent, up to the next level.",
