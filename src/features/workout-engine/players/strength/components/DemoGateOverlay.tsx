@@ -17,11 +17,13 @@ interface Props {
   /** One-line cue (first execution step) when the data has one. */
   cue?: string | null;
   ctaLabel: string;
+  /** enable_park_live_v2 (board Park 8): one line above the CTA ("put the phone on the floor…"). */
+  hint?: string | null;
   /** Must run synchronously inside the tap (it unmutes/plays the clip — a user-gesture API). */
   onStart: () => void;
 }
 
-export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, onStart }: Props) {
+export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, hint, onStart }: Props) {
   const t = useT(player);
   return (
     <motion.div
@@ -42,6 +44,11 @@ export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, onStart }
       {cue ? (
         <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2" style={{ fontFamily: 'var(--font-simpler)' }}>
           {cue}
+        </p>
+      ) : null}
+      {hint ? (
+        <p className="mt-3 text-[14px] font-bold leading-snug text-slate-700 dark:text-slate-200" style={{ fontFamily: 'var(--font-simpler)' }}>
+          {hint}
         </p>
       ) : null}
       <BrandCtaButton onClick={onStart} className="w-full h-14 rounded-full text-[16px] font-bold mt-4">

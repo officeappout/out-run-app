@@ -134,6 +134,7 @@ interface FlagState {
   enable_hill_finder_v1: boolean;
   enable_run_drawer_from_me_v1: boolean;
   enable_map_tutorial_v1: boolean;
+  enable_park_live_v2: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1117,6 +1118,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'טוטוריאל מפה ראשון',
     description: 'משתמש חדש במפה: במגירת "גרים ב…" הסבר על הליגה והגרירה מעל הלמור (למור קטן יותר וזום קרוב), כרטיס המסלול במגירת "מה בא לך" עם הקופי החדש, "רק להסתכל מסביב" מבטיח 3 דברים במפה, סיור המסלול (פרטים, העצירה בגינה, הסדר, "יאללה, בואו נתחיל" שפותח את המסלול), כרטיס המסלול האמיתי עם כפתור i ("למה קיבלתי את המסלול") ולחיצה על כל הכרטיס, סיור במגירת האימון, וכרטיס השאלון החדש. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Live park workout v2 (28.10.2026): canvas boards Park 1-12.
+  {
+    key: 'enable_park_live_v2',
+    icon: RouteIcon,
+    iconBg: 'bg-lime-50',
+    iconColor: 'text-lime-600',
+    title: 'אימון פארק לייב: הליכה + מתקנים',
+    description: 'באימון הליכה עם תחנות מתקנים: כרטיס הליכה (זמן, מרחק, מרחק לתחנה, בלי קצב) עם הכפתורים של היום, שורת הודעה מתחת לפסי הסטורי כשמתקרבים לתחנה, טוטוריאל הלייב בסדר החדש, מסך פתיחה אחד לתחנה (מתקנים בתמונות, שרירים, הסבר טבטה, קושי בברקים, ברירת מחדל קל), "הניחו את הטלפון על הרצפה" לפני הטיימר, "מצאו את המתקן הבא" + החלפה במנוחה, מסך טבעת שבועית לפני הסיכום, ותיקוני הסיכום (טבעת הליכה, בלי פס דקות, כרטיס שאלון). דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

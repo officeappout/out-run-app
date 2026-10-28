@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import type { RouteTurn } from '../services/geoUtils';
 import { haversineMeters } from '../services/geoUtils';
+import type { ParkTurnInfo } from '../store/useMapStore';
 import { useMapStore } from '../store/useMapStore';
 import { isFiniteLatLng, isFiniteNum, isFiniteLngLat, isFiniteBounds, safeNumber } from '@/utils/geoValidation';
 import { reverseGeocodeStreet } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
@@ -52,6 +53,9 @@ interface TurnCarouselProps {
   turns: RouteTurn[];
   routePath: [number, number][];
   currentLocation: { lat: number; lng: number };
+  /** enable_park_live_v2 (board Park 2, pilot M2): publish the live turn to useMapStore.parkTurn
+   *  for the park player's message row and render nothing. Camera behaviour is unchanged. */
+  publishOnly?: boolean;
 }
 
 const DEST_INSTRUCTION = 'הגעת ליעד';
@@ -101,6 +105,18 @@ const ACTIVE_SHADOW = '0 8px 28px rgba(0, 173, 239, 0.18), 0 2px 8px rgba(0, 0, 
  * (`dir="ltr"` on the icon wrapper) makes sure no future RTL ancestor
  * ever introduces such a flip, so this mapping can stay literal.
  */
+/** The same mapping as getIconForInstruction, as a plain key (the park message row draws its own arrow). */
+function iconKindForInstruction(instruction: string): ParkTurnInfo['icon'] {
+  switch (instruction) {
+    case 'ימינה קל':   return 'slightRight';
+    case 'שמאלה קל':  return 'slightLeft';
+    case 'פנה ימינה': return 'right';
+    case 'פנה שמאלה': return 'left';
+    case DEST_INSTRUCTION: return 'destination';
+    default:          return 'straight';
+  }
+}
+
 function getIconForInstruction(instruction: string): React.ElementType {
   switch (instruction) {
     case 'ימינה קל':   return ArrowUpRight;   // slight right
@@ -297,6 +313,7 @@ export default function TurnCarousel({
   turns,
   routePath,
   currentLocation,
+  publishOnly = false,
 }: TurnCarouselProps) {
   // Append a synthetic destination card so the user can swipe all the way
   // to the finish and see the endpoint highlighted on the map.
@@ -320,6 +337,7 @@ export default function TurnCarousel({
 
   const setTurnFlyToTarget = useMapStore((s) => s.setTurnFlyToTarget);
   const setNavCardHeight = useMapStore((s) => s.setNavCardHeight);
+  const setParkTurn = useMapStore((s) => s.setParkTurn);
   const setActiveTurnIdx = useMapStore((s) => s.setActiveTurnIdx);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
   const setCameraMode = useMapStore((s) => s.setCameraMode);
@@ -728,6 +746,28 @@ export default function TurnCarousel({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── enable_park_live_v2: publish the live turn, render nothing ──────────
+  const pubTurn = publishOnly ? allTurns[currentGpsTurnIdx] : undefined;
+  const pubStreet = pubTurn ? streetNames.get(currentGpsTurnIdx) : undefined;
+  const pubIsDest = pubTurn?.instruction === DEST_INSTRUCTION;
+  const pubHeadline = !pubTurn ? null : pubIsDest
+    ? DEST_INSTRUCTION
+    : pubStreet ?? (pubTurn.instruction === STRAIGHT_INSTRUCTION ? FALLBACK_HEADLINE : pubTurn.instruction);
+  const pubDist = distToNextTurnM != null && Number.isFinite(distToNextTurnM) ? Math.round(distToNextTurnM / 10) * 10 : null;
+  useEffect(() => {
+    if (!publishOnly) return;
+    setNavCardHeight(0);
+    setParkTurn(pubTurn && pubHeadline ? {
+      icon: iconKindForInstruction(pubTurn.instruction),
+      headline: pubHeadline,
+      actionLine: !pubIsDest && pubStreet ? pubTurn.instruction : null,
+      distanceM: pubDist,
+      imminent: proximityExpand,
+    } : null);
+  }, [publishOnly, pubTurn, pubHeadline, pubStreet, pubIsDest, pubDist, proximityExpand, setParkTurn, setNavCardHeight]);
+  useEffect(() => (publishOnly ? () => setParkTurn(null) : undefined), [publishOnly, setParkTurn]);
+  if (publishOnly) return null;
 
   // Empty-state guard: a 2-point straight line has no turns. Render nothing
   // rather than a single destination card on its own — the metrics card
