@@ -52,7 +52,7 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import StationWelcomeScreen from './StationWelcomeScreen';
 import ParkStationIntro from './v2/park/ParkStationIntro';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
-import { applyStationDifficulty, DEFAULT_STATION_DIFFICULTY, stationIntroView, type StationDifficulty } from './park-live-v2';
+import { stationIntroDifficulty, stationIntroView, stationRunPlan, type StationDifficulty } from './park-live-v2';
 import { firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
 import { COACH_TARGET_SKIP } from './station-tutorial';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -129,9 +129,10 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   // station difficulty (default easy, kept for the session's later stations) applied to the plan the
   // player runs. Flag off → the composed plan, unchanged.
   const parkLive = useParkLiveV2();
-  const [stationDifficulty, setStationDifficulty] = useState<StationDifficulty>(DEFAULT_STATION_DIFFICULTY);
+  // null until the user picks a level on the station intro; until then the composed level runs.
+  const [stationDifficulty, setStationDifficulty] = useState<StationDifficulty | null>(null);
   const runPlan = useMemo(
-    () => (parkLive && stationPlan ? applyStationDifficulty(stationPlan, stationDifficulty) : stationPlan),
+    () => (parkLive ? stationRunPlan(stationPlan, stationDifficulty) : stationPlan),
     [parkLive, stationPlan, stationDifficulty],
   );
   const parkIntro = useMemo(() => (parkLive ? stationIntroView(stationPlan) : null), [parkLive, stationPlan]);
@@ -254,7 +255,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
           <ParkStationIntro
             intro={parkIntro}
             context={stationContext}
-            difficulty={stationDifficulty}
+            difficulty={stationIntroDifficulty(stationPlan, stationDifficulty)}
             onDifficulty={setStationDifficulty}
             onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
           />

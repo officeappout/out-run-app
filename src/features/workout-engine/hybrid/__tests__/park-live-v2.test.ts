@@ -4,7 +4,7 @@ vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 
 import {
   applyStationDifficulty, planStationDifficulty, stationIntroView, walkCardView, stationMessageM, isWalkingLeg,
-  DEFAULT_STATION_DIFFICULTY, nextMachineIndex, isMachineTabataSegment, messageRowKind,
+  DEFAULT_STATION_DIFFICULTY, nextMachineIndex, stationRunPlan, stationIntroDifficulty, isMachineTabataSegment, messageRowKind,
 } from '../park-live-v2';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
 import type { SequencerView } from '../../engines/hybrid/sequencer.selectors';
@@ -36,6 +36,17 @@ function plan(): WorkoutPlan {
 
 describe('station difficulty (M11)', () => {
   it('defaults to easy', () => expect(DEFAULT_STATION_DIFFICULTY).toBe('easy'));
+
+  it('keeps the composed level until the user picks one (quick mode never picks)', () => {
+    const p = plan();
+    expect(stationRunPlan(p, null)).toBe(p);
+    expect(stationIntroDifficulty(p, null)).toBe('medium');
+    const hard = stationRunPlan(p, 'hard');
+    expect((hard?.segments[1].protocolConfig as { workSec: number }).workSec).toBe(40);
+    expect(stationIntroDifficulty(p, 'easy')).toBe('easy');
+    expect(stationRunPlan(null, 'hard')).toBeNull();
+    expect(stationIntroDifficulty(null, null)).toBe('easy');
+  });
 
   it('reads the composed difficulty from the machine tabata', () => {
     expect(planStationDifficulty(plan())).toBe('medium');

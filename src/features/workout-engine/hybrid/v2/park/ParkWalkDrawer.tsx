@@ -14,7 +14,7 @@ import { PlayerControls } from '../../../players/shared/v2';
 import { useFreeRunLive } from '../../../players/running/components/FreeRun/v2/useFreeRunLive';
 import { fmtClock, fmtDistance } from '../../../players/running/lib/planned-rep-results';
 import type { HybridPlayerV2Api } from '../HybridPlayerV2Context';
-import { stationName } from '../hybrid-v2-view';
+import { nextBlockView, stationName } from '../hybrid-v2-view';
 import { walkCardView } from '../../park-live-v2';
 
 function Metric({ value, label }: { value: string; label: string }) {
@@ -34,6 +34,7 @@ export default function ParkWalkDrawer({ api, onOpenList }: { api: HybridPlayerV
   if (!view || !card) return null;
   const hasStation = view.canArriveManually;
   const park = stationName(view.upcomingStation, api.names);
+  const next = nextBlockView(view, api.names, t);
   const title = hasStation
     ? park ? t('parkLive.walk.toPark', { name: park }) : t('parkLive.walk.toStation')
     : t('parkLive.walk.back');
@@ -43,7 +44,9 @@ export default function ParkWalkDrawer({ api, onOpenList }: { api: HybridPlayerV
         {hasStation ? (
           <Button variant={view.approaching ? 'cta' : 'ghost'} size={view.approaching ? undefined : 'sm'} onClick={api.arriveNow} className="whitespace-nowrap">
             <Dumbbell size={16} strokeWidth={2.4} aria-hidden />
-            {view.approaching ? t('hybrid.cta.arrive') : t('hybrid.layer.arrived')}
+            {view.approaching
+              ? next ? t('hybrid.v2.run.arriveNamed', { label: next.label }) : t('hybrid.cta.arrive')
+              : t('hybrid.layer.arrived')}
           </Button>
         ) : (
           <Button variant="cta" onClick={api.finish} className="min-w-[160px] whitespace-nowrap">
@@ -70,7 +73,16 @@ export default function ParkWalkDrawer({ api, onOpenList }: { api: HybridPlayerV
           <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#ecfccb] text-[#4d7c0f]" aria-hidden>
             <Footprints size={16} strokeWidth={2.4} />
           </span>
-          <span className="min-w-0 truncate text-[15px] font-black text-v2-ink">{title}</span>
+          <span className="min-w-0 flex-1 truncate text-[15px] font-black text-v2-ink">{title}</span>
+          {hasStation && (
+            <button
+              type="button"
+              onClick={api.skipUpcoming}
+              className="shrink-0 rounded-full px-3 py-1 text-[12.5px] font-extrabold text-v2-muted ring-1 ring-inset ring-v2-pill-border"
+            >
+              {t('hybrid.layer.skip')}
+            </button>
+          )}
         </div>
         <div className="flex rounded-2xl bg-v2-surface px-1 py-2.5 ring-1 ring-inset ring-v2-hairline" data-coach="park-live-data">
           <Metric value={fmtClock(card.elapsedSec)} label={t('parkLive.walk.time')} />

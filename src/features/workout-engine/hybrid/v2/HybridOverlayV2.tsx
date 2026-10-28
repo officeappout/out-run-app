@@ -57,6 +57,11 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   const walkLeg = view.phase === 'run' || view.phase === 'cooldown' || view.phase === 'idle';
   const parkWalk = parkLive && walkLeg && isWalkingLeg(view);
 
+  // The tour anchors wrap the cart and the bars only under the flag, so the flag-off DOM is unchanged.
+  const cartIcon = (
+    <CartProgressIcon items={cart} onClick={onMinimize} size={48} ariaLabel={t('hybrid.v2.overlay.cartAria', { count: String(api.strip.doneCount) })} />
+  );
+  const storyBars = <StoryBars segments={toStorySegments(api.strip)} currentIndex={api.strip.currentIndex} progress={api.strip.progress} />;
   return (
     <>
       <div ref={chrome.headerRef} className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -66,11 +71,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
               if ((e.target as HTMLElement).closest('button')) return;
               dragControls.start(e);
             }}
-            leading={
-              <span data-coach="park-live-list">
-                <CartProgressIcon items={cart} onClick={onMinimize} size={48} ariaLabel={t('hybrid.v2.overlay.cartAria', { count: String(api.strip.doneCount) })} />
-              </span>
-            }
+            leading={parkLive ? <span data-coach="park-live-list">{cartIcon}</span> : cartIcon}
             eyebrow={h.eyebrow}
             eyebrowColor={h.color}
             title={h.title}
@@ -79,11 +80,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
                 {fmtClock(Number.isFinite(totalDuration) ? totalDuration : 0)}
               </span>
             }
-            strip={
-              <div data-coach="park-live-bars">
-                <StoryBars segments={toStorySegments(api.strip)} currentIndex={api.strip.currentIndex} progress={api.strip.progress} />
-              </div>
-            }
+            strip={parkLive ? <div data-coach="park-live-bars">{storyBars}</div> : storyBars}
           />
           {parkLive && <ParkMessageRow api={api} />}
         </div>

@@ -12,7 +12,7 @@ import type { SequencerView } from '../engines/hybrid/sequencer.selectors';
 
 export type StationDifficulty = ParkWorkoutDifficulty;
 export const STATION_DIFFICULTIES: readonly StationDifficulty[] = ['easy', 'medium', 'hard'];
-/** Pilot M11: the station starts on "קל" (20 s work). */
+/** Pilot M11: the intro's fallback when the plan carries no machine tabata to read a level from. */
 export const DEFAULT_STATION_DIFFICULTY: StationDifficulty = 'easy';
 /** The station message row shows "a station is coming" from this distance (M2). */
 export const STATION_MESSAGE_M = 300;
@@ -55,6 +55,20 @@ export function applyStationDifficulty(plan: WorkoutPlan, difficulty: StationDif
     return { ...seg, protocolConfig: config, target: { ...seg.target, value: rung.workSec * c.rounds }, exercises };
   });
   return changed ? { ...plan, segments } : plan;
+}
+
+/**
+ * The plan the station runs. `chosen` is null until the user picks a level on the station intro, and
+ * then the plan stays as composed (the bolts picked before the workout). Quick mode never shows the
+ * intro, so it always runs the composed level.
+ */
+export function stationRunPlan(plan: WorkoutPlan | null, chosen: StationDifficulty | null): WorkoutPlan | null {
+  return plan && chosen ? applyStationDifficulty(plan, chosen) : plan;
+}
+
+/** The level the intro shows selected: the user's pick, else the composed level, else the default. */
+export function stationIntroDifficulty(plan: WorkoutPlan | null | undefined, chosen: StationDifficulty | null): StationDifficulty {
+  return chosen ?? planStationDifficulty(plan) ?? DEFAULT_STATION_DIFFICULTY;
 }
 
 function retimeExercise(ex: Exercise, oldWorkSec: number, rung: { workSec: number; restSec: number }): Exercise {
