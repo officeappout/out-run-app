@@ -34,6 +34,7 @@ import { checkReply, correctionNote, dropHebrewlessSentences, factsFromEvidence,
 import { masculinizeSelfReferences } from './gender-voice';
 import type { CoachGender } from './persona';
 import { ROUND4_GAP_NOTE } from './round4/prompt';
+import { checkReplyEn } from './reply-guards-en';
 import { coachT, type CoachLocale } from './coach-locale';
 
 /** The fixed replies in one request's language (Hebrew = the constants below, exactly as before). */
@@ -287,12 +288,12 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
               ...(cfg.guards.handoffOpen ? { handoffOpen: true } : {}),
             }
           : null;
-        const issues = hebrew ? checkReply(text, facts, userGender, blind) : [];
+        const issues = hebrew ? checkReply(text, facts, userGender, blind) : checkReplyEn(text, facts, blind);
         if (issues.length && !state.correctionUsed) {
           state.correctionUsed = true;
           for (const i of issues) log.guards.push({ type: guardType(i), action: `reprompt: ${issueDetail(i)}` });
           state.turnMessages.push({ role: 'assistant', content: text });
-          state.turnMessages.push({ role: 'user', content: correctionNote(issues) });
+          state.turnMessages.push({ role: 'user', content: correctionNote(issues, locale === 'en' ? 'en' : 'he') });
           continue; // same round budget: a correction is not a tool round
         }
         for (const i of issues) log.guards.push({ type: guardType(i), action: `unresolved_after_retry: ${issueDetail(i)}` });
