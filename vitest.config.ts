@@ -195,6 +195,8 @@ export default defineConfig({
       'scripts/ci/__tests__/**/*.test.ts',
       // i18n wave 4 LTR-host scan — by-reference + transitive fixtures.
       'scripts/i18n/__tests__/**/*.test.ts',
+      // Exercise content pipeline (export / merge / verify / apply): pure parts only, no Firestore.
+      'scripts/i18n/content/__tests__/**/*.test.ts',
       // Demo world scripts (seed / purge / add-viewer) — pure units + one emulator suite (:8089).
       'scripts/demo/__tests__/**/*.test.ts',
       // AI tester runner + overseer (scripts/qa) — pure units only (no browser, no network).
