@@ -261,6 +261,7 @@ export function ExerciseLibraryContent(props: ExerciseLibraryBodyProps) {
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function ExerciseLibraryPage() {
+  const t = useT(library);
   const router = useRouter();
   const query = useExerciseLibraryStore((s) => s.filters.query);
   const setQuery = useExerciseLibraryStore((s) => s.setQuery);
