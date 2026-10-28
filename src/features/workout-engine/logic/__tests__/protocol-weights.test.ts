@@ -10,6 +10,17 @@ describe('defaultProtocolWeightsForLevel', () => {
     expect(L(12)).toEqual({ antagonist_pair: 30, emom: 10, amrap: 5 });
     expect(L(20)).toEqual({ antagonist_pair: 30, emom: 15, amrap: 15 });
   });
+
+  it('per-domain entry levels', () => {
+    expect(L(6, 'legs')).toEqual({ antagonist_pair: 25, amrap: 5 });
+    expect(L(8, 'core')).toEqual({ antagonist_pair: 25, emom: 10, amrap: 5 });
+    expect(L(10, 'core')).toEqual({ antagonist_pair: 30, emom: 10, amrap: 15 });
+    expect(L(8, 'push')).toEqual({ antagonist_pair: 25, amrap: 5 });
+    expect(L(9, 'pull')).toEqual({ antagonist_pair: 25 });
+    expect(L(14, 'pull')).toEqual({ antagonist_pair: 30, emom: 15, amrap: 15 });
+    expect(L(5, 'legs')).toEqual({});
+    expect(L(12, 'full_body')).toEqual(L(12));
+  });
 });
 
 describe('resolveProtocolWeights', () => {

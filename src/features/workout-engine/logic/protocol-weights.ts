@@ -57,12 +57,33 @@ export function pickWeightedProtocol(shares: Record<string, number>, rand: () =>
 }
 
 /**
- * The starting table (owner 27.10.2026), by program level. Used by the upload script;
- * the engine only ever reads what is stored on the docs.
+ * Per-domain minimum levels (owner 28.10.2026), read off the exercise library: legs and core
+ * have dynamic rep exercises early, push gets full push-ups at L5, pull reaches rows and
+ * pull-up variants around L10 (pull-ups themselves only enter AMRAP from L14, an exercise rule).
  */
-export function defaultProtocolWeightsForLevel(level: number): ProtocolWeights {
-  if (level <= 5) return {};
-  if (level <= 9) return { antagonist_pair: 25 };
-  if (level <= 13) return { antagonist_pair: 30, emom: 10, amrap: 5 };
-  return { antagonist_pair: 30, emom: 15, amrap: 15 };
+const DOMAIN_MIN_LEVEL: Record<string, { emom: number; amrap: number }> = {
+  push: { emom: 10, amrap: 8 },
+  pull: { emom: 10, amrap: 10 },
+  legs: { emom: 8, amrap: 6 },
+  core: { emom: 8, amrap: 6 },
+};
+
+/**
+ * The starting table (owner 27.10.2026), by program level; with `domain` the EMOM / AMRAP
+ * entry levels follow DOMAIN_MIN_LEVEL (share steps up 4 levels after entry). Used by the
+ * upload script; the engine only ever reads what is stored on the docs.
+ */
+export function defaultProtocolWeightsForLevel(level: number, domain?: string): ProtocolWeights {
+  const min = domain ? DOMAIN_MIN_LEVEL[domain] : undefined;
+  if (!min) {
+    if (level <= 5) return {};
+    if (level <= 9) return { antagonist_pair: 25 };
+    if (level <= 13) return { antagonist_pair: 30, emom: 10, amrap: 5 };
+    return { antagonist_pair: 30, emom: 15, amrap: 15 };
+  }
+  const w: ProtocolWeights = {};
+  if (level >= 6) w.antagonist_pair = level <= 9 ? 25 : 30;
+  if (level >= min.emom) w.emom = level >= min.emom + 4 ? 15 : 10;
+  if (level >= min.amrap) w.amrap = level >= min.amrap + 4 ? 15 : 5;
+  return w;
 }

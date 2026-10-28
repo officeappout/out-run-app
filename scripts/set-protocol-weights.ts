@@ -8,6 +8,7 @@
  *
  * Run (dry-run, reads Firestore):  npx tsx --env-file=.env.local scripts/set-protocol-weights.ts
  * Run (dry-run, offline):          npx tsx scripts/set-protocol-weights.ts --from-file path/to/programLevelSettings.json
+ * Replace existing weights (approved table change): add --overwrite.
  * Run (WRITE, after approval):     npx tsx --env-file=.env.local scripts/set-protocol-weights.ts --apply
  */
 import * as fs from 'fs';
@@ -24,6 +25,9 @@ const COVERED = ['push', 'pull', 'legs', 'core', 'full_body', 'upper_body'];
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
+/** Replace weights already on a doc (only for a table change the owner approved). */
+const OVERWRITE = args.includes('--overwrite');
+const DOMAIN_BY_ID: Record<string, string> = { J0fLpmJhG0KDN2tQouxh: 'push', UPDBtTdCvX748dtBlWYj: 'pull', OrAmOH3F375dVio5yGdU: 'legs', kDMpobbKsuVTByTIKUpe: 'core' };
 const fileIdx = args.indexOf('--from-file');
 const fromFile = fileIdx >= 0 ? args[fileIdx + 1] : undefined;
 
@@ -45,15 +49,21 @@ async function main() {
   let skippedHas = 0, skippedNoLevel = 0, skippedSkill = 0, empty = 0;
   for (const r of rows) {
     if ((r.program && SKIP_PROGRAMS.has(r.program)) || (r.programId && SKILL_PROGRAM_IDS.has(r.programId))) { skippedSkill++; continue; }
-    if (r.protocolWeights) { skippedHas++; continue; }
+    if (r.protocolWeights && !OVERWRITE) { skippedHas++; continue; }
     if (typeof r.levelNumber !== 'number') { skippedNoLevel++; continue; }
-    const weights = defaultProtocolWeightsForLevel(r.levelNumber) as Record<string, number>;
-    if (Object.keys(weights).length === 0) { empty++; continue; }
-    plan.push({ id: r.id, label: `${r.program ?? '?'} L${r.levelNumber}`, weights });
+    const domain = (r.programId && DOMAIN_BY_ID[r.programId]) || r.program;
+    const weights = defaultProtocolWeightsForLevel(r.levelNumber, domain) as Record<string, number>;
+    if (r.protocolWeights && JSON.stringify(r.protocolWeights) === JSON.stringify(weights)) { skippedHas++; continue; }
+    if (Object.keys(weights).length === 0) {
+      if (r.protocolWeights && OVERWRITE) plan.push({ id: r.id, label: `${domain ?? '?'} L${r.levelNumber} (clear)`, weights });
+      else empty++;
+      continue;
+    }
+    plan.push({ id: r.id, label: `${domain ?? '?'} L${r.levelNumber}${r.protocolWeights ? ' (replace)' : ''}`, weights });
   }
   console.log(`${APPLY ? 'APPLY' : 'DRY-RUN'} · ${rows.length} docs · to set: ${plan.length} · levels 1-5 (nothing to set): ${empty} · already have weights: ${skippedHas} · no level: ${skippedNoLevel} · skill programs skipped: ${skippedSkill}`);
   for (const prog of COVERED) {
-    const lv = rows.filter((r) => r.program === prog && typeof r.levelNumber === 'number').map((r) => r.levelNumber as number).sort((a, b) => a - b);
+    const lv = rows.filter((r) => ((r.programId && DOMAIN_BY_ID[r.programId]) || r.program) === prog && typeof r.levelNumber === 'number').map((r) => r.levelNumber as number).sort((a, b) => a - b);
     console.log(`  coverage ${prog.padEnd(11)} ${lv.length ? `L${lv[0]}-L${lv[lv.length - 1]} (${lv.length} docs)` : 'none'}`);
   }
   for (const p of plan) console.log(`  ${p.label.padEnd(24)} ${p.id}  ${JSON.stringify(p.weights)}`);
@@ -62,7 +72,11 @@ async function main() {
   const admin = await import('firebase-admin');
   for (let i = 0; i < plan.length; i += 400) {
     const batch = db.batch();
-    for (const p of plan.slice(i, i + 400)) batch.set(db.collection('programLevelSettings').doc(p.id), { protocolWeights: p.weights, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    for (const p of plan.slice(i, i + 400)) {
+      // update() replaces the whole map (a merge-set would keep stale keys); an empty table deletes it.
+      const value = Object.keys(p.weights).length ? p.weights : admin.firestore.FieldValue.delete();
+      batch.update(db.collection('programLevelSettings').doc(p.id), { protocolWeights: value, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+    }
     await batch.commit();
   }
   console.log(`Written: ${plan.length} docs.`);
