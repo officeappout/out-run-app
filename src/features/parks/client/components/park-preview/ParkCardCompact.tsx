@@ -48,7 +48,7 @@ export interface ParkCardCompactProps {
   selected?: boolean;
 }
 
-const FLOATING_WRAPPER = 'absolute bottom-[100px] left-6 right-6 z-30 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer';
+const FLOATING_WRAPPER = 'absolute bottom-[100px] end-6 start-6 z-30 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer';
 const INLINE_WRAPPER = 'relative shrink-0 cursor-pointer snap-start';
 
 export default function ParkCardCompact({
@@ -74,7 +74,7 @@ export default function ParkCardCompact({
           The dark base colour means a sub-pixel gap at the rounded edge never reads
           as a white line, and isolation + translateZ makes WebKit (iOS) clip the
           photo to the radius during the slide-in animation. */}
-      <div className={`relative overflow-hidden rounded-v2-card ${inline ? (selected ? 'shadow-v2-ring ring-2 ring-v2-accent' : 'shadow-v2-ring') : 'shadow-v2-float'}`} dir="rtl"
+      <div className={`relative overflow-hidden rounded-v2-card ${inline ? (selected ? 'shadow-v2-ring ring-2 ring-v2-accent' : 'shadow-v2-ring') : 'shadow-v2-float'}`}
         style={{ height: inline ? COMPACT_INLINE_CARD_PX : COMPACT_CARD_PX, background: '#0e1419', isolation: 'isolate', transform: 'translateZ(0)' }}>
         {heroSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -89,14 +89,14 @@ export default function ParkCardCompact({
         {onClose && (
         <button type="button" aria-label={t('parkCard.close')}
           onClick={(e) => { e.stopPropagation(); onClose(); }}
-          className="absolute left-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-v2-ring backdrop-blur-sm transition-transform duration-150 ease-v2 active:scale-[0.96]">
+          className="absolute end-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-v2-ring backdrop-blur-sm transition-transform duration-150 ease-v2 active:scale-[0.96]">
           <X size={15} className="text-v2-ink" />
         </button>
         )}
         {onNavigate && (
         <button type="button" aria-label={t('parkCard.navigate')}
           onClick={(e) => { e.stopPropagation(); onNavigate(); }}
-          className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-v2-accent text-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.96]">
+          className="absolute start-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-v2-accent text-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.96]">
           <Navigation size={14} fill="currentColor" />
         </button>
         )}

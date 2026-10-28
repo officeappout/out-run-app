@@ -747,7 +747,6 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
               }
             }}
             className="absolute z-40 pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-sm"
-            dir="rtl"
             style={{
               // Bug 1 fix: anchor BELOW the nav card (storyBarHeight + navCardHeight + gap).
               // When navCardHeight=0 (no nav card / HIDDEN / BUBBLE) this simplifies to
@@ -858,9 +857,9 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="fixed bottom-24 left-4 right-4 z-[95] mx-auto max-w-sm"
+            className="fixed bottom-24 end-4 start-4 z-[95] mx-auto max-w-sm"
           >
-            <div className="bg-gray-900/95 backdrop-blur-md rounded-2xl px-5 py-3.5 shadow-2xl flex items-center gap-3" dir="rtl">
+            <div className="bg-gray-900/95 backdrop-blur-md rounded-2xl px-5 py-3.5 shadow-2xl flex items-center gap-3">
               <span className="text-xl">🤘</span>
               <p className="text-[13px] font-bold text-white leading-snug">{referralToast}</p>
             </div>

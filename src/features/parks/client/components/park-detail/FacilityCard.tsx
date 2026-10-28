@@ -40,7 +40,6 @@ export default function FacilityCard({ tag, isActive, variant = 'mobile' }: Faci
             : 'bg-gray-100/60 dark:bg-slate-800/30'
         }`}
         style={isActive ? { border: '0.5px solid #E0E9FF' } : { border: '0.5px solid transparent' }}
-        dir="rtl"
       >
         <span className={`text-xl ${isActive ? '' : 'opacity-30 grayscale'}`}>{tag.icon}</span>
         <div className="min-w-0">

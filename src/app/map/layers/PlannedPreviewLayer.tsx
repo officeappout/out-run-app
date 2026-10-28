@@ -171,8 +171,8 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
   if (autoStart) {
     if (isLoading) {
       return (
-        <div className="absolute left-0 right-0 z-20 flex justify-center" style={{ bottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3" dir="rtl">
+        <div className="absolute end-0 start-0 z-20 flex justify-center" style={{ bottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3">
             <div className="animate-spin w-5 h-5 border-[3px] border-[#00BAF7] border-t-transparent rounded-full" />
             <span className="text-sm font-bold text-gray-700">{t('mapLayers.planned.preparing')}</span>
           </div>
@@ -184,8 +184,8 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
 
   if (isLoading) {
     return (
-      <div className="absolute left-0 right-0 z-20 flex justify-center" style={{ bottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
-        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3" dir="rtl">
+      <div className="absolute end-0 start-0 z-20 flex justify-center" style={{ bottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
+        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3">
           <div className="animate-spin w-5 h-5 border-[3px] border-[#00BAF7] border-t-transparent rounded-full" />
           <span className="text-sm font-bold text-gray-700">{t('mapLayers.planned.loading')}</span>
         </div>
@@ -226,8 +226,8 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
 
   return (
     <>
-      <div className="absolute bottom-0 left-0 right-0 z-20 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div className="mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 p-5" dir="rtl">
+      <div className="absolute bottom-0 end-0 start-0 z-20 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00E5FF] to-[#00BAF7] flex items-center justify-center">
               <Zap size={20} className="text-white" />
