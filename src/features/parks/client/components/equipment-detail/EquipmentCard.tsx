@@ -129,7 +129,7 @@ export default function EquipmentCard({
           ) : null}
           {mediaFallback}
           {/* Fade image bottom into card body — matches GroupCard's compact tile. */}
-          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white dark:from-slate-800/90 to-transparent pointer-events-none" />
+          <div className="absolute bottom-0 end-0 start-0 h-4 bg-gradient-to-t from-white dark:from-slate-800/90 to-transparent pointer-events-none" />
         </div>
         <div className="px-2.5 py-2 flex items-center gap-1.5">
           {primaryMuscle && (
@@ -224,7 +224,7 @@ export default function EquipmentCard({
       {rightSlot === 'chevron' && (
         <ChevronLeft
           size={16}
-          className="flex-shrink-0 text-gray-400 group-hover:text-cyan-500 transition-colors"
+          className="flex-shrink-0 text-gray-400 group-hover:text-cyan-500 transition-colors ltr:-scale-x-100"
         />
       )}
       {rightSlot === 'check' && (

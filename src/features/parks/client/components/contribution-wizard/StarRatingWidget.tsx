@@ -14,7 +14,7 @@ export default function StarRatingWidget({ value, onChange, size = 28, label }: 
   const [hovered, setHovered] = useState(0);
 
   return (
-    <div className="flex flex-col items-center gap-2" dir="rtl">
+    <div className="flex flex-col items-center gap-2">
       {label && <p className="text-white/60 text-xs font-bold">{label}</p>}
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((star) => {

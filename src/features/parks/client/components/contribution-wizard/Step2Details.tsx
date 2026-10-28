@@ -219,7 +219,7 @@ export default function Step2Details({ data, updateData, onNext, onBack }: Props
           }`}
         >
           {t('wizard.continue')}
-          <ChevronRight size={16} className="rotate-180" />
+          <ChevronRight size={16} className="rotate-180 ltr:-scale-x-100" />
         </button>
       </div>
     </div>

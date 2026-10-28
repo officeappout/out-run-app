@@ -48,7 +48,7 @@ export default function ParkReviewsSection({ v2, ratedReviews, visibleReviews, r
                   </div>
                 </div>
               </div>
-              {review.comment && <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mt-1.5 pr-10">{review.comment}</p>}
+              {review.comment && <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mt-1.5 ps-10">{review.comment}</p>}
             </div>
           );
         })}

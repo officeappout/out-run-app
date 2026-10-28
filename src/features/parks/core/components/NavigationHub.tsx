@@ -221,7 +221,7 @@ export default function NavigationHub({
                             placeholder={t('navHub.search.placeholder')}
                             value={searchQuery}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            className="flex-1 bg-transparent border-none outline-none text-[16px] text-gray-900 text-right font-semibold placeholder:text-gray-500"
+                            className="flex-1 bg-transparent border-none outline-none text-[16px] text-gray-900 text-start font-semibold placeholder:text-gray-500"
                             autoFocus
                         />
                         {isSearching && <Loader2 size={16} className="text-cyan-500 animate-spin shrink-0" />}
@@ -241,7 +241,7 @@ export default function NavigationHub({
 
                 <div className="flex-1 overflow-y-auto">
                     {searchQuery.length < MIN_SEARCH_CHARS ? (
-                        <div className="px-5 pt-5 pb-6" dir="rtl">
+                        <div className="px-5 pt-5 pb-6">
                             {/* ── Quick action tiles ─────────────────────
                                 Compact 4-up grid (refinement pass — the
                                 old 2-col / py-5 / w-14 icon ring read
@@ -347,7 +347,7 @@ export default function NavigationHub({
                             )}
                         </div>
                     ) : (
-                        <div className="p-4" dir="rtl">
+                        <div className="p-4">
                             <div className="flex items-center gap-2 mb-3 px-1">
                                 <Search size={12} className="text-gray-400" />
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
@@ -381,7 +381,7 @@ export default function NavigationHub({
                                                     <SugIcon size={16} />
                                                 </div>
                                                 <div className="flex flex-col items-start">
-                                                  <span className="text-sm font-medium text-gray-800 text-right truncate max-w-[220px]">
+                                                  <span className="text-sm font-medium text-gray-800 text-start truncate max-w-[220px]">
                                                       {item.text}
                                                   </span>
                                                   {item._source && item._source !== 'mapbox' && (
@@ -391,7 +391,7 @@ export default function NavigationHub({
                                                   )}
                                                 </div>
                                             </div>
-                                            <ChevronRight size={14} className="text-gray-300 shrink-0" />
+                                            <ChevronRight size={14} className="text-gray-300 shrink-0 ltr:-scale-x-100" />
                                         </button>
                                         );
                                     })}

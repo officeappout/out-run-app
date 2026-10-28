@@ -186,7 +186,6 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
         className="kb-cap relative bg-white rounded-t-3xl shadow-2xl p-5"
-        dir="rtl"
       >
         {/* Success overlay */}
         <AnimatePresence>

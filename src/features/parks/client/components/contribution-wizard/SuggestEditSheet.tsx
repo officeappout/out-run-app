@@ -156,12 +156,12 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
               className={`relative flex flex-col items-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${bgClass} ${textClass} ${borderClass}`}
             >
               {isAdded && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                <span className="absolute -top-1 -start-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
                   <Plus size={10} className="text-white" />
                 </span>
               )}
               {isRemoved && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                <span className="absolute -top-1 -start-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
                   <Minus size={10} className="text-white" />
                 </span>
               )}
@@ -251,7 +251,6 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
         className="relative bg-white rounded-t-3xl shadow-2xl p-5 max-h-[80vh] overflow-y-auto"
-        dir="rtl"
       >
         {success}
 

@@ -45,20 +45,19 @@ export default function NavigateLayer({ logic }: NavigateLayerProps) {
   return (
     <>
       {/* Back button */}
-      <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] right-4 z-30">
+      <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] start-4 z-30">
         <button
           onClick={handleBack}
           className="h-10 px-4 rounded-xl bg-white/90 backdrop-blur-sm shadow-md border border-gray-100 flex items-center gap-2 text-gray-700 active:scale-95 transition-all"
-          dir="rtl"
         >
-          <ArrowRight size={16} />
+          <ArrowRight className="ltr:-scale-x-100" size={16} />
           <span className="text-sm font-bold">{t('mapLayers.back')}</span>
         </button>
       </div>
 
       {/* Destination + Route options */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div className="mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 p-4" dir="rtl">
+      <div className="absolute bottom-0 end-0 start-0 z-20 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 p-4">
           {logic.selectedAddress && (
             <p className="text-xs text-gray-500 font-medium mb-3 truncate">{t('mapLayers.navigate.destination', { address: logic.selectedAddress.text })}</p>
           )}
