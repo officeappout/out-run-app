@@ -15,8 +15,9 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { assertAiBudget, getAiModel, getAnthropicClient, recordAiUsage, withPromptCaching } from '@/lib/ai/anthropic.server';
 import { usageFromSdk, type AiUsage } from '@/lib/ai/ai-pricing';
 import type { CoachGender } from '../persona';
+import type { CoachLocale } from '../coach-locale';
 import { validateFlexSentence } from './flex-guard';
-import { FLEX_MAX_TOKENS, FLEX_SYSTEM, flexUserContent } from './flex-prompt';
+import { FLEX_MAX_TOKENS, flexSystem, flexUserContent } from './flex-prompt';
 
 export const PROACTIVE_LLM_MAX_PER_RUN = 150;
 export const PROACTIVE_LLM_FEATURE = 'ai_coach_proactive';
@@ -24,6 +25,8 @@ export const PROACTIVE_LLM_FEATURE = 'ai_coach_proactive';
 export interface FlexRequest {
   uid: string;
   gender: CoachGender;
+  /** Reply language (default 'he'). */
+  locale?: CoachLocale;
   /** What the sentence should do (RenderedMessage.flexHint). */
   hint: string;
   /** Coarse, PII-free facts ("main goal: בניית מסה", "streak: a few days"). */
@@ -37,13 +40,13 @@ export async function personalizeFlex(db: Firestore, r: FlexRequest): Promise<{ 
     return { sentence: null, costUsd: 0 };
   }
   const model = getAiModel('fast');
-  const cached = withPromptCaching({ system: FLEX_SYSTEM });
+  const cached = withPromptCaching({ system: flexSystem(r.locale) });
   const params: Anthropic.MessageCreateParamsNonStreaming = {
     model,
     max_tokens: FLEX_MAX_TOKENS,
     thinking: { type: 'disabled' },
     system: cached.system,
-    messages: [{ role: 'user', content: flexUserContent(r.gender, r.hint, r.facts) }],
+    messages: [{ role: 'user', content: flexUserContent(r.gender, r.hint, r.facts, r.locale) }],
   };
   try {
     const res = await getAnthropicClient().messages.create(params);
@@ -51,7 +54,7 @@ export async function personalizeFlex(db: Firestore, r: FlexRequest): Promise<{ 
     const { costUsd } = await recordAiUsage(r.uid, model, usage, { feature: PROACTIVE_LLM_FEATURE, db });
     if (res.stop_reason === 'refusal') return { sentence: null, costUsd, usage, model };
     const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text ?? '';
-    return { sentence: validateFlexSentence(text, r.gender), costUsd, usage, model };
+    return { sentence: validateFlexSentence(text, r.gender, r.locale), costUsd, usage, model };
   } catch (err) {
     console.warn('[kelly-proactive] flex sentence failed, using the template', (err as Error)?.name);
     return { sentence: null, costUsd: 0 };

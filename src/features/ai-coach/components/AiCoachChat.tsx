@@ -286,7 +286,7 @@ export default function AiCoachChat({
         {showIntro && (
           <div className="flex flex-col items-end">
             <div className="max-w-[80%] rounded-2xl rounded-tl-sm border border-gray-100 bg-white px-3.5 py-2.5 text-sm leading-snug text-gray-900 shadow-sm">
-              {greeting(gender, firstNameOf(profile.core?.name))}
+              {greeting(gender, firstNameOf(profile.core?.name), t)}
             </div>
           </div>
         )}
@@ -446,7 +446,7 @@ export default function AiCoachChat({
       )}
       {!starterChips && showIntro && !busy && !openingChips && (
         <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-          {quickReplies(gender).map((q) => (
+          {quickReplies(gender, t).map((q) => (
             <button
               key={q}
               type="button"

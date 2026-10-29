@@ -1,0 +1,56 @@
+[
+  {
+    "training": true,
+    "done": false,
+    "kind": "strength",
+    "label": "אימון כוח",
+    "startTime": "18:00",
+    "minutes": 30,
+    "buildable": false
+  },
+  {
+    "training": true,
+    "done": false,
+    "kind": "cardio",
+    "label": "ריצה",
+    "startTime": "18:00",
+    "minutes": 30,
+    "buildable": false
+  },
+  {
+    "training": true,
+    "done": false,
+    "kind": "walking",
+    "label": "הליכה",
+    "startTime": "18:00",
+    "minutes": 30,
+    "buildable": false
+  },
+  {
+    "training": true,
+    "done": false,
+    "kind": "maintenance",
+    "label": "אימון קל",
+    "startTime": "18:00",
+    "minutes": 30,
+    "buildable": false
+  },
+  {
+    "training": true,
+    "done": false,
+    "kind": "weird",
+    "label": "אימון",
+    "startTime": "18:00",
+    "minutes": 30,
+    "buildable": false
+  },
+  {
+    "training": true,
+    "done": false,
+    "kind": null,
+    "label": "אימון",
+    "startTime": "18:00",
+    "minutes": 30,
+    "buildable": false
+  }
+]
