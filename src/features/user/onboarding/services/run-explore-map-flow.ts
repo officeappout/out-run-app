@@ -18,6 +18,7 @@
 import { auth, db } from '@/lib/firebase';
 import { signInGuest } from '@/lib/auth.service';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import { buildExploreMapProfileWrite } from './gateway-explore-map.service';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
@@ -32,7 +33,7 @@ import { joinGroup } from '@/features/arena/services/group.service';
 import { consumeSessionInvitation } from '@/features/arena/services/group-invitation.service';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
-import { consumePendingInvites } from './consume-pending-invites';
+import { consumePendingInvites, hasPendingInvite } from './consume-pending-invites';
 
 /**
  * Minimal router shape — matches both next/navigation's useRouter() and
@@ -42,6 +43,18 @@ import { consumePendingInvites } from './consume-pending-invites';
 export interface ExploreMapRouter {
   push: (href: string) => void;
 }
+
+export interface ExploreMapFlowOptions {
+  /**
+   * Minimum wait before the final `/explorer` (or `/intro`) push, so a caller's own
+   * transition animation can finish — gateway's overlay needs ~1.2s (the default).
+   * The landing's quick signup passes 0: its splash has nothing to wait for (L1).
+   */
+  minTransitionMs?: number;
+}
+
+/** Default floor — gateway's transition-overlay window. */
+export const DEFAULT_MIN_TRANSITION_MS = 1200;
 
 /**
  * Resolve the active user — reuse an existing provider session if present.
@@ -57,7 +70,12 @@ export interface ExploreMapRouter {
  * handleGetProgram, which calls resolveUser() directly) get a guest-sign-in
  * failure logged exactly once, here — not duplicated at each call site.
  */
-export async function resolveUser() {
+export async function resolveUser(): Promise<{
+  user: User | null;
+  error: string | null;
+  /** True only when signInGuest just minted this uid (see signInGuest). */
+  isNewUser?: boolean;
+}> {
   const current = auth.currentUser;
   if (current && !current.isAnonymous) {
     return { user: current, error: null };
@@ -157,8 +175,12 @@ export async function consumePendingSessionInvite(
  * behavior, which never resets its transition overlay on any success path —
  * the overlay must stay visible until the page actually unmounts).
  */
-export async function runExploreMapFlow(router: ExploreMapRouter): Promise<boolean> {
-  const { user } = await resolveUser();
+export async function runExploreMapFlow(
+  router: ExploreMapRouter,
+  opts: ExploreMapFlowOptions = {},
+): Promise<boolean> {
+  const minTransitionMs = opts.minTransitionMs ?? DEFAULT_MIN_TRANSITION_MS;
+  const { user, isNewUser } = await resolveUser();
   if (!user) return false;
 
   // gateway_uid persists via onboardingPrefs so the profile page can
@@ -172,11 +194,16 @@ export async function runExploreMapFlow(router: ExploreMapRouter): Promise<boole
   // docs/research/gateway-home-strength-card-investigation.md for the
   // incident this closes (progression.domains, core.gender/weight,
   // running.activeProgram etc. were all being reset to blank defaults).
-  const existingDocSnap = await getDoc(doc(db, 'users', user.uid));
-  const scaffold = buildExploreMapProfileWrite(
-    user.uid,
-    existingDocSnap.exists() ? existingDocSnap.data() : undefined,
-  );
+  // A uid the server minted a moment ago (isNewUser) cannot have a doc yet —
+  // skip that round trip (L1: on a phone it's the first Firestore call after
+  // sign-in, so it also paid the connection + App Check warm-up). Any other
+  // session (reused anonymous or provider) still reads first.
+  let existingData: Record<string, unknown> | undefined;
+  if (!isNewUser) {
+    const existingDocSnap = await getDoc(doc(db, 'users', user.uid));
+    existingData = existingDocSnap.exists() ? existingDocSnap.data() : undefined;
+  }
+  const scaffold = buildExploreMapProfileWrite(user.uid, existingData);
 
   // onboarding_path is mirrored durably too, so a reopen whose Firestore doc
   // write was lost can still be recognised as a MAP_ONLY user (consumed by
@@ -229,7 +256,9 @@ export async function runExploreMapFlow(router: ExploreMapRouter): Promise<boole
   // until answered, group-page landing). An invite CODE still goes through
   // the express identity screen first (identity before membership), which
   // then confirms it through the same consumer.
-  if (await readFeatureFlagOnce('enable_group_fixes_v1')) {
+  // The flag only matters when an invite is pending — skip its Firestore read
+  // otherwise (L1); the legacy consumers below are no-ops without one too.
+  if (hasPendingInvite() && (await readFeatureFlagOnce('enable_group_fixes_v1'))) {
     if (localStorage.getItem('pending_invite_code')) {
       setTimeout(() => { router.push('/onboarding-new/profile?context=express'); }, 1200);
       return true;
@@ -265,11 +294,11 @@ export async function runExploreMapFlow(router: ExploreMapRouter): Promise<boole
   // Give the profile write up to 1.5s to commit BEFORE navigating, so a
   // hard-close right after redirect can't strand a doc-less MAP_ONLY user.
   // Offline-safe: the race cap never hangs (the write stays queued and the
-  // durable onboarding_path marker lets reopen recover). The ~1.2s
-  // transition-animation window still elapses in parallel.
+  // durable onboarding_path marker lets reopen recover). The caller's
+  // transition-animation window (minTransitionMs) still elapses in parallel.
   await Promise.all([
     Promise.race([profileWrite, new Promise((r) => setTimeout(r, 1500))]),
-    new Promise((r) => setTimeout(r, 1200)),
+    minTransitionMs > 0 ? new Promise((r) => setTimeout(r, minTransitionMs)) : null,
   ]);
   router.push('/explorer');
   return true;

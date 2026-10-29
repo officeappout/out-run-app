@@ -16,6 +16,7 @@ const signInAnonymouslyMock = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/firebase', () => ({ auth: {} }));
 vi.mock('firebase/auth', () => ({
   signInAnonymously: signInAnonymouslyMock,
+  getAdditionalUserInfo: (r: { additionalUserInfo?: { isNewUser: boolean } }) => r?.additionalUserInfo ?? null,
 }));
 
 import { signInGuest } from '@/lib/auth.service';
@@ -67,5 +68,22 @@ describe('signInGuest — P0-1 timeout guard', () => {
     const result = await signInGuest();
 
     expect(result).toEqual({ user: null, error: 'auth/network-request-failed' });
+  });
+
+  it('flags a server-minted uid as isNewUser (L1: lets quick signup skip the users-doc read)', async () => {
+    const fakeUser = { uid: 'fresh-uid' };
+    signInAnonymouslyMock.mockResolvedValue({ user: fakeUser, additionalUserInfo: { isNewUser: true } });
+
+    const result = await signInGuest();
+
+    expect(result).toEqual({ user: fakeUser, error: null, isNewUser: true });
+  });
+
+  it('omits isNewUser when the existing anonymous session is returned', async () => {
+    signInAnonymouslyMock.mockResolvedValue({ user: { uid: 'old-anon' } });
+
+    const result = await signInGuest();
+
+    expect(Object.prototype.hasOwnProperty.call(result, 'isNewUser')).toBe(false);
   });
 });

@@ -21,7 +21,9 @@ let inflight: Promise<boolean> | null = null;
 export function runNewAccountFlow(router: ExploreMapRouter, opts: { introOn: boolean }): Promise<boolean> {
   if (inflight) return inflight;
   inflight = (async () => {
-    return runExploreMapFlow(await introAwareRouter(router, opts));
+    // Only the landing calls this — its splash / drawer spinner has no transition
+    // animation to wait out, so no 1.2s floor before the push (L1).
+    return runExploreMapFlow(await introAwareRouter(router, opts), { minTransitionMs: 0 });
   })().finally(() => {
     inflight = null;
   });

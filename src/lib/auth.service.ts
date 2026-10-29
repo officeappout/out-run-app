@@ -12,6 +12,7 @@ import {
   signInWithPopup,
   signInWithCredential,
   signInAnonymously,
+  getAdditionalUserInfo,
   linkWithPopup,
   linkWithCredential,
   EmailAuthProvider,
@@ -486,7 +487,11 @@ function withGuestTimeout<T>(promise: Promise<T>): Promise<T> {
 export async function signInGuest() {
   try {
     const result = await withGuestTimeout(signInAnonymously(auth));
-    return { user: result.user, error: null };
+    // isNewUser: the server just minted this uid (signInAnonymously with an anonymous
+    // session already present returns that same user, isNewUser absent). A brand-new
+    // uid has no users/{uid} doc yet, so callers may skip reading it (L1, quick signup).
+    const isNewUser = getAdditionalUserInfo(result)?.isNewUser === true;
+    return { user: result.user, error: null, ...(isNewUser ? { isNewUser: true as const } : {}) };
   } catch (error: any) {
     const msg: string = error?.message ?? String(error);
     if (msg === 'GUEST_SIGNIN_TIMEOUT') {
