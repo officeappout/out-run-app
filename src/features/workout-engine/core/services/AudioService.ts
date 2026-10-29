@@ -3,7 +3,7 @@
  * Singleton service for voice guidance using Web Speech API
  */
 
-import { applySpeechLang, currentTtsLang, speechT } from '@/lib/i18n/speech';
+import { applySpeechLang, currentTtsLang, prewarmSpeech, speechT } from '@/lib/i18n/speech';
 
 class AudioService {
   private speechSynthesis: SpeechSynthesis | null = null;
@@ -22,6 +22,7 @@ class AudioService {
    * Call this on a user gesture (e.g., button click)
    */
   unlock(): void {
+    void prewarmSpeech();
     if (!this.isSupported || !this.speechSynthesis) return;
     
     // Trigger a silent utterance to unlock the audio engine

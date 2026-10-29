@@ -99,3 +99,21 @@ describe('spoken cues follow the locale (en)', () => {
     useLocaleStore.getState().setLocaleState({ locale: 'he' });
   });
 });
+
+describe('speech language and prewarm', () => {
+  it('ru/de speak English text with en-US; he stays he-IL', async () => {
+    const { ttsLangFor } = await import('@/lib/i18n/speech');
+    expect([ttsLangFor('he'), ttsLangFor('en'), ttsLangFor('ru'), ttsLangFor('de')]).toEqual(['he-IL', 'en-US', 'en-US', 'en-US']);
+  });
+
+  it('unlock() loads the audio catalog so the first cue is English', async () => {
+    const { useLocaleStore } = await import('@/store/useLocaleStore');
+    const catalogs = await import('@/lib/i18n/catalogs');
+    useLocaleStore.getState().setLocaleState({ locale: 'en' });
+    const spy = vi.spyOn(catalogs, 'ensureCatalog').mockResolvedValue();
+    const { audioService } = await import('../AudioService');
+    audioService.unlock();
+    expect(spy).toHaveBeenCalledWith('en', 'audio');
+    useLocaleStore.getState().setLocaleState({ locale: 'he' });
+  });
+});
