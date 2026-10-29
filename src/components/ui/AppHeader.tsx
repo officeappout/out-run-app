@@ -387,7 +387,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
       applySafeAreaTop={false}
     >
       {/* data-coach-occluder: tours park their target below this header and keep the
-          spotlight out from under it (pilot note AD4a: the home "השבוע שלך" step). */}
+          spotlight out from under it (pilot note AD4a: the home week-strip step). */}
       <div data-coach-occluder="">
         {innerRow}
         {/* Page-specific extras (e.g. segmented tabs on /feed) */}
