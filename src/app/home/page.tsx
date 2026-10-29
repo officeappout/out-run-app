@@ -153,6 +153,8 @@ import {
   HomeProgramSlide, HomeProgressSlotRow, ActivityMinutesRingCard,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
+import { isStepsGoalInCarousel } from '@/features/home/utils/steps-goal-slot';
+import { GOAL_MET_BONUS_WALK_STEPS } from '@/features/home/components/carousel/StepsGoalReachedCard';
 import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
 import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
 import { placeProgramSlides, programStartSlideId, programStartTrackOf, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
@@ -1973,6 +1975,14 @@ export default function HomePage() {
     todayWorkouts: todaysWorkouts?.length ?? 0,
     healthConnected,
   });
+  // Pilot O4: the steps goal card sits in the carousel's steps slot when that slot shows today.
+  const stepsGoalInCarousel = todayStepGoalMet && isStepsGoalInCarousel({
+    carouselOn: HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED,
+    startOnly: newUserHome.startOnly,
+    workoutDone: isTodayWorkoutDone,
+    v2Walker: featureFlags.enableHomeV2 && walkWeek.isWalker,
+    suggestions: preWorkoutSuggestions,
+  });
   // enable_home_v2: each start card is its own carousel slide (placeProgramSlides).
   type ProgramStartItem = { id: ReturnType<typeof programStartSlideId> };
   const isProgramStartCarouselItem = (item: Suggestion | { id: string }): item is ProgramStartItem =>
@@ -2349,7 +2359,10 @@ export default function HomePage() {
           useMapStore.getState().openGlobalRouteSheet(cachedRoute);
           return;
         }
-        if (context.stepsRemaining > 0) {
+        // Pilot O8: once the goal is met the card offers a walk anyway (StepsGoalReachedCard):
+        // a short bonus walk instead of the old no-op.
+        const walkSteps = context.stepsRemaining > 0 ? context.stepsRemaining : todayStepGoalMet ? GOAL_MET_BONUS_WALK_STEPS : 0;
+        if (walkSteps > 0) {
           // Same soft-ask useStepDeficitRoute.ts already uses on rest days — never a hard
           // prompt; denied/unsupported/no-fix simply resolves to null.
           const coords = await useGPSStore.getState().requestPermissionIfAllowed();
@@ -2357,7 +2370,7 @@ export default function HomePage() {
             showToast('error', tHome('page.toast.noLocation'));
             return;
           }
-          const route = await resolveRouteWorkout(cacheKey, { ...context, location: coords });
+          const route = await resolveRouteWorkout(cacheKey, { ...context, location: coords, stepsRemaining: walkSteps });
           if (!route) {
             showToast('error', tHome('page.toast.noRoute'));
             return;
@@ -2443,7 +2456,7 @@ export default function HomePage() {
     } finally {
       setStartingPreWorkoutSuggestionId(null);
     }
-  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected, showToast, tHome]);
+  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected, showToast, tHome, todayStepGoalMet]);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
@@ -3291,7 +3304,9 @@ export default function HomePage() {
             toISODate(new Date()), never selectedDate) — without this it kept showing while
             scrolling to a past or future day, clashing with Section 2's own past-day summary
             rendered further down this same page for that other date. */}
-        {isSelectedDateToday && (postWorkoutDone || todayWorkoutDone || todayStepGoalMet) && (todayActivityCards.length > 0 || todayStepGoalCard) && (
+        {/* Pilot O4 (29.10.2026): a steps-only day's "goal reached" card lives inside the
+            carousel now (StepsGoalReachedCard on the steps slot), not as a strip above it. */}
+        {isSelectedDateToday && (postWorkoutDone || todayWorkoutDone || todayStepGoalMet) && (todayActivityCards.length > 0 || (todayStepGoalCard && !stepsGoalInCarousel)) && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -3831,6 +3846,7 @@ export default function HomePage() {
                             healthConnected={healthConnected}
                             onConnectSteps={triggerHealthPermission}
                             stepsRemaining={liveStepsRemaining}
+                            stepGoalReached={todayStepGoalMet ? { steps: todayActivity?.steps ?? 0, strengthDone: isTodayWorkoutDone } : null}
                           />
                         )
                       }

@@ -957,5 +957,6 @@
   "appMap.zoomIn": "הגדל",
   "appMap.zoomOut": "הקטן",
   "appMap.stationFallback": "תחנת כוח",
-  "appMap.navigateHere": "נווט לכאן"
+  "appMap.navigateHere": "נווט לכאן",
+  "hybrid.card.goalReached": "{gender, select, male {עמדת ביעד בכוח ובהליכה. רוצה בכל זאת?} female {עמדת ביעד בכוח ובהליכה. רוצה בכל זאת?} other {עמדתם ביעד בכוח ובהליכה. רוצים בכל זאת?}}"
 }

@@ -39,6 +39,7 @@ import { hapticMedium } from '@/lib/haptics';
 import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 import { formatApproxDistance } from './hybrid-intro-format';
 import { resolveWalkUiState, nextArmed, walkingLine } from './hybrid-walk-state';
+import { useStartAtPark } from './useStartAtPark';
 import StationCompleteScreen from './StationCompleteScreen';
 import HybridStationCta from './HybridStationCta';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
@@ -106,6 +107,8 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   const completeStation = useHybridRun((s) => s.completeStation);
   const lastPosition = useRunningPlayer((s) => s.lastPosition);
   const nextStationNumber = useHybridRun((s) => s.nextStationNumber);
+  // Pilot M5: already at the first park → open the station (v2 owns the arrival there).
+  useStartAtPark(v2 ? null : arrive);
 
   // ── PR-B1 guided layer ("ליווי צעד-אחר-צעד") ─────────────────────────────
   // Kill-switch (remote flag, fail-open) off → fast mode for everyone. Otherwise the user's

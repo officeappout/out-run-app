@@ -122,6 +122,9 @@ function getAudioContext(): AudioContext | null {
     if (!audioCtx || audioCtx.state === 'closed') {
       audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
+    // Pilot M17: created from a timer tick (no tap), the context can start suspended and then
+    // never sounds. Same resume as src/lib/sound.ts.
+    if (audioCtx.state === 'suspended') void audioCtx.resume().catch(() => {});
     return audioCtx;
   } catch {
     return null;

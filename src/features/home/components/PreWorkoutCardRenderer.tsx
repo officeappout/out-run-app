@@ -59,6 +59,7 @@ import { getCachedRecoveryWorkout } from '@/features/workout-engine/core/generat
 import { getProvisionalHeroWorkout } from '../fast-startup/provisionalHeroWorkouts';
 import { getCachedRoute } from '@/features/workout-engine/core/generators/route.generator';
 import { ConnectStepsCard } from './ConnectStepsCard';
+import { StepsGoalReachedCard } from './carousel/StepsGoalReachedCard';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
 import type { Route } from '@/features/parks/core/types/route.types';
@@ -108,6 +109,8 @@ interface PreWorkoutCardRendererProps {
    * same as today's cache-miss ("not resolved yet") behavior — never a crash.
    */
   stepsRemaining?: number;
+  /** Pilot O4/O8: today's step goal is met → the safety-net slot shows StepsGoalReachedCard. */
+  stepGoalReached?: { steps: number; strengthDone: boolean } | null;
 }
 
 const ROUTE_DIFFICULTY_MAP: Record<Route['difficulty'], 1 | 2 | 3> = { easy: 1, medium: 2, hard: 3 };
@@ -242,6 +245,7 @@ export function PreWorkoutCardRenderer({
   healthConnected,
   onConnectSteps,
   stepsRemaining,
+  stepGoalReached = null,
 }: PreWorkoutCardRendererProps) {
   const t = useT(home);
   if (hasHeroCardTreatment(suggestion.generatorId)) {
@@ -289,6 +293,16 @@ export function PreWorkoutCardRenderer({
     // live steps-remaining number instead of the fully generic placeholder whenever there's
     // an actual gap to close; stepsRemaining<=0 (goal met, or no data) falls through to
     // today's exact generic card, unchanged.
+    if (stepGoalReached) {
+      return (
+        <StepsGoalReachedCard
+          steps={stepGoalReached.steps}
+          strengthDone={stepGoalReached.strengthDone}
+          onWalkAnyway={onStart}
+          isStarting={isStarting}
+        />
+      );
+    }
     if ((stepsRemaining ?? 0) > 0) {
       return (
         <SuggestionCard
