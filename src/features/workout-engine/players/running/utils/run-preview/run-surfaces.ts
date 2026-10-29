@@ -6,6 +6,7 @@
  */
 
 import type { RunKind } from './run-kind';
+import { rt } from '../run-utils-t';
 
 export type SurfaceIcon = 'track' | 'trail' | 'road';
 
@@ -16,11 +17,15 @@ export interface SurfaceTile {
   icon: SurfaceIcon;
 }
 
-export const SURFACE_TILES: Record<SurfaceIcon, SurfaceTile> = {
-  track: { id: 'track', label: 'מסלול אתלטיקה', tip: 'מדויק לחזרות', icon: 'track' },
-  trail: { id: 'trail', label: 'שביל בפארק', tip: 'רך למפרקים', icon: 'trail' },
-  road: { id: 'road', label: 'טיילת או כביש', tip: 'זורם לריצות ארוכות', icon: 'road' },
-};
+/** `label` / `tip` are getters: the text follows the current language each time it is read. */
+const tile = (id: SurfaceIcon): SurfaceTile => ({
+  id,
+  get label() { return rt(`runUtils.surface.${id}.label`); },
+  get tip() { return rt(`runUtils.surface.${id}.tip`); },
+  icon: id,
+});
+
+export const SURFACE_TILES: Record<SurfaceIcon, SurfaceTile> = { track: tile('track'), trail: tile('trail'), road: tile('road') };
 
 const ORDER: Record<RunKind, SurfaceIcon[]> = {
   interval: ['track', 'trail', 'road'],

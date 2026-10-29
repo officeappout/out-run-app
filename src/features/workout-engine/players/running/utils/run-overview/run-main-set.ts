@@ -15,7 +15,9 @@
 import type { RunBlock } from '../../types/run-block.type';
 import { isRestBlock } from '../../lib/planned-rep-results';
 import { estimatePaceFor, WALK_PACE_SEC_PER_KM, type RunPaceContext } from '../run-preview/run-estimates';
+import { defaultCommonT, type CommonT } from '@/lib/i18n/units';
 import { cleanBlockLabel, fmtMeters, fmtSeconds } from '../run-preview/run-title';
+import { heRt, rt, ut } from '../run-utils-t';
 import { findRepeatRun } from './run-variants';
 
 export type MainSetUnit = 'm' | 's';
@@ -76,20 +78,22 @@ export function decodeMainSet(raw: string | null | undefined): MainSetSpec | nul
 
 const REP_SUFFIX = /\(\d+\/\d+\)\s*$/;
 
-export function sizeLabel(unit: MainSetUnit, size: number): string {
-  return unit === 'm' ? fmtMeters(size) : fmtSeconds(size);
+/** "400 מ׳" / "90 שנ׳": the current language by default; the stored block label passes Hebrew (it is matched later). */
+export function sizeLabel(unit: MainSetUnit, size: number, t: CommonT = ut): string {
+  return unit === 'm' ? fmtMeters(size, t) : fmtSeconds(size, t);
 }
 
 function workLabel(src: MainSetSource, size: number, k: number, n: number): string {
   const clean = cleanBlockLabel(src.work.label);
   const sizeOnly = !clean || /^\d/.test(clean);
-  const text = sizeOnly ? sizeLabel(src.spec.unit, size) : clean;
+  const text = sizeOnly ? sizeLabel(src.spec.unit, size, defaultCommonT()) : clean;
   return REP_SUFFIX.test(src.work.label) ? `${text} (${k}/${n})` : text;
 }
 
 function restBlock(src: MainSetSource, sec: number, i: number): RunBlock {
   if (src.rest) return { ...src.rest, id: `${src.rest.id}~x${i}`, durationSeconds: sec, distanceMeters: undefined };
-  return { id: `${src.work.id}~xr${i}`, type: 'recovery', label: 'התאוששות', durationSeconds: sec, colorHex: '#94A3B8', _isSynthesizedRest: true };
+  const label = 'התאוששות'; // i18n-allow-hebrew: stored block label, matched as Hebrew
+  return { id: `${src.work.id}~xr${i}`, type: 'recovery', label, durationSeconds: sec, colorHex: '#94A3B8', _isSynthesizedRest: true };
 }
 
 /** The blocks with the main set replaced by `spec` (unchanged when the units differ). */
@@ -117,15 +121,17 @@ export function isUniform(spec: MainSetSpec): boolean {
 }
 
 /** Up-and-down (200-400-600-400-200) vs. a ladder (400-800-1200). */
-function shapeName(spec: MainSetSpec): string {
+function shapeName(spec: MainSetSpec, t: typeof rt): string {
   const r = spec.reps;
   const peak = r.indexOf(Math.max(...r));
-  return peak === r.length - 1 ? 'סולם' : 'פירמידה';
+  return peak === r.length - 1 ? t('runUtils.mainSet.ladder') : t('runUtils.mainSet.pyramid');
 }
 
 /** "4 × 600 מ׳" / "5 × 3 דק׳" / "פירמידה". */
-export function mainSetTitle(spec: MainSetSpec): string {
-  return isUniform(spec) ? `${spec.reps.length} × ${sizeLabel(spec.unit, spec.reps[0])}` : shapeName(spec);
+export function mainSetTitle(spec: MainSetSpec, { stored = false }: { stored?: boolean } = {}): string {
+  // `stored`: the text that is persisted (runMeta.mainSwap) stays Hebrew whatever the UI language is.
+  if (stored) return isUniform(spec) ? `${spec.reps.length} × ${sizeLabel(spec.unit, spec.reps[0], defaultCommonT())}` : shapeName(spec, heRt());
+  return isUniform(spec) ? `${spec.reps.length} × ${sizeLabel(spec.unit, spec.reps[0])}` : shapeName(spec, rt);
 }
 
 /** 90 → "90″", 120 → "2′", 150 → "2:30′". */
