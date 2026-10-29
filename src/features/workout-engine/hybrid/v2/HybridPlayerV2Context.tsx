@@ -24,6 +24,7 @@ import type { StripModel } from '../../engines/strip-item';
 import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
 import { hybridRunSnapshot, setHybridFinalizeOverride, useHybridRun } from '../useHybridRun';
 import { needsLegacyArrive, needsSequencerStart, runLegSkipEvents, stationCloseEvents } from './hybrid-v2-sync';
+import { useStartAtPark } from '../useStartAtPark';
 
 export interface HybridPlayerV2Api {
   enabled: boolean;
@@ -132,6 +133,8 @@ export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean
   }, [enabled, phase]);
 
   const arriveNow = useCallback(() => dispatch({ type: 'ARRIVE_MANUAL' }), [dispatch]);
+  // Pilot M5: already at the first park → straight to the station.
+  useStartAtPark(enabled && phase === 'run' ? arriveNow : null);
   // Pilot M8: skip the current leg (→ the station), never the station itself.
   const skipUpcoming = useCallback(() => {
     for (const ev of runLegSkipEvents()) dispatch(ev);

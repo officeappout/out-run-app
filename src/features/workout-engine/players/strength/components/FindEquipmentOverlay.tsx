@@ -37,6 +37,15 @@ function EquipmentIcon({ id, size }: { id: string; size: number }) {
   );
 }
 
+/** Pilot M9 (park live v2): the exercise photo when there is one, else the equipment icon. */
+function ItemMedia({ item, size, photo }: { item: FindItem; size: number; photo: boolean }) {
+  if (photo && item.imageUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />;
+  }
+  return <EquipmentIcon id={item.equipmentIds[0]} size={size} />;
+}
+
 const labels = (item: FindItem) => item.equipmentIds.map((id) => resolveEquipmentLabel(id)).join(' + ');
 
 interface Props {
@@ -45,9 +54,11 @@ interface Props {
   onFound: () => void;
   /** Open the station's replacement modal for this exercise (absent → no swap affordance). */
   onSwap?: (item: FindItem) => void;
+  /** enable_park_live_v2: show the exercise photo instead of the icon when the plan has one. */
+  showPhoto?: boolean;
 }
 
-export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }: Props) {
+export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap, showPhoto = false }: Props) {
   const t = useT(player);
   // The gender prop is the caller's (g() semantics: unset = male); passed explicitly so it overrides the injected one.
   const gv = gender ?? 'male';
@@ -82,8 +93,8 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }
                   className="flex items-center gap-3 rounded-2xl p-3"
                   style={{ border: '1px solid #E0E9FF', background: '#F8FBFF' }}
                 >
-                  <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
-                    <EquipmentIcon id={item.equipmentIds[0]} size={36} />
+                  <div className={`w-14 h-14 rounded-xl ${showPhoto ? 'overflow-hidden ' : ''}bg-white flex items-center justify-center flex-shrink-0`}>
+                    <ItemMedia item={item} size={36} photo={showPhoto} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[15px] font-black text-slate-900 dark:text-white truncate">{labels(item)}</div>
@@ -104,8 +115,8 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }
           </>
         ) : (
           <div className="flex flex-col items-center text-center pt-4">
-            <div className="w-36 h-36 rounded-3xl flex items-center justify-center mb-4" style={{ background: '#F0F9FF' }}>
-              <EquipmentIcon id={single.equipmentIds[0]} size={96} />
+            <div className={`w-36 h-36 rounded-3xl ${showPhoto ? 'overflow-hidden ' : ''}flex items-center justify-center mb-4`} style={{ background: '#F0F9FF' }}>
+              <ItemMedia item={single} size={96} photo={showPhoto} />
             </div>
             <h2 className="text-[24px] font-black text-slate-900 dark:text-white leading-tight" style={{ fontFamily: 'var(--font-simpler)' }}>
               {labels(single)}

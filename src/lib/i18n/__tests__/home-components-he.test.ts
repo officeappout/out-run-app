@@ -263,9 +263,22 @@ describe('home (he) — home components, byte-identical to the pre-extraction li
       programProgressRow: count('programProgressRow'),
     }).toEqual({
       hero: 6, buildCustom: 4, programStart: 17, addStrength: 2, nearbyGroups: 9, personas: 13, racePrediction: 10,
-      runCard: 17, walkCard: 16, runWeekCard: 4, agenda: 7, planner: 6, preWorkout: 5, connectSteps: 6,
+      runCard: 17, walkCard: 16, runWeekCard: 4, agenda: 7, planner: 6, preWorkout: 10, connectSteps: 6,
       loadAdvisor: 4, consistency: 4, todayActivity: 3, doneToday: 4, steps: 5, programProgress: 4,
       programProgressRow: 3,
     });
+  });
+});
+
+describe('home (he) — pilot O4/O8 steps goal reached card', () => {
+  it('gendered, neutral plural when unknown, no long dash', () => {
+    expect(t('preWorkout.stepsDone.title', { gender: 'male' })).toBe('עמדת ביעד הצעדים');
+    expect(t('preWorkout.stepsDone.title', { gender: 'other' })).toBe('עמדתם ביעד הצעדים');
+    expect(t('preWorkout.stepsDone.titleBoth', { gender: 'female' })).toBe('עמדת ביעד בכוח ובצעדים');
+    expect(t('preWorkout.stepsDone.body', { gender: 'other' })).toBe('רוצים בכל זאת עוד הליכה? נמצא לכם מסלול קרוב.');
+    expect(t('preWorkout.stepsDone.steps', { steps: '9,120' })).toBe('9,120 צעדים היום');
+    for (const k of ['preWorkout.stepsDone.title', 'preWorkout.stepsDone.titleBoth', 'preWorkout.stepsDone.body', 'preWorkout.stepsDone.cta'] as const) {
+      expect(t(k, { gender: 'male' })).not.toContain('—');
+    }
   });
 });
