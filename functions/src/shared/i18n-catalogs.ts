@@ -192,7 +192,9 @@ export const FUNCTIONS_CATALOGS = {
       "ui.report.sending": "שולח…",
       "ui.report.send": "שליחה",
       "language.switch.aria": "החלפת שפה",
-      "language.switch.menu": "שפה"
+      "language.switch.menu": "שפה",
+      "units.sec": "{n} שנ׳",
+      "units.label.sec": "שנ׳"
     },
     "en": {
       "actions.continue": "Continue",
@@ -382,7 +384,9 @@ export const FUNCTIONS_CATALOGS = {
       "ui.report.sending": "Sending…",
       "ui.report.send": "Send",
       "language.switch.aria": "Change language",
-      "language.switch.menu": "Language"
+      "language.switch.menu": "Language",
+      "units.sec": "{n} sec",
+      "units.label.sec": "sec"
     },
     "ru": {},
     "de": {},

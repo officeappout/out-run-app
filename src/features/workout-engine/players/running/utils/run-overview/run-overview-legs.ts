@@ -14,7 +14,7 @@
  * says exactly what the old "מבנה האימון" list said.
  */
 
-import { withUnit } from '@/lib/i18n/units';
+import { rt, unitText } from '../run-utils-t';
 import type { AerobicLeg, AerobicMetaItem, GroupLeg, OverviewDrill, OverviewLeg } from '@/features/parks/core/components/overview/overview-legs';
 import type { RunBlock } from '../../types/run-block.type';
 import { fmtBand, isRestBlock } from '../../lib/planned-rep-results';
@@ -64,7 +64,7 @@ export function drillsAt(blocks: readonly RunBlock[], indices: readonly number[]
     const id = b?.drillRef?.exerciseId;
     if (!b || !id || seen.has(id)) continue;
     seen.add(id);
-    out.push({ key: drillKeyOf(i), label: (cleanBlockLabel(b.label) ? cleanRunBlockLabel(b, lang) : '') || (isStrideBlock(b) ? 'סטריידס' : 'תרגיל') });
+    out.push({ key: drillKeyOf(i), label: (cleanBlockLabel(b.label) ? cleanRunBlockLabel(b, lang) : '') || (isStrideBlock(b) ? rt('runUtils.word.strides') : rt('runUtils.leg.drill')) });
   }
   return out;
 }
@@ -93,8 +93,8 @@ function sumBlocks(blocks: readonly RunBlock[], ctx: RunPaceContext): Totals {
 function metas(t: Totals, approx: boolean): AerobicMetaItem[] {
   const out: AerobicMetaItem[] = [];
   const pre = approx ? '~' : '';
-  if (t.meters > 0) out.push({ key: 'km', icon: 'distance', text: `${pre}${withUnit('km', (t.meters / 1000).toFixed(1))}` });
-  if (t.seconds > 0) out.push({ key: 'min', icon: 'time', text: `${pre}${withUnit('min', roundMinutes(t.seconds))}` });
+  if (t.meters > 0) out.push({ key: 'km', icon: 'distance', text: `${pre}${unitText('km', (t.meters / 1000).toFixed(1))}` });
+  if (t.seconds > 0) out.push({ key: 'min', icon: 'time', text: `${pre}${unitText('min', roundMinutes(t.seconds))}` });
   return out;
 }
 
@@ -111,7 +111,7 @@ function phaseLeg(key: RunPhase, title: string, blocks: readonly RunBlock[], ctx
   if (t.seconds <= 0 && t.meters <= 0) return null;
   const leg: AerobicLeg = {
     kind: 'aerobic', key, activity: RUN, durationSec: t.seconds, distanceKm: t.meters / 1000,
-    layout: 'standard', title, badge: 'ריצה קלה', meta: metas(t, false), paceSecPerKm: easyPace(blocks, ctx, show),
+    layout: 'standard', title, badge: rt('runUtils.leg.badgeEasy'), meta: metas(t, false), paceSecPerKm: easyPace(blocks, ctx, show),
   };
   // M-7a: the pace is editable; an edited one shows its band.
   const b = blocks.find((x) => !isRestBlock(x));
@@ -175,7 +175,7 @@ function collapsedMainLeg(steps: readonly StructureStep[], blocks: readonly RunB
   const rows = [...work, ...(rest ? [rest] : [])];
   const totals = sumBlocks(mainBlocks, ctx);
   return {
-    kind: 'group', key: 'main-0', title: 'העיקר', activity: RUN, durationSec: totals.seconds, stripLabel,
+    kind: 'group', key: 'main-0', title: rt('runUtils.step.main'), activity: RUN, durationSec: totals.seconds, stripLabel,
     rows: rows.map((r, i) => ({
       key: `${r.key}-${i}`, tone: r.isRest ? 'recovery' : 'work', label: r.text, paceText: r.side || undefined, color: r.color,
       ...rowPace(r, blocks), ...rowDrill(r),
@@ -209,12 +209,12 @@ export function buildRunOverviewLegs(
   const lang = opts.lang ?? 'he';
   const legs: OverviewLeg[] = [];
   const walk = opts.walk ?? null;
-  if (walk && walk.thereMin > 0) legs.push({ kind: 'transport', key: 'walk-there', phase: 'there', label: 'הליכה אל המסלול', minutes: walk.thereMin });
+  if (walk && walk.thereMin > 0) legs.push({ kind: 'transport', key: 'walk-there', phase: 'there', label: rt('runUtils.leg.walkThere'), minutes: walk.thereMin });
 
   if (opts.kind === 'easy' || opts.kind === 'long') {
     if (blocks.length) {
-      const title = opts.kind === 'long' ? 'ריצה ארוכה' : 'ריצה קלה';
-      legs.push(withDrills(steadyLeg('run', title, 'קצב שיחה', blocks, ctx, show, false), drillsAt(blocks, blocks.map((_, i) => i), lang)));
+      const title = opts.kind === 'long' ? rt('runUtils.leg.long') : rt('runUtils.leg.easy');
+      legs.push(withDrills(steadyLeg('run', title, rt('runUtils.leg.conversational'), blocks, ctx, show, false), drillsAt(blocks, blocks.map((_, i) => i), lang)));
     }
   } else {
     const steps = buildRunStructure(blocks, ctx, { showPaceNumbers: show, lang });
@@ -223,7 +223,7 @@ export function buildRunOverviewLegs(
     const mainBlocks = blocks.filter((b) => blockPhase(b) === 'main');
     const mainSteps = steps.filter((s) => s.phase === 'main');
 
-    const w = phaseLeg('warmup', 'חימום', warm, ctx, show);
+    const w = phaseLeg('warmup', rt('runUtils.step.warmup'), warm, ctx, show);
     if (w) legs.push(withDrills(w, drillsAt(blocks, indicesWhere(blocks, (b) => blockPhase(b) === 'warmup'), lang)));
     const collapse = opts.collapseMain && mainSteps.length > 1 ? opts.collapseMain : null;
     if (collapse) legs.push(collapsedMainLeg(mainSteps, blocks, mainBlocks, ctx, collapse.stripLabel));
@@ -233,16 +233,16 @@ export function buildRunOverviewLegs(
         legs.push(groupLeg(st, blocks, ctx, totals));
       } else {
         const own = st.rows.map((r) => blocks[r.blockIndex]).filter((b): b is RunBlock => !!b);
-        const badge = opts.kind === 'tempo' ? 'טמפו' : 'ריצה';
+        const badge = opts.kind === 'tempo' ? rt('runUtils.leg.badgeTempo') : rt('runUtils.leg.badgeRun');
         const leg = steadyLeg(st.key, st.title, badge, mainSteps.length === 1 ? mainBlocks : own, ctx, show, true);
         legs.push(withDrills(leg, drillsAt(blocks, st.rows.map((r) => r.blockIndex), lang)));
       }
     }
-    const c = phaseLeg('cooldown', 'שחרור', cool, ctx, show);
+    const c = phaseLeg('cooldown', rt('runUtils.step.cooldown'), cool, ctx, show);
     if (c) legs.push(withDrills(c, drillsAt(blocks, indicesWhere(blocks, (b) => blockPhase(b) === 'cooldown'), lang)));
   }
 
-  if (walk && walk.backMin > 0) legs.push({ kind: 'transport', key: 'walk-back', phase: 'back', label: 'הליכה חזרה', minutes: walk.backMin });
+  if (walk && walk.backMin > 0) legs.push({ kind: 'transport', key: 'walk-back', phase: 'back', label: rt('runUtils.leg.walkBack'), minutes: walk.backMin });
   return legs;
 }
 

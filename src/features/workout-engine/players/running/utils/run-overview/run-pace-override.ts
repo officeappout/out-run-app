@@ -17,6 +17,7 @@ import { isRestBlock, isShortLeg } from '../../lib/planned-rep-results';
 import { blockTargetBand, type RunPaceContext } from '../run-preview/run-estimates';
 import { blockPhase } from '../run-preview/run-strip';
 import { blockSizeLabel } from '../run-preview/run-title';
+import { rt } from '../run-utils-t';
 
 /** sec/km; min = the faster end. */
 export interface PaceBand { min: number; max: number }
@@ -133,8 +134,8 @@ export function paceEditTarget(blocks: readonly RunBlock[], key: string, ctx: Ru
   const current = isPaceBand(first.paceOverride) ? { ...first.paceOverride } : planned;
   const phase = blockPhase(first);
   const sizes = Array.from(new Set(own.map((b) => blockSizeLabel(b))));
-  let subtitle = phase === 'warmup' ? 'חימום' : phase === 'cooldown' ? 'שחרור' : 'ריצה';
-  if (phase === 'main' && own.length > 1) subtitle = sizes.length === 1 ? `חזרות ${sizes[0]} · ${own.length} ×` : `חזרות · ${own.length} ×`;
+  let subtitle = phase === 'warmup' ? rt('runUtils.paceEdit.warmup') : phase === 'cooldown' ? rt('runUtils.paceEdit.cooldown') : rt('runUtils.paceEdit.run');
+  if (phase === 'main' && own.length > 1) subtitle = sizes.length === 1 ? rt('runUtils.paceEdit.repsSized', { size: sizes[0], n: String(own.length) }) : rt('runUtils.paceEdit.reps', { n: String(own.length) });
   const uniformMeters = own.every((b) => b.distanceMeters && !b.durationSeconds && b.distanceMeters === first.distanceMeters);
   return {
     key,

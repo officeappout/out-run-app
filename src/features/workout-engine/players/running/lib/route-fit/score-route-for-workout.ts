@@ -16,6 +16,7 @@ import { withUnit } from '@/lib/i18n/units';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { climbReason, findClimbForRoute } from './climb-match';
 import { fitDistance, lapsLabel } from './distance-fit';
+import { rt } from '../../utils/run-utils-t';
 import { accessKm, comfort, crossings, dedicatedPath, flatness, lighting, turns } from './route-traits';
 import type { ClimbMatch, DistanceFit, RouteScoreContext, RouteWorkoutScore, WorkoutRouteNeeds } from './types';
 
@@ -149,16 +150,16 @@ export function workoutFitForRoute(route: ScorableRoute, workout: WorkoutRouteNe
   let label: string | null;
   if (fit.verdict === 'unknown') {
     fits = !hillFails;
-    label = hillFails ? 'לא מתאים לאימון של היום' : null;
+    label = hillFails ? rt('runUtils.fit.label.no') : null;
   } else if (fit.verdict === 'no' || hillFails) {
     fits = false;
-    label = 'לא מתאים לאימון של היום';
+    label = rt('runUtils.fit.label.no');
   } else if (fit.verdict === 'close') {
     fits = false;
-    label = 'כמעט מתאים';
+    label = rt('runUtils.fit.label.close');
   } else {
     fits = true;
-    label = fit.laps != null && fit.laps !== 1 ? `מתאים ב-${lapsLabel(fit.laps)}` : 'מתאים';
+    label = fit.laps != null && fit.laps !== 1 ? rt('runUtils.fit.label.yesLaps', { laps: lapsLabel(fit.laps) }) : rt('runUtils.fit.label.yes');
   }
   return { fits, label, fit, climb, reasons: s.reasons, cautions: s.cautions };
 }
