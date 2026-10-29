@@ -1302,6 +1302,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }, [resetOnboarding, resetProfile, onClose, router, showToast, t]);
 
   // ── Delete account ───────────────────────────────────────────────────────
+  const openDeleteConfirm = useCallback(() => {
+    setDeleteConfirmText('');
+    setDeleteError(null);
+    setShowDeleteConfirm(true);
+  }, []);
 
   const handleConfirmDelete = useCallback(async () => {
     if (deleteConfirmText.trim() !== DELETE_CONFIRM_WORD) return;
@@ -1514,6 +1519,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <Loader2 size={16} className="animate-spin text-gray-400" />
                       ) : undefined
                     }
+                  />
+                  {/* AD7: deletion was only in the danger zone at the very bottom
+                      (below logout), easy to miss. Same type-to-confirm dialog. */}
+                  <SettingsRow
+                    icon={<Trash2 size={20} className="text-red-600" />}
+                    label={t('settings.danger.deleteAccount')}
+                    sublabel={t('settings.account.deleteSub')}
+                    disabled={isDeleting}
+                    onClick={openDeleteConfirm}
                   />
                 </Section>
 
@@ -2480,7 +2494,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </p>
                     <button
                       type="button"
-                      onClick={() => { setDeleteConfirmText(''); setDeleteError(null); setShowDeleteConfirm(true); }}
+                      onClick={openDeleteConfirm}
                       disabled={isDeleting}
                       className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-red-400 text-red-600 bg-white rounded-xl text-sm font-bold font-simpler hover:bg-red-50 transition-colors active:scale-[0.98] disabled:opacity-50"
                     >
@@ -2655,6 +2669,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 onSave={(n) => void handleSaveFeedPrefs(n)}
                 onClose={() => setFeedPrivacyOpen(false)}
               />
+              {/* W3: renders INSIDE this z-[101] layer. As a sibling of it, its
+                  z-70/71 opened underneath the settings screen, so tapping the
+                  city/neighborhood row looked dead.
+                  Neighborhood picker (personal screen, city/neighborhood row): staged
+                  into editNeighborhoodId, committed together with name/weight/DOB
+                  by savePersonalEdit's save button, not written immediately on select. */}
+              <NeighborhoodPickerSheet
+                isOpen={neighborhoodPickerOpen}
+                onClose={() => setNeighborhoodPickerOpen(false)}
+                cityAuthorityId={cityAuthorityId}
+                cityName={cityDisplay}
+                currentNeighborhoodId={editNeighborhoodId}
+                onSelect={(n) => { setEditNeighborhoodId(n.id); setEditNeighborhoodName(n.name); }}
+              />
             </SettingsV2.Provider>
           </motion.div>
         )}
@@ -2666,18 +2694,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         isOpen={equipmentSheetOpen}
         onClose={() => setEquipmentSheetOpen(false)}
         initialIds={profile?.equipment?.home ?? []}
-      />
-
-      {/* ── Neighborhood picker (עיר/שכונה, פרטים אישיים section) — staged
-          into editNeighborhoodId, committed together with name/weight/DOB
-          by savePersonalEdit's "שמור", not written immediately on select. */}
-      <NeighborhoodPickerSheet
-        isOpen={neighborhoodPickerOpen}
-        onClose={() => setNeighborhoodPickerOpen(false)}
-        cityAuthorityId={cityAuthorityId}
-        cityName={cityDisplay}
-        currentNeighborhoodId={editNeighborhoodId}
-        onSelect={(n) => { setEditNeighborhoodId(n.id); setEditNeighborhoodName(n.name); }}
       />
 
       {/* ── Legal modals ──────────────────────────────────────────────────── */}
