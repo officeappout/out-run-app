@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { hebrewOrEmpty } from '@/features/content/shared/stored-text-fields';
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
@@ -279,8 +280,9 @@ export default function NotificationsPage() {
             : new Date();
           return {
             id: d.id,
-            title: String(data.title ?? ''),
-            message: String(data.message ?? ''),
+            // push_messages title/message may be {he,en}: the admin history shows the Hebrew string.
+            title: hebrewOrEmpty(data.title),
+            message: hebrewOrEmpty(data.message),
             channel: String(data.channel ?? 'encouragement'),
             status: String(data.status ?? 'sent'),
             targetAudience: String(data.targetAudience ?? 'all'),

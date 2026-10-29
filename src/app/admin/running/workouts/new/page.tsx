@@ -76,6 +76,7 @@ export default function NewRunWorkoutTemplatePage() {
   const router = useRouter();
   const [config, setConfig] = useState<PaceMapConfig>(DEFAULT_PACE_MAP_CONFIG);
   const [name, setName] = useState('');
+  const [nameEn, setNameEn] = useState('');
   const [isQualityWorkout, setIsQualityWorkout] = useState(false);
   const [targetProfileTypes, setTargetProfileTypes] = useState<RunnerProfileType[]>([1, 2, 3, 4]);
   const [blocks, setBlocks] = useState<RunBlockTemplate[]>([emptyBlock()]);
@@ -106,6 +107,7 @@ export default function NewRunWorkoutTemplatePage() {
     }
     const template: Omit<RunWorkoutTemplate, 'id'> = {
       name: name.trim(),
+      ...(nameEn.trim() ? { nameLocalized: { he: name.trim(), en: nameEn.trim() } } : {}),
       isQualityWorkout,
       targetProfileTypes,
       blocks: blocks.map((b) => ({
@@ -161,6 +163,15 @@ export default function NewRunWorkoutTemplatePage() {
               onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
               placeholder="למשל: אינטרוולים קלאסי"
+            />
+            <input
+              type="text"
+              dir="ltr"
+              value={nameEn}
+              onChange={(e) => setNameEn(e.target.value)}
+              aria-label="שם האימון (EN)"
+              className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg text-left"
+              placeholder="English name (optional)"
             />
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -381,6 +392,15 @@ export default function NewRunWorkoutTemplatePage() {
                           onChange={(e) => updateBlock(idx, { restLabel: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                           placeholder="למשל: float 2 דק׳ — מתחת לסף"
+                        />
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={block.restLabelLocalized?.en ?? ''}
+                          onChange={(e) => updateBlock(idx, { restLabelLocalized: { he: block.restLabel ?? '', en: e.target.value } })}
+                          aria-label="תווית מנוחה (EN)"
+                          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded text-sm text-left"
+                          placeholder="English (optional)"
                         />
                       </div>
                     </>

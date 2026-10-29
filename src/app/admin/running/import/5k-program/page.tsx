@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { findRunWorkoutTemplatesByName } from '@/features/workout-engine/core/services/running-template-lookup';
 import { useState } from 'react';
 import Link from 'next/link';
 import {
@@ -300,11 +301,7 @@ export default function Import5KProgramPage() {
       addLog('🛣️ שלב 1a: מעלה 7 תבניות ריצת נפח (6–12 ק״מ)...');
 
       for (const tpl of LONG_RUN_TEMPLATES) {
-        const q = query(
-          collection(db, WORKOUT_TEMPLATES_COLLECTION),
-          where('name', '==', tpl.name),
-        );
-        const snap = await getDocs(q);
+        const snap = await findRunWorkoutTemplatesByName(tpl.name);
 
         if (snap.size > 0) {
           workoutsSkipped++;
@@ -326,11 +323,7 @@ export default function Import5KProgramPage() {
       addLog('\n🏃 שלב 1b: מעלה 4 תבניות אימון ספציפיות...');
 
       for (const tpl of NEW_WORKOUT_TEMPLATES) {
-        const q = query(
-          collection(db, WORKOUT_TEMPLATES_COLLECTION),
-          where('name', '==', tpl.name),
-        );
-        const snap = await getDocs(q);
+        const snap = await findRunWorkoutTemplatesByName(tpl.name);
 
         if (snap.size > 0) {
           workoutsSkipped++;

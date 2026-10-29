@@ -26,6 +26,8 @@ import { useDailyActivity } from '@/features/activity';
 import { useUserStore } from '@/features/user';
 import type { MessageType } from '../services/MessageService';
 import { replaceMessageVariables } from '@/lib/constants';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { pickText } from '@/features/content/shared/stored-text-fields';
 
 // ============================================================================
 // TYPES
@@ -165,15 +167,17 @@ export function SmartGreeting({
   }), [userName, context?.streak, context?.level, context?.program, level, program, activityStreak]);
   
   // Apply variable replacements
+  // Content language: Hebrew while enable_content_locale is off (the stored Hebrew string, as always).
+  const contentLang = useContentLanguage();
   const mainText = useMemo(() => 
-    replaceMessageVariables(message.text, variables),
-    [message.text, variables]
+    replaceMessageVariables(pickText(message, 'text', contentLang), variables),
+    [message, contentLang, variables]
   );
   
-  const subText = useMemo(() => 
-    message.subText ? replaceMessageVariables(message.subText, variables) : undefined,
-    [message.subText, variables]
-  );
+  const subText = useMemo(() => {
+    const raw = pickText(message, 'subText', contentLang);
+    return raw ? replaceMessageVariables(raw, variables) : undefined;
+  }, [message, contentLang, variables]);
   
   // Loading state
   if (isLoading && showSkeleton) {
@@ -379,15 +383,17 @@ export function SmartGreetingText({
   }), [userName, context?.streak, context?.level, context?.program, level, program, activityStreak]);
   
   // Apply variable replacements
+  // Content language: Hebrew while enable_content_locale is off (the stored Hebrew string, as always).
+  const contentLang = useContentLanguage();
   const mainText = useMemo(() => 
-    replaceMessageVariables(message.text, variables),
-    [message.text, variables]
+    replaceMessageVariables(pickText(message, 'text', contentLang), variables),
+    [message, contentLang, variables]
   );
   
-  const subText = useMemo(() => 
-    message.subText ? replaceMessageVariables(message.subText, variables) : undefined,
-    [message.subText, variables]
-  );
+  const subText = useMemo(() => {
+    const raw = pickText(message, 'subText', contentLang);
+    return raw ? replaceMessageVariables(raw, variables) : undefined;
+  }, [message, contentLang, variables]);
   
   if (isLoading) {
     return (

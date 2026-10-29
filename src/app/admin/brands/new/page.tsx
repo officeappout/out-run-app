@@ -130,6 +130,15 @@ export default function NewBrandPage() {
             className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             placeholder="לדוגמה: Saly, Ludos, Generic Urban"
           />
+          <input
+            type="text"
+            dir="ltr"
+            value={formData.nameLocalized?.en ?? ''}
+            onChange={(e) => setFormData({ ...formData, nameLocalized: { he: formData.name, en: e.target.value } })}
+            aria-label="שם המותג (EN)"
+            className="mt-2 w-full px-4 py-3 text-base text-left border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            placeholder="English name (optional)"
+          />
           {validationErrors.name && (
             <p className="mt-1 text-xs text-red-600">{validationErrors.name}</p>
           )}
@@ -292,6 +301,15 @@ export default function NewBrandPage() {
             rows={4}
             className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
             placeholder="תיאור קצר של המותג..."
+          />
+          <textarea
+            dir="ltr"
+            value={formData.descriptionLocalized?.en ?? ''}
+            onChange={(e) => setFormData({ ...formData, descriptionLocalized: { he: formData.description || '', en: e.target.value } })}
+            rows={3}
+            aria-label="תיאור (EN)"
+            className="mt-2 w-full px-4 py-3 text-base text-left border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+            placeholder="English description (optional)"
           />
         </div>
       </form>

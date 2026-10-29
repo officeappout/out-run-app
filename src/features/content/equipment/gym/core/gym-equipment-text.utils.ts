@@ -14,6 +14,7 @@
  * Pure TS (no React, no Firebase) — node-env unit-testable.
  */
 import { toCueList } from '@/features/content/exercises/utils/cue-text.utils';
+import { hebrewOrEmpty } from '@/features/content/shared/stored-text-fields';
 import type { GymEquipment } from './gym-equipment.types';
 import type { ExecutionMethod, LocalizedText } from '@/features/content/exercises/core/exercise.types';
 
@@ -23,7 +24,8 @@ export const EQUIPMENT_TIPS_MAX = 2;
 export const EQUIPMENT_CUE_WARN_CHARS = 60;
 export const EQUIPMENT_PREP_NOTE_MAX_CHARS = 40;
 
-type EquipmentText = Pick<GymEquipment, 'cues' | 'tips' | 'prepNote' | 'description'>;
+type EquipmentText = Pick<GymEquipment, 'cues' | 'tips' | 'prepNote' | 'description'> &
+  Partial<Pick<GymEquipment, 'cuesLocalized' | 'tipsLocalized'>>;
 
 export type EquipmentCuesSource = 'doc' | 'description' | 'none';
 
@@ -56,7 +58,7 @@ export function resolveEquipmentTips(equipment: Partial<EquipmentText> | null | 
   const seen = new Set<string>();
   const out: string[] = [];
   for (const t of raw) {
-    const s = typeof t === 'string' ? t.replace(/\s+/g, ' ').trim() : '';
+    const s = hebrewOrEmpty(t).replace(/\s+/g, ' ').trim(); // tolerant of a raw {he,en} item
     if (s && !seen.has(s)) {
       seen.add(s);
       out.push(s);
@@ -68,7 +70,7 @@ export function resolveEquipmentTips(equipment: Partial<EquipmentText> | null | 
 /** The setup line shown before the machine block ('' when none). */
 export function resolveEquipmentPrepNote(equipment: Partial<EquipmentText> | null | undefined): string {
   const p = equipment?.prepNote;
-  return typeof p === 'string' ? p.replace(/\s+/g, ' ').trim() : '';
+  return hebrewOrEmpty(p).replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -84,15 +86,19 @@ export function resolveEquipmentPrepNote(equipment: Partial<EquipmentText> | nul
 export function buildEquipmentMethodText(
   equipment: Partial<EquipmentText> | null | undefined,
 ): Pick<ExecutionMethod, 'specificCues' | 'highlights' | 'notificationText'> {
-  const toLocalized = (s: string) => ({ he: s, en: '' }) as LocalizedText;
-  const { cues } = resolveEquipmentCues(equipment);
+  const { cues, source } = resolveEquipmentCues(equipment);
+  // English rides along per item only when the doc has it AND the cleaned lists line up one to one.
+  const pairWith = (he: string[], loc: LocalizedText[] | undefined) => {
+    const en = Array.isArray(loc) && loc.length > 0 ? toCueList(loc, null, 'en') : [];
+    return he.map((s, i) => ({ he: s, en: en.length === he.length && en[i] !== s ? en[i] : '' }) as LocalizedText);
+  };
   // Tips only ride along with cues — resolveExerciseCues ignores highlights-as-tips
   // without specificCues (it would promote them to the cue list instead).
   const tips = cues.length > 0 ? resolveEquipmentTips(equipment) : [];
   const prepNote = resolveEquipmentPrepNote(equipment);
   return {
-    ...(cues.length > 0 ? { specificCues: cues.map(toLocalized) } : {}),
-    ...(tips.length > 0 ? { highlights: tips.map(toLocalized) } : {}),
+    ...(cues.length > 0 ? { specificCues: pairWith(cues, source === 'doc' ? equipment?.cuesLocalized : undefined) } : {}),
+    ...(tips.length > 0 ? { highlights: pairWith(tips, equipment?.tipsLocalized) } : {}),
     ...(prepNote ? { notificationText: prepNote } : {}),
   };
 }
@@ -133,4 +139,62 @@ export function buildEquipmentTextFields(
     prepNote: prepNote ? prepNote : hadString(initial?.prepNote) ? null : undefined,
     description: description ? description : hadString(initial?.description) ? null : undefined,
   };
+}
+
+export interface EquipmentEnglishDraft {
+  name?: string | null;
+  description?: string | null;
+  prepNote?: string | null;
+  cues?: string[];
+  tips?: string[];
+  nameEn?: string;
+  descriptionEn?: string;
+  prepNoteEn?: string;
+  /** Parallel to `cues` / `tips` (same index = same item). */
+  cuesEn?: string[];
+  tipsEn?: string[];
+}
+
+/**
+ * Admin save mapping for the English side: `<field>Localized` keys for the service's fold-on-write, so a doc becomes
+ * {he,en} only once English is entered. A key is emitted only when English exists (or the doc already had a pair, so
+ * removing English folds back to plain Hebrew); Hebrew-only saves emit nothing and stay byte-identical.
+ * Lists keep the SAME item filter as buildEquipmentTextFields (trim, drop empty, cap) so the pairs line up.
+ */
+export function buildEquipmentLocalizedFields(
+  draft: EquipmentEnglishDraft,
+  initial?: Partial<Pick<GymEquipment, 'nameLocalized' | 'descriptionLocalized' | 'prepNoteLocalized' | 'cuesLocalized' | 'tipsLocalized'>> | null,
+): {
+  nameLocalized?: LocalizedText;
+  descriptionLocalized?: LocalizedText;
+  prepNoteLocalized?: LocalizedText;
+  cuesLocalized?: LocalizedText[];
+  tipsLocalized?: LocalizedText[];
+} {
+  const out: ReturnType<typeof buildEquipmentLocalizedFields> = {};
+  const scalar = (he: string | null | undefined, en: string | undefined, had: unknown): LocalizedText | undefined => {
+    const heT = (he ?? '').trim();
+    const enT = (en ?? '').trim();
+    if (!heT) return undefined;
+    return enT || had ? ({ he: heT, en: enT } as LocalizedText) : undefined;
+  };
+  const list = (he: string[] | undefined, en: string[] | undefined, max: number, had: unknown): LocalizedText[] | undefined => {
+    const pairs = (he ?? [])
+      .map((h, i) => ({ he: typeof h === 'string' ? h.trim() : '', en: (en?.[i] ?? '').trim() }))
+      .filter((p) => p.he)
+      .slice(0, max);
+    if (pairs.length === 0) return undefined;
+    return pairs.some((p) => p.en) || (Array.isArray(had) && had.length > 0) ? (pairs as LocalizedText[]) : undefined;
+  };
+  const n = scalar(draft.name, draft.nameEn, initial?.nameLocalized);
+  const d = scalar(draft.description, draft.descriptionEn, initial?.descriptionLocalized);
+  const p = scalar(draft.prepNote, draft.prepNoteEn, initial?.prepNoteLocalized);
+  const c = list(draft.cues, draft.cuesEn, EQUIPMENT_CUES_MAX, initial?.cuesLocalized);
+  const t = list(draft.tips, draft.tipsEn, EQUIPMENT_TIPS_MAX, initial?.tipsLocalized);
+  if (n) out.nameLocalized = n;
+  if (d) out.descriptionLocalized = d;
+  if (p) out.prepNoteLocalized = p;
+  if (c) out.cuesLocalized = c;
+  if (t) out.tipsLocalized = t;
+  return out;
 }

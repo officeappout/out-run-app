@@ -19,6 +19,12 @@ import type {
   WorkoutCategory,
 } from '../types/running.types';
 import { DEFAULT_PACE_MAP_CONFIG } from '../config/pace-map-config';
+import {
+  foldRunProgramTemplateForWrite,
+  foldRunWorkoutTemplateForWrite,
+  normalizeRunProgramTemplateDoc,
+  normalizeRunWorkoutTemplateDoc,
+} from './running-template-localized';
 
 const CONFIG_COLLECTION = 'config';
 const PACE_MAP_CONFIG_ID = 'paceMapConfig';
@@ -81,11 +87,11 @@ export async function getRunWorkoutTemplates(): Promise<RunWorkoutTemplate[]> {
   const snap = await getDocs(ref);
   return snap.docs.map((d) => {
     const data = d.data();
-    return {
+    return normalizeRunWorkoutTemplateDoc({
       id: d.id,
       ...data,
       category: normalizeCategory(data.category),
-    } as RunWorkoutTemplate;
+    }) as RunWorkoutTemplate;
   });
 }
 
@@ -93,7 +99,7 @@ export async function getRunWorkoutTemplate(id: string): Promise<RunWorkoutTempl
   const ref = doc(db, WORKOUT_TEMPLATES_COLLECTION, id);
   const snap = await getDoc(ref);
   if (snap.exists()) {
-    return { id: snap.id, ...snap.data() } as RunWorkoutTemplate;
+    return normalizeRunWorkoutTemplateDoc({ id: snap.id, ...snap.data() }) as RunWorkoutTemplate;
   }
   return null;
 }
@@ -104,7 +110,7 @@ export async function createRunWorkoutTemplate(
   try {
     const ref = doc(collection(db, WORKOUT_TEMPLATES_COLLECTION));
     await setDoc(ref, {
-      ...template,
+      ...foldRunWorkoutTemplateForWrite(template),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -122,7 +128,7 @@ export async function updateRunWorkoutTemplate(
   try {
     const ref = doc(db, WORKOUT_TEMPLATES_COLLECTION, id);
     await updateDoc(ref, {
-      ...template,
+      ...foldRunWorkoutTemplateForWrite(template),
       updatedAt: serverTimestamp(),
     });
     return true;
@@ -148,14 +154,14 @@ export async function deleteRunWorkoutTemplate(id: string): Promise<boolean> {
 export async function getRunProgramTemplates(): Promise<RunProgramTemplate[]> {
   const ref = collection(db, PROGRAM_TEMPLATES_COLLECTION);
   const snap = await getDocs(ref);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as RunProgramTemplate));
+  return snap.docs.map((d) => normalizeRunProgramTemplateDoc({ id: d.id, ...d.data() }) as RunProgramTemplate);
 }
 
 export async function getRunProgramTemplate(id: string): Promise<RunProgramTemplate | null> {
   const ref = doc(db, PROGRAM_TEMPLATES_COLLECTION, id);
   const snap = await getDoc(ref);
   if (snap.exists()) {
-    return { id: snap.id, ...snap.data() } as RunProgramTemplate;
+    return normalizeRunProgramTemplateDoc({ id: snap.id, ...snap.data() }) as RunProgramTemplate;
   }
   return null;
 }
@@ -166,7 +172,7 @@ export async function createRunProgramTemplate(
   try {
     const ref = doc(collection(db, PROGRAM_TEMPLATES_COLLECTION));
     await setDoc(ref, {
-      ...template,
+      ...foldRunProgramTemplateForWrite(template),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -184,7 +190,7 @@ export async function updateRunProgramTemplate(
   try {
     const ref = doc(db, PROGRAM_TEMPLATES_COLLECTION, id);
     await updateDoc(ref, {
-      ...template,
+      ...foldRunProgramTemplateForWrite(template),
       updatedAt: serverTimestamp(),
     });
     return true;

@@ -9,7 +9,8 @@
  */
 export interface LevelGoal {
   exerciseId: string;   // Exercise document ID from 'exercises' collection
-  exerciseName: string; // Display name (e.g., "Push-ups", "Plank")
+  exerciseName: string; // Display name (e.g., "Push-ups", "Plank"). Hebrew string always; the doc may hold {he,en} (normalized on read, pair in exerciseNameLocalized).
+  exerciseNameLocalized?: { he: string; en: string; es?: string };
   targetValue: number;  // Target reps or seconds
   unit: 'reps' | 'seconds'; // Unit of measurement
   /** Admin-defined progress percentage awarded when this goal is fully met.

@@ -23,6 +23,7 @@ import { isFastStartupOn } from '@/lib/fast-startup/flag';
 import { GymEquipment, GymEquipmentFormData } from './gym-equipment.types';
 import { registerGearAlias } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { ExerciseType } from '../../../exercises/core/exercise.types';
+import { foldGymEquipmentForWrite, normalizeGymEquipmentDoc } from './gym-equipment-localized';
 
 const GYM_EQUIPMENT_COLLECTION = 'gym_equipment';
 
@@ -49,6 +50,16 @@ function toDate(timestamp: unknown): Date | undefined {
   return undefined;
 }
 
+/** Firestore doc -> app model. name/description/cues/... stay Hebrew strings even when the doc holds {he,en}. */
+function toGymEquipment(id: string, data: Record<string, any>): GymEquipment {
+  return normalizeGymEquipmentDoc({
+    id,
+    ...data,
+    createdAt: toDate(data.createdAt),
+    updatedAt: toDate(data.updatedAt),
+  }) as GymEquipment;
+}
+
 /**
  * Get all gym equipment (sorted by name)
  */
@@ -57,12 +68,7 @@ export async function getAllGymEquipment(): Promise<GymEquipment[]> {
     const q = query(collection(db, GYM_EQUIPMENT_COLLECTION), orderBy('name', 'asc'));
     const snapshot = await getDocs(q);
 
-    const items: GymEquipment[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: toDate(doc.data().createdAt),
-      updatedAt: toDate(doc.data().updatedAt),
-    } as GymEquipment));
+    const items: GymEquipment[] = snapshot.docs.map((doc) => toGymEquipment(doc.id, doc.data()));
 
     // Register ALL items — items with iconKey get a direct canonical mapping;
     // items without iconKey use their Hebrew name to resolve via LABEL_TO_ICON_KEY.
@@ -131,12 +137,7 @@ export async function getGymEquipmentByType(type: ExerciseType): Promise<GymEqui
     );
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: toDate(doc.data().createdAt),
-      updatedAt: toDate(doc.data().updatedAt),
-    } as GymEquipment));
+    return snapshot.docs.map((doc) => toGymEquipment(doc.id, doc.data()));
   } catch (error) {
     console.error('Error fetching gym equipment by type:', error);
     throw error;
@@ -153,12 +154,7 @@ export async function getGymEquipment(equipmentId: string): Promise<GymEquipment
 
     if (!docSnap.exists()) return null;
 
-    return {
-      id: docSnap.id,
-      ...docSnap.data(),
-      createdAt: toDate(docSnap.data().createdAt),
-      updatedAt: toDate(docSnap.data().updatedAt),
-    } as GymEquipment;
+    return toGymEquipment(docSnap.id, docSnap.data());
   } catch (error) {
     console.error('Error fetching gym equipment:', error);
     throw error;
@@ -216,7 +212,7 @@ export async function createGymEquipment(
 ): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, GYM_EQUIPMENT_COLLECTION), {
-      ...stripUndefined(data),
+      ...stripUndefined(foldGymEquipmentForWrite(data)),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -238,7 +234,7 @@ export async function updateGymEquipment(
   try {
     const docRef = doc(db, GYM_EQUIPMENT_COLLECTION, equipmentId);
     await updateDoc(docRef, {
-      ...stripUndefined(data),
+      ...stripUndefined(foldGymEquipmentForWrite(data)),
       updatedAt: serverTimestamp(),
     });
     invalidatePersistedGymEquipment();
