@@ -27,6 +27,7 @@ import { useStrengthDrawerV1 } from '../hooks/useStrengthDrawerV1';
 import StrengthExerciseCard from './blocks/StrengthExerciseCard';
 import SupersetBlockGroup from './blocks/SupersetBlockGroup';
 import TabataBlockGroup from './blocks/TabataBlockGroup';
+import { resolveBlockProtocol } from '../protocols/block-protocol';
 import {
   flattenWorkoutToExercises,
   buildMainSubGroups,
@@ -354,6 +355,7 @@ export default function WorkoutPlaylist({
                 <TabataBlockGroup
                   exercises={entries}
                   title={group.groupTitle || t('strengthPlayer.playlist.tabata')}
+                  tabataConfig={resolveBlockProtocol(workout.segments[group.exercises[0].segmentIndex])?.config}
                   cardStatus={cardStatus}
                   activeExerciseIndex={activeIdx}
                   isResting={isCardResting}
