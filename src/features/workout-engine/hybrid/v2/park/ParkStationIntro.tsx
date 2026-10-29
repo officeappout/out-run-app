@@ -16,6 +16,7 @@ import { TABATA_DIFFICULTY_LADDER } from '../../../services/compose-park-strengt
 import type { StationContext } from '../../station-flow';
 import { STATION_DIFFICULTIES, type StationDifficulty, type StationIntroView, type StationMachine } from '../../park-live-v2';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface Props {
   intro: StationIntroView;
   context: StationContext;
@@ -56,10 +57,11 @@ function MachineCard({ m, index, rounds }: { m: StationMachine; index: number; r
 }
 
 export default function ParkStationIntro({ intro, context, difficulty, onDifficulty, onStart, onSkip }: Props) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const rung = TABATA_DIFFICULTY_LADDER[difficulty];
   return (
-    <div className="absolute inset-0 flex flex-col bg-v2-surface" dir="rtl">
+    <div className="absolute inset-0 flex flex-col bg-v2-surface" dir={direction}>
       <div className="flex-1 overflow-y-auto" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
         <div className="flex flex-col gap-2 px-[18px]">
           <div className="flex items-center gap-2">

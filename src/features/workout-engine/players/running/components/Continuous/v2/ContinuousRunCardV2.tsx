@@ -19,6 +19,7 @@ import { useT, type ReactTFunction } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface NextBlockInfo {
   /** "ריצה קלה". */
   label: string;
@@ -50,6 +51,7 @@ function pageLabel(p: ContinuousPage, data: ContinuousCardData, t: ReactTFunctio
 }
 
 export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPaused, onPause, onResume, onLap, onStop }: ContinuousRunCardV2Props) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const pages = continuousPages(data.showLivePace);
   const [rawPage, setPage] = useState(0);
@@ -71,7 +73,7 @@ export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPau
   const onDragEnd = (_: unknown, info: PanInfo) => setPage(swipePage(page, pages.length, info.offset.x, info.velocity.x));
 
   return (
-    <div className="pointer-events-auto flex flex-col items-center" dir="rtl">
+    <div className="pointer-events-auto flex flex-col items-center" dir={direction}>
       <AnimatePresence>
         {lapToast && (
           <motion.div

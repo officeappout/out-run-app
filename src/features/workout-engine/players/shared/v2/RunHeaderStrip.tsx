@@ -14,6 +14,7 @@
 
 import React from 'react';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface RunHeaderStripProps {
   outerRef?: React.Ref<HTMLDivElement>;
   innerRef?: React.Ref<HTMLDivElement>;
@@ -41,10 +42,11 @@ export default function RunHeaderStrip({
   trailing,
   onPointerDown,
 }: RunHeaderStripProps) {
+  const { direction } = useUiDir();
   return (
     <div
       ref={outerRef}
-      dir="rtl"
+      dir={direction}
       className="pointer-events-auto absolute inset-x-0 top-0 z-10"
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)', background: RUN_HEADER_FADE, touchAction: 'none', fontFamily: 'var(--font-simpler)' }}
       onPointerDown={onPointerDown}

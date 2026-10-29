@@ -17,6 +17,7 @@ import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface PlayerControlsProps {
   isPaused: boolean;
   onPause: () => void;
@@ -67,10 +68,11 @@ function HoldToStop({ onStop, holdSeconds }: { onStop: () => void; holdSeconds: 
 }
 
 export default function PlayerControls({ isPaused, onPause, onResume, onLap, onStop, holdSeconds = 1.2 }: PlayerControlsProps) {
+  const { direction } = useUiDir();
   const gender = useUiGender();
   const t = useT(player);
   return (
-    <div dir="rtl">
+    <div dir={direction}>
       <div className="flex items-center justify-center gap-6">
         <button
           type="button"

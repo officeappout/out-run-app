@@ -158,7 +158,7 @@ function ExerciseLibraryBody({
 
       {/* ── Result Counter ── live with filter changes */}
       <div className={`${COLUMN} px-4 ${topPadding} pb-1`}>
-        <p className="text-[12px] font-semibold text-gray-500" dir="rtl">
+        <p className="text-[12px] font-semibold text-gray-500">
           {isLoading ? (
             t('exercises.count.loading')
           ) : loadError ? (
@@ -250,7 +250,7 @@ function ExerciseLibraryBody({
 
 export function ExerciseLibraryContent(props: ExerciseLibraryBodyProps) {
   return (
-    <div className="bg-background-light" dir="rtl">
+    <div className="bg-background-light">
       <ExerciseLibraryBody {...props} />
     </div>
   );
@@ -272,7 +272,7 @@ export default function ExerciseLibraryPage() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-background-light" dir="rtl">
+    <div className="min-h-[100dvh] bg-background-light">
       {/* ── Sticky Header ── */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100">
         <div className={`${COLUMN} px-4 pt-3 pb-2`}>

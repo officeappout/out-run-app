@@ -10,13 +10,15 @@ import Avatar from '../ui/Avatar';
 import QrBlock from '../ui/QrBlock';
 import { PAGE_BG } from '../ui/styles';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** W-19: the shared room — one QR + code (join = control), and who is in the living room. */
 export default function TvLobbyScreen({ session, participants, origin }: { session: TvSession; participants: TvParticipant[]; origin: string }) {
+  const { direction } = useUiDir();
   const t = useT(wide);
   const shown = participants.slice(0, TV_MAX_PARTICIPANTS);
   const extra = participants.length - shown.length;
   return (
-    <main dir="rtl" className={`fixed inset-0 flex items-center justify-between gap-[4vw] px-[6vw] ${PAGE_BG}`}>
+    <main dir={direction} className={`fixed inset-0 flex items-center justify-between gap-[4vw] px-[6vw] ${PAGE_BG}`}>
       <section className="flex-1">
         {session.workout && <p className="text-[1.6vw] font-extrabold text-[#0284c7]">{t('lobby.workout', { title: session.workout.title })}</p>}
         <h1 className="mt-[1vh] text-[5vw] font-black leading-tight">{t('lobby.title')}</h1>

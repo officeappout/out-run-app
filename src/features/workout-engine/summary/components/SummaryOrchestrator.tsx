@@ -10,6 +10,7 @@ import RunMapBlock from './running/RunMapBlock';
 import LapTableBlock from './running/LapTableBlock';
 import { Lap } from '@/features/workout-engine/core/types/session.types';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface WorkoutData {
   time: number; // seconds
   distance: number; // km
@@ -38,6 +39,7 @@ export default function SummaryOrchestrator({
   workoutType,
   streakDays = 0,
 }: SummaryOrchestratorProps) {
+  const { direction } = useUiDir();
   const t = useT(summary);
   // Extract start and end coordinates for map markers
   const startCoord =
@@ -161,7 +163,7 @@ export default function SummaryOrchestrator({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-6" dir="rtl">
+    <div className="w-full max-w-4xl mx-auto px-4 py-6" dir={direction}>
       {renderBlocks()}
     </div>
   );

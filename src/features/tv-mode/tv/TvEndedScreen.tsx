@@ -11,7 +11,7 @@ export default function TvEndedScreen({ reason, onNewCode }: { reason: 'ended' |
   const t = useT(wide);
   const focusRef = useAutoFocus<HTMLButtonElement>();
   return (
-    <main dir="rtl" className={`fixed inset-0 grid place-items-center ${PAGE_BG}`}>
+    <main className={`fixed inset-0 grid place-items-center ${PAGE_BG}`}>
       <div className="flex flex-col items-center gap-[3vh] text-center">
         <h1 className="text-[4.6vw] font-black">{reason === 'ended' ? t('lost.tv.ended.title') : t('lost.tv.expired.title')}</h1>
         <p className="text-[2vw] font-bold text-[#475569]">{reason === 'ended' ? t('lost.tv.ended.body') : t('lost.tv.expired.body')}</p>

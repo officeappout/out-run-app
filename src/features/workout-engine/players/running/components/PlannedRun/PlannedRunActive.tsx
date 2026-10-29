@@ -31,6 +31,7 @@ import { isContinuousPlan } from '../../lib/continuous-run';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const PACE_HINT_COOLDOWN_MS = 30_000;
 const PACE_HINT_THRESHOLD_S = 10;
 const MINI_BAR_HEIGHT = 72;
@@ -48,6 +49,7 @@ function formatElapsed(seconds: number): string {
 }
 
 export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
+  const { direction } = useUiDir();
   const { pauseSession, resumeSession, status, totalDuration, totalDistance } =
     useSessionStore();
   const {
@@ -338,7 +340,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
               touchAction: 'none',
               paddingBottom: 'env(safe-area-inset-bottom, 0px)',
             }}
-            dir="rtl"
+            dir={direction}
             onClick={() => setPlayerState('full')}
             onPointerDown={(e) => {
               if ((e.target as HTMLElement).closest('button')) return;
@@ -470,7 +472,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[100] flex flex-col items-center justify-center pointer-events-auto"
             style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}
-            dir="rtl"
+            dir={direction}
           >
             <h1
               className="text-4xl font-black text-white mb-12"
@@ -546,7 +548,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
               exit={{ scale: 0.85, opacity: 0, y: 20 }}
               transition={{ type: 'spring', damping: 22, stiffness: 300 }}
               className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
-              dir="rtl"
+              dir={direction}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-14 h-14 mx-auto mb-5 rounded-full border-2 border-orange-400 flex items-center justify-center">

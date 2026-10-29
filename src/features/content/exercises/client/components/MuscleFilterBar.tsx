@@ -55,7 +55,7 @@ export default function MuscleFilterBar() {
   );
 
   return (
-    <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide" dir="rtl">
+    <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
       <div className="flex gap-3 pb-1">
         {chips.map((chip) => (
           <MuscleFilterChip

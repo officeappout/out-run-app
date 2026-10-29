@@ -285,11 +285,11 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
     // (globals.css: #F8FAFC) instead of just behind header/main below —
     // confirmed the actual bug (that pale gray IS what was showing through
     // as "the plain tint"), not a missing/404'd asset or an opacity issue.
-    <div className="relative isolate min-h-screen" dir="rtl">
+    <div className="relative isolate min-h-screen">
       <SkillTreeBackground />
 
       <AppHeader>
-        <div className="max-w-md mx-auto px-4 pb-2" dir="rtl">
+        <div className="max-w-md mx-auto px-4 pb-2">
           <button
             type="button"
             onClick={handleBack}
@@ -369,9 +369,8 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
                 bare text floating on the green map background. */}
             {tree && (
               <div
-                className="w-full text-right rounded-2xl bg-white px-4 py-3.5 mb-4"
+                className="w-full text-start rounded-2xl bg-white px-4 py-3.5 mb-4"
                 style={{ boxShadow: '0 6px 18px rgba(31,56,82,.14)' }}
-                dir="rtl"
               >
                 <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
                 <p className="text-xs font-bold text-gray-500 mt-1">

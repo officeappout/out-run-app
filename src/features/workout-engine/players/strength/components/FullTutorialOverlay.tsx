@@ -15,6 +15,7 @@ import type { ExternalVideo } from '@/features/content/exercises/core/exercise.t
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface FullTutorialOverlayProps {
   video: ExternalVideo;
   exerciseName: string;
@@ -22,11 +23,12 @@ export interface FullTutorialOverlayProps {
 }
 
 export default function FullTutorialOverlay({ video, exerciseName, onClose }: FullTutorialOverlayProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <div
       className="fixed inset-0 z-[100] bg-black flex flex-col"
-      dir="rtl"
+      dir={direction}
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div

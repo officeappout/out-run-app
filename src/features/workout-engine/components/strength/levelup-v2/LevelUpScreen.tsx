@@ -118,7 +118,7 @@ export default function LevelUpScreen({
   const eyebrow = variant === 'levelup' && !seq.showNewLevel ? t('levelup.eyebrow.gain') : t(EYEBROW[variant]);
 
   return (
-    <div className="fixed inset-0 z-[100] w-full h-full bg-white dark:bg-card-dark flex flex-col overflow-hidden" dir="rtl">
+    <div className="fixed inset-0 z-[100] w-full h-full bg-white dark:bg-card-dark flex flex-col overflow-hidden">
       {seq.showNewLevel && (
         <div
           aria-hidden="true"

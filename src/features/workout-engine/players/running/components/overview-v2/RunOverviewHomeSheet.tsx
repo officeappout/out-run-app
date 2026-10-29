@@ -20,6 +20,7 @@ import RunWorkoutOverview from './RunWorkoutOverview';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface RunOverviewHomeSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,6 +35,7 @@ export interface RunOverviewHomeSheetProps {
 export default function RunOverviewHomeSheet({
   isOpen, onClose, workout, isLoading, templateCategory, week, onGo, onSuggestRoute,
 }: RunOverviewHomeSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const [edits, setEdits] = useState<RunEdits>(NO_RUN_EDITS);
   const [mounted, setMounted] = useState(false);
@@ -45,7 +47,7 @@ export default function RunOverviewHomeSheet({
   const ready = !!workout && !isLoading;
 
   return createPortal(
-    <div className="fixed inset-0" style={{ zIndex: SHEET_Z.overlay }} dir="rtl">
+    <div className="fixed inset-0" style={{ zIndex: SHEET_Z.overlay }} dir={direction}>
       <button type="button" aria-label={t('run.overview.homeSheet.close')} onClick={onClose} className="absolute inset-0 bg-[rgba(14,20,25,0.32)]" />
       {ready ? (
         <RunWorkoutOverview

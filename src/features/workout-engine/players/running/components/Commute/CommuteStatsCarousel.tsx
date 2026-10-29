@@ -33,6 +33,7 @@ import { useT } from '@/hooks/useT';
 import { formatArrivalClock, formatRemainingDistance } from './commute-format';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const ACCENT = '#00ADEF';
 const ACCENT_DARK = '#0284C7';
 
@@ -48,6 +49,7 @@ function formatEta(seconds: number | null): { value: string; unit: PlayerKey } {
 }
 
 export default function CommuteStatsCarousel() {
+  const { direction } = useUiDir();
   const t = useT(player);
   const commuteContext = useRunningPlayer((s) => s.commuteContext);
   const { distanceRemainingKm, etaSeconds, etaArrival, hasArrived } = useCommuteEta();
@@ -63,7 +65,7 @@ export default function CommuteStatsCarousel() {
     destinationLabel.length > 24 ? `${destinationLabel.slice(0, 23)}…` : destinationLabel;
 
   return (
-    <div className="px-4 pb-4 pt-1" dir="rtl">
+    <div className="px-4 pb-4 pt-1" dir={direction}>
       {/* ── Destination chip ─────────────────────────────────────────────
           Mirrors the look of the DestinationMarker chip on the map so
           the HUD feels visually continuous with the pin. */}

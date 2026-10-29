@@ -63,7 +63,7 @@ export default function TvConnectScreen() {
   const errorKey = state.phase === 'error' ? joinErrorKey(state.error, pending !== null) : null;
 
   return (
-    <div dir="rtl" className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="dialog" aria-modal="true" aria-label={t('pair.phone.title')}>
+    <div className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="dialog" aria-modal="true" aria-label={t('pair.phone.title')}>
       <div className="flex items-center gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-extrabold text-[#0284c7]">{t('pair.phone.eyebrow')}</div>

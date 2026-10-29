@@ -10,6 +10,7 @@ import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * PauseOverlay — unified full-screen pause veil.
  *
@@ -36,6 +37,7 @@ export interface PauseOverlayProps {
 }
 
 export default function PauseOverlay({ onResume, onOpenExitModal, endLabel }: PauseOverlayProps) {
+  const { direction } = useUiDir();
   const gender = useUiGender();
   const t = useT(player);
   // enable_home_v2 — styling only (provided once by StrengthRunner).
@@ -57,7 +59,7 @@ export default function PauseOverlay({ onResume, onOpenExitModal, endLabel }: Pa
       transition={{ duration: 0.2 }}
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}
-      dir="rtl"
+      dir={direction}
     >
       <h1
         className="text-4xl font-black text-white mb-12"

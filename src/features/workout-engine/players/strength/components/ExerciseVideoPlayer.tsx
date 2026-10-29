@@ -25,6 +25,7 @@ import { player } from '@/messages/ns/player';
 import { usePlayerAudioMute } from '../logic/player-audio-mute';
 import { clipMuted, clipResumeTime, rememberClipTime } from '../logic/clip-playback';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
   videoUrl: string | null;
@@ -101,6 +102,7 @@ export default function ExerciseVideoPlayer({
   withSound = false,
   resumeKey = null,
 }: ExerciseVideoPlayerProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const [videoLoading, setVideoLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
@@ -505,7 +507,7 @@ export default function ExerciseVideoPlayer({
           onClick={() => setShowTutorial(true)}
           className="absolute bottom-[236px] right-4 z-[46] inline-flex items-center gap-1.5 px-3.5 py-2 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"
           style={{ fontFamily: 'var(--font-simpler)' }}
-          dir="rtl"
+          dir={direction}
         >
           <GraduationCap size={16} />
           <span className="text-[13px] font-bold">{t('strengthPlayer.video.fullTutorial')}</span>
@@ -567,7 +569,7 @@ export default function ExerciseVideoPlayer({
             <div
               className="inline-flex items-center gap-2 px-3.5 py-2 bg-black/60 backdrop-blur-md text-white rounded-full shadow-lg border border-white/20"
               style={{ fontFamily: 'var(--font-simpler)' }}
-              dir="rtl"
+              dir={direction}
             >
               <Smartphone
                 size={16}

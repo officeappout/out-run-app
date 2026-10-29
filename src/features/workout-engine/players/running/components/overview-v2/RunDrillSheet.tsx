@@ -25,6 +25,7 @@ import { useContentLanguage } from '@/features/content/shared/useContentLanguage
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** Over the overview drawer (z-[100]) and its edit sheets — the z-[104]/z-[105] row. */
 const LAYER = { zIndex: SHEET_Z.freeRunExtrasPanel, backdropZIndex: SHEET_Z.freeRunExtras } as const;
 
@@ -38,6 +39,7 @@ export interface RunDrillSheetProps {
 }
 
 export default function RunDrillSheet({ block, onClose }: RunDrillSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const lang = useContentLanguage();
   const exerciseId = block?.drillRef?.exerciseId ?? null;
@@ -75,7 +77,7 @@ export default function RunDrillSheet({ block, onClose }: RunDrillSheetProps) {
         zIndex={LAYER.zIndex}
         className="h-[94dvh]"
         ariaLabel={title}
-        dir="rtl"
+        dir={direction}
         header={(
           <div className="flex items-center justify-between px-5 pb-2">
             <IconButton aria-label={t('run.overview.drill.back')} tone="surface" size={36} onClick={onClose}>

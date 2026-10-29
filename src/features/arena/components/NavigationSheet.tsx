@@ -12,6 +12,7 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface NavigationSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -21,6 +22,7 @@ interface NavigationSheetProps {
 }
 
 export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: NavigationSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   const router = useRouter();
   // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
@@ -109,7 +111,7 @@ export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: Na
           </div>
         }
       >
-        <div className="px-5 pb-8" dir="rtl">{optionList}</div>
+        <div className="px-5 pb-8" dir={direction}>{optionList}</div>
       </Sheet>
     );
   }
@@ -135,7 +137,7 @@ export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: Na
           >
             <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mt-3" />
 
-            <div className="px-5 pt-4 pb-8" dir="rtl">
+            <div className="px-5 pt-4 pb-8" dir={direction}>
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <div>

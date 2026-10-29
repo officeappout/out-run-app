@@ -66,6 +66,7 @@ import {
   recordGuidedStationCompleted, markFastPromptAsked, setGuidedStationChoice,
 } from './guided-station.service';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // G3.1 fix: how long the start-of-walk intro stays up before auto-dismissing
 // on its own (it also hides immediately once the approach CTA takes over).
 const INTRO_AUTO_HIDE_MS = 6000;
@@ -82,6 +83,7 @@ export interface HybridStationLayerProps {
 }
 
 export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {}) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const active = useHybridRun((s) => s.active);
   const phase = useHybridRun((s) => s.phase);
@@ -240,7 +242,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   // Station live — StrengthRunner owns the screen until the block completes.
   if (phase === 'station' && stationPlan) {
     return (
-      <div className="fixed inset-0 z-[120] bg-white pointer-events-auto" dir="rtl">
+      <div className="fixed inset-0 z-[120] bg-white pointer-events-auto" dir={direction}>
         {pendingStationComplete ? (
           // G2.4: non-final station done → short completion screen; the run clock stays
           // paused until "המשך במסלול" (continueAfterStation).
@@ -433,7 +435,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
       <div
         className="fixed left-0 right-0 z-[110] flex justify-center pointer-events-none px-6"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 150px)' }}
-        dir="rtl"
+        dir={direction}
       >
         <div
           className="pointer-events-auto flex items-center gap-3 rounded-2xl ps-4 pe-2 py-2 text-white shadow-xl"

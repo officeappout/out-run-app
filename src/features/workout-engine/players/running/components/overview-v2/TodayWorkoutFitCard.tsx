@@ -11,6 +11,7 @@ import RunKindTile from '../preview-v2/RunKindIcon';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface TodayWorkoutFitCardProps {
   model: Pick<RunPreviewModel, 'kind' | 'title' | 'minutes'>;
   /** "מתאים ב-2 סיבובים" / "מתאים". */
@@ -19,10 +20,11 @@ export interface TodayWorkoutFitCardProps {
 }
 
 export default function TodayWorkoutFitCard({ model, fitLabel, onOpen }: TodayWorkoutFitCardProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const sub = model.minutes ? t('run.overview.fitCard.sub', { fit: fitLabel, min: String(model.minutes) }) : fitLabel;
   return (
-    <div className="mt-3 flex items-center gap-2.5 rounded-[18px] bg-white px-3 py-2.5 shadow-v2-card" dir="rtl">
+    <div className="mt-3 flex items-center gap-2.5 rounded-[18px] bg-white px-3 py-2.5 shadow-v2-card" dir={direction}>
       <RunKindTile kind={model.kind} size={36} />
       <div className="min-w-0 flex-1">
         <div className="truncate whitespace-nowrap text-[13.5px] font-black text-v2-ink">{t('run.overview.fitCard.today', { title: model.title })}</div>

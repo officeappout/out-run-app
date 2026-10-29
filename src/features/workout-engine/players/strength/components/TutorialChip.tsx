@@ -12,10 +12,12 @@ import { PlayCircle } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** Header (story bars + control row + pills row) under the top inset. */
 export const TUTORIAL_CHIP_TOP = 'calc(env(safe-area-inset-top, 44px) + 9.5rem)';
 
 export default function TutorialChip({ onClick }: { onClick: () => void }) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <button
@@ -24,7 +26,7 @@ export default function TutorialChip({ onClick }: { onClick: () => void }) {
       aria-label={t('strength.tutorial.chipAria')}
       className="absolute right-4 z-[46] inline-flex h-9 items-center gap-1.5 rounded-full border border-white/20 bg-black/55 px-3 text-white shadow-lg backdrop-blur-md transition-transform duration-150 active:scale-[0.97]"
       style={{ top: TUTORIAL_CHIP_TOP, fontFamily: 'var(--font-simpler)' }}
-      dir="rtl"
+      dir={direction}
       data-tutorial-chip=""
       data-coach="player-explain"
     >

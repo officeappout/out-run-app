@@ -17,6 +17,7 @@ import type { HybridPlayerV2Api } from '../HybridPlayerV2Context';
 import { nextBlockView, stationName } from '../hybrid-v2-view';
 import { walkCardView } from '../../park-live-v2';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 function Metric({ value, label }: { value: string; label: string }) {
   return (
     <span className="flex min-w-0 flex-1 flex-col items-center">
@@ -27,6 +28,7 @@ function Metric({ value, label }: { value: string; label: string }) {
 }
 
 export default function ParkWalkDrawer({ api, onOpenList }: { api: HybridPlayerV2Api; onOpenList: () => void }) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const live = useFreeRunLive();
   const view = api.view;
@@ -39,7 +41,7 @@ export default function ParkWalkDrawer({ api, onOpenList }: { api: HybridPlayerV
     ? park ? t('parkLive.walk.toPark', { name: park }) : t('parkLive.walk.toStation')
     : t('parkLive.walk.back');
   return (
-    <div className="flex flex-col items-center gap-3" dir="rtl">
+    <div className="flex flex-col items-center gap-3" dir={direction}>
       <div className="pointer-events-auto flex w-full justify-center px-3">
         {hasStation ? (
           <Button variant={view.approaching ? 'cta' : 'ghost'} size={view.approaching ? undefined : 'sm'} onClick={api.arriveNow} className="whitespace-nowrap">

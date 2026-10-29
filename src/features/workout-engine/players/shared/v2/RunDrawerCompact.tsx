@@ -16,6 +16,7 @@ import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface RunDrawerCompactProps {
   /** "24:07". */
   time: string;
@@ -78,11 +79,12 @@ export default function RunDrawerCompact({
   onResume,
   onStop,
 }: RunDrawerCompactProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const gender = useUiGender();
   return (
     <div
-      dir="rtl"
+      dir={direction}
       // data-coach (inert): the route-player tip's target — pause + hold-to-stop live here
       // when the drawer is compact (enable_entry_whatnow_v1).
       data-coach="route-player-controls"

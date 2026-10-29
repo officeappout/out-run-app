@@ -18,6 +18,7 @@ import { community } from '@/messages/ns/community';
 import type { JoinVerbKey } from '../utils/join-verb';
 import { APP_ORIGIN } from '@/lib/config/domain';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface PostJoinSuccessDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -43,6 +44,7 @@ export default function PostJoinSuccessDrawer({
   address,
   onPlannerPref,
 }: PostJoinSuccessDrawerProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   const [addToPlanner, setAddToPlanner] = useState(true);
   const [calendarSync, setCalendarSync] = useState(false);
@@ -84,7 +86,7 @@ export default function PostJoinSuccessDrawer({
   };
 
   const body = (
-    <div className="px-6 pt-6 pb-10 text-center" dir="rtl">
+    <div className="px-6 pt-6 pb-10 text-center" dir={direction}>
       <div className="text-6xl mb-4">🎉</div>
 
       <h2 className="text-xl font-black text-gray-900 dark:text-white mb-2 leading-tight">

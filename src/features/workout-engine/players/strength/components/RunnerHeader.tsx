@@ -15,6 +15,7 @@ import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * RunnerHeader — gradient overlay header for the live workout player.
  *
@@ -126,6 +127,7 @@ export default function RunnerHeader({
   hideMinimize = false,
   onTogglePause,
 }: RunnerHeaderProps) {
+  const { direction } = useUiDir();
   const gender = useUiGender();
   const t = useT(player);
   // enable_home_v2 — styling only (provided once by StrengthRunner).
@@ -306,7 +308,7 @@ export default function RunnerHeader({
             above and below RestScreen's tile. The superset A→B cue stays:
             it's not shown anywhere else. */}
         {isResting && !isLogDrawerOpen ? (
-          <div className="flex flex-row-reverse items-center justify-between w-full py-1" dir="rtl">
+          <div className="flex flex-row-reverse items-center justify-between w-full py-1" dir={direction}>
             {restPreviewExercise.equipment.length > 0 && (
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {restPreviewExercise.equipment.map((eqId: string) => {

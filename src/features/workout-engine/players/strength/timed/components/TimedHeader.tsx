@@ -18,6 +18,7 @@ import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface TimedHeaderProps {
   bars: SegmentBars;
   progress: number;
@@ -34,11 +35,12 @@ export interface TimedHeaderProps {
 }
 
 export default function TimedHeader(p: TimedHeaderProps) {
+  const { direction } = useUiDir();
   const gender = useUiGender();
   const t = useT(player);
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className="absolute inset-x-0 top-0 z-[45] pb-10"
       style={{
         background:

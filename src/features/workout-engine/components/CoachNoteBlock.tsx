@@ -40,7 +40,7 @@ export default function CoachNoteBlock({
   const t = useT(player);
   if (!note) return null;
   return (
-    <section dir="rtl" className={`text-right ${className}`} aria-label={t('coachNote.title')}>
+    <section className={`text-start ${className}`} aria-label={t('coachNote.title')}>
       <h3
         className={`${v2 ? 'text-[16px] font-black text-[#0e1419]' : 'text-[15px] font-semibold text-slate-900'} dark:text-white mb-1.5`}
         style={{ fontFamily: 'var(--font-simpler)' }}

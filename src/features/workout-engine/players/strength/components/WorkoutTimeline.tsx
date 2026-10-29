@@ -6,6 +6,7 @@ import StationCard from './StationCard';
 import TravelCard from './TravelCard';
 import { CheckCircle2 } from 'lucide-react';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface WorkoutTimelineProps {
     segments?: WorkoutSegment[];
     plan?: WorkoutPlan;
@@ -19,10 +20,11 @@ export default function WorkoutTimeline({
     activeSegmentId,
     className = ''
 }: WorkoutTimelineProps) {
+  const { direction } = useUiDir();
     const segmentsToRender = plan?.segments || segments || [];
 
     return (
-        <div className={`flex flex-col ${className}`} dir="rtl">
+        <div className={`flex flex-col ${className}`} dir={direction}>
             {segmentsToRender.map((segment, index) => {
                 const isLast = index === segmentsToRender.length - 1;
                 const segmentId = `segment-${index + 1}`;

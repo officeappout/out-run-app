@@ -74,7 +74,7 @@ describe('ready state', () => {
     for (const label of ['22 דק׳', '6 תרגילים', 'בבית', 'בינוני']) expect(out).toContain(label);
     expect(out).toContain('aria-label="פתח אימון, אימון ליבה בבית');
     expect(out).toContain('type="button"');
-    expect(out).toContain('dir="rtl"');
+    expect(out).not.toContain('dir="rtl"'); // inherits the document direction (batch 2)
   });
 
   it('no thumbnail → the brand gradient, never a stock photo', () => {

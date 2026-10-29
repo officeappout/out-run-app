@@ -37,7 +37,6 @@ export default function SummarySheet({ open, title, onClose, children }: Summary
             className="fixed inset-0 z-[200] bg-black/40"
           />
           <motion.div
-            dir="rtl"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

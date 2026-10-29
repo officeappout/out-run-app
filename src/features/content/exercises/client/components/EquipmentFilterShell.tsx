@@ -16,6 +16,7 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface EquipmentFilterShellProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +27,7 @@ export interface EquipmentFilterShellProps {
 }
 
 export default function EquipmentFilterShell({ isOpen, onClose, isProfileMode, v2, children }: EquipmentFilterShellProps) {
+  const { direction } = useUiDir();
   const t = useT(library);
   // v2 (filter / inline-onboarding): the shared Sheet owns backdrop (z-[70],
   // blurred), panel (z-[71]), spring, grabber and whole-panel
@@ -72,7 +74,7 @@ export default function EquipmentFilterShell({ isOpen, onClose, isProfileMode, v
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
             className={`fixed inset-0 z-[102] flex flex-col ${v2 ? 'bg-v2-surface' : 'bg-white'}`}
-            dir="rtl"
+            dir={direction}
           >
             {children}
           </motion.div>
@@ -97,7 +99,7 @@ export default function EquipmentFilterShell({ isOpen, onClose, isProfileMode, v
               dragElastic={0.2}
               onDragEnd={(_, info) => { if (info.offset.y > 120) onClose(); }}
               className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[85vh] flex flex-col"
-              dir="rtl"
+              dir={direction}
             >
               {/* Drag handle */}
               <div className="flex justify-center pt-2 pb-1">

@@ -192,7 +192,6 @@ export default function StrengthOverviewCard({
                 <div
                   key={eqId}
                   className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm"
-                  dir="rtl"
                 >
                   {svgPath ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -235,7 +234,6 @@ export default function StrengthOverviewCard({
               <div
                 key={index}
                 className="h-24 w-full bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-transparent flex flex-row items-center overflow-hidden mb-3"
-                dir="rtl"
               >
                 {/* Exercise Image - RIGHT side (RTL default) */}
                 {(() => {

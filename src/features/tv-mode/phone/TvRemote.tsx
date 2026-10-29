@@ -14,6 +14,7 @@ import Avatar from '../ui/Avatar';
 import { CARD, CHIP_OK, PAGE_BG, SECONDARY_BTN } from '../ui/styles';
 import type { TvRemoteControls } from './phone-store';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const ROUND = 'grid place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.08)] active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#00baf7]/60';
 
 /** W-15: the phone as the remote. Pure view over the host's own mirror + the player's controls. */
@@ -30,6 +31,7 @@ export default function TvRemote({
   participants: TvParticipant[];
   serverNow: number;
 }) {
+  const { direction } = useUiDir();
   const t = useT(wide);
   const [volume, setVolume] = useState(session.volume);
   const [muted, setMuted] = useState(false);
@@ -61,7 +63,7 @@ export default function TvRemote({
         : '';
 
   return (
-    <div dir="rtl" className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="region" aria-label={t('remote.connected')}>
+    <div dir={direction} className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="region" aria-label={t('remote.connected')}>
       <div className="flex items-center gap-2.5 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
           <span className={CHIP_OK}>

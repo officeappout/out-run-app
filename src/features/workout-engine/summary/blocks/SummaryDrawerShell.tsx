@@ -8,6 +8,7 @@ import { summarySheetSnaps, SUMMARY_COLLAPSED_PX, type SummarySnap } from './sum
 import { useT } from '@/hooks/useT';
 import { summary } from '@/messages/ns/summary';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** Height of the optional history top bar row (36px button + bottom pad). */
 const TOP_BAR_PX = 40;
 
@@ -63,6 +64,7 @@ export default function SummaryDrawerShell({
   topBar,
   children,
 }: SummaryDrawerShellProps) {
+  const { direction } = useUiDir();
   const t = useT(summary);
   const safeTop = useSafeAreaTop();
   const [vh, setVh] = useState(800);
@@ -130,7 +132,7 @@ export default function SummaryDrawerShell({
   );
 
   return (
-    <div dir="rtl" style={{ fontFamily: 'var(--font-simpler, system-ui, sans-serif)' }}>
+    <div dir={direction} style={{ fontFamily: 'var(--font-simpler, system-ui, sans-serif)' }}>
       <DraggableSheet
         snapPoints={snapPoints}
         initialSnap={initialIndex}

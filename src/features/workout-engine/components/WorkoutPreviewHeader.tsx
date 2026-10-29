@@ -201,7 +201,7 @@ export default function WorkoutPreviewHeader({
 
         {/* Metadata pills — RTL order: [Difficulty] [Duration] from right */}
         {showPills && (
-          <div className="flex items-center gap-3 flex-wrap" dir="rtl">
+          <div className="flex items-center gap-3 flex-wrap">
             {difficulty != null && (
               <div
                 className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-4 py-2"

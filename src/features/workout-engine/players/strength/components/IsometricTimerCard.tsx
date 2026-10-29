@@ -34,6 +34,7 @@ import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import type { CardClockReport } from '../tv/card-clock';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface IsometricTimerCardProps {
   duration: number;
   exerciseName: string;
@@ -176,6 +177,7 @@ export default function IsometricTimerCard({
   onClockState,
   extras,
 }: IsometricTimerCardProps) {
+  const { direction } = useUiDir();
   // enable_wide_player_v1: the same card as the wide side panel (hero clock, no sheet chrome).
   const { wide } = useWidePlayer();
   const t = useT(player);
@@ -411,7 +413,7 @@ export default function IsometricTimerCard({
   return (
     <div
       className={wide ? 'select-none' : 'absolute inset-x-0 bottom-0 z-20 bg-white dark:bg-[#0F172A] rounded-t-3xl shadow-2xl select-none'}
-      dir="rtl"
+      dir={direction}
       data-wide-timer={wide ? '' : undefined}
     >
       <div

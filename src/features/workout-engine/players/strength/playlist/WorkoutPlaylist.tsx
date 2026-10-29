@@ -47,6 +47,7 @@ import type {
   SubGroup,
 } from './types';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface WorkoutPlaylistProps {
   workout: WorkoutPlan;
   currentSegmentIndex: number;
@@ -84,6 +85,7 @@ export default function WorkoutPlaylist({
   onSkipRest,
   renderTimedSegment,
 }: WorkoutPlaylistProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   // enable_strength_drawer_v1: rows get an expandable "פרטי התרגיל".
   const rowDetailsV1 = useStrengthDrawerV1();
@@ -196,7 +198,7 @@ export default function WorkoutPlaylist({
   return (
     <div
       className="flex-1 overflow-y-auto max-h-full scrollbar-none pb-[env(safe-area-inset-bottom,24px)]"
-      dir="rtl"
+      dir={direction}
     >
       <div className="pt-14 px-4">
         <h2

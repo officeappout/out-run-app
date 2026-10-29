@@ -7,6 +7,7 @@ import type { GroupMember } from '@/types/community.types';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface RemoveMemberModalProps {
   member: GroupMember | null;
   removing: boolean;
@@ -16,6 +17,7 @@ interface RemoveMemberModalProps {
 
 /** "הסרת חבר/ה" confirmation (z 95, above the sheet). */
 export default function RemoveMemberModal({ member, removing, onCancel, onConfirm }: RemoveMemberModalProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   return (
     <AnimatePresence>
@@ -35,7 +37,7 @@ export default function RemoveMemberModal({ member, removing, onCancel, onConfir
             transition={{ type: 'spring', damping: 24, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
             className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-xs shadow-2xl space-y-4"
-            dir="rtl"
+            dir={direction}
           >
             <div className="text-center space-y-1">
               <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-3">

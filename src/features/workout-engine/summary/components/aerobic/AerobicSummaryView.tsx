@@ -372,7 +372,7 @@ export default function AerobicSummaryView({
 
       {/* Route Rating CTA — shown whenever there is a park or route to aggregate against */}
       {!isReadOnly && !!(workout.parkId || workout.routeId) && (
-        <Card padding="md" dir="rtl">
+        <Card padding="md">
           {ratingSubmitted ? (
             <div className="text-center text-[14px] font-extrabold text-v2-deep">
               {v2 ? t('aerobic.rating.thanks') : t('aerobic.rating.thanksXp', { xp: String(XP_REWARDS.review) })}
@@ -599,7 +599,7 @@ export default function AerobicSummaryView({
     <>
       {/* Full-screen expanded map — z-[200], within z-index budget */}
       {expandedMap && (
-        <div dir="rtl" style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#000' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#000' }}>
           {renderMap()}
           <button
             type="button"

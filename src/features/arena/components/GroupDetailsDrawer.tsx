@@ -43,6 +43,7 @@ import {
   GroupShareRow, InviteCodePanel, GroupMembershipActions, RegistrationLinkButton, GroupJoinSection, GroupDrawerOverlays,
 } from './group-details/sections';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface GroupDetailsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -77,6 +78,7 @@ export default function GroupDetailsDrawer({
   liveSession,
   onLivePhaseChange,
 }: GroupDetailsDrawerProps) {
+  const { direction } = useUiDir();
   // ── ALL hooks MUST be at the top, before any conditional return ──
   const [navOpen, setNavOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -188,7 +190,7 @@ export default function GroupDetailsDrawer({
         <GroupHero v2={v2} name={group.name} coverImage={view.coverImage} catConfig={catConfig} dragControls={dragControls} onClose={onClose} />
 
         {/* ── Scrollable content ─────────────────────────── */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir="rtl">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir={direction}>
           {effectiveLiveSession && isLiveSessionPhase(effectiveLiveSession.phase) && (
             <GroupLiveBanner
               session={effectiveLiveSession}

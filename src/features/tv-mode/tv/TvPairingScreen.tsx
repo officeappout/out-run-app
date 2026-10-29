@@ -8,14 +8,16 @@ import { remainingHours } from '../core/expiry';
 import QrBlock from '../ui/QrBlock';
 import { PAGE_BG } from '../ui/styles';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** W-13: one QR + one code, steps on the start side, "waiting" below. */
 export default function TvPairingScreen({ code, origin, expiresAtMs, nowMs }: { code: string; origin: string; expiresAtMs: number; nowMs: number }) {
+  const { direction } = useUiDir();
   const t = useT(wide);
   const url = buildJoinUrl(origin, code);
   const host = origin.replace(/^https?:\/\//, '');
   const steps = [t('pair.tv.step1'), t('pair.tv.step2'), t('pair.tv.step3')];
   return (
-    <main dir="rtl" className={`fixed inset-0 flex items-center justify-between gap-[4vw] px-[6vw] ${PAGE_BG}`}>
+    <main dir={direction} className={`fixed inset-0 flex items-center justify-between gap-[4vw] px-[6vw] ${PAGE_BG}`}>
       <section className="flex-1">
         <p className="text-[1.6vw] font-extrabold text-[#0284c7]">{t('pair.tv.eyebrow')}</p>
         <h1 className="mt-[1vh] text-[5vw] font-black leading-tight">{t('pair.tv.title')}</h1>

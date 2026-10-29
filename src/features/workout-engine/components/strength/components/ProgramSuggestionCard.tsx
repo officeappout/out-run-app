@@ -105,7 +105,6 @@ export default function ProgramSuggestionCard({ suggestions, onAccept, onDismiss
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
       className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl p-4 border-2 border-amber-200 dark:border-amber-700"
-      dir="rtl"
     >
       <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">
         {suggestions.length === 1

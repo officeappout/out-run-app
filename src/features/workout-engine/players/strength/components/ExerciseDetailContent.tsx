@@ -16,6 +16,7 @@ const WHITE_FADE = 'linear-gradient(to top, white 0%, white 8%, rgba(255,255,255
 
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 function extractYouTubeId(url: string): string | null {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=))([a-zA-Z0-9_-]{11})/);
   return m ? m[1] : null;
@@ -84,6 +85,7 @@ export default function ExerciseDetailContent({
   hideTitle = false,
   compact = false,
 }: ExerciseDetailContentProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ytLoaded, setYtLoaded] = useState(false);
@@ -131,7 +133,7 @@ export default function ExerciseDetailContent({
   const hasMuscles = !!resolvedPrimary || resolvedSecondary.length > 0;
 
   return (
-    <div dir="rtl">
+    <div dir={direction}>
       {/* ── Hero Video — poster-first loading, white fade to content ── */}
       {!hideHeroVideo && (
         <div className="relative w-full aspect-video bg-slate-900 overflow-hidden m-0 p-0">

@@ -176,7 +176,6 @@ export default function StrengthSummaryView({
   return (
     <div
       className="fixed inset-0 z-[100] w-full h-full bg-v2-surface dark:bg-card-dark flex flex-col overflow-hidden"
-      dir="rtl"
     >
       {/* Sticky Summary Header */}
       <div

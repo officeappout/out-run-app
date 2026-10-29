@@ -10,6 +10,7 @@ import SlotEditorSheet from './SlotEditorSheet';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ── Schedule Manager Panel ────────────────────────────────────────────────────
 
 interface ScheduleManagerPanelProps {
@@ -22,6 +23,7 @@ interface ScheduleManagerPanelProps {
 }
 
 export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, onClose, onSaved, showToast }: ScheduleManagerPanelProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   const slots = group.scheduleSlots ?? [];
   const [statusMap, setStatusMap] = React.useState<Record<number, SlotStatus>>({});
@@ -71,7 +73,7 @@ export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, 
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden" dir="rtl">
+    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden" dir={direction}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <span className="text-sm font-black text-gray-900">{t('group.scheduleManager.title')}</span>

@@ -12,6 +12,7 @@ import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface Props {
   exerciseName: string;
   /** One-line cue (first execution step) when the data has one. */
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, hint, onStart }: Props) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <motion.div
@@ -33,7 +35,7 @@ export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, hint, onS
       transition={{ duration: 0.22, ease: 'easeOut' }}
       className="absolute inset-x-0 bottom-0 z-[44] bg-white dark:bg-slate-950 rounded-t-[28px] shadow-2xl px-5 pt-4"
       style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 20px))' }}
-      dir="rtl"
+      dir={direction}
     >
       <p className="text-[12px] font-bold text-[#00ADEF] mb-1" style={{ fontFamily: 'var(--font-simpler)' }}>
         {t('strengthPlayer.demoGate.eyebrow')}

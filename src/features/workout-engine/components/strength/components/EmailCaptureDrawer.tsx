@@ -56,7 +56,6 @@ export default function EmailCaptureDrawer({
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden"
-            dir="rtl"
           >
             {showInlineAccount ? (
               <div className="p-2">

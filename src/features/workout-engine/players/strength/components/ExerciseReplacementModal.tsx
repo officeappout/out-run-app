@@ -24,6 +24,7 @@ import { player, type PlayerKey } from '@/messages/ns/player';
 import { useSwapFixesV1 } from '../hooks/useSwapFixesV1';
 import { swapOptionImageMethod } from '../logic/swap-fixes';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface ExerciseReplacementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -159,6 +160,7 @@ export default function ExerciseReplacementModal({
   allowedEquipmentIds = null,
   excludeExerciseIds = null,
 }: ExerciseReplacementModalProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const fixesOn = useSwapFixesV1();
   const [activeTab, setActiveTab] = useState<TabType>('adaptation');
@@ -312,7 +314,7 @@ export default function ExerciseReplacementModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[110]" dir="rtl">
+        <div className="fixed inset-0 z-[110]" dir={direction}>
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}

@@ -85,9 +85,8 @@ export function AiCoachWorkoutCardFace({ card, thumbnailUrl, cachedDifficulty, o
       data-ai-card="ready"
       onClick={() => onOpen(card)}
       aria-label={view.ariaLabel}
-      className="group relative block overflow-hidden bg-white text-right transition-transform duration-150 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v2-accent focus-visible:ring-offset-2"
+      className="group relative block overflow-hidden bg-white text-start transition-transform duration-150 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v2-accent focus-visible:ring-offset-2"
       style={frameStyle}
-      dir="rtl"
     >
       {/* Hero image (top part): the same media the home card picks */}
       <span className="absolute inset-x-0 top-0 h-[62%]" aria-hidden>
@@ -165,7 +164,7 @@ export default function AiCoachWorkoutCard({ card, onOpen }: { card: WorkoutCard
 export function AiCoachWorkoutCardSkeleton() {
   const t = useT(coach);
   return (
-    <div role="status" aria-live="polite" data-ai-card="building" className="relative overflow-hidden bg-white" style={frameStyle} dir="rtl">
+    <div role="status" aria-live="polite" data-ai-card="building" className="relative overflow-hidden bg-white" style={frameStyle}>
       <div className="absolute inset-x-0 top-0 h-[62%] bg-v2-tint motion-safe:animate-pulse" aria-hidden />
       <div className="pointer-events-none absolute inset-0" style={{ background: CARD_FADE }} aria-hidden />
       <div className="absolute right-2.5 top-2.5 inline-flex h-6 items-center gap-1 rounded-full bg-white/85 px-2 text-[11px] font-extrabold text-v2-deep">
@@ -192,9 +191,8 @@ export function AiCoachWorkoutCardError({ onRetry, onBuilder }: { onRetry?: () =
     <div
       role="alert"
       data-ai-card="failed"
-      className="flex flex-col justify-center gap-2.5 bg-white px-4 py-3 text-right"
+      className="flex flex-col justify-center gap-2.5 bg-white px-4 py-3 text-start"
       style={{ ...frameStyle, height: 'auto', minHeight: 120 }}
-      dir="rtl"
     >
       <div className="flex items-center gap-2.5">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-v2-tint text-v2-deep">

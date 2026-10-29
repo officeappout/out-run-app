@@ -20,7 +20,9 @@ import type { HybridPlayerV2Api } from './HybridPlayerV2Context';
 import { HYBRID_V2_COLORS, transitionView } from './hybrid-v2-view';
 import { exerciseNameOf } from './exercise-display';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export default function HybridTransitionCardV2({ api }: { api: HybridPlayerV2Api }) {
+  const { direction } = useUiDir();
   const tc = useT(common);
   const t = useT(player);
   const view = api.view;
@@ -37,7 +39,7 @@ export default function HybridTransitionCardV2({ api }: { api: HybridPlayerV2Api
       : null;
 
   return (
-    <div className="pointer-events-auto w-full rounded-[28px] bg-white px-[18px] pb-4 pt-4 shadow-v2-float" dir="rtl">
+    <div className="pointer-events-auto w-full rounded-[28px] bg-white px-[18px] pb-4 pt-4 shadow-v2-float" dir={direction}>
       {ran && <p className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{ran}</p>}
       <div className="mt-1 flex items-end justify-between gap-3">
         <div className="min-w-0">

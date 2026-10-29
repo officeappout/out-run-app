@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ── Layer 3: Plan Realign (7-21 day gap) ─────────────────────────────
 
 interface PlanRealignPopupProps {
@@ -23,6 +24,7 @@ export function PlanRealignPopup({
   onReset,
   onClose,
 }: PlanRealignPopupProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <AnimatePresence>
@@ -45,7 +47,7 @@ export function PlanRealignPopup({
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             className="relative w-full max-w-md bg-white rounded-t-3xl z-10"
             style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
-            dir="rtl"
+            dir={direction}
           >
             <button
               onClick={onClose}
@@ -109,6 +111,7 @@ export function RebuildPopup({
   onContinue,
   onClose,
 }: RebuildPopupProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <AnimatePresence>
@@ -131,7 +134,7 @@ export function RebuildPopup({
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             className="relative w-full max-w-md bg-white rounded-t-3xl z-10"
             style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
-            dir="rtl"
+            dir={direction}
           >
             <button
               onClick={onClose}

@@ -3,6 +3,7 @@
 import { Activity, Dumbbell, Footprints, ChevronLeft, type LucideIcon } from 'lucide-react';
 import { type SegmentRailType, railColor } from './segment-rail.util';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface SegmentRailItem {
   id: string;
   type: SegmentRailType;
@@ -32,10 +33,11 @@ interface SegmentRailProps {
  * SegmentRailItem[].
  */
 export default function SegmentRail({ items, onSelect }: SegmentRailProps) {
+  const { direction } = useUiDir();
   if (!items.length) return null;
 
   return (
-    <div dir="rtl" style={{ fontFamily: 'var(--font-simpler)' }}>
+    <div dir={direction} style={{ fontFamily: 'var(--font-simpler)' }}>
       {items.map((item, i) => {
         const color = railColor(item.type);
         const isLast = i === items.length - 1;

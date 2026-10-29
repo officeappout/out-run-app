@@ -34,7 +34,7 @@ export default function IdentityUnitsRow({
 
   if (variant === 'inline') {
     return (
-      <span dir="rtl" style={{ fontSize: 11, color: '#9aa3a1', fontFamily: 'var(--font-simpler)' }}>
+      <span style={{ fontSize: 11, color: '#9aa3a1', fontFamily: 'var(--font-simpler)' }}>
         {xpVal > 0 ? t('identity.inlineXp', { time, cal: String(cal), xp: String(xpVal) }) : t('identity.inline', { time, cal: String(cal) })}
       </span>
     );
@@ -46,7 +46,7 @@ export default function IdentityUnitsRow({
     { label: t('identity.xp'), value: String(xpVal) },
   ];
   return (
-    <div dir="rtl" style={{ display: 'flex', gap: 8, fontFamily: 'var(--font-simpler)' }}>
+    <div style={{ display: 'flex', gap: 8, fontFamily: 'var(--font-simpler)' }}>
       {cells.map((c) => (
         <div
           key={c.label}

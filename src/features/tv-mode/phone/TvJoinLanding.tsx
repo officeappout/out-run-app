@@ -10,6 +10,7 @@ import { formatCodeGroups } from '../core/code';
 import { useTvPhoneStore } from './phone-store';
 import { PAGE_BG } from '../ui/styles';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 function isNativeApp(): boolean {
   const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
   return Boolean(w.Capacitor?.isNativePlatform?.());
@@ -21,6 +22,7 @@ function isNativeApp(): boolean {
  * In a browser: the person has no app yet → download page (W-20, third panel), store links as the shared workout link.
  */
 export default function TvJoinLanding({ code }: { code: string | null }) {
+  const { direction } = useUiDir();
   const t = useT(wide);
   const router = useRouter();
   const { flags, loading } = useFeatureFlags();
@@ -35,7 +37,7 @@ export default function TvJoinLanding({ code }: { code: string | null }) {
   }, [loading, flags.enableTvModeV1, code, openPair, router]);
 
   return (
-    <main dir="rtl" className={`fixed inset-0 flex flex-col items-center overflow-y-auto px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(3.5rem,env(safe-area-inset-top))] text-center ${PAGE_BG}`}>
+    <main dir={direction} className={`fixed inset-0 flex flex-col items-center overflow-y-auto px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(3.5rem,env(safe-area-inset-top))] text-center ${PAGE_BG}`}>
       <span className="grid h-[84px] w-[84px] place-items-center rounded-[24px] bg-[#0e1419] text-[24px] font-black italic text-white" aria-hidden="true">
         OUT
       </span>

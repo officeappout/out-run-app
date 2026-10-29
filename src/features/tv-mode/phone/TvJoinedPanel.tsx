@@ -24,7 +24,7 @@ export default function TvJoinedPanel({ session, participants }: { session: TvSe
   };
 
   return (
-    <div dir="rtl" className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="dialog" aria-modal="true" aria-label={t('joined.eyebrow')}>
+    <div className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="dialog" aria-modal="true" aria-label={t('joined.eyebrow')}>
       <div className="px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="text-[13px] font-extrabold text-[#047857]">{t('joined.eyebrow')}</div>
         <div className="text-[26px] font-black leading-tight">

@@ -30,6 +30,7 @@ import type { Exercise } from '../../core/exercise.types';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface ExerciseDetailSheetProps {
   /**
    * When set, overrides the GLOBAL useExerciseLibraryStore filters.location
@@ -88,6 +89,7 @@ export interface ExerciseDetailSheetProps {
 }
 
 export default function ExerciseDetailSheet({ locationOverride, defaultProgramId, controlled, layer }: ExerciseDetailSheetProps = {}) {
+  const { direction } = useUiDir();
   const router = useRouter();
   const t = useT(library);
   // Home v2 (enable_home_v2): sheet chrome styling only.
@@ -258,7 +260,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             onDragEnd={(_, info) => { if (info.offset.y > 140) close(); }}
             className="fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-3xl shadow-drawer flex flex-col overflow-hidden"
             style={{ y, height: '95vh' }}
-            dir="rtl"
+            dir={direction}
           >
             {/* Drag handle */}
             <div

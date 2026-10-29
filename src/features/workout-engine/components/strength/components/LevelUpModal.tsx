@@ -52,7 +52,6 @@ export default function LevelUpModal({
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
             className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-xs shadow-2xl text-center"
-            dir="rtl"
           >
             <motion.div
               initial={{ scale: 0 }}

@@ -23,7 +23,9 @@ import {
   type MinuteTone,
 } from '../../utils/timed-summary.model';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 function AmrapCard({ m }: { m: AmrapSummaryModel }) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <Card>
@@ -36,7 +38,7 @@ function AmrapCard({ m }: { m: AmrapSummaryModel }) {
       </div>
       {m.extraLine && <div className="mt-1 whitespace-nowrap text-[16px] font-extrabold text-v2-ink-2">{m.extraLine}</div>}
       {(m.rounds.length > 0 || m.partial) && (
-        <div className="mt-3.5 flex gap-1.5" dir="rtl">
+        <div className="mt-3.5 flex gap-1.5" dir={direction}>
           {m.rounds.map((r) => (
             <div key={r.key} className="flex min-w-0 flex-1 flex-col items-center gap-1">
               <div className="grid h-[30px] w-full place-items-center rounded-[9px] bg-[#00baf7]">
@@ -65,6 +67,7 @@ function AmrapCard({ m }: { m: AmrapSummaryModel }) {
 const BAR: Record<MinuteTone, string> = { done: 'bg-[#8b5cf6]', partial: 'bg-[#f97316]', missed: 'bg-v2-pill-border' };
 
 function EmomCards({ m }: { m: EmomSummaryModel }) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <>
@@ -101,7 +104,7 @@ function EmomCards({ m }: { m: EmomSummaryModel }) {
             </span>
           )}
         </div>
-        <div className="flex items-end gap-2" dir="rtl" role="img" aria-label={t('strengthSummary.timed.emom.barsAria', { done: m.doneLabel })}>
+        <div className="flex items-end gap-2" dir={direction} role="img" aria-label={t('strengthSummary.timed.emom.barsAria', { done: m.doneLabel })}>
           {m.bars.map((b) => (
             <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1">
               <div className="flex h-20 w-full max-w-[34px] items-end">

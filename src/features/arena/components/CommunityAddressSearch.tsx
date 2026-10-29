@@ -140,7 +140,6 @@ export default function CommunityAddressSearch({
       <div className="relative">
         <input
           type="text"
-          dir="rtl"
           value={query}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -180,7 +179,6 @@ export default function CommunityAddressSearch({
               ? 'absolute z-50 top-full mt-2 left-0 right-0 overflow-hidden rounded-[20px] bg-white shadow-v2-card ring-1 ring-v2-hairline'
               : 'absolute z-50 top-full mt-1.5 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden'
           }
-          dir="rtl"
         >
           {suggestions.map((s, i) => {
             // Split place_name: first part is the POI/street name, rest is city/region

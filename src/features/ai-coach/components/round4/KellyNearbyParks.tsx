@@ -14,7 +14,7 @@ export default function KellyNearbyParks({ parks, onOpen }: { parks: ParkCardVie
   const t = useT(coach);
   if (!parks.length) return null;
   return (
-    <div className="mt-2 flex w-[min(300px,82vw)] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_24px_50px_-36px_rgba(9,30,50,0.45),0_0_0_1px_rgba(14,27,42,0.06)]" dir="rtl" data-ai-parks>
+    <div className="mt-2 flex w-[min(300px,82vw)] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_24px_50px_-36px_rgba(9,30,50,0.45),0_0_0_1px_rgba(14,27,42,0.06)]" data-ai-parks>
       {parks.map((p, i) => (
         <button
           key={p.parkId}

@@ -42,6 +42,7 @@ import CommuteStatsCarousel from '../Commute/CommuteStatsCarousel';
 import { useCommuteEta } from '../Commute/useCommuteEta';
 import { useDraggableMetrics } from '../../hooks/useDraggableMetrics';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const PRIMARY_DARK = '#0284C7';
 
 // ── Paused-state palette ─────────────────────────────────────────────────────
@@ -324,6 +325,7 @@ function PillContent({
  * with the expanded `CommuteStatsCarousel` above.
  */
 function CommutePillContent() {
+  const { direction } = useUiDir();
   const { distanceRemainingKm, etaSeconds, hasArrived } = useCommuteEta();
 
   const etaText = hasArrived
@@ -344,7 +346,7 @@ function CommutePillContent() {
         : `${distanceRemainingKm.toFixed(distanceRemainingKm < 10 ? 2 : 1)}ק״מ`;
 
   return (
-    <div className="flex items-center justify-around w-full px-4 h-full" dir="rtl">
+    <div className="flex items-center justify-around w-full px-4 h-full" dir={direction}>
       <div className="flex items-center gap-2">
         <Flag
           size={14}

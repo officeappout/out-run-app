@@ -12,9 +12,11 @@ import { amrapRoundLine } from '../logic/timed-labels';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const SHOW_MS = 2600;
 
 export default function TimedRoundToast({ state }: { state: AmrapState }) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const rounds = state.data.rounds.length;
   const prev = useRef(rounds);
@@ -44,7 +46,7 @@ export default function TimedRoundToast({ state }: { state: AmrapState }) {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
           className="pointer-events-none absolute inset-x-4 top-[38%] z-20 flex flex-col items-center rounded-[22px] bg-white/95 px-4 py-3 shadow-v2-float"
-          dir="rtl"
+          dir={direction}
           style={{ fontFamily: 'var(--font-simpler)' }}
           role="status"
         >

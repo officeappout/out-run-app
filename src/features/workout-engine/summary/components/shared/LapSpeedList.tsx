@@ -12,12 +12,14 @@ import { lapRows, type LapInput } from '@/features/workout-engine/players/runnin
 import { useT } from '@/hooks/useT';
 import { summary } from '@/messages/ns/summary';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export default function LapSpeedList({ laps }: { laps: readonly LapInput[] }) {
+  const { direction } = useUiDir();
   const t = useT(summary);
   const rows = lapRows(laps, 'speed');
   if (rows.length === 0) return null;
   return (
-    <div className="overflow-hidden rounded-[20px] bg-white p-1 shadow-v2-ring" dir="rtl">
+    <div className="overflow-hidden rounded-[20px] bg-white p-1 shadow-v2-ring" dir={direction}>
       <div className="flex items-center gap-3 px-3 pb-1 pt-2 text-[12px] font-extrabold text-v2-muted">
         <span className="flex-1 whitespace-nowrap">{t('laps.header.lap')}</span>
         <span className="w-14 shrink-0 whitespace-nowrap text-left">{t('laps.header.km')}</span>

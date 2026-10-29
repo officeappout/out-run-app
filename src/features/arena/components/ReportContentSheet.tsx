@@ -14,6 +14,7 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * Reason taxonomy.
  *
@@ -63,6 +64,7 @@ export default function ReportContentSheet({
   targetName,
   reporterId,
 }: ReportContentSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -212,7 +214,7 @@ export default function ReportContentSheet({
               <X size={16} className="text-gray-500" />
             </button>
 
-            <div className="px-6 pt-6 pb-10" dir="rtl">
+            <div className="px-6 pt-6 pb-10" dir={direction}>
               {submitted ? (
                 <div className="text-center py-6">
                   <div className="text-5xl mb-3">✅</div>

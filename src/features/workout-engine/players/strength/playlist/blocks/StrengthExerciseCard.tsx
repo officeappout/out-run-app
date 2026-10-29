@@ -36,6 +36,7 @@ import ExerciseRowDetails from '../../components/ExerciseRowDetails';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 
 export interface StrengthExerciseCardProps {
@@ -90,6 +91,7 @@ export default function StrengthExerciseCard({
   formatTime,
   onSkipRest,
 }: StrengthExerciseCardProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const isCompleted = entry.status === 'completed';
   const isActive = entry.status === 'active';
@@ -253,7 +255,7 @@ export default function StrengthExerciseCard({
         type="button"
         onClick={toggleExpanded}
         className="w-full flex items-center justify-between gap-2 px-3 pt-2.5 pb-1.5"
-        dir="rtl"
+        dir={direction}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {isCompleted && (

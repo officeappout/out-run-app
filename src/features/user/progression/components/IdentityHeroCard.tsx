@@ -36,6 +36,7 @@ import { auth } from '@/lib/firebase';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const LEMUR_IMG = '/assets/lemur/king-lemur.png';
 
 export interface IdentityHeroCardProps {
@@ -43,6 +44,7 @@ export interface IdentityHeroCardProps {
 }
 
 export function IdentityHeroCard({ className = '' }: IdentityHeroCardProps) {
+  const { direction } = useUiDir();
   const t = useT(profileNs);
   const { globalXP, globalLevel, currentStreak, isHydrated, hydrateFromFirestore } = useProgressionStore();
   const { profile } = useUserStore();
@@ -84,7 +86,7 @@ export function IdentityHeroCard({ className = '' }: IdentityHeroCardProps) {
   const levelName = getLevelName(globalLevel, gender);
 
   return (
-    <div className={`flex flex-col items-center ${className}`} dir="rtl">
+    <div className={`flex flex-col items-center ${className}`} dir={direction}>
       {/* Lemur image — 88px circle, green border, streak badge bottom-right */}
       <div className="relative" style={{ width: 88, height: 88 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}

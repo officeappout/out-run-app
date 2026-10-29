@@ -56,6 +56,7 @@ import type { LevelGoalLike } from '../services/level-summary.service';
 import { useT } from '@/hooks/useT';
 import { profile } from '@/messages/ns/profile';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** The collapsed strip's rendered height — the tree area reserves exactly
  *  this much top padding so it's never hidden behind the collapsed panel. */
 export const PROGRAM_INFO_PANEL_COLLAPSED_HEIGHT = 96;
@@ -103,6 +104,7 @@ export function ProgramInfoPanel({
   onReassess,
   docked = false,
 }: ProgramInfoPanelProps) {
+  const { direction } = useUiDir();
   const t = useT(profile);
   const [expanded, setExpanded] = useState(false);
 
@@ -116,7 +118,7 @@ export function ProgramInfoPanel({
     const R = 21;
     const C = 2 * Math.PI * R;
     return (
-      <div className="mx-3 mb-2 overflow-hidden rounded-[20px] bg-white shadow-v2-card" dir="rtl">
+      <div className="mx-3 mb-2 overflow-hidden rounded-[20px] bg-white shadow-v2-card" dir={direction}>
         <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-3 px-3.5 pb-2 pt-3 text-right" aria-expanded={expanded}>
           {/* Level badge — a ring that fills toward the next level */}
           <span className="relative grid h-[52px] w-[52px] shrink-0 place-items-center">
@@ -216,7 +218,7 @@ export function ProgramInfoPanel({
       <div
         className="absolute inset-x-0 top-0 z-[5] bg-white rounded-b-[18px] overflow-hidden"
         style={{ boxShadow: '0 6px 18px rgba(31,56,82,.14)' }}
-        dir="rtl"
+        dir={direction}
       >
         <button
           type="button"

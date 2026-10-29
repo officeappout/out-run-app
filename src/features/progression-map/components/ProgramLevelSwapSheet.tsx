@@ -37,6 +37,7 @@ import { resolveTreeNodeImage } from '../services/resolve-tree-node-image';
 import { useT } from '@/hooks/useT';
 import { profile } from '@/messages/ns/profile';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const IMAGE_PLACEHOLDER = '/images/park-placeholder.svg';
 
 function GearBadge({ label }: { label: string }) {
@@ -133,6 +134,7 @@ export function ProgramLevelSwapSheet({
   userProfile,
   onReplace,
 }: ProgramLevelSwapSheetProps) {
+  const { direction } = useUiDir();
   const allExercises = useExerciseLibraryStore((s) => s.allExercises);
   const t = useT(profile);
   const [options, setOptions] = useState<SameLevelExerciseOption[] | null>(null);
@@ -184,7 +186,7 @@ export function ProgramLevelSwapSheet({
   };
 
   const sheet = (
-    <div className="fixed inset-0 z-[65]" dir="rtl">
+    <div className="fixed inset-0 z-[65]" dir={direction}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
         className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl overflow-y-auto flex flex-col"

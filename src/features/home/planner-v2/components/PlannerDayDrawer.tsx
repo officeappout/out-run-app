@@ -26,6 +26,7 @@ import { buildDayDrawer, type DayDrawerDone } from '../lib/dayDrawer';
 import { buildDayRings, dayMinutesByTrack } from '../lib/dayRings';
 import { useShownPlannedTime } from '../hooks/useShownPlannedTime';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface PlannerDayDrawerProps {
   /** null = closed. */
   iso: string | null;
@@ -48,6 +49,7 @@ const KIND_TILE: Record<DayDrawerDone['kinds'][number], { icon: LucideIcon; tone
 };
 
 export default function PlannerDayDrawer(p: PlannerDayDrawerProps) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const router = useRouter();
   const locale = useLocaleStore((s) => s.locale);
@@ -64,7 +66,7 @@ export default function PlannerDayDrawer(p: PlannerDayDrawerProps) {
   return (
     <Sheet open={!!model} onClose={p.onClose} title={title} zIndex={SHEET_Z.nestedModal} backdropZIndex={SHEET_Z.adjusterBackdrop} closeLabel={t('plannerV2.close')}>
       {model && (
-        <div dir="rtl" className="flex flex-col gap-5 px-5 pb-2">
+        <div dir={direction} className="flex flex-col gap-5 px-5 pb-2">
           {/* Rings */}
           <div className="flex items-center gap-4 rounded-[22px] bg-white p-4 shadow-v2-card">
             <SegmentedRing segments={model.rings.segments} size={112} stroke={12} gap={4} label={t('plannerV2.day.ringAria', { minutes: `${model.rings.totalMinutes}`, goal: `${model.rings.minutesGoal}` })}>

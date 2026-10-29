@@ -4,6 +4,7 @@ import React from 'react';
 import { Dumbbell, ChevronUp, Pause, Play } from 'lucide-react';
 import { useDragControls } from 'framer-motion';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * MiniPlayerBar — Spotify-style collapsed mini-player.
  *
@@ -48,6 +49,7 @@ export default function MiniPlayerBar({
   onExpand,
   onTogglePause,
 }: MiniPlayerBarProps) {
+  const { direction } = useUiDir();
   return (
     <div
       className="flex items-center h-[72px] px-4 gap-3 cursor-pointer"
@@ -68,7 +70,7 @@ export default function MiniPlayerBar({
         )}
       </div>
 
-      <div className="flex-1 min-w-0" dir="rtl">
+      <div className="flex-1 min-w-0" dir={direction}>
         <p className="text-white font-bold text-sm truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
           {exerciseName}
         </p>

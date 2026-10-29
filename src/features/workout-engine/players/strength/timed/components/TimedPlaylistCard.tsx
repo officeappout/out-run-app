@@ -11,6 +11,7 @@ import type { TimedPlaylistModel } from '../logic/timed-playlist';
 import ExerciseRowDetails from '../../components/ExerciseRowDetails';
 import type { RowDetailsSource } from '../../logic/exercise-row-details';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface TimedPlaylistCardProps {
   model: TimedPlaylistModel;
   /** enable_strength_drawer_v1: the plan exercise per row (same order) → "פרטי התרגיל". */
@@ -18,10 +19,11 @@ export interface TimedPlaylistCardProps {
 }
 
 export default function TimedPlaylistCard({ model, details }: TimedPlaylistCardProps) {
+  const { direction } = useUiDir();
   const active = model.status === 'active';
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className={`rounded-[20px] bg-white p-3 ${active ? 'ring-2 ring-v2-accent shadow-v2-card' : 'shadow-v2-ring'}`}
       style={{ fontFamily: 'var(--font-simpler)' }}
     >

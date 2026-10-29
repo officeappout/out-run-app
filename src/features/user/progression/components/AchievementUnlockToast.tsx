@@ -43,7 +43,6 @@ export function AchievementUnlockToast({ item, onDismiss }: AchievementUnlockToa
           exit={{ y: 120, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 360, damping: 30 }}
           className="fixed bottom-24 inset-x-4 z-[95] pointer-events-none"
-          dir="rtl"
         >
           <button
             type="button"

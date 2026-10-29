@@ -11,6 +11,7 @@ import { ChevronUp, Pause, Play } from 'lucide-react';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface MiniPlayerProps {
   /** Colour of the current block (the tile). */
   color: string;
@@ -43,10 +44,11 @@ export default function MiniPlayer({
   safeBottom = 0,
   rounded = true,
 }: MiniPlayerProps) {
+  const { direction } = useUiDir();
   const gender = useUiGender();
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className={`pointer-events-auto flex cursor-pointer items-center gap-3 bg-v2-ink px-4 text-white ${rounded ? 'rounded-t-[22px]' : ''}`}
       style={{ height: height + safeBottom, paddingBottom: safeBottom, touchAction: 'none', fontFamily: 'var(--font-simpler)' }}
       onPointerDown={onPointerDown}

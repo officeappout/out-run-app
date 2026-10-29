@@ -216,7 +216,6 @@ export default function PostWorkoutSurvey({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-        dir="rtl"
       >
         {/* Header */}
         <div className="bg-gradient-to-l from-cyan-500 to-blue-600 px-6 py-4">
@@ -355,7 +354,7 @@ export function PostWorkoutSurveyCompact({
   };
   
   return (
-    <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl p-3" dir="rtl">
+    <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
       <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">{t('survey.compactTitle')}</span>
       <div className="flex gap-2">
         {FEEDBACK_OPTIONS.map((option) => (
