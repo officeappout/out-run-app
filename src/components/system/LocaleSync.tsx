@@ -16,6 +16,7 @@ import { usePathname } from 'next/navigation';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { useAppStore } from '@/store/useAppStore';
+import { auth } from '@/lib/firebase';
 import { useLocaleStore } from '@/store/useLocaleStore';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { ONBOARDING_GENDER_EVENT, readOnboardingGender, resolveUiGender } from '@/lib/i18n/gender-copy';
@@ -27,7 +28,7 @@ import {
   deviceLocales,
   deviceLocalesFor,
   effectiveLocaleFlags,
-  isNewUserForLocale,
+  deviceDetectAllowed,
   pickAppLocale,
 } from '@/lib/i18n/locale-resolution';
 
@@ -36,6 +37,8 @@ export default function LocaleSync() {
   const profileLocale = useUserStore((st) => (st.profile?.core as { locale?: unknown } | undefined)?.locale);
   const profileId = useUserStore((st) => st.profile?.id);
   const hasProfile = useUserStore((st) => !!st.profile);
+  const hydrated = useUserStore((st) => st._hasHydrated);
+  const profileStatus = useUserStore((st) => (st.profile?.core as { onboardingStatus?: unknown } | undefined)?.onboardingStatus ?? (st.profile as { onboardingStatus?: unknown } | null)?.onboardingStatus);
   const profileCreatedAt = useUserStore((st) => (st.profile as { createdAt?: unknown } | null)?.createdAt);
   const profileGender = useUserStore((st) => st.profile?.core?.gender);
   const { flags } = useFeatureFlags(isSuperAdmin);
@@ -82,15 +85,21 @@ export default function LocaleSync() {
     const localeFlags = effectiveLocaleFlags({ enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe }, isSuperAdmin);
     void getOnboardingPrefAsync(LOCALE_PREF_KEY).then((storedLocale) => {
       if (cancelled) return;
-      const isNew = isNewUserForLocale(hasProfile ? { createdAt: profileCreatedAt } : null);
+      const detect = deviceDetectAllowed({
+        profile: hasProfile ? { createdAt: profileCreatedAt, onboardingStatus: profileStatus } : null,
+        hydrated,
+        hasAuthUser: !!auth?.currentUser,
+      });
+      // Profile still on its way for a signed-in / not-yet-hydrated user: no device guess, no SSR cookie.
+      const settling = !hasProfile && (!hydrated || !!auth?.currentUser);
       const next = pickAppLocale(localeFlags, {
         profileLocale,
         storedLocale,
         deviceLocales: deviceLocalesFor(deviceLocales(), { enableLocaleEn }),
-        detectDevice: isNew,
+        detectDevice: detect,
       });
       setLocaleState({ i18nEnabled: true, locale: next });
-      writeLocaleCookie(next);
+      if (!settling) writeLocaleCookie(next);
       // A signed-in user whose English came from the device (new user) or the pre-signup pill has no
       // core.locale yet: persist it so pushes / Kelly (which read core.locale only) agree. Hebrew is never written.
       const hasStoredCore = typeof profileLocale === 'string' && profileLocale !== '';
@@ -101,7 +110,7 @@ export default function LocaleSync() {
     return () => {
       cancelled = true;
     };
-  }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, isSuperAdmin, profileLocale, profileId, hasProfile, profileCreatedAt, setLocaleState]);
+  }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, isSuperAdmin, profileLocale, profileId, hasProfile, profileCreatedAt, profileStatus, hydrated, setLocaleState]);
 
   // <html lang dir> — the old LanguageProvider effect, unchanged while i18n is off / Hebrew.
   useEffect(() => {

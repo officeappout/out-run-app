@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allowedLocales, decideHtmlLangDir, deviceLocalesFor, effectiveLocaleFlags, isNewUserForLocale, pickAppLocale } from '../locale-resolution';
+import { allowedLocales, decideHtmlLangDir, deviceLocalesFor, effectiveLocaleFlags, deviceDetectAllowed, isNewUserForLocale, pickAppLocale } from '../locale-resolution';
 import { parseLocaleCookie } from '../locale-cookie';
 import { formatDate, formatNumber, formatTime, weekdayName } from '../core/fmt';
 import { getTranslation, he as legacyHe } from '../dictionaries';
@@ -114,5 +114,21 @@ describe('device detection is for new users only', () => {
   it('flag off -> he for everyone', () => {
     expect(pickAppLocale(off, { deviceLocales: device, detectDevice: true })).toBe('he');
     expect(pickAppLocale(off, { profileLocale: 'en', deviceLocales: device })).toBe('he');
+  });
+  it('parses ISO string createdAt', () => {
+    expect(isNewUserForLocale({ createdAt: new Date(NOW - 1000).toISOString() }, NOW)).toBe(true);
+    expect(isNewUserForLocale({ createdAt: new Date(NOW - 9 * DAY).toISOString() }, NOW)).toBe(false);
+  });
+  it('pending createdAt: new while onboarding unsettled, existing when settled (legacy)', () => {
+    expect(isNewUserForLocale({ createdAt: null }, NOW)).toBe(true);
+    expect(isNewUserForLocale({ createdAt: null, onboardingStatus: 'IN_PROGRESS' }, NOW)).toBe(true);
+    expect(isNewUserForLocale({ onboardingStatus: 'COMPLETED' }, NOW)).toBe(false);
+    expect(isNewUserForLocale({ createdAt: {}, onboardingStatus: 'MAP_ONLY' }, NOW)).toBe(false);
+  });
+  it('no profile yet: device allowed only for a hydrated, anonymous launch', () => {
+    expect(deviceDetectAllowed({ profile: null, hydrated: false, hasAuthUser: false })).toBe(false);
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: true })).toBe(false);
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: false })).toBe(true);
+    expect(deviceDetectAllowed({ profile: { createdAt: new Date(NOW - 30 * DAY) }, hydrated: true, hasAuthUser: true, now: NOW })).toBe(false);
   });
 });
