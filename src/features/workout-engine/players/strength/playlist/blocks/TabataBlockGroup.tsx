@@ -20,12 +20,16 @@ import RestProgressBar from './RestProgressBar';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import type { ExerciseEntry, BlockStatus } from '../types';
+import PlayerMethodInfo from '../../../../components/method-info/PlayerMethodInfo';
+import { useMethodInfoSheetV1 } from '../../../../components/method-info/useMethodInfoSheetV1';
 
 export interface TabataBlockGroupProps {
   /** Every exercise in the block (already flattened by grouping.utils). */
   exercises: ExerciseEntry[];
   /** Block header label — the segment's own "טבטה" title. */
   title: string;
+  /** enable_method_info_sheet_v1: the block's clock, for the "i" that explains tabata. */
+  tabataConfig?: { workSec: number; restSec: number; rounds: number };
   cardStatus: BlockStatus;
   /** Index inside `exercises` whose pills are tap-active right now. */
   activeExerciseIndex: number;
@@ -43,6 +47,7 @@ export interface TabataBlockGroupProps {
 export default function TabataBlockGroup({
   exercises,
   title,
+  tabataConfig,
   cardStatus,
   activeExerciseIndex,
   isResting,
@@ -51,6 +56,7 @@ export default function TabataBlockGroup({
   onSaveSet,
 }: TabataBlockGroupProps) {
   const t = useT(player);
+  const methodInfoOn = useMethodInfoSheetV1();
   const isActive = cardStatus === 'active';
   const isCompleted = cardStatus === 'completed';
 
@@ -78,12 +84,27 @@ export default function TabataBlockGroup({
     >
       {/* Header */}
       <div className="w-full flex items-center justify-between px-4 pt-3 pb-2">
+        {methodInfoOn && tabataConfig ? (
+          <span className="flex min-w-0 max-w-[60%] items-center gap-1.5">
+            <span className="text-sm font-bold text-slate-900 dark:text-white truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
+              {title}
+            </span>
+            <PlayerMethodInfo
+              kind="tabata"
+              label={title}
+              entries={exercises}
+              // Each row's `sets` is the block's real rounds per member (tabataRoundsPerMember).
+              tabata={{ ...tabataConfig, cycles: exercises[0]?.sets ?? null }}
+            />
+          </span>
+        ) : (
         <span
           className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[60%]"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           {title}
         </span>
+        )}
         <span
           className="text-xs font-medium text-slate-500 dark:text-slate-400"
           style={{ fontFamily: 'var(--font-simpler)' }}

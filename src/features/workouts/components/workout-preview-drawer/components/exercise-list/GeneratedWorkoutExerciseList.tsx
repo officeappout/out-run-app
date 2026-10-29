@@ -35,6 +35,8 @@ import {
   collectMuscles,
 } from '../../utils/equipment-collection.utils';
 import { resolveExerciseImage } from '../../utils/exercise-display.utils';
+import { sectionMethodInfo } from '../../utils/method-info-preview.utils';
+import { useMethodInfoSheetV1 } from '@/features/workout-engine/components/method-info/useMethodInfoSheetV1';
 import type { PyramidStep, WorkoutActions } from '../../types';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
@@ -109,6 +111,8 @@ export default function GeneratedWorkoutExerciseList({
   const v2 = useHomeV2();
   const t = useT(library);
   const contentLang = useContentLanguage();
+  // enable_method_info_sheet_v1: the "i" next to a block title explains its method.
+  const methodInfoOn = useMethodInfoSheetV1();
   // enable_home_v2: a workout with a timed block (AMRAP / EMOM main, tabata) gets the
   // overview header + journey strip + intensity profile and format block headers.
   const timedModel = useMemo(
@@ -381,11 +385,24 @@ export default function GeneratedWorkoutExerciseList({
         const timedSpec =
           section.id === 'timed-main' ? timedModel?.mainSpec ?? null : isTabata ? timedModel?.tabataSpec ?? null : null;
         const timedRail = timedSpec ? BLOCK_TONE[blockHeaderModel(timedSpec, t).tone].rail : null;
+        const methodInfo = methodInfoOn
+          ? sectionMethodInfo(section, {
+              tabata: timedSpec
+                ? timedSpec.format === 'tabata' ? timedSpec.config : undefined
+                : isTabata ? generatedWorkout.tabataBlock?.config : undefined,
+              nameOf: (ex) =>
+                typeof ex.exercise.name === 'string' ? ex.exercise.name : getLocalizedText(ex.exercise.name, contentLang),
+              imageOf: (ex) => {
+                const url = resolveExerciseImage(ex, posterFromVideo ? { posterFromVideo } : undefined);
+                return cachedMediaMap.get(url) || url;
+              },
+            })
+          : null;
 
         return (
           <section key={section.id} className="mb-8">
             {timedSpec ? (
-              <TimedSectionHeader spec={timedSpec} />
+              <TimedSectionHeader spec={timedSpec} methodInfo={methodInfo} />
             ) : (
             <SectionHeader
               section={section}
@@ -397,6 +414,7 @@ export default function GeneratedWorkoutExerciseList({
               isWarmupExpanded={isWarmupExpanded}
               onToggleWarmupExpanded={onToggleWarmupExpanded}
               onToggleWarmupActive={onToggleWarmupActive}
+              methodInfo={methodInfo}
             />
             )}
 
