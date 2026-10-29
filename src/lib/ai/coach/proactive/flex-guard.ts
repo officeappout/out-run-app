@@ -4,6 +4,7 @@
  */
 import { findFeminineSelfReferences } from '../gender-voice';
 import type { CoachGender } from '../persona';
+import type { CoachLocale } from '../coach-locale';
 import { FORBIDDEN_COPY } from './templates';
 
 export const FLEX_MAX_CHARS = 120;
@@ -18,7 +19,21 @@ const MASC_COMMAND = /(?:^|[\s,])(?:קח|תעשה|תרוץ|תשמור)(?=$|[\s,.
 /** No weekday names (the model sometimes adds one that isn't today). */
 const WEEKDAY = /יום\s+(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)|ביום\s+(?:ראשון|שני|שלישי|רביעי|חמישי|שישי)/;
 
-export function validateFlexSentence(raw: string, gender: CoachGender): string | null {
+const WEEKDAY_EN = /\b(?:mon|tues?|wednes|thurs?|fri|satur|sun)day\b/i;
+
+/** English flex sentence: Latin only, no digits, no weekday, one sentence. There is no grammatical gender to police. */
+function validateFlexSentenceEn(raw: string): string | null {
+  let s = (raw ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().replace(/^["'\u201C]+|["'\u201D]+$/g, '').trim();
+  if (!s || s.length > FLEX_MAX_CHARS) return null;
+  if (!/[A-Za-z]/.test(s) || /[\u0590-\u05FF0-9]/.test(s)) return null;
+  if (FORBIDDEN_COPY.test(s) || /[?\u061F]/.test(s) || WEEKDAY_EN.test(s)) return null;
+  if ((s.match(/[.!]/g) ?? []).length > 1) return null;
+  if (!/[.!]$/.test(s)) s = `${s}.`;
+  return s;
+}
+
+export function validateFlexSentence(raw: string, gender: CoachGender, locale: CoachLocale = 'he'): string | null {
+  if (locale === 'en') return validateFlexSentenceEn(raw);
   let s = (raw ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().replace(/^["״'“]+|["״'”]+$/g, '').trim();
   if (!s) return null;
   if (s.length > FLEX_MAX_CHARS) return null;

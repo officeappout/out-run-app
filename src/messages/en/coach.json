@@ -337,5 +337,15 @@
   "proactive.post.sessionMinutes": "a {minutes}-minute workout",
   "proactive.post.session": "a workout",
   "proactive.post.done": "You finished {what}, nice work.",
-  "proactive.post.howWas": "How was it?"
+  "proactive.post.howWas": "How was it?",
+  "proactive.kind.strength": "Strength workout",
+  "proactive.kind.cardio": "Run",
+  "proactive.kind.walking": "Walk",
+  "proactive.kind.maintenance": "Easy workout",
+  "greeting.named": "Hi {name}, I’m Kelly, the digital coach in the app. {ask}",
+  "greeting.anon": "Hi, I’m Kelly, the digital coach in the app. {ask}",
+  "greeting.ask": "What are you in the mood for today? I can build you a workout, check how you’re progressing, or look at what’s coming up this week.",
+  "quick.first.build": "Build me a workout for today",
+  "quick.first.progress": "How am I progressing?",
+  "quick.first.week": "What’s in this week’s plan?"
 }
