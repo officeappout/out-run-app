@@ -28,6 +28,7 @@ import {
   proactiveMessageId,
 } from './loaders.server';
 import type { IsraelClock, ProactiveTrigger, ProactiveUserState, RecentWorkout, TodayPlan } from './types';
+import { coachLocaleForRequest, coachT, type CoachLocale } from '../coach-locale';
 import { runsByTypeFor } from '@/features/schedule/utils/runsByTypeGate';
 import { isDemoUser } from '@/lib/demo';
 
@@ -36,10 +37,11 @@ export function israelClock(now: Date): IsraelClock {
   return { dateKey: getIsraelDateKey(now), hour: getIsraelHour(now), minute, dow: getIsraelDayOfWeek(now), ms: now.getTime() };
 }
 
-const KIND_LABEL: Record<string, string> = { strength: 'אימון כוח', cardio: 'ריצה', walking: 'הליכה', maintenance: 'אימון קל' };
+const KIND_KEYS = { strength: 'proactive.kind.strength', cardio: 'proactive.kind.cardio', walking: 'proactive.kind.walking', maintenance: 'proactive.kind.maintenance' } as const;
 
 /** Today's plan from the sheet (first training entry; done when every training entry is). */
-export function todayPlanOf(sheet: Pick<UserContextSheet, 'today' | 'lastWorkouts'> | null, todayKey: string): TodayPlan {
+export function todayPlanOf(sheet: Pick<UserContextSheet, 'today' | 'lastWorkouts'> | null, todayKey: string, locale: CoachLocale = 'he'): TodayPlan {
+  const t = coachT(locale);
   const training = (sheet?.today ?? []).filter((e) => e.type === 'training');
   const open = training.find((e) => !e.completed) ?? null;
   const trainedToday = (sheet?.lastWorkouts ?? []).some((w) => w.date === todayKey);
@@ -49,7 +51,7 @@ export function todayPlanOf(sheet: Pick<UserContextSheet, 'today' | 'lastWorkout
     training: training.length > 0,
     done,
     kind: e?.kind ?? null,
-    label: e ? (KIND_LABEL[e.kind ?? ''] ?? 'אימון') : null,
+    label: e ? t(KIND_KEYS[(e.kind ?? '') as keyof typeof KIND_KEYS] ?? 'proactive.defaultLabel') : null,
     startTime: e?.startTime ?? null,
     minutes: e?.plannedMinutes ?? e?.buildNow?.durationMin ?? null,
     buildable: !!open?.buildNow && !done,
@@ -108,6 +110,8 @@ export async function buildProactiveState(i: BuildStateInput): Promise<Proactive
     hasAi = canUseAi({ flags: aiFlagsFrom(flags), entitlement, now: now.getTime() });
   }
 
+  // Reply language of this user's message: ai_coach_locale_v1 + enable_i18n + stored locale; 'he' otherwise.
+  const locale = await coachLocaleForRequest(profile, flags);
   const needsSheet = i.due.some((t) => SHEET_TRIGGERS.includes(t));
   let sheet: UserContextSheet | null = null;
   if (needsSheet && hasAi) {
@@ -153,7 +157,8 @@ export async function buildProactiveState(i: BuildStateInput): Promise<Proactive
     daysAway: getDaysAway(profile, now),
     sentToday: msgSnap.exists,
     preferredHour: hourOf(life.trainingTime) ?? hourOf(reminders.strengthTime) ?? hourOf(reminders.runningTime),
-    today: todayPlanOf(sheet, clock.dateKey),
+    locale,
+    today: todayPlanOf(sheet, clock.dateKey, locale),
     weather,
     week: weekSummary,
     gaps: (sheet?.assessmentGaps ?? []).map((g) => ({ slug: g.slug, name: g.name })),

@@ -12,6 +12,7 @@ import { inferRunKind, resolveRunCategory, runTypeLabel, RUN_KIND_STYLE, type Ru
 import { estimateRunTotals, findMainRep, repTarget, type RepTarget, type RunPaceContext } from './run-estimates';
 import { buildRunDisplayTitle } from './run-title';
 import { buildIntensityStrip, stripPhaseLabels, type StripSegment } from './run-strip';
+import { getLocalizedText, type AppLanguage, type LocalizedText } from '@/features/content/shared/localized-text.types';
 import { buildZoneLadder, mainZone, type ZoneLadderItem } from './run-zone-ladder';
 import { runWeekContextLabel, type RunWeekContext } from './run-week';
 import { surfaceTilesFor, type SurfaceTile } from './run-surfaces';
@@ -20,6 +21,7 @@ import type { JourneyStripItem } from '@/components/ui/v2/journey-strip';
 
 export interface RunPreviewInput {
   title: string;
+  titleLocalized?: LocalizedText;
   blocks: RunBlock[];
   category?: string | null;
   logicCue?: string;
@@ -31,6 +33,8 @@ export interface RunPreviewOptions extends RunPaceContext {
   week?: RunWeekContext | null;
   /** Beginners (profile 3) see no pace numbers — the legacy drawer's rule. */
   showPaceNumbers?: boolean;
+  /** Content language for the template-name fallback title. Default 'he'. */
+  lang?: AppLanguage;
 }
 
 export interface RunPreviewModel {
@@ -57,6 +61,11 @@ export interface RunPreviewModel {
   ladder: ZoneLadderItem[];
   tip: string | null;
   surfaces: SurfaceTile[];
+}
+
+/** The template name in `lang`; the Hebrew `title` without an English pair. */
+function runTemplateTitle(w: Pick<RunPreviewInput, 'title' | 'titleLocalized'>, lang: AppLanguage): string {
+  return lang !== 'he' && w.titleLocalized ? getLocalizedText(w.titleLocalized, lang) || w.title : w.title;
 }
 
 export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions): RunPreviewModel {
@@ -87,7 +96,7 @@ export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions
     textColor: style.text,
     tint: style.tint,
     typeLabel: runTypeLabel(category, kind),
-    title: buildRunDisplayTitle(w.blocks, kind, totals) ?? w.title,
+    title: buildRunDisplayTitle(w.blocks, kind, totals) ?? runTemplateTitle(w, opts.lang ?? 'he'),
     weekLabel: runWeekContextLabel(opts.week),
     minutes,
     km,

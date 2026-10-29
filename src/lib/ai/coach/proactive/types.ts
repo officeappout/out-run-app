@@ -8,6 +8,7 @@
  * ai_coach_proactive (default off).
  */
 import type { CoachGender } from '../persona';
+import type { CoachLocale } from '../coach-locale';
 import type { WeatherHint } from '../suggestions/types';
 
 export type ProactiveTrigger = 'post_workout' | 'weather' | 'morning' | 'weekly' | 'assessment';
@@ -100,6 +101,8 @@ export interface ProactiveUserState {
   /** lifestyle.reminders.runningTime / trainingTime hour, when set. */
   preferredHour: number | null;
   today: TodayPlan;
+  /** Reply language for this user's message (ai_coach_locale_v1; absent = 'he'). */
+  locale?: CoachLocale;
   weather: WeatherHint | 'uv';
   /** This week so far (Sunday to now); null when not loaded (only on the weekly slot). */
   week: WeekSummary | null;

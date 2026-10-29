@@ -31,7 +31,7 @@ const OTHER_PERSON = /(?:אשתי|אישתי|בת\s+הזוג\s+שלי|בת\s+ז�
 // English (Kelly server locale): negation and "someone else" before a symptom. They only ever match Latin
 // words, so Hebrew text is judged exactly as before.
 const NEG_EN = /\b(?:no|not|never|without|(?:do(?:n['’]?t| not)|did(?:n['’]?t| not)|have(?:n['’]?t| not)|never)\s+(?:have|had|feel|felt|get|got|having|experienc\w*))\s+(?:[\w'’-]+\s+){0,2}$/i;
-const OTHER_PERSON_EN = /\b(?:wife|husband|partner|girlfriend|boyfriend|fianc[eé]e?|friend|son|daughter|mom|mum|mother|dad|father|sister|brother|neighbou?r|colleague|coworker|kid|child|grand(?:ma|pa|mother|father)|client|cousin)(?:['’]s)?\s+(?:[\w'’-]+\s+){0,2}$/i;
+const OTHER_PERSON_EN = /\b(?:wife|husband|partner|girlfriend|boyfriend|fianc[eé]e?|friend|son|daughter|mom|mum|mother|dad|father|sister|brother|neighbou?r|colleague|coworker|kid|child|grand(?:ma|pa|mother|father)|client|cousin|she|he|they)(?:['’]s)?\s+(?:[\w'’-]+\s+){0,2}$/i;
 
 const before = (t: string, start: number, n = 24) => t.slice(Math.max(0, start - n), start);
 const negated = (t: string, start: number) => NEG.test(before(t, start));
@@ -57,7 +57,7 @@ const RULES: Rule[] = [
   },
   {
     trigger: 'dizziness',
-    re: /סחרחור|מסוחרר|סחרור|התעלפ|עילפון|מתעלפ|איבדתי\s+הכרה|dizz|faint/gi,
+    re: /סחרחור|מסוחרר|סחרור|התעלפ|עילפון|מתעלפ|איבדתי\s+הכרה/gi,
     unless: (t, s) => negated(t, s),
   },
   {
@@ -73,7 +73,7 @@ const RULES: Rule[] = [
   // English phrasings (Hebrew rules above run first and are unchanged).
   {
     trigger: 'chest',
-    re: /\b(?:chest\s+(?:hurts?|is\s+(?:hurting|tight|aching)|feels?\s+tight|tightness|pressure|discomfort)|tight\s+chest|(?:pain|pressure|tightness)\s+in\s+(?:my\s+|the\s+)?chest|(?:left\s+)?arm\s+(?:is\s+)?(?:numb|tingling)|(?:numb|tingling)\s+(?:in\s+)?(?:my\s+|the\s+)?(?:left\s+)?arm|numbness\s+in\s+(?:my\s+)?arm)/gi,
+    re: /\b(?:chest\s+(?:hurts?|is\s+(?:hurting|tight|aching)|feels?\s+tight|tightness|pressure|discomfort)|tight\s+chest|tight\s+in\s+(?:my\s+|the\s+)?chest|chest\s+(?:feels?|is|gets?|felt)\s+(?:so\s+|very\s+|really\s+)?(?:heavy|squeezed|constricted)|(?:heaviness|squeezing)\s+in\s+(?:my\s+|the\s+)?chest|(?:pain|pressure|tightness)\s+in\s+(?:my\s+|the\s+)?chest|(?:left\s+)?arm\s+(?:is\s+)?(?:numb|tingling)|(?:numb|tingling)\s+(?:in\s+)?(?:my\s+|the\s+)?(?:left\s+)?arm|numbness\s+in\s+(?:my\s+)?arm)/gi,
     unless: (t, s) => /chest\s+muscles?|\bpecs?\b/i.test(t.slice(s, s + 30)),
   },
   {
@@ -90,7 +90,7 @@ const RULES: Rule[] = [
   },
   {
     trigger: 'injury',
-    re: /\b(?:(?:broke|broken|fractured|tore|torn|sprained|dislocated|ruptured)\s+(?:my\s+|a\s+|the\s+)?(?:\w+\s+){0,2}(?:ankle|wrist|knee|arm|leg|foot|toe|finger|hand|shoulder|elbow|hip|ribs?|back|neck|collarbone|hamstring|calf|achilles|acl|mcl|meniscus|bone|ligament|tendon)|(?:ankle|wrist|knee|arm|leg|foot|toe|finger|hand|shoulder|elbow|hip|ribs?|collarbone|bone)\s+(?:is|was|feels?|might\s+be)\s+(?:broken|fractured|dislocated)|sharp\s+pain|stabbing\s+pain|severe\s+pain|swollen|swelling|injured|new\s+injury|acute\s+injury)\b/gi,
+    re: /\b(?:(?:broke|broken|fractured|tore|torn|sprained|dislocated|ruptured)\s+(?:my\s+|a\s+|the\s+)?(?:\w+\s+){0,2}(?:ankle|wrist|knee|arm|leg|foot|toe|finger|hand|shoulder|elbow|hip|ribs?|back|neck|collarbone|hamstring|calf|achilles|acl|mcl|meniscus|bone|ligament|tendon)(?!\s+(?:squats?|extensions?|raises?|day|workout|pr|prs|record|press|lifts?|rows?|bridge))|(?:ankle|wrist|knee|arm|leg|foot|toe|finger|hand|shoulder|elbow|hip|ribs?|collarbone|bone)\s+(?:is|was|feels?|might\s+be)\s+(?:broken|fractured|dislocated)|sharp\s+pain|stabbing\s+pain|severe\s+pain|swollen|swelling|injured|new\s+injury|acute\s+injury)\b/gi,
   },
 ];
 

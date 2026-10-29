@@ -20,6 +20,8 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 import ExerciseDetailContent from '@/features/workout-engine/players/strength/components/ExerciseDetailContent';
 import type { RunBlock } from '../../types/run-block.type';
 import { cleanBlockLabel } from '../../utils/run-preview/run-title';
+import { cleanRunBlockLabel } from '../../utils/run-preview/run-block-label';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
@@ -37,6 +39,7 @@ export interface RunDrillSheetProps {
 
 export default function RunDrillSheet({ block, onClose }: RunDrillSheetProps) {
   const t = useT(player);
+  const lang = useContentLanguage();
   const exerciseId = block?.drillRef?.exerciseId ?? null;
   const [resolved, setResolved] = useState<Resolved | null>(null);
 
@@ -57,7 +60,7 @@ export default function RunDrillSheet({ block, onClose }: RunDrillSheetProps) {
 
   const drill = block?.drillRef ? block : null;
   const answer = drill && resolved?.id === exerciseId ? resolved : null;
-  const title = drill ? cleanBlockLabel(drill.label) || drill.label : undefined;
+  const title = drill ? (cleanBlockLabel(drill.label) ? cleanRunBlockLabel(drill, lang) : '') || drill.label : undefined;
 
   return (
     <>
