@@ -87,6 +87,7 @@ import { resolveGeneratorDayFocus, stampDayFocus } from './split-decision/day-fo
 import { DAY_FOCUS_DOMAINS, type DayFocus } from './split-decision/day-focus.utils';
 import { isSplitDayFocusActive } from './split-decision/day-focus.switch';
 import { calculateWeeklyBudget } from '../core/store/useWeeklyVolumeStore';
+import { resolveCoreWeeklyContext } from './core-weekly-context';
 
 // -- Extracted utility modules --
 import {
@@ -3405,6 +3406,14 @@ async function _buildSharedPipeline(
     })(),
     weeklySASets,
     weeklySACap: WEEKLY_SA_CAP,
+    // R31 weekly core target: the core slot is skipped once the week's core sets reach it.
+    ...resolveCoreWeeklyContext({
+      target: options.weeklyCoreTarget,
+      setsThisWeek: options.weeklyCoreSets,
+      coreLevel: userProgramLevels.get('core') ?? baseUserLevel,
+      userId: effectiveProfile.id,
+      requiredDomains: requiredDomainsOverride,
+    }),
     levelDefaultRestSeconds,
     restMultiplier,
     maxSets: leadBudget?.maxSets,

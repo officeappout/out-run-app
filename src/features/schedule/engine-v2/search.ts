@@ -6,7 +6,6 @@
 import { SEARCH_NODE_BUDGET } from './config';
 import { MODERATE_LEGS, HEAVY_LEGS, profileOf } from './programProfiles';
 import {
-  breaksH2,
   breaksH3,
   breaksH4,
   breaksH6,
@@ -15,6 +14,7 @@ import {
   cloneGrid,
   isEasyRun,
   isKeyRun,
+  isLongRun,
   isQualityRun,
   keyRunBreaksH3,
   nextDay,
@@ -116,13 +116,18 @@ export function searchWeek(runs: Unit[], strength: Unit[], ctx: SearchCtx, extra
     for (let d = from; d < 7; d++) {
       if (!ctx.open[d] || grid.strength[d]) continue;
       if (occupied(d) + 1 > ctx.maxPerDay) continue;
-      if (breaksH2(u, grid.run[d])) continue;
       const options: Unit[] = [u];
       const n = nextDay(d);
       const keyTomorrow = n !== null && isKeyRun(grid.run[n]);
       // The no-legs variant also serves a quality day (H11: upper body only next to intervals / tempo).
-      const v = keyTomorrow || isQualityRun(grid.run[d]) ? variantOfUnit(u) : null;
+      const v = keyTomorrow || isQualityRun(grid.run[d]) || isLongRun(grid.run[d]) ? variantOfUnit(u) : null;
       if (v) options.push(v);
+      // H2 is soft (owner 27.10.2026), but legs never share the long-run day: upper body only there.
+      if (isLongRun(grid.run[d])) {
+        const kept = options.filter((o) => o.load.legs < MODERATE_LEGS);
+        if (!kept.length) continue;
+        options.splice(0, options.length, ...kept);
+      }
       // Owner 27.10.2026: legs after an easy run the day before intervals / tempo run light.
       if (u.load.legs >= HEAVY_LEGS && isEasyRun(grid.run[d]) && n !== null && isQualityRun(grid.run[n])) options.push(lightLegsOf(u));
       for (const cand of options) {

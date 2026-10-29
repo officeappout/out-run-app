@@ -15,7 +15,7 @@ describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: 
 
   it('has the expected key counts per catalog (pilot 370 + onboarding 1013 + player 929 + summary 178 + home rest 581 + profile 576 + map 919 + library 448 + coach 349 + wide 155)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 190, pages: 17, home: 758, onboarding: 1013, player: 1125, summary: 178, profile: 597, social: 124, together: 129, community: 943, map: 960, library: 463, coach: 349, wide: 155, push: 471, schedule: 238, legal: 359 });
+    expect(by).toEqual({ common: 190, pages: 17, home: 758, onboarding: 1013, player: 1125, summary: 178, profile: 597, social: 124, together: 129, community: 943, map: 960, library: 463, coach: 349, wide: 155, push: 471, schedule: 239, legal: 359 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {
@@ -166,7 +166,7 @@ describe('batch 8: schedule + legal (legal is a DRAFT for lawyer review, docs/i1
 
   it('schedule: every he key is translated, nothing extra', () => {
     expect(Object.keys(rd('en', 'schedule')).sort()).toEqual(Object.keys(rd('he', 'schedule')).sort());
-    expect(Object.keys(rd('en', 'schedule')).length).toBe(238);
+    expect(Object.keys(rd('en', 'schedule')).length).toBe(239);
   });
 
   it('legal: every he key except the language-neutral attribution line', () => {

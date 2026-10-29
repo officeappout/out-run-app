@@ -16,8 +16,8 @@ describe("Kelly's builder moves → the week on screen", () => {
   it('skips an invalid move with the drag reason and a vanished session, keeps the valid ones', () => {
     const w = week(OPEN_SUN_FRI, [[1, strength('s', 'upper_body')], [3, strength('t', 'legs')], [5, run('l', 'long_run')]]);
     const engine = createWeekEngine({ maxPerDay: 2, runLevel: 'intermediate' });
-    const r = applyPlannedMoves(w, [{ sessionId: 's', to: 5 }, { sessionId: 'gone', to: 2 }, { sessionId: 's', to: 2 }], engine);
-    expect(r.skippedHe).toEqual([dropReasonHe('H2'), dropReasonHe('missing')]);
+    const r = applyPlannedMoves(w, [{ sessionId: 's', to: 6 }, { sessionId: 'gone', to: 2 }, { sessionId: 's', to: 2 }], engine);
+    expect(r.skippedHe).toEqual([dropReasonHe('closed'), dropReasonHe('missing')]);
     expect(r.week.days[2].sessions.map((s) => s.id)).toEqual(['s']);
     expect(r.changedDows).toEqual([1, 2]);
   });

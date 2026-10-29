@@ -33,10 +33,15 @@ describe('propose_schedule_change in builder mode — validated like a drag, per
     expect(b).toMatchObject({ ok: true, moves: [{ from: 4, to: 5, sessionId: 'c' }], skipped: [] });
   });
 
-  it('strength onto the long-run day is skipped with the drag reason (H2)', () => {
+  it('heavy legs onto the day before the long run is skipped with the drag reason (H3)', () => {
+    const ctx = builderContextOf(week(OPEN_SUN_FRI, [[1, strength('s', 'legs')], [5, run('l', 'long_run')]]), TWO);
+    const b = buildBuilderProposal(ctx, input([{ from: 'monday', to: 'thursday' }]));
+    expect(b).toEqual({ ok: false, reason: 'nothing_valid', skipped: [{ from: 1, to: 4, code: 'refused', reasonHe: dropReasonHe('H3') }] });
+  });
+
+  it('strength onto the long-run day is allowed (H2 soft since 27.10.2026)', () => {
     const ctx = builderContextOf(week(OPEN_SUN_FRI, [[1, strength('s', 'upper_body')], [5, run('l', 'long_run')]]), TWO);
-    const b = buildBuilderProposal(ctx, input([{ from: 'monday', to: 'friday' }]));
-    expect(b).toEqual({ ok: false, reason: 'nothing_valid', skipped: [{ from: 1, to: 5, code: 'refused', reasonHe: dropReasonHe('H2') }] });
+    expect(buildBuilderProposal(ctx, input([{ from: 'monday', to: 'friday' }])).ok).toBe(true);
   });
 
   it('run: two quality runs 24h apart are refused (H4), a valid run move lands', () => {
