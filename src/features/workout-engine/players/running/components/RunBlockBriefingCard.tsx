@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { Play, Dumbbell } from 'lucide-react';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { runBlockLabel } from '../utils/run-preview/run-block-label';
 import type { RunBlock } from '../types/run-block.type';
 
 interface RunBlockBriefingCardProps {
@@ -21,6 +23,7 @@ const EFFORT_LABELS: Record<string, string> = {
 export default function RunBlockBriefingCard({
   block, index, paceLabel, metaLabel, onDrillTap,
 }: RunBlockBriefingCardProps) {
+  const lang = useContentLanguage();
   const isDrillBlock = !!block.drillRef;
   const isEffortBlock = !isDrillBlock && block.blockMode === 'effort';
   const isRest = block._isSynthesizedRest || block.type === 'recovery' || block.type === 'walk';
@@ -42,7 +45,7 @@ export default function RunBlockBriefingCard({
       {/* Text content */}
       <div className="flex-grow min-w-0">
         <span className={`text-sm font-bold ${isRest ? 'text-slate-400' : 'text-slate-900'} truncate block`}>
-          {block.label}
+          {runBlockLabel(block, lang)}
         </span>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           {metaLabel && (

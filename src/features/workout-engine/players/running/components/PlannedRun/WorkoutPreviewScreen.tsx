@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Play, ArrowLeft, Clock, Zap } from 'lucide-react';
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
 import { formatPaceSeconds } from '../../../../core/services/running-engine.service';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { getLocalizedText } from '@/features/content/shared/localized-text.types';
+import { runBlockLabel } from '../../utils/run-preview/run-block-label';
 import RunStoryBar from './RunStoryBar';
 import type RunWorkout from '../../types/run-workout.type';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
@@ -29,6 +32,7 @@ export default function WorkoutPreviewScreen({
   onBack,
 }: WorkoutPreviewScreenProps) {
   const t = useT(player);
+  const lang = useContentLanguage();
   const { zones, basePace, showNumbers } = usePlannedRunEngine();
   const router = useRouter();
 
@@ -104,7 +108,7 @@ export default function WorkoutPreviewScreen({
         {/* Title overlay on dark header */}
         <div className="px-5 pb-2" dir="rtl">
           <h1 className="text-xl font-black text-white leading-tight">
-            {workout.title}
+            {lang !== 'he' && workout.titleLocalized ? getLocalizedText(workout.titleLocalized, lang) || workout.title : workout.title}
           </h1>
           {workout.description && (
             <p className="text-xs text-white/50 mt-1 leading-relaxed line-clamp-2">
@@ -196,7 +200,7 @@ export default function WorkoutPreviewScreen({
                 {/* Info */}
                 <div className="flex-grow min-w-0">
                   <span className="text-sm font-bold text-slate-900 truncate block">
-                    {block.label}
+                    {runBlockLabel(block, lang)}
                   </span>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-slate-400">
