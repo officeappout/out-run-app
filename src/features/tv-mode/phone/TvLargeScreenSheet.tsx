@@ -9,14 +9,16 @@ import { wide } from '@/messages/ns/wide';
 import { TV_PATH } from '../core/constants';
 import { SECONDARY_BTN } from '../ui/styles';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** W-18: choose how to put the workout on a big screen (code / QR is the recommended one). */
 export default function TvLargeScreenSheet({ open, onClose, onPickCode }: { open: boolean; onClose: () => void; onPickCode: () => void }) {
+  const { direction } = useUiDir();
   const t = useT(wide);
   const [mirrorHint, setMirrorHint] = useState(false);
   const host = typeof window === 'undefined' ? '' : window.location.host;
   return (
     <Sheet open={open} onClose={onClose} title={t('pair.sheet.title')} closeLabel={t('pair.phone.close')} layout="nested" zIndex={SHEET_Z.aboveOffline}>
-      <div dir="rtl" className="flex flex-col gap-3 pb-1">
+      <div dir={direction} className="flex flex-col gap-3 pb-1">
         <p className="-mt-1 text-[13.5px] font-bold text-[#475569]">{t('pair.sheet.subtitle')}</p>
         <button
           type="button"

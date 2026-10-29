@@ -5,15 +5,17 @@ import { Loader2 } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** Drop-in recruitment prompt — shown after a non-member joins a live session. */
 export default function DropInJoinPrompt({ joining, onJoin, onDismiss }: { joining: boolean; onJoin: () => void; onDismiss: () => void }) {
+  const { direction } = useUiDir();
   const t = useT(community);
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800/40 rounded-2xl p-4 space-y-3"
-      dir="rtl"
+      dir={direction}
     >
       <div className="flex items-center gap-3">
         <span className="text-2xl">🏃</span>

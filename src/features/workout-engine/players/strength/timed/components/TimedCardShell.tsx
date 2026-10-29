@@ -12,6 +12,7 @@ import type { SnapDrawerState } from '../../../shared/v2/useSnapDrawer';
 import { useWidePlayer } from '../../../shared/v2/WidePlayerContext';
 import WideKeyHints from '../../../shared/v2/WideKeyHints';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface TimedCardShellProps {
   eyebrow?: string | null;
   /** Orange eyebrow (last seconds). */
@@ -23,6 +24,7 @@ export interface TimedCardShellProps {
 }
 
 export default function TimedCardShell({ eyebrow, warn = false, children, drawer = null, compact = null }: TimedCardShellProps) {
+  const { direction } = useUiDir();
   // enable_wide_player_v1: the card IS the side panel's content (WideSplit frames it) — no sheet, no drawer.
   const { wide } = useWidePlayer();
   if (wide) {
@@ -40,7 +42,7 @@ export default function TimedCardShell({ eyebrow, warn = false, children, drawer
   }
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className="absolute inset-x-0 bottom-0 z-10 rounded-t-[28px] bg-white px-5 pt-2 shadow-v2-sheet"
       style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', fontFamily: 'var(--font-simpler)' }}
     >

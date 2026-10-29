@@ -23,9 +23,8 @@ export default function KellyAerobicCard({ card, onOpen }: { card: AerobicCardVi
       data-ai-card="aerobic"
       onClick={() => onOpen(card)}
       aria-label={face.ariaLabel}
-      className="relative block overflow-hidden bg-white text-right transition-transform duration-150 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v2-accent focus-visible:ring-offset-2"
+      className="relative block overflow-hidden bg-white text-start transition-transform duration-150 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v2-accent focus-visible:ring-offset-2"
       style={frameStyle}
-      dir="rtl"
     >
       <span className="absolute inset-x-0 top-0 grid h-[62%] place-items-center" style={{ background: BRAND_GRADIENT }} aria-hidden>
         <Footprints className="mb-6 h-10 w-10 text-white/85" />

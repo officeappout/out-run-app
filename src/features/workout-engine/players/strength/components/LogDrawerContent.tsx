@@ -6,6 +6,7 @@ import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import { deriveCoachHint } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * LogDrawerContent — bottom-sheet RESTING-state input drawer.
  *
@@ -86,6 +87,7 @@ export default function LogDrawerContent({
   onSetCoachHint,
   onSwap,
 }: LogDrawerContentProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const { targetValue, unitType, max, initialValue } = pickerConfig;
   const pickerMin = unitType === 'time' ? 0 : 1;
@@ -117,7 +119,7 @@ export default function LogDrawerContent({
   return (
     <div
       className="bg-white dark:bg-[#0F172A] rounded-t-[24px] px-4 pt-2.5 shadow-2xl"
-      dir="rtl"
+      dir={direction}
       style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 24px))' }}
     >
       <h2

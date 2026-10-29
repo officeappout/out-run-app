@@ -103,7 +103,7 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto scrollbar-hide -mx-4 px-4" dir="rtl">
+    <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
       <div className="flex items-center gap-1.5 pb-1">
         {chips.map((chip) => (
           <span

@@ -91,7 +91,7 @@ export default function TvPage() {
   if (loading) return <main className={`fixed inset-0 ${PAGE_BG}`} />;
   if (!flags.enableTvModeV1) {
     return (
-      <main dir="rtl" className={`fixed inset-0 grid place-items-center text-center ${PAGE_BG}`}>
+      <main className={`fixed inset-0 grid place-items-center text-center ${PAGE_BG}`}>
         <div>
           <h1 className="text-[4vw] font-black">{t('pair.tv.unavailable')}</h1>
           <p className="mt-[2vh] text-[2vw] font-bold text-[#475569]">{t('pair.tv.unavailableBody')}</p>
@@ -146,7 +146,7 @@ export default function TvPage() {
 function TvErrorScreen({ title, retry, onRetry }: { title: string; retry: string; onRetry: () => void }) {
   const focusRef = useAutoFocus<HTMLButtonElement>();
   return (
-    <main dir="rtl" className={`fixed inset-0 grid place-items-center text-center ${PAGE_BG}`}>
+    <main className={`fixed inset-0 grid place-items-center text-center ${PAGE_BG}`}>
       <div className="flex flex-col items-center gap-[3vh]">
         <h1 className="text-[3.6vw] font-black">{title}</h1>
         <button
@@ -164,7 +164,7 @@ function TvErrorScreen({ title, retry, onRetry }: { title: string; retry: string
 
 function Centered({ text }: { text: string }) {
   return (
-    <main dir="rtl" className={`fixed inset-0 grid place-items-center ${PAGE_BG}`}>
+    <main className={`fixed inset-0 grid place-items-center ${PAGE_BG}`}>
       <p role="status" className="text-[2.6vw] font-extrabold text-[#0284c7]">{text}</p>
     </main>
   );

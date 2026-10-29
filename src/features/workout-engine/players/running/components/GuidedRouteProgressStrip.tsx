@@ -28,10 +28,12 @@ import { useSessionStore } from '../../../core/store/useSessionStore';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const PRIMARY = '#0EA5E9';
 const PRIMARY_DARK = '#0284C7';
 
 export default function GuidedRouteProgressStrip() {
+  const { direction } = useUiDir();
   const tx = useT(player);
   const guidedRouteName = useRunningPlayer((s) => s.guidedRouteName);
   const guidedRouteDistanceKm = useRunningPlayer((s) => s.guidedRouteDistanceKm);
@@ -51,7 +53,7 @@ export default function GuidedRouteProgressStrip() {
     <div
       className="absolute left-4 right-4 z-40 pointer-events-none"
       style={{ top: 'calc(max(1rem, env(safe-area-inset-top, 0px)) + 5.5rem)' }}
-      dir="rtl"
+      dir={direction}
     >
       <div
         className="mx-auto max-w-sm rounded-2xl px-4 py-2.5 pointer-events-auto bg-white"

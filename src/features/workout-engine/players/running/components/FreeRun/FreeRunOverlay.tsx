@@ -44,6 +44,7 @@ import { useSharedSession } from '@/features/workout-engine/core/store/useShared
 import { useT } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ function MiniRouteMap({ coords, size = 40 }: { coords: number[][]; size?: number
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
@@ -200,7 +202,7 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
     <div
       className="flex items-center gap-2 w-full px-3"
       style={{ fontFamily: 'var(--font-simpler)' }}
-      dir="rtl"
+      dir={direction}
     >
       {/* Mini-map — RIGHT (first in RTL). Only when map is hidden behind laps. */}
       {isLapsOpen && (
@@ -310,6 +312,7 @@ interface FreeRunOverlayProps {
 }
 
 export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, drawerSlides, sideRailParticipants, onSelectParticipant }: FreeRunOverlayProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
@@ -455,7 +458,7 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
           <div
             className="px-4 py-1.5 rounded-full text-xs font-bold text-white"
             style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-            dir="rtl"
+            dir={direction}
           >
             {t(gpsToast)}
           </div>
@@ -473,7 +476,7 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
           <div
             className="px-5 py-2 rounded-full text-sm font-black text-white"
             style={{ background: '#10B981', boxShadow: '0 4px 16px rgba(16,185,129,0.45)' }}
-            dir="rtl"
+            dir={direction}
           >
             {t('run.free.classic.goalReached')}
           </div>

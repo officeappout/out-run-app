@@ -59,6 +59,7 @@ import { SwapPill } from './SwapPill';
 import { useT } from '@/hooks/useT';
 import { profile } from '@/messages/ns/profile';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export type TreeNodeState = 'done' | 'current' | 'locked' | 'target';
 
 const IMAGE_PLACEHOLDER = '/images/park-placeholder.svg';
@@ -159,6 +160,7 @@ function TreeNodeImpl({
   v2 = false,
   priority = false,
 }: TreeNodeProps) {
+  const { direction } = useUiDir();
   const locked = state === 'locked';
   const isTarget = state === 'target';
   const isCurrent = state === 'current';
@@ -244,7 +246,7 @@ function TreeNodeImpl({
 
         {/* Name — always visible, one line, pill for legibility over the scenery */}
         <span
-          dir="rtl"
+          dir={direction}
           className={`max-w-full truncate whitespace-nowrap rounded-full bg-white/90 px-2.5 py-0.5 text-[12px] font-extrabold leading-[18px] shadow-v2-ring ${
             isTarget ? 'text-v2-on-gold' : locked ? 'text-v2-muted' : 'text-v2-ink'
           }`}

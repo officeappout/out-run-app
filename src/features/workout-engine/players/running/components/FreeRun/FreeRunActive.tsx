@@ -46,6 +46,7 @@ import { useSharedSession } from '@/features/workout-engine/core/store/useShared
 import { useT, type ReactTFunction } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,6 +172,7 @@ interface FreeRunActiveProps {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
@@ -368,7 +370,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
               <div
                 className="px-4 py-1.5 rounded-full text-xs font-bold text-white"
                 style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-                dir="rtl"
+                dir={direction}
               >
                 {t(gpsToast)}
               </div>
@@ -385,7 +387,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
               <div
                 className="px-5 py-2 rounded-full text-sm font-black text-white"
                 style={{ background: '#10B981', boxShadow: '0 4px 16px rgba(16,185,129,0.45)' }}
-                dir="rtl"
+                dir={direction}
               >
                 {t('run.free.classic.goalReached')}
               </div>

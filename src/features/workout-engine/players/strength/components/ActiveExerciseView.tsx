@@ -25,6 +25,7 @@ import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import ActiveRepsWidePanel from './ActiveRepsWidePanel';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * ActiveExerciseView — the live ACTIVE-phase player surface.
  *
@@ -208,6 +209,7 @@ export default function ActiveExerciseView({
   onImmersiveChange,
   onMinimize,
 }: ActiveExerciseViewProps) {
+  const { direction } = useUiDir();
   // Gate the hidden prefetch <video> until the main video has started loading.
   // On iOS WKWebView, two concurrent video decoders can exhaust the system
   // media budget and cause the primary video to fail. Waiting for the main
@@ -419,7 +421,7 @@ export default function ActiveExerciseView({
             className={v2
               ? 'relative bg-white rounded-t-[28px] shadow-v2-sheet px-5 pt-2'
               : 'relative bg-white dark:bg-slate-950 rounded-t-[28px] shadow-2xl px-5 pt-2'}
-            dir="rtl"
+            dir={direction}
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
           >
             {/* Scroll hint — drag handle (enable_strength_drawer_v1: the snap grabber) */}
@@ -471,7 +473,7 @@ export default function ActiveExerciseView({
 
             {/* ── Pyramid step indicator ───────────────────────────────── */}
             {isPyramidActive && (
-              <div className="flex flex-col items-center gap-0.5 mb-1" dir="rtl">
+              <div className="flex flex-col items-center gap-0.5 mb-1" dir={direction}>
                 {/* Step counter — same visual register as superset "סבב N מתוך M" */}
                 <span
                   className={v2 ? 'text-[12px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider'}

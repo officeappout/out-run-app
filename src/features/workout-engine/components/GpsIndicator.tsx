@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export type GpsStatus = 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
 
 interface GpsIndicatorProps {
@@ -17,6 +18,7 @@ interface GpsIndicatorProps {
  * Displays GPS signal strength with color-coded status and glassmorphism design
  */
 export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   // Determine color and text based on status
   const getStatusConfig = () => {
@@ -83,7 +85,7 @@ export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
         backdrop-blur-md shadow-lg
         pointer-events-auto
       `}
-      dir="rtl"
+      dir={direction}
     >
       {/* Status dot — pulses for real GPS states, static for simulation */}
       <div className="relative flex-shrink-0">

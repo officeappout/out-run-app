@@ -31,6 +31,7 @@ import { motion, type PanInfo } from 'framer-motion';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const CARD_MAX_W = 260;
 const CARD_VW = 68;
 const GAP = 12;
@@ -82,6 +83,7 @@ export function SuggestionCarousel<T>({
   onActiveIndexChange,
   passiveDots = false,
 }: SuggestionCarouselProps<T>) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const [internalIndex, setInternalIndex] = useState(0);
   const activeIndex = controlledIndex ?? internalIndex;
@@ -141,14 +143,14 @@ export function SuggestionCarousel<T>({
     const only = items[0];
     if (!only) return null;
     return (
-      <div dir="rtl" className="w-full flex justify-center" style={{ paddingTop: 8, paddingBottom: 16 }}>
+      <div dir={direction} className="w-full flex justify-center" style={{ paddingTop: 8, paddingBottom: 16 }}>
         <div style={{ width: cardW, height: cardHeight }}>{renderCard(only, true)}</div>
       </div>
     );
   }
 
   return (
-    <div dir="rtl" className="w-full">
+    <div dir={direction} className="w-full">
       <div ref={viewportRef} className="overflow-hidden w-full" style={{ height: cardHeight + 24 }}>
         <motion.div
           className="flex flex-row items-center"

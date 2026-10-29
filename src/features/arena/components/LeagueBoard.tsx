@@ -17,6 +17,7 @@ import Card from '@/components/ui/v2/Card';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ── Board card ───────────────────────────────────────────────────────────────
 
 interface BoardCardProps {
@@ -30,8 +31,9 @@ interface BoardCardProps {
 }
 
 export function BoardCard({ title, subtitle, actions, children, className = '' }: BoardCardProps) {
+  const { direction } = useUiDir();
   return (
-    <Card variant="light" padding="none" className={`rounded-v2-card-lg p-[18px] ${className}`} dir="rtl">
+    <Card variant="light" padding="none" className={`rounded-v2-card-lg p-[18px] ${className}`} dir={direction}>
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
           <div className="text-[19px] font-black leading-tight tracking-v2-tight truncate">{title}</div>
@@ -229,10 +231,11 @@ const AVATAR_TINTS = ['#bae6fd', '#c7f9e9', '#fde68a', '#e9d5ff', '#fecdd3', '#d
  * Callers render rows from 4th place on below it. Needs exactly 3 entries.
  */
 export function BoardPodium({ entries }: { entries: [PodiumEntry, PodiumEntry, PodiumEntry] }) {
+  const { direction } = useUiDir();
   const t = useT(community);
   const order: (1 | 2 | 3)[] = [2, 1, 3];
   return (
-    <ol className="grid grid-cols-3 items-end gap-2 px-1 pt-3 pb-1 text-v2-ink" aria-label={t('leagues.board.podium')} dir="rtl">
+    <ol className="grid grid-cols-3 items-end gap-2 px-1 pt-3 pb-1 text-v2-ink" aria-label={t('leagues.board.podium')} dir={direction}>
       {order.map((rank) => {
         const e = entries[rank - 1];
         const size = rank === 1 ? 52 : 42;
@@ -299,13 +302,14 @@ export function BoardToggle<T extends string>({
   onChange: (v: T) => void;
   label: string;
 }) {
+  const { direction } = useUiDir();
   return (
     <div
       className="grid rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline"
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
       role="radiogroup"
       aria-label={label}
-      dir="rtl"
+      dir={direction}
     >
       {options.map((o) => {
         const on = o.id === value;

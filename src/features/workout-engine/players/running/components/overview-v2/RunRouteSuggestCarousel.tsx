@@ -16,6 +16,7 @@ import { lapsLabel, routeKm, routeRunShape } from '../../lib/route-fit/distance-
 import { useT, type ReactTFunction } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface RunRouteSuggestCarouselProps {
   suggestions: readonly RouteSuggestion[];
   selectedId: string | null;
@@ -32,10 +33,11 @@ function pillText(n: number, label: string, allLoops: boolean, t: ReactTFunction
 }
 
 export default function RunRouteSuggestCarousel({ suggestions, selectedId, onSelect, onBack, workoutLabel, minutes, journey }: RunRouteSuggestCarouselProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const allLoops = suggestions.every((s) => routeRunShape(s.route) === 'loop');
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-[70]" dir="rtl" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-[70]" dir={direction} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
       <div className="pointer-events-auto flex items-center justify-between px-4">
         <IconButton aria-label={t('run.overview.suggest.back')} size={40} onClick={onBack}>
           <ArrowRight className="h-[18px] w-[18px] text-v2-ink" />

@@ -34,6 +34,7 @@ import { getProgramIcon } from '@/features/content/programs';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
 
@@ -68,6 +69,7 @@ export default function ProgramPathSwitcher({
   onClose,
   onSelect,
 }: ProgramPathSwitcherProps) {
+  const { direction } = useUiDir();
   const t = useT(library);
   const anchorRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -137,7 +139,7 @@ export default function ProgramPathSwitcher({
           />
           <div
             role="listbox"
-            dir="rtl"
+            dir={direction}
             className="absolute min-w-[220px] bg-white rounded-2xl shadow-floating border border-slate-100 p-1.5"
             style={{ top: pos.top, left: pos.left }}
           >

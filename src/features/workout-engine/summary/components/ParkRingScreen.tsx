@@ -14,6 +14,7 @@ import { ACTIVITY_COLORS, WHO_COMPLIANCE_BASELINE } from '@/features/activity/ty
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import { weekRingView } from '../park-summary';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const SIZE = 240;
 const STROKE = 18;
 const R = (SIZE - STROKE) / 2;
@@ -40,6 +41,7 @@ function Arc({ from, frac, color, reduce }: { from: number; frac: number; color:
 }
 
 export default function ParkRingScreen({ result, onNext }: { result: HybridFinalizeResult; onNext: () => void }) {
+  const { direction } = useUiDir();
   const t = useT(summaryNs);
   const reduce = useReducedMotion();
   const totals = useActivityStore((s) => s.weeklySummary?.categoryTotals);
@@ -50,7 +52,7 @@ export default function ParkRingScreen({ result, onNext }: { result: HybridFinal
   const cardio = ACTIVITY_COLORS.cardio.hex;
   const strength = ACTIVITY_COLORS.strength.hex;
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-v2-surface px-5" dir="rtl" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 40px)' }}>
+    <div className="fixed inset-0 z-[60] flex flex-col bg-v2-surface px-5" dir={direction} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 40px)' }}>
       <h1 className="text-center text-[24px] font-black text-v2-ink" style={{ fontFamily: 'var(--font-simpler)' }}>
         {t('parkLive.ring.title')}
       </h1>

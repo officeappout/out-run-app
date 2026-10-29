@@ -6,6 +6,7 @@ import { Zap } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface MissedWorkoutBannerProps {
   onDoIt: () => void;
   onContinue: () => void;
@@ -15,6 +16,7 @@ export default function MissedWorkoutBanner({
   onDoIt,
   onContinue,
 }: MissedWorkoutBannerProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <motion.div
@@ -26,7 +28,7 @@ export default function MissedWorkoutBanner({
         background: 'linear-gradient(135deg, #00BAF7 0%, #0097D4 100%)',
         boxShadow: '0 8px 24px rgba(0,186,247,0.25)',
       }}
-      dir="rtl"
+      dir={direction}
     >
       <div className="px-5 py-4">
         <div className="flex items-start gap-3">

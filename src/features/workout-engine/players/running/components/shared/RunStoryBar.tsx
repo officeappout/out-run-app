@@ -22,6 +22,7 @@ import RouteStoryBar from './RouteStoryBar';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ─────────────────────────────────────────────────────────────────────────────
 // Track story — 2-dot race visual
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,13 +38,14 @@ interface TrackStoryProps {
 }
 
 function TrackStory({ meKm, rivalKm, goalKm, gapM, myColor, rivalColor, isPaused }: TrackStoryProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const mePct = Math.min(100, (meKm / goalKm) * 100);
   const rivalPct = Math.min(100, (rivalKm / goalKm) * 100);
   const iLead = gapM >= 0;
 
   return (
-    <div className="w-full px-5 pt-3 pb-2" dir="rtl">
+    <div className="w-full px-5 pt-3 pb-2" dir={direction}>
       {/* Label row */}
       <div className="flex items-baseline justify-between mb-1.5">
         <span

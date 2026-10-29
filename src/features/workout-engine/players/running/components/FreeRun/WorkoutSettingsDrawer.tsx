@@ -34,12 +34,14 @@ import { autoLapDistanceRange } from '@/features/workout-engine/players/running/
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface WorkoutSettingsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettingsDrawerProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const { settings, updateSettings } = useRunningPlayer();
   // Distance-lap slider: today's 0.1–2.0 km on foot; a ride (enable_home_v2) gets 1–10 km, default 5.
@@ -136,7 +138,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
             onClick={(e) => e.stopPropagation()}
             className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[100000] overflow-y-auto pointer-events-auto"
             style={{ fontFamily: 'var(--font-simpler)', isolation: 'isolate' }}
-            dir="rtl"
+            dir={direction}
           >
             {/* Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">

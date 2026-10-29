@@ -38,7 +38,7 @@ export default function DrawerMuscleBadge({ muscle }: DrawerMuscleBadgeProps) {
   const src = tier === 0 ? `/icons/muscles/${file}.svg` : `/icons/muscles/male/${file}.svg`;
 
   return (
-    <div className="flex-shrink-0 flex items-center gap-1.5" dir="rtl">
+    <div className="flex-shrink-0 flex items-center gap-1.5">
       {tier < 2 ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt={label} width={28} height={28} onError={() => setTier((p) => p + 1)} />

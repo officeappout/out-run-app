@@ -12,6 +12,7 @@ import { ChevronUp } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface SessionListLayerProps {
   /** Default "מהלך האימון". */
   title?: string;
@@ -25,11 +26,12 @@ export interface SessionListLayerProps {
 }
 
 export default function SessionListLayer({ title, subtitle, onClose, totals, children, safeTop = true }: SessionListLayerProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
     <div
       className="h-full overflow-y-auto bg-v2-surface px-4 pb-32"
-      dir="rtl"
+      dir={direction}
       style={{ paddingTop: safeTop ? 'calc(env(safe-area-inset-top, 0px) + 16px)' : 16, fontFamily: 'var(--font-simpler)' }}
     >
       <div className="flex items-start justify-between gap-3">

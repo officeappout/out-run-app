@@ -24,7 +24,6 @@ export default function LapPaceChart({ laps }: { laps: Lap[] }) {
   return (
     <div
       className="bg-gray-50 rounded-xl shadow-sm p-4"
-      dir="rtl"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <div className="flex items-center justify-between mb-3 px-1">

@@ -27,6 +27,7 @@ import {
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // Trivial style primitives (mirrors MasterExerciseView; duplicated by design so this
 // component is self-contained — the "source of truth" it owns is the SWITCHER visual
 // + LOCATION_META, not these one-line tokens).
@@ -94,6 +95,7 @@ export default function LocationVariantSwitcher({
   onClose,
   onSelect,
 }: LocationVariantSwitcherProps) {
+  const { direction } = useUiDir();
   const t = useT(library);
   const activeMeta = locationMeta(activeLocation);
   const ActiveIcon = activeMeta.Icon;
@@ -167,7 +169,7 @@ export default function LocationVariantSwitcher({
               (z-[200], inline) — a later body-portal wins the tie by DOM order. */}
           <div
             role="listbox"
-            dir="rtl"
+            dir={direction}
             className="absolute min-w-[190px] bg-white rounded-2xl shadow-floating border border-slate-100 p-1.5"
             style={{ top: pos.top, left: pos.left }}
           >

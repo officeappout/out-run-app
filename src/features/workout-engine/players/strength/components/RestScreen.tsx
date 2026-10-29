@@ -17,6 +17,7 @@ import { useWidePlayer } from '../../shared/v2/WidePlayerContext';
 import WideKeyHints from '../../shared/v2/WideKeyHints';
 import { clipKey } from '../logic/clip-playback';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * RestScreen — unified REST-phase card, shared by every workout type
  * (regular exercises, hydraulic strength, machine tabata, ab/core finisher
@@ -121,6 +122,7 @@ export default function RestScreen({
   nextLabel,
   onSwapNext,
 }: RestScreenProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(autoExpandPreview);
   // Guided: expand on every new rest (videoKey changes per next exercise), collapse after ~4s.
@@ -168,7 +170,7 @@ export default function RestScreen({
   return (
     <div
       className={`absolute inset-0 overflow-hidden transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
-      dir="rtl"
+      dir={direction}
     >
       <div className={v2 ? 'absolute inset-0 bg-v2-surface' : 'absolute inset-0 bg-white dark:bg-[#0F172A]'} />
 

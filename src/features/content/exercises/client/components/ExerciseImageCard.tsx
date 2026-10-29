@@ -83,7 +83,6 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
       type="button"
       onClick={onClick}
       className="relative h-[168px] rounded-[18px] overflow-hidden shadow-sm text-start active:scale-[0.98] transition-transform"
-      dir="rtl"
     >
       {/* ── Background: thumbnail or branded gradient fallback ── */}
       {showImage ? (

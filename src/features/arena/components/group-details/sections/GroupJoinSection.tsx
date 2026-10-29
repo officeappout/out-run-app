@@ -7,6 +7,7 @@ import type { CommunityGroup } from '@/types/community.types';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface GroupJoinSectionProps {
   v2: boolean;
   group: CommunityGroup;
@@ -45,6 +46,7 @@ export default function GroupJoinSection({
   joining,
   onJoin,
 }: GroupJoinSectionProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   return group.isLocked && !codeUnlocked ? (
     /* Case 1: tenant / unit access-code gate */
@@ -59,7 +61,7 @@ export default function GroupJoinSection({
     />
   ) : !group.isPublic ? (
     /* Case 2: private group — invite code required */
-    <div className="space-y-3" dir="rtl">
+    <div className="space-y-3" dir={direction}>
       {!inviteCodeMode ? (
         <button
           onClick={onEnterInviteMode}

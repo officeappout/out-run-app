@@ -18,6 +18,7 @@ import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveT
 import { useT, type ReactTFunction } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 type PlayerT = ReactTFunction<PlayerKey>;
 
 interface WorkoutPreviewScreenProps {
@@ -31,6 +32,7 @@ export default function WorkoutPreviewScreen({
   onStart,
   onBack,
 }: WorkoutPreviewScreenProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const lang = useContentLanguage();
   const { zones, basePace, showNumbers } = usePlannedRunEngine();
@@ -106,7 +108,7 @@ export default function WorkoutPreviewScreen({
         </div>
 
         {/* Title overlay on dark header */}
-        <div className="px-5 pb-2" dir="rtl">
+        <div className="px-5 pb-2" dir={direction}>
           <h1 className="text-xl font-black text-white leading-tight">
             {lang !== 'he' && workout.titleLocalized ? getLocalizedText(workout.titleLocalized, lang) || workout.title : workout.title}
           </h1>
@@ -129,7 +131,7 @@ export default function WorkoutPreviewScreen({
       {/* ── Summary pills ── */}
       <div
         className="flex items-center gap-2 px-5 py-3 bg-white border-b border-slate-100"
-        dir="rtl"
+        dir={direction}
       >
         {totalDuration > 0 && (
           <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
@@ -161,7 +163,7 @@ export default function WorkoutPreviewScreen({
       </div>
 
       {/* ── Block list ── */}
-      <div className="flex-grow overflow-auto px-5 pt-3 pb-32 bg-white" dir="rtl">
+      <div className="flex-grow overflow-auto px-5 pt-3 pb-32 bg-white" dir={direction}>
         <div className="space-y-2">
           {workout.blocks.map((block) => {
             let paceLabel = '';
@@ -236,7 +238,7 @@ export default function WorkoutPreviewScreen({
             onClick={handleOpenLivePartners}
             className="block w-full text-center pb-2 active:scale-[0.99] transition-transform"
             style={{ color: '#00ADEF', fontSize: '13px' }}
-            dir="rtl"
+            dir={direction}
           >
             {t('run.preview.runnersNearby', { n: String(similarCount) })}
           </button>

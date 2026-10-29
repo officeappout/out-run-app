@@ -142,7 +142,7 @@ export default function ExerciseDetailView({
     // 375×812 MobileFrame in the admin editor. min-h-screen forced 100vh
     // (~900px) into an 812px frame, clipping the bottom of the preview
     // ("can't see the player"). h-full makes it size to its container.
-    <div className="w-full h-full bg-white dark:bg-zinc-900 shadow-2xl flex flex-col relative overflow-hidden" dir="rtl">
+    <div className="w-full h-full bg-white dark:bg-zinc-900 shadow-2xl flex flex-col relative overflow-hidden">
       {/* Hero Section - Video/Image Background (Fixed) */}
       <div className="relative w-full aspect-[9/10] overflow-hidden flex-shrink-0">
         {mainVideoUrl && !videoError ? (

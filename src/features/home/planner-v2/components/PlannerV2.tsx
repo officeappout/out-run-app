@@ -42,6 +42,7 @@ import PlannerDayDrawer from './PlannerDayDrawer';
 import PlannedSessionSheet from './PlannedSessionSheet';
 import type { ProgressWorkout } from '@/features/progression-hub/v2/utils/progress-model';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const NO_WORKOUTS: ProgressWorkout[] = [];
 
 export interface PlannerV2Props {
@@ -68,6 +69,7 @@ const todayKeyOf = () => {
 };
 
 export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStartWorkout }: PlannerV2Props) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const tc = useT(coach);
   const [view, setView] = useState<PlannerView>('icons');
@@ -134,7 +136,7 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
   );
 
   return (
-    <div dir="rtl" className="flex min-h-0 flex-1 flex-col font-simpler text-v2-ink">
+    <div dir={direction} className="flex min-h-0 flex-1 flex-col font-simpler text-v2-ink">
       <div className="flex-1 overflow-y-auto pb-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 24px))' }}>
         <div className="mx-auto w-full max-w-md">
           {/* Header */}

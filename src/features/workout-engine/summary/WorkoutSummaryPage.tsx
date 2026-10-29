@@ -18,6 +18,7 @@ import { useT } from '@/hooks/useT';
 import { summary } from '@/messages/ns/summary';
 import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface WorkoutSummaryPageProps {
   onFinish: () => void;
   workoutType?: WorkoutType;
@@ -28,6 +29,7 @@ export default function WorkoutSummaryPage({
   onFinish,
   workoutType = 'FREE_RUN',
 }: WorkoutSummaryPageProps) {
+  const { direction } = useUiDir();
   const router = useRouter();
   const t = useT(summary);
   const { totalDistance, totalDuration } = useSessionStore();
@@ -257,7 +259,7 @@ export default function WorkoutSummaryPage({
 
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className="fixed inset-0 z-[100] bg-gray-50 text-gray-900 flex flex-col h-[100dvh] overflow-hidden"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >

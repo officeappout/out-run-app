@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Award } from 'lucide-react';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * When true the component requests an actual lemur image. Until per-level
  * artwork is shipped, every stage points at /assets/lemur/king-lemur.png
@@ -97,13 +98,14 @@ export default function LemurAvatar({
  * EmptyStateLemur — shown when no parks/results are found.
  */
 export function EmptyStateLemur({ message }: { message?: string }) {
+  const { direction } = useUiDir();
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <div className="relative w-24 h-24 mb-4">
         <LemurAvatar level={1} size="large" className="opacity-50" />
       </div>
       {message && (
-        <p className="text-slate-600 font-medium font-simpler text-sm mt-2" dir="rtl">
+        <p className="text-slate-600 font-medium font-simpler text-sm mt-2" dir={direction}>
           {message}
         </p>
       )}

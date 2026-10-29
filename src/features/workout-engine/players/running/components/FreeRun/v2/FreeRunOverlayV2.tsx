@@ -39,6 +39,7 @@ import { commuteHeaderText } from '../../Commute/commute-format';
 import { useT } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface Props {
   dragControls: ReturnType<typeof useDragControls>;
   /** Reveal the laps list behind (TwoLayerShell). */
@@ -55,10 +56,11 @@ interface Props {
 }
 
 function Toast({ children, tone = 'dark' }: { children: React.ReactNode; tone?: 'dark' | 'good' }) {
+  const { direction } = useUiDir();
   return (
     <div className="absolute left-1/2 z-[55] -translate-x-1/2 pointer-events-none" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 112px)' }} role="status" aria-live="polite">
       <div
-        dir="rtl"
+        dir={direction}
         className={`inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-extrabold text-white ${tone === 'good' ? 'bg-v2-up' : 'bg-v2-ink'}`}
       >
         {children}

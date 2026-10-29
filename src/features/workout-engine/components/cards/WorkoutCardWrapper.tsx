@@ -43,10 +43,9 @@ export default function WorkoutCardWrapper({
         'rounded-lg',
         'shadow-sm',
         'overflow-hidden',
-        'text-right',
+        'text-start',
         className
       )}
-      dir="rtl"
     >
       {/* Status Color Bar (Right side in RTL) */}
       {statusColor && (

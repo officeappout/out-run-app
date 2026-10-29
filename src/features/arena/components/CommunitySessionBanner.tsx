@@ -24,6 +24,7 @@ import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { common } from '@/messages/ns/common';
 import { weekdayLabel } from '@/lib/i18n/units';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 type CommunityT = (key: NamespaceKey<typeof community>, values?: MessageValues) => string;
 
 // ── constants ─────────────────────────────────────────────────────────────────
@@ -126,6 +127,7 @@ export default function CommunitySessionBanner({
   onDropIn,
   isJoined = true,
 }: CommunitySessionBannerProps) {
+  const { direction } = useUiDir();
   const t       = useT(community);
   const tc      = useT(common);
   const router  = useRouter();
@@ -668,7 +670,7 @@ export default function CommunitySessionBanner({
   // ── render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div dir="rtl">
+    <div dir={direction}>
       <AnimatePresence mode="wait">
         <motion.div
           key={effectivePhase}

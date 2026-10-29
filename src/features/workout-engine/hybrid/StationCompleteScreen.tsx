@@ -22,6 +22,7 @@ import { formatApproxWalkMinutes } from './hybrid-intro-format';
 import type { PendingStationComplete } from './useHybridRun';
 import type { StationContext } from './station-flow';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const ACCENT = '#00ADEF';
 const CTA_GRADIENT = 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)';
 
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export default function StationCompleteScreen({ summary, context, onContinue, fastPrompt }: Props) {
+  const { direction } = useUiDir();
   const tc = useT(common);
   const t = useT(player);
   const [fastPromptState, setFastPromptState] = useState<'open' | 'accepted' | 'dismissed'>('open');
@@ -47,7 +49,7 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="absolute inset-0 flex flex-col items-center justify-center bg-white px-6"
       style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
-      dir="rtl"
+      dir={direction}
     >
       {/* Hero icon tile — IconTile's accent recipe (v2-tint / v2-deep, bold stroke) at hero size. */}
       <div className="w-20 h-20 mb-4 rounded-v2-card bg-v2-tint text-v2-deep flex items-center justify-center" aria-hidden>

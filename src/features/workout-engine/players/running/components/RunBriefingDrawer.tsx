@@ -14,6 +14,7 @@ import type RunWorkout from '../types/run-workout.type';
 import type { RunBlock } from '../types/run-block.type';
 import type { RunZoneType, RunnerProfileType } from '@/features/workout-engine/core/types/running.types';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const DRAWER_HEIGHT = '95vh';
 const CLOSE_THRESHOLD = 200;
 const PILL_BORDER = '0.5px solid #E0E9FF';
@@ -84,6 +85,7 @@ interface RunBriefingDrawerProps {
 export default function RunBriefingDrawer({
   isOpen, onClose, onGo, workout, isLoading,
 }: RunBriefingDrawerProps) {
+  const { direction } = useUiDir();
   const profile = useUserStore((s) => s.profile);
   const config = useRunningConfigStore((s) => s.config);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -181,7 +183,7 @@ export default function RunBriefingDrawer({
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '95vh', fontFamily: 'var(--font-simpler)', willChange: 'transform' }}
               className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-[32px] shadow-2xl overflow-hidden"
-              dir="rtl"
+              dir={direction}
             >
               {/* Drag Handle */}
               <div className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-1 pointer-events-none">
@@ -244,10 +246,10 @@ export default function RunBriefingDrawer({
                     <div className="bg-white -mt-12 relative z-10 px-4 pt-4 pb-8">
 
                       {/* ── Metadata pills (exact Strength parity) ── */}
-                      <div className="flex items-center gap-3 flex-wrap mb-4" dir="rtl">
+                      <div className="flex items-center gap-3 flex-wrap mb-4" dir={direction}>
                         {/* Difficulty pill — 3 bolt icons */}
                         <div className="flex-shrink-0 flex items-center gap-2 bg-white shadow-sm rounded-lg px-4 py-2"
-                          style={{ border: PILL_BORDER }} dir="rtl"
+                          style={{ border: PILL_BORDER }} dir={direction}
                         >
                           <div className="flex items-center gap-0.5">
                             {[1, 2, 3].map((n) => (
@@ -260,7 +262,7 @@ export default function RunBriefingDrawer({
                         {/* Duration pill — same SVG clock as Strength */}
                         {totalDuration > 0 && (
                           <div className="flex-shrink-0 flex items-center gap-2 bg-white shadow-sm rounded-lg px-4 py-2"
-                            style={{ border: PILL_BORDER }} dir="rtl"
+                            style={{ border: PILL_BORDER }} dir={direction}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 flex-shrink-0">
                               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
@@ -410,7 +412,7 @@ export default function RunBriefingDrawer({
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 260, mass: 0.8 }}
               className="fixed inset-x-0 bottom-0 top-8 z-[110] bg-white rounded-t-[28px] overflow-y-auto"
-              dir="rtl" style={{ fontFamily: 'var(--font-simpler)' }}
+              dir={direction} style={{ fontFamily: 'var(--font-simpler)' }}
             >
               <div className="flex items-center justify-between px-5 pt-5 pb-2 sticky top-0 bg-white z-10">
                 <button onClick={() => setActiveDrillBlock(null)}

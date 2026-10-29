@@ -5,7 +5,9 @@ import { useSessionStore } from '../../../core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '../../../core/utils/formatPace';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export default function RunDashboard() {
+  const { direction } = useUiDir();
   const { totalDistance, totalDuration, status } = useSessionStore();
   const { currentPace, laps } = useRunningPlayer();
   const [page, setPage] = useState(0); 
@@ -148,7 +150,7 @@ export default function RunDashboard() {
             animate={{ y: -120, opacity: 1 }} 
             exit={{ y: 100, opacity: 0 }}
             className="fixed inset-x-4 z-[100] bg-white rounded-2xl shadow-2xl p-4 border-2 border-[#FF6B00] flex items-center justify-between"
-            dir="rtl"
+            dir={direction}
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-[#FF6B00] rounded-full text-white flex items-center justify-center font-black">{lastLap.number}</div>

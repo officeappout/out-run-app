@@ -6,6 +6,7 @@ import type { CategoryConfig } from '../utils/group-details-logic';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface GroupHeroProps {
   v2: boolean;
   name: string;
@@ -17,6 +18,7 @@ interface GroupHeroProps {
 
 /** Cover image (or category gradient) — also the sheet's drag target + bounding box. */
 export default function GroupHero({ v2, name, coverImage, catConfig, dragControls, onClose }: GroupHeroProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   return (
     <div
@@ -63,7 +65,7 @@ export default function GroupHero({ v2, name, coverImage, catConfig, dragControl
             ? 'v2-glass-chip absolute bottom-14 right-4 flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold text-white'
             : 'absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full'
         }
-        dir="rtl"
+        dir={direction}
       >
         <span>{catConfig.icon}</span>
         <span>{catConfig.label}</span>

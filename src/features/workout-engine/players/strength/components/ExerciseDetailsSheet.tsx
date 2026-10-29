@@ -14,6 +14,7 @@ import CircularTimer from './CircularTimer';
 import FillingButton from './FillingButton';
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // Header height constant - must not be covered by drawer
 const HEADER_HEIGHT = 80;
 
@@ -50,6 +51,7 @@ export default function ExerciseDetailsSheet({
   isUnilateral = false,
   isSwapped,
 }: ExerciseDetailsSheetProps) {
+  const { direction } = useUiDir();
   // Card starts at 80% of screen height (showing only top 20% initially)
   const initialCardY = typeof window !== 'undefined' ? window.innerHeight * 0.8 : 640;
   const cardY = useMotionValue(initialCardY);
@@ -95,7 +97,7 @@ export default function ExerciseDetailsSheet({
       </div>
 
       {/* Scrollable Content */}
-      <div className="px-6 pb-10" dir="rtl">
+      <div className="px-6 pb-10" dir={direction}>
         {/* Exercise Title - Always at top */}
         <div className="pt-6 mb-6">
           <h2
@@ -195,7 +197,7 @@ export default function ExerciseDetailsSheet({
               >
                 דגשים
               </h3>
-              <ol className="space-y-2" dir="rtl">
+              <ol className="space-y-2" dir={direction}>
                 {executionSteps.map((step, index) => (
                   <li key={index} className="flex gap-3 items-start">
                     <span className="flex-shrink-0 w-6 h-6 rounded-full text-white text-sm font-bold flex items-center justify-center bg-cyan-500">

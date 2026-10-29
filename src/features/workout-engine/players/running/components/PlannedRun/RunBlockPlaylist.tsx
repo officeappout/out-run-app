@@ -10,6 +10,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import type { RunBlock } from '../../types/run-block.type';
 import type { RunZoneType, RunnerProfileType } from '@/features/workout-engine/core/types/running.types';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface RunBlockPlaylistProps {
   blocks: RunBlock[];
   currentBlockIndex: number;
@@ -33,6 +34,7 @@ export default function RunBlockPlaylist({
   currentBlockIndex,
   onJumpToBlock,
 }: RunBlockPlaylistProps) {
+  const { direction } = useUiDir();
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
   const [jumpTarget, setJumpTarget] = useState<number | null>(null);
@@ -93,7 +95,7 @@ export default function RunBlockPlaylist({
     <div
       ref={scrollRef}
       className="flex-1 overflow-y-auto bg-slate-50 pt-2 pb-32"
-      dir="rtl"
+      dir={direction}
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <h3 className="text-sm font-bold text-slate-700 px-4 mb-2">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}רשימת בלוקים</h3>
@@ -153,7 +155,7 @@ export default function RunBlockPlaylist({
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-2xl p-6 mx-6 shadow-2xl max-w-sm w-full text-center"
-              dir="rtl"
+              dir={direction}
             >
               <p className="text-base font-bold text-slate-900 mb-1">
                 {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}דלגו ל{blocks[jumpTarget]?.label}?

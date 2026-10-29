@@ -18,6 +18,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useDragControls } from 'framer-motion';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface PlayerShellApi {
   /** Pointer-down handler for drag handles (ignores presses that start on a button). */
   startDrag: (e: React.PointerEvent) => void;
@@ -38,6 +39,7 @@ export interface PlayerShellProps {
 }
 
 export default function PlayerShell({ open, onOpenChange, behind, mini, children, miniHeight = 72 }: PlayerShellProps) {
+  const { direction } = useUiDir();
   const [winH, setWinH] = useState(typeof window !== 'undefined' ? window.innerHeight : 812);
   const [safeBottom, setSafeBottom] = useState(0);
   const safeRef = useRef<HTMLDivElement>(null);
@@ -83,7 +85,7 @@ export default function PlayerShell({ open, onOpenChange, behind, mini, children
         dragConstraints={{ top: 0, bottom: open ? miniY + 120 : miniY }}
         dragElastic={0.12}
         onDragEnd={onDragEnd}
-        dir="rtl"
+        dir={direction}
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
         {open ? mini({ startDrag, height: miniHeight, safeBottom }) : children({ startDrag })}

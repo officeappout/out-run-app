@@ -13,6 +13,7 @@ import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import type { SnapDrawerState } from './useSnapDrawer';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface PlayerDrawerCompactProps {
   drawer: SnapDrawerState;
   title: string;
@@ -28,9 +29,10 @@ export interface PlayerDrawerCompactProps {
 }
 
 export default function PlayerDrawerCompact({ drawer, title, caption, value, unit, warn = false, action }: PlayerDrawerCompactProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   return (
-    <div dir="rtl" className="flex items-center gap-3" style={{ fontFamily: 'var(--font-simpler)' }} data-player-drawer-compact="">
+    <div dir={direction} className="flex items-center gap-3" style={{ fontFamily: 'var(--font-simpler)' }} data-player-drawer-compact="">
       <motion.button
         type="button"
         onPanStart={drawer.onPanStart}

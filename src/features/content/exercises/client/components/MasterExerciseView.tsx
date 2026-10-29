@@ -104,6 +104,7 @@ import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ── Difficulty trend icons (identical to ExerciseReplacementModal) ─────────
 const LEVEL_ICONS: Record<'lower' | 'same' | 'higher', { src: string; color: string }> = {
   lower:  { src: '/assets/icons/ui/level_down.svg', color: 'text-orange-500' },
@@ -305,6 +306,7 @@ function ProgressionChainRow({
   /** Present only when the active path has a progression map — absent → no "מפה מלאה" link. */
   onOpenProgressionMap?: () => void;
 }) {
+  const { direction } = useUiDir();
   const t = useT(library);
   const v2 = useContext(MevV2);
   // SAFETY GATE: only render when there is a real progression lineage
@@ -318,7 +320,7 @@ function ProgressionChainRow({
 
   if (v2) {
     return (
-      <section className="mb-6" dir="rtl">
+      <section className="mb-6" dir={direction}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="whitespace-nowrap text-right text-[17px] font-black text-v2-ink" style={SECTION_FONT}>
             {t('exercises.detail.chain.title')}
@@ -356,7 +358,7 @@ function ProgressionChainRow({
   }
 
   return (
-    <section className="mb-6" dir="rtl">
+    <section className="mb-6" dir={direction}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-right text-[16px] font-semibold text-slate-800" style={SECTION_FONT}>
           {t('exercises.detail.chain.title')}
@@ -401,6 +403,7 @@ export default function MasterExerciseView({
   onMethodChange,
   notice,
 }: MasterExerciseViewProps) {
+  const { direction } = useUiDir();
   const t = useT(library);
   // Equipment caches power the gear/equipment labels + icons.
   useEffect(() => {
@@ -799,7 +802,7 @@ export default function MasterExerciseView({
 
   return (
     <MevV2.Provider value={v2}>
-    <div dir="rtl" className={v2 ? 'bg-v2-surface' : undefined}>
+    <div dir={direction} className={v2 ? 'bg-v2-surface' : undefined}>
       {notice && (
         <div
           className={

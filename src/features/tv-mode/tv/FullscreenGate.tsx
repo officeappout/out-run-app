@@ -14,7 +14,7 @@ export default function FullscreenGate({ onStart }: { onStart: () => void }) {
   const t = useT(wide);
   const focusRef = useAutoFocus<HTMLButtonElement>();
   return (
-    <main dir="rtl" className={`fixed inset-0 grid place-items-center ${PAGE_BG}`}>
+    <main className={`fixed inset-0 grid place-items-center ${PAGE_BG}`}>
       <div className="flex flex-col items-center gap-[3vh] text-center">
         <h1 className="text-[4vw] font-black leading-tight">{t('pair.gate.title')}</h1>
         <button

@@ -164,7 +164,7 @@ function BadgeGridV2({ unlockedAchievements, onViewAll, maxVisible }: Required<O
   const locked = buildLockedBadges(unlockedAchievements, gender).slice(0, Math.max(0, maxVisible - visibleEarned.length));
 
   return (
-    <div dir="rtl">
+    <div>
       {earned.length === 0 && (
         <p className="mb-3 text-[12.5px] font-bold text-v2-muted">{t('achievements.badges.empty')}</p>
       )}
@@ -210,7 +210,6 @@ export function BadgeDisplay({
         type="button"
         onClick={onViewAll}
         className="w-full flex flex-col items-center gap-2 py-4 rounded-2xl border border-dashed border-gray-200 text-gray-400"
-        dir="rtl"
       >
         <Trophy className="w-7 h-7" />
         <p className="text-xs font-hebrew">{t('achievements.badges.empty')}</p>
@@ -219,7 +218,7 @@ export function BadgeDisplay({
   }
 
   return (
-    <div dir="rtl" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
       {visible.map((badge) => (
         <BadgePill key={`${badge.id}_${badge.tier ?? 'ot'}`} badge={badge} />
       ))}

@@ -27,6 +27,7 @@ import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import { getT } from '@/lib/i18n/t';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface RunShareBarProps {
   activityType: 'running' | 'walking';
   userLocation: { lat: number; lng: number } | null | undefined;
@@ -251,6 +252,7 @@ export default function RunShareBar({
   v2 = false,
   nowInvite,
 }: RunShareBarProps) {
+  const { direction } = useUiDir();
   const locale = useLocaleStore((s) => s.locale);
   const t = useT(player);
   const [busy,           setBusy]          = useState(false);
@@ -343,7 +345,7 @@ export default function RunShareBar({
     activityType === 'walking' ? 'הליכה חופשית' : 'ריצה חופשית'; // i18n-allow-hebrew: data — stored with the share (planned_sessions.workoutTitle)
 
   return (
-    <div className={`flex flex-col gap-3 ${className}`} dir="rtl">
+    <div className={`flex flex-col gap-3 ${className}`} dir={direction}>
       {/* Row 0 — Now / Later toggle */}
       <NowLaterToggle value={timing} onChange={handleTimingChange} v2={v2} />
 

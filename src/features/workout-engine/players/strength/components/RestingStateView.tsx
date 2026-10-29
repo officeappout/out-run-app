@@ -8,6 +8,7 @@ import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * RestingStateView — RESTING phase orchestrator.
  *
@@ -88,6 +89,7 @@ export default function RestingStateView({
   onDismissHint,
   onSwap,
 }: RestingStateViewProps) {
+  const { direction } = useUiDir();
   const videoKey = isLogDrawerOpen
     ? `current-${currentSegmentIndex}-${currentExerciseIndex}`
     : `next-${currentSegmentIndex}-${currentExerciseIndex}`;
@@ -126,7 +128,7 @@ export default function RestingStateView({
             transition={{ type: 'spring', damping: 22, stiffness: 300 }}
             className="absolute left-4 right-4 z-[60]"
             style={{ bottom: 'calc(env(safe-area-inset-bottom, 16px) + 160px)' }}
-            dir="rtl"
+            dir={direction}
           >
             {v2 ? (
             <div className="rounded-[20px] bg-white px-3.5 py-2.5 shadow-v2-card flex items-center gap-2.5">

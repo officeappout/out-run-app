@@ -4,6 +4,7 @@ import { MapPin } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface GroupLocationCardProps {
   hasCoords: unknown;
   destLat: number;
@@ -22,6 +23,7 @@ interface GroupLocationCardProps {
  * military group with nothing visible gets a reason instead of silence.
  */
 export default function GroupLocationCard({ hasCoords, destLat, destLng, destAddress, staticMapUrl, isMilitaryGroup, onOpen }: GroupLocationCardProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   return hasCoords ? (
     <button
@@ -39,7 +41,7 @@ export default function GroupLocationCard({ hasCoords, destLat, destLng, destAdd
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-3" dir="rtl">
+      <div className="absolute bottom-0 left-0 right-0 p-3" dir={direction}>
         <span className="text-xs font-bold text-white truncate block max-w-[80%]">
           {destAddress || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
         </span>

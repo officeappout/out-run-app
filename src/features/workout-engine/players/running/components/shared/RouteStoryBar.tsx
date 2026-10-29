@@ -28,6 +28,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { easeFillTowards } from './route-story-bar-ease';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface RouteStoryBarProps {
   /** 0–1, clamped by useSessionGoalProgress before it reaches here. */
   progress: number;
@@ -86,6 +87,7 @@ export default function RouteStoryBar({
   onMap = false,
   allowOverflow = false,
 }: RouteStoryBarProps) {
+  const { direction } = useUiDir();
   // Inject shimmer keyframes on first mount (client-only).
   useEffect(() => { ensureShimmerKeyframes(); }, []);
 
@@ -151,7 +153,7 @@ export default function RouteStoryBar({
     <div
       className="w-full px-5 pt-3 pb-2"
       style={{ fontFamily: 'var(--font-simpler)' }}
-      dir="rtl"
+      dir={direction}
     >
       {/* Stats row — Hebrew label on the right (RTL start), numeric
           "current / target unit" on the left (RTL end). The value is

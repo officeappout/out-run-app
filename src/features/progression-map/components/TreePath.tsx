@@ -55,6 +55,7 @@ import type { SkillTreeData, SkillTreeRung } from '../core/types';
 import { useT } from '@/hooks/useT';
 import { profile } from '@/messages/ns/profile';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const PATH_COLOR = '#20C6D6';
 const PATH_STROKE_WIDTH = 2;
 const PATH_DASH = '6 6';
@@ -81,6 +82,7 @@ function isAboveCurrentLevel(rung: SkillTreeRung, tree: SkillTreeData, currentLe
 }
 
 function GapPill({ fromLevel, toLevel, v2 = false }: { fromLevel: number; toLevel: number; v2?: boolean }) {
+  const { direction } = useUiDir();
   const t = useT(profile);
   const label =
     fromLevel === toLevel
@@ -88,7 +90,7 @@ function GapPill({ fromLevel, toLevel, v2 = false }: { fromLevel: number; toLeve
       : t('skillTree.gap.range', { from: fromLevel, to: toLevel });
   if (v2) {
     return (
-      <div className="whitespace-nowrap rounded-full bg-white px-3 py-1 text-[11px] font-bold text-v2-muted shadow-v2-ring" dir="rtl">
+      <div className="whitespace-nowrap rounded-full bg-white px-3 py-1 text-[11px] font-bold text-v2-muted shadow-v2-ring" dir={direction}>
         {label}
       </div>
     );
@@ -96,7 +98,7 @@ function GapPill({ fromLevel, toLevel, v2 = false }: { fromLevel: number; toLeve
   return (
     <div
       className="bg-slate-100 text-slate-400 text-[11px] font-semibold rounded-full px-3 py-1 whitespace-nowrap"
-      dir="rtl"
+      dir={direction}
     >
       {label}
     </div>

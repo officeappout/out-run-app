@@ -6,6 +6,7 @@ import type { LiveSessionPhase } from '@/types/community.types';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface GroupLiveBannerProps {
   session: UpcomingSession;
   isJoined: boolean | undefined;
@@ -24,6 +25,7 @@ interface GroupLiveBannerProps {
  * muted "active · members/residents only" line.
  */
 export default function GroupLiveBanner({ session, isJoined, canDropIn, isCityOnly, destAddress, onClose, onDropIn, onLivePhaseChange }: GroupLiveBannerProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   return isJoined ? (
     <CommunitySessionBanner
@@ -43,7 +45,7 @@ export default function GroupLiveBanner({ session, isJoined, canDropIn, isCityOn
       onDevPhaseChange={(phase) => onLivePhaseChange?.(session.groupId, phase)}
     />
   ) : (
-    <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs font-bold" dir="rtl">
+    <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs font-bold" dir={direction}>
       <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
       <span>
         {isCityOnly

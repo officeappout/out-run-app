@@ -19,6 +19,7 @@ import {
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const W = 350;
 const H = 40;
 const CARDIO = '#65a30d';
@@ -35,6 +36,7 @@ export interface RouteElevationAheadProps {
 }
 
 export default function RouteElevationAhead({ samples, alongM, totalM, className = '' }: RouteElevationAheadProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const geo = useMemo(
     () => (samples ? buildElevationStrip(samples, alongM, totalM, { width: W, height: H }) : null),
@@ -52,7 +54,7 @@ export default function RouteElevationAhead({ samples, alongM, totalM, className
   const label = climbLabel(climb);
 
   return (
-    <div dir="rtl" className={className} aria-label={t('run.elevationAhead.aria')}>
+    <div dir={direction} className={className} aria-label={t('run.elevationAhead.aria')}>
       <div className="mb-1 flex items-center justify-between gap-3 text-[12px] font-extrabold text-v2-muted">
         <span className="whitespace-nowrap tabular-nums">
           {t('run.elevationAhead.progress', { done: doneKm.toFixed(1), total: (totalM / 1000).toFixed(1) })}

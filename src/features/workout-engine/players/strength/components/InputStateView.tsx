@@ -8,6 +8,7 @@ import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * InputStateView — Big-Screen INPUT phase.
  *
@@ -91,6 +92,7 @@ export default function InputStateView({
   onVideoProgress,
   onSave,
 }: InputStateViewProps) {
+  const { direction } = useUiDir();
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
   const t = useT(player);
@@ -120,7 +122,7 @@ export default function InputStateView({
         className={v2
           ? 'absolute inset-x-0 bottom-0 z-20 bg-white rounded-t-[28px] shadow-v2-sheet px-5 pt-4'
           : 'absolute inset-x-0 bottom-0 z-20 bg-white dark:bg-slate-900 rounded-t-[28px] shadow-2xl px-5 pt-4'}
-        dir="rtl"
+        dir={direction}
         style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
       >
         {/* Drag handle */}

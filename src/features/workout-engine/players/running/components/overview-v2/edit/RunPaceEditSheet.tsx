@@ -18,6 +18,7 @@ import {
 import { useT } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface RunPaceEditSheetProps {
   target: PaceEditTarget | null;
   /** The target's colour (the reps' red, the warm-up's green) for the range on the bar. */
@@ -35,6 +36,7 @@ const WARN_KEY = {
 const STEP_BTN = 'h-12 w-16 whitespace-nowrap rounded-2xl bg-white text-[15px] font-black text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]';
 
 export default function RunPaceEditSheet({ target, color = '#e5484d', onSave, onClose }: RunPaceEditSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const [draft, setDraft] = useState<PaceBand | null>(target?.current ?? null);
   const key = target?.key ?? null;
@@ -84,7 +86,7 @@ export default function RunPaceEditSheet({ target, color = '#e5484d', onSave, on
       ) : undefined}
     >
       {target && draft && range && bar && (
-        <div dir="rtl">
+        <div dir={direction}>
           <div className="mt-[18px] flex items-center justify-between gap-2.5">
             <button type="button" dir="ltr" aria-label={t('run.overview.pace.fasterAria')} className={STEP_BTN}
               onClick={() => setDraft((d) => (d ? shiftBand(d, -PACE_STEP_SEC) : d))}>−5″</button>

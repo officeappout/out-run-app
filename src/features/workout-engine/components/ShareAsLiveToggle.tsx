@@ -21,6 +21,7 @@ import TrainingHereSheet from '@/features/parks/client/components/training-here/
 import type { TrainingHerePlace } from '@/features/parks/client/components/training-here/training-here.logic';
 import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * ShareAsLiveToggle — single-source-of-truth "Share that I'm working out" toggle.
  *
@@ -137,6 +138,7 @@ export default function ShareAsLiveToggle({
   v2 = false,
   trainingHere,
 }: ShareAsLiveToggleProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const profile = useUserStore((s) => s.profile);
   const storedGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
@@ -280,7 +282,7 @@ export default function ShareAsLiveToggle({
     // below the 11px floor), and the drawer's own accent toggle instead of the
     // off-brand teal one.
     return (
-      <div className={`flex items-center gap-3 ${className}`} dir="rtl">
+      <div className={`flex items-center gap-3 ${className}`} dir={direction}>
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-v2-tint text-v2-deep">
           <Users size={18} strokeWidth={2.4} />
         </span>
@@ -306,7 +308,7 @@ export default function ShareAsLiveToggle({
   }
 
   return (
-    <div className={`flex items-center gap-3 ${className}`} dir="rtl">
+    <div className={`flex items-center gap-3 ${className}`} dir={direction}>
       <Users size={16} color="#00ADEF" className="flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="text-xs font-bold text-gray-900 dark:text-white leading-tight">

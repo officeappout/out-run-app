@@ -26,7 +26,7 @@ export default function TvStageAdapter({ model, banner, audio }: { model: WideSt
   );
   return (
     <WidePlayerProvider value={layout}>
-      <main dir="rtl" className={`fixed inset-0 ${PAGE_BG}`} aria-live="off">
+      <main className={`fixed inset-0 ${PAGE_BG}`} aria-live="off">
         <WideSplit
           media={<TvMediaStage media={model.media} paused={model.paused} />}
           panel={<TvStagePanel model={model} />}

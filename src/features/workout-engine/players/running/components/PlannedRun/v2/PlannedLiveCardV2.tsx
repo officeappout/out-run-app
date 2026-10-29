@@ -40,6 +40,7 @@ import {
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface PlannedLiveCardV2Props {
   engine: PlannedRunEngine;
   blocks: RunBlock[];
@@ -141,6 +142,7 @@ export default function PlannedLiveCardV2({
   onEnd,
   onLap,
 }: PlannedLiveCardV2Props) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const [page, setPage] = useState(0);
   const [lapToast, setLapToast] = useState<string | null>(null);
@@ -373,7 +375,7 @@ export default function PlannedLiveCardV2({
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="w-full rounded-[30px] bg-white px-[18px] pb-3.5 pt-3.5 shadow-v2-float" dir="rtl">
+      <div className="w-full rounded-[30px] bg-white px-[18px] pb-3.5 pt-3.5 shadow-v2-float" dir={direction}>
         <motion.div
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}

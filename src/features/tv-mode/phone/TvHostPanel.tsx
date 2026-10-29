@@ -30,7 +30,7 @@ export default function TvHostPanel({ session, participants }: { session: TvSess
   };
 
   return (
-    <div dir="rtl" className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="dialog" aria-modal="true" aria-label={t('remote.host.title')}>
+    <div className={`fixed inset-0 z-[101] flex flex-col overflow-y-auto ${PAGE_BG}`} role="dialog" aria-modal="true" aria-label={t('remote.host.title')}>
       <div className="flex items-center gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-extrabold text-[#0284c7]">{t('remote.host.eyebrow')}</div>

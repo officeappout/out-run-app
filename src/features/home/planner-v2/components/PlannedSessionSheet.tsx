@@ -22,6 +22,7 @@ import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { useShownPlannedTime } from '../hooks/useShownPlannedTime';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface PlannedSessionSheetProps {
   /** null = closed. */
   session: WbSession<PlannerWbData> | null;
@@ -41,6 +42,7 @@ type ProfileLike = {
 };
 
 export default function PlannedSessionSheet({ session, iso, isPast, userId, onClose, onSaved, onMove, onOpenWorkout }: PlannedSessionSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const shownTime = useShownPlannedTime();
   const lifestyle = useUserStore((s) => (s.profile as ProfileLike | null)?.lifestyle);
@@ -80,7 +82,7 @@ export default function PlannedSessionSheet({ session, iso, isPast, userId, onCl
   return (
     <Sheet open={!!session} onClose={onClose} title={session?.titleHe ?? ''} zIndex={SHEET_Z.agendaDeletePanel} backdropZIndex={SHEET_Z.agendaDelete} closeLabel={t('plannerV2.close')}>
       {session && (
-        <div dir="rtl" className="flex flex-col gap-4 px-5 pb-2">
+        <div dir={direction} className="flex flex-col gap-4 px-5 pb-2">
           {session.detailHe && <p className="-mt-2 text-[14px] font-bold text-v2-muted">{session.detailHe}</p>}
 
           <div>

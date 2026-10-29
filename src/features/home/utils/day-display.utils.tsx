@@ -24,6 +24,7 @@ import { common } from '@/messages/ns/common';
 import { flameTierSize, type FlameTier } from '@/components/ui/v2/tokens';
 import { FlameTierWrap } from '../components/FlameTierWrap';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** The `home` translator a caller passes to the pure label helpers below (useT(home) / makeT('he', home)). */
 export type DayDisplayT = (key: HomeKey, values?: MessageValues) => string;
 
@@ -1099,6 +1100,7 @@ export function earnedTones(props: DayDisplayProps): FlameTone[] {
 }
 
 function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: number }) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const tc = useT(common);
   const isToday = props.state === 'today';
@@ -1122,7 +1124,7 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
     return (
       <div
         className="relative flex items-center justify-center"
-        dir="rtl"
+        dir={direction}
         style={{ width: sizePx, height: sizePx }}
         {...(tier ? { role: 'img', 'aria-label': tc(`flame.level.${tier}`) } : {})}
       >
@@ -1167,7 +1169,7 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
     return (
       <div
         className="flex items-center justify-center"
-        dir="rtl"
+        dir={direction}
         style={{
           width: sizePx,
           height: sizePx,
@@ -1186,7 +1188,7 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
   return (
     <div
       className="flex items-center justify-center"
-      dir="rtl"
+      dir={direction}
       aria-label={t('dayDisplay.restAria')}
       style={{ width: sizePx, height: sizePx, borderRadius: 14, boxShadow: isToday ? '0 0 0 2px #e6edf2' : undefined }}
     >
@@ -1209,6 +1211,7 @@ export function DayIconCell({ props, hideDots = false, sizeOverride, activityRin
 }
 
 function DayIconCellV1({ props, hideDots = false, sizeOverride, activityRing, ringSizePx }: DayIconCellProps) {
+  const { direction } = useUiDir();
   const { container, icon, state, sessions, dots } = props;
   const isToday = state === 'today';
   const containerSize = sizeOverride?.sizePx ?? CONTAINER_SIZE_PX;
@@ -1251,7 +1254,7 @@ function DayIconCellV1({ props, hideDots = false, sizeOverride, activityRing, ri
   // stable whether or not the activity view is active.
   if (activityRing) {
     return (
-      <div className="flex items-center justify-center" dir="rtl">
+      <div className="flex items-center justify-center" dir={direction}>
         <ActivityDayRing ring={activityRing} sizePx={ringSizePx ?? 40} isToday={isToday} />
       </div>
     );
@@ -1260,7 +1263,7 @@ function DayIconCellV1({ props, hideDots = false, sizeOverride, activityRing, ri
   return (
     <div
       className="flex flex-col items-center justify-center"
-      dir="rtl"
+      dir={direction}
       style={sizeOverride ? {
         width: sizeOverride.sizePx,
         height: sizeOverride.sizePx,

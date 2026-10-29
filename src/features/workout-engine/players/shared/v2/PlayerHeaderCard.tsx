@@ -10,6 +10,7 @@
 
 import React from 'react';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface PlayerHeaderCardProps {
   leading?: React.ReactNode;
   eyebrow: string;
@@ -23,9 +24,10 @@ export interface PlayerHeaderCardProps {
 }
 
 export default function PlayerHeaderCard({ leading, eyebrow, eyebrowColor = '#0284c7', title, trailing, strip, onPointerDown }: PlayerHeaderCardProps) {
+  const { direction } = useUiDir();
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className="pointer-events-auto rounded-[22px] bg-white/95 px-3.5 py-3 shadow-v2-float"
       style={{ touchAction: 'none', fontFamily: 'var(--font-simpler)' }}
       onPointerDown={onPointerDown}

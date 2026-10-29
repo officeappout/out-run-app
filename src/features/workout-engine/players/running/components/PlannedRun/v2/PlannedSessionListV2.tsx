@@ -33,6 +33,7 @@ import {
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface Props {
   title: string;
   blocks: RunBlock[];
@@ -64,6 +65,7 @@ export default function PlannedSessionListV2({
   onJumpToBlock,
   onClose,
 }: Props) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const [jumpTarget, setJumpTarget] = useState<number | null>(null);
   const sections = planSections(blocks);
@@ -186,7 +188,7 @@ export default function PlannedSessionListV2({
   const blocksMeta = (n: number) => t('run.session.blocksMeta', { n });
 
   return (
-    <div className="h-full overflow-y-auto bg-v2-surface px-4 pb-32" dir="rtl" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
+    <div className="h-full overflow-y-auto bg-v2-surface px-4 pb-32" dir={direction} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="truncate text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('run.session.title')}</h2>
@@ -257,7 +259,7 @@ export default function PlannedSessionListV2({
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-v2-card bg-white p-5 text-center shadow-v2-card"
-              dir="rtl"
+              dir={direction}
             >
               <p className="text-[17px] font-black text-v2-ink">
                 {t('run.session.jump.title', {

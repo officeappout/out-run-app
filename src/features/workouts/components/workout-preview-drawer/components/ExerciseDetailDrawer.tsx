@@ -26,6 +26,7 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface ExerciseDetailDrawerProps {
   /** The exercise to render, or `null` when the sheet should be closed. */
   detailExercise: EngineWorkoutExercise | null;
@@ -47,6 +48,7 @@ function ExerciseDetailDrawerImpl({
   onDismiss,
   onMethodChange,
 }: ExerciseDetailDrawerProps) {
+  const { direction } = useUiDir();
   const router = useRouter();
   const t = useT(library);
   // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
@@ -155,7 +157,7 @@ function ExerciseDetailDrawerImpl({
             transition={{ type: 'spring', damping: 36, stiffness: 320, mass: 0.7 }}
             className="fixed bottom-0 left-0 right-0 z-[200] bg-white dark:bg-slate-900 shadow-2xl rounded-t-[24px] flex flex-col overflow-hidden"
             style={{ y, opacity, height: '95vh', fontFamily: 'var(--font-simpler)' }}
-            dir="rtl"
+            dir={direction}
           >
             {/* Drag handle pill — starts the framer drag via dragControls */}
             <div

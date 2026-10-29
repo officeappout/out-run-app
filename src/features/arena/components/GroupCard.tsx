@@ -17,6 +17,7 @@ import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { common } from '@/messages/ns/common';
 import { weekdayLabel } from '@/lib/i18n/units';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 type CommunityT = (key: NamespaceKey<typeof community>, values?: MessageValues) => string;
 
 // Labels: community.json `groupCard.category` (select on the category id).
@@ -84,6 +85,7 @@ export default function GroupCard({
   onCardClick,
   onOpenChat,
 }: GroupCardProps) {
+  const { direction } = useUiDir();
   const t = useT(community);
   const tc = useT(common);
   const catConfig = CATEGORY_CONFIG[group.category];
@@ -140,7 +142,7 @@ export default function GroupCard({
     return (
       <div
         className="w-[148px] flex-shrink-0 bg-white dark:bg-slate-900 rounded-2xl shadow-md shadow-black/5 overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
-        dir="rtl"
+        dir={direction}
         onClick={onCardClick}
       >
         <div className="relative h-24 overflow-hidden">
@@ -261,7 +263,7 @@ export default function GroupCard({
   return (
     <div
       className="bg-white dark:bg-slate-900 rounded-2xl shadow-md shadow-black/5 dark:shadow-black/20 overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
-      dir="rtl"
+      dir={direction}
       onClick={onCardClick}
     >
       {/* ── Cover banner ──────────────────────────────────── */}

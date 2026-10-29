@@ -239,7 +239,6 @@ export function AchievementSheet({ isOpen, onClose, unlockedAchievements, v2 = f
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 35 }}
             className="fixed bottom-0 inset-x-0 z-[99] bg-background-light rounded-t-3xl shadow-drawer max-h-[92dvh] flex flex-col"
-            dir="rtl"
           >
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1 shrink-0">

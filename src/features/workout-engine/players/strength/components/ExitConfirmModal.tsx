@@ -7,6 +7,7 @@ import { hapticWarning } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * ExitConfirmModal — early-exit confirmation dialog.
  *
@@ -39,6 +40,7 @@ export interface ExitConfirmModalProps {
 }
 
 export default function ExitConfirmModal({ isOpen, onDismiss, onExit, onDiscard }: ExitConfirmModalProps) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   useEffect(() => {
@@ -73,7 +75,7 @@ export default function ExitConfirmModal({ isOpen, onDismiss, onExit, onDiscard 
             exit={{ scale: 0.85, opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 22, stiffness: 300 }}
             className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
-            dir="rtl"
+            dir={direction}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-14 h-14 mx-auto mb-5 rounded-full border-2 border-orange-400 flex items-center justify-center">

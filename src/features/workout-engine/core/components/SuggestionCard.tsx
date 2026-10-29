@@ -28,6 +28,7 @@ import { withUnit } from '@/lib/i18n/units';
 import DifficultyBolts from '../../components/DifficultyBolts';
 import type { Suggestion } from '../types/suggestion.types';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const BRAND = '#00ADEF';
 
 interface SuggestionCardProps {
@@ -44,12 +45,13 @@ interface SuggestionCardProps {
 }
 
 export function SuggestionCard({ suggestion, onStart, isStarting, ctaLabel }: SuggestionCardProps) {
+  const { direction } = useUiDir();
   const tc = useT(common);
   const t = useT(player);
   return (
     <div className="h-full w-full flex items-center justify-center">
       <div
-        dir="rtl"
+        dir={direction}
         className="w-full bg-white rounded-3xl p-5 shadow-[0_10px_28px_rgba(0,0,0,0.14)]"
       >
         <div>

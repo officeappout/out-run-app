@@ -53,6 +53,7 @@ import LongPressCircleButton from '../shared/LongPressCircleButton';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const LAP_TOAST_MS = 1800;
 
 // Light-theme palette consistent with SessionControlBar / PlannedRun.
@@ -66,6 +67,7 @@ const STOP_COLOR = '#EF4444';  // destructive red
 const STOP_HOLD_SECONDS = 0.7;
 
 export default function WorkoutControlCluster() {
+  const { direction } = useUiDir();
   const t = useT(player);
   const status = useSessionStore((s) => s.status);
   const pauseSession = useSessionStore((s) => s.pauseSession);
@@ -158,7 +160,7 @@ export default function WorkoutControlCluster() {
       */}
       <div
         className="absolute left-0 right-0 z-50 flex items-center justify-between px-[18px] pointer-events-auto"
-        dir="rtl"
+        dir={direction}
         style={{ bottom: 'var(--session-bar-clearance, 88px)' }}
       >
         {isPaused ? (

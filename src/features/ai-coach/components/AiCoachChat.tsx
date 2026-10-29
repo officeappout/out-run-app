@@ -213,7 +213,7 @@ export default function AiCoachChat({
   return (
     // Always LIGHT (owner): pinned text color + color-scheme so an OS dark mode (globals.css
     // flips --foreground to near-white) never leaks into the screen, its inputs or scrollbars.
-    <div className="kb-fit fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC] text-gray-900" style={{ colorScheme: 'light' }} dir="rtl">
+    <div className="kb-fit fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC] text-gray-900" style={{ colorScheme: 'light' }}>
       {/* Header */}
       <div
         className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 pb-3"
@@ -426,7 +426,7 @@ export default function AiCoachChat({
 
       {/* Entry step 2: ready chips (shown until the first send of this visit). */}
       {starterChips && starterChips.length > 0 && !starterUsed && !busy && !teamMode && (
-        <div className="flex flex-wrap gap-2 px-4 pb-2" dir="rtl">
+        <div className="flex flex-wrap gap-2 px-4 pb-2">
           {starterChips.map((q) => (
             <button
               key={q}

@@ -35,6 +35,7 @@ import {
 } from './station-tutorial';
 import type { AppGender } from '@/lib/utils/gendered-text';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** The same lucide icons the chips / player use — the coach-mark legend shows them, not emoji. */
 const TUTORIAL_ICON: Record<StationTutorialIcon, { icon: LucideIcon; tone: 'accent' | 'neutral' }> = {
   time: { icon: Timer, tone: 'accent' },
@@ -64,6 +65,7 @@ interface Props {
 }
 
 export default function StationWelcomeScreen({ plan, context, gender, onStart, guided, uid, oneBubbleStyle = false }: Props) {
+  const { direction } = useUiDir();
   const tc = useT(common);
   const t = useT(player);
   // PR-B4: first-time tutorial — resolved async (native cold start may have evicted localStorage).
@@ -91,7 +93,7 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart, g
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="absolute inset-0 flex flex-col bg-white"
-      dir="rtl"
+      dir={direction}
     >
       <div
         className="flex-1 overflow-y-auto px-5"

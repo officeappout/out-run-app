@@ -460,7 +460,6 @@ export default function StrengthDopamineScreen({
   return (
     <div 
       className="fixed inset-0 z-[100] w-full h-full bg-white dark:bg-card-dark flex flex-col overflow-hidden"
-      dir="rtl"
     >
       {/* Main Content */}
       {/* Full-screen: clear the status bar / notch.

@@ -16,6 +16,7 @@ import { home } from '@/messages/ns/home';
 import { weekProgress } from '../lib/weekSummary';
 import PlannerWeekRows from './PlannerWeekRows';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface PlannerWeekSectionProps {
   userId: string;
   state: PlannerWeekState;
@@ -30,12 +31,13 @@ export interface PlannerWeekSectionProps {
 }
 
 export default function PlannerWeekSection(p: PlannerWeekSectionProps) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const range = weekRangeHe(p.state.keys);
   const model = p.state.status === 'ready' ? p.state.model : null;
   const progress = model ? weekProgress(model.week) : null;
   return (
-    <section dir="rtl" aria-label={p.isCurrentWeek ? t('plannerV2.week.this') : t('plannerV2.week.other', { range })}>
+    <section dir={direction} aria-label={p.isCurrentWeek ? t('plannerV2.week.this') : t('plannerV2.week.other', { range })}>
       <div className="flex items-end justify-between gap-2.5 px-5 pb-2.5 pt-5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

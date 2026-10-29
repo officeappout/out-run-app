@@ -32,6 +32,7 @@ import { isWalkingLeg } from '../park-live-v2';
 import ParkWalkDrawer from './park/ParkWalkDrawer';
 import ParkMessageRow from './park/ParkMessageRow';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface Props {
   dragControls: ReturnType<typeof useDragControls>;
   /** Reveal the session list behind (TwoLayerShell). */
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
+  const { direction } = useUiDir();
   const t = useT(player);
   const api = useHybridPlayerV2();
   const totalDuration = useSessionStore((s) => s.totalDuration);
@@ -91,11 +93,11 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
       </div>
 
       {parkWalk ? (
-        <div ref={chrome.cardRef} className="absolute inset-x-0 bottom-0 z-10" dir="rtl">
+        <div ref={chrome.cardRef} className="absolute inset-x-0 bottom-0 z-10" dir={direction}>
           <ParkWalkDrawer api={api} onOpenList={onMinimize} />
         </div>
       ) : (
-      <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }} dir="rtl">
+      <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }} dir={direction}>
         {view.phase === 'transition' ? (
           <HybridTransitionCardV2 api={api} />
         ) : view.phase === 'run' || view.phase === 'cooldown' || view.phase === 'idle' ? (

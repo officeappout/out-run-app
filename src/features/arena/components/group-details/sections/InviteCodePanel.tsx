@@ -5,6 +5,7 @@ import { APP_ORIGIN_FALLBACK } from '../utils/group-details-logic';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * Invite code panel — private group members / creator. The code is fetched
  * on demand (useGroupInviteCode); the caller renders this only once it exists.
@@ -21,9 +22,10 @@ export default function InviteCodePanel({
   inviteCopied: boolean;
   setInviteCopied: (copied: boolean) => void;
 }) {
+  const { direction } = useUiDir();
   const t = useT(community);
   return (
-    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/40 space-y-3" dir="rtl">
+    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/40 space-y-3" dir={direction}>
       <div className="flex items-center gap-1.5">
         <Lock className="w-3.5 h-3.5 text-gray-400" />
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t('group.invite.title')}</p>

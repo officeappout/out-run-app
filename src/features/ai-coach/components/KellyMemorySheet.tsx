@@ -46,7 +46,7 @@ export default function KellyMemorySheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end bg-black/30" dir="rtl" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end bg-black/30" onClick={onClose}>
       <div
         className="max-h-[80vh] w-full overflow-y-auto rounded-t-3xl bg-white px-5 pt-4 text-gray-900"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)', colorScheme: 'light' }}

@@ -20,6 +20,7 @@ import {
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { FindScreen, FindItem } from '../logic/find-equipment';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 function EquipmentIcon({ id, size }: { id: string; size: number }) {
   const src = resolveEquipmentSvgPathList(id, 'park')[0] ?? null;
   return src ? (
@@ -59,6 +60,7 @@ interface Props {
 }
 
 export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap, showPhoto = false }: Props) {
+  const { direction } = useUiDir();
   const t = useT(player);
   // The gender prop is the caller's (g() semantics: unset = male); passed explicitly so it overrides the injected one.
   const gv = gender ?? 'male';
@@ -71,7 +73,7 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap, 
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
       className="absolute inset-0 z-[44] flex flex-col bg-white dark:bg-slate-950"
-      dir="rtl"
+      dir={direction}
     >
       <div
         className="flex-1 overflow-y-auto px-5"

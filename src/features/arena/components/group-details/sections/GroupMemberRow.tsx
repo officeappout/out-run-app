@@ -6,6 +6,7 @@ import { memberInitials, type memberPermissions } from '../utils/group-details-l
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface GroupMemberRowProps {
   member: GroupMember;
   permissions: ReturnType<typeof memberPermissions>;
@@ -19,6 +20,7 @@ interface GroupMemberRowProps {
 
 /** One roster row; tapping it (when the viewer has actions) opens the inline action panel. */
 export default function GroupMemberRow({ member, permissions, isExpanded, onToggle, pending, onToggleAdmin, onRemove }: GroupMemberRowProps) {
+  const { direction } = useUiDir();
   const { isGroupCreator, isGroupAdminMember, canPromote, canDemote, canRemove, hasActions } = permissions;
   const t = useT(community);
   const initials = memberInitials(member.name);
@@ -58,7 +60,7 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
 
       {/* Inline action panel */}
       {isExpanded && (
-        <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1" dir="rtl">
+        <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1" dir={direction}>
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
             {t('group.members.actions', { name: member.name })}
           </p>
