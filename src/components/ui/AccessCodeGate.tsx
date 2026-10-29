@@ -104,7 +104,6 @@ export default function AccessCodeGate({
 
   return (
     <div
-      dir="rtl"
       className={`rounded-2xl border ${compact ? 'p-4' : 'p-5'} bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-sm`}
     >
       <div className="flex items-center gap-2 mb-3">

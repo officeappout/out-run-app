@@ -19,6 +19,7 @@ import { IconTile, StatNumber } from '@/components/ui/v2';
 import { useT } from '@/hooks/useT';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface StepsSummaryCardViewProps {
   variant: 'default' | 'compact';
@@ -63,6 +64,7 @@ export default function StepsSummaryCardView({
   onOpen: handleOpen,
   thickRing = false,
 }: StepsSummaryCardViewProps) {
+  const { direction } = useUiDir();
   const t = useT(home);
   if (variant === 'compact') {
     return (
@@ -70,7 +72,7 @@ export default function StepsSummaryCardView({
         type="button"
         onClick={handleOpen}
         aria-label={ariaLabel}
-        dir="rtl"
+        dir={direction}
         className={[
           'w-full h-full text-center p-4',
           CARD,
@@ -87,7 +89,7 @@ export default function StepsSummaryCardView({
         >
           <div className="flex flex-col items-center leading-none" dir="ltr">
             <Count steps={steps} displaySteps={displaySteps} size="sm" />
-            <span className="text-[10px] font-semibold text-v2-muted mt-1" dir="rtl">
+            <span className="text-[10px] font-semibold text-v2-muted mt-1" dir={direction}>
               {connectPromptLabel ?? t('steps.ofGoal', { goal: formatNumber(goal, t.locale) })}
             </span>
           </div>
@@ -101,7 +103,7 @@ export default function StepsSummaryCardView({
       type="button"
       onClick={handleOpen}
       aria-label={ariaLabel}
-      dir="rtl"
+      dir={direction}
       className={[
         'w-full text-start px-4 py-4',
         CARD,

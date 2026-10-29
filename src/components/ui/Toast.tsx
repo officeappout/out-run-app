@@ -56,7 +56,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 ? <Check className="w-4 h-4 flex-shrink-0" />
                 : <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               }
-              <p className="text-sm font-bold" dir="rtl">{t.text}</p>
+              <p className="text-sm font-bold">{t.text}</p>
             </motion.div>
           ))}
         </AnimatePresence>

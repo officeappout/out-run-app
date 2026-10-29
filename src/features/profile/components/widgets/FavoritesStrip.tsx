@@ -77,7 +77,7 @@ export default function FavoritesStrip() {
 
   if (allFavs.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100" dir="rtl">
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
         <div className="flex items-center gap-2 mb-3">
           <Heart className="w-4 h-4 text-[#00ADEF]" />
           <h3 className="text-sm font-black text-gray-900">אימונים שמורים</h3>
@@ -92,7 +92,7 @@ export default function FavoritesStrip() {
   }
 
   return (
-    <div dir="rtl">
+    <div>
       <div className="flex items-center justify-between mb-3 px-0.5">
         <div className="flex items-center gap-2">
           <Heart className="w-4 h-4 text-[#00ADEF]" />

@@ -564,7 +564,6 @@ export default function RollingAgenda({
               {/* Sticky week label */}
               <div
                 className={`sticky top-0 z-[1] flex items-center justify-between ${v2 ? 'bg-v2-surface/95 px-5 pb-2 pt-3 backdrop-blur' : ''}`}
-                dir="rtl"
                 data-current-week={group.isCurrentWeek ? 'true' : undefined}
                 data-week-sunday={group.weekSunday}
                 style={

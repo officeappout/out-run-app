@@ -95,7 +95,7 @@ export default function ExistingAccountModal({
         safeArea="env(safe-area-inset-bottom)"
         ariaLabel={t('ui.existingAccount.title')}
       >
-        <div className="p-6" dir="rtl">
+        <div className="p-6">
           {content}
         </div>
       </Sheet>
@@ -105,7 +105,6 @@ export default function ExistingAccountModal({
   return (
     <div
       className="fixed inset-0 z-[101] bg-black/50 flex items-center justify-center p-4"
-      dir="rtl"
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}

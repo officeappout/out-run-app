@@ -31,7 +31,7 @@ export default function ActivityMinutesRingCard() {
 
   if (error) {
     return (
-      <div className={CARD} dir="rtl" data-home-minutes-ring="error">
+      <div className={CARD} data-home-minutes-ring="error">
         <p className="text-center text-[12.5px] font-bold text-v2-muted">{t('progressSlot.minutesRing.error')}</p>
       </div>
     );
@@ -50,7 +50,6 @@ export default function ActivityMinutesRingCard() {
       type="button"
       onClick={() => router.push(PROGRESS_HREF)}
       className={`${CARD} transition-transform duration-150 ease-v2 active:scale-[0.97]`}
-      dir="rtl"
       data-home-minutes-ring="ready"
     >
       <SegmentedRing size={78} stroke={8} gap={4} segments={segments} label={t('progressSlot.minutesRing.ringAria', { minutes: minutesText })}>

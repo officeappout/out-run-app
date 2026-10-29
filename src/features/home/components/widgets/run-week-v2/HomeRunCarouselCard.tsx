@@ -25,6 +25,7 @@ import type { RunEdits } from '@/features/workout-engine/players/running/utils/r
 import RunWeekCardV2 from './RunWeekCardV2';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface HomeRunCarouselCardProps {
   slot: HomeRunSlot;
@@ -44,6 +45,7 @@ export interface HomeRunCarouselCardProps {
 export default function HomeRunCarouselCard({
   slot, profile, currentWeek, weatherFlag = null, calmReturn = null, onSkipToday, onUndoSkip, standalone = false,
 }: HomeRunCarouselCardProps) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -114,7 +116,7 @@ export default function HomeRunCarouselCard({
 
   if (partial) {
     return (
-      <div className="flex w-full flex-col rounded-v2-card bg-v2-surface px-3 py-2.5" dir="rtl" data-run-partial="true">
+      <div className="flex w-full flex-col rounded-v2-card bg-v2-surface px-3 py-2.5" dir={direction} data-run-partial="true">
         <h3 className="whitespace-nowrap text-[15px] font-black !tracking-[-0.02em] text-v2-ink">{t('runCard.title.today')}</h3>
         <p className="mt-0.5 text-[12.5px] font-bold leading-snug text-v2-muted">
           {slot.goodStart ? t('runCard.partial.goodStart') : t('runCard.partial.note')}
@@ -132,7 +134,7 @@ export default function HomeRunCarouselCard({
   }
 
   return (
-    <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} dir="rtl">
+    <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} dir={direction}>
       <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
         {programLine}
       </p>

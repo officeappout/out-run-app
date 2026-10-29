@@ -11,7 +11,7 @@
  *   the row under the band is highlighted live and ticks a selection haptic.
  * • Keyboard: each column is a focusable listbox — ↑/↓, PageUp/PageDown, Home/End.
  * • Columns render in the given order inside `dir` (default 'ltr', so a time
- *   reads HH · MM under an RTL page); pass dir="rtl" to mirror.
+ *   reads HH · MM under an RTL page); pass to mirror.
  * • Reduced motion: programmatic moves jump instead of smooth-scrolling.
  * Logic lives in ./wheel-picker.ts.
  */
