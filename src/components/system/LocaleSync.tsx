@@ -108,7 +108,6 @@ export default function LocaleSync() {
         detectDevice: detect,
       });
       setLocaleState({ i18nEnabled: true, locale: next });
-<<<<<<< HEAD
       if (!settling) writeLocaleCookie(next);
       // A signed-in user whose English came from the device (new user) or the pre-signup pill has no
       // core.locale yet: persist it so pushes / Kelly (which read core.locale only) agree. Hebrew is never written.
@@ -116,13 +115,10 @@ export default function LocaleSync() {
       if (next !== 'he' && profileId && hasProfile && !hasStoredCore) {
         void setUserLocale(next, profileId).catch(() => {});
       }
-=======
-      writeLocaleCookie(next);
       // The legacy he/en dictionary screens (useLanguage / useTranslation: strength live overlay, challenge
       // pages, old onboarding) read useAppStore.language. Only the explicit picker used to sync it, so an
       // English locale resolved from the device left them Hebrew. Runs only with enable_i18n on.
       if (next === 'he' || next === 'en') useAppStore.getState().setLanguage(next);
->>>>>>> origin/main
     });
     return () => {
       cancelled = true;
