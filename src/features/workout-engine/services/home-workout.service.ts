@@ -186,7 +186,8 @@ import { withoutTestExercises } from '../shared/utils/test-exercise.utils';
 import { enforceStrictFocus, isOnStrictFocus } from '../logic/strict-focus.utils';
 import { minMainExercisesFor } from '../logic/session-frame.utils';
 import { rescueEmptyMainBlock, topUpVarietyReserve } from '../logic/never-empty.utils';
-import { balanceFocusAreas, widenFocusForPullGap } from '../logic/pull-gap.utils';
+import { resolveProtocolWeights } from '../logic/protocol-weights';
+import { balanceFocusAreas, stampBodyweightPullGap, widenFocusForPullGap } from '../logic/pull-gap.utils';
 import { topUpFocusDayReserve } from '../logic/focus-floor.utils';
 
 // -- Re-exports consumed by the barrel (index.ts) and external callers --
@@ -1391,6 +1392,7 @@ async function generateHomeWorkoutTrioCore(
       // AFTER the rescue, so an option whose main block was emptied (and refilled) is
       // stamped like its siblings (generator QA V10).
       if (pipeline.focusAreas?.length) balanceFocusAreas(workout, neverEmptyOpts, pipeline.focusAreas);
+      else stampBodyweightPullGap(workout, neverEmptyOpts.availableEquipment);
       // H3: below the duration's minimum with a thin reserve → top the reserve up
       // from the session pool so enforceVolumeCap's Phase V can reach the floor.
       const toppedUp = topUpVarietyReserve(workout, neverEmptyOpts);
@@ -3031,6 +3033,9 @@ async function _buildSharedPipeline(
 
   let adminPreferredProtocols: string[] | undefined;
   let adminProtocolProbability: number | undefined;
+  // protocolWeights of every scanned program-level doc (merged after the loop).
+  const protocolWeightEntries: Array<Record<string, number> | undefined> = [];
+  let adminProtocolWeights: Record<string, number> | undefined;
 
   // ── Protocol & Goal lookup: scan ALL enrolled programs, not just the first ──
   // userProgramLevels keys are domain SLUGS (e.g. 'push', 'pull') coming from
@@ -3099,7 +3104,7 @@ async function _buildSharedPipeline(
 
   for (const [domainKey, domainLevel] of allProgramEntries) {
     // Main protocol + goals locked AND a tabata enabler seen → nothing left.
-    if (goalExerciseIds && adminPreferredProtocols && sawTabataCandidate) break;
+    if (goalExerciseIds && adminPreferredProtocols && sawTabataCandidate && protocolWeightEntries.length === 0) break;
 
     // Resolve the domain slug to the actual Firestore program document ID.
     const firestoreProgId = slugToFirestoreId.get(domainKey) ?? domainKey;
@@ -3150,6 +3155,9 @@ async function _buildSharedPipeline(
         );
       }
 
+      if (levelSettings.protocolWeights) protocolWeightEntries.push(levelSettings.protocolWeights);
+      else protocolWeightEntries.push(undefined);
+
       // ── Tabata union track: collect this program's setting (priority order) ──
       tabataCandidates.push({
         source: `${domainKey}@L${domainLevel}`,
@@ -3175,8 +3183,8 @@ async function _buildSharedPipeline(
       const nonTabataProtocols = (levelSettings.preferredProtocols ?? []).filter((p) => p !== 'tabata');
       if (!adminPreferredProtocols && nonTabataProtocols.length > 0) {
         adminPreferredProtocols = nonTabataProtocols;
-        const hasAntagonistPair = nonTabataProtocols.includes('antagonist_pair');
-        adminProtocolProbability = hasAntagonistPair ? 1.0 : (levelSettings.protocolProbability ?? 1.0);
+        // Owner 27.10.2026: no forced 100% for antagonist_pair — the panel probability rules.
+        adminProtocolProbability = levelSettings.protocolProbability ?? 1.0;
         protocolSource = `${domainKey}@L${domainLevel}`;
 
         if (genVerbose) {
@@ -3186,7 +3194,7 @@ async function _buildSharedPipeline(
           console.log(
             `[WorkoutTrio] ✅ Protocols resolved from "${firestoreProgId}" L${domainLevel}:` +
             ` [${adminPreferredProtocols!.join(', ')}] probability=${adminProtocolProbability}` +
-            `${hasAntagonistPair ? ' (antagonist_pair → 100%)' : ''}${inheritMsg}`,
+            `${inheritMsg}`,
           );
         }
       } else if (!adminProtocolProbability && levelSettings.protocolProbability != null) {
@@ -3195,6 +3203,16 @@ async function _buildSharedPipeline(
     } catch (err) {
       console.warn(`[WorkoutTrio] Non-critical error fetching ${docKey}:`, err);
     }
+  }
+
+  // protocolWeights (owner 27.10.2026): when any scanned program carries them, the merged
+  // weights replace the legacy winner-takes-all list + probability (logic/protocol-weights.ts).
+  if (protocolWeightEntries.some((w) => w)) {
+    const resolved = resolveProtocolWeights(protocolWeightEntries, { sessionMinutes: options.availableTime });
+    adminPreferredProtocols = Object.keys(resolved.shares);
+    adminProtocolProbability = resolved.probability;
+    adminProtocolWeights = resolved.shares;
+    protocolSource = 'protocolWeights';
   }
 
   // Tabata finisher — the highest-priority enrolled program that enables it,
@@ -3359,6 +3377,7 @@ async function _buildSharedPipeline(
     })(),
     // Tabata is stripped here — it never competes in the main lottery (it rides
     // context.tabataProbability + the generator's separate roll).
+    ...(adminProtocolWeights && !forcedProtocol ? { protocolWeights: adminProtocolWeights } : {}),
     preferredProtocols: (forcedProtocol ? [forcedProtocol] : ((adminPreferredProtocols ?? preferredProtocols) as string[] | undefined)
       ?.filter((p) => p !== 'tabata')) as any,
     ...(forcedCoreForm ? { forcedCoreForm } : {}),
