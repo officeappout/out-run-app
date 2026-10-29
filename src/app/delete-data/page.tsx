@@ -47,6 +47,7 @@ const NOTES = [
   'deleteData.notes.subscription',
 ] as const;
 
+// dir="rtl" is deliberate: this page is Hebrew-only legal text (lang="he"), it must not follow the UI locale.
 export default function DeleteDataPage() {
   const t = pageT();
   return (

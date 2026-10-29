@@ -368,7 +368,7 @@ export default function ProfilePage() {
             ("פרופיל חלק" follow-up) — a small row that expands the exact
             same form below it. handleSendFeedback/feedbackText/feedbackSent
             are all untouched; only the wrapping presentation changed. */}
-        <div dir="rtl" className="mt-6 mb-10 border-t border-gray-100 pt-4">
+        <div className="mt-6 mb-10 border-t border-gray-100 pt-4">
           <button
             type="button"
             onClick={() => setFeedbackOpen((v) => !v)}
@@ -480,7 +480,6 @@ export default function ProfilePage() {
               transition={{ type: 'spring', damping: 24, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl"
-              dir="rtl"
             >
               {editingField === 'name' && (
                 <>
@@ -619,7 +618,6 @@ export default function ProfilePage() {
           >
             <div
               className="flex items-center gap-3 bg-[#10B981] text-white px-5 py-3.5 rounded-2xl shadow-xl max-w-sm w-full"
-              dir="rtl"
             >
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                 <Check size={16} strokeWidth={3} />

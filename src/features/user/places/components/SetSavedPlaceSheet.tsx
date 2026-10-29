@@ -33,6 +33,7 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface SetSavedPlaceSheetProps {
   /** Which slot we're setting; null closes the sheet. */
   openKind: SavedPlaceKind | null;
@@ -50,6 +51,7 @@ const KIND_ICON: Record<SavedPlaceKind, React.ElementType> = {
 };
 
 export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(profileNs);
   const setPlace = useSavedPlacesStore((s) => s.setPlace);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -255,7 +257,7 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-            dir="rtl"
+            dir={direction}
             className="kb-sheet fixed bottom-0 inset-x-0 z-[100] rounded-t-3xl shadow-[0_-12px_40px_rgba(0,0,0,0.18)] flex flex-col max-h-[80vh]"
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.92)',

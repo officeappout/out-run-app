@@ -542,7 +542,7 @@ export default function SearchPage() {
       {/* ── Shared App Header — search input + 3 main tabs collapse together
             with the global header so the entire chrome moves as a unit. ── */}
       <AppHeader zIndex={30}>
-        <div className="max-w-md mx-auto px-5 pb-3" dir="rtl">
+        <div className="max-w-md mx-auto px-5 pb-3">
           {/* Search input — the secondary-filters funnel used to live here
               (round 1-6); moved inline with the muscle-chip row instead
               (round 7, #4), since it's exercises-tab-only chrome and reads
@@ -571,7 +571,7 @@ export default function SearchPage() {
         </div>
 
         {/* Four-tab bar with counts */}
-        <div className="max-w-md mx-auto px-5" dir="rtl">
+        <div className="max-w-md mx-auto px-5">
           <div
             className={v2 ? 'flex border-b border-v2-hairline' : 'flex border-b border-slate-100 dark:border-slate-800'}
             role="tablist"
@@ -628,7 +628,7 @@ export default function SearchPage() {
 
         {/* Control bar — groups & people tabs only */}
         {(topTab === 'groups' || topTab === 'people') && (
-          <div className="max-w-md mx-auto px-5 pt-2 pb-1 flex items-center gap-2" dir="rtl">
+          <div className="max-w-md mx-auto px-5 pt-2 pb-1 flex items-center gap-2">
             {/* שלי / גלה segmented toggle */}
             <div
               className="flex rounded-full bg-gray-100 dark:bg-gray-800 p-0.5"
@@ -686,7 +686,7 @@ export default function SearchPage() {
 
         {/* Category filter panel — groups tab */}
         {topTab === 'groups' && filterPanelOpen && (
-          <div className="max-w-md mx-auto px-5 pb-2" dir="rtl">
+          <div className="max-w-md mx-auto px-5 pb-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5">
               {GROUP_CATEGORY_CHIPS.map((chip) => (
                 <button
@@ -831,7 +831,6 @@ export default function SearchPage() {
                 small screens. */}
             <div
               className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none"
-              dir="rtl"
               style={{ scrollbarWidth: 'none' }}
             >
               {EVENT_FILTERS.map((f) => {
@@ -903,7 +902,7 @@ function MyPartnersList({
   }
   if (partners.length === 0) {
     return (
-      <div className="flex flex-col items-center py-10 text-center" dir="rtl">
+      <div className="flex flex-col items-center py-10 text-center">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
         <p className="text-sm font-bold text-gray-700">{t('search.legacy.partners.empty.title')}</p>
         <p className="text-xs text-gray-500 mt-0.5 max-w-[260px]">
@@ -925,7 +924,7 @@ function MyPartnersList({
     );
   }
   return (
-    <div className="space-y-2 pb-6" dir="rtl">
+    <div className="space-y-2 pb-6">
       <p className="text-[11px] text-gray-500 px-1">{t('search.legacy.partners.count', { count: String(partners.length) })}</p>
       {partners.map((u) => (
         <motion.div key={u.uid} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
@@ -957,7 +956,7 @@ function DiscoverPeopleList({
   }
   if (term.trim().length < 2) {
     return (
-      <div className="flex flex-col items-center py-10 text-center" dir="rtl">
+      <div className="flex flex-col items-center py-10 text-center">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
         <p className="text-sm text-gray-500">{t('search.legacy.people.minChars')}</p>
         <p className="text-xs text-gray-400 mt-1 max-w-[240px]">
@@ -968,7 +967,7 @@ function DiscoverPeopleList({
   }
   if (results.length === 0) {
     return (
-      <div className="flex flex-col items-center py-10 text-center" dir="rtl">
+      <div className="flex flex-col items-center py-10 text-center">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
         <p className="text-sm font-bold text-gray-700">{t('search.legacy.people.none.title')}</p>
         <p className="text-xs text-gray-500 mt-0.5">{t('search.legacy.people.none.body')}</p>
@@ -976,7 +975,7 @@ function DiscoverPeopleList({
     );
   }
   return (
-    <div className="space-y-2 pb-6" dir="rtl">
+    <div className="space-y-2 pb-6">
       <p className="text-[11px] text-gray-500 px-1">{t('search.legacy.people.count', { count: String(results.length) })}</p>
       {results.map((u) => (
         <motion.div key={u.uid} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
@@ -1018,7 +1017,7 @@ function DiscoverGroupsList({
 
   if (sorted.length === 0) {
     return (
-      <div className="flex flex-col items-center py-12 text-center" dir="rtl">
+      <div className="flex flex-col items-center py-12 text-center">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
         <p className="text-sm font-bold text-gray-700">{t('search.legacy.groups.none.title')}</p>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -1030,7 +1029,7 @@ function DiscoverGroupsList({
     );
   }
   return (
-    <div className="space-y-2 pb-6" dir="rtl">
+    <div className="space-y-2 pb-6">
       <p className="text-[11px] text-gray-500 px-1">{t('search.legacy.groups.count', { count: String(sorted.length) })}</p>
       {sorted.map((g) => (
         <motion.div key={g.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
@@ -1067,7 +1066,7 @@ function EventsList({
   const t = useT(library);
   if (events.length === 0) {
     return (
-      <div className="flex flex-col items-center py-12 text-center" dir="rtl">
+      <div className="flex flex-col items-center py-12 text-center">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
         <p className="text-sm font-bold text-gray-700">{t('search.legacy.events.none.title')}</p>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -1079,7 +1078,7 @@ function EventsList({
     );
   }
   return (
-    <div className="space-y-2 pb-6" dir="rtl">
+    <div className="space-y-2 pb-6">
       <p className="text-[11px] text-gray-500 px-1">{t('search.legacy.events.count', { count: String(events.length) })}</p>
       {events.map(({ event }) => (
         <motion.div key={event.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>

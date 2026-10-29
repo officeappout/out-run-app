@@ -32,6 +32,7 @@ import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { IMS_ATTRIBUTION_HE, IMS_DISCLAIMER_HE } from '../core/provider-attribution';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** WMO weather code → lucide icon. */
 export function iconForWeatherCode(code: number | null, isNight: boolean): LucideIcon {
   if (code == null) return isNight ? Moon : Sun;
@@ -47,6 +48,7 @@ export function iconForWeatherCode(code: number | null, isNight: boolean): Lucid
 }
 
 export default function WeatherChip({ weather }: { weather: HomeWeather | null }) {
+  const { direction } = useUiDir();
   const v2 = useHomeV2();
   const t = useT(map);
   if (!weather || weather.temperatureC == null) return null;
@@ -63,7 +65,7 @@ export default function WeatherChip({ weather }: { weather: HomeWeather | null }
 
   const pill = (
     <div
-      dir="rtl"
+      dir={direction}
       role="status"
       aria-label={hint ? t('weather.chip.ariaHint', { temp: String(temp), hint }) : t('weather.chip.aria', { temp: String(temp) })}
       className={`inline-flex max-w-full items-center gap-1.5 whitespace-nowrap bg-white dark:bg-slate-800 ${v2 ? 'h-8 ps-2.5 pe-3' : 'px-2.5 py-1'}`}
@@ -83,7 +85,7 @@ export default function WeatherChip({ weather }: { weather: HomeWeather | null }
 
   if (weather.snapshot.provider !== 'ims') return pill;
   return (
-    <div dir="rtl" className="inline-flex max-w-full flex-col items-start gap-0.5" title={IMS_DISCLAIMER_HE}>
+    <div dir={direction} className="inline-flex max-w-full flex-col items-start gap-0.5" title={IMS_DISCLAIMER_HE}>
       {pill}
       <span className="ps-2 text-[10px] font-medium leading-none text-gray-500 dark:text-gray-400">
         {IMS_ATTRIBUTION_HE}

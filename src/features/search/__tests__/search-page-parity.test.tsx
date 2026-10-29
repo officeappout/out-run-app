@@ -4,7 +4,8 @@
  * with the flag on. The i18n extraction (library namespace) then changed the file's source but
  * not its Hebrew output — that is pinned by legacy-search-i18n-parity.test.tsx (snapshots taken
  * before the extraction) — so the hash below now pins the post-extraction file: any further
- * edit to the legacy page still has to be deliberate.
+ * edit to the legacy page still has to be deliberate (re-pinned when the hard-coded dir=rtl was dropped, batch 2;
+ * the Hebrew output is unchanged, see the snapshot proof).
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
@@ -34,6 +35,6 @@ describe('/search shell', () => {
   });
   it('the legacy page is unchanged since the i18n extraction (Hebrew output: legacy-search-i18n-parity)', () => {
     const file = readFileSync(path.resolve(__dirname, '../legacy/LegacySearchPage.tsx'));
-    expect(createHash('sha256').update(file).digest('hex')).toBe('e61d3fdac157c99075c5224d0c4dbc5da84412707834832387bae042e4ce2d0d');
+    expect(createHash('sha256').update(file).digest('hex')).toBe('9ac1a4491a4754de638a36f88df078022ce2005c040b8f46616a7b02462c7734');
   });
 });

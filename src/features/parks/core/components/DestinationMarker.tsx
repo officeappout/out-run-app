@@ -28,6 +28,7 @@ import { Flag } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface DestinationMarkerProps {
   /** Optional label rendered above the pin (e.g. "תל אביב, הרצל 14"). */
   label?: string;
@@ -39,6 +40,7 @@ const ACCENT = '#00ADEF';
 const ACCENT_BRIGHT = '#00E5FF';
 
 export default function DestinationMarker({ label, onClick }: DestinationMarkerProps) {
+  const { direction } = useUiDir();
   const t = useT(map);
   // Truncate at 26 chars — keeps the chip visually compact and matches
   // the typical "city, street" geocoder result length.
@@ -55,7 +57,7 @@ export default function DestinationMarker({ label, onClick }: DestinationMarkerP
       {/* Label chip — only when a label is supplied. */}
       {display && (
         <div
-          dir="rtl"
+          dir={direction}
           className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap shadow-[0_4px_10px_rgba(0,0,0,0.18)]"
           style={{
             backgroundColor: ACCENT,

@@ -154,7 +154,6 @@ export default function PhotoReleaseFormPage() {
   if (isDone) {
     return (
       <main
-        dir="rtl"
         className="min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center px-5 py-10"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
@@ -174,7 +173,6 @@ export default function PhotoReleaseFormPage() {
   // ── Form ──────────────────────────────────────────────────────────────────
   return (
     <main
-      dir="rtl"
       className="min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-8 sm:py-12"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >

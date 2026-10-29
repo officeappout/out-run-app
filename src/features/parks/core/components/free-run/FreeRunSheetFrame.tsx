@@ -22,6 +22,7 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** The drawer's spring (unchanged). */
 export const FREE_RUN_SPRING = { type: 'spring', damping: 28, stiffness: 300 } as const;
 /** The drawer's dismiss rule: handle drag past 80 px or a 300 px/s flick. */
@@ -105,6 +106,7 @@ export function FreeRunSubSheet({
   legacy,
   children,
 }: FreeRunSubSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(map);
   const dragControls = useDragControls();
 
@@ -160,7 +162,7 @@ export function FreeRunSubSheet({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             className={legacy.panelClassName}
-            dir="rtl"
+            dir={direction}
             style={legacy.panelStyle}
           >
             <div
@@ -199,6 +201,7 @@ export interface FreeRunMainFrameProps {
  * rising 400 px. Mounted only while shown (no exit animation) — as before.
  */
 export function FreeRunMainFrame({ onClose, v2, title, children }: FreeRunMainFrameProps) {
+  const { direction } = useUiDir();
   const t = useT(map);
   const dragControls = useDragControls();
 
@@ -253,7 +256,7 @@ export function FreeRunMainFrame({ onClose, v2, title, children }: FreeRunMainFr
       >
         <div
           className="bg-white rounded-t-3xl shadow-2xl"
-          dir="rtl"
+          dir={direction}
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
         >
           {/* Drag handle */}

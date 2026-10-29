@@ -1900,7 +1900,7 @@ export default function ActiveWorkoutPage() {
   if (isLoading) {
     if (pageV2) {
       return (
-        <div className="w-full h-[100dvh] flex items-center justify-center bg-v2-surface" dir="rtl">
+        <div className="w-full h-[100dvh] flex items-center justify-center bg-v2-surface">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-v2-accent border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-[15px] font-extrabold text-v2-ink whitespace-nowrap">{t('activeWorkout.loading.title')}</p>
@@ -1924,7 +1924,7 @@ export default function ActiveWorkoutPage() {
   if (error || !stableWorkoutPlan) {
     if (pageV2) {
       return (
-        <div className="w-full h-[100dvh] flex items-center justify-center bg-v2-surface" dir="rtl">
+        <div className="w-full h-[100dvh] flex items-center justify-center bg-v2-surface">
           <div className="text-center px-6">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white shadow-v2-ring mx-auto mb-4">
               <CircleAlert className="h-8 w-8 text-v2-down" strokeWidth={2.25} aria-hidden />
@@ -1942,7 +1942,7 @@ export default function ActiveWorkoutPage() {
       );
     }
     return (
-      <div className="w-full h-[100dvh] flex items-center justify-center bg-gradient-to-b from-white to-gray-50" dir="rtl">
+      <div className="w-full h-[100dvh] flex items-center justify-center bg-gradient-to-b from-white to-gray-50">
         <div className="text-center px-6">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">😕</span>
@@ -2094,7 +2094,6 @@ export default function ActiveWorkoutPage() {
             className="absolute bottom-[236px] right-4 z-[46] inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
             style={{ fontFamily: 'var(--font-simpler)' }}
             aria-label={t('activeWorkout.close')}
-            dir="rtl"
           >
             <X size={20} />
             <span className="text-[13px] font-bold">{t('activeWorkout.close')}</span>

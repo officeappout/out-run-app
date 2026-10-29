@@ -17,7 +17,7 @@ export function LeagueSegment({ vm, groupId }: { vm: LeaguesVM; groupId: string 
     handleMyModeChange,
   } = vm;
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-4">
       {/* Home v2: the group's own points / steps points / km (server aggregates). */}
       {featureFlags.enableHomeV2 && <GroupLeagueStatsBoard groupId={groupId} timeWindow={leaderboardTimeWindow} />}
       <NeighborhoodLeaderboard

@@ -65,6 +65,7 @@ import { common } from '@/messages/ns/common';
 import { profile } from '@/messages/ns/profile';
 import { weekdayLabel } from '@/lib/i18n/units';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const TIME_RANGES = [
@@ -280,6 +281,7 @@ export default function StepsAnalyticsView({
   footer,
   lineChart = false,
 }: StepsAnalyticsViewProps) {
+  const { direction } = useUiDir();
   const t = useT(profile);
   const tc = useT(common);
   // Day-tab: how many days back from today (0 = today, 6 = 6 days ago)
@@ -453,7 +455,7 @@ export default function StepsAnalyticsView({
   const firstStatValue = isDay ? selectedDaySteps : isYear ? stats.totalSteps : stats.averageDaily;
 
   return (
-    <div className="min-h-[100dvh]" dir="rtl" style={{ background: PAGE_BACKDROP }}>
+    <div className="min-h-[100dvh]" dir={direction} style={{ background: PAGE_BACKDROP }}>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -718,7 +720,7 @@ export default function StepsAnalyticsView({
               /* ── Day tab: the last 7 days, selected day highlighted ── */
               <>
                 {/* Day-name selectors — tap = select that day in the carousel */}
-                <div className="flex gap-1 mb-3" dir="rtl">
+                <div className="flex gap-1 mb-3" dir={direction}>
                   {[...dayWeekData].reverse().map((pt, ri) => {
                     const fwdIndex = dayWeekData.length - 1 - ri;
                     const offset = dayWeekData.length - 1 - fwdIndex;

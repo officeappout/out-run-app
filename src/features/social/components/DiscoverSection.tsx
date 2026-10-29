@@ -23,7 +23,7 @@ export default function DiscoverSection({
   }
 
   return (
-    <section className="space-y-2.5" dir="rtl">
+    <section className="space-y-2.5">
       <div className="flex items-center gap-2 px-1">
         {icon}
         <h3 className="text-sm font-black text-gray-900 dark:text-gray-100 flex-1">

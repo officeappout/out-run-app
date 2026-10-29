@@ -94,7 +94,7 @@ export default function RefineLevelsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-white flex items-center justify-center" dir="rtl">
+      <div className="min-h-[100dvh] bg-white flex items-center justify-center">
         <Loader2 size={32} className="text-[#5BC2F2] animate-spin" />
       </div>
     );
@@ -102,7 +102,7 @@ export default function RefineLevelsPage() {
 
   if (saving || saved) {
     return (
-      <div className="min-h-[100dvh] bg-white flex items-center justify-center" dir="rtl">
+      <div className="min-h-[100dvh] bg-white flex items-center justify-center">
         <div className="text-center">
           {saved ? (
             <>
@@ -124,7 +124,6 @@ export default function RefineLevelsPage() {
   return (
     <div
       className="min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col"
-      dir="rtl"
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-2">

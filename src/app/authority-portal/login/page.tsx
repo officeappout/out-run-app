@@ -15,6 +15,7 @@ import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Searc
 import AppLogoLoader from '@/components/AppLogoLoader';
 import type { TenantType } from '@/types/admin-types';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export default function AuthorityPortalLoginPage() {
   return (
     <Suspense fallback={<AppLogoLoader />}>
@@ -50,6 +51,7 @@ async function resolveTenantOrg(tenantId: string): Promise<{ tenantType: TenantT
 }
 
 function AuthorityPortalLoginContent() {
+  const { direction } = useUiDir();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -357,7 +359,7 @@ function AuthorityPortalLoginContent() {
     // message and makes the next real identification failure harder to
     // tell apart from an ordinary access block.
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir="rtl">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir={direction}>
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">אין לך גישה לעמוד הזה</h2>
@@ -388,7 +390,7 @@ function AuthorityPortalLoginContent() {
     // 29.09.2026's accessBlocked/loopDetected split above: say what
     // actually happened, not an inverted-blame guess.
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir="rtl">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir={direction}>
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">תקלה ברענון החיבור</h2>
@@ -411,7 +413,7 @@ function AuthorityPortalLoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center p-6" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center p-6" dir={direction}>
       <div className="w-full max-w-md">
         {/* Logo Section */}
         <div className="text-center mb-12">

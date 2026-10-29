@@ -14,6 +14,7 @@ import ShieldMark from './ShieldMark';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const DEEP = '#c2410c';
 const pop = { type: 'spring', stiffness: 260, damping: 16 } as const;
 
@@ -63,11 +64,12 @@ function GrowingFlame({ tones, size }: { tones: FlameTone[]; size: number }) {
 }
 
 function WeekFlames({ tones, streak }: { tones: FlameTone[]; streak: number }) {
+  const { direction } = useUiDir();
   const reduce = useReducedMotion();
   return (
     <>
       <div className="text-[72px] font-black leading-[76px]" style={{ color: DEEP }}>{streak}</div>
-      <div className="mt-[18px] flex items-end gap-1.5" dir="rtl">
+      <div className="mt-[18px] flex items-end gap-1.5" dir={direction}>
         {Array.from({ length: 7 }, (_, i) => (
           <motion.span
             key={i}
@@ -84,6 +86,7 @@ function WeekFlames({ tones, streak }: { tones: FlameTone[]; streak: number }) {
 }
 
 function MilestoneBadge({ streak }: { streak: number }) {
+  const { direction } = useUiDir();
   const reduce = useReducedMotion();
   const t = useT(home);
   return (
@@ -112,7 +115,7 @@ function MilestoneBadge({ streak }: { streak: number }) {
           <span className="text-[16px] font-extrabold">{t('streakCelebration.milestoneDays')}</span>
         </div>
       </motion.div>
-      <div className="mt-[18px] flex gap-3.5" dir="rtl">
+      <div className="mt-[18px] flex gap-3.5" dir={direction}>
         {milestoneBadges(streak).map((b) => (
           <span
             key={b.n}

@@ -65,7 +65,6 @@ export default function PopularRoutesCard({ authorityId }: PopularRoutesCardProp
 
   return (
     <div
-      dir="rtl"
       className="w-full bg-white rounded-2xl border border-gray-200 shadow-card p-4 md:p-5 mt-4"
     >
       <div className="flex items-center gap-2 mb-3">
@@ -125,7 +124,7 @@ export default function PopularRoutesCard({ authorityId }: PopularRoutesCardProp
                   </div>
                 </div>
 
-                <div className="shrink-0 text-end" dir="rtl">
+                <div className="shrink-0 text-end">
                   <div className="text-sm font-black text-gray-900">
                     {formatNumber(route.usageCount, 'he')}
                   </div>

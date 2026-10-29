@@ -49,7 +49,7 @@ export default function HelpHub({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC] text-gray-900" style={{ colorScheme: 'light' }} dir="rtl">
+    <div className="fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC] text-gray-900" style={{ colorScheme: 'light' }}>
       <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 pb-3" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
         <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-gray-100 active:bg-gray-200" aria-label={t('help.hub.back')}>
           <ArrowRight className="h-5 w-5 text-gray-700" />

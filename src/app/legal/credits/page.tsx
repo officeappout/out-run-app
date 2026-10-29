@@ -10,6 +10,7 @@ import { notFound } from 'next/navigation';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useT } from '@/hooks/useT';
 import { legal } from '@/messages/ns/legal';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 const SECTION = 'rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-5';
 const H2 = 'text-base font-black text-slate-900 mb-2';
@@ -20,13 +21,14 @@ const LINK =
 export default function CreditsPage() {
   const { flags, ready, loading } = useFeatureFlags();
   const t = useT(legal);
+  const { direction } = useUiDir();
 
   if (!ready || loading) return null;
   if (!flags.enableOsmAttribution) notFound();
 
   const ext = { target: '_blank', rel: 'noopener noreferrer' } as const;
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir="rtl" lang="he">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir={direction}>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <a href="/home" className={`${LINK} inline-block mb-4 text-sm`}>{t('credits.backToApp')}</a>
         <header className="mb-6">

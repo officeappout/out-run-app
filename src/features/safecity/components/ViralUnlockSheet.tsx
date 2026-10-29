@@ -100,7 +100,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
   }, [inviteLink]);
 
   const body = (
-    <div className="px-6 pb-8 pt-2 flex flex-col items-center gap-5 overflow-y-auto" dir="rtl">
+    <div className="px-6 pb-8 pt-2 flex flex-col items-center gap-5 overflow-y-auto">
       {/* Lemur mascot — lemur-avatar with cyan glow */}
       <div
         className="w-24 h-24 rounded-full overflow-hidden border-[3px] border-[#00BAF7] flex items-center justify-center bg-cyan-50"

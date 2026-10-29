@@ -37,6 +37,7 @@ import { motion } from 'framer-motion';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /**
  * Radar tempo presets. The same animation runs in two contexts with
  * different cognitive loads:
@@ -104,6 +105,7 @@ export function RadarAnimation({
   text,
   mode = 'partners',
 }: RadarAnimationProps) {
+  const { direction } = useUiDir();
   // Resolve the tempo preset once per render. Cheap object lookup; we
   // intentionally don't memoise because re-deriving on each render is
   // safer than risking a stale value when `mode` changes mid-flight.
@@ -236,7 +238,7 @@ export function RadarAnimation({
       <p
         className="text-white font-bold"
         style={{ fontSize: 14, marginTop: 24 }}
-        dir="rtl"
+        dir={direction}
       >
         {text ?? t(COPY[tab])}
       </p>

@@ -40,7 +40,7 @@ export default function ChallengeTimerScreen({
   const [isPaused, setIsPaused] = useState(false);
 
   return (
-    <div className="relative w-full h-dvh bg-black overflow-hidden" dir="rtl">
+    <div className="relative w-full h-dvh bg-black overflow-hidden">
       {/* ── Video — full-screen background ──────────────────────────────────── */}
       <div className="absolute inset-0">
         <ExerciseVideoPlayer

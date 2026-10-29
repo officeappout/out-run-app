@@ -23,7 +23,7 @@ export default function ProgressionMapProgramPage() {
 
   if (!programId || !isProgressionMapLeafProgram(programId)) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6" dir="rtl">
+      <div className="min-h-screen flex items-center justify-center px-6">
         <p className="text-sm text-gray-400 text-center">
           {t('skillTree.unavailable')}
         </p>

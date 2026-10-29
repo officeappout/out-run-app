@@ -33,7 +33,6 @@ export default function KudoToast({ kudo, onDismiss }: KudoToastProps) {
             onClick={onDismiss}
             className="flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border border-cyan-200 backdrop-blur-md"
             style={{ background: 'linear-gradient(135deg, #E0F7FF 0%, #F0FBFF 100%)' }}
-            dir="rtl"
           >
             <span className="text-2xl" role="img" aria-label="high five">🙏</span>
             <div className="flex flex-col items-start">

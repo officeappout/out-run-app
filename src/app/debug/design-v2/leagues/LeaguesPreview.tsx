@@ -131,7 +131,7 @@ export default function LeaguesPreview() {
   const showBoard = state === 'full' || state === 'top' || state === 'sparse' || state === 'empty';
 
   return (
-    <div dir="rtl" className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white">
       <div className="max-w-md mx-auto px-4 pt-4 pb-28">
         <LeagueSelectorButton
           isLoading={false}
