@@ -68,7 +68,6 @@ export default function DoneRow({ icon, tone, title, meta, checkColor, onClick }
   return onClick ? (
     <button
       type="button"
-      dir="rtl"
       onClick={onClick}
       data-v2-done-row
       className={`${cls} transition-transform duration-150 ease-v2 active:scale-[0.97]`}
@@ -77,7 +76,7 @@ export default function DoneRow({ icon, tone, title, meta, checkColor, onClick }
       {body}
     </button>
   ) : (
-    <div dir="rtl" data-v2-done-row className={cls} style={DONE_SURFACE_STYLE}>
+    <div data-v2-done-row className={cls} style={DONE_SURFACE_STYLE}>
       {body}
     </div>
   );

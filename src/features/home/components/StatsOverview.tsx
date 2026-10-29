@@ -1148,7 +1148,7 @@ export default function StatsOverview({
   const renderWorkoutSection = () => (
     <div>
       {/* Header + description — padded */}
-      <div className="px-5" dir="rtl">
+      <div className="px-5">
         <div
           className={
             HOME_ANCHOR_V2_ENABLED
@@ -1281,7 +1281,7 @@ export default function StatsOverview({
             {/* Hero CTA — V2 "breathing glow": the app's primary gradient-pill
                 idiom (#00BAF7→#0CF2E3) with a gentle transform/opacity breathe
                 on THIS single button only. No shared keyframe/token touched. */}
-            <div className="relative flex items-center justify-center" dir="rtl">
+            <div className="relative flex items-center justify-center">
               <motion.div
                 aria-hidden
                 className="absolute rounded-full"
@@ -1351,7 +1351,6 @@ export default function StatsOverview({
               exit={{ scale: 0.85, opacity: 0, y: 20 }}
               transition={{ type: 'spring', damping: 22, stiffness: 300 }}
               className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
-              dir="rtl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Clock icon */}
@@ -1546,7 +1545,6 @@ export default function StatsOverview({
               exit={{ scale: 0.85, opacity: 0, y: 20 }}
               transition={{ type: 'spring', damping: 22, stiffness: 300 }}
               className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
-              dir="rtl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-14 h-14 mx-auto mb-5 rounded-full border-2 border-cyan-400 flex items-center justify-center">

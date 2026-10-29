@@ -60,7 +60,7 @@ export default function SoftAskCard({
   className = '',
 }: SoftAskCardProps) {
   return (
-    <div dir="rtl" data-v2-soft-ask className={`rounded-[20px] bg-white p-4 shadow-v2-ring ${className}`}>
+    <div data-v2-soft-ask className={`rounded-[20px] bg-white p-4 shadow-v2-ring ${className}`}>
       <div className="flex items-start gap-3">
         <IconTile icon={icon} tone="accent" size="md" />
         <div className="min-w-0 flex-1">

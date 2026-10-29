@@ -114,7 +114,7 @@ export default function CoachMarks({
   const below = !box || box.top + box.height / 2 < rootH / 2;
 
   return (
-    <div ref={rootRef} className="absolute inset-0" dir="rtl" role="dialog" aria-live="polite">
+    <div ref={rootRef} className="absolute inset-0" role="dialog" aria-live="polite">
       <style>{`
         @keyframes coachTap { 0%,100% { transform: translate(-50%, 0) scale(1); } 50% { transform: translate(-50%, -10px) scale(0.92); } }
         @keyframes coachRipple { 0% { transform: translate(-50%, -50%) scale(0.4); opacity: .7; } 100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; } }

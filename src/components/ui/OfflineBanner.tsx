@@ -55,7 +55,6 @@ export default function OfflineBanner() {
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
           className="fixed bottom-0 inset-x-0 z-[100] bg-[#1E1E1E] text-white px-4 py-2.5 flex flex-col items-center gap-1"
           style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom, 10px))' }}
-          dir="rtl"
         >
           <div className="flex items-center justify-center gap-2">
             <WifiOff size={16} className="flex-shrink-0 text-gray-300" />
@@ -89,7 +88,6 @@ export default function OfflineBanner() {
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 6px)' }}
           className="pointer-events-none fixed inset-x-0 z-[100] mx-auto flex w-fit max-w-[calc(100%-24px)] items-center gap-2 rounded-full bg-out-blue py-1.5 ps-3.5 pe-1.5 text-[12px] font-semibold text-white shadow-floating"
-          dir="rtl"
         >
           <CloudUpload size={14} className="flex-shrink-0" />
           <span className="min-w-0">{t('sync.backfillChip')}</span>

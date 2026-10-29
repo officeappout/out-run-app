@@ -14,6 +14,7 @@
  */
 import { Children, isValidElement, useCallback, useRef, useState, type ReactNode } from 'react';
 import { pageFromScroll } from './paged-carousel';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface PagedCarouselProps {
   children: ReactNode;
@@ -27,6 +28,7 @@ export interface PagedCarouselProps {
 }
 
 export default function PagedCarousel({ children, ariaLabel, dotLabel, className = '', onPageChange }: PagedCarouselProps) {
+  const { direction } = useUiDir();
   const slides = Children.toArray(children).filter(Boolean);
   const railRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
@@ -63,7 +65,7 @@ export default function PagedCarousel({ children, ariaLabel, dotLabel, className
     <div className={`flex min-w-0 flex-col gap-2 ${className}`} role="region" aria-roledescription="carousel" aria-label={ariaLabel} data-v2-paged-carousel>
       <div
         ref={railRef}
-        dir="rtl"
+        dir={direction}
         onScroll={onScroll}
         className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none' }}
@@ -79,7 +81,7 @@ export default function PagedCarousel({ children, ariaLabel, dotLabel, className
           </div>
         ))}
       </div>
-      <div className="flex justify-center gap-0.5" dir="rtl">
+      <div className="flex justify-center gap-0.5" dir={direction}>
         {slides.map((_, i) => (
           <button
             key={i}

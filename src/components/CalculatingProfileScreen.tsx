@@ -58,7 +58,6 @@ export default function CalculatingProfileScreen({
 
   return (
     <div
-      dir="rtl"
       className="w-full h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden"
     >
       {/* Subtle Background Pattern - Math Symbols & Graphs */}
