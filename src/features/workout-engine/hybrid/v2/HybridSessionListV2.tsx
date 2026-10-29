@@ -11,7 +11,9 @@ import React, { useMemo } from 'react';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import { Footprints } from 'lucide-react';
-import { ExerciseSetsTable } from '@/components/ui/v2';
+import { ExerciseSetsTable, StoryBars } from '@/components/ui/v2';
+import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { toStorySegments } from '../../engines/strip-item';
 import { SessionListLayer } from '../../players/shared/v2';
 import { useFreeRunLive } from '../../players/running/components/FreeRun/v2/useFreeRunLive';
 import { useHybridPlayerV2 } from './HybridPlayerV2Context';
@@ -31,6 +33,9 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
   const t = useT(player);
   const api = useHybridPlayerV2();
   const { totals } = useFreeRunLive();
+  // Pilot M24 (enable_park_live_v2): the list behind had no progress during the walk; the same
+  // story bars as the header (walk legs fill live from the strip).
+  const parkLive = useParkLiveV2();
   const sections = useMemo(
     () => (api?.enabled ? hybridListSections(api.plan, api.legs, api.names, exerciseNameOf, exerciseImageOf, t) : []),
     [api?.enabled, api?.plan, api?.legs, api?.names, t],
@@ -45,6 +50,14 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
       safeTop={false}
       totals={listTotals(sections, totals.durationSec, totals.distanceKm, t)}
     >
+      {parkLive && api.strip && (
+        <StoryBars
+          className="mt-3"
+          segments={toStorySegments(api.strip)}
+          currentIndex={api.strip.currentIndex}
+          progress={api.strip.progress}
+        />
+      )}
       <div className="mt-4 space-y-5">
         {sections.map((s) => (
           <section key={s.key} aria-current={s.status === 'active' ? 'step' : undefined}>
