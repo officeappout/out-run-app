@@ -7,6 +7,7 @@
 import { PRIORITY_TUNING, STREAK_COMFORT, W } from './config';
 import { canonicalSlug, H6_PATTERNS, HEAVY_LEGS, MODERATE_LEGS, SKILL_CNS, SPREAD_PATTERN_LOAD } from './programProfiles';
 import { gapDays, isEasyRun, isKeyRun, isLegsUnit, isLongRun, isQualityRun, longestRunStreak, nextDay, type Grid } from './rules';
+import { isLightStrength } from './strengthTier';
 import type { SchedulePriority, TrainingLevel } from './types';
 import type { Unit } from './units';
 
@@ -122,9 +123,11 @@ export function scoreFull(grid: Grid, ctx: ScoreCtx): { total: number; breakdown
     const legsOnEasy = isLegsUnit(s) && isEasyRun(r);
     if (s && easyDays > 0 && isLegsUnit(s) && !legsOnEasy) add(b, 'R29', W.R29_LEGS_OFF_EASY_DAY);
     if (s?.lightLegs) add(b, 'LIGHT_LEGS', W.LIGHT_LEGS);
+    // H2 (soft since 27.10.2026): strength on the long-run day.
+    if (s && isLongRun(r) && !isLightStrength(s)) add(b, 'H2', W.H2_STRENGTH_ON_LONG_RUN);
     if (s && r) {
       doubles++;
-      if (!isQualityRun(r) && !legsOnEasy) add(b, 'S5', W.S5_DOUBLE_NOT_QUALITY);
+      if (!isQualityRun(r) && !legsOnEasy && !isLightStrength(s)) add(b, 'S5', W.S5_DOUBLE_NOT_QUALITY);
       if (s.load.cns >= SKILL_CNS && s.isSkill) add(b, 'S12', W.S12_SKILL_WITH_RUN);
       if (s.isSkill) add(b, 'P_SKILL_WITH_RUN', tuning.skillWithRun);
       if (isKeyRun(r)) add(b, 'P_STRENGTH_AFTER_KEY', tuning.strengthAfterKeyRun);
@@ -162,7 +165,8 @@ export function scoreFull(grid: Grid, ctx: ScoreCtx): { total: number; breakdown
   let streak = 0;
   let best = 0;
   for (let d = 0; d < 7; d++) {
-    streak = grid.run[d] || grid.strength[d] ? streak + 1 : 0;
+    // A light strength day alone is active recovery: it does not extend the streak (owner 27.10.2026).
+    streak = grid.run[d] || (grid.strength[d] && !isLightStrength(grid.strength[d])) ? streak + 1 : 0;
     best = Math.max(best, streak);
   }
   if (best > ctx.streakComfort) add(b, 'S10', W.S10_STREAK * (best - ctx.streakComfort));

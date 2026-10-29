@@ -89,6 +89,8 @@ export interface SessionLog {
   domainSets?: Record<string, number>;
   /** Exercise IDs performed in this session (for Variety Guard). */
   exerciseIds?: string[];
+  /** Core sets this session counts for toward the weekly core target (R31: tabata / follow-along = 4). */
+  coreSets?: number;
 }
 
 /**
@@ -135,6 +137,8 @@ interface WeeklyVolumeState {
     durationMinutes?: number,
     domainSets?: Record<string, number>,
     exerciseIds?: string[],
+    saSets?: number,
+    coreSets?: number,
   ) => void;
 
   /**
@@ -280,6 +284,7 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>()(persist((set, ge
     domainSets?: Record<string, number>,
     exerciseIds?: string[],
     saSets?: number,
+    coreSets?: number,
   ) => {
     set((state) => {
       const log: SessionLog = {
@@ -292,6 +297,7 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>()(persist((set, ge
         durationMinutes,
         domainSets,
         exerciseIds,
+        ...(coreSets != null ? { coreSets } : {}),
       };
 
       // Active minutes always accrue (including recovery)

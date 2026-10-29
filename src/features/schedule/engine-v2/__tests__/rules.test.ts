@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { breaksH3, breaksH6, breaksH7, emptyGrid } from '../rules';
 import { makeRunUnit, makeStrengthUnit } from '../units';
-import { validateLayout } from '../validate';
+import { softLayoutIssues, validateLayout } from '../validate';
 import { renderV2ReasonHe } from '../reasonsV2';
 import type { PlacedSession } from '../types';
 
@@ -34,7 +34,7 @@ describe('hard rules', () => {
     expect(breaksH7(S('muscle_up'), 0, S('handstand'), 1)).toBe(false);
   });
 
-  it('validateLayout flags strength before a quality run (H5) and strength on the long-run day (H2)', () => {
+  it('H2 and H5 are soft: validateLayout allows them, softLayoutIssues reports them', () => {
     const layout: PlacedSession[][] = [
       [{ kind: 'strength', slug: 'push' }, { kind: 'run', slot: 'quality_primary' }],
       [],
@@ -45,7 +45,9 @@ describe('hard rules', () => {
       [],
     ];
     const v = validateLayout(layout, { open: Array(7).fill(true), maxPerDay: 2 }, 'intermediate');
-    expect(v.map((x) => x.rule).sort()).toEqual(['H2', 'H5']);
+    expect(v.map((x) => x.rule)).not.toContain('H2');
+    expect(v.map((x) => x.rule)).not.toContain('H5');
+    expect(softLayoutIssues(layout).map((x) => x.rule).sort()).toEqual(['H2', 'H5']);
   });
 });
 

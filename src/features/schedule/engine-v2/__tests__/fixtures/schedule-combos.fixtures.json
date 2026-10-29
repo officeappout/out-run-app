@@ -864,8 +864,7 @@
           }
         ],
         "reasons": [
-          "STRENGTH_FLOOR_UNMET_AVAILABILITY",
-          "OPTIONAL_MIDWEEK_MICRO_SESSION"
+          "STRENGTH_ON_LONG_RUN_DAY"
         ],
         "notes": "Full body before Saturday's long run becomes an upper/core variant (no legs). Strength 1 day: the floor is explained, not forced."
       },
