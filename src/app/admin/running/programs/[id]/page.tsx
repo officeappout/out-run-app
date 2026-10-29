@@ -74,6 +74,7 @@ export default function EditRunProgramTemplatePage() {
 
   const [workoutTemplates, setWorkoutTemplates] = useState<RunWorkoutTemplate[]>([]);
   const [name, setName] = useState('');
+  const [nameEn, setNameEn] = useState('');
   const [targetDistance, setTargetDistance] = useState<RunProgramTemplate['targetDistance']>('5k');
   const [targetProfileTypes, setTargetProfileTypes] = useState<RunnerProfileType[]>([1, 2, 3, 4]);
   const [canonicalWeeks, setCanonicalWeeks] = useState(12);
@@ -95,6 +96,7 @@ export default function EditRunProgramTemplatePage() {
       .then((p) => {
         if (p) {
           setName(p.name);
+          setNameEn(p.nameLocalized?.en ?? '');
           setTargetDistance(p.targetDistance);
           setTargetProfileTypes(p.targetProfileTypes ?? [1, 2, 3, 4]);
           setCanonicalWeeks(p.canonicalWeeks);
@@ -155,7 +157,7 @@ export default function EditRunProgramTemplatePage() {
     e.preventDefault();
     if (!name.trim() || !id) return;
     const template: Partial<RunProgramTemplate> = {
-      name: name.trim(), targetDistance, targetProfileTypes, canonicalWeeks, canonicalFrequency,
+      name: name.trim(), nameLocalized: { he: name.trim(), en: nameEn.trim() }, targetDistance, targetProfileTypes, canonicalWeeks, canonicalFrequency,
       weekTemplates: weekTemplates.map((wt, i) => ({ weekNumber: i + 1, workoutIds: wt.workoutIds ?? [] })),
       progressionRules,
       ...(phases.length > 0 ? { phases } : {}),
@@ -202,6 +204,7 @@ export default function EditRunProgramTemplatePage() {
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">שם התוכנית</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="למשל: שיפור 5 ק״מ" />
+            <input type="text" dir="ltr" value={nameEn} onChange={(e) => setNameEn(e.target.value)} aria-label="שם התוכנית (EN)" className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg text-left" placeholder="English name (optional)" />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>

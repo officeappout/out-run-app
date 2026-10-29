@@ -17,6 +17,7 @@
  * demo-world allowlist, plus the roster. Reads (read-only) the running workout templates + pace
  * map for the running program. The demo purge removes all of it.
  */
+import { normalizeRunWorkoutTemplateDoc } from '@/features/workout-engine/core/services/running-template-localized';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import { DEMO_REGISTRY, DEMO_TESTERS_DOC } from '@/lib/demo-control/paths';
 import { normalizeCategory } from '@/features/workout-engine/core/services/running-admin.service';
@@ -57,7 +58,7 @@ async function loadRunAssets(db: Firestore): Promise<RunAssets> {
   const [tpl, pace] = await Promise.all([db.collection('runWorkoutTemplates').get(), db.collection('config').doc('paceMapConfig').get()]);
   const templates = tpl.docs.map((d) => {
     const data = d.data();
-    return { id: d.id, ...data, category: normalizeCategory(data.category) } as RunWorkoutTemplate;
+    return normalizeRunWorkoutTemplateDoc({ id: d.id, ...data, category: normalizeCategory(data.category) }) as RunWorkoutTemplate;
   });
   return { templates, paceMap: pace.exists ? (pace.data() as PaceMapConfig) : null };
 }
