@@ -7,6 +7,7 @@ import { drawRing, drawStatGrid, drawText, drawWrapped, hline, measureAt, setFon
 import { wrapLines } from '../layout';
 import { STICKER_BOX, withStickerBox } from './sticker-common';
 import type { DrawArgs, ShareTemplateDef } from './template';
+import { shareT, streakLineText, streakUnit } from '../copy';
 
 function draw(a: DrawArgs) {
   withStickerBox(a, () => {
@@ -24,8 +25,8 @@ function draw(a: DrawArgs) {
     const tTop = top + (blockH - textH) / 2;
     drawText(ctx, m.chip, right, tTop, { size: 15, weight: 800, color: p.sub, lineH: 20, maxW: nameW });
     drawWrapped(ctx, m.name, right, tTop + 20, nameW, 2, { size: 34, weight: 900, color: p.fg, lineH: 35 });
-    if (m.level) drawRing(ctx, left + ring / 2, top + blockH / 2, ring, m.level.frac, p, `${m.level.index}/${m.level.count}`, 'שלב');
-    const stats = m.stats.filter((s) => s.unit !== 'ימים ברצף').slice(0, 3);
+    if (m.level) drawRing(ctx, left + ring / 2, top + blockH / 2, ring, m.level.frac, p, `${m.level.index}/${m.level.count}`, shareT('shareV2.stage.label'));
+    const stats = m.stats.filter((s) => s.unit !== streakUnit()).slice(0, 3);
     const sTop = top + blockH + 14;
     const sH = 14 + statHeight(34) + 14;
     if (stats.length) {
@@ -34,7 +35,7 @@ function draw(a: DrawArgs) {
       hline(ctx, 18, sTop + sH, B - 36, p.hairline, 1.5);
     }
     if (m.streakDays) {
-      const label = `${m.streakDays} ימים ברצף`;
+      const label = streakLineText(m.streakDays);
       setFont(ctx, 15, 800);
       const w = ctx.measureText(label).width + 20;
       const y = Math.min(B - 12 - 20, sTop + sH + 16);
@@ -47,7 +48,7 @@ function draw(a: DrawArgs) {
 export const strengthSticker: ShareTemplateDef = {
   id: 'strength-sticker',
   kind: 'strength',
-  label: 'נתונים מרכזיים',
+  get label() { return shareT('shareV2.template.keyStats'); },
   formats: ['sticker'],
   brand: 'navy',
   naturalBackground: () => 'none',

@@ -1,0 +1,7202 @@
+[
+  [
+    null,
+    null,
+    null,
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    null,
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    "gym",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    "gym",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    "gym",
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    "gym",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    "basketball",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    "basketball",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    "basketball",
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    "basketball",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    "yoga",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    "yoga",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    "yoga",
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    "yoga",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    "running",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    "running",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    null,
+    "running",
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    null,
+    "running",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    false,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    null,
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    null,
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    null,
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    null,
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    null,
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "gym",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "gym",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "gym",
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "gym",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "basketball",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "basketball",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "basketball",
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "basketball",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "yoga",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "yoga",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "yoga",
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "yoga",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "running",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "running",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "running",
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "running",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    false,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 0,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    true,
+    []
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    null,
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בחיפה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 3,
+      "courts": 0,
+      "nature": 0
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "3 מתקני עילית בסביבה",
+        "value": 3
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בחיפה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בחיפה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בסביבה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בסביבה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בחיפה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בחיפה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בסביבה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בסביבה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    null,
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בחיפה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בחיפה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בסביבה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בסביבה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בחיפה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בחיפה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בסביבה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בסביבה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בחיפה",
+        "value": 4
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בחיפה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בסביבה",
+        "value": 4
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בסביבה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בחיפה",
+        "value": 7
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בחיפה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בסביבה",
+        "value": 7
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בסביבה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בחיפה",
+        "value": 4
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בחיפה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בסביבה",
+        "value": 4
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "4 מגרשים בסביבה",
+        "value": 4
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בחיפה",
+        "value": 7
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בחיפה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בסביבה",
+        "value": 7
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "7 נקודות טבע בסביבה",
+        "value": 7
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בחיפה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 12,
+      "courts": 4,
+      "nature": 7
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "12 מתקני עילית בסביבה",
+        "value": 12
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    null,
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 0,
+      "segmentCount": 0
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בחיפה",
+        "value": 1
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בסביבה",
+        "value": 1
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בחיפה",
+        "value": 1
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בסביבה",
+        "value": 1
+      },
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "12.3 ק״מ מסלולי תנועה",
+        "value": 12.34
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 12.34,
+      "segmentCount": 5
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    null,
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    false,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "gym",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בחיפה",
+        "value": 1
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    false,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בסביבה",
+        "value": 1
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "basketball",
+    null,
+    true,
+    [
+      {
+        "icon": "⚽",
+        "label": "1 מגרשים בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בחיפה",
+        "value": 1
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בחיפה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    false,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בסביבה",
+        "value": 1
+      },
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "yoga",
+    null,
+    true,
+    [
+      {
+        "icon": "🌳",
+        "label": "1 נקודות טבע בסביבה",
+        "value": 1
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    "חיפה",
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בחיפה",
+        "value": 1204
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    false,
+    [
+      {
+        "icon": "🛣️",
+        "label": "1234.6 ק״מ מסלולי תנועה",
+        "value": 1234.56
+      }
+    ]
+  ],
+  [
+    {
+      "gyms": 1204,
+      "courts": 1,
+      "nature": 1
+    },
+    {
+      "totalKm": 1234.56,
+      "segmentCount": 9
+    },
+    "running",
+    null,
+    true,
+    [
+      {
+        "icon": "🏋️",
+        "label": "1204 מתקני עילית בסביבה",
+        "value": 1204
+      }
+    ]
+  ]
+]

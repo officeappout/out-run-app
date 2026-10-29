@@ -15,7 +15,7 @@ let fontsReady: Promise<void> | null = null;
 export function ensureShareFonts(): Promise<void> {
   if (typeof document === 'undefined' || !document.fonts) return Promise.resolve();
   fontsReady ??= Promise.all(
-    [700, 800, 900].map((w) => document.fonts.load(`${w} 40px ${FONT}`, 'אבג 0123')),
+    [700, 800, 900].map((w) => document.fonts.load(`${w} 40px ${FONT}`, 'אבג 0123')), // i18n-allow-hebrew: data, glyph probe for font loading
   )
     .then(() => document.fonts.ready)
     .then(() => undefined)

@@ -8,12 +8,13 @@ import { fitFontSize } from '../layout';
 import { drawHeader } from './common';
 import type { DrawArgs, ShareTemplateDef } from './template';
 import { unitLabel } from '@/lib/i18n/units';
+import { fastestLapUnit, shareCommonT, shareT } from '../copy';
 
 function draw(a: DrawArgs) {
   const { ctx, frame, model: m, palette: p } = a;
   const story = frame.format === 'story';
   const headerBottom = drawHeader(a);
-  const rest = m.stats.filter((s) => s.unit !== m.hero.unit && s.unit !== 'הקפה מהירה').slice(0, 2);
+  const rest = m.stats.filter((s) => s.unit !== m.hero.unit && s.unit !== fastestLapUnit()).slice(0, 2);
   const side = 40;
   const statsH = rest.length ? 16 + statHeight(30) : 0;
   const statsTop = frame.h - (story ? 40 : 24) - statsH;
@@ -33,14 +34,14 @@ function draw(a: DrawArgs) {
     y += routeBox + 8;
   }
   drawText(ctx, m.hero.value, cx, y, { size: heroSize, weight: 900, color: p.fg, align: 'center', lineH: heroLine });
-  const unit = m.hero.unit === unitLabel('km') ? 'קילומטר' : m.hero.unit;
+  const unit = m.hero.unit === unitLabel('km', shareCommonT) ? shareT('shareV2.unit.kilometers') : m.hero.unit;
   drawText(ctx, unit, cx, y + heroLine + 4, { size: unitSize, weight: 900, color: p.accentText, align: 'center', lineH: unitSize * 1.1 });
 }
 
 export const runMinimal: ShareTemplateDef = {
   id: 'run-minimal',
   kind: 'cardio',
-  label: 'מינימל',
+  get label() { return shareT('shareV2.template.minimal'); },
   formats: ['story', 'square'],
   brand: 'night',
   naturalBackground: () => 'plain',

@@ -8,6 +8,10 @@ import {
   type CelebrationInput,
 } from '../core/celebration.core';
 import { celebrationCopy } from '../core/celebration-copy';
+import { makeT } from '@/lib/i18n/t';
+import { home } from '@/messages/ns/home';
+
+const t = makeT('he', home);
 
 // 2026-10-22 is a Thursday.
 const TODAY = '2026-10-22';
@@ -101,10 +105,10 @@ describe('milestones + tones + copy', () => {
   });
   it('copy is gendered with a neutral fallback', () => {
     const c = pickCelebration({ ...base, currentStreak: 30, longestStreak: 30 })!;
-    expect(celebrationCopy(c, 'male').sub).toContain('אתה בדרך ל-100');
-    expect(celebrationCopy(c, 'female').sub).toContain('את בדרך ל-100');
-    expect(celebrationCopy(c, null).sub).toContain('הבא בתור: 100');
+    expect(celebrationCopy(c, 'male', t).sub).toContain('אתה בדרך ל-100');
+    expect(celebrationCopy(c, 'female', t).sub).toContain('את בדרך ל-100');
+    expect(celebrationCopy(c, null, t).sub).toContain('הבא בתור: 100');
     const s = pickCelebration({ ...base, notice: { kind: 'shield_used', days: ['2026-10-21'], left: 1, on: TODAY }, shieldsLeft: 1 })!;
-    expect(celebrationCopy(s, 'male').headline).toBe('המגן שמר לך על הרצף');
+    expect(celebrationCopy(s, 'male', t).headline).toBe('המגן שמר לך על הרצף');
   });
 });

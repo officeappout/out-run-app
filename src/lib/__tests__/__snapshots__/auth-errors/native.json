@@ -1,0 +1,30 @@
+[
+  {
+    "user": null,
+    "error": "לא התקבל פרטי זיהוי מ-Google Sign In."
+  },
+  {
+    "user": null,
+    "error": "לא התקבל פרטי זיהוי מ-Apple Sign In."
+  },
+  {
+    "user": null,
+    "error": "לא התקבל פרטי זיהוי מ-Google Sign In."
+  },
+  {
+    "user": null,
+    "error": "לא התקבל פרטי זיהוי מ-Google Sign In."
+  },
+  {
+    "user": null,
+    "error": "לא התקבל פרטי זיהוי מ-Apple Sign In."
+  },
+  {
+    "user": null,
+    "error": "Apple Sign In לא החזיר nonce. נסו שוב."
+  },
+  {
+    "user": null,
+    "error": "Apple Sign In לא החזיר nonce. נסו שוב."
+  }
+]

@@ -3,6 +3,8 @@
  * Provides voice announcements for workout events using Web Speech API
  */
 
+import { applySpeechLang, currentTtsLang, speechT } from '@/lib/i18n/speech';
+
 let speechSynthesis: SpeechSynthesis | null = null;
 let isSupported = false;
 
@@ -15,9 +17,9 @@ if (typeof window !== 'undefined') {
 /**
  * Announce a message using text-to-speech
  * @param message The message to announce
- * @param lang Language code (default: 'he-IL' for Hebrew)
+ * @param lang Language code (default: the active UI locale's TTS language)
  */
-export function announce(message: string, lang: string = 'he-IL'): void {
+export function announce(message: string, lang: string = currentTtsLang()): void {
   if (!isSupported || !speechSynthesis) {
     console.warn('[AudioGuidance] Speech synthesis not supported');
     return;
@@ -27,7 +29,7 @@ export function announce(message: string, lang: string = 'he-IL'): void {
   speechSynthesis.cancel();
 
   const utterance = new SpeechSynthesisUtterance(message);
-  utterance.lang = lang;
+  applySpeechLang(utterance, speechSynthesis, lang);
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
   utterance.volume = 0.8;
@@ -50,7 +52,7 @@ export function announceLapCompletion(
   const paceSeconds = Math.round((paceMinutesPerKm % 1) * 60);
   const paceText = `${paceMinutes}:${paceSeconds.toString().padStart(2, '0')}`;
 
-  const message = `הקפה ${lapNumber} הושלמה. מרחק כולל ${distanceKm.toFixed(2)} קילומטר. קצב ממוצע ${paceText} דקות לקילומטר.`;
+  const message = speechT('lap.doneTotal', { lap: String(lapNumber), distance: distanceKm.toFixed(2), pace: paceText });
   
   announce(message);
 }
@@ -60,7 +62,7 @@ export function announceLapCompletion(
  * @param totalDistanceKm Total distance in kilometers
  */
 export function announceTotalDistance(totalDistanceKm: number): void {
-  const message = `מרחק כולל ${totalDistanceKm.toFixed(2)} קילומטר.`;
+  const message = speechT('distance.total', { distance: totalDistanceKm.toFixed(2) });
   announce(message);
 }
 
