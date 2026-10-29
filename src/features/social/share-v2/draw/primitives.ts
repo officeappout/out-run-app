@@ -6,6 +6,7 @@
 import { ellipsize, wrapLines } from '../layout';
 import type { SharePalette } from '../palette';
 import type { ShareSetRow, ShareStatV2 } from '../types';
+import { streakLineText } from '../copy';
 
 export const FONT = "'Simpler Pro', 'Heebo', system-ui, sans-serif";
 type Ctx = CanvasRenderingContext2D;
@@ -21,7 +22,7 @@ export function measureAt(ctx: Ctx, size: number, weight: number) {
   };
 }
 
-const HEBREW = /[֐-׿]/;
+const HEBREW = /[֐-׿]/; // i18n-allow-hebrew: data, the Hebrew unicode block (text direction)
 
 export interface TextOpts {
   size: number;
@@ -222,7 +223,7 @@ export function drawFlame(ctx: Ctx, x: number, y: number, size: number, color: s
 
 /** "🔥 6 ימים ברצף" line, right-anchored. Returns the height. */
 export function drawStreakLine(ctx: Ctx, days: number, right: number, top: number, color: string): number {
-  const label = `${days} ימים ברצף`;
+  const label = streakLineText(days);
   drawFlame(ctx, right - 17, top + 1, 17, '#fb923c');
   drawText(ctx, label, right - 23, top, { size: 15, weight: 800, color, lineH: 20 });
   return 20;

@@ -6,6 +6,7 @@
 import { formatSecPerKm } from '../services/feed-post-details';
 import type { ShareTogether } from '../services/share-image';
 import type { ShareTogetherModel } from './types';
+import { shareT } from './copy';
 
 export const MAX_AVATARS = 4;
 export const MAX_PEOPLE_ROWS = 4;
@@ -15,7 +16,7 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 /** "דניאל כהן" → "דכ", "נועה" → "נו", "" → "?". Strips geresh/quotes. */
 export function initialsOf(name: string): string {
   const words = name
-    .replace(/["'׳״]/g, '')
+    .replace(/["'׳״]/g, '') // i18n-allow-hebrew: data, strips Hebrew geresh / gershayim from a name
     .trim()
     .split(/\s+/)
     .filter(Boolean);
@@ -24,14 +25,14 @@ export function initialsOf(name: string): string {
   return Array.from(words[0])[0] + Array.from(words[1])[0];
 }
 
-/** "נועה ודניאל" / "נועה, דניאל ועוד 3". */
+/** "Noa and Daniel" / "Noa, Daniel and 3 more" (catalog `shareV2.together.*`). */
 export function namesLine(names: string[], total: number): string {
   const first = names.map(firstName).filter(Boolean);
-  if (!first.length) return `${total} רצים יחד`;
-  if (total <= 2 && first.length >= 2) return `${first[0]} ו${first[1]}`;
+  if (!first.length) return shareT('shareV2.together.count', { total });
+  if (total <= 2 && first.length >= 2) return shareT('shareV2.together.pair', { a: first[0], b: first[1] });
   const shown = first.slice(0, 2);
   const more = total - shown.length;
-  return more > 0 ? `${shown.join(', ')} ועוד ${more}` : shown.join(', ');
+  return more > 0 ? shareT('shareV2.together.more', { names: shown.join(', '), more }) : shown.join(', ');
 }
 
 export function buildTogetherModel(t: ShareTogether | undefined): ShareTogetherModel | undefined {
@@ -44,7 +45,7 @@ export function buildTogetherModel(t: ShareTogether | undefined): ShareTogetherM
   const total = Math.max(t.participantCount, ordered.length);
   return {
     names: namesLine(ordered.map((p) => p.name), total),
-    subline: ['רצנו יחד', t.groupName?.trim()].filter(Boolean).join(' · '),
+    subline: [shareT('shareV2.together.ranTogether'), t.groupName?.trim()].filter(Boolean).join(' · '),
     avatars: ordered.slice(0, MAX_AVATARS).map((p) => initialsOf(p.name)),
     moreCount: Math.max(0, total - MAX_AVATARS),
     jointKm: t.collectiveKm && t.collectiveKm > 0 ? t.collectiveKm.toFixed(1) : undefined,

@@ -10,6 +10,7 @@ import { drawLogo } from '../draw/logo';
 import { stackFromBottom } from '../layout';
 import { drawBigNumber, drawHeader } from './common';
 import { PAD, type DrawArgs, type ShareTemplateDef } from './template';
+import { shareT } from '../copy';
 
 const routeInk = (a: DrawArgs) => (a.bg === 'photo' ? 'white' : a.palette.routeInk);
 
@@ -70,7 +71,7 @@ function square(a: DrawArgs) {
 export const runPhotoRoute: ShareTemplateDef = {
   id: 'run-photo-route',
   kind: 'cardio',
-  label: 'מסלול על תמונה',
+  get label() { return shareT('shareV2.template.routeOnPhoto'); },
   formats: ['story', 'square'],
   brand: 'night',
   naturalBackground: (hasPhoto) => (hasPhoto ? 'photo' : 'brand'),

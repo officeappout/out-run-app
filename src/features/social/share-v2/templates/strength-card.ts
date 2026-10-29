@@ -18,6 +18,7 @@ import { CYAN, paletteFor, type SharePalette } from '../palette';
 import type { ShareStatV2 } from '../types';
 import { drawHeader } from './common';
 import { PAD, type DrawArgs, type ShareTemplateDef } from './template';
+import { shareT, stageOfText, streakLineText, strengthDefaultName } from '../copy';
 
 const TILE_BG = '#f1f9fd';
 
@@ -38,7 +39,7 @@ function tiles(ctx: CanvasRenderingContext2D, stats: ShareStatV2[], left: number
 }
 
 function levelBar(ctx: CanvasRenderingContext2D, index: number, count: number, frac: number, left: number, width: number, top: number) {
-  drawText(ctx, `שלב ${index} מתוך ${count}`, left + width, top, { size: 15, weight: 800, color: '#0284c7', lineH: 20 });
+  drawText(ctx, stageOfText(index, count), left + width, top, { size: 15, weight: 800, color: '#0284c7', lineH: 20 });
   drawText(ctx, `${Math.round(frac * 100)}%`, left, top, { size: 15, weight: 800, color: '#4b5a66', align: 'left', lineH: 20 });
   fillRound(ctx, left, top + 26, width, 10, 5, '#e3f3fa');
   const fw = Math.max(10, width * frac);
@@ -56,7 +57,7 @@ function streakBox(ctx: CanvasRenderingContext2D, days: number, left: number, wi
   g.addColorStop(1, '#f97316');
   fillRound(ctx, ix, top + 8, 36, 36, 12, g);
   drawFlame(ctx, ix + 7, top + 15, 22, '#ffffff');
-  drawText(ctx, `${days} ימים ברצף`, ix - 10, top, { size: 19, weight: 900, color: '#c2410c', lineH: 52 });
+  drawText(ctx, streakLineText(days), ix - 10, top, { size: 19, weight: 900, color: '#c2410c', lineH: 52 });
 }
 
 function story(a: DrawArgs) {
@@ -64,7 +65,7 @@ function story(a: DrawArgs) {
   const pad = PAD.story;
   drawHeader(a);
   const right = frame.w - pad;
-  const eyebrow = [m.name === 'אימון כוח' ? null : 'אימון כוח', m.level && `שלב ${m.level.index} מתוך ${m.level.count}`].filter(Boolean).join(' · ');
+  const eyebrow = [m.name === strengthDefaultName() ? null : strengthDefaultName(), m.level && stageOfText(m.level.index, m.level.count)].filter(Boolean).join(' · ');
   const nameLines = wrapLines(m.name, frame.w - pad * 2, measureAt(ctx, 44, 900), 2).length;
   const headH = 22 + nameLines * 46;
 
@@ -122,7 +123,7 @@ function square(a: DrawArgs) {
   const lw = 60;
   drawLogo(ctx, pad, 18 + (48 - logoHeight(lw)) / 2, lw, p);
   const textW = frame.w - pad * 2 - lw - 14;
-  const eyebrow = [m.name === 'אימון כוח' ? null : 'אימון כוח', m.level ? `שלב ${m.level.index} מתוך ${m.level.count}` : m.dateLabel].filter(Boolean).join(' · ');
+  const eyebrow = [m.name === strengthDefaultName() ? null : strengthDefaultName(), m.level ? stageOfText(m.level.index, m.level.count) : m.dateLabel].filter(Boolean).join(' · ');
   drawText(ctx, eyebrow, frame.w - pad, 18, { size: 14.5, weight: 800, color: p.sub, lineH: 18, maxW: textW });
   drawText(ctx, m.name, frame.w - pad, 37, { size: 30, weight: 900, color: p.fg, lineH: 32, maxW: textW });
 
@@ -145,7 +146,7 @@ function square(a: DrawArgs) {
   else if (m.exerciseNames) drawText(ctx, m.exerciseNames, l + inW, y + 12, { size: 14.5, weight: 800, color: lp.sub, lineH: 18, maxW: inW });
   if (m.streakDays) {
     const by = card.y + card.h - 12 - 28;
-    const label = `${m.streakDays} ימים ברצף`;
+    const label = streakLineText(m.streakDays);
     setFont(ctx, 14.5, 900);
     const w = ctx.measureText(label).width + 42;
     fillRound(ctx, l + inW - w, by, w, 28, 14, '#fff4e5');
@@ -157,7 +158,7 @@ function square(a: DrawArgs) {
 export const strengthCard: ShareTemplateDef = {
   id: 'strength-card',
   kind: 'strength',
-  label: 'כרטיס',
+  get label() { return shareT('shareV2.template.card'); },
   formats: ['story', 'square'],
   brand: 'cyan',
   naturalBackground: () => 'brand',
