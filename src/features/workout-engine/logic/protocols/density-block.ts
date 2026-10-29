@@ -10,7 +10,7 @@
  *   - at least 2 levels below the user's level in that domain (2-3 in one-domain sessions);
  *   - several domains: 3-5 exercises, 8-12 min, EMOM or AMRAP;
  *   - one domain: EMOM only (AMRAP fatigues one muscle group too fast), one exercise
- *     or two alternating, 8-10 min, ~60% of the usual reps;
+ *     or two alternating, 8-10 min, ~60% of the usual reps but at least 5 a minute;
  *   - an EMOM set must fit in 40 s (rest until the next minute);
  *   - full pull-ups enter an AMRAP only from pull level 14 (rows / easier variants below).
  * Too few eligible exercises → no block (the caller keeps classic sets).
@@ -79,7 +79,7 @@ export function isDensityEligible(ex: Exercise, format: DensityFormat): boolean 
  * Reps by how far below the user the exercise sits (the scenario-sheet rule, 28.10):
  * gap ≥5 → 40, 3-4 → 25, 2 → 15 base; × format share (EMOM 0.35, AMRAP 0.4),
  * × 0.6 in one-domain sessions, × 0.7 per side for unilateral moves; an EMOM set
- * is capped to fit EMOM_SET_CAP_SEC. Never below 3.
+ * is capped to fit EMOM_SET_CAP_SEC. Never below 3 (5 in a one-domain EMOM).
  */
 export function densityReps(
   ex: Pick<Exercise, 'symmetry' | 'secondsPerRep'>,
@@ -93,7 +93,8 @@ export function densityReps(
   if (ex.symmetry === 'unilateral') r *= 0.7;
   if (format === 'emom') r = Math.min(r, EMOM_SET_CAP_SEC / (ex.secondsPerRep && ex.secondsPerRep > 0 ? ex.secondsPerRep : 3));
   const rounded = r >= 20 ? Math.round(r / 5) * 5 : Math.round(r);
-  return Math.max(3, rounded);
+  // One-domain EMOM: at least 5 reps a minute (owner 29.10.2026).
+  return Math.max(singleDomain && format === 'emom' ? 5 : 3, rounded);
 }
 
 export interface DensityCandidate {

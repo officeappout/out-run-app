@@ -64,7 +64,7 @@ describe('densityReps', () => {
     const b = { symmetry: 'bilateral', secondsPerRep: 2 } as const;
     expect(densityReps(b, 2, 'amrap', false)).toBe(6);
     expect(densityReps(b, 6, 'amrap', false)).toBe(16);
-    expect(densityReps(b, 2, 'emom', true)).toBe(3);
+    expect(densityReps(b, 2, 'emom', true)).toBe(5); // one-domain EMOM floor
     expect(densityReps({ symmetry: 'bilateral', secondsPerRep: 5 }, 6, 'emom', false)).toBe(8);
     expect(densityReps({ symmetry: 'unilateral', secondsPerRep: 2 }, 6, 'amrap', false)).toBe(11);
   });
