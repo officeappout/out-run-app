@@ -39,9 +39,40 @@ export interface LocaleSources {
   profileLocale?: unknown;
   storedLocale?: unknown;
   deviceLocales?: readonly string[];
+  /** See isNewUserForLocale. false = never auto-detect from the device. */
+  detectDevice?: boolean;
 }
 
-/** Profile → stored pref → device → 'he', among the allowed locales. Flags off → 'he'. */
+/** An account younger than this still counts as new for device-language detection. */
+export const NEW_USER_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function toMillis(v: unknown): number | null {
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (v && typeof v === 'object') {
+    const o = v as { toMillis?: () => number; seconds?: number };
+    if (typeof o.toMillis === 'function') return o.toMillis();
+    if (typeof o.seconds === 'number') return o.seconds * 1000;
+  }
+  return null;
+}
+
+/**
+ * "New user" = may be auto-detected from the device language. The ONE client rule:
+ *   - no account profile yet (first launch / signed out)            → new
+ *   - profile whose createdAt is within NEW_USER_WINDOW_MS          → new
+ *   - any other profile (older, or createdAt missing = legacy doc)   → existing, stays Hebrew
+ * Existing users change language only through the picker (core.locale / stored pref).
+ * The server never detects: it reads core.locale only, so new users who start in a
+ * non-Hebrew locale get it persisted (LocaleSync) and both sides agree.
+ */
+export function isNewUserForLocale(profile: { createdAt?: unknown } | null | undefined, now: number = Date.now()): boolean {
+  if (!profile) return true;
+  const created = toMillis(profile.createdAt);
+  return created !== null && now - created < NEW_USER_WINDOW_MS;
+}
+
+/** Profile → stored pref → device (new users only) → 'he', among the allowed locales. Flags off → 'he'. */
 export function pickAppLocale(flags: LocaleFlags, sources: LocaleSources): Locale {
   const loc = resolveLocale({ i18nEnabled: flags.enableI18n, allowed: allowedLocales(flags), ...sources });
   return isLocale(loc) ? loc : SOURCE_LOCALE;

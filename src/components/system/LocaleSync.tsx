@@ -9,7 +9,7 @@
  * and <html lang dir> follow useAppStore exactly as LanguageProvider did — so
  * every user sees today's app byte for byte.
  * enable_i18n ON: locale = users/{uid}.core.locale → onboardingPrefs 'app_locale'
- * → device language → 'he', among the locales whose enable_locale_* flag is on.
+ * → device language (new users only, see isNewUserForLocale) → 'he', among the locales whose enable_locale_* flag is on.
  */
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -19,6 +19,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useLocaleStore } from '@/store/useLocaleStore';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { ONBOARDING_GENDER_EVENT, readOnboardingGender, resolveUiGender } from '@/lib/i18n/gender-copy';
+import { setUserLocale } from '@/lib/i18n/locale-persistence';
 import { clearLocaleCookie, writeLocaleCookie } from '@/lib/i18n/locale-cookie';
 import {
   LOCALE_PREF_KEY,
@@ -26,12 +27,16 @@ import {
   deviceLocales,
   deviceLocalesFor,
   effectiveLocaleFlags,
+  isNewUserForLocale,
   pickAppLocale,
 } from '@/lib/i18n/locale-resolution';
 
 export default function LocaleSync() {
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const profileLocale = useUserStore((st) => (st.profile?.core as { locale?: unknown } | undefined)?.locale);
+  const profileId = useUserStore((st) => st.profile?.id);
+  const hasProfile = useUserStore((st) => !!st.profile);
+  const profileCreatedAt = useUserStore((st) => (st.profile as { createdAt?: unknown } | null)?.createdAt);
   const profileGender = useUserStore((st) => st.profile?.core?.gender);
   const { flags } = useFeatureFlags(isSuperAdmin);
   const { enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, enableContentLocale } = flags;
@@ -77,14 +82,26 @@ export default function LocaleSync() {
     const localeFlags = effectiveLocaleFlags({ enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe }, isSuperAdmin);
     void getOnboardingPrefAsync(LOCALE_PREF_KEY).then((storedLocale) => {
       if (cancelled) return;
-      const next = pickAppLocale(localeFlags, { profileLocale, storedLocale, deviceLocales: deviceLocalesFor(deviceLocales(), { enableLocaleEn }) });
+      const isNew = isNewUserForLocale(hasProfile ? { createdAt: profileCreatedAt } : null);
+      const next = pickAppLocale(localeFlags, {
+        profileLocale,
+        storedLocale,
+        deviceLocales: deviceLocalesFor(deviceLocales(), { enableLocaleEn }),
+        detectDevice: isNew,
+      });
       setLocaleState({ i18nEnabled: true, locale: next });
       writeLocaleCookie(next);
+      // A signed-in user whose English came from the device (new user) or the pre-signup pill has no
+      // core.locale yet: persist it so pushes / Kelly (which read core.locale only) agree. Hebrew is never written.
+      const hasStoredCore = typeof profileLocale === 'string' && profileLocale !== '';
+      if (next !== 'he' && profileId && hasProfile && !hasStoredCore) {
+        void setUserLocale(next, profileId).catch(() => {});
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, isSuperAdmin, profileLocale, setLocaleState]);
+  }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, isSuperAdmin, profileLocale, profileId, hasProfile, profileCreatedAt, setLocaleState]);
 
   // <html lang dir> — the old LanguageProvider effect, unchanged while i18n is off / Hebrew.
   useEffect(() => {
