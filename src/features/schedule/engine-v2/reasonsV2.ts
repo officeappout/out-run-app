@@ -52,7 +52,8 @@ export type V2OnlyReason =
   | { code: 'LONG_RUN_NEXT_CAP' }
   | { code: 'SEARCH_TRUNCATED' }
   /** Owner 27.10.2026: more run days than the streak, weekly volume kept, extra runs short and easy. */
-  | { code: 'RUN_VOLUME_SPLIT' };
+  | { code: 'RUN_VOLUME_SPLIT' }
+  | { code: 'STRENGTH_ON_LONG_RUN_DAY'; day: number };
 
 export type V2Reason = ScheduleReason | V2OnlyReason;
 export type V2ReasonCode = V2Reason['code'];
@@ -70,7 +71,7 @@ const V2_ONLY_CODES = new Set<string>([
   'OPTIONAL_MIDWEEK_MICRO_SESSION', 'DAYS_BELOW_SKILL_MIN', 'LONG_TRAINING_STREAK',
   'STRENGTH_REDUCED_LONG_RUN_PROTECTED', 'STRENGTH_MERGED', 'Q2_TO_EASY', 'DELOAD_WEEK', 'TRAVEL_WEEK',
   'STEPS_DAILY', 'RUN_WEEK_REPEATED', 'RE_ENTRY', 'MAKEUP_DROPPED', 'LONG_RUN_NEXT_CAP', 'SEARCH_TRUNCATED',
-  'RUN_VOLUME_SPLIT',
+  'RUN_VOLUME_SPLIT', 'STRENGTH_ON_LONG_RUN_DAY',
 ]);
 
 function isV2Only(r: V2Reason): r is V2OnlyReason {
@@ -124,6 +125,8 @@ function renderV2OnlyHe(r: V2OnlyReason, t: ScheduleT): string {
         required: String(r.required),
         available: String(r.available),
       });
+    case 'STRENGTH_ON_LONG_RUN_DAY':
+      return t('engine.reason.STRENGTH_ON_LONG_RUN_DAY', { day: dayHe(t, r.day) });
     case 'LONG_TRAINING_STREAK':
       return t('engine.reason.LONG_TRAINING_STREAK', { days: String(r.days) });
     case 'DELOAD_WEEK':

@@ -95,6 +95,8 @@ export interface UseActivitySyncParams {
   isRecovery: boolean;
   /** Per-domain set counts for the weekly volume store (Phase 3). */
   domainSets?: Record<string, number>;
+  /** Core sets toward the weekly core target (R31, core-weekly-count.ts). */
+  coreSets?: number;
 }
 
 /**
@@ -120,6 +122,7 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
     difficultyBolts,
     isRecovery,
     domainSets,
+    coreSets,
   } = params;
 
   // Hoisted from step 3 below — needed here too (HOME_DAILY_GOAL_V1's
@@ -232,6 +235,8 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
     undefined, // durationMinutes — computed separately
     domainSets,
     sessionExerciseIds,
+    undefined, // saSets
+    coreSets,
   );
 
   console.log(
