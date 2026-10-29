@@ -15,11 +15,13 @@
  */
 import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimulation';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface MockLocationBannerProps {
   devSim: DevSimulationState;
 }
 
 export default function MockLocationBanner({ devSim }: MockLocationBannerProps) {
+  const { direction } = useUiDir();
   if (!devSim.isMockEnabled) return null;
 
   const label = devSim.selectedCity
@@ -27,7 +29,7 @@ export default function MockLocationBanner({ devSim }: MockLocationBannerProps) 
 
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className="fixed top-0 inset-x-0 z-[120] flex items-center justify-between gap-2 bg-orange-600 text-white px-3 py-2 shadow-md pointer-events-auto"
       style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
     >

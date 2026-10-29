@@ -18,6 +18,7 @@ import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { IS_XP_ENABLED } from '@/config/feature-flags';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface PartnerEmptyStateProps {
   tab: 'live' | 'scheduled';
   /** Home v2: calm white-card variant (the host renders the card chrome). */
@@ -28,6 +29,7 @@ interface PartnerEmptyStateProps {
 }
 
 export function PartnerEmptyState({ tab, v2 = false, onAction, actionLabel }: PartnerEmptyStateProps) {
+  const { direction } = useUiDir();
   const t = useT(map);
 
   const title = tab === 'live' ? t('partners.empty.live.title') : t('partners.empty.scheduled.title');
@@ -35,7 +37,7 @@ export function PartnerEmptyState({ tab, v2 = false, onAction, actionLabel }: Pa
 
   if (v2) {
     return (
-      <div dir="rtl" className="flex w-full flex-col items-center justify-center px-6 py-8 text-center">
+      <div dir={direction} className="flex w-full flex-col items-center justify-center px-6 py-8 text-center">
         {IS_XP_ENABLED ? (
           <div className="mb-4 opacity-60">
             <LemurAvatar level={1} size="large" />
@@ -67,7 +69,7 @@ export function PartnerEmptyState({ tab, v2 = false, onAction, actionLabel }: Pa
 
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className="flex flex-col items-center justify-center text-center px-8 py-10 w-full"
     >
       {/* IS_XP_ENABLED gate (round 5 — a missed gamification-character

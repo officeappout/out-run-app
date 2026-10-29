@@ -19,6 +19,7 @@ import Sheet, { SHEET_TITLE_CLASS } from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export type LegalDocType = 'terms' | 'privacy';
 
 interface LegalDocModalProps {
@@ -60,6 +61,7 @@ function Paragraphs({
  * Drag down ≥100 px or flick (velocity ≥ 500) to dismiss.
  */
 export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalProps) {
+  const { direction } = useUiDir();
   const t = useT(legal);
   const doc: LegalDoc = type === 'terms' ? buildTermsDoc(t) : buildPrivacyDoc(t);
   const Icon = type === 'terms' ? FileText : ShieldCheck;
@@ -71,7 +73,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
   const content = (
     <div
       className="px-6 pt-4 pb-2 overflow-y-auto flex-1 text-start"
-      dir="rtl"
+      dir={direction}
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <Paragraphs body={doc.intro} className="text-slate-600 leading-relaxed mb-4" />
@@ -184,7 +186,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
             onClick={(e) => e.stopPropagation()}
             className="fixed bottom-0 left-0 right-0 z-[131] bg-white rounded-t-3xl shadow-2xl flex flex-col"
             style={{ maxHeight: '90vh' }}
-            dir="rtl"
+            dir={direction}
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 flex-shrink-0">

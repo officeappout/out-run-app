@@ -20,6 +20,7 @@ import { CalendarDays } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface PartnerBubblesProps {
   liveCount: number;
   scheduledCount: number;
@@ -33,10 +34,11 @@ export function PartnerBubbles({
   onSelectLive,
   onSelectScheduled,
 }: PartnerBubblesProps) {
+  const { direction } = useUiDir();
   const t = useT(map);
   return (
     <motion.div
-      dir="rtl"
+      dir={direction}
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.85 }}

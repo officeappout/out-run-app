@@ -17,6 +17,7 @@ const P = 'text-sm text-slate-700 leading-relaxed';
 const LINK =
   'font-semibold text-[#007EA8] underline underline-offset-2 hover:text-[#006E96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007EA8] rounded-sm';
 
+// dir="rtl" is deliberate: this page is Hebrew-only legal text (lang="he"), it must not follow the UI locale.
 export default function CreditsPage() {
   const { flags, ready, loading } = useFeatureFlags();
   const t = useT(legal);

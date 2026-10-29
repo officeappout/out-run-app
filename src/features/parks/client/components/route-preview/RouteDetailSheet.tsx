@@ -53,6 +53,7 @@ import { filterVisibleParkEvents } from '../park-detail/utils/park-detail-logic'
 import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
 import { mergeRouteSessions } from './route-sessions';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // enable_place_workouts_v1 — loaded only when the flag is on (flag off: nothing imported, nothing read).
 const RoutePlaceChips = dynamic(() => import('../place-workouts/RoutePlaceChips'), { ssr: false });
 const RoutePlaceWorkouts = dynamic(() => import('../place-workouts/RoutePlaceWorkouts'), { ssr: false });
@@ -154,6 +155,7 @@ export default function RouteDetailSheet({
   currentActivity,
   devSim,
 }: RouteDetailSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(map);
   const y = useMotionValue(0);
   const rawOpacity = useTransform(y, [0, 300], [1, 0]);
@@ -462,7 +464,7 @@ export default function RouteDetailSheet({
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '85vh', willChange: 'transform' }}
               className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-[32px] shadow-2xl overflow-hidden"
-              dir="rtl"
+              dir={direction}
             >
               {/* Drag Handle */}
               <div className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-1 pointer-events-none">
@@ -856,7 +858,7 @@ export default function RouteDetailSheet({
                     const showWalkRow = walkToRouteMinutes != null;
 
                     return (
-                      <section dir="rtl" className="mb-6 relative">
+                      <section dir={direction} className="mb-6 relative">
                         {/* Dashed vertical connector — sits on the visual
                             right (RTL = right edge), spans both rows so
                             the headers feel linked even when collapsed.
@@ -1244,7 +1246,7 @@ export default function RouteDetailSheet({
                   className="pb-2"
                 />
 
-                <div className="flex items-center gap-2" dir="rtl">
+                <div className="flex items-center gap-2" dir={direction}>
                   <button
                     onClick={() => {
                       // Start-experience state map: tapping while too far

@@ -30,7 +30,7 @@ const RANGES: StepsTimeRange[] = ['day', 'week', 'month', 'year'];
 function WidgetsPreview() {
   const noop = () => undefined;
   return (
-    <div dir="rtl" className="min-h-[100dvh] bg-[#F8FAFC] p-4 space-y-6">
+    <div className="min-h-[100dvh] bg-[#F8FAFC] p-4 space-y-6">
       <section className="space-y-2">
         <p className="text-xs font-bold text-gray-500">StepsSummaryCard — default</p>
         <StepsSummaryCardView

@@ -9,12 +9,14 @@ import { common } from '@/messages/ns/common';
 import { weekdayLabel } from '@/lib/i18n/units';
 import { useT } from '@/hooks/useT';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 /** This week's days under the headline (ST-1 day / shield / back): flame, shield or empty. */
 export default function WeekStrip({ days, tones }: { days: StripDay[]; tones: FlameTone[] }) {
+  const { direction } = useUiDir();
   const reduce = useReducedMotion();
   const tc = useT(common);
   return (
-    <div className="mt-[22px] flex gap-2.5 rounded-[20px] bg-white px-4 py-3 shadow-[0_0_0_1px_rgba(14,27,42,0.06)]" dir="rtl">
+    <div className="mt-[22px] flex gap-2.5 rounded-[20px] bg-white px-4 py-3 shadow-[0_0_0_1px_rgba(14,27,42,0.06)]" dir={direction}>
       {days.map((d, i) => (
         <div key={d.key} className="flex w-[30px] flex-col items-center gap-1">
           <span className="grid h-7 w-7 place-items-center">

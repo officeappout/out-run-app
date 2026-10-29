@@ -228,7 +228,7 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
   };
 
   return (
-    <div dir="rtl">
+    <div>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center gap-3 px-4 py-2.5 bg-white/80 backdrop-blur-sm"
@@ -319,7 +319,7 @@ function HomeGreeting({ name, trailing }: { name: string; trailing?: React.React
   const hello = t('page.greeting', { part });
   const first = name.trim().split(/\s+/)[0] ?? '';
   return (
-    <div className="flex items-center justify-between gap-3 pb-2 pt-2" dir="rtl">
+    <div className="flex items-center justify-between gap-3 pb-2 pt-2">
       <h1 className="min-w-0 truncate text-[22px] font-black leading-tight tracking-v2-tight text-v2-ink">
         {first ? t('page.greetingName', { hello, name: first }) : hello}
       </h1>
@@ -342,7 +342,7 @@ function ActivityCard() {
 
   if (v2) {
     return (
-      <div className="flex h-full w-full flex-col rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
+      <div className="flex h-full w-full flex-col rounded-v2-card bg-white p-4 shadow-v2-card">
         <p className="text-[13px] font-extrabold text-v2-muted">{t('page.activity.title')}</p>
         <p className="mt-2 text-[30px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-ink">
           {weeklyMinutes} <span className="text-[14px] font-bold text-v2-muted">{unitLabel('min', tCommon)}</span>
@@ -364,7 +364,6 @@ function ActivityCard() {
     <div
       className="bg-white dark:bg-[#1E1E1E] w-full h-full p-4 flex flex-col justify-between"
       style={HEALTH_CARD_STYLE}
-      dir="rtl"
     >
       <div>
         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
@@ -3209,7 +3208,6 @@ export default function HomePage() {
           >
             <div
               className="relative flex items-center gap-3 px-4 py-3"
-              dir="rtl"
               style={{
                 background: '#F0FBFF',
                 border: '1px solid #B8E8F5',
@@ -3268,7 +3266,7 @@ export default function HomePage() {
         )}
         {/* v1 has no greeting row — the weather chip gets its own quiet row (weather_enabled). */}
         {!featureFlags.enableHomeV2 && homeWeather && (
-          <div className="flex pt-1" dir="rtl">
+          <div className="flex pt-1">
             <WeatherChip weather={homeWeather} />
           </div>
         )}
@@ -3457,7 +3455,6 @@ export default function HomePage() {
               {/* ── Tabs bar ─────────────────────────────────────────── */}
               <div
                 className={featureFlags.enableHomeV2 ? 'w-full mx-auto flex border-b border-v2-hairline' : 'w-full max-w-[358px] mx-auto flex border-b border-gray-100'}
-                dir="rtl"
               >
                 {tabs.map((tab) => {
                   const isActive = effectiveTab === tab;
@@ -3707,7 +3704,7 @@ export default function HomePage() {
                         for Hero-treated suggestions (isActiveSuggestionHeroTreated) —
                         safety-net/route have no swappable content, so there's nothing for
                         it to control. */}
-                    <div className="px-5" dir="rtl">
+                    <div className="px-5">
                       <div className="relative mb-1 flex items-center justify-between gap-2">
                         <h3
                           className={
@@ -3882,7 +3879,7 @@ export default function HomePage() {
                   // (real carousel shows 3, but only one is on-screen at a time) + button,
                   // so the widgets below never see a height jump when this resolves.
                   <div>
-                    <div className="px-5" dir="rtl">
+                    <div className="px-5">
                       <div className="h-8 w-40 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-1" />
                       <div className="h-4 w-56 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-4" />
                     </div>
@@ -3917,7 +3914,7 @@ export default function HomePage() {
                       title={tHome('page.pastDay.title')}
                     />
                   ) : (
-                    <div className="px-5 py-8 text-center" dir="rtl">
+                    <div className="px-5 py-8 text-center">
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                         {pastDayEmptyCopy}
                       </p>
@@ -4027,7 +4024,7 @@ export default function HomePage() {
 
           const continueActivityBlock = isSelectedDateToday && postWorkoutCarouselLoading ? (
             <div>
-              <div className="h-4 w-40 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-3" dir="rtl" />
+              <div className="h-4 w-40 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-3" />
               <CarouselSkeleton />
             </div>
           ) : isSelectedDateToday && postWorkoutSuggestions && (featureFlags.enableHomeV2 ? postWorkoutHasCards : postWorkoutCarouselReady) && postWorkoutBase && postWorkoutBase.length > 0 ? (
@@ -4044,7 +4041,7 @@ export default function HomePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
-              <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
+              <h3 className="text-start text-[16px] font-bold text-gray-900 mb-3">
                 {nextRec ? nextHeaderHe(nextRec, tHome) : allGoalsMet ? tHome('nextHeader.rest.done') : tHome('nextHeader.continue')}
               </h3>
               {partialRunBelowHeader && homeRun.slot ? (
@@ -4475,7 +4472,7 @@ export default function HomePage() {
             <Shield size={18} />
           </button>
           {showDevPanel && (
-            <div className="fixed bottom-32 left-4 z-50 bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl w-56" dir="rtl">
+            <div className="fixed bottom-32 left-4 z-50 bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl w-56">
               <p className="text-xs font-bold text-amber-400 mb-3 flex items-center gap-1.5">
                 <Shield size={14} /> Dev Mode — Tier Toggle
               </p>
@@ -4519,7 +4516,6 @@ export default function HomePage() {
             <button
               onClick={() => { setShowGearToast(false); router.push('/profile'); }}
               className="flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl max-w-sm w-full"
-              dir="rtl"
             >
               <span className="text-lg">🎒</span>
               <div className="flex-1 text-right">
@@ -4545,7 +4541,6 @@ export default function HomePage() {
             <button
               onClick={() => setCompletedWorkoutLookupFailed(false)}
               className="flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl max-w-sm w-full"
-              dir="rtl"
             >
               <span className="text-lg">⚠️</span>
               <div className="flex-1 text-right">

@@ -72,7 +72,6 @@ export default function QaSigninClient() {
   const status = state.kind === 'refused' ? `refused:${state.reason}` : state.kind;
   return (
     <main
-      dir="rtl"
       data-qa-signin={status}
       className="grid min-h-[100dvh] place-items-center bg-v2-surface px-6 text-center"
     >

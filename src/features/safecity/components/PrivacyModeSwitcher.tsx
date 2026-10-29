@@ -71,7 +71,7 @@ export default function PrivacyModeSwitcher() {
   const ActiveIcon = MODE_ICON[safeMode];
 
   return (
-    <div className="relative" dir="rtl">
+    <div className="relative">
       {/* FAB trigger */}
       <button
         onClick={() => setOpen((o) => !o)}

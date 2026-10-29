@@ -44,7 +44,7 @@ export default function SafeCityOverlay({
       </div>
 
       {/* Status badge — top-right */}
-      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2" dir="rtl">
+      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
         {/* Mode indicator */}
         <div className="bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 shadow-md border border-gray-100 flex items-center gap-2">
           <Eye className="w-3.5 h-3.5 text-gray-500" />
@@ -83,7 +83,6 @@ export default function SafeCityOverlay({
                   key={m.uid}
                   onClick={() => onMarkerTap?.(m)}
                   className="flex-shrink-0 bg-white/95 backdrop-blur-sm rounded-2xl px-3 py-2 shadow-lg border border-gray-100 flex items-center gap-2.5 active:scale-95 transition-transform"
-                  dir="rtl"
                 >
                   {/* Avatar */}
                   <div

@@ -22,6 +22,7 @@
 
 import React from 'react';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const ACCENT = '#00ADEF';
 
 export interface DualRangeSliderProps {
@@ -46,6 +47,7 @@ export function DualRangeSlider({
   ariaLabelMin,
   ariaLabelMax,
 }: DualRangeSliderProps) {
+  const { direction } = useUiDir();
   const [lo, hi] = values;
   const span = max - min;
   const minPct = span > 0 ? Math.max(0, Math.min(100, ((lo - min) / span) * 100)) : 0;
@@ -110,7 +112,7 @@ export function DualRangeSlider({
           max={max}
           step={step}
           value={lo}
-          dir="rtl"
+          dir={direction}
           onChange={(e) => {
             const next = Math.min(Number(e.target.value), hi);
             onChange([next, hi]);
@@ -126,7 +128,7 @@ export function DualRangeSlider({
           max={max}
           step={step}
           value={hi}
-          dir="rtl"
+          dir={direction}
           onChange={(e) => {
             const next = Math.max(Number(e.target.value), lo);
             onChange([lo, next]);

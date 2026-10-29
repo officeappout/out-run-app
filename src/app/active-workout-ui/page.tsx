@@ -104,7 +104,7 @@ export default function ActiveWorkoutPage() {
     };
 
     return (
-        <div className="bg-white text-gray-900 h-[100dvh] flex flex-col overflow-hidden transition-colors duration-200" dir="rtl">
+        <div className="bg-white text-gray-900 h-[100dvh] flex flex-col overflow-hidden transition-colors duration-200">
             <WorkoutHeader />
 
             {/* Main Drawer-style Content */}

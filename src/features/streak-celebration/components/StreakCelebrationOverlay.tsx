@@ -24,6 +24,7 @@ import {
 import CelebrationHero from './CelebrationHero';
 import WeekStrip from './WeekStrip';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface StreakCelebrationOverlayProps {
   celebration: Celebration;
   lastStreakDate: string;
@@ -41,6 +42,7 @@ function canShare(): boolean {
 }
 
 export default function StreakCelebrationOverlay({ celebration: c, lastStreakDate, tones, gender, onClose }: StreakCelebrationOverlayProps) {
+  const { direction } = useUiDir();
   const reduce = useReducedMotion();
   const copy = celebrationCopy(c, gender);
   const strip = useMemo(
@@ -73,7 +75,7 @@ export default function StreakCelebrationOverlay({ celebration: c, lastStreakDat
       role="dialog"
       aria-modal="true"
       aria-label={copy.headline}
-      dir="rtl"
+      dir={direction}
       className="fixed inset-0 z-[112] flex flex-col items-center overflow-y-auto text-[#0e1419]"
       style={{
         background: bg,

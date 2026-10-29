@@ -47,6 +47,7 @@ import {
   type CompiledLegPlanRoute,
 } from '../services/leg-plan.service';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
 
@@ -260,6 +261,7 @@ function GoalSlider({
   onChange: (v: number) => void;
   formatLabel: (v: number) => string;
 }) {
+  const { direction } = useUiDir();
   const v2 = useContext(FreeRunV2);
   const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
   if (v2) {
@@ -274,7 +276,7 @@ function GoalSlider({
         />
         <input
           type="range"
-          min={min} max={max} step={step} value={value} dir="rtl"
+          min={min} max={max} step={step} value={value} dir={direction}
           onChange={(e) => onChange(Number(e.target.value))}
           className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
           style={{ accentColor: V2_ACCENT }}
@@ -300,7 +302,7 @@ function GoalSlider({
         />
         <input
           type="range"
-          min={min} max={max} step={step} value={value} dir="rtl"
+          min={min} max={max} step={step} value={value} dir={direction}
           onChange={(e) => onChange(Number(e.target.value))}
           className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
           style={{ accentColor: ACCENT }}

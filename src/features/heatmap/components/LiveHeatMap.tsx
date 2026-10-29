@@ -509,7 +509,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
             offset={12}
             className="!font-sans"
           >
-            <div dir="rtl" className="text-xs leading-relaxed text-gray-800 min-w-[160px]">
+            <div className="text-xs leading-relaxed text-gray-800 min-w-[160px]">
               <div className="font-bold text-gray-900 mb-0.5">{hoveredRoute.route.name}</div>
               <div className="text-gray-600">
                 {hoveredRoute.route.usageCount.toLocaleString('he-IL')} שימושים
@@ -539,7 +539,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
       </Map>
 
       {/* ═══ TOP BAR: Mode toggle + Date Picker (historical) + Filter ═══ */}
-      <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2" dir="rtl">
+      <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {/* Mode toggle */}
           <div className="flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -609,7 +609,6 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
       {showFilters && (
         <div
           className="absolute top-16 left-3 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-xl z-10 min-w-[240px] border border-gray-200"
-          dir="rtl"
         >
           <p className="text-xs text-gray-500 font-bold mb-2">סינון</p>
 
@@ -671,7 +670,6 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
       {viewMode === 'historical' && (
         <div
           className="absolute top-16 right-3 left-3 mx-auto max-w-md bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-gray-200 z-[5]"
-          dir="rtl"
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
@@ -713,7 +711,6 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
       {stats && stats.totalActive > 0 && (
         <div
           className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-gray-200"
-          dir="rtl"
         >
           <div className="grid grid-cols-4 gap-3 text-center">
             <StatCell
@@ -899,7 +896,7 @@ function ParkPopupBody({ park }: { park: ParkOverlayItem }) {
     park.peakHour != null ? `${String(park.peakHour).padStart(2, '0')}:00` : null;
 
   return (
-    <div dir="rtl" className="text-xs leading-relaxed text-gray-800 min-w-[180px]">
+    <div className="text-xs leading-relaxed text-gray-800 min-w-[180px]">
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="font-bold text-gray-900 truncate">{park.name}</div>
         <span

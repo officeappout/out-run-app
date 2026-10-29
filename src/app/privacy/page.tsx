@@ -124,6 +124,7 @@ function HealthSubsection({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// dir="rtl" is deliberate: this page is Hebrew-only legal text (lang="he"), it must not follow the UI locale.
 export default function PrivacyPage() {
   const t = pageT();
   const doc = buildPrivacyDoc(t);

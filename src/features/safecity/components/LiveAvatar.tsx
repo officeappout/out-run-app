@@ -41,7 +41,7 @@ export default function LiveAvatar({ marker, onClick }: LiveAvatarProps) {
 
       {/* Name + school label */}
       <div className="bg-white/95 backdrop-blur-sm rounded-lg px-2 py-0.5 shadow-md border border-gray-100 max-w-[120px]">
-        <p className="text-[10px] font-bold text-gray-900 truncate text-center" dir="rtl">
+        <p className="text-[10px] font-bold text-gray-900 truncate text-center">
           {marker.name.split(' ')[0]}
         </p>
         {marker.isVerified && marker.schoolName && (

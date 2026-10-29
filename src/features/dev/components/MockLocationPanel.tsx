@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import type { DevSimulationState, CityPreset } from '@/features/parks/core/hooks/useDevSimulation';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 const CITY_PRESETS: CityPreset[] = [
   { id: 'tel-aviv',      name: 'תל אביב',     lat: 32.0853, lng: 34.7818 },
   { id: 'jerusalem',     name: 'ירושלים',     lat: 31.7683, lng: 35.2137 },
@@ -33,6 +34,7 @@ interface MockLocationPanelProps {
 }
 
 function MockLocationPanelInner({ devSim, isWorkoutActive }: MockLocationPanelProps) {
+  const { direction } = useUiDir();
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedId, setSelectedId] = useState<string>(CITY_PRESETS[0].id);
   const [manualLat, setManualLat] = useState('');
@@ -62,7 +64,7 @@ function MockLocationPanelInner({ devSim, isWorkoutActive }: MockLocationPanelPr
     return (
       <button
         onClick={() => setIsExpanded(true)}
-        dir="rtl"
+        dir={direction}
         className={`fixed bottom-28 left-3 z-[60] flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] font-bold shadow-lg pointer-events-auto transition-all active:scale-95 ${
           activeCity
             ? 'bg-orange-500 text-white ring-2 ring-orange-300'
@@ -77,7 +79,7 @@ function MockLocationPanelInner({ devSim, isWorkoutActive }: MockLocationPanelPr
 
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className={`fixed bottom-28 left-3 z-[60] w-52 rounded-2xl shadow-xl pointer-events-auto overflow-hidden ${
         activeCity ? 'ring-2 ring-orange-400' : 'ring-1 ring-white/10'
       }`}

@@ -50,7 +50,7 @@ export default function TourPreviewScreen({ tour, step, gender, onClose }: {
 
   if (!Illustration) return null;
   return (
-    <div className="fixed inset-0 z-[60] overflow-hidden bg-white" dir="rtl" style={{ colorScheme: 'light' }} data-tour-preview={tour}>
+    <div className="fixed inset-0 z-[60] overflow-hidden bg-white" style={{ colorScheme: 'light' }} data-tour-preview={tour}>
       <Illustration />
       <div
         className="pointer-events-none absolute inset-x-0 flex justify-center"

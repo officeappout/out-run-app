@@ -13,7 +13,9 @@ import { latest } from '../capture/memory';
 import { useT } from '@/hooks/useT';
 import { common } from '@/messages/ns/common';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export default function ReportProblemSheet({ open, onClose, types }: { open: boolean; onClose: () => void; types: GenerationType[] }) {
+  const { direction } = useUiDir();
   const t = useT(common);
   const [reasons, setReasons] = useState<ReportReason[]>([]);
   const [note, setNote] = useState('');
@@ -47,7 +49,7 @@ export default function ReportProblemSheet({ open, onClose, types }: { open: boo
 
   return (
     <Sheet open={open} onClose={onClose} title={t('ui.report.button')} zIndex={SHEET_Z.overlay} layout="nested" scroll="body">
-      <div className="px-4 pb-6 space-y-4" dir="rtl">
+      <div className="px-4 pb-6 space-y-4" dir={direction}>
         <p className="text-sm text-slate-500">{t('ui.report.intro')}</p>
         <div className="flex flex-wrap gap-2">
           {REPORT_REASONS.map((r) => (

@@ -60,6 +60,7 @@ import { DualRangeSlider } from './DualRangeSlider';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface PartnerFilterBarProps {
@@ -373,6 +374,7 @@ const V2_ACCENT = '#00baf7';
  * reset/clamp effects remain owned by the (still mounted) PartnerFilterBar.
  */
 export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
+  const { direction } = useUiDir();
   const liveActivity = usePartnerFilters((s) => s.liveActivity);
   const soloGroupFilter = usePartnerFilters((s) => s.soloGroupFilter);
   const setSoloGroupFilter = usePartnerFilters((s) => s.setSoloGroupFilter);
@@ -513,7 +515,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
               max={21}
               step={0.5}
               value={runDistance}
-              dir="rtl"
+              dir={direction}
               onChange={(e) => setRunDistance(Number(e.target.value))}
               className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
               style={{ accentColor: V2_ACCENT }}
@@ -546,6 +548,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = false }: PartnerFilterBarProps) {
+  const { direction } = useUiDir();
   // Filter store
   const liveActivity = usePartnerFilters((s) => s.liveActivity);
   const setLiveActivity = usePartnerFilters((s) => s.setLiveActivity);
@@ -634,7 +637,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
   if (v2) {
     return (
       <div
-        dir="rtl"
+        dir={direction}
         className="flex items-center gap-2 overflow-x-auto px-4 py-1 scrollbar-none min-w-0 w-full"
         style={{ scrollbarWidth: 'none' }}
       >
@@ -676,7 +679,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
     // flex items default to `min-width: auto`, so without it the rows
     // would grow to fit their pills' intrinsic width and overflow off
     // the right edge in RTL.
-    <div dir="rtl" className="flex flex-col gap-2 w-full min-w-0">
+    <div dir={direction} className="flex flex-col gap-2 w-full min-w-0">
       {/* ─── Row 1 — activity + "more filters" ────────────────────────────── */}
       <div
         className="flex items-center gap-2 overflow-x-auto px-4 scrollbar-none min-w-0"
@@ -782,7 +785,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
               max={21}
               step={0.5}
               value={runDistance}
-              dir="rtl"
+              dir={direction}
               onChange={(e) => setRunDistance(Number(e.target.value))}
               className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
               style={{ accentColor: ACCENT }}

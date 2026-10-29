@@ -22,6 +22,7 @@ import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
 import { getHealthSampleQueueDiagnostics, type HealthSampleQueueDiagnostics } from '@/lib/outbox/outbox-db';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 export const dynamic = 'force-dynamic';
 
 function isNativeApp(): boolean {
@@ -88,6 +89,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function HealthSyncDebugPage() {
+  const { direction } = useUiDir();
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
 
@@ -100,7 +102,7 @@ export default function HealthSyncDebugPage() {
   }, [refresh]);
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-4" dir="rtl">
+    <div className="min-h-screen bg-gray-50 px-4 py-4" dir={direction}>
       <div
         className="sticky top-0 z-10 flex items-center gap-2 pb-3 bg-gray-50"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}

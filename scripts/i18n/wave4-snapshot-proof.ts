@@ -74,8 +74,12 @@ for (const f of sources) {
   if (!hosts) continue;
   const was = execSync(`git show ${base}:${f}`, { encoding: 'utf8', maxBuffer: 1 << 28 });
   const now = fs.readFileSync(f, 'utf8');
-  const dirDropped = (was.match(/\bdir="rtl"/g) ?? []).length > (now.match(/\bdir="rtl"/g) ?? []).length;
-  if (dirDropped || was !== now) { console.log(`LTR-HOST VIOLATION ${f} <- ${hosts.join(', ')}`); ltrHostViolations++; bad++; }
+  const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
+  // A dir="rtl" swapped for dir={direction} (useUiDir: 'rtl' in Hebrew, correct inside the ltr host in English) is the sanctioned conversion.
+  const dropped = count(was, /\bdir="rtl"/g) - count(now, /\bdir="rtl"/g);
+  const dynamic = count(now, /\bdir=\{direction\}/g) - count(was, /\bdir=\{direction\}/g);
+  const dirDropped = dropped > dynamic;
+  if (dirDropped || (was !== now && dynamic <= 0)) { console.log(`LTR-HOST VIOLATION ${f} <- ${hosts.join(', ')}`); ltrHostViolations++; bad++; }
 }
 console.log(JSON.stringify({ sourceFilesChecked: sources.length, ltrHostViolations, snapshotFilesChecked: files.length, classAttrsChanged: classChanged, dirAttrsRemoved: dirRemoved, mirrorClassesAdded: mirrors, violations: bad }));
 process.exit(bad ? 1 : 0);

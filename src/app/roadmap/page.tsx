@@ -29,7 +29,7 @@ export default function RoadmapPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-md mx-auto mt-20">
         {/* Header */}
         <motion.div

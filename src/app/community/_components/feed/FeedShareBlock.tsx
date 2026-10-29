@@ -71,7 +71,7 @@ export function FeedShareBlock({
   }
 
   return (
-    <div className="space-y-3 px-4" dir="rtl">
+    <div className="space-y-3 px-4">
       {shareable && <SharePromptCard workout={shareable} onShare={() => setShareOpen(true)} />}
       <FeedShareSheet
         open={shareOpen}

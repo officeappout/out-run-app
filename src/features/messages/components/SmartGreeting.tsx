@@ -190,8 +190,7 @@ export function SmartGreeting({
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`text-right ${className}`}
-        dir="rtl"
+        className={`text-start ${className}`}
       >
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">
           {mainText}
@@ -212,7 +211,6 @@ export function SmartGreeting({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className={`relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br ${TYPE_GRADIENTS[type]} ${className}`}
-        dir="rtl"
       >
         {/* Decorative background */}
         <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
@@ -266,7 +264,6 @@ export function SmartGreeting({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10, height: 0 }}
       className={`p-4 rounded-2xl bg-gradient-to-br ${TYPE_GRADIENTS[type]} border border-gray-100 dark:border-gray-800 ${className}`}
-      dir="rtl"
     >
       <div className="flex items-start gap-3">
         {showIcon && (
@@ -404,7 +401,7 @@ export function SmartGreetingText({
   }
   
   return (
-    <div className={className} dir="rtl">
+    <div className={className}>
       <span className="font-bold text-gray-900 dark:text-white">
         {mainText}
       </span>

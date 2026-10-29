@@ -37,6 +37,7 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 interface PartnerFilterSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -65,6 +66,7 @@ const DISTANCE_MAX = 15;
 const V2_ACCENT = '#00baf7';
 
 export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFilterSheetProps) {
+  const { direction } = useUiDir();
   const dragControls = useDragControls();
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
@@ -167,7 +169,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
                 max={DISTANCE_MAX}
                 step={0.5}
                 value={distanceKm}
-                dir="rtl"
+                dir={direction}
                 onChange={(e) => setDistanceKm(Number(e.target.value))}
                 className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
                 style={{ accentColor: V2_ACCENT }}
@@ -254,7 +256,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             className="fixed bottom-0 left-0 right-0 z-[49] bg-white rounded-t-3xl shadow-2xl pointer-events-auto"
-            dir="rtl"
+            dir={direction}
             // 56px = BottomNavbar height. The nav sits at z-50 (above this
             // sheet at z-[49]) and would otherwise occlude the bottom of
             // the sheet — the "החל" CTA disappeared behind it. Same fix
@@ -319,7 +321,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
                     max={DISTANCE_MAX}
                     step={0.5}
                     value={distanceKm}
-                    dir="rtl"
+                    dir={direction}
                     onChange={(e) => setDistanceKm(Number(e.target.value))}
                     className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
                     style={{ accentColor: ACCENT }}

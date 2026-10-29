@@ -71,7 +71,6 @@ export default function ForceUpdateGate() {
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="force-update-title"
-      dir="rtl"
       className="fixed inset-0 z-[2147483647] flex flex-col items-center justify-center gap-5 bg-white px-8 text-center"
       style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
