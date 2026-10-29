@@ -61,3 +61,41 @@ describe('audio-guidance.service (he)', () => {
     expect(spoken.every((u) => u.lang === 'he-IL')).toBe(true);
   });
 });
+
+describe('spoken cues follow the locale (en)', () => {
+  it('English text, en-US, and a matching voice when the device has one', async () => {
+    const { registerCatalog } = await import('@/lib/i18n/catalogs');
+    const en = (await import('@/messages/en/audio.json')).default;
+    const { useLocaleStore } = await import('@/store/useLocaleStore');
+    registerCatalog('en', 'audio', en);
+    const voice = { lang: 'en_GB', name: 'x' };
+    (globalThis as unknown as { window: { speechSynthesis: { getVoices: () => unknown[] } } }).window.speechSynthesis.getVoices = () => [
+      { lang: 'he-IL' },
+      voice,
+    ];
+    useLocaleStore.getState().setLocaleState({ locale: 'en' });
+    const { audioService } = await import('../AudioService');
+    audioService.announceLap(3, 1.2345, 5.5, 330);
+    audioService.announcePaceHint('slow');
+    audioService.announceGetReady();
+    expect(spoken.map((u) => u.text)).toEqual([
+      'Lap 3 complete. Distance: 1.23 kilometers. Pace: 5:30 minutes per kilometer.',
+      'Pace is slow, pick it up a little',
+      'Get ready',
+    ]);
+    expect(spoken.every((u) => u.lang === 'en-US' && u.voice === voice)).toBe(true);
+    useLocaleStore.getState().setLocaleState({ locale: 'he' });
+  });
+
+  it('no English voice: keeps lang en-US, sets no voice', async () => {
+    const { registerCatalog } = await import('@/lib/i18n/catalogs');
+    registerCatalog('en', 'audio', (await import('@/messages/en/audio.json')).default);
+    const { useLocaleStore } = await import('@/store/useLocaleStore');
+    useLocaleStore.getState().setLocaleState({ locale: 'en' });
+    const { audioService } = await import('../AudioService');
+    audioService.speak('hi');
+    expect(spoken[0].lang).toBe('en-US');
+    expect(spoken[0].voice).toBeUndefined();
+    useLocaleStore.getState().setLocaleState({ locale: 'he' });
+  });
+});
