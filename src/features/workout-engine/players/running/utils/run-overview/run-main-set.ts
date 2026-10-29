@@ -17,7 +17,7 @@ import { isRestBlock } from '../../lib/planned-rep-results';
 import { estimatePaceFor, WALK_PACE_SEC_PER_KM, type RunPaceContext } from '../run-preview/run-estimates';
 import { defaultCommonT, type CommonT } from '@/lib/i18n/units';
 import { cleanBlockLabel, fmtMeters, fmtSeconds } from '../run-preview/run-title';
-import { rt, ut } from '../run-utils-t';
+import { heRt, rt, ut } from '../run-utils-t';
 import { findRepeatRun } from './run-variants';
 
 export type MainSetUnit = 'm' | 's';
@@ -121,15 +121,17 @@ export function isUniform(spec: MainSetSpec): boolean {
 }
 
 /** Up-and-down (200-400-600-400-200) vs. a ladder (400-800-1200). */
-function shapeName(spec: MainSetSpec): string {
+function shapeName(spec: MainSetSpec, t: typeof rt): string {
   const r = spec.reps;
   const peak = r.indexOf(Math.max(...r));
-  return peak === r.length - 1 ? rt('runUtils.mainSet.ladder') : rt('runUtils.mainSet.pyramid');
+  return peak === r.length - 1 ? t('runUtils.mainSet.ladder') : t('runUtils.mainSet.pyramid');
 }
 
 /** "4 × 600 מ׳" / "5 × 3 דק׳" / "פירמידה". */
-export function mainSetTitle(spec: MainSetSpec): string {
-  return isUniform(spec) ? `${spec.reps.length} × ${sizeLabel(spec.unit, spec.reps[0])}` : shapeName(spec);
+export function mainSetTitle(spec: MainSetSpec, { stored = false }: { stored?: boolean } = {}): string {
+  // `stored`: the text that is persisted (runMeta.mainSwap) stays Hebrew whatever the UI language is.
+  if (stored) return isUniform(spec) ? `${spec.reps.length} × ${sizeLabel(spec.unit, spec.reps[0], defaultCommonT())}` : shapeName(spec, heRt());
+  return isUniform(spec) ? `${spec.reps.length} × ${sizeLabel(spec.unit, spec.reps[0])}` : shapeName(spec, rt);
 }
 
 /** 90 → "90″", 120 → "2′", 150 → "2:30′". */

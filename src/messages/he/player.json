@@ -1123,5 +1123,15 @@
   "runUtils.live.inRange": "בטווח",
   "runUtils.live.slow": "איטי ב-{amount}",
   "runUtils.live.fast": "מהיר ב-{amount}",
-  "runUtils.live.repSummary": "{inRange}/{scored} בטווח"
+  "runUtils.live.repSummary": "{inRange}/{scored} בטווח",
+  "runUtils.fit.tooShort": "מסלול קצר מדי ({len})",
+  "runUtils.fit.tooLong": "ארוך מהאימון ({len})",
+  "runUtils.fit.partOf": "{part} מתוך {target}",
+  "runUtils.fit.endsOtherSide": "מסיים בצד השני של הלולאה",
+  "runUtils.fit.turnRound": "הלוך-חזור · סיבוב בק״מ {km}",
+  "runUtils.fit.outAndBackLaps": "הלוך-חזור · {laps}",
+  "runUtils.fit.label.yes": "מתאים",
+  "runUtils.fit.label.yesLaps": "מתאים ב-{laps}",
+  "runUtils.fit.label.close": "כמעט מתאים",
+  "runUtils.fit.label.no": "לא מתאים לאימון של היום"
 }

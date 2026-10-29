@@ -1113,5 +1113,15 @@
   "runUtils.live.inRange": "In range",
   "runUtils.live.slow": "{amount} slow",
   "runUtils.live.fast": "{amount} fast",
-  "runUtils.live.repSummary": "{inRange}/{scored} in range"
+  "runUtils.live.repSummary": "{inRange}/{scored} in range",
+  "runUtils.fit.tooShort": "Route too short ({len})",
+  "runUtils.fit.tooLong": "Longer than the workout ({len})",
+  "runUtils.fit.partOf": "{part} of {target}",
+  "runUtils.fit.endsOtherSide": "Ends on the other side of the loop",
+  "runUtils.fit.turnRound": "Out and back · turn round at km {km}",
+  "runUtils.fit.outAndBackLaps": "Out and back · {laps}",
+  "runUtils.fit.label.yes": "Fits",
+  "runUtils.fit.label.yesLaps": "Fits in {laps}",
+  "runUtils.fit.label.close": "Almost fits",
+  "runUtils.fit.label.no": "Does not fit the workout for today"
 }

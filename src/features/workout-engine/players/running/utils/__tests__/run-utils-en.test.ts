@@ -26,6 +26,9 @@ import { buildRunVariants, bareSize } from '../run-overview/run-variants';
 import { mainSetTitle, readMainSet, sizeLabel } from '../run-overview/run-main-set';
 import { applyMainSet } from '../run-overview/run-main-set';
 import { buildSwapAlternatives, swapDeltaText } from '../run-overview/run-swap-alternatives';
+import { applyRunEdits, withSwap, NO_RUN_EDITS } from '../run-overview/run-edits';
+import { encodeMainSet } from '../run-overview/run-main-set';
+import { fitDistance } from '../../lib/route-fit/distance-fit';
 import { accessText } from '../run-overview/run-route-choice';
 import { blockDisplayLabel, fmtDistance, paceClassText, repSummary } from '../../lib/planned-rep-results';
 import { lapsLabel } from '../../lib/route-fit/distance-fit';
@@ -151,5 +154,22 @@ describe('run utils in English', () => {
     expect(fmtDistance(1250)).toBe('1.3 km');
     expect(blockDisplayLabel(blk({ label: 'Warmup 10 min' }))).toBe('Warm-up');
     expect(blockDisplayLabel(blk({ type: 'cooldown', label: '' }))).toBe('Cool-down');
+  });
+
+  it('persisted mainSwap stays Hebrew in an English session', () => {
+    const swap = encodeMainSet({ unit: 'm', reps: [600, 600, 600, 600], recoverySec: 120 });
+    const edits = withSwap(NO_RUN_EDITS, swap);
+    const en = applyRunEdits({ blocks: sixBy400() }, edits, ctx).mainSwap;
+    useLocaleStore.setState({ locale: 'he' });
+    const he = applyRunEdits({ blocks: sixBy400() }, edits, ctx).mainSwap;
+    expect(en).toEqual(he);
+    expect(he).toEqual({ from: '6 × 400 מ׳', to: '4 × 600 מ׳' });
+  });
+
+  it('route fit sentences follow the language', () => {
+    const loop = { distance: 4.2, routeShape: 'loop', path: [[34.78, 32.08], [34.79, 32.08], [34.79, 32.085], [34.78, 32.085], [34.78, 32.08]] } as never;
+    const f = fitDistance(loop, 8.4);
+    expect(HEBREW.test(`${f.reason}${f.caution}`)).toBe(false);
+    expect(HEBREW.test(fitDistance(loop, 1).caution ?? '')).toBe(false);
   });
 });
