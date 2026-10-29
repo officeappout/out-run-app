@@ -17,7 +17,7 @@ import type { ProfileStripSegment } from '@/components/ui/v2/ProfileStrip';
 import { exDisplayName } from './section-grouping.utils';
 import type { LibraryT } from '@/messages/ns/library';
 
-type Gw = Pick<GeneratedWorkout, 'structure' | 'blastMode' | 'exercises' | 'tabataBlock' | 'estimatedDuration'>;
+type Gw = Pick<GeneratedWorkout, 'structure' | 'blastMode' | 'exercises' | 'tabataBlock' | 'estimatedDuration' | 'densityBlock'>;
 
 export interface PreviewTimedModel {
   /** AMRAP / EMOM main block (null = classic main). */
@@ -28,6 +28,7 @@ export interface PreviewTimedModel {
 
 const roleOf = (e: EngineWorkoutExercise) => e.exerciseRole ?? 'main';
 const isTabata = (e: EngineWorkoutExercise) => e.protocolBlock === 'tabata';
+const isDensity = (e: EngineWorkoutExercise) => e.protocolBlock === 'density';
 
 /** An engine exercise as a timed item (target = its planned reps / seconds). */
 export function engineTimedItem(e: EngineWorkoutExercise): TimedItem {
@@ -45,7 +46,10 @@ export function engineTimedItem(e: EngineWorkoutExercise): TimedItem {
 /** Null when the workout has no timed block at all (the drawer stays as today). */
 export function previewTimedModel(gw: Gw): PreviewTimedModel | null {
   const main = timedMainBlock(gw);
-  const mainEx = gw.exercises.filter((e) => roleOf(e) === 'main' && !isTabata(e));
+  // Density block (PR 6): the timed items are only its members; the classic rest stays classic.
+  const mainEx = gw.densityBlock
+    ? gw.exercises.filter(isDensity)
+    : gw.exercises.filter((e) => roleOf(e) === 'main' && !isTabata(e));
   const tabEx = gw.exercises.filter(isTabata);
   const mainSpec: TimedBlockSpec | null = !main
     ? null
@@ -73,10 +77,13 @@ interface Part {
 function parts(gw: Gw, m: PreviewTimedModel): Part[] {
   const warm = gw.exercises.filter((e) => roleOf(e) === 'warmup');
   const cool = gw.exercises.filter((e) => roleOf(e) === 'cooldown');
-  const main = gw.exercises.filter((e) => roleOf(e) === 'main' && !isTabata(e));
+  const main = gw.exercises.filter((e) => roleOf(e) === 'main' && !isTabata(e) && !isDensity(e));
   const out: Part[] = [];
   if (warm.length) out.push({ key: 'warmup', kind: 'bookend', sec: partSec(warm) });
-  if (m.mainSpec) out.push({ key: 'main', kind: 'timed', sec: 0, spec: m.mainSpec });
+  if (gw.densityBlock && m.mainSpec) {
+    if (main.length) out.push({ key: 'main', kind: 'classic', sec: partSec(main) });
+    out.push({ key: 'density', kind: 'timed', sec: 0, spec: m.mainSpec });
+  } else if (m.mainSpec) out.push({ key: 'main', kind: 'timed', sec: 0, spec: m.mainSpec });
   else if (main.length) out.push({ key: 'main', kind: 'classic', sec: partSec(main) });
   if (m.tabataSpec) out.push({ key: 'tabata', kind: 'timed', sec: 0, spec: m.tabataSpec });
   if (cool.length) out.push({ key: 'cooldown', kind: 'bookend', sec: partSec(cool) });

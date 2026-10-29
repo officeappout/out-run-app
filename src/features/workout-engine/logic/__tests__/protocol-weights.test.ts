@@ -24,10 +24,10 @@ describe('defaultProtocolWeightsForLevel', () => {
 });
 
 describe('resolveProtocolWeights', () => {
-  it('one program: its own weights (amrap is not buildable yet and is ignored)', () => {
+  it('one program: its own weights (amrap included, built as a density block)', () => {
     const r = resolveProtocolWeights([L(14)]);
-    expect(r.shares).toEqual({ antagonist_pair: 0.3, emom: 0.15 });
-    expect(r.probability).toBeCloseTo(0.45);
+    expect(r.shares).toEqual({ antagonist_pair: 0.3, emom: 0.15, amrap: 0.15 });
+    expect(r.probability).toBeCloseTo(0.6);
   });
 
   it('weakest link: legs at L8 blocks EMOM for the whole session', () => {
@@ -41,8 +41,8 @@ describe('resolveProtocolWeights', () => {
     expect(resolveProtocolWeights([L(14), L(4)]).probability).toBe(0);
   });
 
-  it('no pair partner available → no pairs; a short session → no EMOM', () => {
-    expect(resolveProtocolWeights([L(14)], { canPair: false }).shares).toEqual({ emom: 0.15 });
+  it('no pair partner available → no pairs; a short session → no EMOM / AMRAP', () => {
+    expect(resolveProtocolWeights([L(14)], { canPair: false }).shares).toEqual({ emom: 0.15, amrap: 0.15 });
     expect(resolveProtocolWeights([L(14)], { sessionMinutes: 15 }).shares).toEqual({ antagonist_pair: 0.3 });
   });
 

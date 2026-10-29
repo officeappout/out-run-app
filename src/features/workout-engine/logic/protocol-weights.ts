@@ -8,13 +8,13 @@
  *     (weight > 0); a program without weights allows straight sets only;
  *   - the allowed weights are averaged across programs; what a gate removed moves to
  *     straight sets;
- *   - protocols the generator cannot build yet (amrap), disabled ones (pyramid) and
- *     tabata (its own track) never fire — their share is straight sets.
+ *   - disabled protocols (pyramid) and tabata (its own track) never fire — their share
+ *     is straight sets. EMOM / AMRAP become a density block (protocols/density-block.ts).
  */
 export type ProtocolWeights = Partial<Record<string, number>>;
 
 /** Protocols the set-type pipeline can actually apply today. */
-export const WEIGHTED_PROTOCOLS = ['antagonist_pair', 'emom'] as const;
+export const WEIGHTED_PROTOCOLS = ['antagonist_pair', 'emom', 'amrap'] as const;
 
 /** EMOM needs room for a few rounds; shorter sessions never get it. */
 export const EMOM_MIN_SESSION_MINUTES = 20;
@@ -35,7 +35,7 @@ export function resolveProtocolWeights(
   const shares: Record<string, number> = {};
   if (entries.length === 0) return { shares, probability: 0 };
   for (const p of WEIGHTED_PROTOCOLS) {
-    if (p === 'emom' && opts.sessionMinutes != null && opts.sessionMinutes < EMOM_MIN_SESSION_MINUTES) continue;
+    if ((p === 'emom' || p === 'amrap') && opts.sessionMinutes != null && opts.sessionMinutes < EMOM_MIN_SESSION_MINUTES) continue;
     if (p === 'antagonist_pair' && opts.canPair === false) continue;
     const per = entries.map((e) => pct(e?.[p]));
     if (per.some((w) => w === 0)) continue; // weakest link
