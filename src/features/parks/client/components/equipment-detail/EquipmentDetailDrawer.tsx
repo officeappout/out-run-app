@@ -48,6 +48,7 @@ import {
   AlertTriangle,
   Target,
 } from 'lucide-react';
+import { useLocalizedGymEquipment } from '@/features/content/equipment/gym/core/useLocalizedGymEquipment';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type {
   EquipmentBrand,
@@ -180,7 +181,8 @@ export default function EquipmentDetailDrawer({
     setMounted(true);
   }, []);
 
-  const [equipment, setEquipment] = useState<GymEquipment | null>(null);
+  const [rawEquipment, setEquipment] = useState<GymEquipment | null>(null);
+  const equipment = useLocalizedGymEquipment(rawEquipment);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeBrandIndex, setActiveBrandIndex] = useState(0);

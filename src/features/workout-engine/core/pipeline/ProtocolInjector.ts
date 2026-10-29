@@ -25,6 +25,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs.
  */
 
+import { pickWeightedProtocol } from '../../logic/protocol-weights';
 import type {
   DifficultyLevel,
   WorkoutExercise,
@@ -322,7 +323,8 @@ export class ProtocolInjector {
     }
 
     // ── Protocol selected ────────────────────────────────────────────────────
-    const selected = adminProtocols[Math.floor(Math.random() * adminProtocols.length)];
+    const selected = (context.protocolWeights && pickWeightedProtocol(context.protocolWeights))
+      || adminProtocols[Math.floor(Math.random() * adminProtocols.length)];
     console.log(
       `[ProtocolInjector][selectProtocol] ✅ Protocol injected: "${selected}" ` +
       `(roll=${roll.toFixed(3)} ≤ p=${probability}, options=[${adminProtocols.join(', ')}])`,

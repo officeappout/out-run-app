@@ -33,6 +33,12 @@ import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import { SOURCE_LOCALE } from '@/lib/i18n/locales';
 import { makeT, type TFunction } from '@/lib/i18n/t';
 import { social } from '@/messages/ns/social';
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
+import {
+  foldLocalizedFieldsForWrite,
+  normalizeStoredTextFields,
+  type LocalizedFieldPair,
+} from '@/features/content/shared/stored-text-fields';
 
 type SocialT = TFunction<NamespaceKey<typeof social>>;
 
@@ -64,10 +70,12 @@ export type MessageType =
 export interface SmartMessage {
   id: string;
   type: MessageType;
-  /** The main heading text (Hebrew) */
+  /** The main heading text (Hebrew). Firestore may hold {he,en}: reads normalize it to the Hebrew string, the pair rides in textLocalized. */
   text: string;
-  /** The smaller subtitle text (Hebrew) */
+  textLocalized?: LocalizedText;
+  /** The smaller subtitle text (Hebrew); English in subTextLocalized. */
   subText?: string;
+  subTextLocalized?: LocalizedText;
   /** Priority for selection (1-10, higher = more likely) */
   priority: number;
   /** Whether this message is currently active */
@@ -91,7 +99,9 @@ export interface SmartMessage {
 export interface SmartMessageInput {
   type: MessageType;
   text: string;
+  textLocalized?: LocalizedText;
   subText?: string;
+  subTextLocalized?: LocalizedText;
   priority: number;
   isActive: boolean;
   targetPersona?: string;
@@ -136,6 +146,16 @@ function pickDefault(type: MessageType, gender?: MessageContext['gender']): Smar
 // ============================================================================
 
 const COLLECTION_NAME = 'smart_messages';
+
+const MESSAGE_TEXT_FIELDS: LocalizedFieldPair[] = [
+  { key: 'text', localizedKey: 'textLocalized' },
+  { key: 'subText', localizedKey: 'subTextLocalized' },
+];
+
+/** Firestore doc -> app message: `text` / `subText` stay Hebrew strings even when the doc holds {he,en}. */
+export function normalizeSmartMessage<T extends object>(data: T): T {
+  return normalizeStoredTextFields(data, MESSAGE_TEXT_FIELDS);
+}
 
 /** Message type labels in Hebrew */
 export const MESSAGE_TYPE_LABELS: Record<MessageType, string> = {
@@ -269,7 +289,7 @@ class MessageService {
         this.saveMessagesToLocal(INITIAL_SEED_DATA);
         return INITIAL_SEED_DATA;
       }
-      return JSON.parse(stored) as SmartMessage[];
+      return (JSON.parse(stored) as SmartMessage[]).map((m) => normalizeSmartMessage(m));
     } catch (error) {
       console.error('[MessageService] Error reading from localStorage:', error);
       return [];
@@ -304,7 +324,7 @@ class MessageService {
     const storageHandler = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
-          callback(JSON.parse(e.newValue));
+          callback((JSON.parse(e.newValue) as SmartMessage[]).map((m) => normalizeSmartMessage(m)));
         } catch { /* ignore parse errors */ }
       }
     };
@@ -443,10 +463,10 @@ class MessageService {
     try {
       const q = query(this.collectionRef, orderBy('type'), orderBy('priority', 'desc'));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({
+      return snapshot.docs.map(doc => normalizeSmartMessage({
         id: doc.id,
         ...doc.data(),
-      } as SmartMessage));
+      }) as SmartMessage);
     } catch (error) {
       console.error('[MessageService] Error fetching all messages:', error);
       return [];
@@ -465,10 +485,10 @@ class MessageService {
         orderBy('priority', 'desc')
       );
       const snapshot = await getDocs(q);
-      const messages = snapshot.docs.map(doc => ({
+      const messages = snapshot.docs.map(doc => normalizeSmartMessage({
         id: doc.id,
         ...doc.data(),
-      } as SmartMessage));
+      }) as SmartMessage);
       
       // Return defaults if no messages found
       if (messages.length === 0) {
@@ -494,10 +514,10 @@ class MessageService {
         return null;
       }
       
-      return {
+      return normalizeSmartMessage({
         id: snapshot.id,
         ...snapshot.data(),
-      } as SmartMessage;
+      }) as SmartMessage;
     } catch (error) {
       console.error('[MessageService] Error fetching message by ID:', error);
       return null;
@@ -560,10 +580,12 @@ class MessageService {
       // reaching Firestore — addDoc rejects undefined field values.
       const sanitized = Object.fromEntries(
         Object.entries({ ...input }).filter(([, v]) => v !== undefined && v !== ''),
-      ) as SmartMessageInput;
+      ) as unknown as SmartMessageInput;
+      // English entered -> text/subText stored as {he,en}; otherwise exactly as before.
+      const stored = foldLocalizedFieldsForWrite(sanitized, MESSAGE_TEXT_FIELDS);
 
       const docData = {
-        ...sanitized,
+        ...stored,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -603,12 +625,12 @@ class MessageService {
       // Strip undefined / empty-string values — updateDoc rejects them.
       const sanitized = Object.fromEntries(
         Object.entries(updates).filter(([, v]) => v !== undefined && v !== ''),
-      ) as Partial<SmartMessageInput>;
+      ) as unknown as Partial<SmartMessageInput>;
 
-      // Update Firestore
+      // Update Firestore (English entered -> {he,en}; otherwise exactly as before)
       const docRef = doc(this.collectionRef, id);
       await updateDoc(docRef, {
-        ...sanitized,
+        ...foldLocalizedFieldsForWrite(sanitized, MESSAGE_TEXT_FIELDS),
         updatedAt: serverTimestamp(),
       });
       
@@ -698,10 +720,10 @@ class MessageService {
     const q = query(this.collectionRef, orderBy('type'), orderBy('priority', 'desc'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs.map(doc => ({
+      const messages = snapshot.docs.map(doc => normalizeSmartMessage({
         id: doc.id,
         ...doc.data(),
-      } as SmartMessage));
+      }) as SmartMessage);
       callback(messages);
     }, (error) => {
       console.error('[MessageService] Subscription error:', error);
@@ -722,10 +744,10 @@ class MessageService {
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs.map(doc => ({
+      const messages = snapshot.docs.map(doc => normalizeSmartMessage({
         id: doc.id,
         ...doc.data(),
-      } as SmartMessage));
+      }) as SmartMessage);
       
       // Use defaults if empty
       if (messages.length === 0) {

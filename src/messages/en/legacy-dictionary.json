@@ -65,7 +65,7 @@
   "onboarding.summary.trainingDays": "My training days",
   "onboarding.summary.myLevel": "My level",
   "onboarding.summary.persistentTrainees": "Consistent trainees",
-  "onboarding.summary.persistentTrainees.description": "About 1,280 users started here, and most reached level 6 within a month! Keep going and earn percentages toward the next level!",
+  "onboarding.summary.persistentTrainees.description": "Most people who start here reach level 6 within a month! Keep going and earn percentages toward the next level!",
   "onboarding.summary.myChallenge": "My challenge",
   "onboarding.summary.myChallenge.instruction": "You can switch challenges at any time from the 'My achievements' page.",
   "onboarding.summary.startButton": "Let's start!",
@@ -141,5 +141,16 @@
   "challenge.booth.waiting": "Waiting for participants...",
   "challenge.booth.newEntry.suffix": "joined the rankings!",
   "challenge.booth.refresh": "Refreshing every 8 seconds",
-  "challenge.booth.error": "Connection error — retrying..."
+  "challenge.booth.error": "Connection error — retrying...",
+  "onboarding.health.title": "Health Declaration and Terms of Use",
+  "onboarding.health.strictTerms": "I declare that I have read and agree to the Terms of Use and the Privacy Policy, and that my state of health permits me to participate in physical activity.",
+  "onboarding.health.disclaimer": "All of the information you enter is stored privately and securely, and is used solely to adapt the program for you.",
+  "onboarding.health.medicalWarning": "If the answer to any of the questions indicates a medical problem, you will not be able to register for the app.",
+  "onboarding.health.consultDoctor": "In the event of any change in your state of health, you must consult a doctor regarding the continuation of your physical activity.",
+  "onboarding.health.defaultNo": "Please be aware that the answers are marked “No” by default.",
+  "onboarding.health.heartDisease": "Has your doctor told you that you suffer from heart disease?",
+  "onboarding.health.chestPainRest": "Do you feel pain in your chest while at rest?",
+  "onboarding.health.chestPainActivity": "Do you feel pain in your chest during routine daily activities?",
+  "onboarding.health.approve": "I approve",
+  "onboarding.terms.title": "Terms of Use"
 }

@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { IntlMessageFormat } from 'intl-messageformat';
 import { describe, expect, it } from 'vitest';
-import { LANGUAGE_NEUTRAL, ONBOARDING_SKIPPED, PILOT_SCOPE, validateAll, validateCatalog } from '../../../../scripts/i18n/validate-en-catalog';
+import { LANGUAGE_NEUTRAL, LEGAL_LANGUAGE_NEUTRAL, ONBOARDING_SKIPPED, PILOT_SCOPE, validateAll, validateCatalog } from '../../../../scripts/i18n/validate-en-catalog';
 
 const messages = path.resolve(__dirname, '../../../messages');
 
@@ -15,7 +15,7 @@ describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: 
 
   it('has the expected key counts per catalog (pilot 370 + onboarding 1013 + player 929 + summary 178 + home rest 581 + profile 576 + map 919 + library 448 + coach 339 + wide 155)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 186, pages: 17, home: 753, onboarding: 1013, player: 939, summary: 178, profile: 576, social: 124, together: 129, community: 941, map: 919, library: 448, coach: 339, wide: 155, push: 471 });
+    expect(by).toEqual({ common: 186, pages: 17, home: 753, onboarding: 1013, player: 955, summary: 178, profile: 597, social: 124, together: 129, community: 943, map: 959, library: 463, coach: 339, wide: 155, push: 471, schedule: 238, legal: 359 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {
@@ -23,7 +23,7 @@ describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: 
   });
 
   it('home en holds every he key (batch 4)', () => {
-    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary', 'profile', 'social', 'together', 'community', 'map', 'library', 'coach', 'wide', 'push']);
+    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary', 'profile', 'social', 'together', 'community', 'map', 'library', 'coach', 'wide', 'push', 'schedule', 'legal']);
     const rep = reports.find((r) => r.ns === 'home')!;
     expect(rep.enKeys).toBe(rep.scoped);
   });
@@ -158,4 +158,40 @@ describe('validator catches defects', () => {
   it('V17 "log in"', () => expect(run('התחברות', 'Log in')).toContain('V17'));
   it('V14 untranslated', () => expect(run('שלום', 'שלום')).toContain('V14'));
   it('accepts a good collapsed gender select', () => expect(run('{gender, select, male {א} other {ב}}', 'Try again')).toEqual([]));
+});
+
+describe('batch 8: schedule + legal (legal is a DRAFT for lawyer review, docs/i18n/EN-LEGAL-REVIEW.md)', () => {
+  const rd = (l: string, ns: string) => JSON.parse(fs.readFileSync(path.join(messages, l, `${ns}.json`), 'utf8')) as Record<string, string>;
+  const { issues } = validateAll(messages);
+
+  it('schedule: every he key is translated, nothing extra', () => {
+    expect(Object.keys(rd('en', 'schedule')).sort()).toEqual(Object.keys(rd('he', 'schedule')).sort());
+    expect(Object.keys(rd('en', 'schedule')).length).toBe(238);
+  });
+
+  it('legal: every he key except the language-neutral attribution line', () => {
+    const missing = Object.keys(rd('he', 'legal')).filter((k) => !(k in rd('en', 'legal')));
+    expect(missing).toEqual(Array.from(LEGAL_LANGUAGE_NEUTRAL));
+    expect(Object.keys(rd('en', 'legal')).length).toBe(359);
+  });
+
+  it('both have 0 errors, no em dashes, no ASCII apostrophes', () => {
+    expect(issues.filter((i) => ['schedule', 'legal'].includes(i.ns) && i.severity === 'error')).toEqual([]);
+    for (const ns of ['schedule', 'legal']) for (const [k, v] of Object.entries(rd('en', ns))) {
+      expect(v.includes('—'), `${ns}.${k}`).toBe(false);
+      expect(v.includes("'"), `${ns}.${k}`).toBe(false);
+    }
+  });
+
+  it('legal keeps company number, email, address and statute years exactly', () => {
+    const all = Object.values(rd('en', 'legal')).join('\n');
+    for (const needle of ['516841806', 'office@appout.co.il', '39 Har Zion Boulevard, Tel Aviv', '5775-2015', '5777-2017', '5718-1958']) expect(all).toContain(needle);
+  });
+
+  it('legacy dictionary: onboarding.health.* and onboarding.terms.title are translated', () => {
+    const en = rd('en', 'legacy-dictionary');
+    const keys = Object.keys(rd('he', 'legacy-dictionary')).filter((k) => k.startsWith('onboarding.health.') || k === 'onboarding.terms.title');
+    expect(keys.length).toBe(11);
+    for (const k of keys) expect(en[k], k).toBeTruthy();
+  });
 });

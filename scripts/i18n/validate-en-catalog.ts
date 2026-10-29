@@ -48,6 +48,8 @@ export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   coach: () => true,
   wide: () => true,
   push: () => true,
+  schedule: () => true,
+  legal: (k) => !LEGAL_LANGUAGE_NEUTRAL.has(k),
 };
 
 /** Batch 6 (community): military wording hidden from English users (owner decision 12); these 9 keys stay Hebrew via fallback. */
@@ -71,6 +73,12 @@ export const LANGUAGE_NEUTRAL: Record<'player' | 'summary', Set<string>> = {
   summary: new Set(['identity.xp']),
 };
 
+
+/** Legal: Hebrew-calendar years of Israeli statutes (the Hebrew writes them in letters: תשע"ה, תשע"ז, תשי"ח), digits in English. */
+export const HEBREW_CALENDAR_YEARS = new Set(['5775', '5777', '5718']);
+
+/** Legal: Hebrew value is already the English attribution string (stays out of en, falls back to the identical Hebrew). */
+export const LEGAL_LANGUAGE_NEUTRAL = new Set(['credits.osm.attribution']);
 
 /** Text outside any `{arg, plural, …}` block: nouns inside a plural branch are already governed by that plural. */
 function outsidePlurals(msg: string): string {
@@ -285,7 +293,7 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
 
     // V10 stray digits
     const hn = numbers(h);
-    for (const d of numbers(e)) if (!hn.includes(d)) add(key, 'V10', 'error', `number ${d} not in Hebrew`);
+    for (const d of numbers(e)) if (!hn.includes(d) && !(ns === 'legal' && HEBREW_CALENDAR_YEARS.has(d))) add(key, 'V10', 'error', `number ${d} not in Hebrew`);
 
     // V11 length (warning)
     const cap = capFor(key, ns);

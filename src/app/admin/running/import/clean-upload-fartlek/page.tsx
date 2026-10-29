@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { hebrewOrEmpty } from '@/features/content/shared/stored-text-fields';
 import { useState } from 'react';
 import {
   collection,
@@ -116,7 +117,7 @@ export default function CleanUploadFartlekPage() {
 
       for (const d of snap.docs) {
         const data = d.data();
-        const name = data.name as string;
+        const name = hebrewOrEmpty(data.name); // {he,en} safe: protection must not depend on the stored shape
         if (PROTECTED_NAMES.includes(name)) {
           protectedFound.push(name);
           addLog(`🛡️ מוגן: "${name}" (${d.id})`);
@@ -165,7 +166,7 @@ export default function CleanUploadFartlekPage() {
           }
         }
 
-        const intensityRank = computeFartlekIntensityRank(data.name as string, blocks);
+        const intensityRank = computeFartlekIntensityRank(hebrewOrEmpty(data.name), blocks);
         const ref = doc(collection(db, COLLECTION));
         await setDoc(ref, { ...data, blocks, intensityRank, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         uploaded++;

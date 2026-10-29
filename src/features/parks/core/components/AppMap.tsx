@@ -32,6 +32,8 @@ import ParkPhotoMarker from './ParkPhotoMarker';
 import { isLayerOn, withLayerVisibility } from '../map-polish/layer-visibility';
 import DestinationMarker from './DestinationMarker';
 import { resolveParkImage } from '@/lib/park-image';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
 import { hapticLight } from '@/lib/haptics';
@@ -421,6 +423,7 @@ export default function AppMap({
   navigationTurns,
   activityType,
 }: AppMapProps) {
+  const tMap = useT(mapNs);
   const mapRef = useRef<MapRef>(null);
   // Warm the lemur marker art on map mount: the entry camera starts zoomed out
   // (pulse dot) and the <LemurMarker> <img> only mounts once zoom >= 10, so
@@ -1842,7 +1845,7 @@ export default function AppMap({
         // well under mapbox's ~5x-viewport default. Conservative starting point —
         // raise if panning back re-fetches visibly, lower if memory still climbs.
         maxTileCacheSize={45}
-        locale={{ 'NavigationControl.ZoomIn': 'הגדל', 'NavigationControl.ZoomOut': 'הקטן' }}
+        locale={{ 'NavigationControl.ZoomIn': tMap('appMap.zoomIn'), 'NavigationControl.ZoomOut': tMap('appMap.zoomOut') }}
         onClick={handleMapClick}
         onMouseDown={onLongPress ? handleMouseDown : undefined}
         onMouseUp={onLongPress ? clearLongPress : undefined}
@@ -2306,7 +2309,7 @@ export default function AppMap({
                 {isApproaching && (
                   <div className="absolute rounded-full animate-ping" style={{ width: 74, height: 74, background: 'rgba(0,186,247,0.25)' }} />
                 )}
-                <ParkPhotoMarker name={stop.name ?? 'תחנת כוח'} photoUrl={stop.image} size={64} isSelected />
+                <ParkPhotoMarker name={stop.name ?? tMap('appMap.stationFallback')} photoUrl={stop.image} size={64} isSelected />
               </div>
             ) : (
               <div className="flex flex-col items-center pointer-events-none" data-coach={i === 0 ? 'route-strength-stop' : undefined}>
@@ -2523,7 +2526,7 @@ export default function AppMap({
                 className="w-full mt-3 py-1.5 bg-blue-600 text-white text-[10px] font-black rounded-lg hover:bg-blue-700 transition-colors"
                 onClick={() => setSelectedFacility(null)}
               >
-                נווט לכאן
+                {tMap('appMap.navigateHere')}
               </button>
             </div>
           </Popup>
@@ -2552,7 +2555,7 @@ export default function AppMap({
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
             <circle cx="12" cy="12" r="3" />
           </svg>
-          {showInfrastructure ? 'תשתיות: ON' : 'תשתיות: OFF'}
+          {showInfrastructure ? 'תשתיות: ON' : 'תשתיות: OFF'}{/* i18n-allow-hebrew: admin-only infrastructure toggle (Hebrew only, PLAN decision 1) */}
         </button>
       )}
     </div>

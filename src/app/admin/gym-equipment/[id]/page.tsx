@@ -93,6 +93,11 @@ export default function EditGymEquipmentPage() {
     tips: equipment.tips,
     prepNote: equipment.prepNote,
     description: equipment.description,
+    nameLocalized: equipment.nameLocalized,
+    descriptionLocalized: equipment.descriptionLocalized,
+    prepNoteLocalized: equipment.prepNoteLocalized,
+    cuesLocalized: equipment.cuesLocalized,
+    tipsLocalized: equipment.tipsLocalized,
   };
 
   return (

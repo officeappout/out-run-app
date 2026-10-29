@@ -1,3 +1,5 @@
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
+
 // ==========================================
 // 1. Runner Goals & Classification
 // ==========================================
@@ -161,7 +163,11 @@ export interface RunBlockTemplate {
   measureBy: 'time' | 'distance';
   baseValue: number;
   sets: number;
+  /** Hebrew string always (see core/services/running-template-localized); English, when the doc has it, in labelLocalized. */
   label: string;
+  labelLocalized?: LocalizedText;
+  restLabel?: string;
+  restLabelLocalized?: LocalizedText;
   colorHex: string;
   restBetweenSetsSeconds?: number;
   restType?: 'standing' | 'walk' | 'jog';
@@ -277,6 +283,8 @@ export interface VolumeCap {
   /** For time-based targets: minutes. For distance targets: meters. For sets: count. */
   maxValue: number;
   maxWeeklyIncreasePercent?: number;
+  description?: string;
+  descriptionLocalized?: LocalizedText;
 }
 
 // ── Week Slots & Phases ──────────────────────────────────────────────
@@ -325,7 +333,11 @@ export interface IntensityDistributionConfig {
 
 export interface RunWorkoutTemplate {
   id: string;
+  /** Hebrew string always; English, when the doc has it, in nameLocalized. */
   name: string;
+  nameLocalized?: LocalizedText;
+  description?: string;
+  descriptionLocalized?: LocalizedText;
   isQualityWorkout: boolean;
   targetProfileTypes: RunnerProfileType[];
   blocks: RunBlockTemplate[];
@@ -348,7 +360,9 @@ export interface RunProgramWeekTemplate {
 
 export interface RunProgramTemplate {
   id: string;
+  /** Hebrew string always; English, when the doc has it, in nameLocalized. */
   name: string;
+  nameLocalized?: LocalizedText;
   targetDistance: '2k' | '3k' | '5k' | '10k' | 'maintenance';
   targetProfileTypes: RunnerProfileType[];
   canonicalWeeks: number;

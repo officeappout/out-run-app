@@ -34,6 +34,9 @@ import { getUserFromFirestore } from '@/lib/firestore.service';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see hasTenant/handleOrgCodeSuccess's own comment below, intentionally kept unwired
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
+import { common } from '@/messages/ns/common';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
 
 function formatBirthDate(raw: unknown): string | null {
@@ -64,10 +67,10 @@ function gearIconSrc(gearId: string, gearDefs: GearDefinition[]): string | null 
   if (!def) return null;
   const en = (def.name?.en || '').toLowerCase();
   const he = (def.name?.he || '').toLowerCase();
-  if (en.includes('ring') || he.includes('טבעות')) return EQUIPMENT_SVG_MAP.rings;
-  if (en.includes('band') || he.includes('גומי')) return EQUIPMENT_SVG_MAP.bands;
-  if ((en.includes('pull') && en.includes('bar')) || he.includes('מתח')) return EQUIPMENT_SVG_MAP.pull_up_bar;
-  if (en.includes('parallel') || en.includes('dip') || he.includes('מקביל')) return EQUIPMENT_SVG_MAP.dip_station;
+  if (en.includes('ring') || he.includes('טבעות')) return EQUIPMENT_SVG_MAP.rings; // i18n-allow-hebrew: data — matched against the gear's Hebrew name
+  if (en.includes('band') || he.includes('גומי')) return EQUIPMENT_SVG_MAP.bands; // i18n-allow-hebrew: data — matched against the gear's Hebrew name
+  if ((en.includes('pull') && en.includes('bar')) || he.includes('מתח')) return EQUIPMENT_SVG_MAP.pull_up_bar; // i18n-allow-hebrew: data — matched against the gear's Hebrew name
+  if (en.includes('parallel') || en.includes('dip') || he.includes('מקביל')) return EQUIPMENT_SVG_MAP.dip_station; // i18n-allow-hebrew: data — matched against the gear's Hebrew name
   if (en.includes('trx')) return EQUIPMENT_SVG_MAP.trx;
   return null;
 }
@@ -78,8 +81,8 @@ function gearDisplayName(gearId: string, gearDefs: GearDefinition[]): string {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  running: 'ריצה', walking: 'הליכה', yoga: 'יוגה',
-  calisthenics: 'קליסתניקס', cycling: 'רכיבה', other: 'אחר',
+  running: 'ריצה', walking: 'הליכה', yoga: 'יוגה', // i18n-allow-hebrew: unused constant (no reader in this file)
+  calisthenics: 'קליסתניקס', cycling: 'רכיבה', other: 'אחר', // i18n-allow-hebrew: unused constant (no reader in this file)
 };
 const CATEGORY_ICONS: Record<string, string> = {
   running: '🏃', walking: '🚶', yoga: '🧘',
@@ -88,6 +91,8 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const t = useT(profileNs);
+  const tc = useT(common);
   const { profile, _hasHydrated } = useUserStore();
   const { groups: myGroups } = useMyGroups();
   const managedGroups = myGroups.filter((g) => g.createdBy === profile?.id);
@@ -142,11 +147,11 @@ export default function ProfilePage() {
       setFeedbackSent(true);
       setTimeout(() => setFeedbackSent(false), 4000);
     } catch {
-      showToast('error', 'שגיאה בשליחת המשוב');
+      showToast('error', t('profilePage.feedback.error'));
     } finally {
       setFeedbackSending(false);
     }
-  }, [feedbackText, feedbackSending, showToast]);
+  }, [feedbackText, feedbackSending, showToast, t]);
 
   // 07.09.2026 — hasTenant, handleOrgCodeSuccess, and the AccessCodeGate
   // import above are NOT rendered anywhere in this file today (confirmed:
@@ -179,11 +184,11 @@ export default function ProfilePage() {
           tenantType: result.tenantType,
         },
       }, { merge: true });
-      showToast('success', 'הצטרפת לארגון בהצלחה!');
+      showToast('success', 'הצטרפת לארגון בהצלחה!'); // i18n-allow-hebrew: unwired handler (no caller, see the comment above)
       const fresh = await getUserFromFirestore(uid);
       if (fresh) useUserStore.setState({ profile: fresh });
     } catch {
-      showToast('error', 'שגיאה בהצטרפות לארגון');
+      showToast('error', 'שגיאה בהצטרפות לארגון'); // i18n-allow-hebrew: unwired handler (no caller, see the comment above)
     }
   }, [showToast]);
 
@@ -289,14 +294,14 @@ export default function ProfilePage() {
         .then((fresh) => { if (fresh) useUserStore.getState().initializeProfile(fresh); })
         .catch(() => {});
     }
-    const t = setTimeout(() => setShowUpdateToast(true), 400);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowUpdateToast(true), 400);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (!showUpdateToast) return;
-    const t = setTimeout(() => setShowUpdateToast(false), 3500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowUpdateToast(false), 3500);
+    return () => clearTimeout(timer);
   }, [showUpdateToast]);
 
   React.useEffect(() => {
@@ -318,7 +323,7 @@ export default function ProfilePage() {
     if (loadingLook(flagsReady, v2) === 'skeleton') return <ScreenSkeleton />;
     return (
       <div className="h-screen flex items-center justify-center bg-white">
-        <p className="text-sm text-gray-500 animate-pulse">טוען...</p>
+        <p className="text-sm text-gray-500 animate-pulse">{tc('status.loading')}</p>
       </div>
     );
   }
@@ -326,7 +331,7 @@ export default function ProfilePage() {
   if (!profile) {
     return (
       <div className="h-screen flex items-center justify-center bg-white">
-        <p className="text-sm text-gray-500">מעביר להרשמה...</p>
+        <p className="text-sm text-gray-500">{t('profilePage.redirecting')}</p>
       </div>
     );
   }
@@ -373,7 +378,7 @@ export default function ProfilePage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00C9F2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            <span className="text-sm font-bold text-gray-700">שלח משוב / דווח על באג</span>
+            <span className="text-sm font-bold text-gray-700">{t('profilePage.feedback.toggle')}</span>
             <ChevronLeft
               size={16}
               className={`text-gray-400 flex-shrink-0 mr-auto transition-transform ${feedbackOpen ? '-rotate-90' : ''}`}
@@ -393,7 +398,7 @@ export default function ProfilePage() {
                   <textarea
                     value={feedbackText}
                     onChange={(e) => setFeedbackText(e.target.value)}
-                    placeholder="כתוב כאן את המשוב, הבאג, או הרעיון שלך..."
+                    placeholder={t('profilePage.feedback.placeholder')}
                     rows={4}
                     className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#00C9F2] focus:ring-2 focus:ring-[#00C9F2]/20 transition-all leading-relaxed"
                   />
@@ -408,7 +413,7 @@ export default function ProfilePage() {
                         className="h-12 flex items-center justify-center gap-2 rounded-xl bg-[#10B981]/10 text-[#10B981]"
                       >
                         <Check size={16} strokeWidth={3} />
-                        <span className="text-sm font-bold">תודה! המשוב נשלח בהצלחה</span>
+                        <span className="text-sm font-bold">{t('profilePage.feedback.sent')}</span>
                       </motion.div>
                     ) : (
                       <motion.button
@@ -425,7 +430,7 @@ export default function ProfilePage() {
                               <line x1="22" y1="2" x2="11" y2="13" />
                               <polygon points="22 2 15 22 11 13 2 9 22 2" />
                             </svg>
-                            שלח לעוזר ה-AI
+                            {t('profilePage.feedback.send')}
                           </>
                         )}
                       </motion.button>
@@ -479,14 +484,14 @@ export default function ProfilePage() {
             >
               {editingField === 'name' && (
                 <>
-                  <h3 className="text-lg font-black text-gray-900 dark:text-white mb-4">עריכת שם</h3>
+                  <h3 className="text-lg font-black text-gray-900 dark:text-white mb-4">{t('profilePage.edit.name.title')}</h3>
                   <input
                     autoFocus
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit()}
-                    placeholder="הזן שם מלא"
+                    placeholder={t('profilePage.edit.name.placeholder')}
                     className="w-full h-14 px-4 rounded-2xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-base font-semibold text-gray-900 dark:text-white outline-none focus:border-[#00C9F2] transition-colors"
                   />
                 </>
@@ -494,10 +499,10 @@ export default function ProfilePage() {
 
               {editingField === 'dob' && (
                 <>
-                  <h3 className="text-lg font-black text-gray-900 dark:text-white mb-4">עריכת תאריך לידה</h3>
+                  <h3 className="text-lg font-black text-gray-900 dark:text-white mb-4">{t('profilePage.edit.dob.title')}</h3>
                   <div className="flex gap-3">
                     <div className="flex-1">
-                      <label className="text-[11px] font-bold text-gray-400 mb-1 block">יום</label>
+                      <label className="text-[11px] font-bold text-gray-400 mb-1 block">{t('profilePage.edit.dob.day')}</label>
                       <input
                         autoFocus
                         type="text"
@@ -514,7 +519,7 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[11px] font-bold text-gray-400 mb-1 block">חודש</label>
+                      <label className="text-[11px] font-bold text-gray-400 mb-1 block">{t('profilePage.edit.dob.month')}</label>
                       <input
                         ref={monthRef}
                         type="text"
@@ -531,7 +536,7 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div className="flex-[1.3]">
-                      <label className="text-[11px] font-bold text-gray-400 mb-1 block">שנה</label>
+                      <label className="text-[11px] font-bold text-gray-400 mb-1 block">{t('profilePage.edit.dob.year')}</label>
                       <input
                         ref={yearRef}
                         type="text"
@@ -563,7 +568,7 @@ export default function ProfilePage() {
                   ) : (
                     <>
                       <Check size={16} strokeWidth={3} />
-                      <span>שמירה</span>
+                      <span>{t('profilePage.edit.save')}</span>
                     </>
                   )}
                 </button>
@@ -572,7 +577,7 @@ export default function ProfilePage() {
                   disabled={editSaving}
                   className="px-5 h-12 rounded-2xl font-bold text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 active:scale-[0.97] transition-transform"
                 >
-                  ביטול
+                  {t('profilePage.edit.cancel')}
                 </button>
               </div>
             </motion.div>
@@ -619,7 +624,7 @@ export default function ProfilePage() {
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                 <Check size={16} strokeWidth={3} />
               </div>
-              <p className="text-sm font-bold">הפרופיל עודכן בהצלחה!</p>
+              <p className="text-sm font-bold">{t('profilePage.updated')}</p>
             </div>
           </motion.div>
         )}

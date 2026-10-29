@@ -861,3 +861,23 @@ src/features/profile/components/widgets/RecentActivityList.tsx
 src/features/streak-celebration/components/CelebrationHero.tsx
 src/app/roadmap/page.tsx
 src/app/explorer/page.tsx
+# i18n extraction batch ui-2 (namespaces map partnerBubbles.* / turnCarousel.* / slotCarousel.* / hybridOverview.* / appMap.*,
+# profile savedPlace.* / profilePage.*, player lobby.* / suggestion.* / milestone.* / together.strip.*, library activeWorkout.* /
+# exerciseLibraryPage.*, community addressSearch.*) — the leftovers of already-migrated areas. Marked i18n-allow-hebrew: routing
+# instructions (TurnCarousel), ENTRY_PHRASES (read by DiscoverLayer), the plan / segment titles of the active-workout page,
+# AppMap's admin-only infrastructure toggle, ProfilePage's unwired org-join handler.
+src/app/profile/page.tsx
+src/app/workouts/[id]/active/page.tsx
+src/components/AppLogoLoader.tsx
+src/features/arena/components/CommunityAddressSearch.tsx
+src/features/parks/core/components/AppMap.tsx
+src/features/parks/core/components/TurnCarousel.tsx
+src/features/parks/core/components/hybrid/HybridOverviewScreen.tsx
+src/features/parks/core/components/hybrid/HybridSlotCarousel.tsx
+src/features/user/places/components/SetSavedPlaceSheet.tsx
+src/features/workout-engine/core/components/SuggestionCard.tsx
+src/features/workout-engine/core/components/SuggestionCarousel.tsx
+src/features/workout-engine/shared/components/MetricsDrawer.tsx
+src/features/workout-engine/shared/components/MilestoneFeed.tsx
+src/features/workout-engine/shared/components/ParticipantStrip.tsx
+src/features/workout-engine/shared/components/SessionLobbyOverlay.tsx

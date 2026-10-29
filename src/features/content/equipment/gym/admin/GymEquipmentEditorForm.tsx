@@ -32,6 +32,7 @@ import { getAllOutdoorBrands, OutdoorBrand } from '../../../equipment/brands';
 import EquipmentTextListEditor from './EquipmentTextListEditor';
 import {
   buildEquipmentTextFields,
+  buildEquipmentLocalizedFields,
   EQUIPMENT_CUES_MAX,
   EQUIPMENT_TIPS_MAX,
   EQUIPMENT_CUE_WARN_CHARS,
@@ -86,6 +87,18 @@ const LOCATION_LABELS: Record<EquipmentLocation | 'street', { label: string; ico
   street: { label: 'רחוב', icon: <Navigation size={18} /> },
 };
 
+/** The English side of the form, seeded from a doc's `*Localized` siblings ('' = none). */
+function englishDraftOf(d?: Partial<GymEquipmentFormData> | null) {
+  const list = (loc?: { en?: string }[], len = 0) => Array.from({ length: len }, (_, i) => loc?.[i]?.en ?? '');
+  return {
+    nameEn: d?.nameLocalized?.en ?? '',
+    descriptionEn: d?.descriptionLocalized?.en ?? '',
+    prepNoteEn: d?.prepNoteLocalized?.en ?? '',
+    cuesEn: list(d?.cuesLocalized, Array.isArray(d?.cues) ? d!.cues!.length : 0),
+    tipsEn: list(d?.tipsLocalized, Array.isArray(d?.tips) ? d!.tips!.length : 0),
+  };
+}
+
 export default function GymEquipmentEditorForm({
   onSubmit,
   isSubmitting,
@@ -111,6 +124,8 @@ export default function GymEquipmentEditorForm({
     description: '',
     ...initialData,
   });
+  // English (optional) per text field; a doc becomes {he,en} only once something is entered here.
+  const [en, setEn] = useState(() => englishDraftOf(initialData));
   const [svgIcons, setSvgIcons] = useState<{ slug: string; label: string }[]>([]);
   const [outdoorBrands, setOutdoorBrands] = useState<OutdoorBrand[]>([]);
   const [brandSearchTerm, setBrandSearchTerm] = useState<Record<number, string>>({});
@@ -153,6 +168,7 @@ export default function GymEquipmentEditorForm({
         description: initialData.description ?? '',
       };
       setFormData(sanitizedData);
+      setEn(englishDraftOf(initialData));
       setTargetPrograms(initialData.targetPrograms || []);
 
       // Initialize search terms for existing brands
@@ -179,7 +195,17 @@ export default function GymEquipmentEditorForm({
     e.preventDefault();
     // Text fields: trimmed, empties dropped; cleared-vs-never-set per
     // buildEquipmentTextFields (undefined is omitted by the service's stripUndefined).
-    onSubmit({ ...formData, targetPrograms, ...buildEquipmentTextFields(formData, initialData) });
+    // The seeded *Localized pairs are replaced by what the English inputs say now (never carried over stale).
+    const {
+      nameLocalized: _n, descriptionLocalized: _d, prepNoteLocalized: _p, cuesLocalized: _c, tipsLocalized: _t,
+      ...base
+    } = formData;
+    onSubmit({
+      ...base,
+      targetPrograms,
+      ...buildEquipmentTextFields(formData, initialData),
+      ...buildEquipmentLocalizedFields({ ...formData, ...en }, initialData),
+    });
   };
 
   const toggleArrayItem = <T,>(array: T[], item: T): T[] => {
@@ -252,6 +278,15 @@ export default function GymEquipmentEditorForm({
               required
               className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               placeholder="לדוגמה: Bench Press Machine"
+            />
+            <input
+              type="text"
+              dir="ltr"
+              value={en.nameEn}
+              onChange={(e) => setEn({ ...en, nameEn: e.target.value })}
+              aria-label="שם הציוד (EN)"
+              className="mt-2 w-full px-4 py-3 text-base text-left border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              placeholder="English name (optional)"
             />
           </div>
 
@@ -447,6 +482,8 @@ export default function GymEquipmentEditorForm({
             hint="3–5 משפטים קצרים — איך לבצע נכון."
             items={formData.cues ?? []}
             onChange={(cues) => setFormData({ ...formData, cues })}
+            enItems={en.cuesEn}
+            onEnChange={(cuesEn) => setEn({ ...en, cuesEn })}
             max={EQUIPMENT_CUES_MAX}
             warnChars={EQUIPMENT_CUE_WARN_CHARS}
             placeholder="לדוגמה: גב צמוד למשענת לאורך כל התנועה"
@@ -458,6 +495,8 @@ export default function GymEquipmentEditorForm({
             hint="עד 2 — הקלה / הקשחה."
             items={formData.tips ?? []}
             onChange={(tips) => setFormData({ ...formData, tips })}
+            enItems={en.tipsEn}
+            onEnChange={(tipsEn) => setEn({ ...en, tipsEn })}
             max={EQUIPMENT_TIPS_MAX}
             warnChars={EQUIPMENT_CUE_WARN_CHARS}
             placeholder="לדוגמה: קשה לכם? קצרו את הטווח"
@@ -482,6 +521,15 @@ export default function GymEquipmentEditorForm({
                     }`}
                     placeholder="לדוגמה: כוונו את המושב לגובה החזה"
                   />
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={en.prepNoteEn}
+                    onChange={(e) => setEn({ ...en, prepNoteEn: e.target.value })}
+                    aria-label="הכנה לפני המתקן (EN)"
+                    className="mt-2 w-full px-4 py-3 text-base text-left border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    placeholder="English (optional)"
+                  />
                   <p className={`text-xs mt-1 ${over ? 'text-amber-600 font-bold' : 'text-gray-400'}`}>
                     {len}/{EQUIPMENT_PREP_NOTE_MAX_CHARS}
                     {over && ' — ארוך מדי, כדאי לקצר'}
@@ -502,6 +550,15 @@ export default function GymEquipmentEditorForm({
               rows={5}
               dir="rtl"
               className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl resize-y focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            />
+            <textarea
+              value={en.descriptionEn}
+              onChange={(e) => setEn({ ...en, descriptionEn: e.target.value })}
+              rows={5}
+              dir="ltr"
+              aria-label="תיאור (EN)"
+              placeholder="English (optional)"
+              className="mt-2 w-full px-4 py-3 text-base text-left border border-gray-300 rounded-xl resize-y focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             />
           </div>
         </div>

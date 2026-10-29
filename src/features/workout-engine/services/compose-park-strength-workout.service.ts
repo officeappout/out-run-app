@@ -731,7 +731,7 @@ export function buildMachinePseudoExercise(
    */
   selectedBrandName?: string,
 ): WorkoutExercise {
-  const name: LocalizedText = { he: machine.name, en: '', es: '' } as LocalizedText;
+  const name: LocalizedText = { he: machine.name, en: machine.nameLocalized?.en ?? '', es: '' } as LocalizedText;
   const domain = machine.movementPattern ? MG_TO_DOMAIN[machine.movementPattern] : undefined;
   const brands = machine.brands ?? [];
   const brand = selectBrandByName(brands, selectedBrandName);

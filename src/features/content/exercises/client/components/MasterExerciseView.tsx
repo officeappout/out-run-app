@@ -19,6 +19,7 @@
  *     so no existing library content is lost.
  */
 
+import { useShowHeOnlySurfaces } from '@/features/arena/hooks/useShowHeOnlySurfaces';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
@@ -429,7 +430,9 @@ export default function MasterExerciseView({
   const v2 = useFeatureFlags(
     !!(mevProfile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin,
   ).flags.enableHomeV2;
-  const isMilitaryPersona = mevProfile ? hasPersona(mevProfile, 'military') : false;
+  // 'service' is also hidden in non-Hebrew UIs (hide_he_only_onboarding_steps); flag off / Hebrew: unchanged.
+  const showHeOnly = useShowHeOnlySurfaces();
+  const isMilitaryPersona = showHeOnly && (mevProfile ? hasPersona(mevProfile, 'military') : false);
 
   const methodOptions = useMemo<MethodOption[]>(() => {
     const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];

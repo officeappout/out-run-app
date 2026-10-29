@@ -130,7 +130,8 @@ async function main() {
     console.log(`   ${ '─'.repeat(30) }  ${ '─'.repeat(40) }`);
 
     gymSnap.docs.forEach((d) => {
-      const name = d.data().name ?? '';
+      const rawName = d.data().name;
+      const name = (rawName && typeof rawName === 'object' ? rawName.he || rawName.en : rawName) ?? ''; // name may be {he,en}
       console.log(`   ${ col(d.id, 30) }  ${ name }`);
       result.gym_equipment[name] = d.id;
     });
