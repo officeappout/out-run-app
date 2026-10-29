@@ -8,7 +8,7 @@
  * two values is rendered behind the inputs, and floating value labels
  * track each thumb above the track.
  *
- * RTL convention: the partners feature is dir="rtl", so the smaller
+ * Direction convention: in RTL (Hebrew) the smaller
  * value (the lo handle) sits on the RIGHT and grows toward the LEFT. We
  * achieve this by setting dir="rtl" on each <input>, and by anchoring
  * the visual elements (filled segment + floating labels) from the right
@@ -23,6 +23,7 @@
 import React from 'react';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { sliderFillStyle, sliderPointStyle } from '@/lib/i18n/slider-position';
 const ACCENT = '#00ADEF';
 
 export interface DualRangeSliderProps {
@@ -47,7 +48,7 @@ export function DualRangeSlider({
   ariaLabelMin,
   ariaLabelMax,
 }: DualRangeSliderProps) {
-  const { direction } = useUiDir();
+  const { direction, isRtl } = useUiDir();
   const [lo, hi] = values;
   const span = max - min;
   const minPct = span > 0 ? Math.max(0, Math.min(100, ((lo - min) / span) * 100)) : 0;
@@ -72,8 +73,7 @@ export function DualRangeSlider({
         dir="ltr"
         style={{
           top: 0,
-          right: `${minPct}%`,
-          transform: 'translateX(50%)',
+          ...sliderPointStyle(isRtl, minPct),
           color: ACCENT,
         }}
       >
@@ -84,8 +84,7 @@ export function DualRangeSlider({
         dir="ltr"
         style={{
           top: 0,
-          right: `${maxPct}%`,
-          transform: 'translateX(50%)',
+          ...sliderPointStyle(isRtl, maxPct),
           color: ACCENT,
         }}
       >
@@ -100,8 +99,7 @@ export function DualRangeSlider({
         <div
           className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
           style={{
-            right: `${minPct}%`,
-            left: `${100 - maxPct}%`,
+            ...sliderFillStyle(isRtl, minPct, maxPct),
             backgroundColor: ACCENT,
           }}
         />

@@ -48,6 +48,7 @@ import {
 } from '../services/leg-plan.service';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { sliderFillStyle, sliderPointStyle } from '@/lib/i18n/slider-position';
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
 
@@ -261,7 +262,7 @@ function GoalSlider({
   onChange: (v: number) => void;
   formatLabel: (v: number) => string;
 }) {
-  const { direction } = useUiDir();
+  const { direction, isRtl } = useUiDir();
   const v2 = useContext(FreeRunV2);
   const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
   if (v2) {
@@ -272,7 +273,7 @@ function GoalSlider({
         <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full bg-v2-hairline" />
         <div
           className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-v2-accent"
-          style={{ right: 0, left: `${100 - pct}%` }}
+          style={sliderFillStyle(isRtl, 0, pct)}
         />
         <input
           type="range"
@@ -290,7 +291,7 @@ function GoalSlider({
       <div
         className="absolute text-[11px] font-black pointer-events-none whitespace-nowrap"
         dir="ltr"
-        style={{ top: 0, right: `${pct}%`, transform: 'translateX(50%)', color: ACCENT }}
+        style={{ top: 0, ...sliderPointStyle(isRtl, pct), color: ACCENT }}
       >
         {formatLabel(value)}
       </div>
@@ -298,7 +299,7 @@ function GoalSlider({
         <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 bg-gray-200 rounded-full" />
         <div
           className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-          style={{ right: 0, left: `${100 - pct}%`, backgroundColor: ACCENT }}
+          style={{ ...sliderFillStyle(isRtl, 0, pct), backgroundColor: ACCENT }}
         />
         <input
           type="range"
