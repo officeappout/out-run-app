@@ -17,6 +17,7 @@ import type { WeatherFlag } from '@/features/weather/core/weather.types';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { usePlannedRunWorkout } from '@/features/home/hooks/usePlannedRunWorkout';
 import { nextRunDayHint, type HomeRunSlot } from '@/features/home/utils/home-run-slot';
+import { calmRunCategory } from '@/features/home/utils/calm-run-category';
 import { useRunPreviewModel } from '@/features/workout-engine/players/running/components/preview-v2/useRunPreviewModel';
 import { inferRunKind, resolveRunCategory, runTypeLabel } from '@/features/workout-engine/players/running/utils/run-preview/run-kind';
 import RunOverviewHomeSheet from '@/features/workout-engine/players/running/components/overview-v2/RunOverviewHomeSheet';
@@ -67,7 +68,11 @@ export default function HomeRunCarouselCard({
     calmLoad,
   });
 
-  const category = resolveRunCategory(entry.category);
+  // Calm return turns a quality run into an easy one (calmRunWorkout): the "next" card, which
+  // has no loaded workout yet, says so up front instead of the planned type (pilot O13).
+  const plannedCategory = resolveRunCategory(entry.category);
+  const category = calmRunCategory(plannedCategory, calmLoad);
+  const calmSwapped = category !== plannedCategory;
   const extras = useMemo(() => ({ templateCategory: entry.category ?? null }), [entry.category]);
   const model = useRunPreviewModel(isToday ? workout : null, extras);
   const kind = model?.kind ?? inferRunKind(category);
@@ -91,7 +96,7 @@ export default function HomeRunCarouselCard({
     <RunWeekCardV2
       kind={kind}
       typeLabel={isToday || isSkippedToday ? typeLabel : t('runCard.typeNext', { type: typeLabel })}
-      title={model?.title ?? entry.workoutName ?? typeLabel}
+      title={model?.title ?? (calmSwapped ? typeLabel : entry.workoutName ?? typeLabel)}
       state={isToday ? 'today' : isSkippedToday ? 'skipped' : 'upcoming'}
       dayLetter={isToday || isSkippedToday ? null : nextRunDayHint(slot.daysAway, t)}
       model={model}
