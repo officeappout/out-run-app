@@ -881,3 +881,15 @@ src/features/workout-engine/shared/components/MetricsDrawer.tsx
 src/features/workout-engine/shared/components/MilestoneFeed.tsx
 src/features/workout-engine/shared/components/ParticipantStrip.tsx
 src/features/workout-engine/shared/components/SessionLobbyOverlay.tsx
+# i18n extraction batch 3 (live generated-copy clusters from the English-readiness audit, PR #947): streak celebration copy
+# (home streakCelebration.*), hybrid smart-card copy + budget-light lines (map hybrid.card.* / budgetLight.*), walk-to-route turn
+# instructions (map walkRoute.*), share-v2 model + canvas templates (social shareV2.*), auth.service user-facing errors
+# (onboarding authErrors.*), home today-activity labels (home todayActivityLabels.*). location-utils.ts stays out of the manifest: its
+# data / dead / unrendered Hebrew is listed in the PR body (onboarding locationUtils.*).
+src/features/streak-celebration/core/celebration-copy.ts
+src/features/workout-engine/hybrid/smart-cards/hybrid-card-copy.ts
+src/features/workout-engine/budget-light/copy.ts
+src/features/parks/core/hooks/useWalkToRoute.ts
+src/features/social/share-v2/
+src/lib/auth.service.ts
+src/features/home/utils/today-activity-labels.ts

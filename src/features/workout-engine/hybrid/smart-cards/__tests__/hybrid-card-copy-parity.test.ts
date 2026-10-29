@@ -7,12 +7,12 @@ import {
 import type { SmartSessionSizing } from '../situation.types';
 
 const snap = (name: string) => `./__snapshots__/hybrid-card-copy/${name}.json`;
-const G = [undefined, 'male', 'female', 'other'] as const;
+const G = [undefined, 'male', 'female', 'other'] as unknown as Array<'male' | 'female' | undefined>; // 'other' reads like male in the Hebrew pick()
 
 describe('hybrid card copy (Hebrew)', () => {
   it('walk + strength card', async () => {
     const out: unknown[] = [];
-    for (const kind of ['running', 'walking', 'cycling'] as const) out.push(['title', kind, walkStrengthTitle(kind)]);
+    for (const kind of ['running', 'walking', 'cycling'] as unknown as Array<'running' | 'walking'>) out.push(['title', kind, walkStrengthTitle(kind)]);
     const sizings: SmartSessionSizing[] = [];
     for (const stepsSource of ['steps', 'goal_met', 'unknown'] as const)
       for (const setsSource of ['budget', 'unknown', 'spent', 'light'] as const)

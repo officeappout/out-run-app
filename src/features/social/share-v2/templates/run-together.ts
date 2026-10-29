@@ -10,6 +10,7 @@ import { CYAN, type SharePalette } from '../palette';
 import type { ShareStatV2, ShareTogetherModel } from '../types';
 import { drawHeader, STORY_BOTTOM_SCRIM } from './common';
 import { PAD, type DrawArgs, type ShareTemplateDef } from './template';
+import { shareT } from '../copy';
 
 const AV = 58;
 const OVERLAP = 14;
@@ -79,11 +80,11 @@ function draw(a: DrawArgs) {
   const left = pad;
   const right = frame.w - pad;
   const width = right - left;
-  const big = t.jointKm ? { value: t.jointKm, unit: 'ק״מ ביחד' } : m.hero;
+  const big = t.jointKm ? { value: t.jointKm, unit: shareT('shareV2.unit.kmTogether') } : m.hero;
   const stats: ShareStatV2[] = [
-    ...(t.jointKm && m.distance ? [{ value: m.distance, unit: 'ק״מ שלי' }] : []),
+    ...(t.jointKm && m.distance ? [{ value: m.distance, unit: shareT('shareV2.unit.kmMine') }] : []),
     m.duration,
-    { value: String(t.participantCount), unit: 'רצים' },
+    { value: String(t.participantCount), unit: shareT('shareV2.unit.runners') },
   ].slice(0, 3);
   // More than two circles → the names go under the avatars instead of beside them.
   const crowded = t.avatars.length + (t.moreCount > 0 ? 1 : 0) > 2;
@@ -116,7 +117,7 @@ function draw(a: DrawArgs) {
 export const runTogether: ShareTemplateDef = {
   id: 'run-together',
   kind: 'cardio',
-  label: 'יחד',
+  get label() { return shareT('shareV2.template.together'); },
   formats: ['story'],
   brand: 'night',
   naturalBackground: (hasPhoto) => (hasPhoto ? 'photo' : 'brand'),

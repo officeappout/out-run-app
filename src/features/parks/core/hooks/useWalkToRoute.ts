@@ -5,10 +5,12 @@ import { decideActiveApproach } from '../services/walk-approach';
 import { useMapStore } from '../store/useMapStore';
 import { withCancelPrevious } from '@/features/parks/lib/request-governor';
 import type { Route } from '../types/route.types';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { map } from '@/messages/ns/map';
 
-/** One Hebrew turn-by-turn step exposed to the UI (timeline row). */
+/** One turn-by-turn step exposed to the UI (timeline row), in the current locale. */
 export interface WalkStep {
-  /** Hebrew maneuver string, optionally with street name. e.g. "פנה ימינה לרחוב הרצל". */
+  /** Maneuver string, optionally with street name, e.g. "Turn right on Herzl". */
   instruction: string;
   /** Length of this step in meters (Mapbox `step.distance`, rounded). */
   distanceMeters: number;
@@ -40,7 +42,7 @@ export interface WalkToRouteState {
    */
   targetEndpoint: { lat: number; lng: number } | null;
   /**
-   * Pre-composed Hebrew turn-by-turn list for the walk leg. Built from
+   * Pre-composed turn-by-turn list for the walk leg. Built from
    * Mapbox's `routes[0].legs[0].steps[]` and shown in the
    * RouteDetailSheet timeline accordion. `null` while a walk is being
    * computed or when no route is focused.
@@ -56,51 +58,53 @@ const EMPTY: WalkToRouteState = {
   walkSteps: null,
 };
 
-// ── Hebrew step composer ───────────────────────────────────────────
+// ── Step composer ──────────────────────────────────────────────────
 // Mapbox's basic Directions API doesn't ship localized instruction
 // strings (those require the navigation SDK + voice/banner flags), so
-// we compose our own from the structured fields:
+// we compose our own from the structured fields (catalog `map`, `walkRoute.*`):
 //   `step.maneuver.type`    — 'turn' | 'continue' | 'arrive' | 'depart' | 'roundabout' | …
 //   `step.maneuver.modifier`— 'left' | 'right' | 'slight left' | … (sometimes absent)
 //   `step.name`             — street name in native script (already Hebrew in Israel)
 //
-// Falls back to "המשך" for unknown maneuver shapes so the timeline
+// Falls back to "continue" for unknown maneuver shapes so the timeline
 // never shows an empty row.
+const tMap = makeLiveT(map);
+
 function modifierLabel(modifier: string | undefined): string {
   switch ((modifier ?? '').toLowerCase()) {
-    case 'right':         return 'פנה ימינה';
-    case 'left':          return 'פנה שמאלה';
-    case 'slight right':  return 'ימינה קל';
-    case 'slight left':   return 'שמאלה קל';
-    case 'sharp right':   return 'פנה חד ימינה';
-    case 'sharp left':    return 'פנה חד שמאלה';
-    case 'straight':      return 'המשך ישר';
-    case 'uturn':         return 'פנייה חזרה';
-    default:              return 'המשך';
+    case 'right':         return tMap('walkRoute.modifier.right');
+    case 'left':          return tMap('walkRoute.modifier.left');
+    case 'slight right':  return tMap('walkRoute.modifier.slightRight');
+    case 'slight left':   return tMap('walkRoute.modifier.slightLeft');
+    case 'sharp right':   return tMap('walkRoute.modifier.sharpRight');
+    case 'sharp left':    return tMap('walkRoute.modifier.sharpLeft');
+    case 'straight':      return tMap('walkRoute.modifier.straight');
+    case 'uturn':         return tMap('walkRoute.modifier.uturn');
+    default:              return tMap('walkRoute.modifier.default');
   }
 }
 
-function composeHebrewInstruction(step: any): string {
+function composeInstruction(step: any): string {
   const type     = (step?.maneuver?.type ?? '').toLowerCase();
   const modifier = step?.maneuver?.modifier as string | undefined;
   const name     = (step?.name as string | undefined)?.trim();
 
   let base: string;
   switch (type) {
-    case 'depart':      base = 'התחל הליכה'; break;
-    case 'arrive':      base = 'הגעת ליעד'; break;
-    case 'continue':    base = 'המשך ישר'; break;
+    case 'depart':      base = tMap('walkRoute.type.depart'); break;
+    case 'arrive':      base = tMap('walkRoute.type.arrive'); break;
+    case 'continue':    base = tMap('walkRoute.type.continue'); break;
     case 'roundabout':
-    case 'rotary':      base = 'בכיכר, צא בהתאם'; break;
-    case 'merge':       base = 'התמזג'; break;
+    case 'rotary':      base = tMap('walkRoute.type.roundabout'); break;
+    case 'merge':       base = tMap('walkRoute.type.merge'); break;
     case 'fork':        base = modifierLabel(modifier); break;
     case 'turn':        base = modifierLabel(modifier); break;
-    case 'new name':    base = 'המשך'; break;
+    case 'new name':    base = tMap('walkRoute.type.newName'); break;
     default:            base = modifierLabel(modifier); break;
   }
 
-  // Skip arrival street names — "הגעת ליעד לרחוב X" reads awkwardly.
-  return type === 'arrive' || !name ? base : `${base} לרחוב ${name}`;
+  // Skip arrival street names: "You've arrived on X" reads awkwardly.
+  return type === 'arrive' || !name ? base : tMap('walkRoute.onStreet', { base, name });
 }
 
 export function transformWalkSteps(rawSteps: any[]): WalkStep[] {
@@ -109,7 +113,7 @@ export function transformWalkSteps(rawSteps: any[]): WalkStep[] {
   return rawSteps
     .filter((s) => (s?.maneuver?.type ?? '').toLowerCase() !== 'arrive')
     .map((s) => ({
-      instruction: composeHebrewInstruction(s),
+      instruction: composeInstruction(s),
       distanceMeters: Math.max(0, Math.round(Number(s?.distance ?? 0))),
     }))
     // Hide micro-segments (<10 m) — usually noise from snapping.
