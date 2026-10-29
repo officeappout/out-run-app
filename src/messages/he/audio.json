@@ -1,0 +1,9 @@
+{
+  "lap.done": "הקפה {lap} הושלמה. מרחק: {distance} קילומטר. קצב: {pace} דקות לקילומטר.",
+  "lap.doneTotal": "הקפה {lap} הושלמה. מרחק כולל {distance} קילומטר. קצב ממוצע {pace} דקות לקילומטר.",
+  "distance.total": "מרחק כולל {distance} קילומטר.",
+  "block.start": "מתחילים {label}",
+  "pace.slow": "קצב איטי, תאיצו קצת",
+  "pace.fast": "קצב מהיר, תאטו קצת",
+  "rest.getReady": "תתכוננו"
+}
