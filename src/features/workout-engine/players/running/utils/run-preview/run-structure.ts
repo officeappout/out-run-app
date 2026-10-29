@@ -16,6 +16,8 @@ import { groupBlocksIntoSections, isStrideBlock, type BriefingSection } from './
 import { blockTargetBand, repTarget, type RunPaceContext } from './run-estimates';
 import { blockSizeLabel, cleanBlockLabel, isGenericLabel } from './run-title';
 import { stripColor } from './run-strip';
+import { cleanRunBlockLabel } from './run-block-label';
+import type { AppLanguage } from '@/features/content/shared/localized-text.types';
 
 export interface StructureRow {
   key: string;
@@ -59,14 +61,16 @@ const ZONE_WORDS: Partial<Record<RunZoneType, string>> = {
 const EFFORT_LABELS: Record<string, string> = { moderate: 'מאמץ בינוני', hard: 'מאמץ גבוה', max: 'מאמץ מקסימלי' };
 
 /** Words for a row: the zone's plain words for generic labels ("חימום", "ריצה"), else the template label. */
-function rowWords(b: RunBlock): string {
-  const label = cleanBlockLabel(b.label);
+function rowWords(b: RunBlock, lang: AppLanguage): string {
+  // Logic below runs on the Hebrew label; only the template's own words are shown in `lang`.
+  const hebrew = cleanBlockLabel(b.label);
+  const label = hebrew;
   // Generic or size-only labels ("ריצה", "400 מ׳", "3 דק׳") read better as the zone's words.
   const generic = !label || isGenericLabel(label) || /^\d/.test(label);
   if (isStrideBlock(b)) return 'סטריידס';
   if (isRestBlock(b)) return label || 'התאוששות';
   if (generic && b.zoneType && ZONE_WORDS[b.zoneType]) return ZONE_WORDS[b.zoneType]!;
-  return label || 'ריצה';
+  return (hebrew && cleanRunBlockLabel(b, lang)) || 'ריצה';
 }
 
 function buildRow(
@@ -75,11 +79,12 @@ function buildRow(
   ctx: RunPaceContext,
   showPaceNumbers: boolean,
   laps?: number,
+  lang: AppLanguage = 'he',
 ): StructureRow {
   const rest = isRestBlock(b);
   const size = blockSizeLabel(b);
   const sizeText = laps && laps > 1 && isStrideBlock(b) ? `${laps} × ${size}` : size;
-  let text = [sizeText, rowWords(b)].filter(Boolean).join(' ');
+  let text = [sizeText, rowWords(b, lang)].filter(Boolean).join(' ');
 
   let side = '';
   let sideIsPace = false;
@@ -104,8 +109,8 @@ function buildRow(
   return { key: b.id || String(blockIndex), text, side, sideIsPace, color: stripColor(b), isRest: rest, blockIndex, hasDrill: !!b.drillRef };
 }
 
-function rowsOf(section: BriefingSection, ctx: RunPaceContext, showPaceNumbers: boolean): StructureRow[] {
-  return section.blocks.map(({ block, originalIndex }) => buildRow(block, originalIndex, ctx, showPaceNumbers, section.laps));
+function rowsOf(section: BriefingSection, ctx: RunPaceContext, showPaceNumbers: boolean, lang: AppLanguage): StructureRow[] {
+  return section.blocks.map(({ block, originalIndex }) => buildRow(block, originalIndex, ctx, showPaceNumbers, section.laps, lang));
 }
 
 const WRAPPER_STEP_COLOR = '#84cc16';
@@ -113,7 +118,7 @@ const WRAPPER_STEP_COLOR = '#84cc16';
 export function buildRunStructure(
   blocks: readonly RunBlock[],
   ctx: RunPaceContext,
-  { showPaceNumbers = true }: { showPaceNumbers?: boolean } = {},
+  { showPaceNumbers = true, lang = 'he' }: { showPaceNumbers?: boolean; lang?: AppLanguage } = {},
 ): StructureStep[] {
   const sections = groupBlocksIntoSections({ blocks: [...blocks] });
   const warmRows: StructureRow[] = [];
@@ -124,12 +129,12 @@ export function buildRunStructure(
     const first = s.blocks[0]?.block;
     if (!first) continue;
     if (s.title === 'חימום' && (first.type === 'warmup' || first._isDynamicWrapper)) {
-      warmRows.push(...rowsOf(s, ctx, showPaceNumbers));
+      warmRows.push(...rowsOf(s, ctx, showPaceNumbers, lang));
     } else if (isStrideBlock(first)) {
       // Strides are part of the warm-up on the boards: one "4 × 20 שנ׳ סטריידס" row (its rest is implied).
-      warmRows.push(buildRow(first, s.blocks[0].originalIndex, ctx, showPaceNumbers, s.laps));
+      warmRows.push(buildRow(first, s.blocks[0].originalIndex, ctx, showPaceNumbers, s.laps, lang));
     } else if (first.type === 'cooldown') {
-      coolRows.push(...rowsOf(s, ctx, showPaceNumbers));
+      coolRows.push(...rowsOf(s, ctx, showPaceNumbers, lang));
     } else {
       main.push({
         key: `main-${main.length}`,
@@ -137,7 +142,7 @@ export function buildRunStructure(
         title: '',
         color: stripColor(first),
         repeat: s.laps && s.laps > 1 ? s.laps : undefined,
-        rows: rowsOf(s, ctx, showPaceNumbers),
+        rows: rowsOf(s, ctx, showPaceNumbers, lang),
       });
     }
   }
@@ -145,7 +150,7 @@ export function buildRunStructure(
   // One middle section → "העיקר"; several (pyramids…) → each keeps its own label.
   main.forEach((st, i) => {
     const firstBlock = blocks[st.rows[0]?.blockIndex ?? -1];
-    st.title = main.length === 1 ? 'העיקר' : cleanBlockLabel(firstBlock?.label) || `חלק ${i + 1}`;
+    st.title = main.length === 1 ? 'העיקר' : (firstBlock && cleanBlockLabel(firstBlock.label) ? cleanRunBlockLabel(firstBlock, lang) : '') || `חלק ${i + 1}`;
   });
 
   const steps: StructureStep[] = [];
