@@ -214,6 +214,26 @@ const INACTIVITY_THRESHOLD_DAYS = 3;
 const MIN_TABATA_USER_LEVEL = 4;
 
 /**
+ * R31 (owner 27.10.2026): core is a weekly target. Once the week's core sets reach it, the core
+ * slot is dropped from this workout (never in a forced core form, never when core is the only
+ * exercise). No target in the context = unchanged. Mutates `workoutExercises`; returns whether
+ * the slot was dropped. Extracted so it is unit-testable without the full generator.
+ */
+export function dropCoreSlotWhenWeeklyTargetMet(
+  workoutExercises: WorkoutExercise[],
+  context: Pick<WorkoutGenerationContext, 'weeklyCoreTarget' | 'weeklyCoreSets' | 'forcedCoreForm'>,
+): boolean {
+  if (context.weeklyCoreTarget == null || context.forcedCoreForm) return false;
+  if (coreSlotOpen({ weeklyTarget: context.weeklyCoreTarget, setsThisWeek: context.weeklyCoreSets })) return false;
+  const skipIdx = workoutExercises.findIndex(
+    (ex) => (ex.exerciseRole ?? 'main') === 'main' && hasExplicitCoreLevel(ex.exercise),
+  );
+  if (skipIdx === -1 || workoutExercises.length <= 1) return false;
+  workoutExercises.splice(skipIdx, 1);
+  return true;
+}
+
+/**
  * Step 6b's fire gate, extracted as a pure function so it's unit-testable
  * without instantiating the full generator (docs/workout-engine/
  * 03-CHANGES.md, Round 1 — no existing test suite calls `new
@@ -1366,16 +1386,7 @@ export class WorkoutGenerator {
     // manual-builder gates) are unchanged by this feature.
     // R31: core is a weekly target. Once it is met, the core slot is skipped in this workout
     // (never in a core-only request, never when core is the only exercise).
-    if (
-      context.weeklyCoreTarget != null &&
-      !context.forcedCoreForm &&
-      !coreSlotOpen({ weeklyTarget: context.weeklyCoreTarget, setsThisWeek: context.weeklyCoreSets })
-    ) {
-      const skipIdx = workoutExercises.findIndex(
-        (ex) => (ex.exerciseRole ?? 'main') === 'main' && hasExplicitCoreLevel(ex.exercise),
-      );
-      if (skipIdx !== -1 && workoutExercises.length > 1) workoutExercises.splice(skipIdx, 1);
-    }
+    dropCoreSlotWhenWeeklyTargetMet(workoutExercises, context);
     const coreIdx = workoutExercises.findIndex(
       (ex) => (ex.exerciseRole ?? 'main') === 'main' && hasExplicitCoreLevel(ex.exercise),
     );

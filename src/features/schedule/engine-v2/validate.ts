@@ -1,6 +1,7 @@
 /**
  * Validate any week layout (engine output, a user's drag, a makeup trial) against the hard
- * rules — the same predicates the search uses, plus H5 (in-day order).
+ * rules, the same predicates the search uses. H2 and H5 are soft since 27.10.2026 (owner):
+ * softLayoutIssues lists them so a host can warn without refusing the move.
  */
 import { isQualitySlot } from './config';
 import { maxLoad, profileOf } from './programProfiles';
@@ -41,7 +42,20 @@ export function validateLayout(
   cap: CapacityCtx,
   runLevel: TrainingLevel | null,
 ): HardViolation[] {
-  const out = checkHardRules(gridFromLayout(days), cap, runLevel);
-  for (let d = 0; d < 7; d++) if (breaksH5(days[d] ?? [])) out.push({ rule: 'H5', days: [d] });
+  return checkHardRules(gridFromLayout(days), cap, runLevel);
+}
+
+const hasLongRun = (day: readonly PlacedSession[]) => day.some((s) => s.kind === 'run' && s.slot === 'long_run' && !s.optional);
+const hasMainStrength = (day: readonly PlacedSession[]) =>
+  day.some((s) => s.kind === 'strength' && !!s.slug && !s.optional && profileOf(s.slug).slotKind === 'main');
+
+/** Soft rules a layout breaks (H2 strength on the long-run day, H5 strength before a quality run): warn, never refuse. */
+export function softLayoutIssues(days: ReadonlyArray<readonly PlacedSession[]>): HardViolation[] {
+  const out: HardViolation[] = [];
+  for (let d = 0; d < 7; d++) {
+    const day = days[d] ?? [];
+    if (hasLongRun(day) && hasMainStrength(day)) out.push({ rule: 'H2', days: [d] });
+    if (breaksH5(day)) out.push({ rule: 'H5', days: [d] });
+  }
   return out;
 }
