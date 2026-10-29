@@ -1,3 +1,5 @@
+// Labels are local-time: pin the zone so CI (UTC) matches the snapshot recorded in Israel.
+process.env.TZ = 'Asia/Jerusalem';
 /**
  * i18n extraction batch 3: share-v2 (model, together, canvas templates). The file snapshots were recorded from unmodified
  * origin/main (commit 1): the model objects and every string the templates hand to ctx.fillText.
