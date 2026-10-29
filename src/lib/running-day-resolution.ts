@@ -107,7 +107,10 @@ export function resolveRunningDayState<T extends RunningScheduleEntry>(
 ): RunningDayState<T> {
   const moves = placement?.runMoves;
   if (!moves?.length || scheduleDays.length === 0) {
-    return resolveWeekdayState(scheduleDays, schedule, currentWeek, date, startDate, placement);
+    return withNextFromItsOwnWeek(
+      resolveWeekdayState(scheduleDays, schedule, currentWeek, date, startDate, placement),
+      scheduleDays, schedule, currentWeek, date, startDate, placement,
+    );
   }
   // enable_week_builder_v1 — per-date run moves (runWeekMoves.ts): the run on a day is the run
   // its SOURCE day had before the moves, resolved exactly as before (its own plan week too).
@@ -129,6 +132,29 @@ export function resolveRunningDayState<T extends RunningScheduleEntry>(
     }
   }
   return { isRunDay: today.isRunDay, todayEntry: today.todayEntry, nextEntry, nextEntryDaysAway, source: today.source };
+}
+
+/**
+ * Pilot O13 (29.10.2026): the weekday lookup finds the next run day by wrapping around the
+ * week (`(todayIdx + offset) % 7`) but reads it from TODAY's plan week. When that day falls
+ * in the plan's next week, it got the already-passed run of this week (often the week's easy
+ * run) instead of the planned one. Re-resolve that one date in its own week.
+ */
+function withNextFromItsOwnWeek<T extends RunningScheduleEntry>(
+  state: RunningDayState<T>,
+  scheduleDays: string[],
+  schedule: T[] | undefined,
+  currentWeek: number,
+  date: Date,
+  startDate: Date | string | number | undefined,
+  placement?: RunWeekMapOptions,
+): RunningDayState<T> {
+  const away = state.nextEntryDaysAway;
+  if (state.source !== 'scheduleDays' || !startDate || away == null) return state;
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + away, date.getHours());
+  if (calculateCurrentWeek(startDate, next) === calculateCurrentWeek(startDate, date)) return state;
+  const there = resolveWeekdayState(scheduleDays, schedule, currentWeek, next, startDate, placement);
+  return { ...state, nextEntry: there.todayEntry };
 }
 
 /** The weekday decision (no per-date moves) — the body documented above. */
