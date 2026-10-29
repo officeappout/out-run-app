@@ -63,6 +63,8 @@ import WhereToTrainSection from '../where-to-train/WhereToTrainSection';
 import { useWhereToTrain } from '../where-to-train/useWhereToTrain';
 import { chosenParkIdForSwap } from './location-gate/chosen-park';
 import TrainingHereSheet from '@/features/parks/client/components/training-here/TrainingHereSheet';
+import { useFeatureInfoSheetsV1 } from '@/features/info-sheets/useFeatureInfoSheetsV1';
+import StructureInfoButton from '@/features/info-sheets/structure/StructureInfoButton';
 
 const DRAWER_HEIGHT = '95vh';
 const CLOSE_THRESHOLD = 120; // px dragged DOWN to dismiss
@@ -157,6 +159,7 @@ export default function WorkoutPreviewDrawer({
   // always tracks the exercises actually shown. Location follows the workout's
   // stamped executionLocation (updated by swap-all), falling back to the prop.
   const locationGateOn = useLocationGateV1(); // enable_location_gate_v1
+  const featureInfoOn = useFeatureInfoSheetsV1(); // enable_feature_info_sheets_v1: "i" after the title
   const moreMenuOn = useOverviewMoreMenuV1(); // enable_overview_more_menu_v1
   const { heroMedia, cachedHeroThumb, cachedHeroVideo } = useDrawerMediaState(
     generatedWorkout?.exercises,
@@ -678,6 +681,15 @@ export default function WorkoutPreviewDrawer({
               <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight whitespace-normal">
                 {displayTitle}
               </h1>
+              {featureInfoOn && generatedWorkout && (
+                <span className="mt-0.5 shrink-0">
+                  <StructureInfoButton
+                    exercises={generatedWorkout.exercises}
+                    tabata={generatedWorkout.tabataBlock?.config}
+                    posterFromVideo={locationGateOn}
+                  />
+                </span>
+              )}
             </div>
             {/* enable_home_v2: why this workout (day focus · split · days / no pull gear). */}
             {homeV2 && (

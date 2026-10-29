@@ -188,5 +188,7 @@
   "language.switch.aria": "החלפת שפה",
   "language.switch.menu": "שפה",
   "units.sec": "{n} שנ׳",
-  "units.label.sec": "שנ׳"
+  "units.label.sec": "שנ׳",
+  "infoSheet.askKelly": "יש שאלה? קלי עונה",
+  "infoSheet.kellyAvatar": "ק"
 }

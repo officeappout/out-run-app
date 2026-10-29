@@ -194,7 +194,9 @@ export const FUNCTIONS_CATALOGS = {
       "language.switch.aria": "החלפת שפה",
       "language.switch.menu": "שפה",
       "units.sec": "{n} שנ׳",
-      "units.label.sec": "שנ׳"
+      "units.label.sec": "שנ׳",
+      "infoSheet.askKelly": "יש שאלה? קלי עונה",
+      "infoSheet.kellyAvatar": "ק"
     },
     "en": {
       "actions.continue": "Continue",
@@ -386,7 +388,9 @@ export const FUNCTIONS_CATALOGS = {
       "language.switch.aria": "Change language",
       "language.switch.menu": "Language",
       "units.sec": "{n} sec",
-      "units.label.sec": "sec"
+      "units.label.sec": "sec",
+      "infoSheet.askKelly": "Got a question? Kelly answers",
+      "infoSheet.kellyAvatar": "K"
     },
     "ru": {},
     "de": {},

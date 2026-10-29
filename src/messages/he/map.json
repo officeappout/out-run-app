@@ -996,5 +996,17 @@
   "walkRoute.type.roundabout": "בכיכר, צא בהתאם",
   "walkRoute.type.merge": "התמזג",
   "walkRoute.type.newName": "המשך",
-  "walkRoute.onStreet": "{base} לרחוב {name}"
+  "walkRoute.onStreet": "{base} לרחוב {name}",
+  "featureInfo.stops.open": "הסבר על מסלול עם עצירות",
+  "featureInfo.stops.topic": "מסלול עם עצירות",
+  "featureInfo.stops.kellyContext": "שאלה על {topic}: {q}",
+  "featureInfo.stops.fromRoute": "מהמסלול שלך",
+  "featureInfo.stops.title": "מסלול עם עצירות",
+  "featureInfo.stops.lead": "הולכים במסלול, ובדרך עוצרים בגינות לתחנות כוח קצרות. האפליקציה מובילה מתחנה לתחנה.",
+  "featureInfo.stops.step1": "במבט על רואים את כל המסלול והתחנות.",
+  "featureInfo.stops.step2": "בזמן ההליכה המגירה יורדת, ורואים את עצמכם מתקדמים במפה.",
+  "featureInfo.stops.step3": "מגיעים לגינה: המגירה עולה עם תחנת הכוח.",
+  "featureInfo.stops.caption": "בזמן ההליכה המגירה יורדת, ורואים את עצמכם במפה",
+  "featureInfo.stops.chip1": "אפשר לדלג על תחנה?",
+  "featureInfo.stops.chip2": "מה אם הגינה תפוסה?"
 }

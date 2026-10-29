@@ -956,8 +956,6 @@
   "volumeBadge.full": "🏆 Full Volume: you got 100% of the gain",
   "methodInfo.open": "What is {name}?",
   "methodInfo.fromToday": "From your workout today",
-  "methodInfo.askKelly": "Got a question? Kelly answers",
-  "methodInfo.kellyAvatar": "K",
   "methodInfo.kellyContext": "A question about {method} in my workout: {q}",
   "methodInfo.sec": "{n} {n, plural, one {second} other {seconds}}",
   "methodInfo.min": "{n} {n, plural, one {minute} other {minutes}}",

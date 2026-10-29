@@ -966,8 +966,6 @@
   "volumeBadge.full": "🏆 Full Volume - קיבלת 100% מהרווח!",
   "methodInfo.open": "מה זה {name}?",
   "methodInfo.fromToday": "מהאימון שלך היום",
-  "methodInfo.askKelly": "יש שאלה? קלי עונה",
-  "methodInfo.kellyAvatar": "ק",
   "methodInfo.kellyContext": "שאלה על {method} באימון שלי: {q}",
   "methodInfo.sec": "{n} {n, plural, =1 {שנייה} other {שניות}}",
   "methodInfo.min": "{n} {n, plural, =1 {דקה} other {דקות}}",
