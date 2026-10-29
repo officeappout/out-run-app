@@ -9,7 +9,7 @@ export default function RunCatchUpNotice({ text, onDismiss }: { text: string | n
   const t = useT(home);
   if (!text) return null;
   return (
-    <div dir="rtl" className="flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 font-simpler text-v2-ink shadow-v2-card">
+    <div className="flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 font-simpler text-v2-ink shadow-v2-card">
       <span className="min-w-0 flex-1 text-[14px] font-extrabold">{text}</span>
       <button type="button" onClick={onDismiss} aria-label={t('runCatchUp.close')} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-v2-muted">
         <X size={16} strokeWidth={2.4} aria-hidden />

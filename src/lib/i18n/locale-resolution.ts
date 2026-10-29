@@ -39,9 +39,71 @@ export interface LocaleSources {
   profileLocale?: unknown;
   storedLocale?: unknown;
   deviceLocales?: readonly string[];
+  /** See isNewUserForLocale. false = never auto-detect from the device. */
+  detectDevice?: boolean;
 }
 
-/** Profile → stored pref → device → 'he', among the allowed locales. Flags off → 'he'. */
+/** An account younger than this still counts as new for device-language detection. */
+export const NEW_USER_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function toMillis(v: unknown): number | null {
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim()) {
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? null : t;
+  }
+  if (v && typeof v === 'object') {
+    const o = v as { toMillis?: () => number; seconds?: number };
+    if (typeof o.toMillis === 'function') return o.toMillis();
+    if (typeof o.seconds === 'number') return o.seconds * 1000;
+  }
+  return null;
+}
+
+/** Onboarding states that mean the account has been around (not just created). */
+const SETTLED_STATUSES = new Set(['COMPLETED', 'PENDING_LIFESTYLE', 'MAP_ONLY']);
+
+/**
+ * "New user" = may be auto-detected from the device language. The ONE client rule:
+ *   - no account profile at all (anonymous first launch)             → new
+ *   - createdAt within NEW_USER_WINDOW_MS                            → new
+ *   - createdAt older                                                → existing, stays Hebrew
+ *   - createdAt missing or a pending serverTimestamp (null/sentinel) → new only while onboarding is not
+ *     settled (no status, IN_PROGRESS, ONBOARDING); legacy docs with a settled status stay existing
+ * Existing users change language only through the picker (core.locale / stored pref).
+ * The server never detects: it reads core.locale only, so new users who start in a
+ * non-Hebrew locale get it persisted (LocaleSync) and both sides agree.
+ */
+export function isNewUserForLocale(
+  profile: { createdAt?: unknown; onboardingStatus?: unknown } | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (!profile) return true;
+  const created = toMillis(profile.createdAt);
+  if (created !== null) return now - created < NEW_USER_WINDOW_MS;
+  return !(typeof profile.onboardingStatus === 'string' && SETTLED_STATUSES.has(profile.onboardingStatus));
+}
+
+/**
+ * Whether the device language may decide right now. While a signed-in user's profile has not arrived
+ * (store not hydrated, or an auth user exists but no profile yet) it may NOT: that user could be an
+ * existing Hebrew one. Only a truly anonymous first launch (hydrated, no auth user, no profile) or a
+ * profile that isNewUserForLocale may use the device.
+ */
+export function deviceDetectAllowed(input: {
+  profile: { createdAt?: unknown; onboardingStatus?: unknown } | null | undefined;
+  hydrated: boolean;
+  hasAuthUser: boolean;
+  /** Firebase has delivered its first auth state (session restore is async). */
+  authResolved?: boolean;
+  now?: number;
+}): boolean {
+  if (!input.profile) return input.hydrated && input.authResolved !== false && !input.hasAuthUser;
+  return isNewUserForLocale(input.profile, input.now);
+}
+
+/** Profile → stored pref → device (new users only) → 'he', among the allowed locales. Flags off → 'he'. */
 export function pickAppLocale(flags: LocaleFlags, sources: LocaleSources): Locale {
   const loc = resolveLocale({ i18nEnabled: flags.enableI18n, allowed: allowedLocales(flags), ...sources });
   return isLocale(loc) ? loc : SOURCE_LOCALE;

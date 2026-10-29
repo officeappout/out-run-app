@@ -15,6 +15,7 @@
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 interface ConnectStepsCardProps {
   onConnect: () => void;
@@ -24,6 +25,7 @@ interface ConnectStepsCardProps {
 const BRAND = '#00ADEF';
 
 export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCardProps) {
+  const { direction } = useUiDir();
   const healthPermissionAsked = useSettingsStore((s) => s.healthPermissionAsked);
   const t = useT(home);
   const subtitle = healthPermissionAsked ? t('connectSteps.status.declined') : t('connectSteps.status.notConnected');
@@ -33,8 +35,8 @@ export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCa
       <button
         type="button"
         onClick={onConnect}
-        dir="rtl"
-        className="w-full bg-white rounded-2xl p-3 shadow-[0_6px_16px_rgba(0,0,0,0.10)] text-right"
+        dir={direction}
+        className="w-full bg-white rounded-2xl p-3 shadow-[0_6px_16px_rgba(0,0,0,0.10)] text-start"
       >
         <p className="text-[13px] font-black text-gray-900">{t('connectSteps.compact.title')}</p>
         <p className="text-[11px] font-semibold text-gray-500 mt-0.5">{subtitle}</p>
@@ -45,7 +47,7 @@ export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCa
   return (
     <div className="h-full w-full flex items-center justify-center">
       <div
-        dir="rtl"
+        dir={direction}
         className="w-full bg-white rounded-3xl p-5 shadow-[0_10px_28px_rgba(0,0,0,0.14)]"
       >
         <div>

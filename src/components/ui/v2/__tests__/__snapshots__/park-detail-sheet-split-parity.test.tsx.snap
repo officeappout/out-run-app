@@ -23,78 +23,78 @@ exports[`ParkDetailSheet — flag off > full park: initial render + data access 
 
 exports[`ParkDetailSheet — flag off > full park: initial render + data access > markup 1`] = `
 {
-  "length": 33399,
-  "sha256": "255e76ba3b0dd58a2274f95dc78d1ac907019d1c8f539110222575a3c2c8d291",
+  "length": 33389,
+  "sha256": "2673003d2d0967e8e3dba105ee5c570a6e2011dd9fe777fe9e99e432845dbd5a",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > equipment drawer 1`] = `
 {
-  "length": 36780,
-  "sha256": "210e11ceafb301ad4b0e7e4e92ab63b87e67f3d3933a136bbc3d61316d7034a0",
+  "length": 36770,
+  "sha256": "891ebf72a2bb23b2696be0b3ff343f29c9a56f92853e901dbd20930623f61e59",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > rating open 1`] = `
 {
-  "length": 32474,
-  "sha256": "ebee7fd16f217d04fc5de1c95e24866827aedc1db9db42a3beaabdbbfe3c49ee",
+  "length": 32464,
+  "sha256": "260708ab75758028d5a871b63709ce15ae22c112c7b9bda1e48a0cc9b70070f2",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > rating with stars 1`] = `
 {
-  "length": 32856,
-  "sha256": "58df5e624b2afb39987984c4ec0b1582e0a20afbddf68fba2d510d337833f020",
+  "length": 32846,
+  "sha256": "ddfb2befa85050fe5358209b7a88db497a2a46b8dcb123ff6b0f14e1bb532567",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > reviews expanded + lightbox 1`] = `
 {
-  "length": 36771,
-  "sha256": "7bbad5cabec859fd0cb29a4bdadd0a4136dd4ad8174c1f3a02cf3f9241a83c4d",
+  "length": 36761,
+  "sha256": "866f39deb7ccd0fe7f7ca6d9a74c056b621c0fb4c6cd4069c9c3b197b681dec1",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > suggest edit 1`] = `
 {
-  "length": 36848,
-  "sha256": "2aeb59b71cbd52c47422c301d9f8acb146d1e31374268cfe5c6ed73b21c6f8a6",
+  "length": 36838,
+  "sha256": "6ea5d59e5fff32cbeadf39baa3b327469c6f67ac46c22175805bb14dbd623a44",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > time picker (today) 1`] = `
 {
-  "length": 34979,
-  "sha256": "1fcf1743a556add5944b358fe6cd320f24557b6a2039fda3c5732939f384922d",
+  "length": 34969,
+  "sha256": "2d45a7e560718f68e94b3153b9d47037e7fb4715b3211389fdf183a46286a2a5",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > tomorrow 1`] = `
 {
-  "length": 28651,
-  "sha256": "507cca8a38dfdde9a0e5489d8d0750c395be7bcdc6c3a5ee76aab3f4d4458898",
+  "length": 28641,
+  "sha256": "71ecc7c24eff836f3c94d2776140287dd8cb740135648f36dad83a2a699d2bff",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > week + date input 1`] = `
 {
-  "length": 37716,
-  "sha256": "d744ca56dc376b3ecb20fc46e727f494ce446322bf8eed2572f5285b984c8962",
+  "length": 37706,
+  "sha256": "b8521ed3b86b25f93a7bed392eb4fbb251f07a7c434c45b56628c44b5f449154",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: publish arrival + join + rating submit (handlers unchanged) > after publish 1`] = `
 {
-  "length": 34001,
-  "sha256": "775556c6a8554270a24fabf92776503e46b24f3cd5a15576d7905f01846d459a",
+  "length": 33991,
+  "sha256": "e2dfd1b9c530ca474d3478a411c004a4978417fc595e4061868e78660992b033",
 }
 `;
 
 exports[`ParkDetailSheet — flag off > full park: publish arrival + join + rating submit (handlers unchanged) > after rating submit 1`] = `
 {
-  "length": 34202,
-  "sha256": "280b5f22c5c941c7938a4392be832b8587617188a60edb9fa3b24638ef40f271",
+  "length": 34192,
+  "sha256": "550d27e1017cc355cbf0e5fd7f155402020f40bc85bfba16f95c3507578d7fb8",
 }
 `;
 
@@ -155,8 +155,8 @@ exports[`ParkDetailSheet — flag off > minimal park, events loading, sheet clos
 
 exports[`ParkDetailSheet — flag off > minimal park, events loading, sheet closed→open > open 1`] = `
 {
-  "length": 9053,
-  "sha256": "1d111e50dc3579bc14c64c6199e8ad822cc0ae7fb51a0af5223ece59c4ae20e8",
+  "length": 9043,
+  "sha256": "cc4a2cc14b5648336119a031fb78a8c46d280d73d4cd627724c2a611ed1abaca",
 }
 `;
 

@@ -47,7 +47,6 @@ export function DeleteEntrySheetClassic({ open, onConfirm, onCancel }: DeleteEnt
         initial={{ y: '100%' }}
         animate={{ y: open ? 0 : '100%' }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        dir="rtl"
       >
         {/* Handle bar */}
         <div className="flex justify-center pt-3 pb-1">

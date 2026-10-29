@@ -103,7 +103,7 @@ export function StrengthVolumeWidget({
 
   if (showStrengthUpsell) {
     return (
-      <div className={`w-full max-w-[358px] mx-auto ${className}`} dir="rtl">
+      <div className={`w-full max-w-[358px] mx-auto ${className}`}>
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 px-1">
           {t('strengthVolume.title')}
         </h3>
@@ -150,7 +150,6 @@ export function StrengthVolumeWidget({
       <div
         className={`bg-white dark:bg-slate-800 overflow-hidden ${className}`}
         style={{ ...CARD_STYLE, width: 231, minWidth: 0, flexShrink: 1 }}
-        dir="rtl"
       >
         <SegmentedBar segments={row.target} completed={row.completed} />
 
@@ -173,7 +172,7 @@ export function StrengthVolumeWidget({
 
   // ── Full mode: title + full-width card ──
   return (
-    <div className={`w-full max-w-[358px] mx-auto ${className}`} dir="rtl">
+    <div className={`w-full max-w-[358px] mx-auto ${className}`}>
       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 px-1">
         {t('strengthVolume.title')}
       </h3>

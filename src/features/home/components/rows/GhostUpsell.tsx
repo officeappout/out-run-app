@@ -78,8 +78,7 @@ export function GhostUpsell({
   if (variant === 'silent') {
     return (
       <div
-        className={`relative w-full text-right overflow-hidden ${className}`}
-        dir="rtl"
+        className={`relative w-full text-start overflow-hidden ${className}`}
       >
         {/* Blurred ghost of the underlying bars/cards. */}
         <div
@@ -107,8 +106,7 @@ export function GhostUpsell({
 
   return (
     <div
-      className={`relative w-full text-right overflow-hidden rounded-xl ${className}`}
-      dir="rtl"
+      className={`relative w-full text-start overflow-hidden rounded-xl ${className}`}
     >
       {/* Blurred ghost — decorative only, click events suppressed. */}
       <div

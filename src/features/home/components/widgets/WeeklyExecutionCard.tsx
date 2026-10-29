@@ -51,7 +51,6 @@ export default function WeeklyExecutionCard({
     <div
       className="bg-white dark:bg-[#1E2A28] rounded-2xl p-4"
       style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
-      dir="rtl"
     >
       <p className="text-xs font-bold text-slate-600 mb-3">ביצוע שבועי</p>
 

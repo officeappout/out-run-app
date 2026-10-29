@@ -47,7 +47,7 @@ export default function UnitJoinSuccessBanner({ result }: UnitJoinSuccessBannerP
   }, [result.tenantId, result.unitId, result.tenantType]);
 
   return (
-    <div className="flex items-center gap-3" dir="rtl">
+    <div className="flex items-center gap-3">
       {result.tenantType === 'military' && (
         <UnitIconBadge unitId={result.unitId || result.tenantId} iconUrl={iconUrl} name={unitName} size={40} />
       )}

@@ -186,5 +186,7 @@
   "ui.report.sending": "Sending…",
   "ui.report.send": "Send",
   "language.switch.aria": "Change language",
-  "language.switch.menu": "Language"
+  "language.switch.menu": "Language",
+  "units.sec": "{n} sec",
+  "units.label.sec": "sec"
 }

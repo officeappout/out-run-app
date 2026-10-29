@@ -130,7 +130,6 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
   const innerRow = (
     <div
       className={`max-w-md mx-auto px-4 ${v2 ? 'py-2' : 'py-1'} flex items-center justify-between`}
-      dir="rtl"
     >
       {/* Right zone (visually leftmost in RTL) — avatar + flame + streak.
           Chrome polish: the bell (notifications) button that used to live

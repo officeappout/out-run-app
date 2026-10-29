@@ -62,6 +62,7 @@ import { todayCardShortLabel } from '@/features/home/utils/today-activity-labels
 import { useT } from '@/hooks/useT';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface TodayActivityCardData {
   key: string;
@@ -109,6 +110,7 @@ export default function TodayActivityCard({
   programId,
   workoutType,
 }: TodayActivityCardData) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const color = CATEGORY_COLORS[category];
   // `title` sometimes already carries an "אימון " prefix (home/page.tsx's
@@ -133,7 +135,7 @@ export default function TodayActivityCard({
   return (
     <div
       className="w-full h-full flex items-center gap-3 overflow-hidden"
-      dir="rtl"
+      dir={direction}
       style={{
         borderRadius: 18,
         background: color,

@@ -4,7 +4,7 @@
  * strip. Pure: callers pass the zones (computeZones) and the context.
  */
 
-import { withUnit } from '@/lib/i18n/units';
+import { rt, unitText } from '../run-utils-t';
 import type { RunBlock } from '../../types/run-block.type';
 import type { WorkoutCategory } from '../../../../core/types/running.types';
 import { fmtClock, fmtPace } from '../../lib/planned-rep-results';
@@ -83,11 +83,11 @@ export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions
   const km = totals.meters ? Math.round(totals.meters / 100) / 10 : null;
 
   const meta: string[] = [];
-  if (minutes) meta.push(withUnit('min', minutes));
-  if (km) meta.push(`~${withUnit('km', km)}`);
-  if (showPaceNumbers && rep?.paceSec) meta.push(reps ? `${reps} חזרות @ ${fmtPace(rep.paceSec)}` : `${fmtPace(rep.band?.min)}–${fmtPace(rep.band?.max)}`);
-  else if (showPaceNumbers && reps && rep?.repSeconds) meta.push(`${reps} חזרות · ~${fmtClock(rep.repSeconds)}`);
-  else if (reps) meta.push(`${reps} חזרות`);
+  if (minutes) meta.push(unitText('min', minutes));
+  if (km) meta.push(`~${unitText('km', km)}`);
+  if (showPaceNumbers && rep?.paceSec) meta.push(reps ? rt('runUtils.meta.repsAt', { reps: String(reps), pace: fmtPace(rep.paceSec) }) : `${fmtPace(rep.band?.min)}–${fmtPace(rep.band?.max)}`);
+  else if (showPaceNumbers && reps && rep?.repSeconds) meta.push(rt('runUtils.meta.repsAbout', { reps: String(reps), time: fmtClock(rep.repSeconds) }));
+  else if (reps) meta.push(rt('runUtils.meta.reps', { reps: String(reps) }));
 
   return {
     kind,
@@ -96,7 +96,7 @@ export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions
     textColor: style.text,
     tint: style.tint,
     typeLabel: runTypeLabel(category, kind),
-    title: buildRunDisplayTitle(w.blocks, kind, totals) ?? runTemplateTitle(w, opts.lang ?? 'he'),
+    title: buildRunDisplayTitle(w.blocks, kind, totals, opts.lang ?? 'he') ?? runTemplateTitle(w, opts.lang ?? 'he'),
     weekLabel: runWeekContextLabel(opts.week),
     minutes,
     km,
@@ -105,7 +105,7 @@ export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions
     meta,
     journey: buildRunJourney(w.blocks, ctx),
     strip: buildIntensityStrip(w.blocks, ctx),
-    stripLabels: stripPhaseLabels(w.blocks, ctx, { reps, mainLabel: kind === 'tempo' ? 'טמפו' : undefined }),
+    stripLabels: stripPhaseLabels(w.blocks, ctx, { reps, mainLabel: kind === 'tempo' ? rt('runUtils.strip.tempo') : undefined }),
     ladder: showPaceNumbers ? buildZoneLadder(opts.zones, mainZone(w.blocks)) : [],
     tip: (w.logicCue || w.description || '').trim() || null,
     surfaces: surfaceTilesFor(kind),

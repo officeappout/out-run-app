@@ -12,6 +12,7 @@ import { isRestBlock, v2BlockColor } from '../../lib/planned-rep-results';
 import { isStrideBlock } from './run-sections';
 import { estimateBlockSeconds, type RunPaceContext } from './run-estimates';
 import { roundMinutes } from './run-title';
+import { rt } from '../run-utils-t';
 
 export const STRIP_REST_COLOR = '#dfe7ed';
 
@@ -95,8 +96,8 @@ export function stripPhaseLabels(
 ): string[] {
   const m = phaseMinutes(blocks, ctx);
   const out: string[] = [];
-  if (m.warmup > 0) out.push(`חימום · ${m.warmup}′`);
-  if (m.main > 0) out.push(opts.reps >= 2 ? `עיקר · ${opts.reps} חזרות` : `${opts.mainLabel ?? 'עיקר'} · ${m.main}′`);
-  if (m.cooldown > 0) out.push(`שחרור · ${m.cooldown}′`);
+  if (m.warmup > 0) out.push(rt('runUtils.strip.warmup', { min: String(m.warmup) }));
+  if (m.main > 0) out.push(opts.reps >= 2 ? rt('runUtils.strip.reps', { reps: String(opts.reps) }) : rt('runUtils.strip.main', { label: opts.mainLabel ?? rt('runUtils.strip.mainWord'), min: String(m.main) }));
+  if (m.cooldown > 0) out.push(rt('runUtils.strip.cooldown', { min: String(m.cooldown) }));
   return out;
 }

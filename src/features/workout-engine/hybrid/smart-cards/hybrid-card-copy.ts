@@ -1,6 +1,6 @@
 /**
- * Hebrew copy for the situation-aware hybrid cards (enable_hybrid_cards_v2).
- * Simple website voice; male and female variants are separate strings (never "צא/י").
+ * Copy for the situation-aware hybrid cards (enable_hybrid_cards_v2), from the `map` catalog (`hybrid.card.*`).
+ * Simple website voice; the Hebrew has separate male and female strings (never "צא/י").
  * Pure — no I/O.
  */
 
@@ -11,7 +11,10 @@ import { makeLiveT } from '@/lib/i18n/live-t';
 import { map } from '@/messages/ns/map';
 
 type G = UserGender | undefined;
-const pick = (g: G, male: string, female: string) => (g === 'female' ? female : male);
+/** Hebrew picked male for everything but 'female' (an unknown / 'other' gender read the male string). */
+const genderOf = (g: G): 'male' | 'female' => (g === 'female' ? 'female' : 'male');
+
+const tMap = makeLiveT(map);
 
 /** 4200 → "4,200" (deterministic, no locale dependency). */
 export function formatCount(n: number): string {
@@ -26,12 +29,13 @@ export function parkWalkMin(distanceM: number): number {
 }
 
 export function walkStrengthTitle(kind: AerobicKindLite): string {
-  return kind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח';
+  return tMap(kind === 'running' ? 'hybrid.card.walkStrength.title.run' : 'hybrid.card.walkStrength.title.walk');
 }
 
 export function walkStrengthSubtitle(sizing: SmartSessionSizing, park: NearbyPark | undefined): string {
-  const through = park?.name ? `דרך ${park.name}` : 'דרך גינת הכושר הקרובה';
-  return `${km(sizing.walkKm)} ק״מ ${through}`;
+  return park?.name
+    ? tMap('hybrid.card.walkStrength.subtitle.park', { km: km(sizing.walkKm), name: park.name })
+    : tMap('hybrid.card.walkStrength.subtitle.nearest', { km: km(sizing.walkKm) });
 }
 
 export function walkStrengthReason(
@@ -42,24 +46,18 @@ export function walkStrengthReason(
   const steps = stepsRemaining != null ? formatCount(stepsRemaining) : null;
   if (sizing.setsSource === 'light' && sizing.lightReasonKey) {
     const why = budgetLightText(sizing.lightReasonKey, 'card', g);
-    return sizing.stepsSource === 'steps' && steps ? `נשארו לך ${steps} צעדים. ${why}` : why;
+    return sizing.stepsSource === 'steps' && steps ? tMap('hybrid.card.walkStrength.reason.light', { steps, why }) : why;
   }
   if (sizing.stepsSource === 'steps' && steps) {
-    if (sizing.setsSource === 'budget') return `נשארו לך ${steps} צעדים ו־${sizing.strengthSets} סטים של כוח`;
-    if (sizing.setsSource === 'spent') return `נשארו לך ${steps} צעדים. הכוח השבוע כבר סגור, אז עצירה קלה`;
-    return `נשארו לך ${steps} צעדים להיום, עם עצירת כוח בדרך`;
+    if (sizing.setsSource === 'budget') return tMap('hybrid.card.walkStrength.reason.stepsBudget', { steps, sets: sizing.strengthSets });
+    if (sizing.setsSource === 'spent') return tMap('hybrid.card.walkStrength.reason.stepsSpent', { steps });
+    return tMap('hybrid.card.walkStrength.reason.stepsOnly', { steps });
   }
   if (sizing.stepsSource === 'goal_met') {
-    return pick(g,
-      `הצעדים של היום סגורים. בוא נשלים ${sizing.strengthSets} סטים של כוח`,
-      `הצעדים של היום סגורים. בואי נשלים ${sizing.strengthSets} סטים של כוח`);
+    return tMap('hybrid.card.walkStrength.reason.goalMet', { gender: genderOf(g), sets: sizing.strengthSets });
   }
-  return pick(g,
-    `צא לסיבוב של ${km(sizing.walkKm)} ק״מ עם עצירת כוח בגינה`,
-    `צאי לסיבוב של ${km(sizing.walkKm)} ק״מ עם עצירת כוח בגינה`);
+  return tMap('hybrid.card.walkStrength.reason.default', { gender: genderOf(g), km: km(sizing.walkKm) });
 }
-
-const tMap = makeLiveT(map);
 
 /**
  * Pilot O8 (29.10.2026): steps and weekly strength are both done. The card stays (last) and
@@ -76,11 +74,9 @@ export function fullParkReason(
   g: G,
 ): string {
   const min = parkWalkMin(park.distanceM);
-  if (why === 'scheduled') return `יש לך אימון כוח היום. הגינה במרחק ${min} דק׳ הליכה`;
-  if (why === 'budget' && remainingSets != null) return `נשארו לך ${remainingSets} סטים של כוח השבוע`;
-  return pick(g,
-    `אתה במרחק ${min} דק׳ הליכה מגינת כושר. אימון כוח מלא?`,
-    `את במרחק ${min} דק׳ הליכה מגינת כושר. אימון כוח מלא?`);
+  if (why === 'scheduled') return tMap('hybrid.card.fullPark.scheduled', { min });
+  if (why === 'budget' && remainingSets != null) return tMap('hybrid.card.fullPark.budget', { sets: remainingSets });
+  return tMap('hybrid.card.fullPark.nearby', { gender: genderOf(g), min });
 }
 
 /** Budget light mode: the full-park card's "why" when the strength budget is spent. */
@@ -89,16 +85,14 @@ export function fullParkLightReason(key: BudgetLightReasonKey, g: G): string {
 }
 
 export function routeStopsSubtitle(route: RouteWithStops): string {
-  const name = route.name?.trim() || 'מסלול מסומן';
-  return `${name} · ${route.stopCount} עצירות`;
+  const name = route.name?.trim() || tMap('hybrid.card.routeStops.fallbackName');
+  return tMap('hybrid.card.routeStops.subtitle', { name, count: route.stopCount });
 }
 
 export function routeStopsReason(route: RouteWithStops, g: G): string {
-  const strength = route.strengthStopCount > 0 ? `, ${route.strengthStopCount} עם מתקני כוח` : '';
+  const suffix = route.strengthStopCount > 0 ? tMap('hybrid.card.routeStops.strengthSuffix', { count: route.strengthStopCount }) : '';
   if (route.focused) {
-    return pick(g,
-      `המסלול שאתה מסתכל עליו: ${route.stopCount} עצירות בדרך${strength}`,
-      `המסלול שאת מסתכלת עליו: ${route.stopCount} עצירות בדרך${strength}`);
+    return tMap('hybrid.card.routeStops.reasonFocused', { gender: genderOf(g), count: route.stopCount, suffix });
   }
-  return `מסלול עם ${route.stopCount} עצירות ממש לידך${strength}`;
+  return tMap('hybrid.card.routeStops.reasonNear', { count: route.stopCount, suffix });
 }

@@ -43,7 +43,6 @@ export default function SecureAccountBanner({ userName = 'OUTer', onDismiss }: S
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
           className="relative"
-          dir="rtl"
         >
           {/* Banner Container */}
           <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-2xl p-4 shadow-lg backdrop-blur-sm">

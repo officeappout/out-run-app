@@ -1,0 +1,209 @@
+[
+  [
+    "date",
+    null,
+    false,
+    null
+  ],
+  [
+    "date",
+    null,
+    true,
+    null
+  ],
+  [
+    "date",
+    null,
+    false,
+    null
+  ],
+  [
+    "date",
+    null,
+    true,
+    null
+  ],
+  [
+    "date",
+    0,
+    false,
+    null
+  ],
+  [
+    "date",
+    0,
+    true,
+    null
+  ],
+  [
+    "date",
+    1792303500000,
+    false,
+    "יום א׳ · 18.10"
+  ],
+  [
+    "date",
+    1792303500000,
+    true,
+    "יום א׳ · 09:05"
+  ],
+  [
+    "date",
+    1792875540000,
+    false,
+    "יום ש׳ · 24.10"
+  ],
+  [
+    "date",
+    1792875540000,
+    true,
+    "יום ש׳ · 23:59"
+  ],
+  [
+    "duration",
+    0,
+    null,
+    false,
+    {
+      "value": "0",
+      "unit": "דקות"
+    }
+  ],
+  [
+    "duration",
+    0,
+    null,
+    true,
+    {
+      "value": "0",
+      "unit": "דקות"
+    }
+  ],
+  [
+    "duration",
+    42,
+    null,
+    false,
+    {
+      "value": "42",
+      "unit": "דקות"
+    }
+  ],
+  [
+    "duration",
+    42,
+    null,
+    true,
+    {
+      "value": "42",
+      "unit": "דקות"
+    }
+  ],
+  [
+    "duration",
+    59,
+    null,
+    false,
+    {
+      "value": "59",
+      "unit": "דקות"
+    }
+  ],
+  [
+    "duration",
+    59,
+    null,
+    true,
+    {
+      "value": "59",
+      "unit": "דקות"
+    }
+  ],
+  [
+    "duration",
+    60,
+    null,
+    false,
+    {
+      "value": "1:00",
+      "unit": "שעות"
+    }
+  ],
+  [
+    "duration",
+    60,
+    null,
+    true,
+    {
+      "value": "1:00",
+      "unit": "שעות"
+    }
+  ],
+  [
+    "duration",
+    125,
+    null,
+    false,
+    {
+      "value": "2:05",
+      "unit": "שעות"
+    }
+  ],
+  [
+    "duration",
+    125,
+    null,
+    true,
+    {
+      "value": "2:05",
+      "unit": "שעות"
+    }
+  ],
+  [
+    "duration",
+    30,
+    1810,
+    false,
+    {
+      "value": "30",
+      "unit": "דקות"
+    }
+  ],
+  [
+    "duration",
+    30,
+    1810,
+    true,
+    {
+      "value": "30:10",
+      "unit": "זמן"
+    }
+  ],
+  [
+    "duration",
+    90,
+    5410,
+    false,
+    {
+      "value": "1:30",
+      "unit": "שעות"
+    }
+  ],
+  [
+    "duration",
+    90,
+    5410,
+    true,
+    {
+      "value": "1:30:10",
+      "unit": "זמן"
+    }
+  ],
+  [
+    "names",
+    "3 רצים יחד",
+    "נועה ודניאל",
+    "נועה, דניאל ועוד 1",
+    "נועה, דניאל ועוד 5"
+  ]
+]

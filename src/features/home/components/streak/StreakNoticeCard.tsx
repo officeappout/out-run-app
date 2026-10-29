@@ -20,8 +20,10 @@ import { addSeenKey, type StreakCardModel } from './streak-notice';
 import { useStreakCard } from './useStreakCard';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export function StreakNoticeView({ card, onDismiss }: { card: StreakCardModel; onDismiss: () => void }) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const icon =
     card.kind === 'shield_used' || card.kind === 'shield_earned' ? (
@@ -30,7 +32,7 @@ export function StreakNoticeView({ card, onDismiss }: { card: StreakCardModel; o
       <StreakFlame tones={['strength']} size={40} live={card.kind === 'milestone'} />
     );
   return (
-    <Card padding="md" className="relative flex items-center gap-3" dir="rtl" role="status" data-streak-card={card.kind}>
+    <Card padding="md" className="relative flex items-center gap-3" dir={direction} role="status" data-streak-card={card.kind}>
       {icon}
       <div className="min-w-0 flex-1 pl-8">
         <p className="text-[15px] font-black text-v2-ink whitespace-nowrap truncate">{card.title}</p>

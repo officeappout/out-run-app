@@ -195,7 +195,6 @@ export function ConsistencyWidget() {
     <div
       className={v2 ? 'flex h-full w-full flex-col justify-center gap-4 overflow-hidden rounded-v2-card bg-white p-3.5 shadow-v2-card' : 'bg-white dark:bg-slate-800 w-full h-full flex flex-col justify-center gap-3 overflow-hidden'}
       style={v2 ? undefined : { ...WIDGET_CARD_STYLE, padding: 10 }}
-      dir="rtl"
     >
       {strengthDone ? (
         strengthRow
