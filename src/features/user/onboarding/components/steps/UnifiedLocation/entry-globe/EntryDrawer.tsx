@@ -76,9 +76,9 @@ export function EntryDrawer({
         ) : (
           <div className={`mx-auto ${SHEET_GRABBER_CLASS}`} />
         )}
-        {fold('content', <><StepBar current={1} />{children}</>)}
+        {collapsible ? fold('content', <><StepBar current={1} />{children}</>) : <><StepBar current={1} />{children}</>}
         {pinned}
-        {footer && fold('footer', footer)}
+        {footer && (collapsible ? fold('footer', footer) : footer)}
       </div>
     </motion.div>
   );
