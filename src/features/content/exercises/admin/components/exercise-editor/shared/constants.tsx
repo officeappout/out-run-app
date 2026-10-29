@@ -76,6 +76,7 @@ export const MOVEMENT_GROUP_LABELS: Record<MovementGroup, { label: string; descr
   core: { label: 'ליבה', description: 'תרגילי בטן ויציבה' },
   isolation: { label: 'איסוליישן', description: 'תרגיל מבודד לשריר אחד' },
   flexibility: { label: 'גמישות', description: 'מתיחות ותרגילי ניידות (Flexibility)' },
+  conditioning: { label: 'סיבולת', description: 'העלאת דופק, כמו סמוך קום (Conditioning)' },
 };
 
 /**

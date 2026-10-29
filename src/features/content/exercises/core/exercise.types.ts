@@ -273,7 +273,10 @@ export type MovementGroup =
   | 'vertical_pull'
   | 'core'
   | 'isolation'
-  | 'flexibility';
+  | 'flexibility'
+  /** Heart-rate / endurance moves (burpees…). No program, no level, no weekly volume;
+   *  used only as the conditioning slot of a density block (owner 29.10.2026). */
+  | 'conditioning';
 
 /**
  * Exercise tags for classification and filtering
@@ -726,6 +729,11 @@ export interface Exercise {
    * Default: 3 seconds.
    */
   secondsPerRep?: number;
+  /**
+   * Difficulty of a conditioning move (movementGroup 'conditioning'), on the legs-level
+   * scale: the density block picks the hardest one ≥2 below the user's legs level.
+   */
+  conditioningLevel?: number;
   /**
    * Default rest seconds between sets for this exercise.
    * @deprecated — Tier Engine is now the single source of truth for rest.

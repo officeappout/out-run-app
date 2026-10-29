@@ -494,6 +494,9 @@ export interface WorkoutGenerationContext {
    * (docs/workout-engine/09-CORE-TABATA.md §1.6/§2).
    */
   reinforcementPool?: Exercise[];
+  /** movementGroup 'conditioning' catalog items (burpees…), program-less so never in the
+   *  scored pool — the density block's conditioning slot draws from here. */
+  conditioningPool?: Exercise[];
   /** Tabata finisher probability, resolved on a SEPARATE union track (any enrolled
    *  program that enables tabata) and already scaled by the periodization multiplier.
    *  Independent of `protocolProbability` (the main winner-takes-all lottery). The

@@ -933,6 +933,7 @@ export function normalizeExercise(docId: string, data: any): Exercise {
     updatedAt: toDate(data.updatedAt),
     // Legacy field - kept for backward compatibility
     recommendedLevel: data.recommendedLevel,
+    conditioningLevel: typeof data.conditioningLevel === 'number' ? data.conditioningLevel : undefined,
     
     // ========================================================================
     // METADATA FIELDS - All must be explicitly included to prevent data loss
