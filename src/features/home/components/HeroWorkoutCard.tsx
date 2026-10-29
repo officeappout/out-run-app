@@ -23,6 +23,7 @@ import { useT } from '@/hooks/useT';
 import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
 import { home } from '@/messages/ns/home';
 import HeroMediaBackground from '@/components/ui/v2/HeroMediaBackground';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 // Hero-media selection + resolution moved to a shared util so the map/workout
 // preview drawer can compute the hero from its OWN generatedWorkout (no more
@@ -71,10 +72,11 @@ export function BoltIcon({ filled }: { filled: boolean }) {
  *   Recovery: [Recovery Label] | [Duration] דקות   (no bolts)
  */
 function MetadataRow({ difficulty, duration, isRecovery }: { difficulty: number; duration: number; isRecovery?: boolean }) {
+  const { direction } = useUiDir();
   const t = useT(home);
   if (isRecovery) {
     return (
-      <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
+      <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir={direction}>
         <span>{t('hero.recovery')}</span>
         <span style={{ color: '#343434' }}>|</span>
         <span>{t('hero.minutes', { n: String(duration) })}</span>
@@ -86,7 +88,7 @@ function MetadataRow({ difficulty, duration, isRecovery }: { difficulty: number;
   const label = t(DIFFICULTY_KEYS[clamped as 1 | 2 | 3] ?? DIFFICULTY_KEYS[2]);
 
   return (
-    <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
+    <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir={direction}>
       <span>{label}</span>
       <span className="flex items-center gap-0.5">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -409,6 +411,7 @@ export default function HeroWorkoutCard({
   variant = 'active',
   userGender,
 }: HeroWorkoutCardProps) {
+  const { direction } = useUiDir();
   const dims = CARD_VARIANTS[variant];
   const isSide = variant === 'side';
   // Equipment badges wait for the gear caches (non-blocking — the card renders now,
@@ -542,7 +545,7 @@ export default function HeroWorkoutCard({
       />
 
       {/* 3. Content layer */}
-      <div className="absolute inset-0 z-10 flex flex-col justify-end items-center px-4 pb-4" dir="rtl">
+      <div className="absolute inset-0 z-10 flex flex-col justify-end items-center px-4 pb-4" dir={direction}>
 
         {/* 3a. Metadata row */}
         <div className={`w-full ${isSide ? 'mb-2' : 'mb-1'}`}>

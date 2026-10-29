@@ -11,6 +11,7 @@ import { X } from 'lucide-react';
 import { calmCopy, type CalmGender } from '@/lib/calm-return/surface';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 const CARD_STYLE = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' };
 
@@ -25,13 +26,14 @@ export default function CalmReturnCard({
   onLevelCheck?: () => void;
   onDismiss: () => void;
 }) {
+  const { direction } = useUiDir();
   const copy = calmCopy(gender);
   const t = useT(home);
   return (
     <div
       className="relative w-full max-w-[358px] mx-auto bg-white dark:bg-[#1E2A28] rounded-2xl px-5 py-4"
       style={CARD_STYLE}
-      dir="rtl"
+      dir={direction}
       role="status"
     >
       <button

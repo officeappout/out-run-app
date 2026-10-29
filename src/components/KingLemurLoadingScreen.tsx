@@ -21,7 +21,6 @@ export default function KingLemurLoadingScreen({
 }: KingLemurLoadingScreenProps) {
   return (
     <div
-      dir="rtl"
       className="w-full h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 relative overflow-hidden"
     >
       {/* Subtle Background Pattern - Fitness Elements */}

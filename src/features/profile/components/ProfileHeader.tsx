@@ -88,7 +88,7 @@ export default function ProfileHeader({
 
   if (v2) {
     return (
-      <div dir="rtl">
+      <div>
         <div className="flex flex-col items-center text-center">
           <div className="relative" style={{ width: 88, height: 88 }}>
             <div className="h-full w-full overflow-hidden rounded-full bg-white shadow-v2-card ring-4 ring-white">{avatarInner}</div>
@@ -142,7 +142,7 @@ export default function ProfileHeader({
   }
 
   return (
-    <div dir="rtl">
+    <div>
       <div className="flex items-center gap-4">
         <div className="relative flex-shrink-0" style={{ width: 84, height: 84 }}>
           <div className="w-full h-full rounded-full p-[3px] bg-gradient-to-br from-[#00ADEF] to-[#5BC2F2] shadow-md">

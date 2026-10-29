@@ -151,7 +151,6 @@ export default function FeedbackFAB({
 
   return (
     <div
-      dir="rtl"
       ref={panelRef}
       className={`fixed ${positionClass} z-50 flex flex-col items-start`}
     >

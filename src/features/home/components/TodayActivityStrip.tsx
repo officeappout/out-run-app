@@ -90,7 +90,7 @@ export default function TodayActivityStrip({ cards, onCardTap, title }: TodayAct
   if (cards.length === 0) return null;
 
   return (
-    <div className="w-full" dir="rtl">
+    <div className="w-full">
       <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3">{title ?? t('doneToday.title')}</h3>
 
       <SuggestionCarousel<TodayActivityCardData>

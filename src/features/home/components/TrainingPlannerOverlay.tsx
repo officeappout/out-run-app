@@ -368,7 +368,7 @@ export default function TrainingPlannerOverlay({
               className={v2 ? 'flex-shrink-0 bg-white' : 'flex-shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-100'}
               style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 24px))' }}
             >
-              <div className="max-w-md mx-auto px-4 pb-3 flex items-center justify-between" dir="rtl">
+              <div className="max-w-md mx-auto px-4 pb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {!v2 && <CalendarDays className="w-5 h-5 text-[#00C9F2]" />}
                   <h2 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>{t('planner.title')}</h2>
@@ -458,7 +458,6 @@ export default function TrainingPlannerOverlay({
                   {isCalendarCollapsed && (
                     <div
                       className="flex items-center justify-between mb-1.5"
-                      dir="rtl"
                     >
                       <span
                         className={v2 ? 'text-[15px] font-black text-v2-ink' : undefined}

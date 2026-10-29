@@ -106,7 +106,6 @@ export function RunForecastWidget({
     return (
       <div
         className={`relative bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden ${className}`}
-        dir="rtl"
       >
         {/* Blurred placeholder */}
         <div className="filter blur-[6px] opacity-40 pointer-events-none select-none">
@@ -156,7 +155,6 @@ export function RunForecastWidget({
   return (
     <div
       className={`bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700 ${className}`}
-      dir="rtl"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">

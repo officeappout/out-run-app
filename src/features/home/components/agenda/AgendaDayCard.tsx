@@ -1167,17 +1167,16 @@ export default function AgendaDayCard({
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
         className={
           v2
-            ? `w-full flex items-center gap-3 px-3 text-right transition-colors duration-200 cursor-pointer ${
+            ? `w-full flex items-center gap-3 px-3 text-start transition-colors duration-200 cursor-pointer ${
                 (isRest || isEmpty) ? 'min-h-[56px]' : 'min-h-[64px]'
               } py-2 ${isSelected ? 'bg-v2-tint/70' : 'bg-transparent'}`
             : `
-          w-full flex items-center gap-1.5 px-1 text-right transition-colors cursor-pointer
+          w-full flex items-center gap-1.5 px-1 text-start transition-colors cursor-pointer
           ${(isRest || isEmpty) ? 'h-[46px]' : 'h-[56px]'}
           ${isSelected ? 'bg-cyan-50/60 dark:bg-cyan-950/20' : 'bg-transparent'}
           active:bg-gray-50 dark:active:bg-gray-800/40
         `
         }
-        dir="rtl"
       >
         {/* ── RIGHT: Day label + date number ── */}
         {v2 ? (

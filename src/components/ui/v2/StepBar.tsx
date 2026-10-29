@@ -26,7 +26,7 @@ export default function StepBar({
   const t = useT(common);
   const segments = buildStepBarSegments({ current, labels, lastLabelSuffix });
   return (
-    <ol className={`flex gap-1.5 ${className}`} aria-label={t('ui.stepBar.aria')} dir="rtl">
+    <ol className={`flex gap-1.5 ${className}`} aria-label={t('ui.stepBar.aria')}>
       {segments.map((seg) => {
         const lit = seg.state !== 'future';
         return (

@@ -122,7 +122,6 @@ export default function LinkAccountPrompt({
           transition={{ type: 'spring', damping: 28, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
           className="relative bg-white rounded-t-3xl sm:rounded-2xl p-6 pb-[calc(env(safe-area-inset-bottom,0px)+24px)] sm:pb-6 w-full sm:max-w-sm shadow-floating"
-          dir="rtl"
         >
           <div className="flex items-center justify-center mb-4">
             <div className="w-14 h-14 bg-[#00ADEF]/10 rounded-full flex items-center justify-center">
