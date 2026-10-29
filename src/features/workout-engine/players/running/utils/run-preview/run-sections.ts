@@ -21,12 +21,12 @@ export interface BriefingSection {
 }
 
 export function isStrideBlock(block: RunBlock): boolean {
-  return !!block._isDynamicWrapper && block.type === 'run' && block.blockMode === 'effort' && block.label.includes('סטריידס');
+  return !!block._isDynamicWrapper && block.type === 'run' && block.blockMode === 'effort' && block.label.includes('סטריידס'); // i18n-allow-hebrew: matches the engine's stored label
 }
 
 export function groupBlocksIntoSections(workout: { blocks: RunBlock[] }): BriefingSection[] {
-  const warmupSection: BriefingSection = { title: 'חימום', blocks: [] };
-  const cooldownSection: BriefingSection = { title: 'מתיחות', blocks: [] };
+  const warmupSection: BriefingSection = { title: 'חימום', blocks: [] }; // i18n-allow-hebrew: grouping key, matched by run-structure
+  const cooldownSection: BriefingSection = { title: 'מתיחות', blocks: [] }; // i18n-allow-hebrew: legacy briefing drawer title
   const middleSections: BriefingSection[] = [];
   const { blocks } = workout;
   let i = 0;
@@ -73,7 +73,7 @@ export function groupBlocksIntoSections(workout: { blocks: RunBlock[] }): Briefi
         uniqueBlocks.push({ block: firstRest, originalIndex: restIdx });
       }
 
-      middleSections.push({ title: 'מתגברות', laps: lapCount, blocks: uniqueBlocks });
+      middleSections.push({ title: 'מתגברות', laps: lapCount, blocks: uniqueBlocks }); // i18n-allow-hebrew: legacy briefing drawer title
       i = j;
       continue;
     }
@@ -126,7 +126,7 @@ export function groupBlocksIntoSections(workout: { blocks: RunBlock[] }): Briefi
         }
 
         middleSections.push({
-          title: workBlock.label || 'אינטרוולים',
+          title: workBlock.label || 'אינטרוולים', // i18n-allow-hebrew: legacy briefing drawer title
           laps: lapCount > 1 ? lapCount : undefined,
           blocks: uniqueBlocks,
         });

@@ -9,35 +9,24 @@
  * apply it.
  */
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { home } from '@/messages/ns/home';
 
-const CATEGORY_TITLE: Record<ActivityCategory, string> = {
-  strength: 'אימון כוח',
-  cardio: 'אימון אירובי',
-  maintenance: 'גמישות ותנועתיות',
-};
-
-const CATEGORY_SHORT: Record<ActivityCategory, string> = {
-  strength: 'כוח',
-  cardio: 'אירובי',
-  maintenance: 'גמישות',
-};
-
-export const HYBRID_TITLE = 'אימון משולב';
-const HYBRID_SHORT = 'משולב';
+const t = makeLiveT(home);
 
 const isHybrid = (savedCategory?: string, workoutType?: string) =>
   savedCategory === 'hybrid' || workoutType === 'hybrid';
 
-/** Card title fallback when no real workout title exists. */
+/** Card title fallback when no real workout title exists (catalog `home`, `todayActivityLabels.title.*`). */
 export function todayCardFallbackTitle(
   displayCategory: ActivityCategory,
   savedCategory?: string,
   workoutType?: string,
 ): string {
-  return isHybrid(savedCategory, workoutType) ? HYBRID_TITLE : CATEGORY_TITLE[displayCategory];
+  return t(isHybrid(savedCategory, workoutType) ? 'todayActivityLabels.title.hybrid' : `todayActivityLabels.title.${displayCategory}`);
 }
 
-/** The short label after "N דק' ·" on the card. */
+/** The short label after "N min ·" on the card (`todayActivityLabels.short.*`). */
 export function todayCardShortLabel(displayCategory: ActivityCategory, workoutType?: string): string {
-  return isHybrid(undefined, workoutType) ? HYBRID_SHORT : CATEGORY_SHORT[displayCategory];
+  return t(isHybrid(undefined, workoutType) ? 'todayActivityLabels.short.hybrid' : `todayActivityLabels.short.${displayCategory}`);
 }

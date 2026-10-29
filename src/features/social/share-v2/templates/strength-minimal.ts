@@ -7,6 +7,7 @@ import { fitFontSize } from '../layout';
 import { CYAN } from '../palette';
 import { drawHeader } from './common';
 import type { DrawArgs, ShareTemplateDef } from './template';
+import { shareT, stageText } from '../copy';
 
 export function minimalHero(a: DrawArgs, opts: { eyebrow: string; heroMax: number; unitSize: number; bottomPad: number; side: number }) {
   const { ctx, frame, model: m, palette: p } = a;
@@ -34,14 +35,14 @@ export function minimalHero(a: DrawArgs, opts: { eyebrow: string; heroMax: numbe
 export const strengthMinimal: ShareTemplateDef = {
   id: 'strength-minimal',
   kind: 'strength',
-  label: 'מינימל',
+  get label() { return shareT('shareV2.template.minimal'); },
   formats: ['story', 'square'],
   brand: 'navy',
   naturalBackground: () => 'brand',
   scrims: () => [{ deg: 180, stops: [[0, 'rgba(4,12,18,0.55)'], [1, 'rgba(4,12,18,0.75)']] }],
   draw: (a) => {
     const m = a.model;
-    const eyebrow = [m.name, m.level && `שלב ${m.level.index}`].filter(Boolean).join(' · ');
+    const eyebrow = [m.name, m.level && stageText(m.level.index)].filter(Boolean).join(' · ');
     const story = a.frame.format === 'story';
     minimalHero(a, { eyebrow, heroMax: story ? 168 : 120, unitSize: story ? 30 : 24, bottomPad: story ? 40 : 24, side: 40 });
   },

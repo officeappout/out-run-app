@@ -7,8 +7,9 @@ import { drawStatGrid } from '../draw/primitives';
 import { drawRoute } from '../draw/route';
 import { centeredBigNumber, STICKER_BOX, stickerRouteInk, withStickerBox } from './sticker-common';
 import type { DrawArgs, ShareTemplateDef } from './template';
+import { fastestLapUnit, shareT } from '../copy';
 
-const side = (a: DrawArgs) => a.model.stats.filter((s) => s.unit !== a.model.hero.unit && s.unit !== 'הקפה מהירה').slice(0, 2);
+const side = (a: DrawArgs) => a.model.stats.filter((s) => s.unit !== a.model.hero.unit && s.unit !== fastestLapUnit()).slice(0, 2);
 
 function drawRouteSticker(a: DrawArgs) {
   withStickerBox(a, () => {
@@ -43,5 +44,5 @@ const base = {
   naturalBackground: () => 'none' as const,
 };
 
-export const runSticker: ShareTemplateDef = { ...base, id: 'run-sticker', label: 'מסלול + נתונים', draw: drawRouteSticker };
-export const runStickerStats: ShareTemplateDef = { ...base, id: 'run-sticker-stats', label: 'נתונים', draw: drawStatsSticker };
+export const runSticker: ShareTemplateDef = { ...base, id: 'run-sticker', get label() { return shareT('shareV2.template.routeStats'); }, draw: drawRouteSticker };
+export const runStickerStats: ShareTemplateDef = { ...base, id: 'run-sticker-stats', get label() { return shareT('shareV2.template.stats'); }, draw: drawStatsSticker };

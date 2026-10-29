@@ -11,6 +11,7 @@ import type { SharePalette } from '../palette';
 import type { ShareModel } from '../types';
 import { drawBigNumber, drawHeader } from './common';
 import { PAD, type DrawArgs, type ShareTemplateDef } from './template';
+import { fastestLapUnit, shareT } from '../copy';
 
 function routeStyle(a: DrawArgs, width: number) {
   const light = a.palette.tone === 'light';
@@ -32,7 +33,7 @@ function splitsPanel(ctx: CanvasRenderingContext2D, m: ShareModel, p: SharePalet
   ctx.strokeStyle = p.panelRing;
   ctx.lineWidth = 1;
   ctx.stroke();
-  drawText(ctx, 'קצב לפי הקפה', left + width - 14, top + 10, { size: 15, weight: 800, color: p.sub, lineH: 20 });
+  drawText(ctx, shareT('shareV2.paceByLap'), left + width - 14, top + 10, { size: 15, weight: 800, color: p.sub, lineH: 20 });
   drawPaceBars(ctx, m.splits.heights, m.splits.fastestIndex, m.splits.fastestLabel, left + 14, width - 28, top + 34, barsH, p);
 }
 
@@ -56,7 +57,7 @@ function story(a: DrawArgs) {
   }
   drawText(ctx, m.chip, right, eyeY, { size: 16, weight: 800, color: p.accentText, lineH: 20, maxW: width });
   drawBigNumber(a, right, bigY, 80, 26);
-  const side = m.stats.filter((s) => s.unit !== m.hero.unit && s.unit !== 'הקפה מהירה').slice(0, 2);
+  const side = m.stats.filter((s) => s.unit !== m.hero.unit && s.unit !== fastestLapUnit()).slice(0, 2);
   if (side.length) {
     const colW = 84;
     drawStatGrid(ctx, side, pad, colW * side.length, bigY + 80 * 0.95 - statHeight(28) - 4, 28, p, { cols: side.length });
@@ -81,7 +82,7 @@ function square(a: DrawArgs) {
   drawBigNumber(a, right, y, 72, 22);
   y += 72 * 0.95 + 14;
   m.stats
-    .filter((s) => s.unit !== m.hero.unit && s.unit !== 'הקפה מהירה')
+    .filter((s) => s.unit !== m.hero.unit && s.unit !== fastestLapUnit())
     .slice(0, 2)
     .forEach((s) => {
       if (y + statHeight(28) > (m.splits ? panelTop - 4 : frame.h - 16)) return;
@@ -94,7 +95,7 @@ function square(a: DrawArgs) {
 export const runDarkRoute: ShareTemplateDef = {
   id: 'run-dark-route',
   kind: 'cardio',
-  label: 'מסלול גדול',
+  get label() { return shareT('shareV2.template.bigRoute'); },
   formats: ['story', 'square'],
   brand: 'night',
   naturalBackground: () => 'brand',

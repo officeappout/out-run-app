@@ -23,12 +23,25 @@ import { LEGAL_VERSION } from '@/features/legal/legal-content';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import { genderArg } from '@/lib/i18n/core/i18n-core';
+import { useLocaleStore } from '@/store/useLocaleStore';
+import { HEALTH_PDF_TEMPLATE_ID_EN } from '../data/health-declaration-pdf-meta';
 
 interface HealthDeclarationStepProps {
   title?: string;
     description?: string;
   /** New onboarding flow callback */
   onContinue?: (value: boolean) => void;
+}
+
+/**
+ * Language of the declaration text actually on screen. An English user whose catalog still falls
+ * back to Hebrew signed Hebrew text, so it is detected from the rendered legal text, not the
+ * locale setting. Hebrew stays unmarked (no new fields = the original record shape).
+ */
+function shownDeclarationMeta(): { declarationLocale?: 'en'; declarationTemplateId?: string } {
+  const locale = useLocaleStore.getState().locale;
+  if (locale !== 'en' || /[\u0590-\u05FF]/.test(legalText())) return {};
+  return { declarationLocale: 'en', declarationTemplateId: HEALTH_PDF_TEMPLATE_ID_EN };
 }
 
 /**
@@ -287,6 +300,7 @@ export default function HealthDeclarationStep({
           signedAt,
           termsVersion: LEGAL_VERSION,
           usedFastTrack,
+          ...shownDeclarationMeta(),
         },
         () => {
           // ── Mirror into the in-memory profile FIRST ──

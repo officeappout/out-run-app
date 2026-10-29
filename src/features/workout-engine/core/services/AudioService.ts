@@ -3,6 +3,8 @@
  * Singleton service for voice guidance using Web Speech API
  */
 
+import { applySpeechLang, currentTtsLang, prewarmSpeech, speechT } from '@/lib/i18n/speech';
+
 class AudioService {
   private speechSynthesis: SpeechSynthesis | null = null;
   private isSupported: boolean = false;
@@ -20,6 +22,7 @@ class AudioService {
    * Call this on a user gesture (e.g., button click)
    */
   unlock(): void {
+    void prewarmSpeech();
     if (!this.isSupported || !this.speechSynthesis) return;
     
     // Trigger a silent utterance to unlock the audio engine
@@ -58,11 +61,10 @@ class AudioService {
     const paceSeconds = Math.round((pace % 1) * 60);
     const paceText = `${paceMinutes}:${paceSeconds.toString().padStart(2, '0')}`;
 
-    // Construct Hebrew message as requested: "הקפה [מספר] הושלמה. מרחק: [קילומטרים]. קצב: [דקות ושניות]"
-    const message = `הקפה ${lapNumber} הושלמה. מרחק: ${distance.toFixed(2)} קילומטר. קצב: ${paceText} דקות לקילומטר.`;
+    const message = speechT('lap.done', { lap: String(lapNumber), distance: distance.toFixed(2), pace: paceText });
 
     const utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = 'he-IL'; // Hebrew (Israel)
+    applySpeechLang(utterance, this.speechSynthesis, currentTtsLang());
     utterance.rate = 1.0; // Natural speed
     utterance.pitch = 1.0; // Natural pitch
     utterance.volume = 0.8; // 80% volume
@@ -76,7 +78,7 @@ class AudioService {
    * Announce a new block during a planned run (e.g., 'מתחילים ריצה קלה').
    */
   announceBlock(blockLabel: string): void {
-    this.speak(`מתחילים ${blockLabel}`);
+    this.speak(speechT('block.start', { label: blockLabel }));
     console.log('[AudioService] Block announcement:', blockLabel);
   }
 
@@ -85,22 +87,27 @@ class AudioService {
    * @param status 'slow' | 'fast'
    */
   announcePaceHint(status: 'slow' | 'fast'): void {
-    const message = status === 'slow' ? 'קצב איטי, תאיצו קצת' : 'קצב מהיר, תאטו קצת';
+    const message = speechT(status === 'slow' ? 'pace.slow' : 'pace.fast');
     this.speak(message);
   }
 
   /**
-   * Speak an arbitrary Hebrew message.
+   * Speak an arbitrary message in the active UI language.
    */
   speak(message: string): void {
     if (!this.isSupported || !this.speechSynthesis) return;
     this.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = 'he-IL';
+    applySpeechLang(utterance, this.speechSynthesis, currentTtsLang());
     utterance.rate = 1.1;
     utterance.pitch = 1.0;
     utterance.volume = 0.9;
     this.speechSynthesis.speak(utterance);
+  }
+
+  /** The rest-block "get ready" cue. */
+  announceGetReady(): void {
+    this.speak(speechT('rest.getReady'));
   }
 
   /**

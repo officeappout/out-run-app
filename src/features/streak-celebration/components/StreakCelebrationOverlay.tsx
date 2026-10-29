@@ -14,13 +14,9 @@ import { getTodayString } from '@/features/activity/store/useActivityStore';
 import type { AppGender } from '@/lib/utils/gendered-text';
 import type { FlameTone } from '@/components/ui/v2/streak';
 import { weekStrip, type Celebration } from '../core/celebration.core';
-import {
-  CELEBRATION_CLOSE,
-  CELEBRATION_CONTINUE,
-  CELEBRATION_SHARE,
-  celebrationCopy,
-  shareText,
-} from '../core/celebration-copy';
+import { celebrationCopy, celebrationLabels, shareText } from '../core/celebration-copy';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 import CelebrationHero from './CelebrationHero';
 import WeekStrip from './WeekStrip';
 
@@ -44,7 +40,9 @@ function canShare(): boolean {
 export default function StreakCelebrationOverlay({ celebration: c, lastStreakDate, tones, gender, onClose }: StreakCelebrationOverlayProps) {
   const { direction } = useUiDir();
   const reduce = useReducedMotion();
-  const copy = celebrationCopy(c, gender);
+  const t = useT(home);
+  const labels = celebrationLabels(t);
+  const copy = celebrationCopy(c, gender, t);
   const strip = useMemo(
     () => (STRIP_VARIANTS.has(c.variant) ? weekStrip(getTodayString(), { currentStreak: c.streak, lastStreakDate }, c.shieldDays) : null),
     [c, lastStreakDate],
@@ -59,7 +57,7 @@ export default function StreakCelebrationOverlay({ celebration: c, lastStreakDat
   const onShare = async () => {
     hapticTap('selection');
     try {
-      await navigator.share({ text: shareText(c) });
+      await navigator.share({ text: shareText(c, t) });
     } catch {
       /* cancelled */
     }
@@ -98,7 +96,7 @@ export default function StreakCelebrationOverlay({ celebration: c, lastStreakDat
         <button
           type="button"
           onClick={close}
-          aria-label={CELEBRATION_CLOSE}
+          aria-label={labels.close}
           className="grid h-11 w-11 place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.08)]"
         >
           <X size={18} strokeWidth={2.4} />
@@ -123,11 +121,11 @@ export default function StreakCelebrationOverlay({ celebration: c, lastStreakDat
           onClick={close}
           className="h-[54px] rounded-full bg-[#0e1419] text-[16.5px] font-extrabold text-white"
         >
-          {CELEBRATION_CONTINUE}
+          {labels.continue}
         </button>
         {share && (
           <button type="button" onClick={onShare} className="h-[46px] rounded-full text-[15px] font-extrabold text-[#9a3412]">
-            {CELEBRATION_SHARE}
+            {labels.share}
           </button>
         )}
       </div>

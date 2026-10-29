@@ -9,7 +9,7 @@
  * dashed marker where each new lap starts. RTL: the start is on the RIGHT.
  */
 
-import { withUnit } from '@/lib/i18n/units';
+import { rt, unitText } from '../run-utils-t';
 import type { RunBlock } from '../../types/run-block.type';
 import { isRestBlock } from '../../lib/planned-rep-results';
 import { elevationAt, kmTicks, profileLengthM, type ElevationSamples, type KmTick } from '../../lib/route-elevation-ahead';
@@ -99,21 +99,21 @@ export function buildWorkoutElevation(
 
   const laps: LapMarker[] = [];
   if (opts.loop) {
-    for (let k = 1; k * L < totalM - L * 0.1 && k < 8; k++) laps.push({ x: x(k * L), label: `סיבוב ${k + 1}` });
+    for (let k = 1; k * L < totalM - L * 0.1 && k < 8; k++) laps.push({ x: x(k * L), label: rt('runUtils.elev.lap', { n: String(k + 1) }) });
   }
 
   const legend: LegendItem[] = [];
-  if (blocks.some((b) => blockPhase(b) !== 'main')) legend.push({ key: 'easy', color: EASY_BAND_COLOR, label: 'חימום / שחרור' });
+  if (blocks.some((b) => blockPhase(b) !== 'main')) legend.push({ key: 'easy', color: EASY_BAND_COLOR, label: rt('runUtils.elev.warmCool') });
   const rep = findMainRep(blocks.filter((b) => blockPhase(b) === 'main'));
-  if (rep) legend.push({ key: 'work', color: stripColor(rep.block), label: rep.count >= 2 ? `חזרות ${bareSize(rep.block)}` : 'עיקר' });
-  if (blocks.some((b) => blockPhase(b) === 'main' && isRestBlock(b))) legend.push({ key: 'rest', color: STRIP_REST_COLOR, label: 'התאוששות' });
+  if (rep) legend.push({ key: 'work', color: stripColor(rep.block), label: rep.count >= 2 ? rt('runUtils.elev.reps', { size: bareSize(rep.block) }) : rt('runUtils.elev.main') });
+  if (blocks.some((b) => blockPhase(b) === 'main' && isRestBlock(b))) legend.push({ key: 'rest', color: STRIP_REST_COLOR, label: rt('runUtils.elev.rest') });
 
   const gain = gainOf(samples.elevationsM);
-  const caption = `שיא ${withUnit('m', Math.round(max))} · עלייה ${withUnit('m', gain)}${opts.loop ? ' לסיבוב' : ''}`;
+  const caption = rt(opts.loop ? 'runUtils.elev.captionLoop' : 'runUtils.elev.caption', { peak: unitText('m', Math.round(max)), gain: unitText('m', gain) });
 
   return {
     line, area,
-    peak: { x: x(top.m), y: y(top.e), label: withUnit('m', Math.round(top.e)) },
+    peak: { x: x(top.m), y: y(top.e), label: unitText('m', Math.round(top.e)) },
     bands, laps, ticks: kmTicks(totalM, ELEV_W, 5), legend, caption,
   };
 }

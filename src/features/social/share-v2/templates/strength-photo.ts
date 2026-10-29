@@ -7,6 +7,7 @@ import { stackFromBottom, wrapLines } from '../layout';
 import { drawChip, drawRing, drawSetRows, drawStatGrid, drawStreakLine, drawText, drawWrapped, hline, measureAt, ROW_H, statHeight } from '../draw/primitives';
 import { drawHeader, SQUARE_BOTTOM_SCRIM, STORY_BOTTOM_SCRIM } from './common';
 import { PAD, type DrawArgs, type ShareTemplateDef } from './template';
+import { shareT, strengthDefaultName } from '../copy';
 
 export function statValueSize(n: number, rows: number): number {
   if (rows > 0 || n >= 3) return 38;
@@ -40,7 +41,7 @@ function story(a: DrawArgs) {
   drawChip(ctx, m.chip, right, chipY, p, width);
   const nameTop = nameY + (nameH - nameLines * 43) / 2;
   drawWrapped(ctx, m.name, right, nameTop, nameW, 2, { size: 42, weight: 900, color: p.fg, lineH: 43 });
-  if (m.level) drawRing(ctx, left + ring / 2, nameY + nameH / 2, ring, m.level.frac, p, `${m.level.index}/${m.level.count}`, 'שלב');
+  if (m.level) drawRing(ctx, left + ring / 2, nameY + nameH / 2, ring, m.level.frac, p, `${m.level.index}/${m.level.count}`, shareT('shareV2.stage.label'));
   if (statsH) {
     hline(ctx, left, statsY, width, p.hairline);
     drawStatGrid(ctx, stats, left, width, statsY + 14, vs, p, { cols: stats.length });
@@ -58,8 +59,8 @@ function square(a: DrawArgs) {
   const right = frame.w - pad;
   const width = right - left;
   drawHeader(a, { date: false });
-  if (m.level) drawRing(ctx, left + 32, 20 + 32, 64, m.level.frac, p, `${m.level.index}/${m.level.count}`, 'שלב');
-  const eyebrow = [m.name === 'אימון כוח' ? null : 'אימון כוח', m.dateLabel?.replace(' · ', ' ')].filter(Boolean).join(' · ');
+  if (m.level) drawRing(ctx, left + 32, 20 + 32, 64, m.level.frac, p, `${m.level.index}/${m.level.count}`, shareT('shareV2.stage.label'));
+  const eyebrow = [m.name === strengthDefaultName() ? null : strengthDefaultName(), m.dateLabel?.replace(' · ', ' ')].filter(Boolean).join(' · ');
   const nameLines = wrapLines(m.name, width, measureAt(ctx, 36, 900), 2).length;
   const stats = m.stats.slice(0, 3);
   const footer = m.exerciseNames ?? m.moreLine;
@@ -81,7 +82,7 @@ function square(a: DrawArgs) {
 export const strengthPhoto: ShareTemplateDef = {
   id: 'strength-photo',
   kind: 'strength',
-  label: 'תמונה + נתונים',
+  get label() { return shareT('shareV2.template.photoStats'); },
   formats: ['story', 'square'],
   brand: 'navy',
   naturalBackground: (hasPhoto) => (hasPhoto ? 'photo' : 'brand'),
