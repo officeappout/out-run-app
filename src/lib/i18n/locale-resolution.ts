@@ -95,9 +95,11 @@ export function deviceDetectAllowed(input: {
   profile: { createdAt?: unknown; onboardingStatus?: unknown } | null | undefined;
   hydrated: boolean;
   hasAuthUser: boolean;
+  /** Firebase has delivered its first auth state (session restore is async). */
+  authResolved?: boolean;
   now?: number;
 }): boolean {
-  if (!input.profile) return input.hydrated && !input.hasAuthUser;
+  if (!input.profile) return input.hydrated && input.authResolved !== false && !input.hasAuthUser;
   return isNewUserForLocale(input.profile, input.now);
 }
 

@@ -125,6 +125,11 @@ describe('device detection is for new users only', () => {
     expect(isNewUserForLocale({ onboardingStatus: 'COMPLETED' }, NOW)).toBe(false);
     expect(isNewUserForLocale({ createdAt: {}, onboardingStatus: 'MAP_ONLY' }, NOW)).toBe(false);
   });
+  it('auth not yet restored: no device guess; after it resolves signed-out, allowed', () => {
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: false, authResolved: false })).toBe(false);
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: false, authResolved: true })).toBe(true);
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: true, authResolved: true })).toBe(false);
+  });
   it('no profile yet: device allowed only for a hydrated, anonymous launch', () => {
     expect(deviceDetectAllowed({ profile: null, hydrated: false, hasAuthUser: false })).toBe(false);
     expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: true })).toBe(false);

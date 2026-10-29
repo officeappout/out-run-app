@@ -12,6 +12,7 @@
  * → device language (new users only, see isNewUserForLocale) → 'he', among the locales whose enable_locale_* flag is on.
  */
 import { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { usePathname } from 'next/navigation';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
@@ -54,6 +55,13 @@ export default function LocaleSync() {
   // Before the profile holds one (onboarding), the gender picked on the identity screen,
   // which lives in sessionStorage: re-read on every route change (the identity screen
   // navigates right after writing it) and on ONBOARDING_GENDER_EVENT.
+  // Firebase restores the session asynchronously: until its first callback, "no auth user" means "unknown".
+  const [authResolved, setAuthResolved] = useState(false);
+  useEffect(() => {
+    if (!auth) { setAuthResolved(true); return; }
+    return onAuthStateChanged(auth, () => setAuthResolved(true));
+  }, []);
+
   const pathname = usePathname();
   const [onboardingGender, setOnboardingGender] = useState<string | null>(null);
   useEffect(() => {
@@ -89,9 +97,10 @@ export default function LocaleSync() {
         profile: hasProfile ? { createdAt: profileCreatedAt, onboardingStatus: profileStatus } : null,
         hydrated,
         hasAuthUser: !!auth?.currentUser,
+        authResolved,
       });
       // Profile still on its way for a signed-in / not-yet-hydrated user: no device guess, no SSR cookie.
-      const settling = !hasProfile && (!hydrated || !!auth?.currentUser);
+      const settling = !hasProfile && (!hydrated || !authResolved || !!auth?.currentUser);
       const next = pickAppLocale(localeFlags, {
         profileLocale,
         storedLocale,
@@ -99,6 +108,7 @@ export default function LocaleSync() {
         detectDevice: detect,
       });
       setLocaleState({ i18nEnabled: true, locale: next });
+<<<<<<< HEAD
       if (!settling) writeLocaleCookie(next);
       // A signed-in user whose English came from the device (new user) or the pre-signup pill has no
       // core.locale yet: persist it so pushes / Kelly (which read core.locale only) agree. Hebrew is never written.
@@ -106,11 +116,18 @@ export default function LocaleSync() {
       if (next !== 'he' && profileId && hasProfile && !hasStoredCore) {
         void setUserLocale(next, profileId).catch(() => {});
       }
+=======
+      writeLocaleCookie(next);
+      // The legacy he/en dictionary screens (useLanguage / useTranslation: strength live overlay, challenge
+      // pages, old onboarding) read useAppStore.language. Only the explicit picker used to sync it, so an
+      // English locale resolved from the device left them Hebrew. Runs only with enable_i18n on.
+      if (next === 'he' || next === 'en') useAppStore.getState().setLanguage(next);
+>>>>>>> origin/main
     });
     return () => {
       cancelled = true;
     };
-  }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, isSuperAdmin, profileLocale, profileId, hasProfile, profileCreatedAt, profileStatus, hydrated, setLocaleState]);
+  }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, isSuperAdmin, profileLocale, profileId, hasProfile, profileCreatedAt, profileStatus, hydrated, authResolved, setLocaleState]);
 
   // <html lang dir> — the old LanguageProvider effect, unchanged while i18n is off / Hebrew.
   useEffect(() => {
