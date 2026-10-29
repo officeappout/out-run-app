@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  COACH_CARET_INSET, COACH_FINGER_GAP, COACH_GAP, COACH_GUTTER, COACH_MIN_DWELL_MS, COACH_OCCLUDER_GAP,
+  COACH_BUBBLE_EST_H, COACH_CARET_INSET, COACH_EDGE_BOTTOM, COACH_EDGE_TOP, COACH_FINGER_GAP, COACH_GAP, COACH_GUTTER, COACH_MIN_DWELL_MS, COACH_OCCLUDER_GAP,
   clipCoachBox, coachScrollMarginTop, coachSkipVisible, placeCoachBubble,
 } from '../coach-marks/coach-placement';
 
@@ -58,5 +58,31 @@ describe('tour fixes round 2 — header occluders and the in-bubble "דלג"', (
     expect(coachSkipVisible(1, 3)).toBe(true);
     expect(coachSkipVisible(2, 3)).toBe(false);
     expect(coachSkipVisible(0, 1)).toBe(false);
+  });
+});
+
+describe('AD4a: the bubble never runs past a screen edge', () => {
+  const rootW = 390;
+  const rootH = 844;
+  it('a target just under mid-screen with no room above flips the bubble below', () => {
+    // Tall week strip from y=150 to y=600 (centre below mid): above it there are only ~80px.
+    const p = placeCoachBubble({ box: { top: 150, left: 10, width: 370, height: 450 }, rootW, rootH });
+    expect(p.side).toBe('below');
+    expect(p.top! + COACH_BUBBLE_EST_H).toBeLessThanOrEqual(rootH - COACH_EDGE_BOTTOM);
+  });
+
+  it('a target filling the screen keeps the bubble inside the edges', () => {
+    const p = placeCoachBubble({ box: { top: 60, left: 10, width: 370, height: 760 }, rootW, rootH });
+    if (p.side === 'below') {
+      expect(p.top!).toBeGreaterThanOrEqual(COACH_EDGE_TOP);
+      expect(p.top! + COACH_BUBBLE_EST_H).toBeLessThanOrEqual(rootH - COACH_EDGE_BOTTOM);
+    } else {
+      expect(p.bottom! + COACH_BUBBLE_EST_H).toBeLessThanOrEqual(rootH - COACH_EDGE_TOP);
+    }
+  });
+
+  it('a normal small target keeps today\'s placement', () => {
+    const p = placeCoachBubble({ box: { top: 100, left: 10, width: 370, height: 80 }, rootW, rootH });
+    expect(p).toMatchObject({ side: 'below', top: 100 + 80 + COACH_GAP });
   });
 });
