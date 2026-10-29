@@ -1,3 +1,4 @@
+import type { DensityBlockSpec } from './protocols/density-block';
 /**
  * Workout Generator Types
  *
@@ -139,7 +140,9 @@ export interface WorkoutExercise {
    * Identify membership via THIS marker (structural), never via string
    * comparison on appliedProtocol (BudgetDistributor convention).
    */
-  protocolBlock?: 'tabata';
+  protocolBlock?: 'tabata' | 'density';
+  /** Density block members only: the block's fixed minutes (priced once, like tabata). */
+  densityBlockMinutes?: number;
   /**
    * Set by GuaranteePassRunner.runFullBodyDomainGuarantee (early, inside the
    * generator) or GuaranteePassRunner.validateCorePromise (late, the post-
@@ -350,6 +353,8 @@ export interface GeneratedWorkout {
    * Config is the fixed classic 20/10/8 (David's decision, 12.07.2026).
    */
   tabataBlock?: TabataBlockSpec;
+  /** EMOM / AMRAP block added after the classic part (protocols/density-block.ts). */
+  densityBlock?: DensityBlockSpec;
   /** Why Logger: end-to-end pipeline summary for debugging/auditing */
   pipelineLog?: string[];
   /**

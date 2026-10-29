@@ -15,6 +15,7 @@
  */
 import type { AmrapProtocolConfig, EmomProtocolConfig } from '../../core/types/protocol.types';
 import type { GeneratedWorkout, WorkoutExercise } from '../workout-generator.types';
+import { partitionByDensityBlock } from './density-block';
 
 export type TimedMainFormat = 'emom' | 'amrap';
 
@@ -29,7 +30,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, M
 
 function isMain(ex: Pick<WorkoutExercise, 'exerciseRole'> & { protocolBlock?: string }): boolean {
   const role = ex.exerciseRole;
-  return (role === 'main' || !role) && ex.protocolBlock !== 'tabata';
+  return (role === 'main' || !role) && ex.protocolBlock !== 'tabata' && ex.protocolBlock !== 'density';
 }
 
 /** Which timed format the generator chose for the main part (null = classic). */
@@ -43,7 +44,16 @@ export function timedMainFormat(gw: Pick<GeneratedWorkout, 'structure' | 'blastM
  * set (the classic main's own time budget), capped by the blast duration
  * when the builder set one, clamped to 6–20 (EMOM) / 5–20 (AMRAP) minutes.
  */
-export function timedMainBlock(gw: Pick<GeneratedWorkout, 'structure' | 'blastMode' | 'exercises'>): TimedMainBlock | null {
+export function timedMainBlock(gw: Pick<GeneratedWorkout, 'structure' | 'blastMode' | 'exercises' | 'densityBlock'>): TimedMainBlock | null {
+  // Density block (PR 6): the timed part is ONLY its members, with the generator's minutes.
+  if (gw.densityBlock) {
+    const ids = new Set(gw.densityBlock.exerciseIds);
+    if (!(gw.exercises ?? []).some((e) => ids.has(e.exercise?.id))) return null; // members gone → classic
+    const { format: f, minutes: m } = gw.densityBlock;
+    return f === 'emom'
+      ? { protocol: 'emom', config: { intervalSec: 60, totalIntervals: m }, minutes: m, title: `EMOM ${m}′` }
+      : { protocol: 'amrap', config: { capSec: m * 60, roundItems: [] }, minutes: m, title: `AMRAP ${m}′` };
+  }
   const format = timedMainFormat(gw);
   if (!format) return null;
   const main = (gw.exercises ?? []).filter((e) => isMain(e as WorkoutExercise & { protocolBlock?: string }));
@@ -62,12 +72,32 @@ export function timedMainBlock(gw: Pick<GeneratedWorkout, 'structure' | 'blastMo
  * Mapper step (flag on only): seg-main → the timed block. Every other
  * segment is returned untouched; no block → the same array.
  */
-export function withTimedMainBlock<S extends { id: string }>(
+export function withTimedMainBlock<S extends { id: string; exercises?: Array<{ id: string }> }>(
   segments: S[],
-  gw: Pick<GeneratedWorkout, 'structure' | 'blastMode' | 'exercises'>,
+  gw: Pick<GeneratedWorkout, 'structure' | 'blastMode' | 'exercises' | 'densityBlock'>,
 ): S[] {
   const block = timedMainBlock(gw);
   if (!block || !segments.some((s) => s.id === 'seg-main')) return segments;
+  // Density block: seg-main keeps the classic exercises, a new seg-density right after it
+  // carries the members as the timed block. No members found → classic as is.
+  if (gw.densityBlock) {
+    return segments.flatMap((s) => {
+      if (s.id !== 'seg-main') return [s];
+      const { density, rest } = partitionByDensityBlock(s.exercises ?? [], gw.densityBlock);
+      if (density.length === 0) return [s];
+      const timed = {
+        ...s,
+        id: 'seg-density',
+        title: block.title,
+        exercises: density,
+        target: { type: 'time' as const, value: block.minutes * 60 },
+        restBetweenExercises: 0,
+        protocol: block.protocol,
+        protocolConfig: block.config,
+      };
+      return rest.length ? [{ ...s, exercises: rest }, timed] : [timed];
+    });
+  }
   return segments.map((s) =>
     s.id === 'seg-main'
       ? {

@@ -97,6 +97,8 @@ import {
 // Protocol registry — dispatcher replaces hard-coded protocol if-tree
 import { findProcessor } from './protocols/protocol-processor.registry';
 import { buildTabataBlock } from './protocols/tabata.block';
+import { buildDensityBlock, densityDomainOf, type DensityBlockSpec, type DensityDomain } from './protocols/density-block';
+import { pickWeightedProtocol } from './protocol-weights';
 import { TABATA_BLOCK_SECONDS } from './protocols/tabata.constants';
 
 // StructureDirector — declarative session topology + strategy detection
@@ -1482,6 +1484,17 @@ export class WorkoutGenerator {
       tabataBlock.kind = 'conditioning';
     }
 
+    // Step 6d: Density block (training-audit PR 6, owner 28.10.2026) — when the lottery
+    // picked EMOM / AMRAP, the classic part stays as is and a short block of easy dynamic
+    // rep exercises (≥2 levels below the user, protocols/density-block.ts) is added after
+    // it. No block (too few eligible / no time) → the session falls back to standard.
+    let densityBlock: DensityBlockSpec | undefined;
+    let densityFellBack = false;
+    if ((protocolResult.structure === 'emom' || protocolResult.structure === 'amrap') && context.intentMode !== 'blast') {
+      densityBlock = this.addDensityBlock(protocolResult.structure, workoutExercises, scoredExercises, context, pipelineLog);
+      densityFellBack = !densityBlock;
+    }
+
     // Step 7: Duration
     const estimatedDuration = calculateEstimatedDuration(workoutExercises);
 
@@ -1540,7 +1553,9 @@ export class WorkoutGenerator {
 
     // Step 8: Structure
     let structure = this.determineStructure(context, workoutExercises);
-    if (protocolResult.structure !== 'standard') {
+    if (densityBlock) {
+      structure = densityBlock.format;
+    } else if (protocolResult.structure !== 'standard' && !densityFellBack) {
       structure = protocolResult.structure;
     }
     const blastMode = context.intentMode === 'blast' ? this.getBlastModeDetails(context, workoutExercises) : undefined;
@@ -1606,6 +1621,7 @@ export class WorkoutGenerator {
       totalPlannedSets,
       appliedProtocol: protocolResult.setType !== 'straight' ? protocolResult.setType : undefined,
       tabataBlock,
+      densityBlock,
       pipelineLog,
       reserveExercises: reserveExercises.length > 0 ? reserveExercises : undefined,
     };
@@ -2026,7 +2042,10 @@ export class WorkoutGenerator {
       return { structure: 'standard', setType: 'straight' };
     }
 
-    const selected = adminProtocols[Math.floor(Math.random() * adminProtocols.length)];
+    // protocolWeights (owner 27.10.2026): weighted pick when the docs carry weights; uniform otherwise.
+    const selected =
+      (context.protocolWeights && pickWeightedProtocol(context.protocolWeights)) ||
+      adminProtocols[Math.floor(Math.random() * adminProtocols.length)];
     console.log(
       `[WorkoutGenerator][selectProtocol] ✅ Protocol injected: "${selected}" ` +
       `(roll=${roll.toFixed(3)} ≤ p=${probability}, options=[${adminProtocols.join(', ')}])`,
@@ -2036,8 +2055,8 @@ export class WorkoutGenerator {
     // union track and rolled independently, so the old MIN_USER_LEVEL gate here
     // was removed. See Step 6b in generateWorkout.)
 
-    if (selected === 'emom') {
-      return { structure: 'emom', setType: 'straight' };
+    if (selected === 'emom' || selected === 'amrap') {
+      return { structure: selected, setType: 'straight' };
     }
 
     return { structure: 'standard', setType: selected };
@@ -2092,6 +2111,60 @@ export class WorkoutGenerator {
       return `👋 אימון מותאם ל${personaLabel}. מוכן?`;
     }
     return undefined;
+  }
+
+  // ── DENSITY BLOCK ────────────────────────────────────────────────────────
+
+  /**
+   * Builds and appends the density block (members tagged protocolBlock='density').
+   * Headroom = available time − the classic part; when it is short, the lowest-scored
+   * classic mains are dropped (never below 3) to make room for the minimum block.
+   */
+  private addDensityBlock(
+    format: 'emom' | 'amrap',
+    workoutExercises: WorkoutExercise[],
+    scored: ScoredExercise[],
+    context: WorkoutGenerationContext,
+    pipelineLog: string[],
+  ): DensityBlockSpec | undefined {
+    const isClassicMain = (e: WorkoutExercise) => (e.exerciseRole ?? 'main') === 'main' && !e.protocolBlock;
+    const sessionDomains = [...new Set(
+      workoutExercises.filter(isClassicMain).map((e) => densityDomainOf(e.exercise)).filter((d): d is DensityDomain => d != null),
+    )];
+    if (sessionDomains.length === 0) {
+      pipelineLog.push('density_block: no push/pull/legs/core mains — standard');
+      return undefined;
+    }
+    const domainLevels = (d: DensityDomain) => context.userProgramLevels?.get(d) ?? context.userLevel;
+    const excludeIds = new Set(workoutExercises.map((e) => e.exercise.id));
+    const pool = scored.map((s) => ({ exercise: s.exercise, method: s.method }));
+
+    const MIN_BLOCK = 8;
+    const headroom = () => context.availableTime - calculateEstimatedDuration(workoutExercises);
+    const dropped: WorkoutExercise[] = [];
+    while (headroom() < MIN_BLOCK && workoutExercises.filter(isClassicMain).length > 3) {
+      const mains = workoutExercises.filter(isClassicMain);
+      const victim = mains.reduce((lo, e) => ((e.score ?? 0) < (lo.score ?? 0) ? e : lo), mains[0]);
+      workoutExercises.splice(workoutExercises.indexOf(victim), 1);
+      dropped.push(victim);
+    }
+
+    const built = buildDensityBlock({ format, sessionDomains, domainLevels, pool, headroomMinutes: headroom(), excludeIds });
+    if (!built) {
+      workoutExercises.push(...dropped); // nothing to make room for
+      pipelineLog.push(`density_block: ${format} not built (too few eligible exercises or no time) — standard`);
+      console.log(`[DensityBlock] ${format} not built — falling back to standard sets`);
+      return undefined;
+    }
+    for (const m of built.members) m.densityBlockMinutes = built.spec.minutes;
+    workoutExercises.push(...built.members);
+    const names = built.members.map((m) => `${getLocalizedText(m.exercise.name)}×${m.reps}`).join(', ');
+    pipelineLog.push(
+      `density_block: ${built.spec.format} ${built.spec.minutes}′ ${built.spec.singleDomain ? 'single-domain ' : ''}[${names}]` +
+      (dropped.length ? ` (dropped ${dropped.length} classic main(s) for time)` : ''),
+    );
+    console.log(`[DensityBlock] ✅ ${built.spec.format} ${built.spec.minutes}′ — ${names}`);
+    return built.spec;
   }
 
   // ── STRUCTURE / BLAST / BALANCE ──────────────────────────────────────────

@@ -83,7 +83,11 @@ export function groupExercisesIntoSections(
   const tabataMembers = main.filter((ex) => (ex as any).protocolBlock === 'tabata');
   for (const ex of tabataMembers) consumed.add(ex.exercise.id);
 
-  if (opts.timedMainTitle) {
+  // Density block (PR 6): only its members form the timed section, AFTER the classic mains.
+  const densityMembers = opts.timedMainTitle ? main.filter((ex) => (ex as any).protocolBlock === 'density') : [];
+  for (const ex of densityMembers) consumed.add(ex.exercise.id);
+
+  if (opts.timedMainTitle && densityMembers.length === 0) {
     const members = main.filter((ex) => !consumed.has(ex.exercise.id));
     for (const ex of members) consumed.add(ex.exercise.id);
     if (members.length > 0) {
@@ -176,6 +180,9 @@ export function groupExercisesIntoSections(
     sections.push({ id: 'warmup', title: t('preview.section.title.warmup'), rounds: 1, exercises: warmup });
   }
   sections.push(...mainSections);
+  if (densityMembers.length > 0) {
+    sections.push({ id: 'timed-main', title: opts.timedMainTitle as string, rounds: 1, exercises: densityMembers });
+  }
   if (tabataMembers.length > 0) {
     // Finisher position — after the standard mains, exactly where the player
     // runs seg-tabata. `rounds` = total work intervals (display only).
