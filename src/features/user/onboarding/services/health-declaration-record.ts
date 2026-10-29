@@ -36,6 +36,13 @@ export interface HealthDeclarationRecord {
   /** LEGAL_VERSION the user signed. */
   termsVersion: string;
   usedFastTrack: boolean;
+  /**
+   * Language of the declaration text the user was SHOWN and signed. Absent on records signed before
+   * this field existed = Hebrew (the original template). Decides the PDF template on regeneration.
+   */
+  declarationLocale?: 'he' | 'en';
+  /** Which PDF template/text version the record was signed against, e.g. 'health-en-v1'. Absent = Hebrew template. */
+  declarationTemplateId?: string;
 }
 
 /** The part of users/{uid}/private/legal this module reads/writes. */
@@ -50,7 +57,8 @@ export interface PdfDeps {
   /** Merge-write into private/legal. Callers never await the server ack. */
   writeLegal(uid: string, patch: Partial<LegalDocShape>): Promise<void>;
   readLegal(uid: string): Promise<LegalDocShape | null>;
-  generatePdf(signerName: string, signature: string, signedAt: Date): Promise<Uint8Array>;
+  /** `locale` is passed ONLY for English; Hebrew calls keep their original three arguments. */
+  generatePdf(signerName: string, signature: string, signedAt: Date, locale?: 'he' | 'en'): Promise<Uint8Array>;
   /** Upload + resolve the download URL; must honour (cancel at) `timeoutMs`. */
   uploadPdf(uid: string, bytes: Uint8Array, signerName: string, timeoutMs: number): Promise<string>;
 }
@@ -102,9 +110,9 @@ const defaultDeps: PdfDeps = {
     const snap = await getDoc(doc(db, 'users', uid, 'private', 'legal'));
     return snap.exists() ? (snap.data() as LegalDocShape) : null;
   },
-  async generatePdf(signerName, signature, signedAt) {
+  async generatePdf(signerName, signature, signedAt, locale) {
     const { generateHealthDeclarationPdf } = await import('./pdf-service');
-    return generateHealthDeclarationPdf(signerName, signature, signedAt);
+    return generateHealthDeclarationPdf(signerName, signature, signedAt, locale ?? 'he');
   },
   async uploadPdf(uid, bytes, signerName, timeoutMs) {
     const [{ ref, uploadBytesResumable, getDownloadURL }, { storage }] = await Promise.all([
@@ -144,7 +152,9 @@ export function generatePdfForRecord(
   const job = (async (): Promise<HealthPdfStatus> => {
     try {
       const bytes = await withTimeout(
-        deps.generatePdf(record.signerName, record.signature, new Date(record.signedAt)),
+        record.declarationLocale === 'en'
+          ? deps.generatePdf(record.signerName, record.signature, new Date(record.signedAt), 'en')
+          : deps.generatePdf(record.signerName, record.signature, new Date(record.signedAt)),
         PDF_STEP_TIMEOUT_MS.generate,
         'generatePdf',
       );

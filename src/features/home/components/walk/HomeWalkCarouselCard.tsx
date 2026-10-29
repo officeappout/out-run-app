@@ -22,6 +22,7 @@ import RunWeekCardV2 from '../widgets/run-week-v2/RunWeekCardV2';
 import { useT } from '@/hooks/useT';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 const WALK_COLOR = '#f59e0b';
 /** The steps tile's own text shade (IconTile tone "steps"), so label and tile match. */
@@ -37,6 +38,7 @@ export interface HomeWalkCarouselCardProps {
 }
 
 export default function HomeWalkCarouselCard({ slot, onStart, onOpenGroup, standalone = false }: HomeWalkCarouselCardProps) {
+  const { direction } = useUiDir();
   const t = useT(home);
   const fmt = (n: number) => formatNumber(n, t.locale);
   const steps = useActivityStore((s) => Number(s.today?.steps) || 0);
@@ -54,7 +56,7 @@ export default function HomeWalkCarouselCard({ slot, onStart, onOpenGroup, stand
   const tile = <IconTile icon={Footprints} tone="steps" size="md" />;
 
   return (
-    <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} dir="rtl" data-home-walk-card={slot.kind}>
+    <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} dir={direction} data-home-walk-card={slot.kind}>
       <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
         {isToday ? t('walkCard.kicker.today') : t('walkCard.kicker.gap')}
       </p>

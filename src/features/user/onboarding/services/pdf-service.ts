@@ -8,6 +8,10 @@
  */
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { HEALTH_QUESTIONS } from '../data/health-questions';
+import { ensureCatalog } from '@/lib/i18n/catalogs';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // ── Asset paths (served by Next.js from /public) ──
 const TEMPLATE_URL = '/assets/documents/health-declaration-template.pdf';
@@ -103,6 +107,9 @@ async function loadFontBytes(url: string, cache: 'regular' | 'bold'): Promise<Ar
 // PDF Generator
 // ═══════════════════════════════════════════════════
 
+/** Language of the text the user signed. Absent on old records = Hebrew. */
+export type HealthPdfLocale = 'he' | 'en';
+
 /**
  * Generate a signed Health Declaration PDF with embedded Simpler Pro font.
  *
@@ -117,7 +124,11 @@ export async function generateHealthDeclarationPdf(
   userName: string,
   signatureB64: string,
   signedAt: Date = new Date(),
+  locale: HealthPdfLocale = 'he',
 ): Promise<Uint8Array> {
+  // English: typeset from the approved English text (LTR). The Hebrew path below is untouched.
+  if (locale === 'en') return generateEnglishHealthDeclarationPdf(userName, signatureB64, signedAt);
+
   // ── 1. Fetch the template ──
   const templateResponse = await fetch(TEMPLATE_URL);
   if (!templateResponse.ok) {
@@ -205,4 +216,107 @@ export async function generateHealthDeclarationPdf(
   // ── 9. Serialize and return ──
   const pdfBytes = await pdfDoc.save();
   return pdfBytes;
+}
+
+// ═══════════════════════════════════════════════════
+// English variant (LTR, typeset — no template file)
+// ═══════════════════════════════════════════════════
+
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Unambiguous English date ("5 Oct 2026"), independent of the runtime's Intl data. */
+export function formatEnglishPdfDate(d: Date): string {
+  const now = Number.isNaN(d.getTime()) ? new Date() : d;
+  return `${now.getDate()} ${MONTHS_EN[now.getMonth()]} ${now.getFullYear()}`;
+}
+
+/** Greedy word wrap by measured width. */
+export function wrapText(text: string, maxWidth: number, widthOf: (s: string) => number): string[] {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && widthOf(next) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+async function generateEnglishHealthDeclarationPdf(
+  userName: string,
+  signatureB64: string,
+  signedAt: Date,
+): Promise<Uint8Array> {
+  // Single source: the same catalog keys the signature screen renders (healthDeclaration.*).
+  await ensureCatalog('en', 'onboarding');
+  const t = makeT('en', onboarding);
+  const P = (k: string) => t(`healthDeclaration.pdf.${k}` as never) as string;
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+  // Simpler Pro covers Latin, so the same self-hosted font serves the English layout.
+  // liga off: the subset drops ligature glyphs, which rendered "first" as "f rst".
+  const embedOpts = { subset: true, features: { liga: false } };
+  const font = await pdfDoc.embedFont(await loadFontBytes(FONT_REGULAR_URL, 'regular'), embedOpts);
+  const bold = await pdfDoc.embedFont(await loadFontBytes(FONT_BOLD_URL, 'bold'), embedOpts);
+
+  const PAGE_W = 595.28;
+  const PAGE_H = 841.89;
+  const M = 50;
+  const TEXT_W = PAGE_W - M * 2;
+  const color = rgb(0.1, 0.1, 0.1);
+  let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  let y = PAGE_H - M;
+
+  const ensure = (needed: number) => {
+    if (y - needed < M) {
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - M;
+    }
+  };
+  const para = (text: string, size: number, f = font, gap = 6, indent = 0) => {
+    const lh = size * 1.35;
+    for (const l of wrapText(text, TEXT_W - indent, (s) => f.widthOfTextAtSize(s, size))) {
+      ensure(lh);
+      y -= lh;
+      page.drawText(l, { x: M + indent, y, size, font: f, color });
+    }
+    y -= gap;
+  };
+
+  para(P('title'), 20, bold, 12);
+  const dateStr = formatEnglishPdfDate(signedAt);
+  ensure(18);
+  y -= 14;
+  const nameStr = `${P('nameLabel')} ${userName}`;
+  const dateLine = `${P('dateLabel')} ${dateStr}`;
+  page.drawText(nameStr, { x: M, y, size: 12, font, color });
+  page.drawText(dateLine, { x: PAGE_W - M - font.widthOfTextAtSize(dateLine, 12), y, size: 12, font, color });
+  y -= 16;
+
+  para(P('instructionsTitle'), 13, bold, 4);
+  para(P('instruction1'), 11, font, 3);
+  para(P('instruction2'), 11, font, 3);
+  para(P('defaultNote'), 11, font, 12);
+
+  for (const q of HEALTH_QUESTIONS) {
+    para(`${t(`healthDeclaration.q.${q.id}` as never) as string}  ${P('answerNo')}`, 10.5, font, 5);
+  }
+  y -= 6;
+  // The declaration the user saw on screen, then the clauses only the signed document carries.
+  para(t('healthDeclaration.legalText' as never) as string, 10.5, font, 6);
+  for (const k of ['renewal', 'liabilityAuthority', 'benefits', 'freeWill']) para(P(k), 10.5, font, 6);
+
+  // Signature block (kept together at the end of the content).
+  ensure(75);
+  y -= 14;
+  page.drawText(P('signatureLabel'), { x: M, y, size: 12, font: bold, color });
+  const base64Data = signatureB64.replace(/^data:image\/\w+;base64,/, '');
+  const signatureImage = await pdfDoc.embedPng(Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0)));
+  page.drawImage(signatureImage, { x: M + 80, y: y - 40, width: 200, height: 55 });
+  return pdfDoc.save();
 }

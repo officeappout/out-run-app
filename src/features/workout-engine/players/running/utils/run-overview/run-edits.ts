@@ -60,7 +60,8 @@ export function structureBlocks(base: readonly RunBlock[], edits: RunEdits, ctx:
     const before = readMainSet(applyRunVariant({ blocks: [...base] }, edits.variant, ctx).blocks);
     return {
       blocks: applyMainSet(base, src, spec),
-      swap: { from: mainSetTitle((before ?? src).spec), to: mainSetTitle(spec) },
+      // Persisted into the session record (runMeta.mainSwap): Hebrew always.
+      swap: { from: mainSetTitle((before ?? src).spec, { stored: true }), to: mainSetTitle(spec, { stored: true }) },
     };
   }
   return { blocks: applyRunVariant({ blocks: [...base] }, edits.variant, ctx).blocks, swap: null };

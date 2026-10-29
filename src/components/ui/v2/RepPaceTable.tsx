@@ -110,7 +110,7 @@ export default function RepPaceTable({
   const t = useT(common);
   if (rows.length === 0) return null;
   return (
-    <div dir="rtl">
+    <div>
       <div className="flex items-center justify-between gap-2">
         <span className="truncate whitespace-nowrap text-[15px] font-black text-v2-ink">{title ?? t('ui.repPace.title')}</span>
         {summaryLabel && (

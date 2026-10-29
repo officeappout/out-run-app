@@ -1,0 +1,552 @@
+[
+  [
+    {
+      "kind": "strength",
+      "durationMinutes": 42,
+      "title": "אימון בוקר",
+      "programName": "פלג גוף עליון",
+      "levelIndex": 4,
+      "levelCount": 12,
+      "totalSets": 18,
+      "totalReps": 150,
+      "exerciseCount": 6,
+      "streakDays": 6,
+      "parkName": "גינת מאיר",
+      "dateMs": 1792381200000,
+      "topExercises": [
+        {
+          "name": "מתח",
+          "sets": 4,
+          "setsDone": 4,
+          "value": 10
+        },
+        {
+          "name": "מקבילים",
+          "sets": 3,
+          "setsDone": 2
+        }
+      ],
+      "moreExercises": 4
+    },
+    {
+      "kind": "strength",
+      "dateLabel": "יום ב׳ · 19.10",
+      "chip": "אימון כוח · גינת מאיר",
+      "name": "פלג גוף עליון",
+      "level": {
+        "index": 4,
+        "count": 12,
+        "frac": 0.3333333333333333
+      },
+      "duration": {
+        "value": "42",
+        "unit": "דקות"
+      },
+      "stats": [
+        {
+          "value": "42",
+          "unit": "דקות"
+        },
+        {
+          "value": "18",
+          "unit": "סטים"
+        },
+        {
+          "value": "150",
+          "unit": "חזרות"
+        },
+        {
+          "value": "6",
+          "unit": "תרגילים"
+        }
+      ],
+      "rows": [
+        {
+          "name": "מתח",
+          "boxes": [
+            "10",
+            "10",
+            "10",
+            "10"
+          ]
+        },
+        {
+          "name": "מקבילים",
+          "boxes": [
+            "✓",
+            "✓",
+            null
+          ]
+        }
+      ],
+      "moreLine": "ועוד 4 תרגילים",
+      "exerciseNames": "מתח · מקבילים · …",
+      "streakDays": 6,
+      "hero": {
+        "value": "150",
+        "unit": "חזרות"
+      }
+    }
+  ],
+  [
+    {
+      "kind": "strength",
+      "durationMinutes": 65
+    },
+    {
+      "kind": "strength",
+      "chip": "אימון הושלם",
+      "name": "אימון כוח",
+      "duration": {
+        "value": "1:05",
+        "unit": "שעות"
+      },
+      "stats": [
+        {
+          "value": "1:05",
+          "unit": "שעות"
+        }
+      ],
+      "rows": [],
+      "hero": {
+        "value": "1:05",
+        "unit": "שעות"
+      }
+    }
+  ],
+  [
+    {
+      "kind": "strength",
+      "durationMinutes": 0,
+      "programName": "אימון כוח",
+      "parkName": "פארק",
+      "topExercises": [
+        {
+          "name": "שכיבות סמיכה",
+          "sets": 3,
+          "setsDone": 3
+        }
+      ]
+    },
+    {
+      "kind": "strength",
+      "chip": "פארק",
+      "name": "אימון כוח",
+      "duration": {
+        "value": "0",
+        "unit": "דקות"
+      },
+      "stats": [
+        {
+          "value": "0",
+          "unit": "דקות"
+        },
+        {
+          "value": "1",
+          "unit": "תרגילים"
+        }
+      ],
+      "rows": [
+        {
+          "name": "שכיבות סמיכה",
+          "boxes": [
+            "✓",
+            "✓",
+            "✓"
+          ]
+        }
+      ],
+      "exerciseNames": "שכיבות סמיכה",
+      "hero": {
+        "value": "0",
+        "unit": "דקות"
+      }
+    }
+  ],
+  [
+    {
+      "kind": "strength",
+      "durationMinutes": 30,
+      "title": "ביתי",
+      "moreExercises": 2,
+      "exerciseCount": 1
+    },
+    {
+      "kind": "strength",
+      "chip": "אימון כוח",
+      "name": "ביתי",
+      "duration": {
+        "value": "30",
+        "unit": "דקות"
+      },
+      "stats": [
+        {
+          "value": "30",
+          "unit": "דקות"
+        },
+        {
+          "value": "1",
+          "unit": "תרגילים"
+        }
+      ],
+      "rows": [],
+      "moreLine": "ועוד 2 תרגילים",
+      "hero": {
+        "value": "30",
+        "unit": "דקות"
+      }
+    }
+  ],
+  [
+    {
+      "kind": "cardio",
+      "durationMinutes": 31,
+      "durationSeconds": 1870,
+      "title": "ריצת בוקר",
+      "distanceKm": 5.2,
+      "paceSecPerKm": 348,
+      "paceSplits": [
+        352,
+        340,
+        331,
+        349,
+        360
+      ],
+      "routeShape": [
+        0,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.25,
+        0.3333333333333333,
+        0.4166666666666667,
+        0.5,
+        0.5833333333333334,
+        0.6666666666666666,
+        0.75,
+        0.8333333333333334,
+        0.9166666666666666
+      ],
+      "parkName": "פארק הירקון",
+      "dateMs": 1792381200000,
+      "streakDays": 3
+    },
+    {
+      "kind": "cardio",
+      "dateLabel": "יום ב׳ · 06:40",
+      "chip": "ריצת בוקר · פארק הירקון",
+      "name": "ריצת בוקר",
+      "duration": {
+        "value": "31:10",
+        "unit": "זמן"
+      },
+      "stats": [
+        {
+          "value": "5:48",
+          "unit": "דק׳ לק״מ"
+        },
+        {
+          "value": "31:10",
+          "unit": "זמן"
+        },
+        {
+          "value": "5:31",
+          "unit": "הקפה מהירה"
+        }
+      ],
+      "rows": [],
+      "streakDays": 3,
+      "hero": {
+        "value": "5.2",
+        "unit": "ק״מ"
+      },
+      "distance": "5.2",
+      "pace": "5:48",
+      "fastest": "5:31",
+      "splits": {
+        "heights": [
+          0.5293103448275862,
+          0.7982758620689656,
+          1,
+          0.596551724137931,
+          0.35
+        ],
+        "fastestIndex": 2,
+        "fastestLabel": "5:31"
+      },
+      "route": [
+        0,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.25,
+        0.3333333333333333,
+        0.4166666666666667,
+        0.5,
+        0.5833333333333334,
+        0.6666666666666666,
+        0.75,
+        0.8333333333333334,
+        0.9166666666666666
+      ],
+      "kmMarks": [
+        {
+          "f": 0.167,
+          "km": 1
+        },
+        {
+          "f": 0.375,
+          "km": 2
+        },
+        {
+          "f": 0.583,
+          "km": 3
+        },
+        {
+          "f": 0.792,
+          "km": 4
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "cardio",
+      "durationMinutes": 20
+    },
+    {
+      "kind": "cardio",
+      "chip": "ריצה",
+      "name": "ריצה",
+      "duration": {
+        "value": "20",
+        "unit": "דקות"
+      },
+      "stats": [
+        {
+          "value": "20",
+          "unit": "דקות"
+        }
+      ],
+      "rows": [],
+      "hero": {
+        "value": "20",
+        "unit": "דקות"
+      }
+    }
+  ],
+  [
+    {
+      "kind": "cardio",
+      "durationMinutes": 75,
+      "durationSeconds": 4510,
+      "distanceKm": 12.04,
+      "paceSecPerKm": 400,
+      "together": {
+        "groupName": "קבוצת הבוקר",
+        "collectiveKm": 12.4,
+        "participantCount": 5,
+        "people": [
+          {
+            "name": "נועה כהן",
+            "km": 5.2,
+            "paceSecPerKm": 348,
+            "isMe": true
+          },
+          {
+            "name": "דניאל לוי",
+            "km": 4.8
+          },
+          {
+            "name": "שירה בר",
+            "km": 3
+          },
+          {
+            "name": "יוסי",
+            "km": 2
+          },
+          {
+            "name": "אורי",
+            "km": 1
+          }
+        ]
+      }
+    },
+    {
+      "kind": "cardio",
+      "chip": "ריצה",
+      "name": "ריצה",
+      "duration": {
+        "value": "1:15:10",
+        "unit": "זמן"
+      },
+      "stats": [
+        {
+          "value": "6:40",
+          "unit": "דק׳ לק״מ"
+        },
+        {
+          "value": "1:15:10",
+          "unit": "זמן"
+        }
+      ],
+      "rows": [],
+      "hero": {
+        "value": "12.0",
+        "unit": "ק״מ"
+      },
+      "distance": "12.0",
+      "pace": "6:40",
+      "together": {
+        "names": "נועה, דניאל ועוד 3",
+        "subline": "רצנו יחד · קבוצת הבוקר",
+        "avatars": [
+          "נכ",
+          "דל",
+          "שב",
+          "יו"
+        ],
+        "moreCount": 1,
+        "jointKm": "12.4",
+        "participantCount": 5,
+        "people": [
+          {
+            "name": "נועה",
+            "initials": "נכ",
+            "km": "5.2",
+            "frac": 1,
+            "pace": "5:48",
+            "isMe": true
+          },
+          {
+            "name": "דניאל",
+            "initials": "דל",
+            "km": "4.8",
+            "frac": 0.923076923076923,
+            "isMe": false
+          },
+          {
+            "name": "שירה",
+            "initials": "שב",
+            "km": "3.0",
+            "frac": 0.5769230769230769,
+            "isMe": false
+          },
+          {
+            "name": "יוסי",
+            "initials": "יו",
+            "km": "2.0",
+            "frac": 0.3846153846153846,
+            "isMe": false
+          }
+        ]
+      }
+    }
+  ],
+  [
+    {
+      "kind": "cardio",
+      "durationMinutes": 40,
+      "distanceKm": 8,
+      "together": {
+        "participantCount": 2,
+        "people": [
+          {
+            "name": "נועה",
+            "km": 4,
+            "isMe": true
+          },
+          {
+            "name": "דניאל",
+            "km": 4
+          }
+        ]
+      }
+    },
+    {
+      "kind": "cardio",
+      "chip": "ריצה",
+      "name": "ריצה",
+      "duration": {
+        "value": "40",
+        "unit": "דקות"
+      },
+      "stats": [
+        {
+          "value": "40",
+          "unit": "דקות"
+        }
+      ],
+      "rows": [],
+      "hero": {
+        "value": "8.0",
+        "unit": "ק״מ"
+      },
+      "distance": "8.0",
+      "together": {
+        "names": "נועה ודניאל",
+        "subline": "רצנו יחד",
+        "avatars": [
+          "נו",
+          "דנ"
+        ],
+        "moreCount": 0,
+        "participantCount": 2,
+        "people": [
+          {
+            "name": "נועה",
+            "initials": "נו",
+            "km": "4.0",
+            "frac": 1,
+            "isMe": true
+          },
+          {
+            "name": "דניאל",
+            "initials": "דנ",
+            "km": "4.0",
+            "frac": 1,
+            "isMe": false
+          }
+        ]
+      }
+    }
+  ],
+  [
+    {
+      "kind": "cardio",
+      "durationMinutes": 40,
+      "distanceKm": 8,
+      "together": {
+        "participantCount": 3,
+        "people": [
+          {
+            "name": "",
+            "km": 0
+          },
+          {
+            "name": "  "
+          }
+        ]
+      }
+    },
+    {
+      "kind": "cardio",
+      "chip": "ריצה",
+      "name": "ריצה",
+      "duration": {
+        "value": "40",
+        "unit": "דקות"
+      },
+      "stats": [
+        {
+          "value": "40",
+          "unit": "דקות"
+        }
+      ],
+      "rows": [],
+      "hero": {
+        "value": "8.0",
+        "unit": "ק״מ"
+      },
+      "distance": "8.0"
+    }
+  ]
+]

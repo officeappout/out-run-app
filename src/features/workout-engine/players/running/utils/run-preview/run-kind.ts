@@ -6,7 +6,7 @@
 
 import type { RunBlock } from '../../types/run-block.type';
 import type { WorkoutCategory } from '../../../../core/types/running.types';
-import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
+import { rt } from '../run-utils-t';
 
 export type RunKind = 'easy' | 'interval' | 'tempo' | 'long';
 
@@ -32,11 +32,11 @@ export const CATEGORY_TO_KIND: Record<WorkoutCategory, RunKind> = {
  * preview and the player never disagree. `text` is the darker shade for
  * labels on white; `tint` the 13% fill behind the icon.
  */
-export const RUN_KIND_STYLE: Record<RunKind, { color: string; text: string; tint: string; label: string }> = {
-  easy: { color: '#84cc16', text: '#65a30d', tint: '#84cc1622', label: 'ריצה קלה' },
-  interval: { color: '#e5484d', text: '#c0392b', tint: '#e5484d1f', label: 'אינטרוולים' },
-  tempo: { color: '#f97316', text: '#c2410c', tint: '#f9731622', label: 'טמפו' },
-  long: { color: '#a3d96b', text: '#65a30d', tint: '#a3d96b2e', label: 'ריצה ארוכה' },
+export const RUN_KIND_STYLE: Record<RunKind, { color: string; text: string; tint: string; readonly label: string }> = {
+  easy: { color: '#84cc16', text: '#65a30d', tint: '#84cc1622', get label() { return rt('runUtils.kind.easy'); } },
+  interval: { color: '#e5484d', text: '#c0392b', tint: '#e5484d1f', get label() { return rt('runUtils.kind.interval'); } },
+  tempo: { color: '#f97316', text: '#c2410c', tint: '#f9731622', get label() { return rt('runUtils.kind.tempo'); } },
+  long: { color: '#a3d96b', text: '#65a30d', tint: '#a3d96b2e', get label() { return rt('runUtils.kind.long'); } },
 };
 
 export function isWorkoutCategory(raw: unknown): raw is WorkoutCategory {
@@ -71,7 +71,12 @@ export function inferRunKind(category: WorkoutCategory | null | undefined, block
   return 'easy';
 }
 
+/** The category's label in the current language (Hebrew = RUNNING_WORKOUT_CATEGORY_LABELS_HE, pinned by a test). */
+export function runningWorkoutCategoryLabel(category: WorkoutCategory): string {
+  return rt(`runUtils.category.${category}`);
+}
+
 /** "אינטרוולים קצרים" from the category, else the kind's generic label. */
 export function runTypeLabel(category: WorkoutCategory | null | undefined, kind: RunKind): string {
-  return (category && RUNNING_WORKOUT_CATEGORY_LABELS_HE[category]) || RUN_KIND_STYLE[kind].label;
+  return (category && runningWorkoutCategoryLabel(category)) || RUN_KIND_STYLE[kind].label;
 }

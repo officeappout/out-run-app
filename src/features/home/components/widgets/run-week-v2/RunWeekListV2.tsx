@@ -22,6 +22,7 @@ import {
 import type { RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
 import RunWeekCardV2 from './RunWeekCardV2';
 import { useLocaleStore } from '@/store/useLocaleStore';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 interface RunWeekListV2Props {
   schedule: readonly RunScheduleEntryLike[] | undefined;
@@ -46,6 +47,7 @@ interface RunWeekListV2Props {
 export default function RunWeekListV2({
   schedule, week, totalWeeks, programLabel, scheduleDays, targetDay, isRunDay, todayWorkout, onStartToday, onSkipToday, onUndoSkip, placement,
 }: RunWeekListV2Props) {
+  const { direction } = useUiDir();
   const locale = useLocaleStore((s) => s.locale);
   const placeKey = placement ? JSON.stringify(placement) : '';
   const rows = useMemo(
@@ -62,7 +64,7 @@ export default function RunWeekListV2({
   if (rows.length === 0) return null;
 
   return (
-    <section dir="rtl" aria-label={t('runWeekList.label')}>
+    <section dir={direction} aria-label={t('runWeekList.label')}>
       <p className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
         {totalWeeks
           ? t('runWeekList.programWeekOf', { program: programLabel, week: String(week), total: String(totalWeeks) })

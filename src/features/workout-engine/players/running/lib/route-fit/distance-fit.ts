@@ -11,11 +11,11 @@
  *     non-loop line)
  */
 
-import { withUnit } from '@/lib/i18n/units';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { pathLengthMeters, isOutAndBackPath } from '@/features/parks/core/services/geoUtils';
 import { isLoopRoute } from '@/features/parks/core/services/route-shape';
 import type { DistanceFit } from './types';
+import { rt, unitText } from '../../utils/run-utils-t';
 
 /** Within this fraction of the target counts as a fit (or FIT_MIN_KM, whichever is larger). */
 export const FIT_TOLERANCE = 0.15;
@@ -45,7 +45,7 @@ const fmtNum = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 /** "סיבוב אחד" / "1.5 סיבובים" / "3 סיבובים". */
 export function lapsLabel(laps: number): string {
-  return laps === 1 ? 'סיבוב אחד' : `${fmtNum(laps)} סיבובים`;
+  return laps === 1 ? rt('runUtils.laps.one') : rt('runUtils.laps.n', { n: fmtNum(laps) });
 }
 
 function tolKm(targetKm: number, frac: number): number {
@@ -68,7 +68,7 @@ export function fitDistance(route: Pick<Route, 'distance' | 'path' | 'routeShape
 
   if (shape === 'loop') {
     const laps = targetKm / D;
-    if (laps > MAX_LAPS + 0.5) return no(`מסלול קצר מדי (${withUnit('km', fmtNum(round1(D)))})`);
+    if (laps > MAX_LAPS + 0.5) return no(rt('runUtils.fit.tooShort', { len: unitText('km', fmtNum(round1(D))) }));
     const whole = Math.max(1, Math.round(laps));
     if (Math.abs(whole * D - targetKm) <= tolKm(targetKm, FIT_TOLERANCE)) {
       return {
@@ -80,7 +80,7 @@ export function fitDistance(route: Pick<Route, 'distance' | 'path' | 'routeShape
     if (!Number.isInteger(half) && Math.abs(half * D - targetKm) <= tolKm(targetKm, FIT_TOLERANCE)) {
       return {
         verdict: 'laps', laps: half, endsAtStart: false, turnaroundKm: null,
-        score: 0.8 - lapPenalty(half), reason: lapsLabel(half), caution: 'מסיים בצד השני של הלולאה',
+        score: 0.8 - lapPenalty(half), reason: lapsLabel(half), caution: rt('runUtils.fit.endsOtherSide'),
       };
     }
     const best = Math.abs(half * D - targetKm) < Math.abs(whole * D - targetKm) ? half : whole;
@@ -88,17 +88,17 @@ export function fitDistance(route: Pick<Route, 'distance' | 'path' | 'routeShape
       return {
         verdict: 'close', laps: best, endsAtStart: Number.isInteger(best), turnaroundKm: null,
         score: 0.45, reason: best === 1 ? null : lapsLabel(best),
-        caution: `${withUnit('km', fmtNum(round1(best * D)))} מתוך ${fmtNum(targetKm)}`,
+        caution: rt('runUtils.fit.partOf', { part: unitText('km', fmtNum(round1(best * D))), target: fmtNum(targetKm) }),
       };
     }
-    return no(D > targetKm ? `ארוך מהאימון (${withUnit('km', fmtNum(round1(D)))})` : `${withUnit('km', fmtNum(round1(best * D)))} מתוך ${fmtNum(targetKm)}`);
+    return no(D > targetKm ? rt('runUtils.fit.tooLong', { len: unitText('km', fmtNum(round1(D))) }) : rt('runUtils.fit.partOf', { part: unitText('km', fmtNum(round1(best * D))), target: fmtNum(targetKm) }));
   }
 
   // Out-and-back (round trip D) or a line run there-and-back (round trip 2D):
   // you can always turn round early, so any distance ends at the start.
   const roundTrip = shape === 'out_and_back' ? D : 2 * D;
   const reps = targetKm / roundTrip;
-  if (reps > MAX_LAPS + 0.5) return no(`מסלול קצר מדי (${withUnit('km', fmtNum(round1(D)))})`);
+  if (reps > MAX_LAPS + 0.5) return no(rt('runUtils.fit.tooShort', { len: unitText('km', fmtNum(round1(D))) }));
   if (reps <= 1 + FIT_TOLERANCE) {
     const turn = round1(Math.min(targetKm, roundTrip) / 2);
     const fullLength = Math.abs(roundTrip - targetKm) <= tolKm(targetKm, FIT_TOLERANCE);
@@ -106,7 +106,7 @@ export function fitDistance(route: Pick<Route, 'distance' | 'path' | 'routeShape
       verdict: 'fits', laps: 1, endsAtStart: true, turnaroundKm: turn,
       // Turning round mid-route is fine, a touch below running the route as designed.
       score: fullLength ? 1 : 0.9,
-      reason: fullLength && shape === 'out_and_back' ? null : `הלוך-חזור · סיבוב בק״מ ${fmtNum(turn)}`,
+      reason: fullLength && shape === 'out_and_back' ? null : rt('runUtils.fit.turnRound', { km: fmtNum(turn) }),
       caution: null,
     };
   }
@@ -114,7 +114,7 @@ export function fitDistance(route: Pick<Route, 'distance' | 'path' | 'routeShape
   return {
     verdict: 'laps', laps, endsAtStart: true, turnaroundKm: null,
     score: 0.9 - lapPenalty(laps),
-    reason: `הלוך-חזור · ${lapsLabel(laps)}`,
+    reason: rt('runUtils.fit.outAndBackLaps', { laps: lapsLabel(laps) }),
     caution: null,
   };
 

@@ -4,7 +4,7 @@ import {
   LIGHT_MODE_REMAINING_THRESHOLD, LIGHT_SESSION_SETS_CAP, LIGHT_INTENSITY_CAP, NORMAL_DECISION,
   type BudgetLightInput,
 } from '../policy';
-import { budgetLightText, copyGenderOf, BUDGET_LIGHT_COPY } from '../copy';
+import { budgetLightText, copyGenderOf } from '../copy';
 import { snapshotFromVolumeStore, strengthSetsDoneToday, trainingDaysOf } from '../snapshot';
 
 const LIGHT_WEEKLY = { mode: 'light', setsCap: LIGHT_SESSION_SETS_CAP, intensityCap: LIGHT_INTENSITY_CAP, reasonKey: 'budget_light.weekly_spent' };
@@ -47,11 +47,13 @@ describe('resolveBudgetLightMode — policy table', () => {
 
 describe('copy — gender variants, simple voice, no slashes', () => {
   it('every key has distinct male / female card + description lines without "/"', () => {
-    for (const forms of Object.values(BUDGET_LIGHT_COPY)) {
-      for (const v of Object.values(forms)) {
-        expect(v.male).not.toBe(v.female);
-        expect(v.male).not.toMatch(/\//);
-        expect(v.female).not.toMatch(/\//);
+    for (const key of ['budget_light.weekly_spent', 'budget_light.daily_spent'] as const) {
+      for (const form of ['card', 'description'] as const) {
+        const male = budgetLightText(key, form, 'male');
+        const female = budgetLightText(key, form, 'female');
+        expect(male).not.toBe(female);
+        expect(male).not.toMatch(/\//);
+        expect(female).not.toMatch(/\//);
       }
     }
   });

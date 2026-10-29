@@ -7,6 +7,7 @@ import { ProgramArt, ProgramTrackIcon } from './program-track-visual';
 import { useOnboardingEntryTap, type OnboardingEntryNavigate } from './useOnboardingEntryTap';
 import { PROGRAM_CARD_ENTRY } from './program-signup-gate';
 import { ADD_TRACK_CTA, ADD_TRACK_DISMISS, PROGRAM_START_COPY } from './program-start-copy';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 interface AddTrackCardProps {
   /** The track the user does NOT have yet. */
@@ -24,14 +25,15 @@ interface AddTrackCardProps {
  * same way AddStrengthProgramCard sits there.
  */
 export default function AddTrackCard({ track, profile, onNavigate, onDismiss }: AddTrackCardProps) {
+  const { direction } = useUiDir();
   const { loading, tap } = useOnboardingEntryTap(profile, track === 'running' ? 'RUNNING' : 'STRENGTH', onNavigate, PROGRAM_CARD_ENTRY);
   const copy = PROGRAM_START_COPY[track];
   return (
     <div className="flex h-full w-full items-center justify-center">
       <div
         data-add-track={track}
-        className="flex w-full flex-col overflow-hidden rounded-[24px] bg-white text-right shadow-lg"
-        dir="rtl"
+        className="flex w-full flex-col overflow-hidden rounded-[24px] bg-white text-start shadow-lg"
+        dir={direction}
       >
         <div className="relative h-[124px] w-full">
           <ProgramArt track={track} crop="wide" fade="70%" />

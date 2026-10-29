@@ -3,12 +3,13 @@
  */
 import { weekdayName } from '@/lib/i18n/core/fmt';
 import { makeLiveT } from '@/lib/i18n/live-t';
+import { rt } from '../run-utils-t';
 import { home } from '@/messages/ns/home';
 import type { Locale } from '@/lib/i18n/locales';
 import { mapRunWeekFromLetters, type RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
 
 /** Stored schedule days are Hebrew letters (data, matched below) — only the row's display label goes through fmt. */
-const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: stored schedule data
 
 export interface RunWeekContext {
   week: number;
@@ -39,9 +40,11 @@ export function parseRunWeekParams(
 /** "שבוע 3 מתוך 8 · אימון 2 השבוע" (long) / "שבוע 3 · אימון 2" (short). */
 export function runWeekContextLabel(ctx: RunWeekContext | null | undefined, { short = false } = {}): string {
   if (!ctx) return '';
-  const week = short || !ctx.totalWeeks ? `שבוע ${ctx.week}` : `שבוע ${ctx.week} מתוך ${ctx.totalWeeks}`;
+  const week = short || !ctx.totalWeeks
+    ? rt('runUtils.week.only', { week: String(ctx.week) })
+    : rt('runUtils.week.of', { week: String(ctx.week), total: String(ctx.totalWeeks) });
   if (!ctx.day) return week;
-  return short ? `${week} · אימון ${ctx.day}` : `${week} · אימון ${ctx.day} השבוע`;
+  return `${week} · ${rt(short ? 'runUtils.week.day' : 'runUtils.week.dayThisWeek', { day: String(ctx.day) })}`;
 }
 
 // ── Weekly run list ──────────────────────────────────────────────────────

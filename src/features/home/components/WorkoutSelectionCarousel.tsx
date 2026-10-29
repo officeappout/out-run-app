@@ -28,6 +28,7 @@ import { hapticMedium } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
 import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 // ─── Layout — tuned for 260px card on a 390px viewport ──────────────────────
 const CARD_MAX_W = 260;
@@ -83,9 +84,10 @@ function MetadataRow({ difficulty, duration, isRecovery }: {
   duration: number;
   isRecovery?: boolean;
 }) {
+  const { direction } = useUiDir();
   if (isRecovery) {
     return (
-      <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
+      <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir={direction}>
         <span>{/* i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true) */}🧘 התאוששות פעילה</span>
         <span style={{ color: '#343434' }}>|</span>
         <span>{/* i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true) */}{duration} דקות</span>
@@ -97,7 +99,7 @@ function MetadataRow({ difficulty, duration, isRecovery }: {
   const label = DIFFICULTY_LABELS[clamped];
 
   return (
-    <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
+    <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir={direction}>
       <span>{label}</span>
       <span className="flex items-center gap-0.5">
         {[0, 1, 2].map(i => (
@@ -186,7 +188,7 @@ export default function WorkoutSelectionCarousel({
   }, [activeIndex, handleSelect]);
 
   return (
-    <div dir="rtl" className="w-full">
+    <div className="w-full">
       <div
         ref={viewportRef}
         className="overflow-hidden w-full"
@@ -283,6 +285,7 @@ function TrioCard({
   isActive: boolean;
   userGender?: 'male' | 'female' | 'other' | null;
 }) {
+  const { direction } = useUiDir();
   const { workout } = option.result;
   const exercises = workout.exercises;
   const ctaText = useMemo(() => getGenderedCtaText(userGender, option.label), [userGender, option.label]);
@@ -401,7 +404,7 @@ function TrioCard({
       />
 
       {/* 4. Content layer — pinned to the bottom */}
-      <div className="absolute inset-0 z-10 flex flex-col justify-end px-4 pb-4" dir="rtl">
+      <div className="absolute inset-0 z-10 flex flex-col justify-end px-4 pb-4" dir={direction}>
         {/* Equipment badges — subtle secondary row above metadata */}
         {equipmentIcons.display.length > 0 ? (
           <div className="flex gap-1.5 mb-1.5">
@@ -445,7 +448,7 @@ function TrioCard({
         ) : null}
 
         {/* Metadata row: difficulty + bolts | duration ←→ heart */}
-        <div className="w-full flex items-center justify-between mb-1" dir="rtl">
+        <div className="w-full flex items-center justify-between mb-1" dir={direction}>
           <MetadataRow
             difficulty={workout.difficulty}
             duration={workout.estimatedDuration}

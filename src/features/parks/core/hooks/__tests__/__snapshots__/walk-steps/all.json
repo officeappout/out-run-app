@@ -1,0 +1,6390 @@
+[
+  [
+    "depart",
+    "right",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "right",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "left",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "left",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    null,
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    null,
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "התחל הליכה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "depart",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התחל הליכה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "arrive",
+    "right",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "right",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "right",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "right",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "left",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "left",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "left",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "left",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "slight right",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "slight right",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "slight right",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "slight right",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "slight left",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "slight left",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "slight left",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "slight left",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "sharp right",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "sharp right",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "sharp right",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "sharp right",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "sharp left",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "sharp left",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "sharp left",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "sharp left",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "straight",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "straight",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "straight",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "straight",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "uturn",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "uturn",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "uturn",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "uturn",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "Right",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "Right",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "Right",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "Right",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    null,
+    null,
+    []
+  ],
+  [
+    "arrive",
+    null,
+    "",
+    []
+  ],
+  [
+    "arrive",
+    null,
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    null,
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "arrive",
+    "weird",
+    null,
+    []
+  ],
+  [
+    "arrive",
+    "weird",
+    "",
+    []
+  ],
+  [
+    "arrive",
+    "weird",
+    "  ",
+    []
+  ],
+  [
+    "arrive",
+    "weird",
+    "הרצל",
+    []
+  ],
+  [
+    "arrive",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    []
+  ],
+  [
+    "continue",
+    "right",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "right",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "left",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "left",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    null,
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    null,
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "continue",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "right",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "right",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "left",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "left",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    null,
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    null,
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "roundabout",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "right",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "right",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "left",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "left",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    null,
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    null,
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "rotary",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "בכיכר, צא בהתאם לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "right",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "right",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "left",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "left",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    null,
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    null,
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "התמזג",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "התמזג לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "merge",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "התמזג לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "right",
+    null,
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "right",
+    "",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "left",
+    null,
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "left",
+    "",
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה שמאלה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה שמאלה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "ימינה קל לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "ימינה קל לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "שמאלה קל לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "שמאלה קל לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה חד ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה חד ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה חד שמאלה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה חד שמאלה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "פנייה חזרה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנייה חזרה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    null,
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    null,
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "fork",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "right",
+    null,
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "right",
+    "",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "left",
+    null,
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "left",
+    "",
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה שמאלה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה שמאלה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "ימינה קל לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "ימינה קל לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "שמאלה קל לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "שמאלה קל לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה חד ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה חד ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה חד שמאלה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה חד שמאלה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "פנייה חזרה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנייה חזרה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    null,
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    null,
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "turn",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "right",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "right",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "left",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "left",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    null,
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    null,
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "new name",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "right",
+    null,
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "right",
+    "",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "left",
+    null,
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "left",
+    "",
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה שמאלה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה שמאלה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "ימינה קל לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "ימינה קל לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "שמאלה קל לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "שמאלה קל לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה חד ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה חד ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה חד שמאלה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה חד שמאלה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "straight",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "straight",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "פנייה חזרה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנייה חזרה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "Right",
+    null,
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "Right",
+    "",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    null,
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    null,
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    null,
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "weird",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "weird",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    "end of road",
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "right",
+    null,
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "right",
+    "",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "right",
+    "  ",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "left",
+    null,
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "left",
+    "",
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "left",
+    "  ",
+    [
+      {
+        "instruction": "פנה שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "left",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה שמאלה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה שמאלה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight right",
+    null,
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight right",
+    "",
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight right",
+    "  ",
+    [
+      {
+        "instruction": "ימינה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight right",
+    "הרצל",
+    [
+      {
+        "instruction": "ימינה קל לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "ימינה קל לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight left",
+    null,
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight left",
+    "",
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight left",
+    "  ",
+    [
+      {
+        "instruction": "שמאלה קל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight left",
+    "הרצל",
+    [
+      {
+        "instruction": "שמאלה קל לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "slight left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "שמאלה קל לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp right",
+    null,
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp right",
+    "",
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp right",
+    "  ",
+    [
+      {
+        "instruction": "פנה חד ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה חד ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה חד ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp left",
+    null,
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp left",
+    "",
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp left",
+    "  ",
+    [
+      {
+        "instruction": "פנה חד שמאלה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp left",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה חד שמאלה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "sharp left",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה חד שמאלה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "straight",
+    null,
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "straight",
+    "",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "straight",
+    "  ",
+    [
+      {
+        "instruction": "המשך ישר",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "straight",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך ישר לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "straight",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך ישר לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "uturn",
+    null,
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "uturn",
+    "",
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "uturn",
+    "  ",
+    [
+      {
+        "instruction": "פנייה חזרה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "uturn",
+    "הרצל",
+    [
+      {
+        "instruction": "פנייה חזרה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "uturn",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנייה חזרה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "Right",
+    null,
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "Right",
+    "",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "Right",
+    "  ",
+    [
+      {
+        "instruction": "פנה ימינה",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "Right",
+    "הרצל",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "Right",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "פנה ימינה לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    null,
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    null,
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    null,
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    null,
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    null,
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "weird",
+    null,
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "weird",
+    "",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "weird",
+    "  ",
+    [
+      {
+        "instruction": "המשך",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "weird",
+    "הרצל",
+    [
+      {
+        "instruction": "המשך לרחוב הרצל",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    null,
+    "weird",
+    "רחוב ז׳בוטינסקי ",
+    [
+      {
+        "instruction": "המשך לרחוב רחוב ז׳בוטינסקי",
+        "distanceMeters": 120
+      }
+    ]
+  ],
+  [
+    {
+      "instruction": "פנה שמאלה לרחוב ב",
+      "distanceMeters": 10
+    }
+  ],
+  [],
+  []
+]

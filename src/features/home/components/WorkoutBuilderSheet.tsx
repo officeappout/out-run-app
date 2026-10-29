@@ -785,7 +785,6 @@ export default function WorkoutBuilderSheet({
   return (
     <div
       className={`fixed inset-0 z-[60] flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : ''}`}
-      dir="rtl"
       style={
         v2
           ? undefined
@@ -1091,7 +1090,7 @@ export default function WorkoutBuilderSheet({
 
             {/* Custom slider (shown when "אחר" is active) */}
             {showCustomTime && (
-              <div className="mt-3 space-y-2" dir="rtl">
+              <div className="mt-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-bold text-gray-700'}>{t('builder.duration.custom', { minutes: String(customTime) })}</span>
                   <span className="text-xs text-gray-400">

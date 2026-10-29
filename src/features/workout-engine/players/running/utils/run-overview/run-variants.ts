@@ -17,7 +17,8 @@ import type { RunBlock } from '../../types/run-block.type';
 import { isRestBlock } from '../../lib/planned-rep-results';
 import { coreWorkBlocks, estimateBlockSeconds, estimateRunTotals, findMainRep, type RunPaceContext } from '../run-preview/run-estimates';
 import { blockPhase } from '../run-preview/run-strip';
-import { blockSizeLabel, cleanBlockLabel } from '../run-preview/run-title';
+import { bareBlockSize, cleanBlockLabel } from '../run-preview/run-title';
+import { unitText } from '../run-utils-t';
 
 export type RunVariantKey = 'lighter' | 'planned' | 'harder';
 export const RUN_VARIANT_KEYS: readonly RunVariantKey[] = ['lighter', 'planned', 'harder'];
@@ -39,7 +40,7 @@ export function isRunVariantKey(v: unknown): v is RunVariantKey {
 
 /** "400 מ׳" → "400", "10 דק׳" → "10" (the selector drops the unit, board M-6a). */
 export function bareSize(b: RunBlock): string {
-  return blockSizeLabel(b).replace(/\s*(מ׳|דק׳|שנ׳|ק״מ)$/, '').trim();
+  return bareBlockSize(b);
 }
 
 function sameShape(a: RunBlock, b: RunBlock): boolean {
@@ -189,9 +190,9 @@ function steadyVariants(blocks: readonly RunBlock[], ctx: RunPaceContext): RunVa
     return blocks.map((b, i) => (idx.has(i) ? scaleBlock(b, f) : b));
   };
   return [
-    { key: 'lighter', blocks: scaled(lightMin), label: `${lightMin} דק׳`, level: LEVEL.lighter },
-    { key: 'planned', blocks: [...blocks], label: `${plannedMin} דק׳`, level: LEVEL.planned },
-    { key: 'harder', blocks: scaled(hardMin), label: `${hardMin} דק׳`, level: LEVEL.harder },
+    { key: 'lighter', blocks: scaled(lightMin), label: unitText('min', lightMin), level: LEVEL.lighter },
+    { key: 'planned', blocks: [...blocks], label: unitText('min', plannedMin), level: LEVEL.planned },
+    { key: 'harder', blocks: scaled(hardMin), label: unitText('min', hardMin), level: LEVEL.harder },
   ];
 }
 

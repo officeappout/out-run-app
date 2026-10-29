@@ -4,6 +4,7 @@ import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Chip } from '@/components/ui/v2';
 import type { ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { ProgramArt, ProgramTrackIcon } from './program-track-visual';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface ProgramStartCardProps {
   track: ProgramTrack;
@@ -31,6 +32,7 @@ const SIMPLER = { fontFamily: 'var(--font-simpler)' } as const;
  * parent (the pair splits the carousel slot in two).
  */
 export default function ProgramStartCard({ track, title, valueLine, chipLabel, loading = false, onTap, slide = false }: ProgramStartCardProps) {
+  const { direction } = useUiDir();
   return (
     <button
       type="button"
@@ -38,8 +40,8 @@ export default function ProgramStartCard({ track, title, valueLine, chipLabel, l
       disabled={loading}
       data-program-start={track}
       data-program-start-slide={slide ? '' : undefined}
-      className={`group relative ${slide ? 'h-full w-full' : 'h-[244px] min-w-0 flex-1'} overflow-hidden rounded-[24px] bg-white text-right shadow-lg transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60`}
-      dir="rtl"
+      className={`group relative ${slide ? 'h-full w-full' : 'h-[244px] min-w-0 flex-1'} overflow-hidden rounded-[24px] bg-white text-start shadow-lg transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60`}
+      dir={direction}
     >
       <ProgramArt track={track} crop="tall" fade={slide ? '58%' : '72%'} />
       <div className={`absolute inset-x-0 bottom-0 flex flex-col items-start ${slide ? 'p-4' : 'p-3'}`}>

@@ -99,6 +99,12 @@ export interface LocaleInputs {
   storedLocale?: unknown;
   /** Device languages, most preferred first ('en-US', 'ru', ...). */
   deviceLocales?: readonly string[];
+  /**
+   * May the device languages decide? Default true. false for an EXISTING account with no stored choice:
+   * device detection is for brand-new users only, so turning a language flag on never flips a
+   * Hebrew user because their phone lists English first. Servers never pass device languages at all.
+   */
+  detectDevice?: boolean;
 }
 
 /** 'en-US' → 'en', 'RU' → 'ru'. Non-strings → ''. */
@@ -107,11 +113,11 @@ export function normalizeLocaleTag(tag: unknown): string {
   return tag.trim().toLowerCase().split(/[-_]/)[0] ?? '';
 }
 
-/** Profile → stored pref → device → source. Only allowed locales count. */
+/** Profile → stored pref → device (only when detectDevice !== false) → source. Only allowed locales count. */
 export function resolveLocale(inputs: LocaleInputs): string {
   if (!inputs.i18nEnabled) return I18N_SOURCE_LOCALE;
   const allowed = new Set([I18N_SOURCE_LOCALE, ...inputs.allowed]);
-  const candidates: unknown[] = [inputs.profileLocale, inputs.storedLocale, ...(inputs.deviceLocales ?? [])];
+  const candidates: unknown[] = [inputs.profileLocale, inputs.storedLocale, ...(inputs.detectDevice === false ? [] : (inputs.deviceLocales ?? []))];
   for (const c of candidates) {
     const loc = normalizeLocaleTag(c);
     if (loc && allowed.has(loc)) return loc;

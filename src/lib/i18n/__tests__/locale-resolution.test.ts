@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allowedLocales, decideHtmlLangDir, deviceLocalesFor, effectiveLocaleFlags, pickAppLocale } from '../locale-resolution';
+import { allowedLocales, decideHtmlLangDir, deviceLocalesFor, effectiveLocaleFlags, deviceDetectAllowed, isNewUserForLocale, pickAppLocale } from '../locale-resolution';
 import { parseLocaleCookie } from '../locale-cookie';
 import { formatDate, formatNumber, formatTime, weekdayName } from '../core/fmt';
 import { getTranslation, he as legacyHe } from '../dictionaries';
@@ -79,5 +79,61 @@ describe('deviceLocalesFor — super-admin English is never an automatic device 
     const flags = effectiveLocaleFlags({ enableI18n: true, enableLocaleEn: false, enableLocaleRu: false, enableLocaleDe: false }, true);
     expect(pickAppLocale(flags, { deviceLocales: deviceLocalesFor(['en-US'], { enableLocaleEn: false }) })).toBe('he');
     expect(pickAppLocale(flags, { storedLocale: 'en', deviceLocales: deviceLocalesFor(['en-US'], { enableLocaleEn: false }) })).toBe('en');
+  });
+});
+
+describe('device detection is for new users only', () => {
+  const on = { enableI18n: true, enableLocaleEn: true, enableLocaleRu: false, enableLocaleDe: false };
+  const off = { ...on, enableI18n: false, enableLocaleEn: false };
+  const NOW = Date.UTC(2026, 9, 29);
+  const DAY = 24 * 60 * 60 * 1000;
+  const device = ['en-US', 'he-IL'];
+  const pick = (profile: { createdAt?: unknown } | null, extra: object = {}) =>
+    pickAppLocale(on, { deviceLocales: device, detectDevice: isNewUserForLocale(profile, NOW), ...extra });
+
+  it('classifies new vs existing', () => {
+    expect(isNewUserForLocale(null, NOW)).toBe(true);
+    expect(isNewUserForLocale({ createdAt: new Date(NOW - 1000) }, NOW)).toBe(true);
+    expect(isNewUserForLocale({ createdAt: { seconds: (NOW - 2 * DAY) / 1000 } }, NOW)).toBe(false);
+    expect(isNewUserForLocale({ createdAt: { toMillis: () => NOW - 30 * DAY } }, NOW)).toBe(false);
+    expect(isNewUserForLocale({ onboardingStatus: 'COMPLETED' }, NOW)).toBe(false); // legacy doc without createdAt
+  });
+  it('existing user + English device -> he', () => {
+    expect(pick({ createdAt: new Date(NOW - 30 * DAY) })).toBe('he');
+  });
+  it('new user (or no account yet) + English device -> en', () => {
+    expect(pick(null)).toBe('en');
+    expect(pick({ createdAt: new Date(NOW - 1000) })).toBe('en');
+  });
+  it('an explicit choice always wins, for existing users too', () => {
+    const old = { createdAt: new Date(NOW - 30 * DAY) };
+    expect(pick(old, { profileLocale: 'en' })).toBe('en');
+    expect(pick(old, { storedLocale: 'en' })).toBe('en');
+    expect(pick(null, { profileLocale: 'he' })).toBe('he');
+  });
+  it('flag off -> he for everyone', () => {
+    expect(pickAppLocale(off, { deviceLocales: device, detectDevice: true })).toBe('he');
+    expect(pickAppLocale(off, { profileLocale: 'en', deviceLocales: device })).toBe('he');
+  });
+  it('parses ISO string createdAt', () => {
+    expect(isNewUserForLocale({ createdAt: new Date(NOW - 1000).toISOString() }, NOW)).toBe(true);
+    expect(isNewUserForLocale({ createdAt: new Date(NOW - 9 * DAY).toISOString() }, NOW)).toBe(false);
+  });
+  it('pending createdAt: new while onboarding unsettled, existing when settled (legacy)', () => {
+    expect(isNewUserForLocale({ createdAt: null }, NOW)).toBe(true);
+    expect(isNewUserForLocale({ createdAt: null, onboardingStatus: 'IN_PROGRESS' }, NOW)).toBe(true);
+    expect(isNewUserForLocale({ onboardingStatus: 'COMPLETED' }, NOW)).toBe(false);
+    expect(isNewUserForLocale({ createdAt: {}, onboardingStatus: 'MAP_ONLY' }, NOW)).toBe(false);
+  });
+  it('auth not yet restored: no device guess; after it resolves signed-out, allowed', () => {
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: false, authResolved: false })).toBe(false);
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: false, authResolved: true })).toBe(true);
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: true, authResolved: true })).toBe(false);
+  });
+  it('no profile yet: device allowed only for a hydrated, anonymous launch', () => {
+    expect(deviceDetectAllowed({ profile: null, hydrated: false, hasAuthUser: false })).toBe(false);
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: true })).toBe(false);
+    expect(deviceDetectAllowed({ profile: null, hydrated: true, hasAuthUser: false })).toBe(true);
+    expect(deviceDetectAllowed({ profile: { createdAt: new Date(NOW - 30 * DAY) }, hydrated: true, hasAuthUser: true, now: NOW })).toBe(false);
   });
 });

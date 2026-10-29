@@ -18,7 +18,7 @@
  * Levels use the strength swap's words: lower / same / higher.
  */
 
-import { withUnit } from '@/lib/i18n/units';
+import { rt, unitText } from '../run-utils-t';
 import type { RunZoneType } from '../../../../core/types/running.types';
 import type { RunPaceContext } from '../run-preview/run-estimates';
 import { roundRecovery } from './run-variants';
@@ -63,9 +63,15 @@ const MAX_SAME_SIZES = 2;
 /** A pyramid / ladder's longest rep: up to 3× the current rep. */
 const PYRAMID_MAX_RATIO = 3;
 
-const FAST_WORDS: Partial<Record<RunZoneType, string>> = {
-  sprint: 'מהיר', interval_short: 'מהיר', interval_long: 'מהיר', fartlek_fast: 'מהיר', fartlek_medium: 'בינוני', tempo: 'טמפו',
-};
+/** The rep's descriptor in the sub line ("600 מהיר"): by zone, in the current language. */
+function fastWord(zone: RunZoneType | undefined): string | undefined {
+  switch (zone) {
+    case 'sprint': case 'interval_short': case 'interval_long': case 'fartlek_fast': return rt('runUtils.swap.fast');
+    case 'fartlek_medium': return rt('runUtils.swap.medium');
+    case 'tempo': return rt('runUtils.swap.tempo');
+    default: return undefined;
+  }
+}
 
 function sizeBounds(unit: MainSetUnit, size: number, category: string | null | undefined): [number, number] {
   let lo = size * 0.4;
@@ -81,18 +87,18 @@ function equalVolume(a: MainSetSpec, b: MainSetSpec): boolean {
   return Math.abs(mainSetVolume(b) - va) <= va * VOLUME_TOLERANCE;
 }
 
-function bare(unit: MainSetUnit, size: number): string {
-  if (unit === 'm') return size >= 1000 ? withUnit('km', size / 1000) : String(size);
+function bare(u: MainSetUnit, size: number): string {
+  if (u === 'm') return size >= 1000 ? unitText('km', size / 1000) : String(size);
   return size < 60 ? `${size}″` : size % 60 ? `${Math.floor(size / 60)}:${String(size % 60).padStart(2, '0')}′` : `${size / 60}′`;
 }
 
 function subText(spec: MainSetSpec, word: string): string {
   if (!isUniform(spec)) {
     const list = spec.reps.map((r) => (spec.unit === 'm' ? String(r) : bare(spec.unit, r))).join('-');
-    return spec.recoverySec > 0 ? `${list} · ${recoveryText(spec.recoverySec)} בין` : list;
+    return spec.recoverySec > 0 ? rt('runUtils.swap.subBetween', { list, rec: recoveryText(spec.recoverySec) }) : list;
   }
   const head = `${bare(spec.unit, spec.reps[0])} ${word}`;
-  return spec.recoverySec > 0 ? `${head} · ${recoveryText(spec.recoverySec)} התאוששות` : head;
+  return spec.recoverySec > 0 ? rt('runUtils.swap.subRecovery', { head, rec: recoveryText(spec.recoverySec) }) : head;
 }
 
 function bars(spec: MainSetSpec, src: MainSetSource, ctx: RunPaceContext): SwapMiniBar[] {
@@ -112,9 +118,9 @@ export function swapDeltaText(alt: Pick<SwapAlternative, 'deltaSec' | 'equalVolu
   if (alt.current) return '—';
   const min = alt.deltaSec == null ? 0 : Math.round(alt.deltaSec / 60);
   const parts: string[] = [];
-  if (min !== 0) parts.push(`${min > 0 ? '+' : '−'}${withUnit('min', Math.abs(min))}`);
-  if (alt.equalVolume) parts.push('אותו נפח');
-  return parts.join(' · ') || 'אותו זמן';
+  if (min !== 0) parts.push(`${min > 0 ? '+' : '−'}${unitText('min', Math.abs(min))}`);
+  if (alt.equalVolume) parts.push(rt('runUtils.swap.sameVolume'));
+  return parts.join(' · ') || rt('runUtils.swap.sameTime');
 }
 
 function uniformSpec(unit: MainSetUnit, size: number, n: number, rec: number): MainSetSpec {
@@ -141,7 +147,7 @@ export function buildSwapAlternatives(
   const n = src.spec.reps.length;
   const volume = n * size;
   const [lo, hi] = sizeBounds(unit, size, opts.category);
-  const word = (src.work.zoneType && FAST_WORDS[src.work.zoneType]) || (src.work.type === 'interval' ? 'מהיר' : 'ריצה');
+  const word = fastWord(src.work.zoneType) || (src.work.type === 'interval' ? rt('runUtils.swap.fast') : rt('runUtils.swap.run'));
   const baseSec = mainSetSeconds(src.work, src.spec, ctx);
   const sourceKey = encodeMainSet(src.spec);
   const selected = opts.selectedKey ?? sourceKey;
