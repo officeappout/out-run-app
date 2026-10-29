@@ -8,6 +8,7 @@ import {
   EXPLORER_ROUTE, INTRO_ARRIVAL_KEY, INTRO_PREVIEW_ROUTE, INTRO_ROUTE, consumeIntroArrival, isIntroPreview, isIntroSeen,
   markIntroArrival, resolveQuickSignupHref, withIntroRedirect,
   shouldHoldLandingSplash,
+  quickSignupPrefetchRoutes,
 } from '../intro-route';
 import { arcPath, labelCenter, segmentPath } from '../ring-geometry';
 import { trackProps } from '../story-timeline';
@@ -208,5 +209,12 @@ describe('shouldHoldLandingSplash (pilot L2: no flash of the old landing)', () =
   it('flag known, or the owner preview: the landing shows', () => {
     expect(shouldHoldLandingSplash({ isGuest: true, introFlagLoading: false, introPreview: false })).toBe(false);
     expect(shouldHoldLandingSplash({ isGuest: true, introFlagLoading: true, introPreview: true })).toBe(false);
+  });
+});
+
+describe('quickSignupPrefetchRoutes (L1)', () => {
+  it('warms /intro and /explorer when the intro is on, only /explorer otherwise', () => {
+    expect(quickSignupPrefetchRoutes(true)).toEqual(['/intro', '/explorer']);
+    expect(quickSignupPrefetchRoutes(false)).toEqual(['/explorer']);
   });
 });
