@@ -103,7 +103,7 @@ function composeHebrewInstruction(step: any): string {
   return type === 'arrive' || !name ? base : `${base} לרחוב ${name}`;
 }
 
-function transformWalkSteps(rawSteps: any[]): WalkStep[] {
+export function transformWalkSteps(rawSteps: any[]): WalkStep[] {
   if (!Array.isArray(rawSteps)) return [];
   // Drop the trailing "arrive" step — we render a discrete 📍 endpoint.
   return rawSteps
