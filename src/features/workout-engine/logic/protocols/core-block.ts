@@ -118,8 +118,26 @@ const FORM_TIME_COST_MINUTES: Record<CoreBlockForm, number> = {
   follow_along: 4, // matches the tabata block's 4-minute cost — same video length (§1.6)
 };
 
+/** Sessions at least this long reserve room for the core block (matches the core-guarantee floor). */
+export const CORE_RESERVE_MIN_SESSION_MINUTES = 20;
+
+/**
+ * Minutes left for the core block. `estimatedDurationSoFar` is measured BEFORE
+ * the time-fit passes (they trim sets toward availableTime afterwards), so it
+ * routinely overshoots a 30-minute session (31-40 min) and the raw headroom
+ * is negative — which kept tabata / follow_along from ever being offered.
+ * For sessions long enough to carry a core block, the committed time is capped
+ * so the block's own cost is always reserved; the trim passes then shave the
+ * main sets to fit. Shorter sessions keep the raw headroom.
+ */
+export function coreHeadroomMinutes(availableTime: number, estimatedDurationSoFar: number): number {
+  if (availableTime < CORE_RESERVE_MIN_SESSION_MINUTES) return availableTime - estimatedDurationSoFar;
+  const reserve = Math.max(FORM_TIME_COST_MINUTES.tabata, FORM_TIME_COST_MINUTES.follow_along);
+  return availableTime - Math.min(estimatedDurationSoFar, availableTime - reserve);
+}
+
 function eligibleForms(input: CoreFormChoiceInput): CoreBlockForm[] {
-  const headroom = input.availableTime - input.estimatedDurationSoFar;
+  const headroom = coreHeadroomMinutes(input.availableTime, input.estimatedDurationSoFar);
   const forms: CoreBlockForm[] = (['single', 'tabata', 'follow_along'] as CoreBlockForm[])
     .filter((f) => headroom >= FORM_TIME_COST_MINUTES[f]);
   // 'single' is always the floor — if literally nothing else fits, still offer it
