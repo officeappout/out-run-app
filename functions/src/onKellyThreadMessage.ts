@@ -33,6 +33,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { effectivePushLocale } from './services/push-copy.service';
 import { PUSH_TYPE_IDS } from './services/push-measure-all';
 import { getT } from './shared/i18n-t';
 
@@ -41,7 +42,16 @@ if (!admin.apps.length) {
 }
 
 export const KELLY_PUSH_DEEP_LINK = '/ai-coach';
-export const KELLY_PUSH_TITLE = getT('he', 'push')('kelly.pushTitle'); // i18n wave 2A: user locale = wave 5B
+export const KELLY_PUSH_TITLE = getT('he', 'push')('kelly.pushTitle'); // Hebrew source; see kellyPushTitle for the user's language
+
+/**
+ * The push title in the user's language. English only when the user's stored locale is 'en' AND the push locale gate
+ * (enable_i18n + push_locale_v1, #920) AND ai_coach_locale_v1 are all on (the proactive body is written in the
+ * coach language, so the title must agree with it); otherwise exactly KELLY_PUSH_TITLE. Pure, exported for tests.
+ */
+export function kellyPushTitleFor(pushLocale: string, coachLocaleOn: boolean): string {
+  return coachLocaleOn && pushLocale === 'en' ? getT('en', 'push')('kelly.pushTitle') : KELLY_PUSH_TITLE;
+}
 const RATE_CAP_HOURS = 0.25;
 const STALE_MS = 10 * 60 * 1000;
 const BODY_MAX = 100;
@@ -99,9 +109,11 @@ export const onKellyThreadMessage = onDocumentCreated(
     const uid = event.params.uid as string;
     const proactive = kellyProactivePushPlan(msg);
     let enabled = false;
+    let coachLocaleOn = false;
     try {
       const flags = await admin.firestore().doc('system_config/feature_flags').get();
       const data = flags.exists ? flags.data() : undefined;
+      coachLocaleOn = data?.ai_coach_locale_v1 === true;
       enabled = data?.kelly_unified_v1 === true && (!proactive || data?.ai_coach_proactive === true);
     } catch (e) {
       logger.warn('[onKellyThreadMessage] feature flags read failed — skipping', e);
@@ -109,13 +121,24 @@ export const onKellyThreadMessage = onDocumentCreated(
     }
     if (!enabled) return;
 
+    // Title language. Flag off or no/Hebrew locale: no extra read, Hebrew as before. A failed read = Hebrew.
+    let title = KELLY_PUSH_TITLE;
+    if (coachLocaleOn) {
+      try {
+        const rawLocale = (await admin.firestore().doc(`users/${uid}`).get()).data()?.core?.locale;
+        title = kellyPushTitleFor(await effectivePushLocale({ uid, audience: { locale: typeof rawLocale === 'string' ? rawLocale : null } }), true);
+      } catch (e) {
+        logger.warn('[onKellyThreadMessage] locale read failed, Hebrew title', e);
+      }
+    }
+
     const result = await sendPush(
       proactive
         ? {
             toUids: [uid],
             channel: 'coach',
             measurementTypeId: PUSH_TYPE_IDS.coachMessage, // enable_push_measure_all (off = ignored)
-            title: KELLY_PUSH_TITLE,
+            title,
             body: kellyPushBody(String(msg!.text)),
             deepLink: KELLY_PUSH_DEEP_LINK,
             data: { kind: 'kelly_proactive', source: 'system', trigger: proactive.trigger },
@@ -127,7 +150,7 @@ export const onKellyThreadMessage = onDocumentCreated(
             toUids: [uid],
             channel: 'coach',
             measurementTypeId: PUSH_TYPE_IDS.coachMessage, // enable_push_measure_all (off = ignored)
-            title: KELLY_PUSH_TITLE,
+            title,
             body: kellyPushBody(String(msg!.text)),
             deepLink: KELLY_PUSH_DEEP_LINK,
             data: { kind: 'kelly_message', source: String(msg!.source) },

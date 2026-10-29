@@ -337,5 +337,15 @@
   "proactive.post.sessionMinutes": "אימון של {minutes} דקות",
   "proactive.post.session": "אימון",
   "proactive.post.done": "{gender, select, female {סיימת {what}, כל הכבוד.} male {סיימת {what}, כל הכבוד.} other {ה{what} נשמר, כל הכבוד.}}",
-  "proactive.post.howWas": "איך היה?"
+  "proactive.post.howWas": "איך היה?",
+  "proactive.kind.strength": "אימון כוח",
+  "proactive.kind.cardio": "ריצה",
+  "proactive.kind.walking": "הליכה",
+  "proactive.kind.maintenance": "אימון קל",
+  "greeting.named": "היי {name}, אני קלי, המאמן הדיגיטלי באפליקציה. {ask}",
+  "greeting.anon": "היי, אני קלי, המאמן הדיגיטלי באפליקציה. {ask}",
+  "greeting.ask": "{gender, select, female {מה בא לך היום? אני יכול לבנות לך אימון, לבדוק איך את מתקדמת או מה מחכה לך השבוע.} male {מה בא לך היום? אני יכול לבנות לך אימון, לבדוק איך אתה מתקדם או מה מחכה לך השבוע.} other {מה בא היום? אני יכול לבנות אימון, לבדוק את ההתקדמות או מה מחכה השבוע.}}",
+  "quick.first.build": "תבנה לי אימון להיום",
+  "quick.first.progress": "{gender, select, female {איך אני מתקדמת?} male {איך אני מתקדם?} other {איך ההתקדמות שלי?}}",
+  "quick.first.week": "מה בתוכנית השבוע?"
 }
