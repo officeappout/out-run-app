@@ -10,16 +10,20 @@
  * Callers render it only when the flag is on and they have a model.
  */
 
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Sheet, SHEET_Z } from '@/components/ui/v2';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
-import { KellyChatOverlay } from '@/features/ai-coach/components/KellyChatLauncher';
 import { useAiCoachAccess } from '@/features/ai-coach/hooks/useAiCoachAccess';
 import type { MethodInfoModel } from '../../core/methods/method-info/method-info.model';
 import { methodCopy } from './method-info.copy';
 import MethodDemo from './MethodDemo';
+
+// Lazy: the chat tree is heavy and only needed after a chip tap (keeps it out of the preview / player bundles).
+const KellyChatOverlay = lazy(() =>
+  import('@/features/ai-coach/components/KellyChatLauncher').then((m) => ({ default: m.KellyChatOverlay })),
+);
 
 export default function MethodInfoButton({ model }: { model: MethodInfoModel }) {
   const t = useT(player);
@@ -119,7 +123,9 @@ export default function MethodInfoButton({ model }: { model: MethodInfoModel }) 
           // Kelly's own overlay is z-[56]; this zero-size layer lifts it over the drawer / player
           // (budget row z-[101]) without covering anything while the chat is still loading.
           <div className="fixed start-0 top-0" style={{ zIndex: SHEET_Z.aboveOffline }}>
-            <KellyChatOverlay initialInput={kellyInput} onClose={() => setKellyInput(null)} />
+            <Suspense fallback={null}>
+              <KellyChatOverlay initialInput={kellyInput} onClose={() => setKellyInput(null)} />
+            </Suspense>
           </div>,
           document.body,
         )}
