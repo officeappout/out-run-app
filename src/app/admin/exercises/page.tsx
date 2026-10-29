@@ -43,6 +43,7 @@ const MOVEMENT_GROUP_LABELS: Record<MovementGroup, string> = {
   core: 'ליבה',
   isolation: 'איסוליישן',
   flexibility: 'גמישות',
+  conditioning: 'סיבולת',
 };
 
 // ────────────────────────────────────────────────────────────────

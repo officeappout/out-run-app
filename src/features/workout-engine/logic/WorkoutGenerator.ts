@@ -96,8 +96,8 @@ import {
 
 // Protocol registry — dispatcher replaces hard-coded protocol if-tree
 import { findProcessor } from './protocols/protocol-processor.registry';
-import { buildTabataBlock } from './protocols/tabata.block';
-import { buildDensityBlock, densityDomainOf, type DensityBlockSpec, type DensityDomain } from './protocols/density-block';
+import { buildTabataBlock, passesInjuryShield } from './protocols/tabata.block';
+import { buildDensityBlock, densityDomainOf, type DensityBlockSpec, type DensityCandidate, type DensityDomain } from './protocols/density-block';
 import { pickWeightedProtocol } from './protocol-weights';
 import { TABATA_BLOCK_SECONDS } from './protocols/tabata.constants';
 
@@ -2149,6 +2149,7 @@ export class WorkoutGenerator {
     const domainLevels = (d: DensityDomain) => context.userProgramLevels?.get(d) ?? context.userLevel;
     const excludeIds = new Set(workoutExercises.map((e) => e.exercise.id));
     const pool = scored.map((s) => ({ exercise: s.exercise, method: s.method }));
+    const conditioningPool = this.conditioningCandidates(context);
 
     const MIN_BLOCK = 8;
     const headroom = () => context.availableTime - calculateEstimatedDuration(workoutExercises);
@@ -2160,7 +2161,10 @@ export class WorkoutGenerator {
       dropped.push(victim);
     }
 
-    const built = buildDensityBlock({ format, sessionDomains, domainLevels, pool, headroomMinutes: headroom(), excludeIds });
+    const built = buildDensityBlock({
+      format, sessionDomains, domainLevels, pool, headroomMinutes: headroom(), excludeIds,
+      conditioningPool, conditioningUserLevel: domainLevels('legs'),
+    });
     if (!built) {
       workoutExercises.push(...dropped); // nothing to make room for
       pipelineLog.push(`density_block: ${format} not built (too few eligible exercises or no time) — standard`);
@@ -2176,6 +2180,18 @@ export class WorkoutGenerator {
     );
     console.log(`[DensityBlock] ✅ ${built.spec.format} ${built.spec.minutes}′ — ${names}`);
     return built.spec;
+  }
+
+  /** Conditioning moves doable here: allowed at this location, a method AT this location
+   *  (no home→park fallback), and no injury conflict. */
+  private conditioningCandidates(context: WorkoutGenerationContext): DensityCandidate[] {
+    const location = context.location as ExecutionLocation;
+    return (context.conditioningPool ?? []).flatMap((exercise) => {
+      if (exercise.requiredLocations?.length && !exercise.requiredLocations.includes(location)) return [];
+      if (!passesInjuryShield(exercise, context.injuryShield)) return [];
+      const method = selectMethodForContext(exercise, location, context.availableEquipment ?? []);
+      return method && method.location === location ? [{ exercise, method }] : [];
+    });
   }
 
   // ── STRUCTURE / BLAST / BALANCE ──────────────────────────────────────────

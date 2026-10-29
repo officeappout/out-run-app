@@ -646,6 +646,7 @@ export function createDefaultShadowMatrix(): ShadowMatrix {
     'core',
     'isolation',
     'flexibility',
+    'conditioning',
   ];
   for (const mg of allMovements) {
     movementGroups[mg] = { level: 10, override: false };
