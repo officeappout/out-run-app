@@ -99,7 +99,7 @@ export function DualRangeSlider({
         <div
           className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
           style={{
-            ...sliderFillStyle(isRtl, minPct, maxPct),
+            ...sliderFillStyle(isRtl, minPct, maxPct, true),
             backgroundColor: ACCENT,
           }}
         />
