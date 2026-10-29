@@ -25,10 +25,10 @@ export interface Issue { ns: string; key: string; check: string; severity: Sever
  * persona step (composed sentences needing articles; the component hard-codes English today; term pending),
  * identity.gender.* (the Hebrew asks "how should we address you", meaning changes in English),
  * hierarchy.* / unitDeclaration.* / personaDrawer.staleUnit (military unit picker, hidden by owner decision),
- * health.* (the health-declaration UI strings; healthDeclaration.* is translated since the owner approved the English legal text on 29.10.2026), goalNote examples about enlistment and reserve duty.
+ * (none for the health declaration any more: health.* and healthDeclaration.* are translated since the owner approved the English legal text on 29.10.2026), goalNote examples about enlistment and reserve duty.
  */
 export const ONBOARDING_SKIPPED = new RegExp(
-  '^(steps\\.persona\\.(?!code\\.)|steps\\.processing\\.(persona|personaGendered|msg\\.building)$|identity\\.gender\\.|hierarchy\\.|unitDeclaration\\.|personaDrawer\\.staleUnit$|health\\.|goalNote\\.example\\.(a18_29\\.(3|4)|a30_44\\.1)$)',
+  '^(steps\\.persona\\.(?!code\\.)|steps\\.processing\\.(persona|personaGendered|msg\\.building)$|identity\\.gender\\.|hierarchy\\.|unitDeclaration\\.|personaDrawer\\.staleUnit$|goalNote\\.example\\.(a18_29\\.(3|4)|a30_44\\.1)$)',
 );
 
 /** Pilot scope (EN-PILOT-PLAN §2): every key of common, pages, home (batch 4) and profile (batch 4). */
