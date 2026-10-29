@@ -572,6 +572,7 @@
   "settings.account.passwordSent": "מייל נשלח ✓",
   "settings.account.password": "סיסמה ואבטחה",
   "settings.account.passwordSubSocial": "מחובר דרך גוגל / אפל — לא נדרשת סיסמה",
+  "settings.account.deleteSub": "מחיקה לצמיתות של החשבון וכל הנתונים",
   "settings.account.passwordSubSent": "בדוק את תיבת הדואר שלך",
   "settings.account.passwordSubIdle": "שלח קישור לאיפוס סיסמה",
   "settings.section.subscription": "מנוי",
