@@ -10,6 +10,7 @@ import { notFound } from 'next/navigation';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useT } from '@/hooks/useT';
 import { legal } from '@/messages/ns/legal';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 const SECTION = 'rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-5';
 const H2 = 'text-base font-black text-slate-900 mb-2';
@@ -17,17 +18,17 @@ const P = 'text-sm text-slate-700 leading-relaxed';
 const LINK =
   'font-semibold text-[#007EA8] underline underline-offset-2 hover:text-[#006E96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007EA8] rounded-sm';
 
-// dir="rtl" is deliberate: this page is Hebrew-only legal text (lang="he"), it must not follow the UI locale.
 export default function CreditsPage() {
   const { flags, ready, loading } = useFeatureFlags();
   const t = useT(legal);
+  const { direction } = useUiDir();
 
   if (!ready || loading) return null;
   if (!flags.enableOsmAttribution) notFound();
 
   const ext = { target: '_blank', rel: 'noopener noreferrer' } as const;
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir="rtl" lang="he">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir={direction}>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <a href="/home" className={`${LINK} inline-block mb-4 text-sm`}>{t('credits.backToApp')}</a>
         <header className="mb-6">
