@@ -22,6 +22,7 @@ export interface EntryGlobeLayerProps {
   diveTarget: { lat: number; lng: number } | null;
   onDiveArrived: () => void;
   onDiveHold?: () => void;
+  onGlobeSettled?: () => void;
 
   locationError: string | null;
   onFindLocation: () => void;
@@ -65,7 +66,7 @@ export function EntryGlobeLayer(p: EntryGlobeLayerProps) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
           >
-            <GlobeStage phase={p.globePhase} target={p.diveTarget} onArrived={p.onDiveArrived} onHold={p.onDiveHold} />
+            <GlobeStage phase={p.globePhase} target={p.diveTarget} onArrived={p.onDiveArrived} onHold={p.onDiveHold} onSettled={p.onGlobeSettled} />
             <AnimatePresence>
               {stage === LocationStage.INITIAL && (
                 <motion.div

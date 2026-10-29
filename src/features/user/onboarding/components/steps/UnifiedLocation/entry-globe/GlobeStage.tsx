@@ -27,6 +27,8 @@ export interface GlobeStageProps {
   onArrived: () => void;
   /** The targetless dive holds over the country (or the globe can't render): the caller may ask for location now (AC1). */
   onHold?: () => void;
+  /** The Earth rendered its first frame, or can't render at all (AC2: the step builds its street map after this). */
+  onSettled?: () => void;
 }
 
 /**
@@ -37,7 +39,7 @@ export interface GlobeStageProps {
  * lazily (it is already in the bundle for the street map; this keeps it off
  * the module graph of the step).
  */
-export default function GlobeStage({ phase, target, onArrived, onHold }: GlobeStageProps) {
+export default function GlobeStage({ phase, target, onArrived, onHold, onSettled }: GlobeStageProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxGLMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -48,6 +50,8 @@ export default function GlobeStage({ phase, target, onArrived, onHold }: GlobeSt
   onArrivedRef.current = onArrived;
   const onHoldRef = useRef(onHold);
   onHoldRef.current = onHold;
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
   const arrivedRef = useRef(false);
   /** Generation of the running camera sequence — a newer one stops the older. */
   const runRef = useRef(0);
@@ -141,6 +145,10 @@ export default function GlobeStage({ phase, target, onArrived, onHold }: GlobeSt
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (ready || failed) onSettledRef.current?.();
+  }, [ready, failed]);
 
   // ── Sky: light page sky at rest → space while diving ─────────────────
   const animateSky = (to: 0 | 1) => {

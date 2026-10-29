@@ -77,6 +77,7 @@ import { RadarPulse } from './UnifiedLocation/sub-components/RadarPulse';
 import { EntryGlobeLayer } from './UnifiedLocation/entry-globe/EntryGlobeLayer';
 import { DragHintChip } from './UnifiedLocation/entry-globe/DragHintChip';
 import { askAfterDiveHold, diveStartFor } from './UnifiedLocation/entry-globe/dive-gate';
+import { STREET_MAP_IDLE_DELAY_MS, STREET_MAP_MAX_DEFER_MS, shouldMountStreetMap } from './UnifiedLocation/entry-globe/street-map-gate';
 import { markGlobeIntroSeen } from '@/features/parks/core/hooks/entry-camera';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
 import { LOCATE_V1_LEMUR_PX, LOCATE_V1_ZOOM } from './UnifiedLocation/entry-globe/locate-v1';
@@ -223,6 +224,22 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   entryGlobeRef.current = entryGlobe;
   // AC1: resolves the pending "Earth holds over the country" wait (GlobeStage onHold).
   const diveHoldRef = useRef<(() => void) | null>(null);
+  // AC2: with the globe on, the street map is built after the Earth (street-map-gate.ts).
+  const [globeSettled, setGlobeSettled] = useState(false);
+  const globeSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleGlobeSettled = useCallback(() => {
+    if (globeSettleTimerRef.current) return;
+    globeSettleTimerRef.current = setTimeout(() => setGlobeSettled(true), STREET_MAP_IDLE_DELAY_MS);
+  }, []);
+  useEffect(() => {
+    if (!entryGlobe) return;
+    const cap = setTimeout(() => setGlobeSettled(true), STREET_MAP_MAX_DEFER_MS);
+    return () => {
+      clearTimeout(cap);
+      if (globeSettleTimerRef.current) clearTimeout(globeSettleTimerRef.current);
+      globeSettleTimerRef.current = null;
+    };
+  }, [entryGlobe]);
 
   // ══════════════════════════════════════════════════════════════════
   // EFFECTS
@@ -1036,6 +1053,15 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     if (!mapTutorialV1 || !confirmSettled) return;
     mapRef.current?.getMap()?.easeTo({ zoom: LOCATE_V1_ZOOM, duration: 900 });
   }, [mapTutorialV1, confirmSettled]);
+  // Sticky: once built, the street map is never torn down (e.g. the flag resolving late).
+  const streetMapMountedRef = useRef(false);
+  const mountStreetMap = shouldMountStreetMap({
+    entryGlobe,
+    globeSettled,
+    alreadyMounted: streetMapMountedRef.current,
+    leftRest: stage !== LocationStage.INITIAL || globeDive !== 'rest',
+  });
+  streetMapMountedRef.current = mountStreetMap;
   const showEntryGlobe =
     entryGlobe &&
     globeDive !== 'arrived' &&
@@ -1078,7 +1104,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           </div>
         )}
         
-        {typeof window !== 'undefined' && (
+        {typeof window !== 'undefined' && mountStreetMap && (
           <MapboxMap
             mapRef={mapRef}
             {...viewState}
@@ -1392,6 +1418,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           diving={entryDiving}
           diveTarget={entryDiving ? userLocation : null}
           onDiveHold={() => diveHoldRef.current?.()}
+          onGlobeSettled={handleGlobeSettled}
           onDiveArrived={() => {
             setGlobeDive('arrived');
             // One owner of the camera at a time: this dive IS the first-entry flight, so
