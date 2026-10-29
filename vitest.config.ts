@@ -37,6 +37,8 @@ export default defineConfig({
       'src/components/ui/__tests__/**/*.test.tsx',
       // Design language v2 primitives — static-markup render tests (node env).
       'src/components/ui/v2/__tests__/**/*.test.tsx',
+      // Language switch pill (first screen) — static-markup tests.
+      'src/components/i18n/__tests__/**/*.test.tsx',
       // Error boundaries + lazy overlay wrappers — same static-markup approach.
       'src/components/system/__tests__/**/*.test.tsx',
       // Unified overview drawer (parks) — parity + render tests, same static-markup approach.
