@@ -12,6 +12,8 @@ import { MoveConfirmSheetClassic, MoveConfirmSheetV2 } from '@/features/home/com
 import { DeleteEntrySheetClassic, DeleteEntrySheetV2 } from '@/features/home/components/agenda/DeleteEntrySheet';
 
 const html = (el: React.ReactElement) => renderToStaticMarkup(el);
+// The classic frames no longer hard-code dir="rtl" (they inherit the html dir); the recorded originals still carry it.
+const noDir = (s: string) => s.replace(' dir="rtl"', '');
 const noop = () => {};
 
 // ── RollingAgenda helpers (verbatim) ────────────────────────────────────────
@@ -194,12 +196,12 @@ const moveProps = (m: MoveIntent | null) => ({
 describe('flag off — the classic frame modules are byte-identical', () => {
   it('MoveConfirmSheetClassic === the pre-migration RollingAgenda markup', () => {
     for (const m of intents) {
-      expect(html(<MoveConfirmSheetClassic {...moveProps(m)} />)).toBe(html(<OriginalMove moveIntent={m} />));
+      expect(html(<MoveConfirmSheetClassic {...moveProps(m)} />)).toBe(noDir(html(<OriginalMove moveIntent={m} />)));
     }
   });
   it('DeleteEntrySheetClassic === the pre-migration AgendaDayCard markup', () => {
     for (const d of [null, { entryId: 'e1' }]) {
-      expect(html(<DeleteEntrySheetClassic open={!!d} onConfirm={noop} onCancel={noop} />)).toBe(html(<OriginalDelete deleteEntryId={d} />));
+      expect(html(<DeleteEntrySheetClassic open={!!d} onConfirm={noop} onCancel={noop} />)).toBe(noDir(html(<OriginalDelete deleteEntryId={d} />)));
     }
   });
 });

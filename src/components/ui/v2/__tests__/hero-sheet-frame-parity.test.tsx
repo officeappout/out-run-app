@@ -47,7 +47,6 @@ function Original({ panel, style }: { panel: string; style: Record<string, strin
             transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
             style={{ y, opacity, ...style }}
             className={panel}
-            dir="rtl"
           >
             {/* Drag handle — full-width touch target */}
             <div

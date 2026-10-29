@@ -1,0 +1,1106 @@
+[
+  [
+    null,
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": false,
+      "pioneerMessage": "",
+      "pioneerEmoji": "",
+      "planBBridge": "",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    null,
+    "male",
+    null,
+    {
+      "showPioneer": false,
+      "pioneerMessage": "",
+      "pioneerEmoji": "",
+      "planBBridge": "",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    null,
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": false,
+      "pioneerMessage": "",
+      "pioneerEmoji": "",
+      "planBBridge": "",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    null,
+    "female",
+    null,
+    {
+      "showPioneer": false,
+      "pioneerMessage": "",
+      "pioneerEmoji": "",
+      "planBBridge": "",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "running",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בבאר שבע עוד מחכה להיכתב. בוא נהיה החלוצים שממפים אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם לריצה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "running",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בהשכונה עוד מחכה להיכתב. בוא נהיה החלוצים שממפים אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם לריצה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "running",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בבאר שבע עוד מחכה להיכתב. בואי נהיה החלוצות שממפות אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם לריצה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "running",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בהשכונה עוד מחכה להיכתב. בואי נהיה החלוצות שממפות אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם לריצה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "walking",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בבאר שבע עוד מחכה להיכתב. בוא נהיה החלוצים שממפים אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם להליכה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "walking",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בהשכונה עוד מחכה להיכתב. בוא נהיה החלוצים שממפים אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם להליכה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "walking",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בבאר שבע עוד מחכה להיכתב. בואי נהיה החלוצות שממפות אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם להליכה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "walking",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בהשכונה עוד מחכה להיכתב. בואי נהיה החלוצות שממפות אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם להליכה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "cycling",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בבאר שבע עוד מחכה להיכתב. בוא נהיה החלוצים שממפים אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם לרכיבה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "cycling",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בהשכונה עוד מחכה להיכתב. בוא נהיה החלוצים שממפים אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם לרכיבה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "cycling",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בבאר שבע עוד מחכה להיכתב. בואי נהיה החלוצות שממפות אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם לרכיבה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "cycling",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "המסלול האידיאלי בהשכונה עוד מחכה להיכתב. בואי נהיה החלוצות שממפות אותו!",
+      "pioneerEmoji": "🏃‍♂️",
+      "planBBridge": "עד שנמצא את המסלול המושלם לרכיבה, הנה הנקודה הכי טובה לחיזוק בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "basketball",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "basketball",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "basketball",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "basketball",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "football",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "football",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "football",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "football",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "tennis",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "tennis",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "tennis",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "tennis",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "padel",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "padel",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "padel",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "padel",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "yoga",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בוא נהיה הראשונים למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "yoga",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בוא נהיה הראשונים למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "yoga",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בואי נהיה הראשונות למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "yoga",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בואי נהיה הראשונות למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "pilates",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בוא נהיה הראשונים למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "pilates",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בוא נהיה הראשונים למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "pilates",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בואי נהיה הראשונות למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "pilates",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בואי נהיה הראשונות למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "stretching",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בוא נהיה הראשונים למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "stretching",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בוא נהיה הראשונים למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "stretching",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בואי נהיה הראשונות למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "stretching",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בואי נהיה הראשונות למצוא אותה!",
+      "pioneerEmoji": "🌳",
+      "planBBridge": "עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "climbing",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לטיפוס, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "climbing",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לטיפוס, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "climbing",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לטיפוס, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "climbing",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לטיפוס, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "skateboard",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לסקייטבורד, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "skateboard",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לסקייטבורד, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "skateboard",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לסקייטבורד, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "skateboard",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לסקייטבורד, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "calisthenics",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "calisthenics",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "calisthenics",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "calisthenics",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "crossfit",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "crossfit",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "crossfit",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "crossfit",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "functional",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "functional",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "functional",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "functional",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "movement",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "movement",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "movement",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "movement",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "gym",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "gym",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "gym",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "gym",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!",
+      "pioneerEmoji": "💪",
+      "planBBridge": "עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "strength",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לאימון כוח, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "strength",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לאימון כוח, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "strength",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לאימון כוח, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "strength",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לאימון כוח, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "boxing",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לאגרוף, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "boxing",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לאגרוף, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "boxing",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לאגרוף, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "boxing",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לאגרוף, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "mma",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לMMA, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "mma",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לMMA, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "mma",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לMMA, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "mma",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק לMMA, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "self_defense",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק להגנה עצמית, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "self_defense",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק להגנה עצמית, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "self_defense",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק להגנה עצמית, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "self_defense",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק להגנה עצמית, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "unknown_sport",
+    "male",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק להספורט שלך, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "unknown_sport",
+    "male",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק להספורט שלך, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "unknown_sport",
+    "female",
+    "באר שבע",
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק להספורט שלך, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ],
+  [
+    "unknown_sport",
+    "female",
+    null,
+    {
+      "showPioneer": true,
+      "pioneerMessage": "נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!",
+      "pioneerEmoji": "🚩",
+      "planBBridge": "עד שנמצא את המקום המדויק להספורט שלך, הנה הנקודה הכי טובה להתחיל בה בינתיים:",
+      "fallbackAsset": null
+    }
+  ]
+]

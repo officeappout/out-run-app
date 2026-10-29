@@ -221,7 +221,6 @@ export default function HealthConnectDisclosureModal({
               transition={{ type: 'spring', damping: 32, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-white w-full max-w-lg rounded-t-3xl shadow-2xl overflow-hidden"
-              dir="rtl"
             >
               {/* ── Header ── */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3">

@@ -1384,7 +1384,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             // for full-screen sheets that also need to clear OfflineBanner
             // (z-[100], fixed bottom-0, same ClientLayout).
             className={`kb-fit fixed inset-0 z-[101] flex flex-col ${v2 ? 'overflow-hidden bg-v2-surface text-v2-ink' : 'bg-white'}`}
-            dir="rtl"
           >
             <SettingsV2.Provider value={v2}>
               {/* Sticky header — screen-aware ("פרופיל חלק" Part 3): a
@@ -1898,7 +1897,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
 
                   {/* Notification frequency — drives push.service.ts's per-user daily engagement cap */}
-                  <div className="pt-4" dir="rtl">
+                  <div className="pt-4">
                     <p className="text-sm font-semibold text-gray-900 font-simpler text-right mb-2">{t('settings.freq.title')}</p>
                     <div className="space-y-2">
                       {(
@@ -2705,7 +2704,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               exit={{ scale: 0.92, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
-              dir="rtl"
             >
               <div className="flex items-center justify-between p-5 border-b border-slate-100">
                 <div className="flex items-center gap-2">
@@ -2732,7 +2730,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </label>
                   <input
                     type="text"
-                    dir="rtl"
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}
                     disabled={isDeleting}

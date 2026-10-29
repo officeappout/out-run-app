@@ -451,7 +451,7 @@ export default function AddWorkoutModal({
             </span>
             <span className="text-[#00C9F2] tabular-nums">{withUnit('min', duration, tc)}</span>
           </label>
-          <div dir="rtl">
+          <div>
             <input
               type="range"
               min={10}

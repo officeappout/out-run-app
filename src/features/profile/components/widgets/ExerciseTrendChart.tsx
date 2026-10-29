@@ -73,7 +73,7 @@ export default function ExerciseTrendChart({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 animate-pulse" dir="rtl">
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 animate-pulse">
         <div className="h-4 bg-gray-100 rounded w-1/3 mb-4" />
         <div className="h-48 bg-gray-50 rounded-xl" />
       </div>
@@ -82,7 +82,7 @@ export default function ExerciseTrendChart({
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100" dir="rtl">
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp className="w-4 h-4 text-[#00ADEF]" />
           <h3 className="text-sm font-black text-gray-900">מגמות ביצוע</h3>
@@ -101,7 +101,7 @@ export default function ExerciseTrendChart({
   const isSinglePoint = data.length === 1;
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100" dir="rtl">
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-[#00ADEF]" />

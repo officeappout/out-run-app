@@ -39,7 +39,6 @@ export default function FirstWeekCard({ card, track, onDismiss }: FirstWeekCardP
   return (
     <div
       className="relative w-full overflow-hidden rounded-v2-card bg-white shadow-v2-card"
-      dir="rtl"
       role="status"
       data-first-week-card={card.day}
       data-first-week-lever={card.lever}

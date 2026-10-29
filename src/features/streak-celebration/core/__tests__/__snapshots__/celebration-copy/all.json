@@ -1,0 +1,2747 @@
+[
+  [
+    {
+      "variant": "day",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "1 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 2.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "1 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 2.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "1 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 2.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "1 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 2.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "1 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 2.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "0.14285714285714285 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "0.14285714285714285 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "0.14285714285714285 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "0.14285714285714285 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 1,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "0.14285714285714285 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "2 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 3.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "2 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 3.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "2 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 3.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "2 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 3.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "2 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 3.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "0.2857142857142857 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "0.2857142857142857 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "0.2857142857142857 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "0.2857142857142857 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 2,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "0.2857142857142857 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "2 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "5 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 6.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "5 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 6.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "5 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 6.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "5 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 6.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "5 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 6.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "0.7142857142857143 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "0.7142857142857143 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "0.7142857142857143 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "0.7142857142857143 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 5,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "0.7142857142857143 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "5 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "6 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 7.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "6 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 7.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "6 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 7.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "6 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 7.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "6 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 7.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "0.8571428571428571 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "0.8571428571428571 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "0.8571428571428571 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "0.8571428571428571 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 6,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "0.8571428571428571 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "6 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 8.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 8.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 8.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 8.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 8.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "שבוע מלא",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "שבוע מלא",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "שבוע מלא",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "שבוע מלא",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "שבוע מלא",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "14 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 15.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "14 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 15.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "14 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 15.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "14 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 15.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "14 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 15.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "שבועיים ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "שבועיים ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "שבועיים ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "שבועיים ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 14,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "שבועיים ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "14 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "21 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 22.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "21 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 22.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "21 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 22.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "21 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 22.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "21 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 22.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "3 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "3 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "3 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "3 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 21,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "3 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "21 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "28 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 29.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "28 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 29.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "28 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 29.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "28 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 29.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "28 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 29.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "4 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "4 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "4 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "4 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 28,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "4 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "28 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "70 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 71.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "70 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 71.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "70 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 71.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "70 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 71.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "day",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "70 ימים ברצף",
+      "sub": "עוד יום שמור. מחר 71.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "10 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "10 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "10 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "10 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "week",
+      "streak": 70,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "10 שבועות ברצף",
+      "sub": "שבעה ימים, שבע להבות. זה כבר הרגל.",
+      "unit": "ימים ברצף"
+    },
+    "70 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 7,
+      "milestone": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 30.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 7,
+      "milestone": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 30.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 7,
+      "milestone": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "אבן דרך של ממש. אתה בדרך ל-30.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 7,
+      "milestone": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "אבן דרך של ממש. את בדרך ל-30.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 7,
+      "milestone": 7,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "7 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 30.",
+      "unit": "ימים ברצף"
+    },
+    "7 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 30,
+      "milestone": 30,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "30 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 100.",
+      "unit": "ימים ברצף"
+    },
+    "30 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 30,
+      "milestone": 30,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "30 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 100.",
+      "unit": "ימים ברצף"
+    },
+    "30 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 30,
+      "milestone": 30,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "30 ימים ברצף",
+      "sub": "אבן דרך של ממש. אתה בדרך ל-100.",
+      "unit": "ימים ברצף"
+    },
+    "30 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 30,
+      "milestone": 30,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "30 ימים ברצף",
+      "sub": "אבן דרך של ממש. את בדרך ל-100.",
+      "unit": "ימים ברצף"
+    },
+    "30 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 30,
+      "milestone": 30,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "30 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 100.",
+      "unit": "ימים ברצף"
+    },
+    "30 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 100,
+      "milestone": 100,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "100 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 365.",
+      "unit": "ימים ברצף"
+    },
+    "100 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 100,
+      "milestone": 100,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "100 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 365.",
+      "unit": "ימים ברצף"
+    },
+    "100 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 100,
+      "milestone": 100,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "100 ימים ברצף",
+      "sub": "אבן דרך של ממש. אתה בדרך ל-365.",
+      "unit": "ימים ברצף"
+    },
+    "100 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 100,
+      "milestone": 100,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "100 ימים ברצף",
+      "sub": "אבן דרך של ממש. את בדרך ל-365.",
+      "unit": "ימים ברצף"
+    },
+    "100 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 100,
+      "milestone": 100,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "100 ימים ברצף",
+      "sub": "אבן דרך של ממש. הבא בתור: 365.",
+      "unit": "ימים ברצף"
+    },
+    "100 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 365,
+      "milestone": 365,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "365 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "365 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 365,
+      "milestone": 365,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "365 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "365 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 365,
+      "milestone": 365,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "365 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "365 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 365,
+      "milestone": 365,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "365 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "365 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 365,
+      "milestone": 365,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "365 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "365 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 400,
+      "milestone": 400,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "400 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "400 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 400,
+      "milestone": 400,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "400 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "400 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 400,
+      "milestone": 400,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "400 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "400 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 400,
+      "milestone": 400,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "400 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "400 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "milestone",
+      "streak": 400,
+      "milestone": 400,
+      "best": 0,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "400 ימים ברצף",
+      "sub": "אבן דרך של ממש.",
+      "unit": "ימים ברצף"
+    },
+    "400 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "male",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "female",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "other",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "male",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "female",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 0,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "other",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. כל 7 ימי רצף מביאים מגן חדש.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "male",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "female",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "other",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "male",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "female",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 1,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "other",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשאר מגן אחד.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "male",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "female",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-20"
+      ]
+    },
+    "other",
+    {
+      "headline": "המגן שמר לך על הרצף",
+      "sub": "היום בלי פעילות לא שבר את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    null,
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "male",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "female",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "shield",
+      "streak": 9,
+      "best": 9,
+      "shieldsLeft": 2,
+      "shieldDays": [
+        "2026-10-19",
+        "2026-10-20"
+      ]
+    },
+    "other",
+    {
+      "headline": "המגנים שמרו לך על הרצף",
+      "sub": "הימים בלי פעילות לא שברו את הרצף. נשארו שני מגנים.",
+      "unit": "ימים ברצף"
+    },
+    "9 ימים ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 1,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, יום אחד, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 1,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, יום אחד, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 1,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, יום אחד, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 1,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, יום אחד, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 1,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, יום אחד, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 3,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 3 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 3,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 3 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 3,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 3 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 3,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 3 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 3,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 3 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 12,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 12 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 12,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 12 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 12,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 12 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 12,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 12 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 12,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 12 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 40,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 40 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 40,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    null,
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 40 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 40,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "male",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 40 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 40,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "female",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 40 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    {
+      "variant": "back",
+      "streak": 1,
+      "best": 40,
+      "shieldsLeft": 0,
+      "shieldDays": []
+    },
+    "other",
+    {
+      "headline": "טוב לראות אותך שוב",
+      "sub": "רצף חדש מתחיל היום. השיא שלך, 40 ימים, נשאר שלך.",
+      "unit": "יום ברצף"
+    },
+    "יום אחד ברצף ב-OUT."
+  ],
+  [
+    "המשך",
+    "שיתוף הרצף",
+    "סגירה"
+  ]
+]

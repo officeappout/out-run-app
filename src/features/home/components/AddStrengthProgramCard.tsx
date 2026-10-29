@@ -9,6 +9,7 @@ import { useOnboardingEntryTap, type OnboardingEntryNavigate } from './start-car
 import { PROGRAM_START_KEYS } from './start-cards/program-start-copy';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 interface AddStrengthProgramCardProps {
   profile: UserFullProfile | null | undefined;
@@ -51,6 +52,7 @@ interface AddStrengthProgramCardProps {
  * the right place without any new branching here.
  */
 export default function AddStrengthProgramCard({ profile, onNavigate, compact = false }: AddStrengthProgramCardProps) {
+  const { direction } = useUiDir();
   const { loading, tap: handleTap } = useOnboardingEntryTap(profile, 'STRENGTH', onNavigate);
   const t = useT(home);
 
@@ -92,7 +94,7 @@ export default function AddStrengthProgramCard({ profile, onNavigate, compact = 
               {t('addStrength.title')}
             </h2>
           </div>
-          <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }} dir="rtl">
+          <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }} dir={direction}>
             {t('addStrength.body')}
           </p>
         </div>

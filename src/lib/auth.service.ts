@@ -23,6 +23,11 @@ import {
 } from 'firebase/auth';
 import { auth } from './firebase';
 import { useSessionHealthStore } from './sessionHealth.store';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+/** User-facing error strings (catalog `onboarding`, `authErrors.*`); the codes like 'google_timeout' are data. */
+const tOnb = makeLiveT(onboarding);
 
 /**
  * localStorage key holding a "previously authenticated" hint. Read by
@@ -261,7 +266,7 @@ export async function signInWithGoogle(): Promise<{ user: User | null; error: st
       const result = await withGoogleTimeout(FirebaseAuthentication.signInWithGoogle());
 
       if (!result.credential?.idToken) {
-        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Google Sign In.' };
+        return { user: null, error: tOnb('authErrors.noGoogleIdentity') };
       }
 
       const credential = GoogleAuthProvider.credential(
@@ -371,10 +376,10 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
       );
 
       if (!result.credential?.idToken) {
-        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
+        return { user: null, error: tOnb('authErrors.noAppleIdentity') };
       }
       if (!result.credential.nonce) {
-        return { user: null, error: 'Apple Sign In לא החזיר nonce. נסו שוב.' };
+        return { user: null, error: tOnb('authErrors.noAppleNonce') };
       }
 
       // ── DEBUG: diagnose raw-vs-hash nonce mismatch ────────────────────
@@ -517,7 +522,7 @@ export async function linkGoogleAccount() {
       const result = await withGoogleTimeout(FirebaseAuthentication.signInWithGoogle());
 
       if (!result.credential?.idToken) {
-        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Google Sign In.' };
+        return { user: null, error: tOnb('authErrors.noGoogleIdentity') };
       }
 
       const credential = GoogleAuthProvider.credential(
@@ -578,7 +583,7 @@ export async function linkWithGoogleAccount() {
       const result = await withGoogleTimeout(FirebaseAuthentication.signInWithGoogle());
 
       if (!result.credential?.idToken) {
-        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Google Sign In.' };
+        return { user: null, error: tOnb('authErrors.noGoogleIdentity') };
       }
 
       const credential = GoogleAuthProvider.credential(
@@ -657,10 +662,10 @@ export async function linkWithAppleAccount(): Promise<{ user: User | null; error
       );
 
       if (!result.credential?.idToken) {
-        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
+        return { user: null, error: tOnb('authErrors.noAppleIdentity') };
       }
       if (!result.credential.nonce) {
-        return { user: null, error: 'Apple Sign In לא החזיר nonce. נסו שוב.' };
+        return { user: null, error: tOnb('authErrors.noAppleNonce') };
       }
 
       const appleProvider = new OAuthProvider('apple.com');
@@ -1076,7 +1081,7 @@ export async function checkLoginLinkGate(email: string): Promise<{ allowed: bool
     });
     if (res.status === 429) {
       const data = await res.json().catch(() => ({}));
-      return { allowed: false, error: data?.error || 'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.' };
+      return { allowed: false, error: data?.error || tOnb('authErrors.tooManyAttempts') };
     }
     return { allowed: true, error: null };
   } catch (error) {
@@ -1119,7 +1124,7 @@ export async function sendMagicLinkRateLimited(
   }
   const result = await sendMagicLink(email, continueUrl, options);
   if (result.error) {
-    return { error: 'שגיאה בשליחת הקישור. נסו שוב.' };
+    return { error: tOnb('authErrors.linkSendFailed') };
   }
   return result;
 }

@@ -21,7 +21,7 @@ export default function PartnersListSheet({ open, onClose, partners, onPartnerCl
   return (
     <Sheet open={open} onClose={onClose} title={t('profile.partners.title')} layout="nested" scroll="panel"
       zIndex={SHEET_Z.profilePanel} className="max-h-[80vh]" keyboardAware={false}>
-      <ul className="space-y-1 px-5 pb-4" dir="rtl">
+      <ul className="space-y-1 px-5 pb-4">
         {partners.length === 0 && <li className="py-6 text-center text-[14px] font-bold text-v2-muted">{t('profile.partners.empty')}</li>}
         {partners.map((p) => (
           <li key={p.uid}>

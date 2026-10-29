@@ -55,7 +55,6 @@ function PushToastCard({ toast }: { toast: ForegroundPushToast }) {
       exit={{ opacity: 0, y: -12, scale: 0.96 }}
       transition={{ type: 'spring', damping: 22, stiffness: 300 }}
       className="w-full max-w-sm pointer-events-auto"
-      dir="rtl"
     >
       <div
         className={`

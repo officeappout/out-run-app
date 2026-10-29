@@ -9,6 +9,8 @@ import { getAllAuthorities, getChildrenByParent } from '@/features/admin/service
 import { ISRAELI_LOCATIONS, type IsraeliLocation, type LocationType } from '@/lib/data/israel-locations';
 import { NEIGHBORHOOD_GEOCODE_GUARD_ENABLED } from '@/config/feature-flags';
 import type { Map as MapboxGLMap } from 'mapbox-gl';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { onboarding } from '@/messages/ns/onboarding';
 
 import type {
   NearbyFacility,
@@ -39,6 +41,9 @@ import {
   DEFAULT_COORDINATES,
   NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS,
 } from './location-constants';
+
+/** Generated copy of this file (catalog `onboarding`, `locationUtils.*`); resolves the locale when it runs. */
+const t = makeLiveT(onboarding);
 
 
 // ══════════════════════════════════════════════════════════════════════
@@ -87,8 +92,8 @@ export function calculateDistance(lat1: number, lng1: number, lat2: number, lng2
 /** Format distance as walking minutes (~80m per minute) */
 export function formatDistance(distanceMeters: number): string {
   const walkingMinutes = Math.round(distanceMeters / 80);
-  if (walkingMinutes <= 1) return 'פחות מדקה הליכה ממך';
-  return `כ-${walkingMinutes} דקות הליכה ממך`;
+  if (walkingMinutes <= 1) return t('locationUtils.distance.underMinute');
+  return t('locationUtils.distance.minutes', { n: walkingMinutes });
 }
 
 /** Reverse geocoding using Mapbox API */
@@ -643,7 +648,7 @@ export function sportToActivityTypes(sportId: string | null): { activities: stri
 
 /** Get activity-specific verb for sport-aware copy */
 export function getActivityVerb(sportId: string | null): string {
-  if (!sportId) return 'להתחיל בו';
+  if (!sportId) return t('locationUtils.verb.start');
   
   const STRENGTH = new Set(['calisthenics', 'crossfit', 'functional', 'movement', 'gym', 'strength']);
   const CARDIO = new Set(['running', 'walking', 'cycling']);
@@ -651,14 +656,16 @@ export function getActivityVerb(sportId: string | null): string {
   const MIND = new Set(['yoga', 'pilates', 'stretching']);
   const NATURE = new Set(['climbing']);
   
-  if (STRENGTH.has(sportId)) return 'להתחזק בו';
-  if (CARDIO.has(sportId)) return 'לאימון שלך';
-  if (BALL.has(sportId)) return 'למשחק הקרוב';
-  if (MIND.has(sportId)) return 'לנשום בו';
-  if (NATURE.has(sportId)) return 'לחיבור עם הסביבה';
+  if (STRENGTH.has(sportId)) return t('locationUtils.verb.strength');
+  if (CARDIO.has(sportId)) return t('locationUtils.verb.cardio');
+  if (BALL.has(sportId)) return t('locationUtils.verb.ball');
+  if (MIND.has(sportId)) return t('locationUtils.verb.mind');
+  if (NATURE.has(sportId)) return t('locationUtils.verb.nature');
   
-  return 'להתחיל בו';
+  return t('locationUtils.verb.start');
 }
+
+type IdentityPersona = 'dad' | 'mom' | 'military' | 'office' | 'student' | 'senior' | 'default';
 
 export function getIdentityHook(
   personaId: string,
@@ -667,62 +674,34 @@ export function getIdentityHook(
   selectedSportId: string | null = null
 ): IdentityHookResult {
   const isFemale = userGender === 'female';
-  const city = cityName || 'האזור שלך';
+  const city = cityName || t('locationUtils.cityFallback');
   const verb = getActivityVerb(selectedSportId);
+  const where = t('locationUtils.inCity', { city });
+  const pick = (persona: IdentityPersona): IdentityHookResult => ({
+    intro: t(`locationUtils.hook.${persona}.intro`, { gender: userGender }),
+    value: t(`locationUtils.hook.${persona}.value`, { verb, where }),
+  });
 
   // Dad
-  if (personaId === 'parent' && !isFemale) {
-    return {
-      intro: 'בתור אבא, למצוא זמן לאימון רציני בין העבודה לזמן עם הילדים זה פרויקט בפני עצמו.',
-      value: `אז מצאנו לך ב${city} את המקום המדויק ${verb} – בחינם, מתחת לבית ובזמן שהכי נוח לך.`,
-    };
-  }
+  if (personaId === 'parent' && !isFemale) return pick('dad');
 
   // Mom
-  if (personaId === 'parent' && isFemale) {
-    return {
-      intro: 'אנחנו יודעים שבתור אמא, למצוא זמן לעצמך בתוך המרוץ היומיומי זה כמעט בלתי אפשרי.',
-      value: `אז מצאנו לך ב${city} את המקום המדויק ${verb} – בחינם, מתחת לבית ובלי לוגיסטיקה מעייפת.`,
-    };
-  }
+  if (personaId === 'parent' && isFemale) return pick('mom');
 
   // Military
-  if (personaId === 'military') {
-    return {
-      intro: `בתור ${isFemale ? 'לוחמת' : 'לוחם'}, אנחנו יודעים כמה זה מאתגר לשמור על כושר היחידה בתוך השגרה הלחוצה בבית.`,
-      value: `בדיוק בשביל זה, סימנו לך ב${city} את הנקודה האידיאלית ${verb} – בחינם, הכי קרוב לבית ובלי לבזבז זמן יקר.`,
-    };
-  }
+  if (personaId === 'military') return pick('military');
 
   // Hi-Tech / Office Worker
-  if (personaId === 'office_worker' || personaId === 'pro_athlete') {
-    return {
-      intro: `בתור ${isFemale ? 'הייטקיסטית' : 'הייטקיסט'}, אחרי יום שלם של ישיבות מול המסך, הדבר האחרון שהגוף שלך צריך זה להמשיך לשבת.`,
-      value: `לכן, מיפינו עבורך ב${city} את הנקודה האידיאלית ${verb} – בחינם, בדרך הביתה ובלי לבזבז זמן יקר.`,
-    };
-  }
+  if (personaId === 'office_worker' || personaId === 'pro_athlete') return pick('office');
 
   // Student / Pupil
-  if (personaId === 'student' || personaId === 'pupil') {
-    return {
-      intro: 'בין הלימודים למבחנים, המוח שלך חייב הפסקה והתקציב בטח לא מאפשר חדר כושר יקר.',
-      value: `בדיוק בשביל זה, מצאנו לך ב${city} את המקום המושלם ${verb} – בחינם, בשכונה שלך ועם החבר'ה.`,
-    };
-  }
+  if (personaId === 'student' || personaId === 'pupil') return pick('student');
 
   // Senior / Golden Age
-  if (personaId === 'vatikim') {
-    return {
-      intro: `חשוב ${isFemale ? 'לך' : 'לך'} לשמור על הגוף פעיל וגמיש, בלי להתאמץ ולנסוע רחוק מדי מהבית.`,
-      value: `לכן, מצאנו לך ב${city} את המקום הכי נוח ${verb} – בחינם, במרחק הליכה קצר ובסביבה בטוחה.`,
-    };
-  }
+  if (personaId === 'vatikim') return pick('senior');
 
   // Default
-  return {
-    intro: 'אנחנו יודעים שהחלק הכי קשה באימון הוא פשוט לצאת מהבית.',
-    value: `לכן, מצאנו לך ב${city} את המקום המדויק ${verb} – בחינם, הכי קרוב אליך ובלי תירוצים.`,
-  };
+  return pick('default');
 }
 
 
@@ -745,7 +724,7 @@ export function selectSmartBadges(
   sportContext: SportContext
 ): SmartBadge[] {
   const badges: SmartBadge[] = [];
-  const cityLabel = detectedCity ? `ב${detectedCity}` : 'בסביבה';
+  const cityLabel = detectedCity ? t('locationUtils.inCity', { city: detectedCity }) : t('locationUtils.badge.where.nearby');
   
   // Badge A: User's sport category (Priority)
   if (selectedSportId && cityAssetCounts) {
@@ -757,19 +736,19 @@ export function selectSmartBadges(
     if (STRENGTH_SET.has(selectedSportId) && cityAssetCounts.gyms > 0) {
       badges.push({ 
         icon: '🏋️', 
-        label: `${cityAssetCounts.gyms} מתקני עילית ${cityLabel}`,
+        label: t('locationUtils.badge.gyms', { count: cityAssetCounts.gyms, where: cityLabel }),
         value: cityAssetCounts.gyms
       });
     } else if (COURT_SET.has(selectedSportId) && cityAssetCounts.courts > 0) {
       badges.push({ 
         icon: '⚽', 
-        label: `${cityAssetCounts.courts} מגרשים ${cityLabel}`,
+        label: t('locationUtils.badge.courts', { count: cityAssetCounts.courts, where: cityLabel }),
         value: cityAssetCounts.courts
       });
     } else if (NATURE_SET.has(selectedSportId) && cityAssetCounts.nature > 0) {
       badges.push({ 
         icon: '🌳', 
-        label: `${cityAssetCounts.nature} נקודות טבע ${cityLabel}`,
+        label: t('locationUtils.badge.nature', { count: cityAssetCounts.nature, where: cityLabel }),
         value: cityAssetCounts.nature
       });
     }
@@ -779,7 +758,7 @@ export function selectSmartBadges(
   if (infraStats && infraStats.totalKm > 0 && !sportContext.isSpotFocus) {
     badges.push({ 
       icon: '🛣️', 
-      label: `${infraStats.totalKm.toFixed(1)} ק״מ מסלולי תנועה`,
+      label: t('locationUtils.badge.km', { km: infraStats.totalKm.toFixed(1) }),
       value: infraStats.totalKm
     });
   }
@@ -788,7 +767,7 @@ export function selectSmartBadges(
   if (badges.length === 0 && cityAssetCounts && cityAssetCounts.gyms > 0) {
     badges.push({ 
       icon: '🏋️', 
-      label: `${cityAssetCounts.gyms} מתקני עילית ${cityLabel}`,
+      label: t('locationUtils.badge.gyms', { count: cityAssetCounts.gyms, where: cityLabel }),
       value: cityAssetCounts.gyms
     });
   }
@@ -1520,30 +1499,30 @@ export function getDefaultCoordinates(locationId: string, parentId?: string): { 
 // PIONEER + PLAN B — Integrated Fallback Logic
 // ══════════════════════════════════════════════════════════════════════
 
-/** Hebrew sport names for the Plan B bridge sentence */
-const SPORT_NAME_HE: Record<string, string> = {
-  running: 'ריצה',
-  walking: 'הליכה',
-  cycling: 'רכיבה',
-  basketball: 'כדורסל',
-  football: 'כדורגל',
-  tennis: 'טניס',
-  padel: 'פאדל',
-  yoga: 'יוגה',
-  pilates: 'פילאטיס',
-  stretching: 'מתיחות',
-  climbing: 'טיפוס',
-  skateboard: 'סקייטבורד',
-  calisthenics: 'קליסטניקס',
-  crossfit: 'קרוספיט',
-  functional: 'אימון פונקציונלי',
-  movement: 'תנועה',
-  gym: 'אימון כוח',
-  strength: 'אימון כוח',
-  boxing: 'אגרוף',
-  mma: 'MMA',
-  self_defense: 'הגנה עצמית',
-};
+/** Sport id -> catalog key of its name, for the Plan B bridge sentence. */
+const SPORT_NAME_KEY = {
+  running: 'locationUtils.sport.running',
+  walking: 'locationUtils.sport.walking',
+  cycling: 'locationUtils.sport.cycling',
+  basketball: 'locationUtils.sport.basketball',
+  football: 'locationUtils.sport.football',
+  tennis: 'locationUtils.sport.tennis',
+  padel: 'locationUtils.sport.padel',
+  yoga: 'locationUtils.sport.yoga',
+  pilates: 'locationUtils.sport.pilates',
+  stretching: 'locationUtils.sport.stretching',
+  climbing: 'locationUtils.sport.climbing',
+  skateboard: 'locationUtils.sport.skateboard',
+  calisthenics: 'locationUtils.sport.calisthenics',
+  crossfit: 'locationUtils.sport.crossfit',
+  functional: 'locationUtils.sport.functional',
+  movement: 'locationUtils.sport.movement',
+  gym: 'locationUtils.sport.gym',
+  strength: 'locationUtils.sport.strength',
+  boxing: 'locationUtils.sport.boxing',
+  mma: 'locationUtils.sport.mma',
+  self_defense: 'locationUtils.sport.selfDefense',
+} as const;
 
 /**
  * Checks if a facility is a direct sport-specific match for the user's
@@ -1721,47 +1700,38 @@ export function buildPioneerFallback(
   if (hasDirectMatch) return empty;
 
   // ── No match found → Pioneer mode ──────────────────────
-  const isFemale = gender === 'female';
-  const city = detectedCity || 'השכונה';
+  const city = detectedCity || t('locationUtils.pioneer.cityFallback');
   const category = classifyPioneerCategory(selectedSportId);
-  const sportNameHe = SPORT_NAME_HE[selectedSportId] || 'הספורט שלך';
+  const sportKey = SPORT_NAME_KEY[selectedSportId as keyof typeof SPORT_NAME_KEY];
+  const sportName = sportKey ? t(sportKey) : t('locationUtils.sport.fallback');
+  const where = t('locationUtils.inCity', { city });
 
   let pioneerMessage: string;
   let pioneerEmoji: string;
 
   switch (category) {
     case 'ball':
-      pioneerMessage = isFemale
-        ? `עוד לא מיפינו מגרש בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!`
-        : `עוד לא מיפינו מגרש בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!`;
+      pioneerMessage = t('locationUtils.pioneer.message.ball', { gender });
       pioneerEmoji = '🚩';
       break;
 
     case 'cardio':
-      pioneerMessage = isFemale
-        ? `המסלול האידיאלי ב${city} עוד מחכה להיכתב. בואי נהיה החלוצות שממפות אותו!`
-        : `המסלול האידיאלי ב${city} עוד מחכה להיכתב. בוא נהיה החלוצים שממפים אותו!`;
+      pioneerMessage = t('locationUtils.pioneer.message.cardio', { gender, where });
       pioneerEmoji = '🏃‍♂️';
       break;
 
     case 'nature':
-      pioneerMessage = isFemale
-        ? `אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בואי נהיה הראשונות למצוא אותה!`
-        : `אנחנו עדיין בחיפוש אחר נקודת הטבע המושלמת פה. בוא נהיה הראשונים למצוא אותה!`;
+      pioneerMessage = t('locationUtils.pioneer.message.nature', { gender });
       pioneerEmoji = '🌳';
       break;
 
     case 'strength':
-      pioneerMessage = isFemale
-        ? `עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בואי נהיה הראשונות שמתחילות את השינוי!`
-        : `עוד לא מצאנו גינת כושר ייעודית בשכונה שלך, בוא נהיה הראשונים שמתחילים את השינוי!`;
+      pioneerMessage = t('locationUtils.pioneer.message.strength', { gender });
       pioneerEmoji = '💪';
       break;
 
     default:
-      pioneerMessage = isFemale
-        ? `נראה שגילינו אזור חדש! את הולכת להיות החלוצה הראשונה שתמפה את השכונה. בואי נהיה הראשונות!`
-        : `נראה שגילינו אזור חדש! אתה הולך להיות החלוץ הראשון שימפה את השכונה. בוא נהיה הראשונים!`;
+      pioneerMessage = t('locationUtils.pioneer.message.default', { gender });
       pioneerEmoji = '🚩';
       break;
   }
@@ -1770,19 +1740,19 @@ export function buildPioneerFallback(
   let planBBridge: string;
   switch (category) {
     case 'ball':
-      planBBridge = `עד שנמפה מגרש בסביבה, הנה הנקודה הכי טובה לחימום והכנה גופנית:`;
+      planBBridge = t('locationUtils.pioneer.bridge.ball');
       break;
     case 'cardio':
-      planBBridge = `עד שנמצא את המסלול המושלם ל${sportNameHe}, הנה הנקודה הכי טובה לחיזוק בינתיים:`;
+      planBBridge = t('locationUtils.pioneer.bridge.cardio', { sport: sportName });
       break;
     case 'strength':
-      planBBridge = `עד שנמצא גינת כושר מלאה, הנה הנקודה הכי טובה להתחיל בה בינתיים:`;
+      planBBridge = t('locationUtils.pioneer.bridge.strength');
       break;
     case 'nature':
-      planBBridge = `עד שנמצא את הפינה השקטה המושלמת, הנה הנקודה הכי טובה לאימון בינתיים:`;
+      planBBridge = t('locationUtils.pioneer.bridge.nature');
       break;
     default:
-      planBBridge = `עד שנמצא את המקום המדויק ל${sportNameHe}, הנה הנקודה הכי טובה להתחיל בה בינתיים:`;
+      planBBridge = t('locationUtils.pioneer.bridge.default', { sport: sportName });
   }
 
   // Fallback asset — highest-rated SUITABLE facility in the radius
