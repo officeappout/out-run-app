@@ -18,7 +18,27 @@ import {
 import { db } from '@/lib/firebase';
 import { OutdoorBrand, OutdoorBrandFormData } from './outdoor-brand.types';
 
+import {
+  foldLocalizedFieldsForWrite,
+  normalizeStoredTextFields,
+  type LocalizedFieldPair,
+} from '../../../shared/stored-text-fields';
 const OUTDOOR_BRANDS_COLLECTION = 'outdoorBrands';
+
+const BRAND_TEXT_FIELDS: LocalizedFieldPair[] = [
+  { key: 'name', localizedKey: 'nameLocalized' },
+  { key: 'description', localizedKey: 'descriptionLocalized' },
+];
+
+/** name / description may be {he,en} in Firestore: they stay Hebrew strings in the app model, the pair rides in `*Localized`. */
+export function normalizeOutdoorBrand<T extends object>(data: T): T {
+  return normalizeStoredTextFields(data, BRAND_TEXT_FIELDS);
+}
+
+/** English entered -> {he,en}; no `*Localized` key (or no English) -> exactly the plain strings as before. */
+export function foldOutdoorBrandForWrite<T extends object>(data: T): T {
+  return foldLocalizedFieldsForWrite(data, BRAND_TEXT_FIELDS);
+}
 
 /**
  * Convert Firestore timestamp, Unix epoch, or date string to Date.
@@ -49,12 +69,12 @@ export async function getAllOutdoorBrands(): Promise<OutdoorBrand[]> {
     const q = query(collection(db, OUTDOOR_BRANDS_COLLECTION), orderBy('name', 'asc'));
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => ({
+    return snapshot.docs.map((doc) => normalizeOutdoorBrand({
       id: doc.id,
       ...doc.data(),
       createdAt: toDate(doc.data().createdAt),
       updatedAt: toDate(doc.data().updatedAt),
-    } as OutdoorBrand));
+    }) as OutdoorBrand);
   } catch (error) {
     console.error('Error fetching outdoor brands:', error);
     throw error;
@@ -73,12 +93,12 @@ export async function getOutdoorBrand(brandId: string): Promise<OutdoorBrand | n
       return null;
     }
 
-    return {
+    return normalizeOutdoorBrand({
       id: docSnap.id,
       ...docSnap.data(),
       createdAt: toDate(docSnap.data().createdAt),
       updatedAt: toDate(docSnap.data().updatedAt),
-    } as OutdoorBrand;
+    }) as OutdoorBrand;
   } catch (error) {
     console.error('Error fetching outdoor brand:', error);
     throw error;
@@ -91,7 +111,7 @@ export async function getOutdoorBrand(brandId: string): Promise<OutdoorBrand | n
 export async function createOutdoorBrand(data: OutdoorBrandFormData): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, OUTDOOR_BRANDS_COLLECTION), {
-      ...data,
+      ...foldOutdoorBrandForWrite(data),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -112,7 +132,7 @@ export async function updateOutdoorBrand(
   try {
     const docRef = doc(db, OUTDOOR_BRANDS_COLLECTION, brandId);
     await updateDoc(docRef, {
-      ...data,
+      ...foldOutdoorBrandForWrite(data),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {

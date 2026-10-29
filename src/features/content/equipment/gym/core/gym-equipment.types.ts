@@ -2,6 +2,7 @@
  * Gym Equipment Management Types
  * Defines the structure for gym equipment in the 'gym_equipment' collection
  */
+import type { LocalizedText } from '../../../shared/localized-text.types';
 import { ExerciseType, MuscleGroup, MovementGroup, TargetProgramRef } from '../../../exercises/core/exercise.types';
 
 export interface EquipmentBrand {
@@ -21,6 +22,10 @@ export type EquipmentLocation = 'home' | 'park' | 'office' | 'gym';
  */
 export interface GymEquipment {
   id: string;
+  /**
+   * Hebrew string always. Firestore may hold a {he,en} here; the service normalizes on read and the pair
+   * rides in the `*Localized` siblings below (set only when the doc has English). See gym-equipment-localized.
+   */
   name: string; // e.g., "Bench Press Machine", "ספסל רחוב"
   type: ExerciseType; // 'reps' | 'time' | 'rest'
   recommendedLevel: number; // 1-20
@@ -70,6 +75,14 @@ export interface GymEquipment {
    * as the cues fallback. `null` = explicitly cleared in the editor.
    */
   description?: string | null;
+  /** Usage steps (a few docs). Hebrew strings; English in instructionsLocalized. */
+  instructions?: string[];
+  nameLocalized?: LocalizedText;
+  descriptionLocalized?: LocalizedText;
+  prepNoteLocalized?: LocalizedText;
+  cuesLocalized?: LocalizedText[];
+  tipsLocalized?: LocalizedText[];
+  instructionsLocalized?: LocalizedText[];
   createdAt?: Date;
   updatedAt?: Date;
 }

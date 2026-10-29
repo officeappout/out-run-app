@@ -83,7 +83,7 @@ function buildHydraulicExercise(eq: GymEquipment): WorkoutExercise | null {
   const isTimeBased = eq.type === 'time';
 
   const syntheticMethod: ExecutionMethod = {
-    methodName: { he: eq.name, en: eq.name },
+    methodName: { he: eq.name, en: eq.nameLocalized?.en || eq.name },
     location: 'park',
     requiredGearType: 'fixed_equipment',
     equipmentIds: [eq.id],
@@ -93,7 +93,7 @@ function buildHydraulicExercise(eq: GymEquipment): WorkoutExercise | null {
 
   const syntheticExercise: Exercise = {
     id: `gym_equipment:${eq.id}`,
-    name: { he: eq.name, en: eq.name },
+    name: { he: eq.name, en: eq.nameLocalized?.en || eq.name },
     type: eq.type ?? 'reps',
     loggingMode: 'reps',
     equipment: [],

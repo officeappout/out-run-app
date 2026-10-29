@@ -42,7 +42,9 @@ export interface ProductTask {
 // Tag definition for tag manager
 export interface ProductTag {
   id: string;
+  /** Hebrew string always (tasks reference tags by it); English, when the doc has it, in nameLocalized. */
   name: string;
+  nameLocalized?: { he: string; en: string };
   color: string; // Hex color for badge
   createdAt: Date;
 }

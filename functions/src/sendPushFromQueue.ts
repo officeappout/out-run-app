@@ -60,6 +60,8 @@ import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service
 import { activityToMillis, lastActivityFromUserData, readActivityFlags } from './lib/user-activity';
 import { PUSH_TYPE_IDS, accumulateUidDelivery, isPushMeasureAllEnabled } from './services/push-measure-all';
 import { writeLegacyPushSentEvents } from './services/push-events.service';
+import { partitionUidsByQueueLocale, queueCopiesOf } from './services/push-queue-copy';
+import { effectivePushLocale } from './services/push-copy.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -78,8 +80,9 @@ type TargetAudience = 'all' | 'park_users' | 'active_users' | 'inactive_users';
 interface PushQueueDoc {
   authorityId?: string;
   parkId?: string | null;
-  title?: string;
-  message?: string;
+  /** Plain Hebrew string, or {he, en} once English exists (read through queueCopiesOf, never raw). */
+  title?: unknown;
+  message?: unknown;
   sentBy?: string;
   targetAudience?: TargetAudience;
   channel?: PushChannel;
@@ -135,8 +138,10 @@ export const sendPushFromQueue = onDocumentCreated(
     }
 
     // ── Step 2: validate inputs ──────────────────────────────────────
-    const title = (data.title ?? '').toString().trim();
-    const body = (data.message ?? '').toString().trim();
+    // Hebrew string even when the doc holds {he, en} (never "[object Object]"); English is only used per recipient below.
+    const copies = queueCopiesOf(data);
+    const title = copies.he.title;
+    const body = copies.he.body;
     const authorityId = (data.authorityId ?? '').toString().trim();
     const audience: TargetAudience = data.targetAudience ?? 'all';
 
@@ -172,6 +177,18 @@ export const sendPushFromQueue = onDocumentCreated(
       return;
     }
 
+    // English copy exists (title AND message): split the audience by push locale. No English (every doc today) -> one
+    // Hebrew group = exactly the previous behaviour, no extra reads.
+    let localeOf: Map<string, 'he' | 'en'> | null = null;
+    if (copies.en) {
+      try {
+        localeOf = await partitionUidsByQueueLocale(db, candidateUids, effectivePushLocale);
+      } catch (e) {
+        logger.warn('[sendPushFromQueue] locale split failed, sending Hebrew to everyone', e);
+      }
+    }
+    const copyOfUid = (uid: string) => (copies.en && localeOf?.get(uid) === 'en' ? copies.en : copies.he);
+
     // Phase 0 Item 1b — routing flag; a read failure here is non-fatal, it
     // just means this send falls back to the legacy inline path (flag=false).
     let useSharedPushService = false;
@@ -187,24 +204,44 @@ export const sendPushFromQueue = onDocumentCreated(
     // ── Routed path (Phase 0 Item 1b) — delivery via the shared push.service.ts,
     // gated behind pushRouting_sendPushFromQueue (default false). ──────────────
     if (useSharedPushService) {
-      const result = await sendPush({
-        toUids: Array.from(candidateUids),
-        channel,
-        measurementTypeId: PUSH_TYPE_IDS.broadcast, // enable_push_measure_all (off = ignored)
-        title,
-        body,
-        deepLink: data.deepLink,
-        data: {
-          messageId,
-          authorityId,
-          ...(data.parkId ? { parkId: String(data.parkId) } : {}),
-        },
-        // Admin broadcasts have no rate cap or quiet-hours suppression today
-        // (by design — one-off sends, any hour) — preserve that explicitly
-        // rather than falling back to sendPush()'s defaults.
-        rateCapHours: 0,
-        skipQuietHours: true,
-      });
+      const uidGroups: Array<{ copy: { title: string; body: string }; uids: string[] }> = localeOf
+        ? [copies.he, copies.en!]
+            .map((copy) => ({ copy, uids: Array.from(candidateUids).filter((u) => copyOfUid(u) === copy) }))
+            .filter((g) => g.uids.length > 0)
+        : [{ copy: { title, body }, uids: Array.from(candidateUids) }];
+      const results: Awaited<ReturnType<typeof sendPush>>[] = [];
+      for (const g of uidGroups) {
+        results.push(
+          await sendPush({
+            toUids: g.uids,
+            channel,
+            measurementTypeId: PUSH_TYPE_IDS.broadcast, // enable_push_measure_all (off = ignored)
+            title: g.copy.title,
+            body: g.copy.body,
+            deepLink: data.deepLink,
+            data: {
+              messageId,
+              authorityId,
+              ...(data.parkId ? { parkId: String(data.parkId) } : {}),
+            },
+            // Admin broadcasts have no rate cap or quiet-hours suppression today
+            // (by design — one-off sends, any hour) — preserve that explicitly
+            // rather than falling back to sendPush()'s defaults.
+            rateCapHours: 0,
+            skipQuietHours: true,
+          }),
+        );
+      }
+      const sum = (k: 'delivered' | 'failed' | 'tokensPruned' | 'skippedShabbat' | 'skippedPrefs' | 'skippedGlobalKill') =>
+        results.reduce((n, r) => n + (r[k] ?? 0), 0);
+      const result = {
+        delivered: sum('delivered'),
+        failed: sum('failed'),
+        tokensPruned: sum('tokensPruned'),
+        skippedShabbat: sum('skippedShabbat'),
+        skippedPrefs: sum('skippedPrefs'),
+        skippedGlobalKill: sum('skippedGlobalKill'),
+      };
       await snap.ref.update({
         status: 'sent',
         deliveredCount: result.delivered,
@@ -250,7 +287,7 @@ export const sendPushFromQueue = onDocumentCreated(
     // ── Step 5: multicast in batches ─────────────────────────────────
     const messageBase: admin.messaging.MulticastMessage = {
       tokens: [],
-      notification: { title, body },
+      notification: { title, body }, // per group below (Hebrew unless the recipient's push locale is English)
       data: {
         messageId,
         authorityId,
@@ -289,11 +326,20 @@ export const sendPushFromQueue = onDocumentCreated(
     const measureLegacy = await isPushMeasureAllEnabled();
     const uidDelivered = new Map<string, boolean>();
 
-    for (let i = 0; i < tokens.length; i += MULTICAST_BATCH_SIZE) {
-      const batch = tokens.slice(i, i + MULTICAST_BATCH_SIZE);
+    // One group (Hebrew) unless English copy exists and some recipients resolve to 'en'.
+    const tokenGroups: Array<{ copy: { title: string; body: string }; tokens: string[] }> = localeOf
+      ? [copies.he, copies.en!]
+          .map((copy) => ({ copy, tokens: tokens.filter((t) => copyOfUid(tokenOwners.get(t) ?? '') === copy) }))
+          .filter((g) => g.tokens.length > 0)
+      : [{ copy: { title, body }, tokens }];
+
+    for (const group of tokenGroups)
+    for (let i = 0; i < group.tokens.length; i += MULTICAST_BATCH_SIZE) {
+      const batch = group.tokens.slice(i, i + MULTICAST_BATCH_SIZE);
       try {
         const response = await messaging.sendEachForMulticast({
           ...messageBase,
+          notification: { title: group.copy.title, body: group.copy.body },
           tokens: batch,
         });
         if (measureLegacy) accumulateUidDelivery(uidDelivered, batch, tokenOwners, response.responses.map((r) => r.success));
