@@ -1,0 +1,9 @@
+{
+  "lap.done": "Lap {lap} complete. Distance: {distance} kilometers. Pace: {pace} minutes per kilometer.",
+  "lap.doneTotal": "Lap {lap} complete. Total distance: {distance} kilometers. Average pace: {pace} minutes per kilometer.",
+  "distance.total": "Total distance: {distance} kilometers.",
+  "block.start": "Starting {label}",
+  "pace.slow": "Pace is slow, pick it up a little",
+  "pace.fast": "Pace is fast, ease off a little",
+  "rest.getReady": "Get ready"
+}
