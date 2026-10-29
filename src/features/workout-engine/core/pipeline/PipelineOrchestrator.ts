@@ -404,12 +404,14 @@ export class PipelineOrchestrator {
     // For context.useModularPipeline === true, this IS the authoritative
     // set-cap enforcement replacing WorkoutGenerator's bypassed loops.
     const budgetDistributor = createBudgetDistributor();
-    const mainExercises = workout.exercises.filter(e => e.exerciseRole === 'main');
+    // Protocol block members (tabata / density) are fixed-length blocks, never capped.
+    const mainExercises = workout.exercises.filter(e => e.exerciseRole === 'main' && !e.protocolBlock);
+    const blockMembers = workout.exercises.filter(e => e.exerciseRole === 'main' && e.protocolBlock);
     const supportExercises = workout.exercises.filter(e => e.exerciseRole !== 'main');
     const correctedMain = budgetDistributor.reapplyCaps(mainExercises, blueprint.budgetConstraints, context);
 
     if (correctedMain !== mainExercises) {
-      workout.exercises = [...correctedMain, ...supportExercises];
+      workout.exercises = [...correctedMain, ...blockMembers, ...supportExercises];
       const correctedTotal = workout.exercises.reduce((s, e) => s + e.sets, 0);
       if (correctedTotal !== workout.totalPlannedSets) {
         log.push(`budget_correction: ${workout.totalPlannedSets} → ${correctedTotal} sets`);

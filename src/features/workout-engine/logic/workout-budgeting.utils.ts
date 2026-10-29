@@ -1222,6 +1222,7 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
   const warmupExercises:  WorkoutExercise[] = [];
   const cooldownExercises: WorkoutExercise[] = [];
   const tabataMembers:     WorkoutExercise[] = [];
+  const densityMembers:    WorkoutExercise[] = [];
 
   for (const ex of exercises) {
     const role = ex.exerciseRole ?? 'main';
@@ -1232,6 +1233,11 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
     // price once after the loop; per-set math here would double-count.
     if (ex.protocolBlock === 'tabata') {
       tabataMembers.push(ex);
+      continue;
+    }
+    // Density (EMOM / AMRAP) block: fixed minutes, priced once below.
+    if (ex.protocolBlock === 'density') {
+      densityMembers.push(ex);
       continue;
     }
 
@@ -1295,14 +1301,20 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
     });
   }
 
+  let densityBlockSec = 0;
+  if (densityMembers.length > 0) {
+    densityBlockSec = (densityMembers[0].densityBlockMinutes ?? 0) * 60;
+    rows.push({ role: 'density', name: `בלוק צפיפות (${densityMembers.length} תרגילים)`, sets: 1, workSec: densityBlockSec, restSec: 0 });
+  }
+
   // ── Transitions: warmup items use 5 s; all others use 30 s ──────────────
   // The tabata block counts as ONE unit (members flow 20/10 internally).
   const mainAndCooldownExercises = exercises.filter(ex =>
-    (ex.exerciseRole ?? 'main') !== 'warmup' && ex.protocolBlock !== 'tabata');
-  const transitionUnits = mainAndCooldownExercises.length + (tabataMembers.length > 0 ? 1 : 0);
+    (ex.exerciseRole ?? 'main') !== 'warmup' && !ex.protocolBlock);
+  const transitionUnits = mainAndCooldownExercises.length + (tabataMembers.length > 0 ? 1 : 0) + (densityMembers.length > 0 ? 1 : 0);
   const mainTransitionSeconds = transitionUnits > 1 ? (transitionUnits - 1) * 30 : 0;
 
-  const totalSeconds = rawWarmupSec + mainWorkSec + mainRestSec + cooldownWorkSec + cooldownRestSec + tabataBlockSec;
+  const totalSeconds = rawWarmupSec + mainWorkSec + mainRestSec + cooldownWorkSec + cooldownRestSec + tabataBlockSec + densityBlockSec;
   const finalSeconds = totalSeconds + mainTransitionSeconds;
   const finalMinutes = Math.ceil(finalSeconds / 60);
 

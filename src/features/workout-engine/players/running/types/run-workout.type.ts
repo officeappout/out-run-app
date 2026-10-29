@@ -1,11 +1,14 @@
 // src/features/run/types/run-workout.type.ts
 
 import RunBlock from './run-block.type';
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
 import type { WeekSlot } from '@/features/workout-engine/core/types/running.types';
 
 export type RunWorkout = {
   id: string;
+  /** Hebrew always; English, when the template has it, in titleLocalized (display only). */
   title: string;
+  titleLocalized?: LocalizedText;
   description?: string;
   isQualityWorkout: boolean;
   blocks: RunBlock[];

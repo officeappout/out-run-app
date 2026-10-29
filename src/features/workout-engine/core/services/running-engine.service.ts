@@ -677,6 +677,7 @@ export function materializeWorkout(
   return {
     id: `${template.id}_w${weekNumber}`,
     title: template.name,
+    ...(template.nameLocalized ? { titleLocalized: template.nameLocalized } : {}),
     description: (template as any).description as string | undefined,
     isQualityWorkout: template.isQualityWorkout,
     blocks: finalBlocks,
@@ -729,6 +730,7 @@ function templateToRunBlock(
     id: nextBlockId(),
     type: tpl.type as RunBlockType,
     label: tpl.label,
+    ...(tpl.labelLocalized ? { labelLocalized: tpl.labelLocalized } : {}),
     colorHex: tpl.colorHex,
     isQualityExercise: tpl.isQualityExercise,
     blockMode: tpl.blockMode ?? 'pace',

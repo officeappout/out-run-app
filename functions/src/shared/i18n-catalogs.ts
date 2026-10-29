@@ -190,7 +190,9 @@ export const FUNCTIONS_CATALOGS = {
       "ui.report.failed": "{gender, select, female {השליחה נכשלה. נסי שוב.} male {השליחה נכשלה. נסה שוב.} other {השליחה נכשלה. נסו שוב.}}",
       "ui.report.sent": "תודה! הדיווח נשלח.",
       "ui.report.sending": "שולח…",
-      "ui.report.send": "שליחה"
+      "ui.report.send": "שליחה",
+      "language.switch.aria": "החלפת שפה",
+      "language.switch.menu": "שפה"
     },
     "en": {
       "actions.continue": "Continue",
@@ -378,7 +380,9 @@ export const FUNCTIONS_CATALOGS = {
       "ui.report.failed": "Couldn’t send. Try again.",
       "ui.report.sent": "Thank you! Your report was sent.",
       "ui.report.sending": "Sending…",
-      "ui.report.send": "Send"
+      "ui.report.send": "Send",
+      "language.switch.aria": "Change language",
+      "language.switch.menu": "Language"
     },
     "ru": {},
     "de": {},

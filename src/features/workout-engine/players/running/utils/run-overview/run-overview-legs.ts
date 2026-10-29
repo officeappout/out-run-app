@@ -23,6 +23,8 @@ import { blockTargetBand, estimateBlockMeters, estimateBlockSeconds, estimatePac
 import { blockPhase, type RunPhase } from '../run-preview/run-strip';
 import { buildRunStructure, type StructureRow, type StructureStep } from '../run-preview/run-structure';
 import { blockSizeLabel, cleanBlockLabel, roundMinutes } from '../run-preview/run-title';
+import { cleanRunBlockLabel } from '../run-preview/run-block-label';
+import type { AppLanguage } from '@/features/content/shared/localized-text.types';
 import { isStrideBlock } from '../run-preview/run-sections';
 import { isPaceBand, paceTargetKey } from './run-pace-override';
 
@@ -39,6 +41,8 @@ export interface RunOverviewLegsOptions {
    * board M-7b): ONE "העיקר" group of all its reps instead of a leg per size.
    */
   collapseMain?: { stripLabel: string } | null;
+  /** Content language for template-derived words (drill and exercise labels). Logic stays on Hebrew. Default 'he'. */
+  lang?: AppLanguage;
 }
 
 interface Totals { seconds: number; meters: number }
@@ -52,7 +56,7 @@ export function drillKeyOf(blockIndex: number): string {
  * The drills / exercises (blocks with a `drillRef`) among these block indices —
  * one chip per exercise (repeated strides = one), in workout order.
  */
-export function drillsAt(blocks: readonly RunBlock[], indices: readonly number[]): OverviewDrill[] {
+export function drillsAt(blocks: readonly RunBlock[], indices: readonly number[], lang: AppLanguage = 'he'): OverviewDrill[] {
   const out: OverviewDrill[] = [];
   const seen = new Set<string>();
   for (const i of indices) {
@@ -60,7 +64,7 @@ export function drillsAt(blocks: readonly RunBlock[], indices: readonly number[]
     const id = b?.drillRef?.exerciseId;
     if (!b || !id || seen.has(id)) continue;
     seen.add(id);
-    out.push({ key: drillKeyOf(i), label: cleanBlockLabel(b.label) || (isStrideBlock(b) ? 'סטריידס' : 'תרגיל') });
+    out.push({ key: drillKeyOf(i), label: (cleanBlockLabel(b.label) ? cleanRunBlockLabel(b, lang) : '') || (isStrideBlock(b) ? 'סטריידס' : 'תרגיל') });
   }
   return out;
 }
@@ -202,6 +206,7 @@ export function buildRunOverviewLegs(
   opts: RunOverviewLegsOptions,
 ): OverviewLeg[] {
   const show = opts.showPaceNumbers ?? true;
+  const lang = opts.lang ?? 'he';
   const legs: OverviewLeg[] = [];
   const walk = opts.walk ?? null;
   if (walk && walk.thereMin > 0) legs.push({ kind: 'transport', key: 'walk-there', phase: 'there', label: 'הליכה אל המסלול', minutes: walk.thereMin });
@@ -209,17 +214,17 @@ export function buildRunOverviewLegs(
   if (opts.kind === 'easy' || opts.kind === 'long') {
     if (blocks.length) {
       const title = opts.kind === 'long' ? 'ריצה ארוכה' : 'ריצה קלה';
-      legs.push(withDrills(steadyLeg('run', title, 'קצב שיחה', blocks, ctx, show, false), drillsAt(blocks, blocks.map((_, i) => i))));
+      legs.push(withDrills(steadyLeg('run', title, 'קצב שיחה', blocks, ctx, show, false), drillsAt(blocks, blocks.map((_, i) => i), lang)));
     }
   } else {
-    const steps = buildRunStructure(blocks, ctx, { showPaceNumbers: show });
+    const steps = buildRunStructure(blocks, ctx, { showPaceNumbers: show, lang });
     const warm = blocks.filter((b) => blockPhase(b) === 'warmup');
     const cool = blocks.filter((b) => blockPhase(b) === 'cooldown');
     const mainBlocks = blocks.filter((b) => blockPhase(b) === 'main');
     const mainSteps = steps.filter((s) => s.phase === 'main');
 
     const w = phaseLeg('warmup', 'חימום', warm, ctx, show);
-    if (w) legs.push(withDrills(w, drillsAt(blocks, indicesWhere(blocks, (b) => blockPhase(b) === 'warmup'))));
+    if (w) legs.push(withDrills(w, drillsAt(blocks, indicesWhere(blocks, (b) => blockPhase(b) === 'warmup'), lang)));
     const collapse = opts.collapseMain && mainSteps.length > 1 ? opts.collapseMain : null;
     if (collapse) legs.push(collapsedMainLeg(mainSteps, blocks, mainBlocks, ctx, collapse.stripLabel));
     for (const st of collapse ? [] : mainSteps) {
@@ -230,11 +235,11 @@ export function buildRunOverviewLegs(
         const own = st.rows.map((r) => blocks[r.blockIndex]).filter((b): b is RunBlock => !!b);
         const badge = opts.kind === 'tempo' ? 'טמפו' : 'ריצה';
         const leg = steadyLeg(st.key, st.title, badge, mainSteps.length === 1 ? mainBlocks : own, ctx, show, true);
-        legs.push(withDrills(leg, drillsAt(blocks, st.rows.map((r) => r.blockIndex))));
+        legs.push(withDrills(leg, drillsAt(blocks, st.rows.map((r) => r.blockIndex), lang)));
       }
     }
     const c = phaseLeg('cooldown', 'שחרור', cool, ctx, show);
-    if (c) legs.push(withDrills(c, drillsAt(blocks, indicesWhere(blocks, (b) => blockPhase(b) === 'cooldown'))));
+    if (c) legs.push(withDrills(c, drillsAt(blocks, indicesWhere(blocks, (b) => blockPhase(b) === 'cooldown'), lang)));
   }
 
   if (walk && walk.backMin > 0) legs.push({ kind: 'transport', key: 'walk-back', phase: 'back', label: 'הליכה חזרה', minutes: walk.backMin });

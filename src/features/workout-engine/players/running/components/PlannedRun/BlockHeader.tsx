@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { runBlockLabel } from '../../utils/run-preview/run-block-label';
 import type { RunBlock } from '../../types/run-block.type';
 
 interface BlockHeaderProps {
@@ -22,6 +24,7 @@ export default function BlockHeader({
   blockProgress,
   zoneLabel,
 }: BlockHeaderProps) {
+  const lang = useContentLanguage();
   if (!currentBlock) return null;
 
   const blockColor = currentBlock.colorHex || '#00ADEF';
@@ -53,7 +56,7 @@ export default function BlockHeader({
         {/* Row 2: Block label + remaining */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-black text-gray-900 leading-tight">
-            {currentBlock.label}
+            {runBlockLabel(currentBlock, lang)}
           </h2>
           <div className="text-left" dir="ltr">
             {isDuration && (

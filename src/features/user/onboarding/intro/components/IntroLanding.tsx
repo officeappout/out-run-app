@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
+import { LanguageSwitchButton } from '@/components/i18n/LanguageSwitchButton';
 import { useT } from '@/hooks/useT';
 import { onboarding as onboardingNs } from '@/messages/ns/onboarding';
 import { INTRO_IMG, landingCopy } from '../intro-copy';
@@ -34,6 +35,7 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
 
   return (
     <div className="fixed inset-0 overflow-hidden overscroll-none bg-white text-v2-ink">
+      <LanguageSwitchButton />
       <motion.div
         className="absolute inset-0"
         initial={reduce ? false : { opacity: 0 }}
