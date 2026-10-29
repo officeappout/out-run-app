@@ -2128,9 +2128,9 @@ export class WorkoutGenerator {
     pipelineLog: string[],
   ): DensityBlockSpec | undefined {
     const isClassicMain = (e: WorkoutExercise) => (e.exerciseRole ?? 'main') === 'main' && !e.protocolBlock;
-    const sessionDomains = [...new Set(
+    const sessionDomains = Array.from(new Set(
       workoutExercises.filter(isClassicMain).map((e) => densityDomainOf(e.exercise)).filter((d): d is DensityDomain => d != null),
-    )];
+    ));
     if (sessionDomains.length === 0) {
       pipelineLog.push('density_block: no push/pull/legs/core mains — standard');
       return undefined;

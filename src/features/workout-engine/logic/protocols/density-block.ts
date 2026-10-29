@@ -1,3 +1,4 @@
+// i18n-exempt: Hebrew here is exercise-name matching data, not UI copy
 /**
  * density-block — the EMOM / AMRAP block of a strength session (owner 28.10.2026,
  * training-audit PR 6). Pure.
@@ -153,7 +154,7 @@ export function buildDensityBlock(input: DensityBuildInput): DensityBuildResult 
   const single = isSingleDomainSession(input.sessionDomains);
   const format: DensityFormat = single ? 'emom' : input.format;
   const strength = input.sessionDomains.filter((d) => d !== 'core');
-  const domains = single ? [strength[0] ?? 'core'] : [...new Set(input.sessionDomains)];
+  const domains = single ? [strength[0] ?? 'core'] : Array.from(new Set(input.sessionDomains));
   const maxGap = single ? DENSITY_SINGLE_MAX_LEVEL_GAP : Infinity;
 
   const byDomain = new Map<DensityDomain, Array<DensityCandidate & { gap: number }>>();
@@ -174,7 +175,7 @@ export function buildDensityBlock(input: DensityBuildInput): DensityBuildResult 
     list.push({ ...c, gap });
     byDomain.set(domain, list);
   }
-  for (const [d, list] of byDomain) byDomain.set(d, shuffle(list, rand));
+  byDomain.forEach((list, d) => byDomain.set(d, shuffle(list, rand)));
 
   const picked: Array<DensityCandidate & { gap: number }> = [];
   if (single) {
