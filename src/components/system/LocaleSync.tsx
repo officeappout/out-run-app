@@ -59,7 +59,11 @@ export default function LocaleSync() {
   const [authResolved, setAuthResolved] = useState(false);
   useEffect(() => {
     if (!auth) { setAuthResolved(true); return; }
-    return onAuthStateChanged(auth, () => setAuthResolved(true));
+    try {
+      return onAuthStateChanged(auth, () => setAuthResolved(true));
+    } catch {
+      setAuthResolved(true); // no usable auth (tests / SSR shells): nothing to wait for
+    }
   }, []);
 
   const pathname = usePathname();
