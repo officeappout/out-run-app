@@ -12,8 +12,8 @@ const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN || 'outrun.co.il').trim()
 const KNOWN_APP_DOMAINS = ['outrun.co.il', 'appout.co.il'];
 
 const config: CapacitorConfig = {
-  appId: 'co.il.appout.outrun',
-  appName: 'Out Run',
+  appId: 'il.co.oversight.out',
+  appName: 'OUT',
   webDir: 'capacitor-shell', 
   bundledWebRuntime: false,
 
@@ -28,12 +28,9 @@ const config: CapacitorConfig = {
     contentInset: 'never',
     backgroundColor: '#FFFFFF',
     // Capacitor only defaults WKWebView.isInspectable to true in #if DEBUG
-    // native builds (CAPInstanceDescriptor.swift) — a Release/TestFlight
-    // archive is not Safari-Web-Inspector-attachable unless this is set
-    // explicitly. TestFlight-only distribution to internal testers right
-    // now, so enabling it is safe; revisit before any public App Store
-    // release.
-    webContentsDebuggingEnabled: true,
+    // native builds. Off for App Store builds; set
+    // CAP_WEB_DEBUG=1 at `cap sync` time for an inspectable TestFlight build.
+    webContentsDebuggingEnabled: process.env.CAP_WEB_DEBUG === '1',
   },
 
   android: {

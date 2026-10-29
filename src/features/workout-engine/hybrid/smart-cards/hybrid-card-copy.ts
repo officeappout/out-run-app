@@ -7,6 +7,8 @@
 import type { AerobicKindLite, NearbyPark, RouteWithStops, SmartSessionSizing, UserGender } from './situation.types';
 import { budgetLightText } from '../../budget-light/copy';
 import type { BudgetLightReasonKey } from '../../budget-light/policy';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { map } from '@/messages/ns/map';
 
 type G = UserGender | undefined;
 const pick = (g: G, male: string, female: string) => (g === 'female' ? female : male);
@@ -55,6 +57,16 @@ export function walkStrengthReason(
   return pick(g,
     `צא לסיבוב של ${km(sizing.walkKm)} ק״מ עם עצירת כוח בגינה`,
     `צאי לסיבוב של ${km(sizing.walkKm)} ק״מ עם עצירת כוח בגינה`);
+}
+
+const tMap = makeLiveT(map);
+
+/**
+ * Pilot O8 (29.10.2026): steps and weekly strength are both done. The card stays (last) and
+ * says so, instead of leaving the map with a bare free walk and no word about the goal.
+ */
+export function goalReachedReason(g: G): string {
+  return tMap('hybrid.card.goalReached', { gender: g ?? 'other' });
 }
 
 export function fullParkReason(

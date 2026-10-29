@@ -22,6 +22,8 @@ import { extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 import BunnyVideoPlayer from '@/lib/bunny/BunnyVideoPlayer';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import { usePlayerAudioMute } from '../logic/player-audio-mute';
+import { clipMuted, clipResumeTime, rememberClipTime } from '../logic/clip-playback';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -49,6 +51,10 @@ interface ExerciseVideoPlayerProps {
    *  can't be unmuted from the parent) so the guided demo gate can unmute + play it inside the
    *  user's tap. Omitted → unchanged. */
   onVideoElement?: (el: HTMLVideoElement | null) => void;
+  /** Park live v2 station clip: plays with sound unless the session mute is on (M17). */
+  withSound?: boolean;
+  /** Park live v2: resume the clip where this key last stopped (M14/M17, remount per interval). */
+  resumeKey?: string | null;
 }
 
 
@@ -92,6 +98,8 @@ export default function ExerciseVideoPlayer({
   onVideoEnded,
   onLoadingChange,
   onVideoElement,
+  withSound = false,
+  resumeKey = null,
 }: ExerciseVideoPlayerProps) {
   const t = useT(player);
   const [videoLoading, setVideoLoading] = useState(true);
@@ -248,7 +256,9 @@ export default function ExerciseVideoPlayer({
   // unmuted clip freezes on frame 0 — which is exactly the "stuck on a static
   // image" symptom. Only follow-along mode (a full guided clip the user opted
   // into) honours the global audio toggle.
-  const shouldMuteVideo = exerciseType === 'follow-along' ? !isAudioEnabled : true;
+  // Park live v2 station clips follow the session mute switch instead (clip-playback.ts).
+  const sessionMuted = usePlayerAudioMute((s) => s.muted);
+  const shouldMuteVideo = clipMuted({ exerciseType, legacyAudioEnabled: isAudioEnabled, withSound, sessionMuted });
 
   // ── Imperative playback driver ─────────────────────────────────────────
   // The `autoPlay` attribute alone is unreliable on WKWebView, and React does
@@ -414,7 +424,12 @@ export default function ExerciseVideoPlayer({
               onLoadedData={() => handleLoadingChange(false)}
               onLoadStart={() => handleLoadingChange(true)}
               onError={() => handleLoadingChange(false)}
+              onLoadedMetadata={resumeKey ? (e) => {
+                const at = clipResumeTime(resumeKey, e.currentTarget.duration);
+                if (at > 0) e.currentTarget.currentTime = at;
+              } : undefined}
               onTimeUpdate={(e) => {
+                if (resumeKey) rememberClipTime(resumeKey, e.currentTarget.currentTime);
                 if (exerciseType === 'follow-along') {
                   const video = e.currentTarget;
                   if (video.duration) {

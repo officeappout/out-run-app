@@ -16,6 +16,8 @@ export interface FindItem {
   exerciseId: string;
   exerciseName: string;
   equipmentIds: string[];
+  /** The exercise's photo from the plan (pilot M9: the screen used to draw an icon only). */
+  imageUrl?: string | null;
 }
 
 export interface FindScreen {
@@ -25,7 +27,7 @@ export interface FindScreen {
 }
 
 interface SegmentLike {
-  exercises?: ReadonlyArray<{ id?: string; name?: string; equipment?: string[] }>;
+  exercises?: ReadonlyArray<{ id?: string; name?: string; equipment?: string[]; imageUrl?: string }>;
 }
 
 export interface FindInput {
@@ -58,7 +60,7 @@ export function findEquipmentScreen(input: FindInput): FindScreen | null {
     const items: FindItem[] = [];
     exercises.forEach((ex, exIdx) => {
       if (!ex?.id || !hasEquipment(ex) || input.seen!.has(ex.id)) return;
-      items.push({ exIdx, exerciseId: ex.id, exerciseName: ex.name ?? '', equipmentIds: ex.equipment! });
+      items.push({ exIdx, exerciseId: ex.id, exerciseName: ex.name ?? '', equipmentIds: ex.equipment!, imageUrl: ex.imageUrl ?? null });
     });
     return items.length > 0 ? { kind: 'tabata', items } : null;
   }
@@ -67,7 +69,7 @@ export function findEquipmentScreen(input: FindInput): FindScreen | null {
   if (!ex?.id || !hasEquipment(ex) || input.seen.has(ex.id)) return null;
   return {
     kind: 'single',
-    items: [{ exIdx: input.exIdx, exerciseId: ex.id, exerciseName: ex.name ?? '', equipmentIds: ex.equipment! }],
+    items: [{ exIdx: input.exIdx, exerciseId: ex.id, exerciseName: ex.name ?? '', equipmentIds: ex.equipment!, imageUrl: ex.imageUrl ?? null }],
   };
 }
 
