@@ -15,6 +15,7 @@ import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import { useWidePlayer } from '../../shared/v2/WidePlayerContext';
 import WideKeyHints from '../../shared/v2/WideKeyHints';
+import { clipKey } from '../logic/clip-playback';
 
 /**
  * RestScreen — unified REST-phase card, shared by every workout type
@@ -91,6 +92,8 @@ export interface RestScreenProps {
   /** PR-B1 guided: the next-exercise tile starts EXPANDED and collapses after
    *  REST_PREVIEW_AUTO_COLLAPSE_MS, through the same toggle the user taps. Omitted → unchanged. */
   autoExpandPreview?: boolean;
+  /** Park live v2 station: the next clip plays with sound and resumes where it stopped. */
+  stationClips?: boolean;
   /** Pre-rendered log-drawer slot. Omit entirely for tabata (no rep logging mid-block). */
   logDrawerNode?: React.ReactNode;
   /** Whether the bottom log drawer is currently open. */
@@ -112,6 +115,7 @@ export default function RestScreen({
   onSkip,
   onExtend,
   autoExpandPreview = false,
+  stationClips = false,
   logDrawerNode,
   isLogDrawerOpen = false,
   nextLabel,
@@ -214,6 +218,8 @@ export default function RestScreen({
                   exerciseName={nextExercise.name}
                   exerciseType="reps"
                   isPaused={isPaused}
+                  withSound={stationClips}
+                  resumeKey={stationClips ? clipKey(nextExercise.bunnyVideoId, nextExercise.videoUrl) : null}
                 />
               ) : showPosterIcon ? (
                 <div className={v2 ? 'absolute inset-0 flex items-center justify-center bg-v2-tint' : 'absolute inset-0 flex items-center justify-center bg-slate-700'}>

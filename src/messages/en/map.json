@@ -957,5 +957,6 @@
   "appMap.zoomIn": "Zoom in",
   "appMap.zoomOut": "Zoom out",
   "appMap.stationFallback": "Strength station",
-  "appMap.navigateHere": "Navigate here"
+  "appMap.navigateHere": "Navigate here",
+  "hybrid.card.goalReached": "You hit your strength and walking goals. Want to go anyway?"
 }

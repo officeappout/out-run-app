@@ -49,9 +49,17 @@ describe('rankHybridCards — visibility', () => {
     expect(ids(sit({ aerobicKind: 'running', nearestEquippedPark: { id: 'p', distanceM: 1500 } }))).toContain('walk_strength');
   });
 
-  it('step goal met AND weekly strength spent → no walk_strength', () => {
-    const r = ids(sit({ steps: { stepsRemaining: 0, stepGoal: 8000 }, strength: { weeklyBudget: 40, totalSetsCompleted: 40 } }));
-    expect(r).not.toContain('walk_strength');
+  it('step goal met AND weekly strength spent → walk_strength stays last, as "goal reached" (pilot O8)', () => {
+    const done = sit({ steps: { stepsRemaining: 0, stepGoal: 8000 }, strength: { weeklyBudget: 40, totalSetsCompleted: 40 } });
+    const cards = rankHybridCards(done);
+    expect(cards.map((c) => c.id).at(-1)).toBe('walk_strength');
+    const card = cards.find((c) => c.id === 'walk_strength')!;
+    expect(card.goalReached).toBe(true);
+    expect(card.reason).toBe('עמדת ביעד בכוח ובהליכה. רוצה בכל זאת?');
+    expect(rankHybridCards({ ...done, gender: undefined }).find((c) => c.id === 'walk_strength')!.reason)
+      .toBe('עמדתם ביעד בכוח ובהליכה. רוצים בכל זאת?');
+    expect(rankHybridCards({ ...done, gender: 'female' }).find((c) => c.id === 'walk_strength')!.reason)
+      .toBe('עמדת ביעד בכוח ובהליכה. רוצה בכל זאת?');
   });
 
   it('strength spent and nothing scheduled → no full park; scheduled strength → full park anyway', () => {

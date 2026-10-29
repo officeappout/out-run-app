@@ -75,6 +75,7 @@ import { isMachineTabataSegment, nextMachineIndex } from '@/features/workout-eng
 import DemoGateOverlay from './components/DemoGateOverlay';
 import FindEquipmentOverlay from './components/FindEquipmentOverlay';
 import { findEquipmentScreen, idsToMarkFound } from './logic/find-equipment';
+import { clipKey } from './logic/clip-playback';
 import {
   shouldGateExercise, timerLeadInSeconds, gateClipMuted, type DemoSeenStore,
 } from './logic/demo-gate';
@@ -488,6 +489,8 @@ export default function StrengthRunner({
   const isTabataBlock = sm.blockProtocol?.id === 'tabata';
   // enable_park_live_v2: machine tabata only (never the 20/10 bodyweight tabata).
   const parkMachine = parkLive && isTabataBlock && isMachineTabataSegment(sm.currentSegment);
+  // Pilot M14/M17 (enable_park_live_v2): station clips play with sound and resume per video.
+  const stationClips = parkLive && embedded;
   const swapFixesOn = useSwapFixesV1();
   const isFirstTabataInterval =
     isTabataBlock && sm.currentRound === 1 && sm.currentExerciseIndex === 0 && sm.currentSide !== 'left';
@@ -769,6 +772,7 @@ export default function StrengthRunner({
             videoKey={`tabata-next-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`}
             onSkip={sm.skipRest}
             autoExpandPreview={guided}
+            stationClips={stationClips}
             {...parkRestProps}
           />
         );
@@ -860,6 +864,7 @@ export default function StrengthRunner({
         // starts on its own after "צפיתי, התחל" — that tap was the start.
         videoPaused={gateActive ? false : sm.isPaused}
         onVideoElement={(el) => { gateVideoElRef.current = el; }}
+        stationClipKey={stationClips ? clipKey(sm.exerciseBunnyVideoId, sm.exerciseVideoUrl) : null}
         autoStartTimer={!blockWorkSec && isTimeExercise && gatePassedKey === activeKey}
         // PR-B1 guided only: one short line under the exercise. Timed (incl. tabata) → neutral
         // "ממשיכים עד שהטיימר נגמר"; reps → gendered "עשה/י X חזרות…". Follow-along: none.
@@ -985,6 +990,7 @@ export default function StrengthRunner({
               <FindEquipmentOverlay
                 screen={findScreen}
                 gender={userGender}
+                showPhoto={parkLive}
                 onFound={handleEquipmentFound}
                 onSwap={onSwapExercise
                   ? (item) => onSwapExercise(item.exerciseId, sm.currentSegmentIndex, item.exIdx, { source: 'in_workout_find_equipment' })

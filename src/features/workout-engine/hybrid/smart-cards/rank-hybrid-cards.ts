@@ -6,8 +6,9 @@
  *
  *   walk_strength — a loop from the user's spot THROUGH a nearby equipped park, sized by
  *                   today's remaining steps + the remaining weekly strength sets.
- *                   Hidden: no GPS, no equipped park within smartParkRadiusM, or nothing
- *                   left to do (step goal met AND weekly strength spent).
+ *                   Hidden: no GPS or no equipped park within smartParkRadiusM.
+ *                   Nothing left to do (step goal met AND weekly strength spent): kept
+ *                   last, as "עמדת ביעד, רוצה בכל זאת?" (pilot O8).
  *   full_park     — walk to the park, full strength workout, walk back. Leads when a
  *                   strength workout is scheduled today; shown low when only budget remains;
  *                   hidden when strength is spent and nothing is scheduled.
@@ -19,7 +20,7 @@
  */
 
 import {
-  fullParkLightReason, fullParkReason, routeStopsReason, walkStrengthReason,
+  fullParkLightReason, fullParkReason, goalReachedReason, routeStopsReason, walkStrengthReason,
 } from './hybrid-card-copy';
 import { NORMAL_DECISION, resolveBudgetLightMode, type BudgetLightDecision } from '../../budget-light/policy';
 import { remainingWeeklySets, sizeSmartSession, smartParkRadiusM } from './smart-sizing';
@@ -28,6 +29,9 @@ import type { HybridCardId, HybridSituation, RankedHybridCard } from './situatio
 
 /** Max straight-line distance to the park for the full-park card (m). */
 export const FULL_PARK_RADIUS_M = 2000;
+
+/** Below every other card's score: the goal-reached walk is offered, never pushed. */
+export const GOAL_REACHED_SCORE = 0;
 
 const ORDER: HybridCardId[] = ['walk_strength', 'full_park', 'route_stops'];
 
@@ -58,7 +62,10 @@ export function rankWalkStrength(s: HybridSituation): RankedHybridCard | null {
     parkDistanceM: park.distanceM, basePaceSecPerKm: s.basePaceSecPerKm,
     ...(light.mode === 'light' ? { light } : {}),
   });
-  if (sizing.stepsSource === 'goal_met' && sizing.setsSource === 'spent') return null; // nothing left today
+  // Nothing left today (pilot O8): the card stays, last, and says the goal is reached.
+  if (sizing.stepsSource === 'goal_met' && sizing.setsSource === 'spent') {
+    return { id: 'walk_strength', score: GOAL_REACHED_SCORE, sizing, park, reason: goalReachedReason(s.gender), goalReached: true };
+  }
 
   let score = 50;
   if (s.steps && s.steps.stepGoal > 0 && s.steps.stepsRemaining > 0) {

@@ -1745,14 +1745,17 @@ export default function SmartWeeklySchedule({
           </span>
         </button>
         )}
+        {/* Pilot O2 (canvas HomeToday): a black pill. -my-2.5 py-2.5 + the pill's own
+            padding → a 44px tall hit box at the same row height. */}
         <button
           onClick={onOpenPlanner ?? toggleCalendarMode}
-          // v2: -my-3 py-3 → a 44px tall hit box, same look and row height.
-          className={`inline-flex items-center gap-1 font-medium hover:underline${v2 ? ' -my-3 py-3' : ''}`}
-          style={{ fontSize: 13, color: '#00C9F2' }}
+          className="-my-2.5 inline-flex items-center py-2.5 active:scale-95 transition-transform"
         >
-          <img src="/icons/schedule/edit-pen.svg" alt="" className="w-3.5 h-3.5" />
-          <span>{t('weekStrip.edit')}</span>
+          <span
+            className="rounded-full bg-[#0e1419] px-[11px] py-1 text-xs font-extrabold text-white dark:bg-white dark:text-[#0e1419]"
+          >
+            {t('weekStrip.edit')}
+          </span>
         </button>
       </div>}
 
