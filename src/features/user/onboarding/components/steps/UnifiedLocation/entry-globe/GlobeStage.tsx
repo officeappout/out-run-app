@@ -25,6 +25,8 @@ export interface GlobeStageProps {
   target: { lat: number; lng: number } | null;
   /** The street flight landed (or the globe can't render) — the caller reveals the street map. */
   onArrived: () => void;
+  /** The targetless dive holds over the country (or the globe can't render): the caller may ask for location now (AC1). */
+  onHold?: () => void;
 }
 
 /**
@@ -35,7 +37,7 @@ export interface GlobeStageProps {
  * lazily (it is already in the bundle for the street map; this keeps it off
  * the module graph of the step).
  */
-export default function GlobeStage({ phase, target, onArrived }: GlobeStageProps) {
+export default function GlobeStage({ phase, target, onArrived, onHold }: GlobeStageProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxGLMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -44,6 +46,8 @@ export default function GlobeStage({ phase, target, onArrived }: GlobeStageProps
 
   const onArrivedRef = useRef(onArrived);
   onArrivedRef.current = onArrived;
+  const onHoldRef = useRef(onHold);
+  onHoldRef.current = onHold;
   const arrivedRef = useRef(false);
   /** Generation of the running camera sequence — a newer one stops the older. */
   const runRef = useRef(0);
@@ -234,6 +238,7 @@ export default function GlobeStage({ phase, target, onArrived }: GlobeStageProps
     stopSpin();
     if (failed) {
       if (target) arrive();
+      else onHoldRef.current?.();
       return;
     }
     const map = mapRef.current;
@@ -256,6 +261,7 @@ export default function GlobeStage({ phase, target, onArrived }: GlobeStageProps
         if (runRef.current !== gen) return;
         if (step.role === 'street') arrive();
       }
+      if (!target) onHoldRef.current?.();
     })();
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
