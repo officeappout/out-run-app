@@ -173,7 +173,7 @@ describe('run utils: Hebrew baseline (recorded from origin/main)', () => {
       }
       const keys = new Set<string>();
       b.forEach((x) => { const k = paceTargetKey(x); if (k) keys.add(k); });
-      out[`${name}/paces`] = [...keys].map((k) => paceEditTarget(b, k, ctx));
+      out[`${name}/paces`] = Array.from(keys).map((k) => paceEditTarget(b, k, ctx));
       out[`${name}/overrides`] = paceOverridesOf(b);
     }
     out.titles = [

@@ -8,6 +8,7 @@ import type { RunBlock } from '../../types/run-block.type';
 import type { ComputedPaceZone, RunZoneType } from '../../../../core/types/running.types';
 import { fmtPace } from '../../lib/planned-rep-results';
 import { findMainRep } from './run-estimates';
+import { rt } from '../run-utils-t';
 
 export type LadderRung = 'easy' | 'long' | 'tempo' | 'interval' | 'sprint';
 
@@ -20,12 +21,12 @@ export interface ZoneLadderItem {
   active: boolean;
 }
 
-const RUNGS: { rung: LadderRung; zone: RunZoneType; label: string; color: string }[] = [
-  { rung: 'easy', zone: 'easy', label: 'קל', color: '#84cc16' },
-  { rung: 'long', zone: 'long_run', label: 'ארוכה', color: '#a3d96b' },
-  { rung: 'tempo', zone: 'tempo', label: 'טמפו', color: '#f97316' },
-  { rung: 'interval', zone: 'interval_short', label: 'אינטרוול', color: '#e5484d' },
-  { rung: 'sprint', zone: 'sprint', label: 'ספרינט', color: '#b42318' },
+const RUNGS: { rung: LadderRung; zone: RunZoneType; color: string }[] = [
+  { rung: 'easy', zone: 'easy', color: '#84cc16' },
+  { rung: 'long', zone: 'long_run', color: '#a3d96b' },
+  { rung: 'tempo', zone: 'tempo', color: '#f97316' },
+  { rung: 'interval', zone: 'interval_short', color: '#e5484d' },
+  { rung: 'sprint', zone: 'sprint', color: '#b42318' },
 ];
 
 export function zoneToRung(z: RunZoneType | undefined): LadderRung | null {
@@ -74,7 +75,7 @@ export function buildZoneLadder(
     if (!z || !(z.minPace > 0) || !(z.maxPace > 0)) return [];
     items.push({
       rung: r.rung,
-      label: r.label,
+      label: rt(`runUtils.ladder.${r.rung}`),
       pace: r.rung === 'easy' ? `${fmtPace(Math.min(z.minPace, z.maxPace))}+` : fmtPace(mid(z)),
       color: r.color,
       active: r.rung === active,

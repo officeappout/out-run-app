@@ -881,3 +881,11 @@ src/features/workout-engine/shared/components/MetricsDrawer.tsx
 src/features/workout-engine/shared/components/MilestoneFeed.tsx
 src/features/workout-engine/shared/components/ParticipantStrip.tsx
 src/features/workout-engine/shared/components/SessionLobbyOverlay.tsx
+# i18n run utils (namespace player runUtils.*, common units.sec) — the run preview / overview builders and the planned-run helpers.
+# Hebrew left on purpose (marked i18n-allow-hebrew): stored block labels and section titles that the logic matches on.
+# Not migrated: route-fit reasons / cautions (lib/route-fit/distance-fit.ts, Hebrew sentences stored with the score), run-sections titles
+# shown by the legacy RunBriefingDrawer.
+src/features/workout-engine/players/running/utils/run-preview/
+src/features/workout-engine/players/running/utils/run-overview/
+src/features/workout-engine/players/running/utils/run-utils-t.ts
+src/features/workout-engine/players/running/lib/planned-rep-results.ts

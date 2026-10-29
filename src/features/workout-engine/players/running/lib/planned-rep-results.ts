@@ -10,7 +10,9 @@
  * not in the summary. They show distance left + time instead.
  */
 
-import { withUnit } from '@/lib/i18n/units';
+import { rt, unitText } from '../utils/run-utils-t';
+import { runBlockLabel } from '../utils/run-preview/run-block-label';
+import type { AppLanguage } from '@/features/content/shared/localized-text.types';
 import type { RunBlock } from '../types/run-block.type';
 import type { ComputedPaceZone, RunZoneType } from '../../../core/types/running.types';
 import type { PlannedBlockRecord } from '../../../core/services/storage.service';
@@ -110,9 +112,9 @@ export function classifyPace(paceSec: number, minSec: number, maxSec: number): P
 /** "בטווח" / "איטי ב-3 שנ׳" / "מהיר ב-4 שנ׳". */
 export function paceClassText(c: PaceClass | null): string {
   if (!c) return '';
-  if (c.band === 'in') return 'בטווח';
-  const s = Math.abs(c.deltaSec);
-  return c.band === 'slow' ? `איטי ב-${s} שנ׳` : `מהיר ב-${s} שנ׳`;
+  if (c.band === 'in') return rt('runUtils.live.inRange');
+  const amount = unitText('sec', Math.abs(c.deltaSec));
+  return rt(c.band === 'slow' ? 'runUtils.live.slow' : 'runUtils.live.fast', { amount });
 }
 
 /** Colours of the three states (always paired with an icon + text in the UI). */
@@ -215,7 +217,7 @@ export function repSummary(records: readonly PlannedBlockRecord[] | null | undef
     reps: list.length,
     scored: scored.length,
     inRange,
-    label: scored.length > 0 ? `${inRange}/${scored.length} בטווח` : null,
+    label: scored.length > 0 ? rt('runUtils.live.repSummary', { inRange: String(inRange), scored: String(scored.length) }) : null,
   };
 }
 
@@ -351,8 +353,8 @@ export function fmtClock(sec: number | null | undefined): string {
 /** metres → "400 מ׳" / "1.2 ק״מ". */
 export function fmtDistance(m: number | null | undefined): string {
   const v = Number.isFinite(m) && (m as number) > 0 ? (m as number) : 0;
-  if (v >= 1000) return withUnit('km', (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1));
-  return withUnit('m', Math.round(v));
+  if (v >= 1000) return unitText('km', (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1));
+  return unitText('m', Math.round(v));
 }
 
 /** "4:45–4:55". */
@@ -381,28 +383,33 @@ export function liveCardMode(b: RunBlock | null | undefined, hasTarget: boolean)
   return hasTarget ? 'pace' : 'pace_free';
 }
 
-const LABEL_MAP: Record<string, string> = {
-  surge: 'ספרינט',
-  sprint: 'ספרינט',
-  recovery: 'התאוששות',
-  warmup: 'חימום',
-  'warm-up': 'חימום',
-  cooldown: 'שחרור',
-  'cool-down': 'שחרור',
-  run: 'ריצה',
-  walk: 'הליכה',
-  strides: 'מתגברות',
-};
+type LabelKey = 'runUtils.word.sprint' | 'runUtils.word.recovery' | 'runUtils.word.warmup' | 'runUtils.word.cooldown' | 'runUtils.word.run' | 'runUtils.word.walk' | 'runUtils.word.stridesAlt';
+/** Template labels that arrive in English -> the display word (first prefix match wins, order matters). */
+const LABEL_MAP: [string, LabelKey][] = [
+  ['surge', 'runUtils.word.sprint'],
+  ['sprint', 'runUtils.word.sprint'],
+  ['recovery', 'runUtils.word.recovery'],
+  ['warmup', 'runUtils.word.warmup'],
+  ['warm-up', 'runUtils.word.warmup'],
+  ['cooldown', 'runUtils.word.cooldown'],
+  ['cool-down', 'runUtils.word.cooldown'],
+  ['run', 'runUtils.word.run'],
+  ['walk', 'runUtils.word.walk'],
+  ['strides', 'runUtils.word.stridesAlt'],
+];
 
-/** Hebrew display name for template labels that arrive in English. */
+/** Display name for a block: the fixed words for template labels that arrive in English, else the block's own label (its English twin outside Hebrew). */
 export function blockDisplayLabel(b: RunBlock): string {
   const raw = (b.label ?? '').trim();
   const lower = raw.toLowerCase();
-  for (const [eng, heb] of Object.entries(LABEL_MAP)) {
-    if (lower.startsWith(eng)) return heb;
+  for (const [eng, key] of LABEL_MAP) {
+    if (lower.startsWith(eng)) return rt(key);
   }
-  if (raw) return raw;
-  return b.type === 'warmup' ? 'חימום' : b.type === 'cooldown' ? 'שחרור' : b._isSynthesizedRest || b.type === 'recovery' ? 'התאוששות' : 'ריצה';
+  if (raw) {
+    const lang = rt.locale as AppLanguage;
+    return lang === 'he' ? raw : runBlockLabel(b, lang);
+  }
+  return rt(b.type === 'warmup' ? 'runUtils.word.warmup' : b.type === 'cooldown' ? 'runUtils.word.cooldown' : b._isSynthesizedRest || b.type === 'recovery' ? 'runUtils.word.recovery' : 'runUtils.word.run');
 }
 
 // ── Block advance ─────────────────────────────────────────────────────────

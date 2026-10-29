@@ -16,6 +16,7 @@ import type { Route } from '@/features/parks/core/types/route.types';
 import { pathLengthMeters, isOutAndBackPath } from '@/features/parks/core/services/geoUtils';
 import { isLoopRoute } from '@/features/parks/core/services/route-shape';
 import type { DistanceFit } from './types';
+import { rt } from '../../utils/run-utils-t';
 
 /** Within this fraction of the target counts as a fit (or FIT_MIN_KM, whichever is larger). */
 export const FIT_TOLERANCE = 0.15;
@@ -45,7 +46,7 @@ const fmtNum = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 /** "סיבוב אחד" / "1.5 סיבובים" / "3 סיבובים". */
 export function lapsLabel(laps: number): string {
-  return laps === 1 ? 'סיבוב אחד' : `${fmtNum(laps)} סיבובים`;
+  return laps === 1 ? rt('runUtils.laps.one') : rt('runUtils.laps.n', { n: fmtNum(laps) });
 }
 
 function tolKm(targetKm: number, frac: number): number {

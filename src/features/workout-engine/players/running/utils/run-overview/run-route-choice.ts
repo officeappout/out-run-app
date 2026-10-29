@@ -5,7 +5,7 @@
  * walk there / back, and the short lines for the header and the axis.
  */
 
-import { withUnit } from '@/lib/i18n/units';
+import { rt, unitText } from '../run-utils-t';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { accessKm, lighting } from '../../lib/route-fit/route-traits';
 import { lapsLabel, routeKm, routeRunShape } from '../../lib/route-fit/distance-fit';
@@ -32,9 +32,9 @@ export interface RouteChoiceView {
 
 export function accessText(km: number | null): string | null {
   if (km == null || !Number.isFinite(km)) return null;
-  if (km <= 0.15) return 'מתחיל כאן';
-  if (km < 1) return `${withUnit('m', Math.round((km * 1000) / 50) * 50)} ממך`;
-  return `${withUnit('km', km.toFixed(1))} ממך`;
+  if (km <= 0.15) return rt('runUtils.route.startsHere');
+  if (km < 1) return rt('runUtils.route.away', { dist: unitText('m', Math.round((km * 1000) / 50) * 50) });
+  return rt('runUtils.route.away', { dist: unitText('km', km.toFixed(1)) });
 }
 
 export function routeChoiceView(
@@ -42,21 +42,21 @@ export function routeChoiceView(
   score: Pick<RouteWorkoutScore, 'fit'> | null,
   origin: { lat: number; lng: number } | null,
 ): RouteChoiceView {
-  const name = route.name?.trim() || 'מסלול';
+  const name = route.name?.trim() || rt('runUtils.route.fallbackName');
   const km = routeKm(route);
   const fit = score?.fit ?? null;
   const shape = routeRunShape(route);
   const loop = shape === 'loop';
   const lapsText = fit?.laps != null && fit.laps > 0
-    ? (loop ? lapsLabel(fit.laps) : fit.turnaroundKm != null ? 'הלוך-חזור' : lapsLabel(fit.laps))
+    ? (loop ? lapsLabel(fit.laps) : fit.turnaroundKm != null ? rt('runUtils.route.outAndBack') : lapsLabel(fit.laps))
     : null;
   const lit = lighting(route) === 'lit';
   const access = origin ? accessKm(route, origin) : null;
-  const meta = [withUnit('km', km.toFixed(1))];
+  const meta = [unitText('km', km.toFixed(1))];
   if (lapsText) meta.push(lapsText);
-  if (lit) meta.push('מואר');
+  if (lit) meta.push(rt('runUtils.route.lit'));
   const aText = accessText(access);
-  const headerParts = [`על ${name}`];
+  const headerParts = [rt('runUtils.route.onRoute', { name })];
   if (lapsText) headerParts.push(lapsText);
   if (aText) headerParts.push(aText);
   return {
@@ -64,7 +64,7 @@ export function routeChoiceView(
     accessText: aText,
     walk: routeWalkMinutes(access, fit?.endsAtStart ?? loop),
     meta,
-    onRouteNote: lapsText ? `על ${name} — ${lapsText}` : `על ${name}`,
+    onRouteNote: lapsText ? rt('runUtils.route.onRouteLaps', { name, laps: lapsText }) : rt('runUtils.route.onRoute', { name }),
     headerLine: headerParts.join(' · '),
   };
 }

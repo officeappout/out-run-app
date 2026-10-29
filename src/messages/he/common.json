@@ -186,5 +186,7 @@
   "ui.report.sending": "שולח…",
   "ui.report.send": "שליחה",
   "language.switch.aria": "החלפת שפה",
-  "language.switch.menu": "שפה"
+  "language.switch.menu": "שפה",
+  "units.sec": "{n} שנ׳",
+  "units.label.sec": "שנ׳"
 }
