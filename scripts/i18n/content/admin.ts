@@ -1,7 +1,7 @@
 // @ts-nocheck -- standalone tsx script
 /**
  * firebase-admin bootstrap shared by the content pipeline scripts. Project appout-1 (production).
- * Credentials: --service-account <file>, else GOOGLE_APPLICATION_CREDENTIALS / gcloud application-default login.
+ * Credentials: --service-account <file>, else FIREBASE_SERVICE_ACCOUNT_KEY (JSON), else GOOGLE_APPLICATION_CREDENTIALS / gcloud application-default login.
  * Only export-exercises.ts (read) and apply-import.ts (guarded write) import this file.
  */
 import fs from 'fs';
@@ -16,7 +16,9 @@ export function argOf(name: string): string | undefined {
 export function adminDb() {
   if (!getApps().length) {
     const sa = argOf('--service-account');
-    initializeApp({ credential: sa ? cert(JSON.parse(fs.readFileSync(sa, 'utf8'))) : applicationDefault(), projectId: 'appout-1' });
+    const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    const credential = sa ? cert(JSON.parse(fs.readFileSync(sa, 'utf8'))) : envKey ? cert(JSON.parse(envKey)) : applicationDefault();
+    initializeApp({ credential, projectId: 'appout-1' });
   }
   return getFirestore();
 }
