@@ -234,7 +234,7 @@ Report: PR list, counts per namespace, open (!) questions, owner steps in order 
 - Never `vitest -u` unfiltered (runs the whole suite and rewrites Hebrew parity proofs): name one test file, read the diff.
 - Flaky `map-w4-drawer-parity` test: re-run once before debugging.
 - Hebrew byte-identical: record baseline snapshots from main in commit 1 of every PR, source change after.
-- No "—" anywhere; apostrophes per voice doc; validate ICU with the real parser and the locale.
+- No long dash anywhere; apostrophes per voice doc; validate ICU with the real parser and the locale.
 - Plurals per language (`Intl.PluralRules`), gender selects: neutral phrasing for unknown gender (owner decision).
 - Flags default OFF, `superAdminValue: false` (except `enable_i18n`, `push_locale_v1`).
 
