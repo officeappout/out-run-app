@@ -93,7 +93,7 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap, 
                   className="flex items-center gap-3 rounded-2xl p-3"
                   style={{ border: '1px solid #E0E9FF', background: '#F8FBFF' }}
                 >
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-white flex items-center justify-center flex-shrink-0">
+                  <div className={`w-14 h-14 rounded-xl ${showPhoto ? 'overflow-hidden ' : ''}bg-white flex items-center justify-center flex-shrink-0`}>
                     <ItemMedia item={item} size={36} photo={showPhoto} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -115,7 +115,7 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap, 
           </>
         ) : (
           <div className="flex flex-col items-center text-center pt-4">
-            <div className="w-36 h-36 rounded-3xl overflow-hidden flex items-center justify-center mb-4" style={{ background: '#F0F9FF' }}>
+            <div className={`w-36 h-36 rounded-3xl ${showPhoto ? 'overflow-hidden ' : ''}flex items-center justify-center mb-4`} style={{ background: '#F0F9FF' }}>
               <ItemMedia item={single} size={96} photo={showPhoto} />
             </div>
             <h2 className="text-[24px] font-black text-slate-900 dark:text-white leading-tight" style={{ fontFamily: 'var(--font-simpler)' }}>
