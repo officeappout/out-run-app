@@ -289,6 +289,17 @@ describe('POST /api/ai-coach/chat', () => {
       expect(st.streamCalls).toHaveLength(0);
     });
 
+    it('English user with ai_coach_locale_v1 on: the paused path stores the English safety reply', async () => {
+      st.auth = { ok: false, status: 429, code: 'rate_limited', retryAfterSec: 60, uid: 'u1', profile: { core: { gender: 'male', locale: 'en' } }, flags: { kellyUnifiedV1: true, aiCoachLocaleV1: true, enableI18n: true, enableLocaleEn: true } };
+      await POST(req({ message: 'my chest hurts' }));
+      expect(st.paused[0].opts.locale).toBe('en');
+      expect(st.paused[0].opts.safetyText).toContain('101 in Israel');
+      expect(st.paused[0].opts.safetyText).not.toMatch(/[\u0590-\u05FF]/);
+      st.auth = { ...st.auth, flags: { kellyUnifiedV1: true } };
+      await POST(req({ message: 'my chest hurts' }));
+      expect(st.paused[1].opts.locale).toBeUndefined();
+    });
+
     it('kill switch / budget / outage are answered the same way', async () => {
       for (const code of ['kill_switch', 'over_budget', 'unavailable']) {
         st.auth = { ok: false, status: 503, code, uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: true } };

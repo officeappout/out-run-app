@@ -12,11 +12,9 @@ import type { CoachGender } from '../persona';
 import { checkLevelActionId, type CoachActionId } from '../action-chips';
 import { isAssessableSlug } from '../assessment-gaps';
 import type { TemplateKey, TemplateVars } from './types';
-import { makeT } from '@/lib/i18n/t';
-import { coach } from '@/messages/ns/coach';
+import { coachT, type CoachLocale } from '../coach-locale';
 
-// Hebrew-only copy (bundled catalog, sync read); the message is rendered by the server for a stored thread / push.
-const t = makeT('he', coach);
+type T = ReturnType<typeof coachT>;
 
 export interface RenderInput {
   templateKey: TemplateKey;
@@ -25,6 +23,8 @@ export interface RenderInput {
   firstName: string;
   /** Replaces the template's flex sentence (already validated). */
   flex?: string | null;
+  /** Reply language (Kelly server locale). Default 'he': byte-identical to before. */
+  locale?: CoachLocale;
 }
 
 export interface RenderedMessage {
@@ -39,11 +39,11 @@ export interface RenderedMessage {
 const num = (v: TemplateVars[string]): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const text = (v: TemplateVars[string]): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
-function hello(firstName: string, word: 'morning' | 'hi'): string {
+function hello(t: T, firstName: string, word: 'morning' | 'hi'): string {
   return firstName ? t(`proactive.hello.${word}`, { name: firstName }) : t(`proactive.hello.${word}NoName`);
 }
 
-function sessionLine(gender: CoachGender, vars: TemplateVars): string {
+function sessionLine(t: T, gender: CoachGender, vars: TemplateVars): string {
   const label = text(vars.label) ?? t('proactive.defaultLabel');
   const minutes = num(vars.minutes);
   const time = text(vars.time);
@@ -61,7 +61,7 @@ function join(...parts: Array<string | null | undefined>): string {
   return parts.filter((p): p is string => !!p && !!p.trim()).join(' ').replace(/\s+/g, ' ').trim();
 }
 
-function weeklyStats(vars: TemplateVars): string {
+function weeklyStats(t: T, vars: TemplateVars): string {
   const workouts = num(vars.workouts) ?? 0;
   const days = num(vars.activeDays) ?? 0;
   const minutes = num(vars.minutes) ?? 0;
@@ -75,34 +75,35 @@ function weeklyStats(vars: TemplateVars): string {
   return parts.join(', ');
 }
 
-function weeklySuggestion(workouts: number): string {
+function weeklySuggestion(t: T, workouts: number): string {
   if (workouts >= 4) return t('proactive.weekly.suggestRest');
   if (workouts === 3) return t('proactive.weekly.suggestAddOptional');
   return t('proactive.weekly.suggestAdd');
 }
 
 export function renderProactive(i: RenderInput): RenderedMessage {
+  const t = coachT(i.locale);
   const g = i.gender;
   const v = i.vars;
   const flex = (fallback: string | null) => (i.flex ? i.flex : fallback);
   switch (i.templateKey) {
     case 'morning':
       return {
-        text: join(hello(i.firstName, 'morning'), sessionLine(g, v), flex(null), t('proactive.morning.ask', { gender: g })),
+        text: join(hello(t, i.firstName, 'morning'), sessionLine(t, g, v), flex(null), t('proactive.morning.ask', { gender: g })),
         actions: ['build_today'],
         silent: v.silent === 1,
         flexHint: 'one short encouraging sentence for the start of a training day, tied to the user\'s goal or recent effort',
       };
     case 'morning_open':
       return {
-        text: join(hello(i.firstName, 'morning'), sessionLine(g, v), flex(null), t('proactive.morningOpen.close', { gender: g })),
+        text: join(hello(t, i.firstName, 'morning'), sessionLine(t, g, v), flex(null), t('proactive.morningOpen.close', { gender: g })),
         actions: ['open_schedule'],
         silent: v.silent === 1,
         flexHint: 'one short encouraging sentence for the start of a training day, tied to the user\'s goal or recent effort',
       };
     case 'weather_rain':
       return {
-        text: join(hello(i.firstName, 'morning'), t('proactive.rain.body'), flex(null), t('proactive.rain.ask', { gender: g })),
+        text: join(hello(t, i.firstName, 'morning'), t('proactive.rain.body'), flex(null), t('proactive.rain.ask', { gender: g })),
         actions: ['build_home'],
         silent: false,
         flexHint: 'one short sentence that a home workout today still counts',
@@ -110,7 +111,7 @@ export function renderProactive(i: RenderInput): RenderedMessage {
     case 'weather_heat': {
       const label = text(v.label) ?? t('proactive.defaultLabel');
       return {
-        text: join(hello(i.firstName, 'morning'), t('proactive.heat.intro'), t('proactive.heat.advice', { gender: g, label }), flex(null)),
+        text: join(hello(t, i.firstName, 'morning'), t('proactive.heat.intro'), t('proactive.heat.advice', { gender: g, label }), flex(null)),
         actions: ['open_schedule'],
         silent: false,
         flexHint: 'one short sentence that it is fine to go easier in the heat',
@@ -120,7 +121,7 @@ export function renderProactive(i: RenderInput): RenderedMessage {
       const workouts = num(v.workouts) ?? 0;
       const praise = workouts >= 3 ? t('proactive.praise.many', { gender: g }) : t('proactive.praise.few');
       return {
-        text: join(i.firstName ? t('proactive.weekly.summaryNamed', { name: i.firstName, stats: weeklyStats(v) }) : t('proactive.weekly.summary', { stats: weeklyStats(v) }), flex(praise), weeklySuggestion(workouts)),
+        text: join(i.firstName ? t('proactive.weekly.summaryNamed', { name: i.firstName, stats: weeklyStats(t, v) }) : t('proactive.weekly.summary', { stats: weeklyStats(t, v) }), flex(praise), weeklySuggestion(t, workouts)),
         actions: ['open_schedule'],
         silent: false,
         flexHint: 'one short warm sentence of praise for this week, without numbers',
@@ -131,7 +132,7 @@ export function renderProactive(i: RenderInput): RenderedMessage {
       const slug = text(v.slug);
       return {
         text: join(
-          hello(i.firstName, 'hi'),
+          hello(t, i.firstName, 'hi'),
           t('proactive.assessment.missing', { gender: g, name }),
           flex(null),
           t('proactive.assessment.ask', { gender: g }),

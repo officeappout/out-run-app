@@ -33,12 +33,13 @@ import { usageFromSdk } from '@/lib/ai/ai-pricing';
 import {
   COACH_MAX_TOOL_ROUNDS,
   COACH_MODEL_MAX_TOKENS,
-  COACH_SYSTEM_PROMPT,
   buildSessionContext,
   coachGenderOf,
   firstNameOf,
 } from '@/lib/ai/coach/persona';
 import { detectSafetyTrigger, safetyReply } from '@/lib/ai/coach/safety';
+import { coachLocaleForRequest } from '@/lib/ai/coach/coach-locale';
+import { coachSystemPromptFor } from '@/lib/ai/coach/persona-locale';
 import { ChatRequestSchema, encodeSse, type CoachStreamEvent, type CoachStreamErrorCode } from '@/lib/ai/coach/protocol';
 import { GenerateWorkoutInput, coachToolDefinitions, sanitizeWorkoutEquipment } from '@/lib/ai/coach/tools';
 import { applyUserIntent, inferRequestedFormat, typoHints } from '@/lib/ai/coach/intent';
@@ -55,6 +56,7 @@ import {
   stripThinkingBlocks,
   turnUserText,
   TURN_FAILED_TEXT,
+  fixedTexts,
   toolErrorDetail,
   type TurnState,
 } from '@/lib/ai/coach/turn-engine';
@@ -86,7 +88,7 @@ import { proposalView, type StoredProposal } from '@/lib/ai/coach/schedule-propo
 import type { SuggestionChip } from '@/lib/ai/coach/suggestions/types';
 import { loadMemory } from '@/lib/ai/coach/memory/store.server';
 import { renderMemoryBlock } from '@/lib/ai/coach/memory/inject';
-import { ROUND4_NOTE, coachSystemPrompt } from '@/lib/ai/coach/round4/prompt';
+import { ROUND4_NOTE } from '@/lib/ai/coach/round4/prompt';
 import { hasRound4Extras, newRound4TurnState, type Round4TurnState } from '@/lib/ai/coach/round4/types';
 import { round4TurnActions } from '@/lib/ai/coach/round4/turn-extras';
 import { primeHelpEntries } from '@/lib/content-items/help-prime.server';
@@ -128,13 +130,15 @@ async function summarizeOlder(uid: string, previous: string | null, msgs: Stored
 async function answerPaused(denial: AiDenial, message: string): Promise<Response | null> {
   if (!denial.uid || denial.flags?.kellyUnifiedV1 !== true || !isAiPauseCode(denial.code)) return null;
   const gender = coachGenderOf(denial.profile?.core?.gender);
+  const locale = await coachLocaleForRequest(denial.profile, denial.flags);
   const trigger = detectSafetyTrigger(message);
   try {
     const res = await appendAiPausedUserMessage(getAdminDb(), denial.uid, message, {
       code: denial.code,
       gender,
       retryAfterSec: denial.retryAfterSec,
-      safetyText: trigger ? safetyReply(trigger, gender) : null,
+      ...(locale !== 'he' ? { locale } : {}),
+      safetyText: trigger ? safetyReply(trigger, gender, locale) : null,
     });
     if (!res.ok) {
       return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': String(res.retryAfterSec) } });
@@ -171,6 +175,8 @@ export async function POST(request: Request) {
   const db = getAdminDb();
   const now = new Date();
   const gender = coachGenderOf(profile.core?.gender);
+  // Reply language of THIS request (ai_coach_locale_v1 + enable_i18n + the user's stored locale); 'he' otherwise.
+  const locale = await coachLocaleForRequest(profile, auth.flags);
 
   let thread;
   try {
@@ -260,7 +266,7 @@ export async function POST(request: Request) {
     }
     const trigger = detectSafetyTrigger(text);
     if (trigger) {
-      safetyText = safetyReply(trigger, gender);
+      safetyText = safetyReply(trigger, gender, locale);
       safetyTrigger = trigger;
     }
     state = newTurnState(text);
@@ -366,7 +372,7 @@ export async function POST(request: Request) {
       : [];
 
   const cached = withPromptCaching({
-    system: round4 ? coachSystemPrompt({ round4: true }) : COACH_SYSTEM_PROMPT,
+    system: coachSystemPromptFor(locale, { round4 }),
     tools: coachToolDefinitions({ scheduleAdvisor, ...(phase2 ? { phase2: true } : {}), ...(round4 ? { round4: true } : {}), ...(builder ? { builder: true } : {}), ...(workoutFormat ? { format: true } : {}) }),
   });
   const system: Anthropic.TextBlockParam[] = [
@@ -389,6 +395,7 @@ export async function POST(request: Request) {
         ...(round4 ? { round4Note: ROUND4_NOTE } : {}),
         ...(fidelity ? { requestFidelity: true } : {}),
         ...(workoutFormat ? { workoutFormat: true } : {}),
+        ...(locale !== 'he' ? { locale } : {}),
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.
@@ -455,6 +462,7 @@ export async function POST(request: Request) {
             maxRounds: COACH_MAX_TOOL_ROUNDS,
             maxTokens: modelOptions?.maxTokens ?? COACH_MODEL_MAX_TOKENS,
             ...(modelOptions ? { modelOptions: { thinking: modelOptions.thinking, effort: modelOptions.effort } } : {}),
+            ...(locale !== 'he' ? { locale } : {}),
             guards: { sheet, todayDow, userGender: gender, ...(round4 ? { round4: true } : {}), ...(thread.needsHuman ? { handoffOpen: true } : {}) },
           },
           state,
@@ -575,7 +583,7 @@ export async function POST(request: Request) {
             const log = newTurnLog(model);
             // Owner-readable (client SDK): name + message only, the full error is in the server log.
             log.guards.push({ type: 'turn_failed', action: `${code}: ${toolErrorDetail(err)}` });
-            await appendMessage(db, uid, { role: 'assistant', text: TURN_FAILED_TEXT, log, turnFailed: true, ...(unified ? { source: 'ai' as const } : {}) });
+            await appendMessage(db, uid, { role: 'assistant', text: locale === 'he' ? TURN_FAILED_TEXT : fixedTexts(locale).turnFailed, log, turnFailed: true, ...(unified ? { source: 'ai' as const } : {}) });
           } catch (e) {
             console.error('[ai-coach] storing the failed-turn reply failed', e);
           }
