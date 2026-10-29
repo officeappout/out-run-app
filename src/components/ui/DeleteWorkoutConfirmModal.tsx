@@ -15,7 +15,7 @@ import { common } from '@/messages/ns/common';
  *   - src/features/workout-engine/players/strength/components/ResumeWorkoutDialog.tsx
  * Reused exactly: backdrop (blur(8px) + rgba(0,0,0,0.4)), spring card
  * transition (damping 22 / stiffness 300), rounded-3xl centered card,
- * icon-in-circle header, dir="rtl", font-simpler typography, backdrop-tap
+ * icon-in-circle header,, font-simpler typography, backdrop-tap
  * dismisses to the safe choice (here: Cancel — deleting is never the
  * implicit default, matching ExitConfirmModal's convention, not
  * ResumeWorkoutDialog's deliberate no-implicit-choice one).
@@ -112,7 +112,6 @@ export default function DeleteWorkoutConfirmModal({
             exit={{ scale: 0.85, opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 22, stiffness: 300 }}
             className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
-            dir="rtl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-14 h-14 mx-auto mb-5 rounded-full border-2 border-red-400 flex items-center justify-center">

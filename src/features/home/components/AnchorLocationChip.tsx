@@ -42,7 +42,7 @@ export default function AnchorLocationChip({ value, onSelect }: AnchorLocationCh
   const t = useT(home);
 
   return (
-    <div className="relative flex-shrink-0" dir="rtl">
+    <div className="relative flex-shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

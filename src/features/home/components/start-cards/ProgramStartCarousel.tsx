@@ -32,7 +32,7 @@ export default function ProgramStartCarousel({ order, profile, onNavigate, aerob
   const t = useT(home);
   return (
     <div className="mb-4" data-program-start-carousel={order.join(',')}>
-      <div className="mb-2 px-5" dir="rtl">
+      <div className="mb-2 px-5">
         <h3 className="whitespace-nowrap text-[19px] font-black !tracking-[-0.02em] text-v2-ink">{t('programStart.title')}</h3>
         {/* "You can do both" only when there are two cards (running frozen = strength alone). */}
         {order.length > 1 && (

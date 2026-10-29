@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { todayCardFallbackTitle, todayCardShortLabel, HYBRID_TITLE } from '../today-activity-labels';
+import { todayCardFallbackTitle, todayCardShortLabel } from '../today-activity-labels';
 import { makeT } from '@/lib/i18n/t';
 import { profile } from '@/messages/ns/profile';
 
@@ -11,7 +11,7 @@ const src = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta
 
 describe('home today card labels', () => {
   it('hybrid (styled as strength) → "אימון משולב" / "משולב", never "כוח"', () => {
-    expect(todayCardFallbackTitle('strength', 'hybrid')).toBe(HYBRID_TITLE);
+    expect(todayCardFallbackTitle('strength', 'hybrid')).toBe('אימון משולב');
     expect(todayCardFallbackTitle('strength', undefined, 'hybrid')).toBe('אימון משולב');
     expect(todayCardShortLabel('strength', 'hybrid')).toBe('משולב');
   });

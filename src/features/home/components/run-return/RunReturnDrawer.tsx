@@ -57,7 +57,7 @@ export default function RunReturnDrawer({ ask, onChoose, onClose }: RunReturnDra
 
   return (
     <Sheet open onClose={onClose} title={t('runReturn.title')} zIndex={SHEET_Z.drawerPanel} backdropZIndex={SHEET_Z.drawer} frameClassName="mx-auto max-w-md">
-      <div dir="rtl" className="flex flex-col gap-4 px-5 pb-2 font-simpler text-v2-ink">
+      <div className="flex flex-col gap-4 px-5 pb-2 font-simpler text-v2-ink">
         <div className="rounded-[18px] bg-v2-tint px-4 py-3">
           <p className="text-[15px] font-extrabold">{catchUpLineHe(d)}</p>
           <p className="mt-1 text-[13px] font-bold text-v2-muted">{catchUpWhyHe(d, ask.beginner)}</p>

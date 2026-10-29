@@ -153,7 +153,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
     if (restCueFiredRef.current) return;
     if (blockTimeRemaining > 3 || blockTimeRemaining <= 0) return;
     restCueFiredRef.current = true;
-    audioService.speak('תתכוננו'); // i18n-allow-hebrew: speech cue (audio guidance — out of scope for this wave)
+    audioService.announceGetReady();
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([100, 50, 100]);
     }

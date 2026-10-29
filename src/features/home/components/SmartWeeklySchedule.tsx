@@ -596,7 +596,7 @@ function RunningWorkoutCards({
   const completedCount = completedEntries.length;
 
   return (
-    <div className="mt-4 space-y-2.5" dir="rtl">
+    <div className="mt-4 space-y-2.5">
       <div className="flex items-center justify-between px-1 mb-1">
         {/* h3 always renders (empty on a rest day) so this row always has
             two flex children — otherwise `justify-between` collapses to a
@@ -1667,7 +1667,7 @@ export default function SmartWeeklySchedule({
   // Fallback: Empty state
   if (!schedule || schedule.length === 0) {
     return (
-      <div className="mb-0 w-full max-w-[358px] mx-auto" dir="rtl">
+      <div className="mb-0 w-full max-w-[358px] mx-auto">
         <div
           className="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1E1E1E] dark:to-[#1A1A2E]"
           style={{ borderRadius: 12, padding: 16, border: '0.5px solid #E0E9FF', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04), inset 0 1px 3px 0 rgba(0,0,0,0.02)' }}
@@ -1681,7 +1681,7 @@ export default function SmartWeeklySchedule({
   }
 
   return (
-    <div className="mb-0 relative z-10 w-full max-w-[358px] mx-auto" dir="rtl">
+    <div className="mb-0 relative z-10 w-full max-w-[358px] mx-auto">
       {/* ── Header — OUTSIDE the card ─────────────────────────── */}
       {!hideHeader && <div className="flex items-center justify-between mb-1 px-1">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('weekStrip.title')}</h2>

@@ -195,7 +195,6 @@ export function ProgramProgressCard({
           borderRadius: 12,
           border: '1px dashed #CBD5E1',
         }}
-        dir="rtl"
       >
         <div className="flex items-start gap-2 min-h-[40px]">
           <span className="text-gray-400 flex-shrink-0 mt-0.5">
@@ -254,7 +253,6 @@ export function ProgramProgressCard({
               isolation: 'isolate',
             }
       }
-      dir="rtl"
     >
       {/* ── Top section: clickable to expand ──────────────────── */}
       {/* Using <div role="button"> instead of <button> so this component can

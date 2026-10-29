@@ -49,7 +49,6 @@ export default function ErrorState({
   if (variant === 'compact') {
     return (
       <div
-        dir="rtl"
         role="status"
         data-v2-error-state="compact"
         className={`flex items-center gap-3 rounded-v2-card bg-white p-4 shadow-v2-card ${className}`}
@@ -78,7 +77,6 @@ export default function ErrorState({
   const SecondaryIcon = secondaryAction?.icon;
   return (
     <div
-      dir="rtl"
       role="alert"
       data-v2-error-state="screen"
       className={`flex min-h-[60dvh] flex-col items-center justify-center gap-4 bg-v2-surface px-6 py-10 text-center ${className}`}

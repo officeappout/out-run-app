@@ -9,6 +9,7 @@ import { kmMarkFractions } from './route-geometry';
 import { buildTogetherModel } from './together';
 import type { ShareModel, ShareSetRow, ShareStatV2 } from './types';
 import { unitLabel, weekdayLabel } from '@/lib/i18n/units';
+import { fastestLapUnit, shareCommonT, shareT, streakUnit, strengthDefaultName } from './copy';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const posNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
@@ -16,13 +17,15 @@ const posNum = (n: unknown): n is number => typeof n === 'number' && Number.isFi
 export const MAX_ROWS = 3;
 export const MAX_BOXES = 5;
 
-/** "יום ב׳ · 19.10" — or with the time of day ("יום ב׳ · 06:40") for runs. */
+/** "Mon · 10/19" (he: "day Mon · 19.10") — or with the time of day ("06:40") for runs. */
 export function shareDateLabel(ms: number | undefined, withTime: boolean): string | undefined {
   if (!posNum(ms)) return undefined;
   const d = new Date(ms);
   if (Number.isNaN(d.getTime())) return undefined;
-  const day = `יום ${weekdayLabel(d.getDay(), 'short')}`;
-  return withTime ? `${day} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}` : `${day} · ${d.getDate()}.${d.getMonth() + 1}`;
+  const weekday = weekdayLabel(d.getDay(), 'short', shareCommonT);
+  return withTime
+    ? shareT('shareV2.date.withTime', { weekday, time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}` })
+    : shareT('shareV2.date.withDate', { weekday, day: String(d.getDate()), month: String(d.getMonth() + 1) });
 }
 
 /** "30:10" / "1:05:10". */
@@ -34,12 +37,12 @@ export function formatClock(totalSec: number): string {
   return h > 0 ? `${h}:${pad2(m)}:${pad2(sec)}` : `${m}:${pad2(sec)}`;
 }
 
-/** Strength: "42 · דקות" (or "1:05 · שעות"); run with seconds: "30:10 · זמן". */
+/** Strength: "42 · minutes" (or "1:05 · hours"); run with seconds: "30:10 · time". */
 export function durationStat(input: Pick<ShareImageInput, 'durationMinutes' | 'durationSeconds'>, clock: boolean): ShareStatV2 {
-  if (clock && posNum(input.durationSeconds)) return { value: formatClock(input.durationSeconds), unit: 'זמן' };
+  if (clock && posNum(input.durationSeconds)) return { value: formatClock(input.durationSeconds), unit: shareT('shareV2.duration.clock') };
   const min = Math.max(0, Math.round(input.durationMinutes || 0));
-  if (min >= 60) return { value: `${Math.floor(min / 60)}:${pad2(min % 60)}`, unit: unitLabel('hours') };
-  return { value: String(min), unit: unitLabel('minutes') };
+  if (min >= 60) return { value: `${Math.floor(min / 60)}:${pad2(min % 60)}`, unit: unitLabel('hours', shareCommonT) };
+  return { value: String(min), unit: unitLabel('minutes', shareCommonT) };
 }
 
 export function setRows(input: ShareImageInput): ShareSetRow[] {
@@ -52,16 +55,16 @@ export function setRows(input: ShareImageInput): ShareSetRow[] {
 
 function strengthModel(input: ShareImageInput): ShareModel {
   const duration = durationStat(input, false);
-  const name = input.programName || input.title || 'אימון כוח';
+  const name = input.programName || input.title || strengthDefaultName();
   const level =
     posNum(input.levelIndex) && posNum(input.levelCount)
       ? { index: input.levelIndex, count: input.levelCount, frac: Math.min(1, input.levelIndex / input.levelCount) }
       : undefined;
-  const sets = posNum(input.totalSets) ? { value: String(input.totalSets), unit: 'סטים' } : null;
-  const reps = posNum(input.totalReps) ? { value: String(input.totalReps), unit: 'חזרות' } : null;
+  const sets = posNum(input.totalSets) ? { value: String(input.totalSets), unit: shareT('shareV2.unit.sets') } : null;
+  const reps = posNum(input.totalReps) ? { value: String(input.totalReps), unit: shareT('shareV2.unit.reps') } : null;
   const exCount = posNum(input.exerciseCount) ? input.exerciseCount : (input.topExercises?.length ?? 0) + (input.moreExercises ?? 0);
-  const exercises = exCount > 0 ? { value: String(exCount), unit: 'תרגילים' } : null;
-  const streak = posNum(input.streakDays) ? { value: String(input.streakDays), unit: 'ימים ברצף' } : null;
+  const exercises = exCount > 0 ? { value: String(exCount), unit: shareT('shareV2.unit.exercises') } : null;
+  const streak = posNum(input.streakDays) ? { value: String(input.streakDays), unit: streakUnit() } : null;
   const stats = [duration, sets, reps, exercises, streak].filter((s): s is ShareStatV2 => !!s).slice(0, 4);
   const hero = reps ?? sets ?? duration;
   const rows = setRows(input);
@@ -69,14 +72,14 @@ function strengthModel(input: ShareImageInput): ShareModel {
   return {
     kind: 'strength',
     dateLabel: shareDateLabel(input.dateMs, false),
-    // Without a program name the name already says "אימון כוח" — don't repeat it.
-    chip: (name === 'אימון כוח' ? [input.parkName] : ['אימון כוח', input.parkName]).filter(Boolean).join(' · ') || 'אימון הושלם',
+    // Without a program name the name already says "strength workout": don't repeat it.
+    chip: (name === strengthDefaultName() ? [input.parkName] : [strengthDefaultName(), input.parkName]).filter(Boolean).join(' · ') || shareT('shareV2.doneFallback'),
     name,
     level,
     duration,
     stats,
     rows,
-    moreLine: posNum(input.moreExercises) ? `ועוד ${input.moreExercises} תרגילים` : undefined,
+    moreLine: posNum(input.moreExercises) ? shareT('shareV2.more', { count: input.moreExercises }) : undefined,
     exerciseNames: names.length ? names.join(' · ') + (input.moreExercises ? ' · …' : '') : undefined,
     streakDays: streak ? input.streakDays : undefined,
     hero,
@@ -96,22 +99,22 @@ function runModel(input: ShareImageInput): ShareModel {
     splits = { heights: paceBarHeights(splitsIn), fastestIndex: splitsIn.indexOf(min), fastestLabel: fastest };
   }
   const stats: ShareStatV2[] = [
-    ...(pace ? [{ value: pace, unit: unitLabel('minPerKm') }] : []),
+    ...(pace ? [{ value: pace, unit: unitLabel('minPerKm', shareCommonT) }] : []),
     duration,
-    ...(fastest ? [{ value: fastest, unit: 'הקפה מהירה' }] : []),
+    ...(fastest ? [{ value: fastest, unit: fastestLapUnit() }] : []),
   ];
   const route = Array.isArray(input.routeShape) && input.routeShape.length >= 6 ? input.routeShape : undefined;
   const kmMarks = route && posNum(input.distanceKm) ? kmMarkFractions(input.distanceKm) : undefined;
   return {
     kind: 'cardio',
     dateLabel: shareDateLabel(input.dateMs, true),
-    chip: [input.title || 'ריצה', input.parkName].filter(Boolean).join(' · '),
-    name: input.title || 'ריצה',
+    chip: [input.title || shareT('shareV2.run.name'), input.parkName].filter(Boolean).join(' · '),
+    name: input.title || shareT('shareV2.run.name'),
     duration,
     stats,
     rows: [],
     streakDays: posNum(input.streakDays) ? input.streakDays : undefined,
-    hero: km ? { value: km, unit: unitLabel('km') } : duration,
+    hero: km ? { value: km, unit: unitLabel('km', shareCommonT) } : duration,
     distance: km,
     pace,
     fastest,

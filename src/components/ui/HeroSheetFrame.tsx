@@ -110,7 +110,6 @@ export default function HeroSheetFrame({
             transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
             style={{ y, opacity, ...frameStyle }}
             className={classicClassName}
-            dir="rtl"
           >
             {/* Drag handle — full-width touch target */}
             <div

@@ -33,7 +33,6 @@ function Original({ backdrop, panel, title, children }: { backdrop: string; pane
             onClick={(e) => e.stopPropagation()}
             className={panel}
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
-            dir="rtl"
           >
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-200" />
