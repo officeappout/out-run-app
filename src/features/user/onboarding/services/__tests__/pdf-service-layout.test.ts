@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PDFPage } from 'pdf-lib';
 import { generateHealthDeclarationPdf, formatEnglishPdfDate, wrapText } from '../pdf-service';
-import { HEALTH_PDF_TEXT_EN } from '../../data/health-declaration-pdf-text.en';
+import { readFileSync as rf } from 'fs';
 import { HEALTH_QUESTIONS } from '../../data/health-questions';
 
 /**
@@ -80,8 +80,24 @@ describe('English health declaration PDF', () => {
     expect(joined).toContain('13. If you are pregnant');
   });
 
-  it('English question ids match the app question ids, in order', () => {
-    expect(HEALTH_PDF_TEXT_EN.questions.map((q) => q.id)).toEqual(HEALTH_QUESTIONS.map((q) => q.id));
+  it('prints the exact catalog text the user saw: legal text, municipality clause, free-will clause', async () => {
+    stubFetch();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const en = JSON.parse(rf(join(process.cwd(), 'src/messages/en/onboarding.json'), 'utf8')) as Record<string, string>;
+    const drawn: string[] = [];
+    const origText = PDFPage.prototype.drawText;
+    vi.spyOn(PDFPage.prototype, 'drawText').mockImplementation(function (this: PDFPage, text, opts) {
+      drawn.push(text);
+      return origText.call(this, text, opts);
+    });
+    await generateHealthDeclarationPdf('Dana Cohen', PNG_1X1, new Date(2026, 9, 5), 'en');
+    const flat = drawn.join(' ').replace(/\s+/g, ' ');
+    const norm = (x: string) => x.replace(/\s+/g, ' ');
+    for (const k of ['healthDeclaration.legalText', 'healthDeclaration.pdf.liabilityAuthority', 'healthDeclaration.pdf.freeWill', 'healthDeclaration.pdf.renewal']) {
+      expect(flat, k).toContain(norm(en[k]));
+    }
+    for (const q of HEALTH_QUESTIONS) expect(flat).toContain(norm(en[`healthDeclaration.q.${q.id}`]));
+    expect(flat).toContain('municipality');
   });
 
   it('date + wrap helpers', () => {

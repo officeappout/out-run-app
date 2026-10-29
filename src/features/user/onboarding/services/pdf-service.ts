@@ -8,7 +8,10 @@
  */
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { HEALTH_PDF_TEXT_EN } from '../data/health-declaration-pdf-text.en';
+import { HEALTH_QUESTIONS } from '../data/health-questions';
+import { ensureCatalog } from '@/lib/i18n/catalogs';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // ── Asset paths (served by Next.js from /public) ──
 const TEMPLATE_URL = '/assets/documents/health-declaration-template.pdf';
@@ -249,7 +252,10 @@ async function generateEnglishHealthDeclarationPdf(
   signatureB64: string,
   signedAt: Date,
 ): Promise<Uint8Array> {
-  const T = HEALTH_PDF_TEXT_EN;
+  // Single source: the same catalog keys the signature screen renders (healthDeclaration.*).
+  await ensureCatalog('en', 'onboarding');
+  const t = makeT('en', onboarding);
+  const P = (k: string) => t(`healthDeclaration.pdf.${k}` as never) as string;
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
   // Simpler Pro covers Latin, so the same self-hosted font serves the English layout.
@@ -282,35 +288,33 @@ async function generateEnglishHealthDeclarationPdf(
     y -= gap;
   };
 
-  para(T.title, 20, bold, 12);
+  para(P('title'), 20, bold, 12);
   const dateStr = formatEnglishPdfDate(signedAt);
   ensure(18);
   y -= 14;
-  page.drawText(`${T.nameLabel} ${userName}`, { x: M, y, size: 12, font, color });
-  page.drawText(`${T.dateLabel} ${dateStr}`, {
-    x: PAGE_W - M - font.widthOfTextAtSize(`${T.dateLabel} ${dateStr}`, 12),
-    y,
-    size: 12,
-    font,
-    color,
-  });
+  const nameStr = `${P('nameLabel')} ${userName}`;
+  const dateLine = `${P('dateLabel')} ${dateStr}`;
+  page.drawText(nameStr, { x: M, y, size: 12, font, color });
+  page.drawText(dateLine, { x: PAGE_W - M - font.widthOfTextAtSize(dateLine, 12), y, size: 12, font, color });
   y -= 16;
 
-  para(T.instructionsTitle, 13, bold, 4);
-  for (const i of T.instructions) para(i, 11, font, 3);
-  para(T.defaultNote, 11, font, 12);
+  para(P('instructionsTitle'), 13, bold, 4);
+  para(P('instruction1'), 11, font, 3);
+  para(P('instruction2'), 11, font, 3);
+  para(P('defaultNote'), 11, font, 12);
 
-  for (const q of T.questions) {
-    const answer = `  ${T.answerNo}`;
-    para(`${q.text}${answer}`, 10.5, font, 5);
+  for (const q of HEALTH_QUESTIONS) {
+    para(`${t(`healthDeclaration.q.${q.id}` as never) as string}  ${P('answerNo')}`, 10.5, font, 5);
   }
   y -= 6;
-  for (const d of T.declarations) para(d, 10.5, font, 6);
+  // The declaration the user saw on screen, then the clauses only the signed document carries.
+  para(t('healthDeclaration.legalText' as never) as string, 10.5, font, 6);
+  for (const k of ['renewal', 'liabilityAuthority', 'benefits', 'freeWill']) para(P(k), 10.5, font, 6);
 
   // Signature block (kept together at the end of the content).
   ensure(75);
   y -= 14;
-  page.drawText(T.signatureLabel, { x: M, y, size: 12, font: bold, color });
+  page.drawText(P('signatureLabel'), { x: M, y, size: 12, font: bold, color });
   const base64Data = signatureB64.replace(/^data:image\/\w+;base64,/, '');
   const signatureImage = await pdfDoc.embedPng(Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0)));
   page.drawImage(signatureImage, { x: M + 80, y: y - 40, width: 200, height: 55 });

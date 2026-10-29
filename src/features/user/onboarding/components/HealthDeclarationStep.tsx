@@ -24,7 +24,7 @@ import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import { genderArg } from '@/lib/i18n/core/i18n-core';
 import { useLocaleStore } from '@/store/useLocaleStore';
-import { HEALTH_PDF_TEMPLATE_ID_EN } from '../data/health-declaration-pdf-text.en';
+import { HEALTH_PDF_TEMPLATE_ID_EN } from '../data/health-declaration-pdf-meta';
 
 interface HealthDeclarationStepProps {
   title?: string;
