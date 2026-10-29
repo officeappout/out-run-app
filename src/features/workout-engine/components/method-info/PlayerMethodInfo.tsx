@@ -2,8 +2,9 @@
 
 /**
  * PlayerMethodInfo — the method "i" in the strength player's superset /
- * tabata frames (enable_method_info_sheet_v1). Maps the frame's own rows
- * (ExerciseEntry: name, thumbnail, reps text, rest) into the method model.
+ * tabata frames and solo cards (enable_method_info_sheet_v1). Maps the rows
+ * (ExerciseEntry: name, thumbnail, reps text, rest, pyramid steps) into the
+ * method model.
  */
 
 import React, { useMemo } from 'react';
@@ -13,7 +14,7 @@ import { buildMethodInfo } from '../../core/methods/method-info/method-info.mode
 import MethodInfoButton from './MethodInfoButton';
 
 export interface PlayerMethodInfoProps {
-  kind: 'superset' | 'tabata';
+  kind: 'straight' | 'pyramid' | 'superset' | 'tabata';
   label: string;
   entries: ExerciseEntry[];
   /** Tabata: the block's clock (from the segment's block protocol). */
@@ -36,6 +37,7 @@ export default function PlayerMethodInfo({ kind, label, entries, tabata }: Playe
           sets: e.sets,
           restSec: e.restDuration,
           line: e.repsText,
+          pyramidSequence: e.pyramidSequence,
         })),
       }),
     [kind, label, tabata, entries, cached],
