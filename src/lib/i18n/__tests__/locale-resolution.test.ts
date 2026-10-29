@@ -96,7 +96,7 @@ describe('device detection is for new users only', () => {
     expect(isNewUserForLocale({ createdAt: new Date(NOW - 1000) }, NOW)).toBe(true);
     expect(isNewUserForLocale({ createdAt: { seconds: (NOW - 2 * DAY) / 1000 } }, NOW)).toBe(false);
     expect(isNewUserForLocale({ createdAt: { toMillis: () => NOW - 30 * DAY } }, NOW)).toBe(false);
-    expect(isNewUserForLocale({}, NOW)).toBe(false); // legacy doc without createdAt
+    expect(isNewUserForLocale({ onboardingStatus: 'COMPLETED' }, NOW)).toBe(false); // legacy doc without createdAt
   });
   it('existing user + English device -> he', () => {
     expect(pick({ createdAt: new Date(NOW - 30 * DAY) })).toBe('he');
