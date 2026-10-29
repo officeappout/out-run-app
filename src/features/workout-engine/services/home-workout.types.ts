@@ -113,6 +113,13 @@ export interface HomeWorkoutOptions {
   straightArmRatio?: number;
   /** Straight-arm sets completed this week (from WeeklyVolumeStore) */
   weeklySASets?: number;
+  /**
+   * R31 weekly core target (owner 27.10.2026). Absent = resolved in the pipeline: target by the
+   * core level (core-weekly-count.ts defaultWeeklyCoreTarget), sets from the WeeklyVolumeStore
+   * session logs already on the device (no query). Once met, the core slot is skipped.
+   */
+  weeklyCoreTarget?: number;
+  weeklyCoreSets?: number;
   /** levelDefaultRestSeconds from ProgramLevelSettings */
   levelDefaultRestSeconds?: number;
   /** restMultiplier from ProgramLevelSettings */
