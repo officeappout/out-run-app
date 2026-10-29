@@ -33,10 +33,10 @@ describe('gating', () => {
     expect(firstRunToursEnabled({ enableOnboardingTutorialV1: false, enableHomeV2: true })).toBe(false);
     expect(firstRunToursEnabled({})).toBe(false);
   });
-  it('the tutorial flag stays off for users, on for super admins (owner review)', () => {
+  it('the tutorial flag is graduated: on for everyone (owner 27.10.2026)', () => {
     const def = FLAG_DEFS.find((d) => d.key === 'enableOnboardingTutorialV1');
-    expect(def?.defaultValue).toBe(false);
-    expect(def?.superAdminValue).toBe(true);
+    expect(def?.defaultValue).toBe(true);
+    expect(def && 'graduated' in def && def.graduated).toBe(true);
   });
 });
 

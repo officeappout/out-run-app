@@ -31,11 +31,11 @@ const src = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta
 const walk: WhatNowRouteSuggestion = { minutes: 30, stops: 1, aerobicKind: 'walking' };
 
 describe('flag', () => {
-  it('fail-closed for users, on for super admins', () => {
+  it('graduated: on for everyone (owner 27.10.2026)', () => {
     const def = FLAG_DEFS.find((d) => d.key === 'enableEntryWhatnowV1');
     expect(def?.firestoreKey).toBe('enable_entry_whatnow_v1');
-    expect(def?.defaultValue).toBe(false);
-    expect(def?.superAdminValue).toBe(true);
+    expect(def?.defaultValue).toBe(true);
+    expect(def && 'graduated' in def && def.graduated).toBe(true);
   });
 });
 
