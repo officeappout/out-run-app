@@ -2,7 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PDFPage } from 'pdf-lib';
-import { generateHealthDeclarationPdf } from '../pdf-service';
+import { generateHealthDeclarationPdf, formatEnglishPdfDate, wrapText } from '../pdf-service';
+import { HEALTH_PDF_TEXT_EN } from '../../data/health-declaration-pdf-text.en';
+import { HEALTH_QUESTIONS } from '../../data/health-questions';
 
 /**
  * Hebrew parity guard for the health declaration PDF: the template stamping (name, date,
@@ -55,5 +57,35 @@ describe('Hebrew health declaration PDF layout', () => {
       { text: '05/10/2026', x: 68, y: 705, size: 12 },
     ]);
     expect(images).toEqual([{ x: 320, y: 42, width: 260, height: 55 }]);
+  });
+});
+
+describe('English health declaration PDF', () => {
+  it('is typeset LTR from the English text: 13 questions in id order, Latin name, English date', async () => {
+    stubFetch();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const drawn: string[] = [];
+    const origText = PDFPage.prototype.drawText;
+    vi.spyOn(PDFPage.prototype, 'drawText').mockImplementation(function (this: PDFPage, text, opts) {
+      drawn.push(text);
+      return origText.call(this, text, opts);
+    });
+    const bytes = await generateHealthDeclarationPdf('Dana Cohen', PNG_1X1, new Date(2026, 9, 5), 'en');
+    expect(bytes.length).toBeGreaterThan(1000);
+    const joined = drawn.join('\n');
+    expect(drawn).toContain('Health declaration');
+    expect(drawn).toContain('Name: Dana Cohen');
+    expect(joined).toContain('Date: 5 Oct 2026');
+    expect(joined).not.toMatch(/[\u0590-\u05FF]/);
+    expect(joined).toContain('13. If you are pregnant');
+  });
+
+  it('English question ids match the app question ids, in order', () => {
+    expect(HEALTH_PDF_TEXT_EN.questions.map((q) => q.id)).toEqual(HEALTH_QUESTIONS.map((q) => q.id));
+  });
+
+  it('date + wrap helpers', () => {
+    expect(formatEnglishPdfDate(new Date(2026, 0, 31))).toBe('31 Jan 2026');
+    expect(wrapText('aa bb cc', 5, (x) => x.length)).toEqual(['aa bb', 'cc']);
   });
 });

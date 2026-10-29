@@ -34,6 +34,19 @@ function fakeDeps(over: Partial<PdfDeps> = {}, stored: LegalDocShape | null = nu
 
 beforeEach(() => __resetHealthDeclarationSessionForTests());
 
+describe('declaration locale', () => {
+  it('an English record regenerates an English PDF; Hebrew/legacy records keep the 3-arg call', async () => {
+    const en = { ...record, declarationLocale: 'en' as const, declarationTemplateId: 'health-en-v1' };
+    const a = fakeDeps();
+    await generatePdfForRecord('u1', en, a.deps);
+    expect(a.deps.generatePdf).toHaveBeenCalledWith('דנה', record.signature, new Date(record.signedAt), 'en');
+    __resetHealthDeclarationSessionForTests();
+    const b = fakeDeps();
+    await generatePdfForRecord('u1', record, b.deps);
+    expect(b.deps.generatePdf).toHaveBeenCalledWith('דנה', record.signature, new Date(record.signedAt));
+  });
+});
+
 describe('submit', () => {
   it('continue fires WITHOUT waiting on the PDF chain (a PDF that never finishes still continues)', () => {
     const never = new Promise<Uint8Array>(() => {});
