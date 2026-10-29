@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Out Run</string>
+	<string>OUT</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,7 +27,7 @@
 			<string>com.google.reverseClientId</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.371293978848-fhva157r96s6mmn0oo6qpsu3th7jrhhb</string>
+				<string>com.googleusercontent.apps.371293978848-5sjf2t3b0p5u05adsd3ol594kdhircvp</string>
 			</array>
 		</dict>
 		<dict>
@@ -37,7 +37,7 @@
 			<string>Google Sign In</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.371293978848-fhva157r96s6mmn0oo6qpsu3th7jrhhb</string>
+				<string>com.googleusercontent.apps.371293978848-5sjf2t3b0p5u05adsd3ol594kdhircvp</string>
 			</array>
 		</dict>
 	</array>
