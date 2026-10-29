@@ -60,6 +60,8 @@ vi.mock('@/features/user/onboarding/services/consume-pending-invites', () => ({
   hasPendingInvite: () => false,
 }));
 vi.mock('@/lib/feature-flag-once', () => ({ readFeatureFlagOnce: async () => false }));
+// Language pill on the intro landing: flags off (no options) renders null, so the snapshots stay byte-identical.
+vi.mock('@/hooks/useLanguageSetting', () => ({ useLanguageSetting: () => ({ options: [], locale: 'he', choose: async () => {} }) }));
 
 import LandingPage from '@/app/page';
 
