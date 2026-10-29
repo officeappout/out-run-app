@@ -29,6 +29,12 @@ const POSITIVE: Array<[string, SafetyTrigger]> = [
   ["I'm pregnant, can I train?", 'pregnancy'],
   ['I am 12 weeks pregnant', 'pregnancy'],
   ["we're expecting a baby", 'pregnancy'],
+  ['I feel tight in the chest', 'chest'],
+  ['it is tight in my chest', 'chest'],
+  ['my chest feels heavy', 'chest'],
+  ['chest is so heavy when I climb', 'chest'],
+  ['heaviness in my chest', 'chest'],
+  ['I broke my back yesterday', 'injury'],
 ];
 
 const NEGATIVE = [
@@ -47,6 +53,14 @@ const NEGATIVE = [
   'my legs are sore',
   'what is on my schedule this week',
   'doc, how long is this workout?',
+  'she is dizzy',
+  'he feels dizzy',
+  'they were dizzy after the run',
+  'she is pregnant',
+  'he broke his ankle',
+  'I broke the back squat PR',
+  'that was a dizzying climb',
+  'the weights feel heavy today',
 ];
 
 describe('detectSafetyTrigger (English)', () => {

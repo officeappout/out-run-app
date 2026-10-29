@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { useSessionStore } from '../../../core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '../../../core/utils/formatPace';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { runBlockLabel } from '../utils/run-preview/run-block-label';
 import type { RunBlock } from '../types/run-block.type';
 
 interface IntervalRunViewProps {
@@ -21,7 +23,8 @@ export const IntervalRunView: React.FC<IntervalRunViewProps> = ({
   const { totalDuration } = useSessionStore();
   const { currentPace } = useRunningPlayer();
 
-  const targetLabel = currentBlock?.label || 'אינטרוול';
+  const lang = useContentLanguage();
+  const targetLabel = (currentBlock && runBlockLabel(currentBlock, lang)) || 'אינטרוול'; // i18n-allow-hebrew: pre-existing fallback label of the legacy v1 view
 
   const formatTime = (s?: number) => {
     if (!s || s <= 0) return '00:00';

@@ -184,5 +184,7 @@
   "ui.report.failed": "Couldn’t send. Try again.",
   "ui.report.sent": "Thank you! Your report was sent.",
   "ui.report.sending": "Sending…",
-  "ui.report.send": "Send"
+  "ui.report.send": "Send",
+  "language.switch.aria": "Change language",
+  "language.switch.menu": "Language"
 }

@@ -22,6 +22,8 @@ import RestProgressBar from './RestProgressBar';
 import { findFirstIncompleteSet } from '../utils/set-status.utils';
 import type { ExerciseEntry, BlockStatus } from '../types';
 import type { TapVerdict } from './StrengthSetRow';
+import PlayerMethodInfo from '../../../../components/method-info/PlayerMethodInfo';
+import { useMethodInfoSheetV1 } from '../../../../components/method-info/useMethodInfoSheetV1';
 
 export interface SupersetBlockGroupProps {
   /** The two paired exercise entries (already equalized by grouping.utils). */
@@ -52,6 +54,8 @@ export default function SupersetBlockGroup({
   onSaveSet,
 }: SupersetBlockGroupProps) {
   const t = useT(player);
+  // enable_method_info_sheet_v1: "i" after the header explains the superset with this pair.
+  const methodInfoOn = useMethodInfoSheetV1();
   const isActive = cardStatus === 'active';
   const isCompleted = cardStatus === 'completed';
 
@@ -121,12 +125,21 @@ export default function SupersetBlockGroup({
     >
       {/* Header */}
       <div className="w-full flex items-center justify-between px-4 pt-3 pb-2">
+        {methodInfoOn ? (
+          <span className="flex min-w-0 max-w-[60%] items-center gap-1.5">
+            <span className="text-sm font-bold text-slate-900 dark:text-white truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
+              {t('strengthPlayer.groups.superset', { n: String(exercises.length) })}
+            </span>
+            <PlayerMethodInfo kind="superset" label={t('strengthPlayer.groups.superset', { n: String(exercises.length) })} entries={exercises} />
+          </span>
+        ) : (
         <span
           className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[60%]"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           {t('strengthPlayer.groups.superset', { n: String(exercises.length) })}
         </span>
+        )}
         <span
           className="text-xs font-medium text-slate-500 dark:text-slate-400"
           style={{ fontFamily: 'var(--font-simpler)' }}

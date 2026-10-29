@@ -137,6 +137,7 @@ interface FlagState {
   enable_park_live_v2: boolean;
   enable_commute_v2_player_v1: boolean;
   enable_workout_coach_note_v1: boolean;
+  enable_method_info_sheet_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1148,6 +1149,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'דגשי האימון: למה בנינו את האימון הזה',
     description: 'בתצוגה המקדימה של אימון כוח: בלוק "דגשי האימון" עם 2-4 משפטים על הסיבה לאימון (התאוששות, חזרה אחרי הפסקה, פער שבועי, מיקוד, מקום) ומה מחכה בו (תרגילים, סטים, מנוחה, עצימות). נבנה ב-#415 ולא הופעל אף פעם. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Method "i" sheet (29.10.2026) — owner-approved canvas boards Method*.
+  {
+    key: 'enable_method_info_sheet_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'הסבר שיטת אימון ("i" ליד כותרת הבלוק)',
+    description: 'כפתור i ליד כותרת בלוק כוח (בתצוגה המקדימה, ובנגן ליד סופר סט וטבטה) פותח הסבר קצר על השיטה: סטים רגילים, סופר סט, פירמידה עולה-יורדת, סט שיא או טבטה. ההדגמה בנויה מהתרגילים, החזרות והמנוחות של הבלוק עצמו, עם 3 שלבים ושתי שאלות מוכנות לקלי. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {
