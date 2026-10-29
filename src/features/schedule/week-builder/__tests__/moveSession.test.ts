@@ -26,9 +26,9 @@ describe('drag validation (engine v2 hard rules)', () => {
     expect(r).toEqual({ ok: false, reasonHe: dropReasonHe('H4') });
   });
 
-  it('strength onto the long-run day snaps back (H2)', () => {
+  it('strength onto the long-run day is allowed (H2 soft since 27.10.2026)', () => {
     const w = week(OPEN_SUN_FRI, [[1, strength('s', 'upper_body')], [5, run('l', 'long_run')]]);
-    expect(moveSession(w, { sessionId: 's', toDow: 5 }, RULES)).toEqual({ ok: false, reasonHe: dropReasonHe('H2') });
+    expect(moveSession(w, { sessionId: 's', toDow: 5 }, RULES).ok).toBe(true);
   });
 
   it('heavy legs the day before the long run snap back (H3)', () => {

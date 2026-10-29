@@ -27,6 +27,8 @@ export interface Unit {
   slot?: RunSlot;
   workout?: RunWorkoutType;
   minutes?: number;
+  /** Strength: planned session length (profile default), read by strengthTier. */
+  sessionMinutes?: number;
   /** Strength: 1 slug, or 2 for a combined session. */
   slugs: string[];
   load: LoadVector;
@@ -93,7 +95,7 @@ export function makeStrengthUnit(slug: string, id = `strength:${slug}`, priority
   const prof = profileOfProgram({ slug, sessionsPerWeek: 1, priority });
   return {
     id, kind: 'strength', slugs: [slug], load: prof.load, intensity: prof.intensity,
-    minRecH: prof.minRecoveryHours, idealRecH: prof.idealRecoveryHours, priority, isSkill: prof.isSkill,
+    minRecH: prof.minRecoveryHours, idealRecH: prof.idealRecoveryHours, priority, isSkill: prof.isSkill, sessionMinutes: prof.sessionMinutes,
     rank: 100 + priority, identity: `strength:${canonicalSlug(slug)}`, variant: prof.noLegsVariant,
   };
 }
@@ -174,6 +176,7 @@ export function buildUnits(input: ScheduleEngineInput, priority: SchedulePriorit
         intensity: prof.intensity,
         minRecH: prof.minRecoveryHours,
         idealRecH: prof.idealRecoveryHours,
+        sessionMinutes: prof.sessionMinutes,
         priority: p.priority,
         isSkill: prof.isSkill,
         rank: 0,
@@ -370,6 +373,7 @@ export function applyLadder(plan: UnitPlan, k: number): ReducedSet {
         load: maxLoad(c.load, g.load),
         intensity: c.intensity === 'hard' || g.intensity === 'hard' ? 'hard' : c.intensity === 'moderate' || g.intensity === 'moderate' ? 'moderate' : 'light',
         minRecH: Math.max(c.minRecH, g.minRecH),
+        sessionMinutes: c.sessionMinutes !== undefined && g.sessionMinutes !== undefined ? c.sessionMinutes + g.sessionMinutes : undefined,
         idealRecH: Math.max(c.idealRecH, g.idealRecH),
         isSkill: c.isSkill || g.isSkill,
         identity: `${c.identity}+${g.identity}`,

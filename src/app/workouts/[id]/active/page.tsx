@@ -87,6 +87,7 @@ import { useT } from '@/hooks/useT';
 import { makeLiveT } from '@/lib/i18n/live-t';
 import { library } from '@/messages/ns/library';
 import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
+import { coreSetsOfCompletedPlan } from '@/features/workout-engine/logic/protocols/core-weekly-count';
 
 // ============================================================================
 // TYPES
@@ -104,6 +105,7 @@ interface WorkoutStats {
   startTime: number;          // Timestamp when workout started
   rawExerciseLog: ExerciseResultLog[]; // Actual confirmed reps with correct targetReps
   domainSets?: Record<string, number>; // Per-domain set counts (Phase 3)
+  coreSets?: number; // Core sets toward the weekly core target (R31, core-weekly-count.ts)
 }
 
 const MUSCLE_TO_DOMAIN: Record<string, string> = {
@@ -1212,6 +1214,9 @@ export default function ActiveWorkoutPage() {
       }
     }
     
+    // R31 weekly core target: tabata / follow-along core = 4 sets, single core = its sets.
+    const coreSets = coreSetsOfCompletedPlan(workoutPlan.segments, logMap);
+
     // Update stats for summary screen
     setWorkoutStats({
       duration,
@@ -1221,6 +1226,7 @@ export default function ActiveWorkoutPage() {
       startTime: workoutStats.startTime,
       rawExerciseLog: exerciseLog ?? [],
       domainSets: Object.keys(domainSets).length > 0 ? domainSets : undefined,
+      coreSets,
     });
     
     console.log('[ActiveWorkoutPage] Workout complete! Duration:', duration, 'seconds',
@@ -1260,6 +1266,7 @@ export default function ActiveWorkoutPage() {
         difficulty,
         isRecovery: workoutPlan.isRecovery === true,
         domainSets: Object.keys(domainSets).length > 0 ? domainSets : undefined,
+        coreSets,
       });
 
       // 3b. saveWorkout — same classification + payload logic
@@ -1575,6 +1582,7 @@ export default function ActiveWorkoutPage() {
         difficulty: workoutStats.difficulty,
         isRecovery: stableWorkoutPlan?.isRecovery === true,
         domainSets: workoutStats.domainSets,
+        coreSets: workoutStats.coreSets,
       }).catch((e) =>
         console.error('[ActiveWorkoutPage] runActivitySync failed:', e),
       );
@@ -1692,7 +1700,7 @@ export default function ActiveWorkoutPage() {
     } finally {
       _summaryFinishInFlight = false;
     }
-  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, workoutStats.domainSets, profile, stableWorkoutPlan, userProgression, exerciseHistoryMap, pageV2]);
+  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, workoutStats.domainSets, workoutStats.coreSets, profile, stableWorkoutPlan, userProgression, exerciseHistoryMap, pageV2]);
 
   // Handle pause
   const handlePause = () => {

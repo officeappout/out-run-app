@@ -69,6 +69,11 @@ export const W = {
    * level's streak, a small cost, so the engine spreads runs when the days allow it.
    */
   RUN_STREAK_OVER_CAP: 3,
+  /**
+   * Owner 27.10.2026: strength on the long-run day is no longer a hard rule (old H2). A high cost,
+   * so the engine keeps them apart whenever the days allow it, plus a week warning when it can't.
+   */
+  H2_STRENGTH_ON_LONG_RUN: 8,
   /** Light legs (an easy-run-day legs session the day before intervals / tempo), owner 27.10.2026. */
   LIGHT_LEGS: 1,
   /** A full body swapped to its no-legs variant (cheaper than S7). */
