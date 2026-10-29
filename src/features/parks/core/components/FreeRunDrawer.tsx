@@ -12,6 +12,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { readLiveFlag } from '@/lib/feature-flag-live';
 import { playerActivityForPick, rideModeOn } from '@/features/workout-engine/players/running/lib/ride-mode';
 import { useT } from '@/hooks/useT';
+import { formatDate } from '@/lib/i18n/core/fmt';
 import { map } from '@/messages/ns/map';
 import { common } from '@/messages/ns/common';
 import { withUnit, unitLabel } from '@/lib/i18n/units';
@@ -1607,8 +1608,7 @@ export default function FreeRunDrawer({
     try {
       const result = await commitScheduled();
       const actType = selectedActivity === 'walking' ? 'walking' : 'running';
-      const dateLabel = new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit' })
-        .format(new Date(scheduledFor));
+      const dateLabel = formatDate(new Date(scheduledFor), t.locale, { day: '2-digit', month: '2-digit' });
       const text = t(actType === 'walking' ? 'freeRun.share.walking' : 'freeRun.share.running', {
         date: dateLabel,
         time: schedTime,
