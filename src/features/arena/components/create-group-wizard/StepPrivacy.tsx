@@ -119,7 +119,7 @@ export function StepPrivacy({
           maxLength={500}
           className={v2 ? V2C.textarea : 'w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed'}
         />
-        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-left'}>{form.rules.length}/500</p>
+        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-end'}>{form.rules.length}/500</p>
       </div>
     </div>
   );

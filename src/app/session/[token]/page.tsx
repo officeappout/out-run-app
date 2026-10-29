@@ -126,7 +126,7 @@ export default function SessionTokenPage() {
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center" dir="rtl">
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-white animate-spin" />
       </div>
     );
@@ -139,7 +139,7 @@ export default function SessionTokenPage() {
         ? t('sessionInvite.error.expired')
         : t('sessionInvite.error.invalid');
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4 px-6" dir="rtl">
+      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4 px-6">
         <AlertCircle className="w-12 h-12 text-red-400" />
         <h1 className="text-white text-xl font-bold text-center">{msg}</h1>
         <p className="text-white/60 text-sm text-center">
@@ -170,7 +170,7 @@ export default function SessionTokenPage() {
   const ctaLabel = isRunInvite ? t('sessionInvite.cta.run') : t('sessionInvite.cta.session');
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col" dir="rtl">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
         <div className="w-20 h-20 rounded-3xl bg-white/10 flex items-center justify-center text-4xl">

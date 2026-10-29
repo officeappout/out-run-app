@@ -1,5 +1,7 @@
 'use client';
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { pickProgramText } from '@/features/content/programs/core/localized-fields';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X } from 'lucide-react';
@@ -38,15 +40,16 @@ export interface ProgramSuggestionCardProps {
 /** Per-suggestion Hebrew program name, resolved live from the programs collection (no hardcoded list to drift). */
 function useProgramName(programId: string): string {
   const [name, setName] = useState(programId);
+  const lang = useContentLanguage();
   useEffect(() => {
     let cancelled = false;
     getProgramByTemplateId(programId)
       .then((prog) => {
-        if (!cancelled && prog?.name) setName(prog.name);
+        if (!cancelled && prog?.name) setName(pickProgramText(prog, 'name', lang));
       })
       .catch(() => { /* keep the id fallback — non-fatal */ });
     return () => { cancelled = true; };
-  }, [programId]);
+  }, [programId, lang]);
   return name;
 }
 

@@ -92,7 +92,10 @@ export default function IdentityProfileScreen({
   const isProgram = context === 'program';
   const isWorkout = context === 'workout' || isProgram;
   // Owner 27.10: the strength v3 flow counts its real 4 phases (running keeps the 5-phase bar).
-  const storyBar = strengthStoryBar('profile', useStrengthQuizV3Entry());
+  const quizV3Entry = useStrengthQuizV3Entry();
+  const storyBar = strengthStoryBar('profile', quizV3Entry);
+  // Owner 28.10 (Y3): inside the strength v3 intro the details screen is phase 1 of the shared bars.
+  const singleBar = isExpress || (isWorkout && !(isProgram && quizV3Entry));
   const { profile, updateProfile, refreshProfile } = useUserStore();
   // enable_landing_real_fallback — the two /gateway exits below go to the real flow instead.
   const { enabled: realFallback } = useLandingRealFallback();
@@ -533,9 +536,9 @@ export default function IdentityProfileScreen({
 
           <div className="flex-1 min-h-[36px] flex flex-col justify-center">
             <OnboardingStoryBar
-              totalPhases={isExpress || isWorkout ? 1 : storyBar.total}
-              currentPhase={isExpress || isWorkout ? 1 : storyBar.current}
-              phaseLabel={isExpress || isWorkout ? undefined : t(storyBar.labelKey)}
+              totalPhases={singleBar ? 1 : storyBar.total}
+              currentPhase={singleBar ? 1 : storyBar.current}
+              phaseLabel={singleBar ? undefined : t(storyBar.labelKey)}
               noPadding
             />
           </div>
@@ -640,7 +643,9 @@ export default function IdentityProfileScreen({
                 initial="hidden"
                 animate="show"
               >
-                {t(isProgram
+                {t(isProgram && quizV3Entry
+                  ? 'identity.intro.default' // Y3: shown before the quiz, not before a save
+                  : isProgram
                   ? PROGRAM_CONTEXT_INTRO
                   : isWorkout
                   ? WORKOUT_CONTEXT_INTRO

@@ -35,6 +35,7 @@ import { isFiniteLatLng } from '@/utils/geoValidation';
 import { useRouteRunV2Store } from '@/features/workout-engine/players/running/store/useRouteRunV2Store';
 import RouteElevationAhead from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteElevationAhead';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 
 const DEST_GREEN = '#16A34A';
@@ -69,6 +70,7 @@ export default function NavBannerV2({
   onMinimize,
 }: NavBannerV2Props) {
   const t = useT(map);
+  const { direction } = useUiDir();
   const status = useSessionStore((s) => s.status);
   const sessionActive = status === 'active' || status === 'paused';
   const guidedRouteName = useRunningPlayer((s) => s.guidedRouteName);
@@ -114,7 +116,7 @@ export default function NavBannerV2({
 
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className={`v2-glass-card relative overflow-hidden rounded-[22px] pointer-events-auto transition-shadow duration-200 ease-v2 ${
         imminent && !approaching ? 'ring-2 ring-v2-accent' : ''
       }`}
@@ -123,7 +125,7 @@ export default function NavBannerV2({
         type="button"
         onClick={onExpand}
         aria-label={t('navBanner.expand')}
-        className="flex w-full items-center gap-3 pb-2.5 pl-12 pr-3 pt-3 text-right transition-transform duration-150 ease-v2 active:scale-[0.99]"
+        className="flex w-full items-center gap-3 pb-2.5 pe-12 ps-3 pt-3 text-start transition-transform duration-150 ease-v2 active:scale-[0.99]"
       >
         {/* dir="ltr": lucide arrows must never be mirrored by an RTL ancestor (see TurnCarousel). */}
         <div
@@ -154,7 +156,7 @@ export default function NavBannerV2({
         type="button"
         onClick={onMinimize}
         aria-label={t('navBanner.minimize')}
-        className="absolute left-2.5 top-2.5 grid h-8 w-8 place-items-center rounded-full bg-white/80 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
+        className="absolute end-2.5 top-2.5 grid h-8 w-8 place-items-center rounded-full bg-white/80 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
       >
         <Minimize2 size={14} className="text-v2-ink-2" />
       </button>
@@ -180,7 +182,7 @@ export default function NavBannerV2({
             aria-valuenow={progress.pct}
           >
             <div
-              className="absolute inset-y-0 right-0 rounded-full bg-v2-accent transition-[width] duration-500 ease-v2"
+              className="absolute inset-y-0 start-0 rounded-full bg-v2-accent transition-[width] duration-500 ease-v2"
               style={{ width: `${progress.pct}%` }}
             />
           </div>

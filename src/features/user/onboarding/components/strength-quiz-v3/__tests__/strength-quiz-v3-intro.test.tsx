@@ -24,9 +24,24 @@ vi.mock('@/features/user/onboarding/components/OnboardingLayout', () => ({
   ),
 }));
 
+vi.mock('@/features/user/onboarding/components/IdentityProfileScreen', () => ({
+  default: (p: { context?: string; onWorkoutIdentitySaved?: () => void }) => (
+    <div data-stub="identity" data-context={p.context}>
+      <button data-stub="identity-save" onClick={p.onWorkoutIdentitySaved} />
+    </div>
+  ),
+}));
+
 import { mount, type Mounted } from '@/features/user/onboarding/components/steps/__tests__/i18n-dom-harness';
 import StrengthQuizV3Intro from '../StrengthQuizV3Intro';
 import { useLocaleStore } from '@/store/useLocaleStore';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+
+function seedIdentity() {
+  sessionStorage.setItem('onboarding_personal_name', 'דנה');
+  sessionStorage.setItem('onboarding_personal_gender', 'female');
+  sessionStorage.setItem('onboarding_personal_dob', '1990-01-01');
+}
 
 let m: Mounted | null = null;
 const q = (sel: string) => document.querySelector(sel) as HTMLElement | null;
@@ -41,6 +56,8 @@ async function open(gender: 'male' | 'female' | 'other') {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   sessionStorage.clear();
+  seedIdentity();
+  useUserStore.setState({ _hasHydrated: true });
   R.push.mockReset();
   R.back.mockReset();
   R.funnel.mockReset();
@@ -97,5 +114,31 @@ describe('flow', () => {
     await m!.click('[data-stub="continue"]');
     await m!.clickText('סרטון הסבר קצר');
     expect(R.push).not.toHaveBeenCalled();
+  });
+});
+
+describe('details screen first (owner 28.10, Y3)', () => {
+  it('missing name / gender / birth date: the details screen, then screen 1', async () => {
+    sessionStorage.clear();
+    await open('other');
+    expect(q('[data-stub="identity"]')?.getAttribute('data-context')).toBe('program');
+    expect(q('[data-quiz-v3="welcome"]')).toBeNull();
+    await m!.click('[data-stub="identity-save"]');
+    expect(q('[data-stub="identity"]')).toBeNull();
+    expect(q('[data-quiz-v3="welcome"]')).not.toBeNull();
+  });
+
+  it('known identity: straight to screen 1', async () => {
+    await open('male');
+    expect(q('[data-stub="identity"]')).toBeNull();
+    expect(q('[data-quiz-v3="welcome"]')).not.toBeNull();
+  });
+
+  it('waits for the stored profile before deciding', async () => {
+    sessionStorage.clear();
+    useUserStore.setState({ _hasHydrated: false });
+    await open('male');
+    expect(q('[data-stub="identity"]')).toBeNull();
+    expect(q('[data-quiz-v3="welcome"]')).toBeNull();
   });
 });

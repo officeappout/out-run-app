@@ -6,6 +6,8 @@ import type { ExerciseSection } from '../../types';
 import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
+import MethodInfoButton from '@/features/workout-engine/components/method-info/MethodInfoButton';
+import type { MethodInfoModel } from '@/features/workout-engine/core/methods/method-info/method-info.model';
 
 export interface SectionHeaderProps {
   section: ExerciseSection;
@@ -35,6 +37,11 @@ export interface SectionHeaderProps {
    * stays — it's functional. Default false → standalone preview is unchanged.
    */
   hideExpandToggle?: boolean;
+  /**
+   * enable_method_info_sheet_v1: the block's method model → an "i" after the
+   * title that explains it. Null/absent = no "i" (flag off, warmup, cooldown).
+   */
+  methodInfo?: MethodInfoModel | null;
 }
 
 /**
@@ -66,6 +73,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
   onToggleWarmupExpanded,
   onToggleWarmupActive,
   hideExpandToggle = false,
+  methodInfo,
 }) => {
   const t = useT(library);
   // ── Tabata branch (Stage 3 UX, David's design 12.07) ────────────────────
@@ -94,7 +102,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
     const exercisesLabel =
       n === 1 ? t('preview.section.tabata.oneExercise') : t('preview.section.tabata.exercises', { n: String(n) });
     return (
-      <div className="w-full flex items-center justify-between mb-3" dir="rtl">
+      <div className="w-full flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h3
             className="text-[16px] font-semibold text-orange-600 dark:text-orange-400"
@@ -109,6 +117,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
           >
             {tabataConfig.workSec}/{tabataConfig.restSec}
           </span>
+          {methodInfo && <MethodInfoButton model={methodInfo} />}
         </div>
         <span className="text-sm font-medium text-slate-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
           {cyclesLabel} · {exercisesLabel}
@@ -144,7 +153,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
       </>
     );
     return (
-      <div className="w-full flex items-center justify-between mb-3" dir="rtl">
+      <div className="w-full flex items-center justify-between mb-3">
         {hideExpandToggle ? (
           <div className="flex items-center gap-2">{titleBlock}</div>
         ) : (
@@ -177,7 +186,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
   }
 
   return (
-    <div className="w-full flex items-center justify-between mb-3" dir="rtl">
+    <div className="w-full flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
         {isSuperset && <Link2 size={14} className="text-cyan-500" />}
         <h3
@@ -190,6 +199,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
         >
           {section.title}
         </h3>
+        {methodInfo && <MethodInfoButton model={methodInfo} />}
       </div>
       <span className="text-sm font-medium text-slate-400">
         {isPyramidSection

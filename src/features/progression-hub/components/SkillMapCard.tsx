@@ -31,6 +31,10 @@ import { useUserProgramLevel } from '@/features/progression-map/hooks/useUserPro
 import { useSkillTree } from '@/features/progression-map/hooks/useSkillTree';
 import { resolveProgressionMapDestination } from '@/lib/progression-map-config';
 import ParentProgramSheet from '@/features/profile/components/widgets/ParentProgramSheet';
+import { createProgramMetaCache } from '../services/program-meta-cache';
+
+/** W4: one Program-doc fetch per programId per session, shared by every card. */
+const getProgramMetaCached = createProgramMetaCache(getProgramByTemplateId);
 
 /**
  * Phase 4b round 5 fix: the displayed name used to fall back to the raw
@@ -74,9 +78,14 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
 
   useEffect(() => {
     let cancelled = false;
-    getProgramByTemplateId(programId).then((p) => {
-      if (!cancelled) setProgramMeta(p);
-    });
+    getProgramMetaCached(programId).then(
+      (p) => {
+        if (!cancelled) setProgramMeta(p);
+      },
+      () => {
+        // Same as before the cache: a failed fetch leaves the sync fallback name/icon.
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -114,7 +123,7 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
       tabIndex={0}
       onClick={onTap}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onTap(); }}
-      className="w-full text-right active:opacity-80 transition-opacity cursor-pointer"
+      className="w-full text-start active:opacity-80 transition-opacity cursor-pointer"
     >
       <ProgramProgressCard
         programName={displayName}

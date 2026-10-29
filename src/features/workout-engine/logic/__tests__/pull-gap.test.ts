@@ -3,7 +3,7 @@
  * owner bug 20.10.2026). End-to-end repro: day-focus.hermetic.test.ts.
  */
 import { describe, it, expect } from 'vitest';
-import { balanceFocusAreas, hasPullGear, widenFocusForPullGap, findAreaCandidate } from '../pull-gap.utils';
+import { balanceFocusAreas, hasPullGear, stampBodyweightPullGap, widenFocusForPullGap, findAreaCandidate } from '../pull-gap.utils';
 import { UNTAGGED_GEAR_FREE_PULLS, type NeverEmptyOptions } from '../never-empty.utils';
 import type { GeneratedWorkout, WorkoutExercise } from '../workout-generator.types';
 
@@ -114,5 +114,29 @@ describe('balanceFocusAreas (per option)', () => {
   it('candidates above the user level are skipped in the catalog step', () => {
     const hard = ex('archer_row', 'horizontal_pull', homeMethod, 12);
     expect(findAreaCandidate(workout([]), opts({ allExercises: [hard] }), 'pull')).toBeNull();
+  });
+});
+
+describe('stampBodyweightPullGap (standard sessions)', () => {
+  const row = ex('table_row', 'horizontal_pull');
+  it('a pull exercise without pull gear → stamped bodyweight_pull', () => {
+    const w = workout([...pushes.slice(0, 2), row].map((e) => we(e)));
+    expect(stampBodyweightPullGap(w, [])).toBe('bodyweight_pull');
+    expect(w.pullGap).toBe('bodyweight_pull');
+  });
+  it('with a pull-up bar nothing is stamped', () => {
+    const w = workout([...pushes.slice(0, 2), barPull].map((e) => we(e)));
+    expect(stampBodyweightPullGap(w, ['pullup_bar'])).toBeNull();
+    expect(w.pullGap).toBeUndefined();
+  });
+  it('no pull exercise in the session (a lower day) stays silent', () => {
+    const w = workout(pushes.map((e) => we(e)));
+    expect(stampBodyweightPullGap(w, [])).toBeNull();
+    expect(w.pullGap).toBeUndefined();
+  });
+  it('never overrides a mode the day-focus pass already set', () => {
+    const w = workout([...pushes.slice(0, 2), row].map((e) => we(e)));
+    w.pullGap = 'core';
+    expect(stampBodyweightPullGap(w, [])).toBe('core');
   });
 });

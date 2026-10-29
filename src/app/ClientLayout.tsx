@@ -119,7 +119,8 @@ export default function ClientLayout({
           <main
             id="main-content"
             tabIndex={-1}
-            className="h-[100dvh] overflow-y-auto overflow-x-hidden overscroll-none focus:outline-none"
+            // Map route: never scrollable (AA1); the map shell is a fixed full-viewport layer.
+            className={`h-[100dvh] ${isMapRoute ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden overscroll-none focus:outline-none`}
             style={{
               // Matches BottomNavbar's actual height: pt-0.5 (2px) +
               // min-h-[44px] = 46px, rounded up to 3rem (48px) for breathing

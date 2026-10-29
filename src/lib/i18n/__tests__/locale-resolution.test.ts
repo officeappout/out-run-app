@@ -56,11 +56,13 @@ describe('fmt: Hebrew output equals today\'s he-IL calls', () => {
 });
 
 describe('legacy dictionary (folded into src/messages, behaviour unchanged)', () => {
-  it('he is the catalog, en falls back to the key', () => {
+  it('he is the catalog, en translated, including the health/terms keys (legal-draft register, pending lawyer review)', () => {
     expect(legacyHe).toEqual(heLegacy);
     expect(getTranslation('onboarding.continue')).toBe(heLegacy['onboarding.continue']);
     expect(getTranslation('challenge.booth.participants', 'en')).toBe('Participants');
-    expect(getTranslation('onboarding.continue', 'en')).toBe('onboarding.continue');
+    expect(getTranslation('onboarding.continue', 'en')).toBe('Continue');
+    expect(getTranslation('onboarding.health.title', 'en')).toBe('Health Declaration and Terms of Use');
+    expect(getTranslation('onboarding.terms.title', 'en')).toBe('Terms of Use');
   });
 });
 

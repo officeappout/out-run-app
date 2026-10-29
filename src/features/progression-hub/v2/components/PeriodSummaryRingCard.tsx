@@ -130,7 +130,7 @@ export default function PeriodSummaryRingCard({ period, ranges, current, previou
             className="inline-flex h-8 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full bg-white pe-2 ps-3 text-[12px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             {vs}
-            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} aria-hidden />
+            <ChevronLeft className="h-3.5 w-3.5 ltr:-scale-x-100" strokeWidth={2.6} aria-hidden />
           </button>
         ) : (
           <span className="whitespace-nowrap text-[12px] font-bold text-v2-muted">{vs}</span>

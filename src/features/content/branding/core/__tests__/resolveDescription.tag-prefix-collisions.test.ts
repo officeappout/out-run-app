@@ -45,7 +45,8 @@ describe('resolveContentTags — prefix-colliding tags resolve as whole tags', (
   it('@אחוז_התקדמות vs @אחוז_התקדמות_רמה', () => {
     expect(resolveContentTags('@אחוז_התקדמות_רמה', ctx)).toBe('85%');
     expect(resolveContentTags('@אחוז_התקדמות · @אחוז_התקדמות_רמה', ctx)).toBe('40% · 85%');
-    expect(resolveContentTags('@אחוז_התקדמות_רמה', {})).toBe('0%');
+    // No value: the sentence is dropped, never "0%" (phone test AB2).
+    expect(resolveContentTags('@אחוז_התקדמות_רמה', {})).toBe('');
   });
 
   it('@מרחק vs @מרחק_יעד', () => {

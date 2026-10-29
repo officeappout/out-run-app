@@ -1,5 +1,6 @@
 'use client';
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import React, { useState, useEffect } from 'react';
 import { Exercise, ExecutionMethod, getLocalizedText, MuscleGroup } from '@/features/content/exercises';
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
@@ -65,7 +66,8 @@ export default function ExerciseDetailView({
   }, [imageUrl]);
   
   // Get exercise name
-  const exerciseName = getLocalizedText(exercise.name);
+  const lang = useContentLanguage();
+  const exerciseName = getLocalizedText(exercise.name, lang);
   
   // Get muscle groups - primary is first, rest are secondary
   const muscleGroups = exercise.muscleGroups || [];
@@ -84,7 +86,7 @@ export default function ExerciseDetailView({
   const getResolvedDescription = (): string => {
     if (!exercise.content?.description) return '';
     
-    const rawDescription = getLocalizedText(exercise.content.description);
+    const rawDescription = getLocalizedText(exercise.content.description, lang);
     
     // Resolve @tags if description contains them (client-side only)
     if (typeof window !== 'undefined' && rawDescription.includes('@')) {

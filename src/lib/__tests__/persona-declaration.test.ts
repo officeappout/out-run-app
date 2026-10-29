@@ -25,4 +25,10 @@ describe('hasAnsweredPersona', () => {
   it('returns false for undefined profile', () => {
     expect(hasAnsweredPersona(undefined)).toBe(false);
   });
+
+  it('counts a deliberately skipped persona step (non-he onboarding) as answered', () => {
+    expect(hasAnsweredPersona({ personaStepSkipped: true })).toBe(true);
+    expect(hasAnsweredPersona({ personas: [], personaStepSkipped: true })).toBe(true);
+    expect(hasAnsweredPersona({ personaStepSkipped: false })).toBe(false);
+  });
 });

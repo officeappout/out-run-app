@@ -105,6 +105,7 @@ export interface OnboardingData {
   // Phase 2 - Persona & Lifestyle (multi-select personas, single-select goal)
   selectedPersonaId?: string; // First selected lifestyle persona ID (for backwards compatibility)
   selectedPersonaIds?: string[]; // Array of selected lifestyle persona IDs (multi-select)
+  personaStepSkipped?: boolean; // Persona step not shown (non-he UI, hide_he_only_onboarding_steps)
   lifestyleTags?: string[]; // Combined tags from selected personas and goals
   selectedGoal?: string; // Selected goal ID (single-select)
   selectedGoalLabel?: string; // Short goal label (e.g., "שגרה קבועה")

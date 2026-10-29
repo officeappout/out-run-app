@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { violatesVoice } from '@/features/workout-engine/services/coach-note';
 import { detectSafetyTrigger, safetyReply } from '../safety';
 import { COACH_SYSTEM_PROMPT, buildSessionContext, greeting, quickReplies } from '../persona';
@@ -79,6 +79,9 @@ describe('protocol', () => {
   });
 
   it('maps rate limit / budget / offline / auth errors to friendly Hebrew', () => {
+    // Fixed midday clock: near midnight the 5-minute round-up of "now + 24h" lands two days out.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-28T10:00:00Z'));
     const hour = describeCoachError({ status: 429, code: 'rate_limited', retryAfterSec: 3600 }, 'male');
     expect(hour).toMatchObject({ offerBuilder: true, retryable: false });
     expect(hour.body).toContain('דיברנו המון בשעה האחרונה.');
@@ -99,4 +102,6 @@ describe('protocol', () => {
       expect(violatesVoice(d.title.replaceAll('AI', '')) || violatesVoice(d.body.replaceAll('AI', ''))).toBe(false);
     }
   });
+
+  afterEach(() => { vi.useRealTimers(); });
 });

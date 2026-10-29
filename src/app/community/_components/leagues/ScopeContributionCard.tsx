@@ -38,11 +38,10 @@ export function ScopeContributionCard({ vm, scopeTypeLabel }: { vm: LeaguesVM; s
   return (
     <div
       className="rounded-v2-card p-4 text-v2-ink relative overflow-hidden mb-3 border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb]"
-      dir="rtl"
     >
       <div
         aria-hidden
-        className="absolute -top-8 -left-8 w-36 h-36 rounded-full pointer-events-none"
+        className="absolute -top-8 -end-8 w-36 h-36 rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.14), transparent 70%)' }}
       />
       <div className="relative z-10 flex items-center justify-between gap-3">

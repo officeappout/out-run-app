@@ -12,6 +12,10 @@
  */
 import type { SheetScheduleEntry, UserContextSheet } from './context-sheet';
 import type { TypoHint } from './intent';
+import { coachT, type CoachLocale } from './coach-locale';
+
+/** Hebrew (the default, byte-identical to before) or English copy for one request. */
+const L = (locale: CoachLocale, he: string, en: string): string => (locale === 'en' ? en : he);
 
 export type CoachGender = 'male' | 'female' | 'other';
 
@@ -97,6 +101,8 @@ Tools
 - When you use a tool, you may say one brief sentence first. If no tool can do what the user asked, say so instead of guessing. Do not include internal or system XML tags in your response.
 - Never write ids, field names or tool names in a reply (no workoutId, no ai-... ids, no get_schedule). They are for tools only.`;
 
+const GRAMMAR_NOTE_EN = "Address the user as 'you'. English has no grammatical gender, so never guess one and never write he/she or s/he for the user.";
+
 const GRAMMAR_NOTE: Record<CoachGender, string> = {
   male: 'Address the user in masculine singular (אתה, רוצה, תתחיל).',
   female: 'Address the user in feminine singular (את, רוצה, תתחילי).',
@@ -104,6 +110,8 @@ const GRAMMAR_NOTE: Record<CoachGender, string> = {
 };
 
 const WEEKDAY_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const WEEKDAY_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const weekdayName = (locale: CoachLocale, dow: number): string => (locale === 'en' ? WEEKDAY_EN[dow] : `יום ${WEEKDAY_HE[dow] ?? ''}`) ?? '';
 
 export interface SessionContextInput {
   firstName: string;
@@ -135,6 +143,8 @@ export interface SessionContextInput {
   requestFidelity?: boolean;
   /** ai_coach_workout_format on: WORKOUT_FORMAT_NOTE. Absent = today's prompt. */
   workoutFormat?: boolean;
+  /** Kelly server locale (ai_coach_locale_v1): the reply language. Default 'he' = today's block, byte-identical. */
+  locale?: CoachLocale;
 }
 
 /**
@@ -169,18 +179,20 @@ export const SCHEDULE_ADVISOR_NOTE =
 
 /** The volatile system block (after the cache breakpoint). */
 export function buildSessionContext(i: SessionContextInput): string {
+  const locale: CoachLocale = i.locale ?? 'he';
   const lines = [
     'Session context (reliable facts for this conversation):',
     `- User first name: ${i.firstName || 'unknown, do not use a name'}`,
-    `- ${GRAMMAR_NOTE[i.gender]}`,
-    `- Today in Israel: יום ${WEEKDAY_HE[i.israelDayOfWeek] ?? ''}, ${i.todayKey}, around ${String(i.israelHour).padStart(2, '0')}:00`,
+    `- ${locale === 'en' ? GRAMMAR_NOTE_EN : GRAMMAR_NOTE[i.gender]}`,
+    `- Today in Israel: ${weekdayName(locale, i.israelDayOfWeek)}, ${i.todayKey}, around ${String(i.israelHour).padStart(2, '0')}:00`,
   ];
+  if (locale === 'en') lines.push("- Reply language: English (the user's app language). Reply in English only; see the Language section of your instructions.");
   if (i.summary && i.summary.trim()) {
     lines.push(`- Summary of the earlier conversation: ${i.summary.trim().slice(0, 1200)}`);
   }
   if (i.typoHints?.length) {
     const list = i.typoHints.map((h) => `"${h.word}" probably means "${h.suggestion}"`).join('; ');
-    lines.push(`- Likely typos in the user's latest message (a hint, not certain): ${list}. If your answer relies on it, confirm briefly (התכוונת "${i.typoHints[0].suggestion}"?).`);
+    lines.push(`- Likely typos in the user's latest message (a hint, not certain): ${list}. If your answer relies on it, confirm briefly (${L(locale, 'התכוונת', 'Did you mean')} "${i.typoHints[0].suggestion}"?).`);
   }
   if (i.scheduleAdvisor) lines.push(SCHEDULE_ADVISOR_NOTE);
   if (i.phase2) lines.push(PHASE2_NOTE);
@@ -188,10 +200,10 @@ export function buildSessionContext(i: SessionContextInput): string {
   if (i.requestFidelity) lines.push(REQUEST_FIDELITY_NOTE);
   if (i.workoutFormat) lines.push(WORKOUT_FORMAT_NOTE);
   if (i.memory) lines.push('', i.memory);
-  const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false) : null;
+  const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false, locale) : null;
   if (gapNote) lines.push(gapNote);
   if (i.sheet) {
-    lines.push('', renderSheet(i.sheet));
+    lines.push('', renderSheet(i.sheet, locale));
   } else if (i.sheet === null) {
     lines.push('- The user sheet could not be loaded this turn: call get_user_context, get_schedule or get_progress before stating any fact about the user.');
   }
@@ -202,30 +214,32 @@ export function buildSessionContext(i: SessionContextInput): string {
  * The level check note: which programs have no level (the workouts leave them out) and
  * whether Kelly may suggest the check now. null when there are no gaps.
  */
-export function assessmentGapNote(sheet: Pick<UserContextSheet, 'assessmentGaps'>, allowed: boolean): string | null {
+export function assessmentGapNote(sheet: Pick<UserContextSheet, 'assessmentGaps'>, allowed: boolean, locale: CoachLocale = 'he'): string | null {
   const gaps = sheet.assessmentGaps ?? [];
   if (gaps.length === 0) return null;
   const list = gaps.map((g) => (g.partOf ? `${g.name} (part of ${g.partOf})` : g.name)).join(', ');
   if (!allowed) {
     return `- Level check: no level yet for ${list}, and it was already suggested recently. Do not bring it up again unless the user asks about their level.`;
   }
-  return `- Level check: the user never checked a level for ${list}, so the workouts leave it out. You may suggest the short level check once in this conversation, in one short sentence, at a natural moment: when you build a workout in that area, when the user asks about progress or level, or when a new conversation starts. The app shows a button under your reply that starts it (אפשר לבדוק רמה בכפתור למטה). If you already suggested it in this conversation, don't repeat it.`;
+  return `- Level check: the user never checked a level for ${list}, so the workouts leave it out. You may suggest the short level check once in this conversation, in one short sentence, at a natural moment: when you build a workout in that area, when the user asks about progress or level, or when a new conversation starts. The app shows a button under your reply that starts it (${L(locale, 'אפשר לבדוק רמה בכפתור למטה', 'you can start the level check with the button below')}). If you already suggested it in this conversation, don't repeat it.`;
 }
 
-const dayName = (iso: string): string => {
+const dayName = (iso: string, locale: CoachLocale = 'he'): string => {
   const t = Date.parse(`${iso}T12:00:00Z`);
-  return Number.isFinite(t) ? `יום ${WEEKDAY_HE[new Date(t).getUTCDay()]}` : '';
+  return Number.isFinite(t) ? weekdayName(locale, new Date(t).getUTCDay()) : '';
 };
 
 const KIND_HE: Record<string, string> = { strength: 'כוח', cardio: 'ריצה', walking: 'הליכה', maintenance: 'התאוששות' };
+const KIND_EN: Record<string, string> = { strength: 'strength', cardio: 'run', walking: 'walk', maintenance: 'recovery' };
 
 /** One schedule line: "יום שני 2026-10-20 18:00, כוח, כל הגוף, 30 דק׳". */
-export function scheduleLine(e: SheetScheduleEntry): string {
-  const what = e.title || [KIND_HE[e.kind ?? ''] ?? '', (e.programs ?? []).join(' + ')].filter(Boolean).join(', ') || 'אימון';
+export function scheduleLine(e: SheetScheduleEntry, locale: CoachLocale = 'he'): string {
+  const kinds = locale === 'en' ? KIND_EN : KIND_HE;
+  const what = e.title || [kinds[e.kind ?? ''] ?? '', (e.programs ?? []).join(' + ')].filter(Boolean).join(', ') || L(locale, 'אימון', 'workout');
   return [
-    `${dayName(e.date)} ${e.date}${e.startTime ? ` ${e.startTime}` : ''}`,
+    `${dayName(e.date, locale)} ${e.date}${e.startTime ? ` ${e.startTime}` : ''}`,
     what,
-    e.plannedMinutes ? `${e.plannedMinutes} דק׳` : '',
+    e.plannedMinutes ? `${e.plannedMinutes} ${L(locale, 'דק׳', 'min')}` : '',
     e.completed ? 'completed' : '',
   ]
     .filter(Boolean)
@@ -237,25 +251,26 @@ export function scheduleLine(e: SheetScheduleEntry): string {
  * never has to count) and today's buildable session, followed by the sheet JSON.
  */
 const GENDER_HE: Record<CoachGender, string> = { male: 'גבר', female: 'אישה', other: 'לא ידוע' };
+const GENDER_EN: Record<CoachGender, string> = { male: 'man', female: 'woman', other: 'unknown' };
 
 /**
  * "What you know about this user": the basics as plain lines, so Kelly answers "מה
  * הפרסונה שלי / מה המטרה שלי / בן כמה אני" without a tool call. Only what the sheet holds;
  * an unknown field says so (Kelly must not guess it).
  */
-export function aboutUserBlock(sheet: UserContextSheet): string {
-  const unknown = 'לא ידוע';
+export function aboutUserBlock(sheet: UserContextSheet, locale: CoachLocale = 'he'): string {
+  const unknown = L(locale, 'לא ידוע', 'unknown');
   const personas = sheet.personas ?? [];
   const programs = sheet.programs ?? [];
   const gaps = sheet.assessmentGaps ?? [];
   const lines = [
     'What you know about this user (answer questions about these from here; never guess what is missing):',
     `- First name: ${sheet.firstName || unknown}`,
-    `- Gender: ${GENDER_HE[sheet.gender] ?? unknown}`,
+    `- Gender: ${(locale === 'en' ? GENDER_EN : GENDER_HE)[sheet.gender] ?? unknown}`,
     `- Age: ${sheet.ageBand ? `${sheet.ageBand} (an age range only, the exact age is not known)` : unknown}`,
     `- Persona: ${personas.length ? personas.map((p) => `${p.label} (${p.meaning})`).join('; ') : 'none chosen yet'}`,
     `- Goals: ${sheet.goalsHe?.length ? sheet.goalsHe.join(', ') : unknown}`,
-    `- Programs and levels: ${programs.length ? programs.map((p) => `${p.name} רמה ${p.level}`).join(', ') : 'none yet'}`,
+    `- Programs and levels: ${programs.length ? programs.map((p) => `${p.name} ${L(locale, 'רמה', 'level')} ${p.level}`).join(', ') : 'none yet'}`,
   ];
   if (gaps.length) lines.push(`- No level check yet: ${gaps.map((g) => g.name).join(', ')}`);
   lines.push(
@@ -271,10 +286,10 @@ export function aboutUserBlock(sheet: UserContextSheet): string {
  * was read and the user has no recurring plan at all. A failed read, or an empty week for a user
  * who does have training days / a running plan, says what Kelly knows instead.
  */
-export function weekHeadline(sheet: Pick<UserContextSheet, 'weekUnavailable' | 'hasRecurringPlan' | 'trainingDays'>, count: number): string {
+export function weekHeadline(sheet: Pick<UserContextSheet, 'weekUnavailable' | 'hasRecurringPlan' | 'trainingDays'>, count: number, locale: CoachLocale = 'he'): string {
   if (count > 0) return `- This week (Sunday to Saturday): ${count} planned workouts:`;
   if (sheet.weekUnavailable) {
-    return "- This week (Sunday to Saturday): the schedule could not be read this turn. Never say nothing is planned: call get_schedule, or say you can't check the schedule right now and suggest opening it (אפשר לפתוח את הלו״ז בכפתור למטה).";
+    return `- This week (Sunday to Saturday): the schedule could not be read this turn. Never say nothing is planned: call get_schedule, or say you can't check the schedule right now and suggest opening it (${L(locale, 'אפשר לפתוח את הלו״ז בכפתור למטה', 'you can open the schedule with the button below')}).`;
   }
   if (sheet.hasRecurringPlan) {
     const days = sheet.trainingDays?.length ? ` The user's training days: ${sheet.trainingDays.join(', ')}.` : '';
@@ -283,14 +298,14 @@ export function weekHeadline(sheet: Pick<UserContextSheet, 'weekUnavailable' | '
   return '- This week (Sunday to Saturday): 0 planned workouts, nothing planned (no recurring schedule and no running plan).';
 }
 
-export function renderSheet(sheet: UserContextSheet): string {
+export function renderSheet(sheet: UserContextSheet, locale: CoachLocale = 'he'): string {
   const training = (sheet.thisWeek ?? []).filter((e) => e.type !== 'rest');
   const lines = [
-    aboutUserBlock(sheet),
+    aboutUserBlock(sheet, locale),
     '',
     'User sheet (read from the app at the start of this turn; the only source for facts about the user):',
-    weekHeadline(sheet, training.length),
-    ...training.map((e) => `  ${scheduleLine(e)}`),
+    weekHeadline(sheet, training.length, locale),
+    ...training.map((e) => `  ${scheduleLine(e, locale)}`),
   ];
   const buildable = (sheet.today ?? []).find((e) => e.buildNow && !e.completed);
   if (buildable?.buildNow) {
@@ -303,22 +318,18 @@ export function renderSheet(sheet: UserContextSheet): string {
   return lines.join('\n');
 }
 
-/** First-open quick replies, gendered by the user (the user talks TO Kelly, a man, so "תבנה" is fixed). */
-export function quickReplies(gender: CoachGender): string[] {
-  const progress: Record<CoachGender, string> = {
-    male: 'איך אני מתקדם?',
-    female: 'איך אני מתקדמת?',
-    other: 'איך ההתקדמות שלי?',
-  };
-  return ['תבנה לי אימון להיום', progress[gender], 'מה בתוכנית השבוע?'];
+/** Any coach t(): the server one (coachT) or the chat's React one (useT(coach)). */
+type CoachT = (key: Parameters<ReturnType<typeof coachT>>[0], values?: Parameters<ReturnType<typeof coachT>>[1]) => string;
+
+/**
+ * First-open quick replies, gendered by the user (the user talks TO Kelly, a man, so "תבנה" is fixed).
+ * `t` = the chat's coach t() (its locale decides the language); omitted = Hebrew.
+ */
+export function quickReplies(gender: CoachGender, t: CoachT = coachT('he')): string[] {
+  return [t('quick.first.build'), t('quick.first.progress', { gender }), t('quick.first.week')];
 }
 
-export function greeting(gender: CoachGender, firstName: string): string {
-  const hi = firstName ? `היי ${firstName}, ` : 'היי, ';
-  const ask: Record<CoachGender, string> = {
-    male: 'מה בא לך היום? אני יכול לבנות לך אימון, לבדוק איך אתה מתקדם או מה מחכה לך השבוע.',
-    female: 'מה בא לך היום? אני יכול לבנות לך אימון, לבדוק איך את מתקדמת או מה מחכה לך השבוע.',
-    other: 'מה בא היום? אני יכול לבנות אימון, לבדוק את ההתקדמות או מה מחכה השבוע.',
-  };
-  return `${hi}אני קלי, המאמן הדיגיטלי באפליקציה. ${ask[gender]}`;
+export function greeting(gender: CoachGender, firstName: string, t: CoachT = coachT('he')): string {
+  const ask = t('greeting.ask', { gender });
+  return firstName ? t('greeting.named', { name: firstName, ask }) : t('greeting.anon', { ask });
 }

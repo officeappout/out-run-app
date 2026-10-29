@@ -68,7 +68,6 @@ export default function EventCard({
           ? 'shadow-lg shadow-cyan-500/10 dark:shadow-cyan-400/5'
           : 'shadow-md shadow-black/5 dark:shadow-black/20'
       }`}
-      dir="rtl"
       onClick={onCardClick}
     >
       {/* Official gradient accent border */}
@@ -103,7 +102,7 @@ export default function EventCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
 
         {/* Date tile — overlaid bottom-right */}
-        <div className={`absolute bottom-2.5 right-2.5 w-12 h-14 rounded-xl flex flex-col items-center justify-center text-white shadow-md ${
+        <div className={`absolute bottom-2.5 start-2.5 w-12 h-14 rounded-xl flex flex-col items-center justify-center text-white shadow-md ${
           isOfficial
             ? 'bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600'
             : 'bg-black/60 backdrop-blur-sm'
@@ -114,14 +113,14 @@ export default function EventCard({
         </div>
 
         {/* Category chip — top right */}
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+        <div className="absolute top-2.5 start-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
           <span>{catConfig.icon}</span>
           <span>{t('eventCard.category', { category: event.category ?? '' })}</span>
         </div>
 
         {/* Official badge — top left */}
         {isOfficial && (
-          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
+          <div className="absolute top-2.5 end-2.5 flex items-center gap-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
             {logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logoUrl} alt="" className="w-3.5 h-3.5 rounded object-contain bg-white p-0.5 flex-shrink-0" />
@@ -139,7 +138,7 @@ export default function EventCard({
           : 'bg-white dark:bg-slate-900'
       }`}>
         {/* Top-fade blending banner into card body */}
-        <div className={`absolute -top-5 left-0 right-0 h-5 bg-gradient-to-b ${
+        <div className={`absolute -top-5 end-0 start-0 h-5 bg-gradient-to-b ${
           isOfficial ? 'from-white' : 'from-white dark:from-slate-900'
         } to-transparent pointer-events-none`} />
 

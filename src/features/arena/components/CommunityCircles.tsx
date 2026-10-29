@@ -117,7 +117,7 @@ export default function CommunityCircles({
   if (hideWhenEmpty && !isLoading && groups.length === 0 && !onCreatePress) return null;
 
   return (
-    <div className="w-full" dir="rtl">
+    <div className="w-full">
       <div
         className="flex gap-4 overflow-x-auto scrollbar-hide px-4 py-2 snap-x"
         style={{ WebkitOverflowScrolling: 'touch' }}

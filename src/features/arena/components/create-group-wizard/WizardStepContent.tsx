@@ -37,7 +37,7 @@ export function WizardStepContent({ w }: { w: CreateGroupWizardState }) {
   } = w;
   const t = useT(community);
   return (
-    <div className="flex-1 overflow-y-auto px-5 pb-4" dir="rtl">
+    <div className="flex-1 overflow-y-auto px-5 pb-4">
       <AnimatePresence mode="wait">
         <motion.div
           key={outreachMode ?? step}

@@ -1,0 +1,216 @@
+{
+ "open_schedule": {
+  "label": "פתח את הלו״ז",
+  "href": "/home?openPlanner=true"
+ },
+ "build_today": {
+  "label": "בנה את האימון של היום",
+  "message": "תבנה לי את האימון של היום"
+ },
+ "open_builder": {
+  "label": "סדר לי את השבוע",
+  "href": "/home?openPlanner=true&openBuilder=true"
+ },
+ "build_home": {
+  "label": "בנה אימון בבית",
+  "message": "תבנה לי אימון בבית להיום"
+ },
+ "rate_easy": {
+  "label": "קל",
+  "rating": "easy"
+ },
+ "rate_right": {
+  "label": "בדיוק",
+  "rating": "right"
+ },
+ "rate_hard": {
+  "label": "קשה",
+  "rating": "hard"
+ },
+ "check_level_push": {
+  "label": "בדוק רמה בדחיפה",
+  "assess": {
+   "slug": "push",
+   "domainType": "category",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_pull": {
+  "label": "בדוק רמה במשיכה",
+  "assess": {
+   "slug": "pull",
+   "domainType": "category",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_legs": {
+  "label": "בדוק רמה ברגליים",
+  "assess": {
+   "slug": "legs",
+   "domainType": "category",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_core": {
+  "label": "בדוק רמה בליבה",
+  "assess": {
+   "slug": "core",
+   "domainType": "category",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_planche": {
+  "label": "בדוק רמה בפלאנץ׳",
+  "assess": {
+   "slug": "planche",
+   "domainType": "skill",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_front_lever": {
+  "label": "בדוק רמה בפרונט לבר",
+  "assess": {
+   "slug": "front_lever",
+   "domainType": "skill",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_back_lever": {
+  "label": "בדוק רמה בבק לבר",
+  "assess": {
+   "slug": "back_lever",
+   "domainType": "skill",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_handstand": {
+  "label": "בדוק רמה בעמידת ידיים",
+  "assess": {
+   "slug": "handstand",
+   "domainType": "skill",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_hspu": {
+  "label": "בדוק רמה בשכיבות סמיכה בעמידת ידיים",
+  "assess": {
+   "slug": "hspu",
+   "domainType": "skill",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_muscle_up": {
+  "label": "בדוק רמה בעליית כוח",
+  "assess": {
+   "slug": "muscle_up",
+   "domainType": "skill",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "check_level_one_arm_pullup": {
+  "label": "בדוק רמה במתח ביד אחת",
+  "assess": {
+   "slug": "one_arm_pullup",
+   "domainType": "skill",
+   "route": "/onboarding-new/assessment-visual",
+   "returnTo": "/ai-coach"
+  }
+ },
+ "running_questionnaire": {
+  "label": "שאלון ריצה קצר",
+  "onboarding": "RUNNING"
+ },
+ "pick_route_run": {
+  "label": "בחר מסלול ריצה במפה",
+  "aerobicMap": "running"
+ },
+ "pick_route_walk": {
+  "label": "בחר מסלול הליכה במפה",
+  "aerobicMap": "walking"
+ },
+ "tour_map": {
+  "label": "תראה לי במפה",
+  "tour": {
+   "id": "map",
+   "step": 0
+  }
+ },
+ "tour_workouts": {
+  "label": "תראה לי במסך הבית",
+  "tour": {
+   "id": "home",
+   "step": 0
+  }
+ },
+ "tour_schedule": {
+  "label": "תראה לי את הלו״ז",
+  "tour": {
+   "id": "home",
+   "step": 2
+  }
+ },
+ "tour_plan": {
+  "label": "תראה לי איך בוחרים תוכנית",
+  "tour": {
+   "id": "plan",
+   "step": 0
+  }
+ },
+ "tour_route": {
+  "label": "תראה לי מסלול עם עצירות",
+  "tour": {
+   "id": "route",
+   "step": 0
+  }
+ },
+ "tour_route_player": {
+  "label": "תראה לי איך מסיימים מסלול",
+  "tour": {
+   "id": "route-player",
+   "step": 0
+  }
+ },
+ "tour_player": {
+  "label": "תראה לי את נגן האימון",
+  "tour": {
+   "id": "player",
+   "step": 0
+  }
+ },
+ "tour_station": {
+  "label": "תראה לי תחנת כוח",
+  "tour": {
+   "id": "station",
+   "step": 0
+  }
+ },
+ "tour_community": {
+  "label": "תראה לי את הליגה",
+  "tour": {
+   "id": "community",
+   "step": 0
+  }
+ },
+ "open_help": {
+  "label": "איך משתמשים ושאלות נפוצות",
+  "href": "/help"
+ },
+ "show_how": {
+  "label": "תראה לי איך משתמשים",
+  "message": "תראה לי איך משתמשים"
+ },
+ "find_parks": {
+  "label": "גינות כושר קרובות",
+  "message": "איפה יש גינת כושר קרובה?"
+ }
+}

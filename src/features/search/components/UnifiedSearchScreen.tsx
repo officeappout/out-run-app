@@ -183,10 +183,10 @@ export default function UnifiedSearchScreen() {
   const showKellyUnder = typed && category !== 'all' && category !== 'exercises' && search.settled;
 
   return (
-    <div className="min-h-[100dvh] bg-[#f8fafc] text-[#171717]" dir="rtl" style={{ paddingBottom: keyboardOpen ? 16 : '5rem', colorScheme: 'light' }}>
+    <div className="min-h-[100dvh] bg-[#f8fafc] text-[#171717]" style={{ paddingBottom: keyboardOpen ? 16 : '5rem', colorScheme: 'light' }}>
       <h1 className="sr-only">{t('search.title')}</h1>
       <AppHeader zIndex={30}>
-        <div className="mx-auto flex max-w-md flex-col gap-2.5 px-4 pb-2.5" dir="rtl">
+        <div className="mx-auto flex max-w-md flex-col gap-2.5 px-4 pb-2.5">
           <SearchField
             ref={inputRef}
             value={query}

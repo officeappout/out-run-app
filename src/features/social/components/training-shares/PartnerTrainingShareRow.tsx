@@ -26,7 +26,7 @@ export default function PartnerTrainingShareRow({ share, now, onJoin }: {
     : t('trainingShares.later', { name: share.displayName, place, time: formatTime(new Date(share.startTime), locale), gender: share.gender });
 
   return (
-    <div className="flex items-center gap-3 rounded-[18px] bg-white px-3 py-2.5 shadow-v2-ring" dir="rtl" data-training-share={share.id}>
+    <div className="flex items-center gap-3 rounded-[18px] bg-white px-3 py-2.5 shadow-v2-ring" data-training-share={share.id}>
       <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-v2-tint text-[15px] font-black text-v2-deep">
         {share.photoURL
           // eslint-disable-next-line @next/next/no-img-element

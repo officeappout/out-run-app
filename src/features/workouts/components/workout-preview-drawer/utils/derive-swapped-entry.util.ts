@@ -11,9 +11,11 @@
  *
  * PURE: no React, no I/O.
  */
-import { isTimeBasedExercise } from '@/features/workout-engine/logic/workout-budgeting.utils';
+import { isTimeBasedExercise, rederiveVolumeForSwappedExercise } from '@/features/workout-engine/logic/workout-budgeting.utils';
+import { formatRepRange } from '@/features/workout-engine/core/presentation/PresentationFormatter';
 import type { Exercise, ExecutionMethod } from '@/features/content/exercises';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
+import type { DifficultyLevel } from '@/features/workout-engine/logic/workout-generator.types';
 import { swapStampForEntry } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
 // Asymmetric volume multipliers (mirror useExerciseSwap / WorkoutGenerator.substituteExercise):
@@ -77,11 +79,17 @@ export function deriveSwappedVolume(i: {
  * `newExercise` + `method`, re-derive the metric identity (reps↔hold) and level-delta
  * volume, pin the role, and clear any prior keep+mark flag. `oldWE.exercise` supplies
  * the "from" level (the caller matches the entry being replaced).
+ *
+ * A reps↔hold change takes the NEW exercise's own prescription (phone test AB3): the engine's
+ * rederiveVolumeForSwappedExercise for its tier against the user's level (the replaced entry's
+ * levelDelta plus the level step between the two exercises) and the workout's difficulty, including
+ * its own hold cap. The display string (formattedRepRange) is rebuilt from the new numbers, never carried over.
  */
 export function deriveSwappedEntry(
   oldWE: WorkoutExercise,
   newExercise: Exercise,
   method: ExecutionMethod,
+  difficulty: DifficultyLevel = 2,
 ): WorkoutExercise {
   const newIsTimeBased = isTimeBasedExercise(newExercise);
 
@@ -89,17 +97,20 @@ export function deriveSwappedEntry(
   const newLevel = newExercise.targetPrograms?.[0]?.level ?? oldLevel;
   const levelDelta = newLevel - oldLevel;
 
-  const { reps: adjustedReps, repsRange: adjustedRange } = deriveSwappedVolume({
-    oldIsTimeBased: oldWE.isTimeBased, // raw (undefined ≠ false), as before the extraction
-    newIsTimeBased,
-    levelDelta,
-    reps: oldWE.reps,
-    repsRange: oldWE.repsRange,
-  });
+  const metricChanged = newIsTimeBased !== oldWE.isTimeBased; // raw (undefined ≠ false), as before
+  const { reps: adjustedReps, repsRange: adjustedRange } = metricChanged
+    ? rederiveVolumeForSwappedExercise(newExercise, (oldWE.levelDelta ?? 0) + levelDelta, difficulty)
+    : deriveSwappedVolume({
+        oldIsTimeBased: oldWE.isTimeBased,
+        newIsTimeBased,
+        levelDelta,
+        reps: oldWE.reps,
+        repsRange: oldWE.repsRange,
+      });
 
   const thisPartnerLink = (oldWE as any).pairedWith as string | null | undefined;
 
-  return {
+  const next: WorkoutExercise = {
     ...oldWE,
     exercise: newExercise,
     method: method as WorkoutExercise['method'],
@@ -118,4 +129,7 @@ export function deriveSwappedEntry(
     dimensionUnavailable: undefined,
     ...(thisPartnerLink ? { pairedWith: thisPartnerLink } : {}),
   };
+  // The old entry's "8-12 חזרות" string would win over the new numbers on the card (AB3).
+  if (oldWE.formattedRepRange != null) next.formattedRepRange = formatRepRange(next);
+  return next;
 }

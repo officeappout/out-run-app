@@ -37,6 +37,8 @@ export default defineConfig({
       'src/components/ui/__tests__/**/*.test.tsx',
       // Design language v2 primitives — static-markup render tests (node env).
       'src/components/ui/v2/__tests__/**/*.test.tsx',
+      // Language switch pill (first screen) — static-markup tests.
+      'src/components/i18n/__tests__/**/*.test.tsx',
       // Error boundaries + lazy overlay wrappers — same static-markup approach.
       'src/components/system/__tests__/**/*.test.tsx',
       // Unified overview drawer (parks) — parity + render tests, same static-markup approach.
@@ -134,6 +136,10 @@ export default defineConfig({
       'src/features/workout-engine/hybrid/__tests__/**/*.test.tsx',
       // i18n wave 2 batch aa (library namespace, preview.*) — workout preview drawer Hebrew markup parity, static markup.
       'src/features/workouts/components/workout-preview-drawer/__tests__/**/*.test.tsx',
+      // i18n extraction batch ui-2 — Hebrew markup parity of small shared surfaces, static markup.
+      'src/features/user/places/components/__tests__/**/*.test.tsx',
+      'src/features/workout-engine/shared/components/__tests__/**/*.test.tsx',
+      'src/features/workout-engine/core/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (namespace home) — home screen components, Hebrew markup parity (static + jsdom).
       'src/features/home/components/__tests__/**/*.test.tsx',
       // Home progress slot (enable_home_progress_slot_v1) — carousel / cards / minutes ring render tests (jsdom).
@@ -193,6 +199,10 @@ export default defineConfig({
       'functions/src/**/__tests__/**/*.test.ts',
       // CI tooling — the tsc baseline gate's normalizer + compare mode (17.10.2026).
       'scripts/ci/__tests__/**/*.test.ts',
+      // i18n wave 4 LTR-host scan — by-reference + transitive fixtures.
+      'scripts/i18n/__tests__/**/*.test.ts',
+      // Exercise content pipeline (export / merge / verify / apply): pure parts only, no Firestore.
+      'scripts/i18n/content/__tests__/**/*.test.ts',
       // Demo world scripts (seed / purge / add-viewer) — pure units + one emulator suite (:8089).
       'scripts/demo/__tests__/**/*.test.ts',
       // AI tester runner + overseer (scripts/qa) — pure units only (no browser, no network).

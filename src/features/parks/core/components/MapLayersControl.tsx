@@ -44,7 +44,7 @@ export function MapLayersButton({ onClick, activeCount = 0 }: { onClick: () => v
             <Layers size={18} className="text-gray-700" />
             {/* enable_map_surface_filter_v1: active-filter badge (no z-index — it lives in the button's own stacking). */}
             {activeCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#00E5FF] text-gray-900 text-[10px] font-black leading-none flex items-center justify-center border border-white">
+                <span className="absolute -top-0.5 -start-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#00E5FF] text-gray-900 text-[10px] font-black leading-none flex items-center justify-center border border-white">
                     {activeCount}
                 </span>
             )}
@@ -146,7 +146,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                         animate={{ y: 0 }}
                         exit={{ y: 400 }}
                         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                        className="absolute bottom-0 left-0 right-0 pointer-events-auto"
+                        className="absolute bottom-0 end-0 start-0 pointer-events-auto"
                     >
                         <div className="bg-white rounded-t-3xl shadow-2xl overflow-hidden pb-[90px]">
                             {/* Drag handle */}
@@ -159,7 +159,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                             </div>
 
                             {/* Header */}
-                            <div className="flex items-center justify-between px-5 pb-4" dir="rtl">
+                            <div className="flex items-center justify-between px-5 pb-4">
                                 <h3 className="text-base font-black text-gray-900">{t('layers.title')}</h3>
                                 <button
                                     type="button"
@@ -172,7 +172,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                             </div>
 
                             {/* Toggle list — RTL via dir: label+icon on right, switch on left */}
-                            <div className="px-5" dir="rtl">
+                            <div className="px-5">
                                 {surfaceOn && (
                                     <div className="py-4 border-b border-gray-100">
                                         <div className="flex items-center justify-between mb-3">
@@ -233,7 +233,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                                                 className={`relative w-[51px] h-[31px] rounded-full shrink-0 transition-colors duration-300 ${isActive ? 'bg-[#00E5FF]' : 'bg-gray-300'}`}
                                             >
                                                 <div
-                                                    className={`absolute top-[2px] w-[27px] h-[27px] rounded-full bg-white shadow-md transition-all duration-300 ${isActive ? 'left-[22px]' : 'left-[2px]'}`}
+                                                    className={`absolute top-[2px] w-[27px] h-[27px] rounded-full bg-white shadow-md transition-all duration-300 ${isActive ? 'end-[22px]' : 'end-[2px]'}`}
                                                 />
                                             </div>
                                         </button>
@@ -285,7 +285,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                                         >
                                             {badgeCount}
                                         </span>
-                                        <ChevronLeft size={18} className="text-gray-400" />
+                                        <ChevronLeft size={18} className="text-gray-400 ltr:-scale-x-100" />
                                     </div>
                                 </button>
                             </div>

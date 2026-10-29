@@ -1,0 +1,52 @@
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/hooks/useFeatureFlags', () => ({ useFeatureFlags: () => ({ flags: {}, loading: false }) }));
+vi.mock('@/features/user/identity/store/useUserStore', () => ({ useUserStore: () => false }));
+vi.mock('@/store/useLocaleStore', () => ({ useLocaleStore: () => 'he' }));
+vi.mock('@/lib/onboardingPrefs', () => ({ getOnboardingPref: () => null }));
+
+import { computeHeOnlyState, resolveOnboardingUiLocale } from '../useShowHeOnlySteps';
+
+const base = { storeLocale: 'he', pref: null as string | null, flagsLoading: false, flagOn: true };
+
+describe('resolveOnboardingUiLocale', () => {
+  it('a non-he wizard language wins; otherwise the app locale', () => {
+    expect(resolveOnboardingUiLocale('he', 'en')).toBe('en');
+    expect(resolveOnboardingUiLocale('en', null)).toBe('en');
+    expect(resolveOnboardingUiLocale('en', 'he')).toBe('en');
+  });
+});
+
+describe('computeHeOnlyState', () => {
+  it('he never waits, even while flags load', () => {
+    expect(computeHeOnlyState({ ...base, flagsLoading: true })).toEqual({ show: true, ready: true });
+  });
+  it('non-he holds while flags load', () => {
+    expect(computeHeOnlyState({ ...base, storeLocale: 'en', flagsLoading: true })).toEqual({ show: false, ready: false });
+  });
+  it('non-he after load: flag on hides, flag off shows', () => {
+    expect(computeHeOnlyState({ ...base, storeLocale: 'en' })).toEqual({ show: false, ready: true });
+    expect(computeHeOnlyState({ ...base, storeLocale: 'en', flagOn: false })).toEqual({ show: true, ready: true });
+  });
+  it('the wizard language pref counts (onboarding_language=en with store he)', () => {
+    expect(computeHeOnlyState({ ...base, pref: 'en' }).show).toBe(false);
+  });
+});
+
+describe('computeHeOnlyState: store not hydrated yet', () => {
+  const pre = { ...base, i18nFlagOn: true, storeResolved: false };
+  it('i18n on, store unresolved, no Hebrew pref: hold (device may be English)', () => {
+    expect(computeHeOnlyState(pre)).toEqual({ show: false, ready: false });
+  });
+  it('explicit Hebrew pref never waits', () => {
+    expect(computeHeOnlyState({ ...pre, pref: 'he' })).toEqual({ show: true, ready: true });
+    expect(computeHeOnlyState({ ...pre, storedPref: 'he' })).toEqual({ show: true, ready: true });
+  });
+  it('i18n off, or store resolved: never waits', () => {
+    expect(computeHeOnlyState({ ...pre, i18nFlagOn: false })).toEqual({ show: true, ready: true });
+    expect(computeHeOnlyState({ ...pre, storeResolved: true })).toEqual({ show: true, ready: true });
+  });
+  it('a stored English app_locale is honoured before the store hydrates', () => {
+    expect(computeHeOnlyState({ ...pre, storedPref: 'en', flagOn: true })).toEqual({ show: false, ready: true });
+  });
+});

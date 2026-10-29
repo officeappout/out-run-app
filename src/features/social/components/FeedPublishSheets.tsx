@@ -66,7 +66,7 @@ function summary(t: SocialT, w: ShareableWorkout): string {
 export function SharePromptCard({ workout, onShare }: { workout: ShareableWorkout; onShare: () => void }) {
   const t = useT(community);
   return (
-    <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-ring" dir="rtl">
+    <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-ring">
       <ActivityBadge activity={workout.activityCategory} size={44} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14.5px] font-black text-v2-ink">{workout.title || t('social.publish.fallbackTitle')}</div>
@@ -111,7 +111,7 @@ export function SummaryShareCard({
   ) : null;
   if (status !== 'ask') {
     return (
-      <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-card" dir="rtl" aria-live="polite">
+      <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-card" aria-live="polite">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep" aria-hidden>
           <Check size={20} strokeWidth={2.8} />
         </span>
@@ -136,7 +136,7 @@ export function SummaryShareCard({
     );
   }
   return (
-    <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-card" dir="rtl">
+    <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-card">
       <ActivityBadge activity={workout.activityCategory} size={44} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[15px] font-black text-v2-ink">{t('social.publish.card.ask')}</div>
@@ -168,7 +168,7 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
   return (
     <AnimatePresence>
       {open && (
-        <div className="kb-fit fixed inset-0 z-[120]" role="dialog" aria-modal="true" aria-label={title} dir="rtl">
+        <div className="kb-fit fixed inset-0 z-[120]" role="dialog" aria-modal="true" aria-label={title}>
           <motion.button
             type="button"
             aria-label={t('social.publish.sheet.close')}

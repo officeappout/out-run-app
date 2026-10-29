@@ -1,0 +1,130 @@
+{
+  "system": "You write ONE short Hebrew sentence for Kelly (קלי), a male fitness coach in the OUT app, inside a short message he sends the user.\nRules: Hebrew only, at most 14 words, one sentence ending with a period or an exclamation mark, warm and calm, no question.\nNo numbers, no names, no weekdays or dates, no emoji, no slash forms (never \"את/ה\"), no dashes, no medical claims, never guilt about missed workouts.\nKelly speaks about himself in the masculine. Address the user in the grammar given. Output the sentence only.",
+  "user": [
+    "Address the user in masculine singular.\nThe sentence should be: one short sentence.\n- main goal: x\n- streak: a few days",
+    "Address the user in feminine singular.\nThe sentence should be: one short sentence.\n- main goal: x\n- streak: a few days",
+    "Gender unknown: impersonal wording only. Never address the user in the singular (no אתה, את, לך, שלך, בך, אותך, no singular command like קח or תעשה).\nThe sentence should be: one short sentence.\n- main goal: x\n- streak: a few days"
+  ],
+  "guard": [
+    {
+      "g": "male",
+      "s": "אימון טוב מחכה לך.",
+      "v": "אימון טוב מחכה לך."
+    },
+    {
+      "g": "male",
+      "s": "כל צעד נחשב!",
+      "v": "כל צעד נחשב!"
+    },
+    {
+      "g": "male",
+      "s": "איך היה?",
+      "v": null
+    },
+    {
+      "g": "male",
+      "s": "hello there",
+      "v": null
+    },
+    {
+      "g": "male",
+      "s": "ביום שלישי נתאמן.",
+      "v": null
+    },
+    {
+      "g": "male",
+      "s": "תתחיל לאט.",
+      "v": "תתחיל לאט."
+    },
+    {
+      "g": "male",
+      "s": "תתחילי לאט.",
+      "v": null
+    },
+    {
+      "g": "male",
+      "s": "נעים להתחיל בקלילות",
+      "v": "נעים להתחיל בקלילות."
+    },
+    {
+      "g": "female",
+      "s": "אימון טוב מחכה לך.",
+      "v": "אימון טוב מחכה לך."
+    },
+    {
+      "g": "female",
+      "s": "כל צעד נחשב!",
+      "v": "כל צעד נחשב!"
+    },
+    {
+      "g": "female",
+      "s": "איך היה?",
+      "v": null
+    },
+    {
+      "g": "female",
+      "s": "hello there",
+      "v": null
+    },
+    {
+      "g": "female",
+      "s": "ביום שלישי נתאמן.",
+      "v": null
+    },
+    {
+      "g": "female",
+      "s": "תתחיל לאט.",
+      "v": null
+    },
+    {
+      "g": "female",
+      "s": "תתחילי לאט.",
+      "v": "תתחילי לאט."
+    },
+    {
+      "g": "female",
+      "s": "נעים להתחיל בקלילות",
+      "v": "נעים להתחיל בקלילות."
+    },
+    {
+      "g": "other",
+      "s": "אימון טוב מחכה לך.",
+      "v": null
+    },
+    {
+      "g": "other",
+      "s": "כל צעד נחשב!",
+      "v": "כל צעד נחשב!"
+    },
+    {
+      "g": "other",
+      "s": "איך היה?",
+      "v": null
+    },
+    {
+      "g": "other",
+      "s": "hello there",
+      "v": null
+    },
+    {
+      "g": "other",
+      "s": "ביום שלישי נתאמן.",
+      "v": null
+    },
+    {
+      "g": "other",
+      "s": "תתחיל לאט.",
+      "v": null
+    },
+    {
+      "g": "other",
+      "s": "תתחילי לאט.",
+      "v": null
+    },
+    {
+      "g": "other",
+      "s": "נעים להתחיל בקלילות",
+      "v": "נעים להתחיל בקלילות."
+    }
+  ]
+}

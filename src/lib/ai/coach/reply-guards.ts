@@ -326,7 +326,7 @@ export function checkReply(
 }
 
 /** The internal note that asks the model for a corrected reply. English (instructions). */
-export function correctionNote(issues: ReplyIssue[]): string {
+export function correctionNote(issues: ReplyIssue[], locale: 'he' | 'en' = 'he'): string {
   const lines = ['[Internal check, not from the user. The user did not see your last reply.]'];
   for (const i of issues) {
     if (i.kind === 'ungrounded') {
@@ -362,6 +362,10 @@ export function correctionNote(issues: ReplyIssue[]): string {
         `You said the schedule was already changed ("${i.claim}"), but nothing is saved yet: it is only a proposal. Say what will change and that it is saved only after the user taps אשר on the card under your reply.`,
       );
     }
+  }
+  if (locale === 'en') {
+    lines.push('Write the reply to the user again, short, in English.');
+    return lines.join('\n').replace('taps אשר on the card', 'taps the approve button on the card');
   }
   lines.push('Write the reply to the user again, short, in Hebrew.');
   return lines.join('\n');

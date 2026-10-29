@@ -42,6 +42,8 @@ export interface InputStateViewProps {
   fadeIn: boolean;
   /** Resolved video URL of the just-completed exercise (frozen for context). */
   safeVideoUrl: string | null;
+  /** S7: the exercise's photo, shown when there is no video. */
+  safeImageUrl?: string | null;
   /** Stable id of the active exercise (passed to ExerciseVideoPlayer). */
   exerciseId: string;
   /** Name of the active exercise. */
@@ -74,6 +76,7 @@ export default function InputStateView({
   activeKey,
   fadeIn,
   safeVideoUrl,
+  safeImageUrl = null,
   exerciseId,
   exerciseName,
   exerciseType,
@@ -104,6 +107,7 @@ export default function InputStateView({
         key={`input-player-${activeKey}`}
         exerciseId={exerciseId}
         videoUrl={safeVideoUrl}
+        imageUrl={safeImageUrl}
         exerciseName={exerciseName}
         exerciseType={exerciseType}
         isPaused

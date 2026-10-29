@@ -56,6 +56,7 @@ import { useUserStore } from '@/features/user';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 
 interface PartnerOverlayProps {
@@ -352,6 +353,7 @@ export function PartnerOverlay({
   onFiltersChange,
 }: PartnerOverlayProps) {
   const t = useT(map);
+  const { direction } = useUiDir();
   const [activeTab, setActiveTab] = useState<'live' | 'scheduled'>(initialTab);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
@@ -696,7 +698,7 @@ export function PartnerOverlay({
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
         }}
-        dir="rtl"
+        dir={direction}
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}

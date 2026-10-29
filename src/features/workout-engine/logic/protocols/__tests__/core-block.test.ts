@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   chooseCoreForm,
+  coreHeadroomMinutes,
   chooseCoreTabataMemberCount,
   resolveFollowAlongCoreExercise,
   buildCoreTabataBlock,
@@ -45,6 +46,35 @@ describe('chooseCoreForm — eligibility by remaining time', () => {
     expect(seen.has('single')).toBe(true);
     expect(seen.has('tabata')).toBe(true);
     expect(seen.has('follow_along')).toBe(true);
+  });
+});
+
+describe('coreHeadroomMinutes — reserve for the core block', () => {
+  it('a 30-min session whose pre-trim estimate overshoots still has the block cost reserved', () => {
+    expect(coreHeadroomMinutes(30, 35)).toBe(4);
+    expect(coreHeadroomMinutes(30, 32)).toBe(4);
+  });
+
+  it('a session with real headroom keeps it', () => {
+    expect(coreHeadroomMinutes(30, 19)).toBe(11);
+  });
+
+  it('sessions under 20 min keep the raw headroom (core is optional there)', () => {
+    expect(coreHeadroomMinutes(15, 14)).toBe(1);
+    expect(coreHeadroomMinutes(15, 18)).toBe(-3);
+  });
+
+  it('an overshooting 30-min session can now be offered tabata / follow_along', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      seen.add(chooseCoreForm({
+        formsChosenThisTrio: [],
+        availableTime: 30,
+        estimatedDurationSoFar: 35,
+        difficulty: 2,
+      }));
+    }
+    expect(seen.has('tabata') || seen.has('follow_along')).toBe(true);
   });
 });
 

@@ -142,7 +142,7 @@ const postJoin = () =>
       isOpen
       onClose={noop}
       name="רצי הירקון"
-      verb="ירוץ"
+      verbKey="postJoin.verb.running"
       onOpenChat={noop}
       scheduleSlots={[{ dayOfWeek: 1, time: '07:00' } as unknown as ScheduleSlot]}
     />,

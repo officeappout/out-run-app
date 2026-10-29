@@ -46,7 +46,7 @@ function Item({ it, v2 }: { it: JourneyStripItem; v2: boolean }) {
   const t = useT(common);
   if (it.kind === 'transport') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[13px] font-bold whitespace-nowrap rounded-full"
+      <span data-coach={it.coach} className="inline-flex items-center gap-1.5 text-[13px] font-bold whitespace-nowrap rounded-full"
         style={{ color: v2 ? '#64748b' : '#9CA3AF', border: '1px dashed #BAE6FD', padding: '2px 9px', opacity: 0.8 }}>
         <span className="inline-flex" style={{ color: WALK_LEG_COLOR }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[19px] h-[19px]" /></span>
         {itemText(it)}
@@ -55,7 +55,7 @@ function Item({ it, v2 }: { it: JourneyStripItem; v2: boolean }) {
   }
   if (it.kind === 'strength') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
+      <span data-coach={it.coach} className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
         <span className="inline-flex" style={{ color: STR }}><ActivityGlyph kind="strength" subtype={it.subtype} className="w-[23px] h-[23px]" /></span>
         {itemText(it)}
       </span>
@@ -63,7 +63,7 @@ function Item({ it, v2 }: { it: JourneyStripItem; v2: boolean }) {
   }
   if (it.kind === 'repeat') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: v2 ? '#0e1419' : '#374151' }}>
+      <span data-coach={it.coach} className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: v2 ? '#0e1419' : '#374151' }}>
         <span className="inline-flex items-center gap-0.5" style={{ color: AER }}>
           <ActivityGlyph kind="aerobic" subtype={it.subtype} className="w-[23px] h-[23px]" />
           <Repeat size={14} strokeWidth={2.6} aria-label={t('ui.journey.repeat')} />
@@ -73,7 +73,7 @@ function Item({ it, v2 }: { it: JourneyStripItem; v2: boolean }) {
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: v2 ? '#0e1419' : '#374151' }}>
+    <span data-coach={it.coach} className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: v2 ? '#0e1419' : '#374151' }}>
       <span className="inline-flex" style={{ color: AER }}><ActivityGlyph kind="aerobic" subtype={it.subtype} className="w-[23px] h-[23px]" /></span>
       {itemText(it)}
     </span>

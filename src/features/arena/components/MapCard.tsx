@@ -44,7 +44,7 @@ export default function MapCard({ lat, lng, label, className = '' }: MapCardProp
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between" dir="rtl">
+      <div className="absolute bottom-0 end-0 start-0 p-3 flex items-center justify-between">
         <span className="text-xs font-bold text-white truncate max-w-[75%]">
           {label || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}
         </span>

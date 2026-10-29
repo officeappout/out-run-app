@@ -58,6 +58,41 @@ export function tracksFromLevels(levels: Partial<Record<string, number>>): Recor
   return out;
 }
 
+/** A skill program on the plan screen (planche, front lever...), with the level the user settled on. */
+export interface SkillSummaryRow {
+  skillId: string;
+  level: number;
+}
+
+/**
+ * Owner 28.10 (Y11): the plan screen shows every program the user leaves with, not only full body.
+ * Skills answered inside the assessment (`levels` keys that are not muscle groups) and skills added on
+ * the skills screen (`chosen`, which wins on a clash), in that order, each once.
+ */
+export function skillSummaryRows(
+  levels: Partial<Record<string, number>>,
+  chosen: readonly { skillId: string; level: number }[] = [],
+): SkillSummaryRow[] {
+  const out = new Map<string, number>();
+  for (const [id, lvl] of Object.entries(levels)) {
+    if ((SUMMARY_GROUPS as readonly string[]).includes(id) || !validLevel(lvl)) continue;
+    out.set(id, Math.round(lvl));
+  }
+  for (const c of chosen) {
+    if (validLevel(c.level)) out.set(c.skillId, Math.round(c.level));
+  }
+  return Array.from(out, ([skillId, level]) => ({ skillId, level }));
+}
+
+/** Plan screen entry (Y10): each card in turn, the parent (full-body) card last. Seconds. */
+export const CARD_ENTER_FIRST_S = 0.25;
+export const CARD_ENTER_STEP_S = 0.18;
+
+export function cardEnterDelays(childCount: number): { children: number[]; master: number } {
+  const children = Array.from({ length: childCount }, (_, i) => CARD_ENTER_FIRST_S + i * CARD_ENTER_STEP_S);
+  return { children, master: CARD_ENTER_FIRST_S + childCount * CARD_ENTER_STEP_S + 0.1 };
+}
+
 /**
  * "הידעת?" bubble (board Done). Rendered ONLY with a real norms source; none is wired yet, so the
  * screen passes nothing and the bubble stays hidden. Never invent a percentile.

@@ -36,6 +36,7 @@
  *   never held to items they have no track for and no way to complete.
  */
 
+import { hasAnsweredPersona } from '@/lib/persona-declaration';
 import type { UserFullProfile } from '../../core/types/user.types';
 import type { OnboardingStepId } from '../../onboarding/types';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
@@ -87,6 +88,8 @@ export interface CompletionResult {
 export function calculateProfileCompletion(
   profile: UserFullProfile | null,
   enableRunningPrograms = true,
+  /** The persona step is not part of this UI (utils/he-only-steps.ts): its item counts as done, never a dead tap. */
+  personaStepHidden = false,
 ): CompletionResult {
   if (!profile) {
     return { percentage: 0, items: [], pending: [], isVerified: false };
@@ -181,7 +184,7 @@ export function calculateProfileCompletion(
     {
       id: 'persona',
       label: 'סגנון חיים',
-      completed: !!profile.personas?.length,
+      completed: personaStepHidden || hasAnsweredPersona(profile),
       weight: 10,
       bucket: 'strength',
       step: 'PERSONA',

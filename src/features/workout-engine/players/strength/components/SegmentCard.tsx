@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { WorkoutSegment } from '@/features/parks';
 import { CheckCircle2, Circle, ChevronDown, ChevronUp, MapPin, Dumbbell, Activity, Heart } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface SegmentCardProps {
     segment: WorkoutSegment;
@@ -16,6 +18,7 @@ export default function SegmentCard({
     isLast = false
 }: SegmentCardProps) {
     const [isExpanded, setIsExpanded] = useState(isActive);
+    const tx = useT(player);
 
     const Icon = segment.isCompleted ? CheckCircle2 : (segment.type === 'travel' ? MapPin : Dumbbell);
 
@@ -65,13 +68,13 @@ export default function SegmentCard({
                                 {segment.paceTarget && (
                                     <div className="flex items-center gap-2 text-xs text-gray-500">
                                         <Activity size={14} className="text-cyan-500" />
-                                        <span>קצב: {segment.paceTarget}</span>
+                                        <span>{tx('sweep.segment.pace', { value: segment.paceTarget })}</span>
                                     </div>
                                 )}
                                 {segment.heartRateTarget && (
                                     <div className="flex items-center gap-2 text-xs text-gray-500">
                                         <Heart size={14} className="text-red-500" />
-                                        <span>דופק: {segment.heartRateTarget}</span>
+                                        <span>{tx('sweep.segment.heartRate', { value: segment.heartRateTarget })}</span>
                                     </div>
                                 )}
                             </div>

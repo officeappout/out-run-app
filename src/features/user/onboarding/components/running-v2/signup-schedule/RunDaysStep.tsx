@@ -7,6 +7,9 @@
 import { Check, Plus, Sparkles } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
+import { weekdayMessageArg } from '@/features/user/onboarding/utils/weekday-message-arg';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import type { TimeWindow } from '@/features/schedule/engine-v2/types';
 import { DAY_LETTERS_HE, RUN_TIME_PRESETS, TIME_WINDOWS, DEFAULT_RUN_WINDOW } from '@/features/schedule/utils/runWeekRecommendation';
@@ -33,6 +36,7 @@ export interface RunDaysStepProps {
 
 export default function RunDaysStep(p: RunDaysStepProps) {
   const t = useT(onboarding);
+  const tc = useT(common);
   const done = p.days.length === p.frequency;
   return (
     <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
@@ -51,7 +55,8 @@ export default function RunDaysStep(p: RunDaysStepProps) {
         </div>
 
         <div className={`overflow-hidden rounded-[22px] bg-white shadow-v2-card${p.look === 's2b' ? ' ring-1 ring-v2-accent/40' : ''}`}>
-          {DAY_LETTERS_HE.map((letter, dow) => {
+          {DAY_LETTERS_HE.map((_letter, dow) => {
+            const letter = weekdayMessageArg(dow, tc.locale, tc);
             const on = p.days.includes(dow);
             const w = p.windows[dow] ?? DEFAULT_RUN_WINDOW;
             return (
@@ -60,7 +65,7 @@ export default function RunDaysStep(p: RunDaysStepProps) {
                 className={`flex min-h-[56px] items-center gap-3 px-3 py-2 ${dow > 0 ? 'border-t border-v2-hairline' : ''} ${on ? 'min-h-[64px] bg-v2-tint/70' : ''}`}
               >
                 <div className="w-10 shrink-0 text-center">
-                  <span className="block text-[12px] font-extrabold text-v2-muted">{/* i18n-allow-hebrew: weekday letter (wave 3) */}{letter}׳</span>
+                  <span className="block text-[12px] font-extrabold text-v2-muted">{weekdayLabel(dow, 'short', tc)}</span>
                   <span className={`mx-auto mt-0.5 grid h-8 w-8 place-items-center text-[16px] font-black tabular-nums ${on ? 'text-v2-ink' : 'text-v2-muted'}`}>
                     {p.dates[dow]}
                   </span>

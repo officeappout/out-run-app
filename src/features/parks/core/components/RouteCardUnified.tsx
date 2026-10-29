@@ -20,7 +20,7 @@
  */
 
 import React from 'react';
-import { MapPin, Timer } from 'lucide-react';
+import { Info, MapPin, Timer } from 'lucide-react';
 import DifficultyBolts, { type DifficultyValue } from '@/features/workout-engine/components/DifficultyBolts';
 import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -28,6 +28,7 @@ import { ActivityGlyph } from './hybrid/activity-icons';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 
 // Aerobic-card accent — the single stat-icon colour shared by all three cards.
@@ -102,6 +103,11 @@ interface RouteCardUnifiedProps {
   /** enable_entry_whatnow_v1: a small grey line under the CTA (e.g. the first-workout note).
    *  Omitted by every other caller → byte-identical. */
   footnote?: string | null;
+  /** enable_map_tutorial_v1 (board M4/M5, L10): an "i" beside the name that opens "why this route".
+   *  Omitted by every other caller → byte-identical. */
+  onInfo?: () => void;
+  /** enable_map_tutorial_v1 (L12): the body's pointerdown (the slot arms its whole-card tap with it). */
+  onCardPointerDown?: () => void;
 }
 
 export default function RouteCardUnified({
@@ -126,12 +132,15 @@ export default function RouteCardUnified({
   coachId,
   ctaCoachId,
   footnote,
+  onInfo,
+  onCardPointerDown,
 }: RouteCardUnifiedProps) {
   // Home v2 (enable_home_v2): the design-lab card — white v2 card, 17px black title,
   // 13px muted meta, tinted badge and the single v2 gradient CTA. Flag off = today's card.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const t = useT(map);
+  const { direction } = useUiDir();
   const slim = variant === 'slim';
   const hasStats = !!distanceText && !!durationText;
   // G1.4 (Sderot pilot): the curated discover card (slim + stats — BottomJourneyContainer is the only
@@ -155,8 +164,9 @@ export default function RouteCardUnified({
   };
   return (
     <div
-      dir="rtl"
+      dir={direction}
       data-coach={coachId}
+      onPointerDown={onCardPointerDown}
       onClick={handleClick}
       className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white ${v2 ? 'rounded-v2-card' : 'rounded-3xl'} ${compact ? 'px-4 pt-2.5 pb-2.5' : slim ? 'px-4 py-3' : 'p-5'} transition-all duration-300 ${v2 ? 'ease-v2 ' : ''}${
         v2
@@ -181,6 +191,19 @@ export default function RouteCardUnified({
           >
             {t('routeCard.recommended')}
           </span>
+        )}
+        {onInfo && (
+          <button
+            type="button"
+            aria-label={t('mapTutorial.card.info')}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); hapticLight(); onInfo(); }}
+            className="ms-auto grid h-11 w-11 shrink-0 place-items-center -my-2.5 -me-2.5"
+          >
+            <span className="grid h-[26px] w-[26px] place-items-center rounded-full bg-v2-tint text-v2-deep">
+              <Info size={15} strokeWidth={2.6} aria-hidden />
+            </span>
+          </button>
         )}
       </div>
 

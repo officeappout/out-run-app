@@ -23,11 +23,11 @@ import type { UserContextSheet } from './context-sheet';
 import type { ReplayableTour } from '@/features/user/onboarding/services/tour-replay';
 import { inferProgressQuestion, inferScheduleQuestion } from './intent';
 import { ASSESSABLE_SLUGS, ASSESS_CATEGORY_SLUGS, gapForWorkout, isAssessableSlug, type AssessableSlug } from './assessment-gaps';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { coach } from '@/messages/ns/coach';
 
-// Hebrew-only copy (bundled catalog, sync read; the chip specs are built once at module load).
-const t = makeT('he', coach);
+// Follows the active locale at read time (labels are getters); the server never leaves 'he'.
+const t = makeLiveT(coach);
 
 export type CheckLevelActionId = `check_level_${AssessableSlug}`;
 /** Kelly phase 3 (ai_coach_proactive): "איך היה?" answers under a post-workout message. */
@@ -148,7 +148,7 @@ const CHECK_LEVEL_ACTIONS = Object.fromEntries(
   ASSESSABLE_SLUGS.map((slug): [CheckLevelActionId, CoachActionSpec] => [
     checkLevelActionId(slug),
     {
-      label: checkLevelLabel(slug),
+      get label() { return checkLevelLabel(slug); },
       assess: {
         slug,
         domainType: (ASSESS_CATEGORY_SLUGS as readonly string[]).includes(slug) ? 'category' : 'skill',
@@ -160,32 +160,32 @@ const CHECK_LEVEL_ACTIONS = Object.fromEntries(
 ) as Record<CheckLevelActionId, CoachActionSpec>;
 
 export const COACH_ACTIONS: Record<CoachActionId, CoachActionSpec> = {
-  open_schedule: { label: t('action.openSchedule.label'), href: SCHEDULE_DEEP_LINK },
-  build_today: { label: t('action.buildToday.label'), message: t('action.buildToday.message') },
-  open_builder: { label: t('action.openBuilder.label'), href: SCHEDULE_BUILDER_DEEP_LINK },
+  open_schedule: { get label() { return t('action.openSchedule.label'); }, href: SCHEDULE_DEEP_LINK },
+  build_today: { get label() { return t('action.buildToday.label'); }, get message() { return t('action.buildToday.message'); } },
+  open_builder: { get label() { return t('action.openBuilder.label'); }, href: SCHEDULE_BUILDER_DEEP_LINK },
   // Kelly phase 3 — only proactive messages carry these (nothing else writes them).
-  build_home: { label: t('action.buildHome.label'), message: t('action.buildHome.message') },
-  rate_easy: { label: t('action.rateEasy.label'), rating: 'easy' },
-  rate_right: { label: t('action.rateRight.label'), rating: 'right' },
-  rate_hard: { label: t('action.rateHard.label'), rating: 'hard' },
+  build_home: { get label() { return t('action.buildHome.label'); }, get message() { return t('action.buildHome.message'); } },
+  rate_easy: { get label() { return t('action.rateEasy.label'); }, rating: 'easy' },
+  rate_right: { get label() { return t('action.rateRight.label'); }, rating: 'right' },
+  rate_hard: { get label() { return t('action.rateHard.label'); }, rating: 'hard' },
   ...CHECK_LEVEL_ACTIONS,
   // Kelly round 4 — only round 4 turns carry these (round4/turn-extras.ts).
-  running_questionnaire: { label: t('action.runningQuestionnaire.label'), onboarding: 'RUNNING' },
-  pick_route_run: { label: t('action.pickRouteRun.label'), aerobicMap: 'running' },
-  pick_route_walk: { label: t('action.pickRouteWalk.label'), aerobicMap: 'walking' },
-  tour_map: { label: t('action.tourMap.label'), tour: { id: 'map', step: 0 } },
-  tour_workouts: { label: t('action.tourWorkouts.label'), tour: { id: 'home', step: 0 } },
-  tour_schedule: { label: t('action.tourSchedule.label'), tour: { id: 'home', step: 2 } },
+  running_questionnaire: { get label() { return t('action.runningQuestionnaire.label'); }, onboarding: 'RUNNING' },
+  pick_route_run: { get label() { return t('action.pickRouteRun.label'); }, aerobicMap: 'running' },
+  pick_route_walk: { get label() { return t('action.pickRouteWalk.label'); }, aerobicMap: 'walking' },
+  tour_map: { get label() { return t('action.tourMap.label'); }, tour: { id: 'map', step: 0 } },
+  tour_workouts: { get label() { return t('action.tourWorkouts.label'); }, tour: { id: 'home', step: 0 } },
+  tour_schedule: { get label() { return t('action.tourSchedule.label'); }, tour: { id: 'home', step: 2 } },
   // Every other app tour (tour-catalog.ts) — in-workout ones replay as a preview, never a workout.
-  tour_plan: { label: t('action.tourPlan.label'), tour: { id: 'plan', step: 0 } },
-  tour_route: { label: t('action.tourRoute.label'), tour: { id: 'route', step: 0 } },
-  tour_route_player: { label: t('action.tourRoutePlayer.label'), tour: { id: 'route-player', step: 0 } },
-  tour_player: { label: t('action.tourPlayer.label'), tour: { id: 'player', step: 0 } },
-  tour_station: { label: t('action.tourStation.label'), tour: { id: 'station', step: 0 } },
-  tour_community: { label: t('action.tourCommunity.label'), tour: { id: 'community', step: 0 } },
-  open_help: { label: t('action.openHelp.label'), href: HELP_HUB_PATH },
-  show_how: { label: t('action.showHow.label'), message: t('action.showHow.message') },
-  find_parks: { label: t('action.findParks.label'), message: t('action.findParks.message') },
+  tour_plan: { get label() { return t('action.tourPlan.label'); }, tour: { id: 'plan', step: 0 } },
+  tour_route: { get label() { return t('action.tourRoute.label'); }, tour: { id: 'route', step: 0 } },
+  tour_route_player: { get label() { return t('action.tourRoutePlayer.label'); }, tour: { id: 'route-player', step: 0 } },
+  tour_player: { get label() { return t('action.tourPlayer.label'); }, tour: { id: 'player', step: 0 } },
+  tour_station: { get label() { return t('action.tourStation.label'); }, tour: { id: 'station', step: 0 } },
+  tour_community: { get label() { return t('action.tourCommunity.label'); }, tour: { id: 'community', step: 0 } },
+  open_help: { get label() { return t('action.openHelp.label'); }, href: HELP_HUB_PATH },
+  show_how: { get label() { return t('action.showHow.label'); }, get message() { return t('action.showHow.message'); } },
+  find_parks: { get label() { return t('action.findParks.label'); }, get message() { return t('action.findParks.message'); } },
 };
 
 /** Every in-app link a chip can open (checked against src/app by a test). */

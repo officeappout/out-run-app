@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Dumbbell, Lightbulb, Volume2, VolumeX, Timer } from 'lucide-react';
+import { ArrowLeftRight, Dumbbell, Lightbulb, Volume2, VolumeX, Timer } from 'lucide-react';
 import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import type { NextExerciseInfo } from '../hooks/useWorkoutStateMachine';
@@ -95,6 +95,11 @@ export interface RestScreenProps {
   logDrawerNode?: React.ReactNode;
   /** Whether the bottom log drawer is currently open. */
   isLogDrawerOpen?: boolean;
+  /** enable_park_live_v2 (board Park 9): the tile's label when the next interval is another machine
+   *  ("מצאו את המתקן הבא"). Omitted → "הבא", unchanged. */
+  nextLabel?: string;
+  /** enable_park_live_v2: "can't find it, swap" for the next machine. Omitted → no button. */
+  onSwapNext?: () => void;
 }
 
 export default function RestScreen({
@@ -109,6 +114,8 @@ export default function RestScreen({
   autoExpandPreview = false,
   logDrawerNode,
   isLogDrawerOpen = false,
+  nextLabel,
+  onSwapNext,
 }: RestScreenProps) {
   const t = useT(player);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(autoExpandPreview);
@@ -183,10 +190,12 @@ export default function RestScreen({
             }}
           >
             <p
-              className={v2 ? 'text-[12px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-[11px] font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider'}
+              className={nextLabel
+                ? 'text-[12px] font-extrabold text-v2-deep leading-tight'
+                : v2 ? 'text-[12px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-[11px] font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              {t('strengthPlayer.rest.next')}
+              {nextLabel ?? t('strengthPlayer.rest.next')}
             </p>
             <button
               onClick={() => setIsPreviewExpanded((v) => !v)}
@@ -201,6 +210,7 @@ export default function RestScreen({
                   key={`rest-preview-${videoKey}`}
                   exerciseId={`rest-preview-${videoKey}`}
                   videoUrl={previewVideoUrl}
+                  imageUrl={nextExercise.imageUrl ?? null}
                   exerciseName={nextExercise.name}
                   exerciseType="reps"
                   isPaused={isPaused}
@@ -232,6 +242,16 @@ export default function RestScreen({
               >
                 {nextRepsOrDuration}
               </p>
+            )}
+            {onSwapNext && (
+              <button
+                type="button"
+                onClick={onSwapNext}
+                className="mt-1 inline-flex h-8 items-center gap-1 rounded-full bg-white px-2.5 text-[12px] font-extrabold text-v2-ink shadow-v2-ring"
+              >
+                <ArrowLeftRight size={13} strokeWidth={2.5} aria-hidden />
+                {t('parkLive.rest.swap')}
+              </button>
             )}
           </div>
 

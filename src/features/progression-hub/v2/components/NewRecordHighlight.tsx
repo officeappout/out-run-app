@@ -47,7 +47,7 @@ export default function NewRecordHighlight() {
           {t('hub.newRecord.meta', { detail })}
         </span>
       </span>
-      <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+      <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
     </button>
   );
 }

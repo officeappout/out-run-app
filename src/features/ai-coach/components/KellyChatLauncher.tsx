@@ -12,7 +12,8 @@ import { useAiCoachAccess } from '../hooks/useAiCoachAccess';
 import { useKellyChatConfig } from '../hooks/useKellyChatConfig';
 import AiCoachChat from './AiCoachChat';
 
-function KellyChatOverlay({ initialInput, onClose }: { initialInput: string; onClose: () => void }) {
+/** The chat overlay alone — for callers that open it from their own trigger (the method "i" sheet's chips). */
+export function KellyChatOverlay({ initialInput, onClose }: { initialInput: string; onClose: () => void }) {
   const { profile } = useUserStore();
   const cfg = useKellyChatConfig();
   if (!profile || cfg.loading || !cfg.canUseAi) return null;

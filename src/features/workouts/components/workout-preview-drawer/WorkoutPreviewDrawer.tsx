@@ -18,7 +18,6 @@ import OverviewActionsMenu from './components/OverviewActionsMenu';
 import type { LocationAvailability } from './hooks/useLocationSwapPlanner';
 import { collectWorkoutExerciseIds } from '@/features/workout-engine/players/strength/logic/swap-fixes';
 import StrengthOverviewCard from '@/features/workout-engine/components/StrengthOverviewCard';
-import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import type { ExecutionLocation } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -75,7 +74,7 @@ const CLOSE_THRESHOLD = 120; // px dragged DOWN to dismiss
  */
 function WorkoutLoadingSkeleton() {
   return (
-    <div className="space-y-3 pt-2" dir="rtl">
+    <div className="space-y-3 pt-2">
       {[0, 1, 2, 3].map((i) => (
         <div key={i} className="flex items-center gap-3 animate-pulse">
           <div className="w-[72px] h-[72px] rounded-2xl bg-gray-100 dark:bg-slate-800 flex-shrink-0" />
@@ -108,9 +107,6 @@ export default function WorkoutPreviewDrawer({
   onGeneratedWorkoutUpdate,
   onEditEntry,
   isGeneratingWorkout = false,
-  intensityOptions,
-  selectedIntensityIndex,
-  onSelectIntensity,
   surface,
   sourceParkId = null,
 }: WorkoutPreviewDrawerProps) {
@@ -315,7 +311,7 @@ export default function WorkoutPreviewDrawer({
     (generatedWorkout?.executionLocation as ExecutionLocation) ||
     (workoutLocation as ExecutionLocation) ||
     'park';
-  // ── enable_where_to_train_v1: "איפה מתאמנים?" under the intensity selector + the shared sheet ──
+  // ── enable_where_to_train_v1: "איפה מתאמנים?" under the title + the shared sheet ──
   // (above the swap: a switch to the park uses the park chosen there — chosen-park.ts)
   const whereOn = useWhereToTrainV1();
   const where = useWhereToTrain(whereOn && isOpen && !!generatedWorkout, generatedWorkout?.exercises);
@@ -341,6 +337,18 @@ export default function WorkoutPreviewDrawer({
   useEffect(() => {
     setLocationAvailability({});
   }, [generatedWorkout]);
+  // AA4 (phone test 28.10): a workout with no home version shows the parks alone, no בית / פארק toggle.
+  // One dry-run for 'home' when the where-to-train drawer opens (the swap reuses the cached plan).
+  const [homeCheck, setHomeCheck] = useState<LocationAvailability | null>(null);
+  useEffect(() => {
+    setHomeCheck(null);
+    if (!whereOn || !locationGateOn || !isOpen || !generatedWorkout || resolvedSwapLocation === 'home') return;
+    let cancelled = false;
+    void checkAvailability(['home']).then((r) => { if (!cancelled) setHomeCheck(r.home ?? null); });
+    return () => { cancelled = true; };
+  }, [whereOn, locationGateOn, isOpen, generatedWorkout, resolvedSwapLocation, checkAvailability]);
+  const homeBlocked =
+    locationGateOn && (homeCheck?.allowed === false || swapResult?.blockedLocation === 'home');
   const handleLocationSwitcherOpen = useCallback(
     (others: ExecutionLocation[]) => {
       if (locationGateOn) void checkAvailability(others).then(setLocationAvailability);
@@ -532,7 +540,7 @@ export default function WorkoutPreviewDrawer({
           fontFamily: 'var(--font-simpler)',
           willChange: 'transform',
         }}
-        classicClassName="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
+        classicClassName="fixed bottom-0 end-0 start-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
         ariaLabel={displayTitle || undefined}
       >
         <DrawerHeader
@@ -623,7 +631,7 @@ export default function WorkoutPreviewDrawer({
 
             {/* Hero close button — fades with hero */}
             <motion.div
-              className="absolute top-0 right-0 px-3 pb-3 z-10 transform-gpu will-change-transform"
+              className="absolute top-0 start-0 px-3 pb-3 z-10 transform-gpu will-change-transform"
               style={{
                 paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
                 opacity: imageOpacity,
@@ -677,50 +685,8 @@ export default function WorkoutPreviewDrawer({
             )}
           </motion.div>
 
-          {/* Intensity toggle row (Part א, "ארכיטקטורת הבית ומנוע-ההמלצות"
-              doc, 21.08.2026) — pattern replicated from HybridOverviewScreen's
-              difficulty carousel (role="group" pill, per-option
-              DifficultyBolts+label+minutes, active option tinted inline),
-              not copied verbatim. Same trio engine as before (StatsOverview
-              still owns trioResult/selectedOptionIndex/handleTrioSelect) —
-              only the toggle's RENDER location moved, from the home screen's
-              pill+bottom-sheet into this drawer. Only rendered when there's
-              genuinely a choice; other WorkoutPreviewDrawer callers
-              (calendar-tap preview, custom builder, FavoritesSheet) don't
-              pass intensityOptions at all. */}
-          {intensityOptions && intensityOptions.length > 1 && (
-            <div className="relative z-20 px-6 pb-3">
-              <div
-                className="flex w-full items-stretch bg-white dark:bg-slate-800 rounded-full"
-                role="group"
-                aria-label={t('preview.intensity.label')}
-                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}
-              >
-                {intensityOptions.map((option, i) => {
-                  const active = i === selectedIntensityIndex;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => onSelectIntensity?.(i)}
-                      aria-pressed={active}
-                      className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full active:scale-[0.98] transition-all duration-200"
-                      style={{ padding: '7px 6px', background: active ? '#F0FBFF' : 'transparent' }}
-                    >
-                      <DifficultyBolts difficulty={option.difficulty} size="sm" showLabel={false} />
-                      <span
-                        className="text-[11px] font-bold whitespace-nowrap"
-                        style={{ color: active ? '#00ADEF' : '#6B7280' }}
-                      >
-                        {t('preview.intensity.option', { label: option.label, duration: String(option.duration) })}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
+          {/* No intensity pills (קל / מאוזן / אינטנסיבי): owner decision, phone test 28.10 AA3. The
+              workout is built at the user's own session length (full-strength-minutes.ts). */}
           {whereOn && generatedWorkout && (
             <WhereToTrainSection
               location={resolvedSwapLocation === 'home' || resolvedSwapLocation === 'service' ? resolvedSwapLocation : 'park'}
@@ -737,6 +703,7 @@ export default function WorkoutPreviewDrawer({
               selectedParkId={where.selectedParkId}
               onOpenPark={where.openPark}
               homeGearLabels={where.homeGearLabels}
+              homeBlocked={homeBlocked}
             />
           )}
 
@@ -762,9 +729,6 @@ export default function WorkoutPreviewDrawer({
                 ) : (
                   <GeneratedWorkoutExerciseList
                     generatedWorkout={generatedWorkout}
-                    // v2: the intensity toggle above already shows "בינוני · 22׳" —
-                    // drop the repeated difficulty / duration pills.
-                    hideStatPills={homeV2 && !!intensityOptions && intensityOptions.length > 1}
                     exercisePool={exercisePool}
                     posterFromVideo={locationGateOn}
                     onSwap={handleOpenSwapModal}
@@ -829,12 +793,11 @@ export default function WorkoutPreviewDrawer({
             {/* "Where to Train" — nearest parks carousel */}
             {!whereOn && nearbyParks.length > 0 && (
               <section className="mt-6 mb-2">
-                <h3 className="text-right font-bold text-lg text-slate-900 dark:text-white mb-3">
+                <h3 className="text-start font-bold text-lg text-slate-900 dark:text-white mb-3">
                   {t('preview.parks.title')}
                 </h3>
                 <div
-                  className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 pb-1"
-                  dir="rtl"
+                  className="flex gap-3 overflow-x-auto overscroll-x-contain no-scrollbar -mx-6 px-6 scroll-px-6 pb-1 snap-x snap-mandatory"
                 >
                   {nearbyParks.map((park, idx) => (
                     <motion.div
@@ -842,7 +805,7 @@ export default function WorkoutPreviewDrawer({
                       initial={{ opacity: 0, x: 30 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.08, duration: 0.35 }}
-                      className="flex-shrink-0 w-[200px] rounded-2xl border-[0.5px] border-[#E0E9FF] dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800/60 shadow-sm"
+                      className="flex-shrink-0 snap-start snap-always w-[160px] rounded-2xl border-[0.5px] border-[#E0E9FF] dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800/60 shadow-sm"
                     >
                       <ParkCardImage
                         src={park.imageUrl}
@@ -850,12 +813,12 @@ export default function WorkoutPreviewDrawer({
                         alt={park.name}
                         eager={idx < 2}
                       />
-                      <div className="p-3">
-                        <p className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                      <div className="px-2.5 py-2">
+                        <p className="font-bold text-[13px] text-gray-900 dark:text-white truncate">
                           {park.name}
                         </p>
-                        <div className="flex items-center gap-1 mt-1.5 text-slate-500 dark:text-slate-400">
-                          <MapPin size={13} className="flex-shrink-0" />
+                        <div className="flex items-center gap-1 mt-1 text-slate-500 dark:text-slate-400">
+                          <MapPin size={12} className="flex-shrink-0" />
                           <span className="text-xs font-medium">
                             {park.walkingMinutes <= 1
                               ? t('preview.parks.walkOne')

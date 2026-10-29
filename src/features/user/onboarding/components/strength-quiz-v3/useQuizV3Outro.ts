@@ -15,6 +15,8 @@ export interface QuizV3Outro {
   skills: UnlockedSkill[];
   selected: ReadonlySet<QuizV3SkillId>;
   skillLevels: Partial<Record<QuizV3SkillId, number>>;
+  /** The skills added to the plan (with their levels), shown on the plan screen. */
+  chosen: ChosenSkill[];
   toggle: (id: QuizV3SkillId) => void;
   refine: (id: QuizV3SkillId) => void;
   /** The short skill questionnaire settled on a level (the "not yet" card = level 1, the prep work). */
@@ -101,6 +103,7 @@ export function useQuizV3Outro(
     skills,
     selected,
     skillLevels,
+    chosen,
     toggle,
     refine: useCallback((id: QuizV3SkillId) => setScreen({ kind: 'skillSlider', skillId: id }), []),
     skillLevelChosen,

@@ -22,6 +22,8 @@ vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 vi.mock('../../OnboardingStoryBar', () => ({
   default: ({ phaseLabel }: { phaseLabel?: string }) => createElement('div', { 'data-story-bar': phaseLabel ?? '' }),
 }));
+// The real progress map (Y7) reads the exercise corpus; its fallback ladder is what renders here.
+vi.mock('../useGroupSkillTree', () => ({ useGroupSkillTree: () => null }));
 vi.mock('../../../services/visual-content-resolver.service', () => ({
   getOnboardingLevelsForCategory: async () => [1, 2, 4, 5, 6, 7, 9, 10, 14, 16],
   resolveContent: async (_cat: string, level: number) => ({ exerciseName: `ex-${level}` }),
@@ -77,8 +79,14 @@ describe('QuizV3Outro', () => {
     await click(buttonByText('הבא'));
     expect(text()).toContain('כל אימון ממלא את הטבעת');
     expect(text()).toContain('רמה 5');
+    expect(q('[data-ring-stage]')?.getAttribute('data-ring-stage')).toBe('4'); // reduced motion: the final frame
     await click(buttonByText('הבא'));
     expect(text()).toContain('האימונים יתאימו ללו״ז שלך');
+    // Y9: the schedule's real program icons (inline SVG), not the muscle images.
+    expect(q('[data-day-program="push"] svg')).not.toBeNull();
+    expect(q('[data-day-program] img')).toBeNull();
+    // Y6: the flow's own story bars, the summary phase.
+    expect(q('[data-story-bar]')?.getAttribute('data-story-bar')).toBe('שלב 3: סיכום התוכנית');
     expect(buttonByText('דלג')).toBeUndefined();
     await click(buttonByText('להצהרת הבריאות'));
     expect(p.onFinish).toHaveBeenCalledWith([]);
@@ -97,6 +105,10 @@ describe('QuizV3Outro', () => {
     expect(q('[data-quiz-v3-skill="planche"]')!.textContent).toContain('פלאנץ׳ מלא');
     await click(buttonByText('להוסיף לתוכנית שלי'));
     expect(q('[data-quiz-v3="done"]')).not.toBeNull();
+    // Y11: the added skill is on the plan with its level.
+    expect(q('[data-quiz-v3-skill="planche"]')?.textContent).toContain('פלאנץ׳');
+    expect(q('[data-quiz-v3-skill="planche"]')?.textContent).toContain('רמה 7');
+    expect(q('[data-quiz-v3-skill="front_lever"]')).toBeNull();
     await click(buttonByText('מה זה אומר?'));
     await click(buttonByText('דלג'));
     expect(q('[data-quiz-v3="explain-3"]')).not.toBeNull();
@@ -111,6 +123,7 @@ describe('QuizV3Outro', () => {
     expect(q('[data-skill-slider="planche"]')).not.toBeNull();
     await click(q('[data-skill-slider="planche"]'));
     expect(q('[data-quiz-v3="done"]')).not.toBeNull();
+    expect(q('[data-quiz-v3-skill="planche"]')?.textContent).toContain('רמה 3');
     for (const label of ['מה זה אומר?', 'הבא', 'הבא', 'להצהרת הבריאות']) await click(buttonByText(label));
     expect(p.onFinish).toHaveBeenLastCalledWith([{ skillId: 'planche', level: 3 }]);
 
@@ -120,6 +133,13 @@ describe('QuizV3Outro', () => {
     await click(buttonByText('אולי אחר כך'));
     for (const label of ['מה זה אומר?', 'הבא', 'הבא', 'להצהרת הבריאות']) await click(buttonByText(label));
     expect(p2.onFinish).toHaveBeenCalledWith([]);
+  });
+
+  it('a skill answered inside the assessment is on the plan too (Y11)', async () => {
+    await mount(createElement(QuizV3Outro, props({ levels: { push: 6, pull: 4, legs: 8, core: 6, planche: 4 }, masterLevel: 6 })));
+    expect(q('[data-quiz-v3="done"]')).not.toBeNull();
+    expect(q('[data-quiz-v3-skill="planche"]')?.textContent).toContain('רמה 4');
+    expect(q('[data-quiz-v3-master]')).not.toBeNull();
   });
 
   it('back from the first screen leaves the outro', async () => {

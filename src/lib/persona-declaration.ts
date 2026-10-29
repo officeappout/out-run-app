@@ -12,7 +12,9 @@
  * docs/research/military-persona-unified-architecture.md).
  */
 export function hasAnsweredPersona(
-  profile: { personas?: unknown[] } | null | undefined,
+  profile: { personas?: unknown[]; personaStepSkipped?: boolean } | null | undefined,
 ): boolean {
-  return !!(profile?.personas && profile.personas.length > 0);
+  // personaStepSkipped: the step is not shown in a non-Hebrew UI (hide_he_only_onboarding_steps), so there is no
+  // `personas` array to wait for. Absent for everyone else → unchanged.
+  return !!(profile?.personas && profile.personas.length > 0) || profile?.personaStepSkipped === true;
 }

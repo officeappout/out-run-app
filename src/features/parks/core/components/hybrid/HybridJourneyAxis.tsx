@@ -150,7 +150,7 @@ export default function HybridJourneyAxis({
         >
           <Info size={15} className="flex-shrink-0" style={{ color: '#9CA3AF' }} />
           <span className="flex-1 underline underline-offset-2">{questionnaireLine.text}</span>
-          <ChevronLeft size={15} className="flex-shrink-0" style={{ color: '#9CA3AF' }} />
+          <ChevronLeft size={15} className="flex-shrink-0 ltr:-scale-x-100" style={{ color: '#9CA3AF' }} />
         </button>
       )}
       renderStation={(leg) => (

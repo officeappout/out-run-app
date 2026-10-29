@@ -29,6 +29,10 @@ import type { ParkGymEquipment } from '@/features/content/equipment/gym/core/gym
 import type { ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import { computeNeedsFacilityDetails } from '@/features/parks/core/utils/park-completeness.util';
 import { isPlainObject } from '@/lib/firestore-sanitize';
+import { normalizeGymEquipmentDoc } from '@/features/content/equipment/gym/core/gym-equipment-localized';
+import { buildStoredText } from '@/features/content/shared/content-locale';
+import { hebrewOrEmpty, isStoredLocalized } from '@/features/content/shared/stored-text-fields';
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -412,7 +416,7 @@ async function loadOrCreateBrands(): Promise<Map<string, BrandInfo>> {
   const snap = await getDocs(query(collection(db, OUTDOOR_BRANDS_COLLECTION), orderBy('name', 'asc')));
 
   for (const d of snap.docs) {
-    const name = String(d.data().name ?? '').trim();
+    const name = hebrewOrEmpty(d.data().name).trim(); // {he,en} safe
     if (name) brandMap.set(name.toLowerCase(), { id: d.id, name });
   }
 
@@ -474,7 +478,12 @@ async function loadAuthorities(): Promise<Authority[]> {
 async function loadGymEquipment(): Promise<GymEquipment[]> {
   const q = query(collection(db, 'gym_equipment'), orderBy('name', 'asc'));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as GymEquipment);
+  return snap.docs.map((d) => normalizeGymEquipmentDoc({ id: d.id, ...d.data() }) as GymEquipment);
+}
+
+/** A CSV re-import writes the Hebrew; an English slot the doc already holds must survive it. */
+function keepEnglish(newHe: string, existingRaw: unknown): string | LocalizedText {
+  return isStoredLocalized(existingRaw) ? buildStoredText(newHe, existingRaw.en, existingRaw) : newHe;
 }
 
 // ---------------------------------------------------------------------------
@@ -1081,7 +1090,7 @@ export async function executeImport(
         const existingVideoUrl = existingBrands[0]?.videoUrl || '';
 
         const updateData: Record<string, unknown> = {
-          description: eq.description || existingData?.description || '',
+          description: eq.description ? keepEnglish(eq.description, existingData?.description) : existingData?.description || '',
           isFunctional: eq.isFunctional,
           externalSourceId: eq.csvId,
           importedFrom: 'csv_bulk_import',
@@ -1137,8 +1146,10 @@ export async function executeImport(
       // Migrate equipment image & video — preserve existing Firebase media if available
       let imageUrl = eq.image || '';
       let videoUrl = eq.video || '';
+      let existingRaw: Record<string, unknown> | undefined;
       if (eqDocId) {
         const existingSnap = await getDoc(doc(db, 'gym_equipment', eqDocId));
+        existingRaw = existingSnap.data();
         const existingBrands: EquipmentBrand[] = existingSnap.data()?.brands ?? [];
         if (existingBrands[0]?.imageUrl && isAlreadyMigrated(existingBrands[0].imageUrl)) {
           imageUrl = existingBrands[0].imageUrl;
@@ -1169,13 +1180,13 @@ export async function executeImport(
       const brand: EquipmentBrand = { brandName, brandId, imageUrl, videoUrl };
 
       const eqData = {
-        name: eq.name,
+        name: keepEnglish(eq.name, existingRaw?.name),
         type: 'reps' as const,
         recommendedLevel: 1,
         isFunctional: eq.isFunctional,
         muscleGroups: ['full_body'],
         brands: [brand],
-        description: eq.description || '',
+        description: eq.description ? keepEnglish(eq.description, existingRaw?.description) : '',
         availableInLocations: ['park'],
         defaultLocation: 'park',
         externalSourceId: eq.csvId,

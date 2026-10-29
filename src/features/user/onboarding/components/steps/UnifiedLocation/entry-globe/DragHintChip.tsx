@@ -5,10 +5,13 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Hand } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { map } from '@/messages/ns/map';
 
-/** Dark chip under the lemur pin: "גוררים את המפה כדי לדייק" (hidden after the first drag). */
-export function DragHintChip() {
+/** Dark chip under the lemur pin: "גוררים את המפה כדי לדייק" (hidden after the first drag).
+ *  `homeLine` (enable_map_tutorial_v1, board M1): above the pin, "גוררים את המפה עד שהלמור על הבית". */
+export function DragHintChip({ homeLine = false }: { homeLine?: boolean }) {
   const t = useT(onboarding);
+  const tm = useT(map);
   const reduce = !!useReducedMotion();
   return (
     <motion.span
@@ -26,7 +29,7 @@ export function DragHintChip() {
       >
         <Hand size={17} strokeWidth={2} />
       </motion.span>
-      {t('location.entry.dragHint')}
+      {homeLine ? tm('mapTutorial.locate.dragHint') : t('location.entry.dragHint')}
     </motion.span>
   );
 }

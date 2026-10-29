@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { findRunWorkoutTemplatesByName } from '@/features/workout-engine/core/services/running-template-lookup';
 import { useState } from 'react';
 import Link from 'next/link';
 import {
@@ -377,11 +378,7 @@ export default function Import3KProgramPage() {
       addLog('🛣️ שלב 1a: מעלה 6 תבניות ריצת נפח (3–5.5 ק״מ)...');
 
       for (const tpl of SHORT_LONG_RUN_TEMPLATES) {
-        const q = query(
-          collection(db, WORKOUT_TEMPLATES_COLLECTION),
-          where('name', '==', tpl.name),
-        );
-        const snap = await getDocs(q);
+        const snap = await findRunWorkoutTemplatesByName(tpl.name);
 
         if (snap.size > 0) {
           workoutsSkipped++;
@@ -403,11 +400,7 @@ export default function Import3KProgramPage() {
       addLog('\n🏃 שלב 1b: מעלה 3 תבניות ריצת התאוששות (20–30 דק׳)...');
 
       for (const tpl of EASY_RUN_TEMPLATES) {
-        const q = query(
-          collection(db, WORKOUT_TEMPLATES_COLLECTION),
-          where('name', '==', tpl.name),
-        );
-        const snap = await getDocs(q);
+        const snap = await findRunWorkoutTemplatesByName(tpl.name);
 
         if (snap.size > 0) {
           workoutsSkipped++;
@@ -429,11 +422,7 @@ export default function Import3KProgramPage() {
       addLog('\n⛰️ שלב 1c: מעלה 4 תבניות עליות (starter + split sets)...');
 
       for (const tpl of HILL_TEMPLATES) {
-        const q = query(
-          collection(db, WORKOUT_TEMPLATES_COLLECTION),
-          where('name', '==', tpl.name),
-        );
-        const snap = await getDocs(q);
+        const snap = await findRunWorkoutTemplatesByName(tpl.name);
 
         if (snap.size > 0) {
           workoutsSkipped++;
@@ -455,11 +444,7 @@ export default function Import3KProgramPage() {
       addLog('\n🏁 שלב 1d: מעלה 2 תבניות Taper (openers + touch & go)...');
 
       for (const tpl of TAPER_TEMPLATES) {
-        const q = query(
-          collection(db, WORKOUT_TEMPLATES_COLLECTION),
-          where('name', '==', tpl.name),
-        );
-        const snap = await getDocs(q);
+        const snap = await findRunWorkoutTemplatesByName(tpl.name);
 
         if (snap.size > 0) {
           workoutsSkipped++;

@@ -27,6 +27,8 @@ import {
   DEFAULT_TAGS,
 } from '@/features/admin/types/product-roadmap.types';
 import { logAction } from './audit.service';
+import { buildStoredText } from '@/features/content/shared/content-locale';
+import { hebrewOrEmpty, isStoredLocalized } from '@/features/content/shared/stored-text-fields';
 
 const TASKS_COLLECTION = 'product_roadmap';
 const TAGS_COLLECTION = 'product_tags';
@@ -94,7 +96,9 @@ function normalizeTask(docId: string, data: any): ProductTask {
 function normalizeTag(docId: string, data: any): ProductTag {
   return {
     id: docId,
-    name: data?.name || '',
+    // tasks reference tags by this NAME: always the Hebrew string, even when the doc holds {he,en}
+    name: hebrewOrEmpty(data?.name),
+    nameLocalized: isStoredLocalized(data?.name) ? data.name : undefined,
     color: data?.color || '#6B7280',
     createdAt: toDate(data?.createdAt) || new Date(),
   };
@@ -415,7 +419,11 @@ export async function updateTag(
   try {
     const docRef = doc(db, TAGS_COLLECTION, tagId);
     const updateData: any = {};
-    if (data.name !== undefined) updateData.name = data.name;
+    if (data.name !== undefined) {
+      // A tag that already has English keeps it when its Hebrew name is edited.
+      const prev = isStoredLocalized(data.nameLocalized) ? data.nameLocalized : (await getDoc(docRef)).data()?.name;
+      updateData.name = isStoredLocalized(prev) && prev.en ? buildStoredText(data.name, prev.en, prev) : data.name;
+    }
     if (data.color !== undefined) updateData.color = data.color;
 
     await updateDoc(docRef, updateData);

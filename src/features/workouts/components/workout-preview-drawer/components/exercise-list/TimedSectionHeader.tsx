@@ -13,6 +13,8 @@ import TimedFormatInfoSheet from '@/features/workout-engine/players/strength/tim
 import { blockHeaderModel } from '../../utils/timed-preview.utils';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
+import MethodInfoButton from '@/features/workout-engine/components/method-info/MethodInfoButton';
+import type { MethodInfoModel } from '@/features/workout-engine/core/methods/method-info/method-info.model';
 
 /** Block accent per format (AMRAP sky, EMOM violet, tabata orange — as the boards). */
 export const BLOCK_TONE = {
@@ -21,20 +23,30 @@ export const BLOCK_TONE = {
   tabata: { text: 'text-[#c2410c]', pill: 'bg-[#fff7ed] ring-[#fdba74] text-[#c2410c]', rail: 'border-orange-400/70' },
 } as const;
 
-export default function TimedSectionHeader({ spec }: { spec: TimedBlockSpec }) {
+export default function TimedSectionHeader({
+  spec,
+  methodInfo,
+}: {
+  spec: TimedBlockSpec;
+  /** enable_method_info_sheet_v1 (tabata only): the "i" opens the method sheet instead of the format sheet. */
+  methodInfo?: MethodInfoModel | null;
+}) {
   const [open, setOpen] = useState(false);
   const t = useT(library);
   const h = blockHeaderModel(spec, t);
   const tone = BLOCK_TONE[h.tone];
   return (
     <>
-      <div className="mb-2.5 flex items-center gap-2" dir="rtl" style={{ fontFamily: 'var(--font-simpler)' }}>
+      <div className="mb-2.5 flex items-center gap-2" style={{ fontFamily: 'var(--font-simpler)' }}>
         <span className={`whitespace-nowrap text-[16px] font-extrabold ${tone.text}`}>{h.name}</span>
         <span dir="ltr" className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-extrabold ring-1 ring-inset ${tone.pill}`}>
           {h.pill}
         </span>
         <span className="truncate whitespace-nowrap text-[13px] font-semibold text-v2-muted">{h.line}</span>
         <span className="flex-1" />
+        {methodInfo ? (
+          <MethodInfoButton model={methodInfo} />
+        ) : (
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -43,6 +55,7 @@ export default function TimedSectionHeader({ spec }: { spec: TimedBlockSpec }) {
         >
           <Info size={14} strokeWidth={2.4} className="text-v2-ink-2" aria-hidden />
         </button>
+        )}
       </div>
       <TimedFormatInfoSheet spec={spec} open={open} onClose={() => setOpen(false)} />
     </>

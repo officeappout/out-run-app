@@ -16,6 +16,7 @@ import {
 } from '../turn-engine';
 import type { CoachStreamEvent } from '../protocol';
 import { dropHebrewlessSentences } from '../reply-guards';
+import { ensureCoachCatalog } from '../coach-locale';
 
 // ─── Mock model: a scripted queue of responses (shaped like SDK Messages) ──────
 
@@ -64,6 +65,20 @@ const WORKOUT_INPUT = { durationMin: 25, location: 'home', difficulty: 2, domain
 
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+describe('runCoachTurn: English turn (Kelly server locale)', () => {
+  it('keeps English words (no Hebrew-only strip), skips the Hebrew guards, empty reply uses the English fixed text', async () => {
+    await ensureCoachCatalog('en');
+    const { deps, events } = harness([msg('end_turn', { type: 'text', text: 'Nice work today. A short plank set is next.' })]);
+    const out = await runCoachTurn({ ...CFG, locale: 'en' }, newTurnState('hi'), deps);
+    expect(out.kind === 'final' && out.state.turnText).toBe('Nice work today. A short plank set is next.');
+    expect(events.filter((e) => e.type === 'text')).toHaveLength(1);
+    const h2 = harness([msg('end_turn')]);
+    const o2 = await runCoachTurn({ ...CFG, locale: 'en' }, newTurnState('hi'), h2.deps);
+    expect(o2.kind === 'final' && /[\u0590-\u05FF]/.test(o2.state.turnText)).toBe(false);
+    expect(o2.kind === 'final' && o2.state.turnText.length).toBeGreaterThan(5);
+  });
 });
 
 describe('runCoachTurn', () => {

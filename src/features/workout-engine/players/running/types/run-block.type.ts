@@ -1,3 +1,4 @@
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
 import type { RunZoneType } from '../../../core/types/running.types';
 
 export type RunBlockType = 'warmup' | 'run' | 'walk' | 'interval' | 'recovery' | 'cooldown';
@@ -5,7 +6,9 @@ export type RunBlockType = 'warmup' | 'run' | 'walk' | 'interval' | 'recovery' |
 export type RunBlock = {
   id: string;
   type: RunBlockType;
+  /** Hebrew always (all label logic matches on it). English, when the template has it, rides in labelLocalized: display only. */
   label: string;
+  labelLocalized?: LocalizedText;
   durationSeconds?: number;
   distanceMeters?: number;
   targetPacePercentage?: {

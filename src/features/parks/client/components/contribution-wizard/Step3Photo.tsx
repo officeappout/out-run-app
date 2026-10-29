@@ -290,7 +290,7 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
               type="button"
               onClick={handleRemove}
               aria-label={t('wizard.photo.remove')}
-              className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-v2-down shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              className="absolute end-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-v2-down shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
               <Trash2 size={17} strokeWidth={2.4} />
             </button>
@@ -358,7 +358,7 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
           )}
           <button
             onClick={handleRemove}
-            className="absolute top-3 left-3 p-2 rounded-full bg-red-500/80 text-white active:scale-90 transition-transform"
+            className="absolute top-3 end-3 p-2 rounded-full bg-red-500/80 text-white active:scale-90 transition-transform"
           >
             <Trash2 size={16} />
           </button>

@@ -9,6 +9,7 @@
  * mounted behind SWAP_ALL_ENABLED.
  */
 
+import { useShowHeOnlySurfaces } from '@/features/arena/hooks/useShowHeOnlySurfaces';
 import { useState } from 'react';
 import type { ExecutionLocation } from '@/features/content/exercises';
 import LocationVariantSwitcher, {
@@ -74,7 +75,8 @@ export default function WorkoutLocationSwitcher({
 
   // Persona gate: the 'service' (military) variant is offered only to the military persona.
   const profile = useUserStore((s) => s.profile);
-  const isMilitary = profile ? hasPersona(profile, 'military') : false;
+  const showHeOnly = useShowHeOnlySurfaces(); // hidden in non-Hebrew UIs
+  const isMilitary = showHeOnly && (profile ? hasPersona(profile, 'military') : false);
   const LOCATIONS: ExecutionLocation[] = isMilitary ? [...BASE_LOCATIONS, 'service'] : BASE_LOCATIONS;
 
   const options: LocationSwitcherOption[] = LOCATIONS.map((loc) => ({
@@ -91,7 +93,7 @@ export default function WorkoutLocationSwitcher({
   }));
 
   return (
-    <div dir="rtl" className="mb-4 flex items-center gap-2">
+    <div className="mb-4 flex items-center gap-2">
       <span className="text-xs font-semibold text-slate-500">{t('preview.location.title')}</span>
       <LocationVariantSwitcher
         activeLocation={currentLocation}

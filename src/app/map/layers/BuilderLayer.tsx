@@ -51,8 +51,8 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
 
       {/* Route picker — shown after preferences are set */}
       {!showPrefs && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-          <div className="mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 p-4" dir="rtl">
+        <div className="absolute bottom-0 end-0 start-0 z-20 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className="mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-black text-gray-800">{t('mapLayers.builder.title')}</h3>
               <button onClick={() => setMode('discover')} className="p-1 rounded-lg hover:bg-gray-100">
@@ -63,7 +63,7 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
             {logic.isGenerating ? (
               <div className="flex items-center justify-center py-6">
                 <div className="animate-spin w-6 h-6 border-[3px] border-[#00E5FF] border-t-transparent rounded-full" />
-                <span className="text-sm text-gray-500 font-bold mr-3">{t('mapLayers.builder.generating')}</span>
+                <span className="text-sm text-gray-500 font-bold ms-3">{t('mapLayers.builder.generating')}</span>
               </div>
             ) : logic.routesToDisplay.length > 0 ? (
               <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -77,7 +77,7 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
                         : 'border-gray-100 hover:border-gray-200'
                     }`}
                   >
-                    <div className="text-right">
+                    <div className="text-start">
                       <p className="text-sm font-bold text-gray-800">{route.name || t('mapLayers.builder.routeFallback')}</p>
                       <p className="text-[11px] text-gray-500">{withUnit('km', route.distance, tc)} · {withUnit('min', route.duration, tc)}</p>
                     </div>

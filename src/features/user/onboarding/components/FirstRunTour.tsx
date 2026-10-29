@@ -21,15 +21,18 @@ import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs
 import type { AppGender } from '@/lib/utils/gendered-text';
 import { useIsNewUserForTours } from '../hooks/useIsNewUserForTours';
 import { coachTargetVisible } from '../hooks/useCoachTargetPresent';
+import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
+import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { mapTutorialDoneLabel } from '../services/map-tutorial-tour';
 import {
   firstRunTourChrome, firstRunTourSeenKey, firstRunTourSteps, presentSteps, shouldShowFirstRunTour,
-  type FirstRunTourId, type HomeTourToday,
+  type AnyFirstRunTourId, type HomeTourToday,
 } from '../services/first-run-tour';
 
 export type FirstRunTourCloseReason = 'done' | 'skip' | 'seen' | 'empty' | 'not-new';
 
 interface Props {
-  tour: FirstRunTourId;
+  tour: AnyFirstRunTourId;
   /** The screen is calm (flags on + nothing else open). Rising edge starts the check. */
   active: boolean;
   uid: string | null | undefined;
@@ -52,6 +55,10 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
   // Read when the steps are built (a new object each render must not restart the check).
   const homeTodayRef = useRef(homeToday);
   homeTodayRef.current = homeToday;
+  // enable_map_tutorial_v1: the map / route / workout-drawer tours use the tutorial's steps.
+  const mapTutorialV1 = useMapTutorialV1();
+  // enable_park_live_v2: the route-player tip becomes the live park workout tour (board Park 4).
+  const parkLiveV2 = useParkLiveV2();
   const closedRef = useRef(false);
   // New-user check only once the screen has been calm at least once (no work for anyone else).
   const [everActive, setEverActive] = useState(false);
@@ -76,7 +83,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
       }
       timer = setTimeout(() => {
         if (!alive || !activeRef.current) return; // the screen got busy — wait for the next calm
-        const shown = presentSteps(firstRunTourSteps(tour, gender, { homeToday: homeTodayRef.current }), targetPresent);
+        const shown = presentSteps(firstRunTourSteps(tour, gender, { homeToday: homeTodayRef.current, mapTutorialV1, parkLiveV2 }), targetPresent);
         if (shown.length === 0) {
           closedRef.current = true;
           onCloseRef.current?.('empty');
@@ -86,7 +93,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
       }, delayMs);
     });
     return () => { alive = false; if (timer) clearTimeout(timer); };
-  }, [active, steps, tour, uid, gender, delayMs, isNew]);
+  }, [active, steps, tour, uid, gender, delayMs, isNew, mapTutorialV1, parkLiveV2]);
 
   if (!steps || typeof document === 'undefined') return null;
 
@@ -99,7 +106,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
 
   return createPortal(
     <div className="fixed inset-0 z-[1000]" data-first-run-tour={tour}>
-      <CoachMarks steps={steps} onFinish={finish} {...firstRunTourChrome(tour)} />
+      <CoachMarks steps={steps} onFinish={finish} doneLabel={mapTutorialDoneLabel(tour, mapTutorialV1)} {...firstRunTourChrome(tour)} />
     </div>,
     document.body,
   );

@@ -184,5 +184,7 @@
   "ui.report.failed": "{gender, select, female {השליחה נכשלה. נסי שוב.} male {השליחה נכשלה. נסה שוב.} other {השליחה נכשלה. נסו שוב.}}",
   "ui.report.sent": "תודה! הדיווח נשלח.",
   "ui.report.sending": "שולח…",
-  "ui.report.send": "שליחה"
+  "ui.report.send": "שליחה",
+  "language.switch.aria": "החלפת שפה",
+  "language.switch.menu": "שפה"
 }

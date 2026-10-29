@@ -36,7 +36,7 @@ export default function DopamineStreakBlock({ streakDays }: DopamineStreakBlockP
             </div>
           </div>
         </div>
-        <div className="text-right">
+        <div className="text-start">
           <div className="text-xs font-bold text-orange-100 uppercase tracking-wider">
             {t('streak.praise')}
           </div>

@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { hebrewOrEmpty } from '@/features/content/shared/stored-text-fields';
 import React, { useState, useEffect } from 'react';
 import {
   collection,
@@ -560,8 +561,9 @@ export default function WorkoutSettingsPage() {
             id: d.id,
             authorityId: (data.authorityId as string) ?? '',
             parkId: (data.parkId as string | undefined) ?? undefined,
-            title: (data.title as string) ?? '',
-            message: (data.message as string) ?? '',
+            // push_messages title/message may be {he,en}: the history shows the Hebrew string.
+            title: hebrewOrEmpty(data.title),
+            message: hebrewOrEmpty(data.message),
             sentBy: (data.sentBy as string) ?? '',
             sentAt: toDateSafe(data.sentAt) ?? new Date(0),
             targetAudience: (data.targetAudience as PushMessage['targetAudience']) ?? 'all',

@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Timer } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 interface WeeklyActivityWidgetProps {
   currentMinutes: number;
@@ -14,6 +16,7 @@ export const WeeklyActivityWidget: React.FC<WeeklyActivityWidgetProps> = ({
   activityCount = 0,
 }) => {
   const percentage = Math.min((currentMinutes / weeklyGoal) * 100, 100);
+  const tx = useT(home);
 
   return (
     <div
@@ -22,7 +25,7 @@ export const WeeklyActivityWidget: React.FC<WeeklyActivityWidgetProps> = ({
     >
       {/* Header */}
       <div className="flex justify-between items-start">
-        <span className="text-sm font-bold text-gray-800 dark:text-gray-100">יעד שבועי</span>
+        <span className="text-sm font-bold text-gray-800 dark:text-gray-100">{tx('sweep.weeklyActivity.title')}</span>
         <Heart className="text-gray-400 w-5 h-5" />
       </div>
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { homeTrioAvailableMinutes } from '@/features/home/utils/home-trio-minutes';
 import { common } from '@/messages/ns/common';
 import { weekdayLabel } from '@/lib/i18n/units';
@@ -89,7 +90,8 @@ import { recentIdsByDomain } from '@/features/workout-engine/logic/adaptive/goal
 // ============================================================================
 
 function ExerciseRow({ ex, index }: { ex: WorkoutExercise; index: number }) {
-  const name = getLocalizedText(ex.exercise.name);
+  const lang = useContentLanguage();
+  const name = getLocalizedText(ex.exercise.name, lang);
   const isGoal = ex.isGoalExercise;
   const range = ex.repsRange;
   const perSide = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : ''; // i18n-allow-hebrew: dead — ExercisePreviewList is never rendered

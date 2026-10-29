@@ -199,8 +199,13 @@ export function resolveTreeProgramId(exercise: Pick<Exercise, 'targetPrograms'>)
  *                  target node's destination.
  *
  * All three images share the same 1536×2752 native aspect ratio.
+ *
+ * W4 (27.10.2026, slow progress-screen images): the originals were ~1.5MB
+ * JPEGs (named .png) at 1536×2752, ~4.8MB downloaded on every tree open
+ * for a ~400px-wide phone. Now WebP at 828px wide (2× a phone width, same
+ * aspect) — ~65KB for all three, visually identical at screen size.
  */
-export const PROGRESSION_MAP_SKY_IMAGE = '/images/progression-map/sky.png';
-export const PROGRESSION_MAP_PATH_MID_IMAGE = '/images/progression-map/path-mid.png';
-export const PROGRESSION_MAP_PATH_TILE_IMAGE = '/images/progression-map/path-tile.png';
+export const PROGRESSION_MAP_SKY_IMAGE = '/images/progression-map/sky.webp';
+export const PROGRESSION_MAP_PATH_MID_IMAGE = '/images/progression-map/path-mid.webp';
+export const PROGRESSION_MAP_PATH_TILE_IMAGE = '/images/progression-map/path-tile.webp';
 export const PROGRESSION_MAP_BG_NATIVE_ASPECT = 1536 / 2752;

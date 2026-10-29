@@ -48,7 +48,7 @@ export default function PartnersHighlightsRow({
 
   return (
     <div className="pb-5 border-b border-gray-100">
-      <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide" dir="rtl">
+      <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
         {onAddClick && (
           <button
             type="button"

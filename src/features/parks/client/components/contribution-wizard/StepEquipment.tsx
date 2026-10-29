@@ -118,14 +118,14 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
           )}
 
           <div className="relative">
-            <Search size={16} strokeWidth={2.4} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-v2-muted" />
+            <Search size={16} strokeWidth={2.4} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-v2-muted" />
             <input
               ref={searchInputRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('wizard.equipment.search')}
-              className={`${V2_INPUT} !pr-10`}
+              className={`${V2_INPUT} !ps-10`}
             />
           </div>
         </div>
@@ -198,14 +198,14 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
         )}
 
         <div className="relative">
-          <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             ref={searchInputRef}
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('wizard.equipment.search')}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-4 py-2.5 text-slate-900 text-sm placeholder:text-slate-400 outline-none focus:border-[#00E5FF] transition-colors"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl ps-9 pe-4 py-2.5 text-slate-900 text-sm placeholder:text-slate-400 outline-none focus:border-[#00E5FF] transition-colors"
           />
         </div>
       </div>
@@ -248,7 +248,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
           className="flex-1 py-3.5 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-1 bg-[#00E5FF] text-slate-900 active:scale-[0.97] shadow-lg shadow-cyan-500/25"
         >
           {selectedIds.size > 0 ? t('wizard.continue') : t('wizard.skip')}
-          <ChevronRight size={16} className="rotate-180" />
+          <ChevronRight size={16} className="rotate-180 ltr:-scale-x-100" />
         </button>
       </div>
     </div>

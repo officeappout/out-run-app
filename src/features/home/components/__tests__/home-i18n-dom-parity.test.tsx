@@ -55,6 +55,7 @@ vi.mock('@/features/user/onboarding/components/PersonaQuestionsDrawer', () => ({
 vi.mock('@/features/user/onboarding/components/steps/PersonaStep', () => ({
   LIFESTYLE_OPTIONS: [{ id: 'parent' }, { id: 'student' }, { id: 'military' }], resolvePersonaEmoji: () => '🙂',
 }));
+vi.mock('@/features/user/onboarding/hooks/useShowHeOnlySteps', () => ({ useShowHeOnlySteps: () => true }));
 vi.mock('@/components/ui/Toast', () => {
   const r = { showToast: () => {} };
   return { useToast: () => r };

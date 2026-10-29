@@ -277,6 +277,11 @@ export const FLAG_DEFS = [
   // admin (owner + office) always sees it (superAdminValue true). Off = tool list, prompt, engine
   // options and results exactly as before.
   { key: 'aiCoachWorkoutFormat', firestoreKey: 'ai_coach_workout_format', defaultValue: false, superAdminValue: true },
+  // aiCoachLocaleV1 (28.10.2026, owner-approved) — Kelly answers in the user's language. Server-read (chat
+  // route, src/lib/ai/coach/coach-locale.ts resolveCoachLocale): the reply language follows users/{uid}.core.locale
+  // only while this AND enable_i18n (and the locale's own enable_locale_*) are on. Fail-closed, superAdminValue
+  // false (the server never applies it). Off = Hebrew prompts, fixed replies and stored messages byte-identical.
+  { key: 'aiCoachLocaleV1', firestoreKey: 'ai_coach_locale_v1', defaultValue: false, superAdminValue: false },
   // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
   // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
   // the focused field is scrolled into view, and the Capacitor Keyboard plugin is
@@ -567,11 +572,19 @@ export const FLAG_DEFS = [
   { key: 'enableLocaleEn', firestoreKey: 'enable_locale_en', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleRu', firestoreKey: 'enable_locale_ru', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleDe', firestoreKey: 'enable_locale_de', defaultValue: false, superAdminValue: false },
+  // Content in the user's language (exercise names, descriptions...). OFF = Hebrew content exactly as before. Needs enable_i18n
+  // and the user on English; an empty English field falls back to Hebrew. Display only (no stored data changes).
+  { key: 'enableContentLocale', firestoreKey: 'enable_content_locale', defaultValue: false, superAdminValue: false },
   // i18n wave 5B (docs/i18n/PLAN.md §2.6) — pushes by recipient locale. Needs enable_i18n too. OFF = every push is
   // selected and rendered exactly as before (Hebrew). On: users/{uid}.core.locale → library rows of that locale →
   // translated code defaults → Hebrew. Read server-side from system_config/feature_flags (the super-admin value
   // is client-only; Cloud Functions see the stored value).
   { key: 'pushLocaleV1', firestoreKey: 'push_locale_v1', defaultValue: false, superAdminValue: true },
+  // Onboarding skips the Hebrew-only steps (the lifestyle persona step: IDF / school / office picker) when the UI
+  // locale is not Hebrew — there is no military persona in English. OFF = onboarding is exactly as before for
+  // everyone; ON + Hebrew = unchanged; only ON + a non-he locale changes. The rule lives in ONE pure helper
+  // (features/user/onboarding/utils/he-only-steps.ts), later to become country-based. Needs enable_i18n to matter.
+  { key: 'hideHeOnlyOnboardingSteps', firestoreKey: 'hide_he_only_onboarding_steps', defaultValue: false, superAdminValue: false },
   // App-session signal (22.10.2026, owner-approved — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md open
   // question 10): "came back to the app without tapping a push". The old app_open/session_start
   // event types were removed (#171) because nothing ever fired them — not for cost or noise — so
@@ -771,6 +784,36 @@ export const FLAG_DEFS = [
   // (real minutes ring, day cards scrolled sideways: workout, steps ring, short optional), flames explainer, then the
   // home tour starts from today's cards (no-workout day variant). Fail-closed; super admins preview it. Off = identical.
   { key: 'enableScheduleTutorialV1', firestoreKey: 'enable_schedule_tutorial_v1', defaultValue: true, superAdminValue: true, graduated: true },
+  // First-run map tutorial (27.10.2026, owner-approved canvas boards M1-M8, pilot notes L3, L5, L7-L13): the location
+  // drawer explains the league and the drag (chip above a smaller lemur, closer zoom), the what-now route card copy,
+  // "just look around" promises 3 things, the route tour (details, garden stop, order, "יאללה, בואו נתחיל" opens it),
+  // the real route card with an "i" ("why this route") drawer and a whole-card tap, the workout drawer tour, and the
+  // new questionnaire card. Fail-closed; super admins preview it. NOT graduated: the owner tests it on the phone first.
+  { key: 'enableMapTutorialV1', firestoreKey: 'enable_map_tutorial_v1', defaultValue: false, superAdminValue: true },
+  // Live park workout v2 (28.10.2026, owner-approved canvas boards Park 1-12, pilot notes M2-M4, M7, M10-M11, M13,
+  // M15-M16, M19, M22, M25-M26, N1-N2): on the walk + equipment-stations player a walk card (time, distance, to the
+  // station, no pace) with today's controls, a station message under the story bars, the live tutorial in the right
+  // order, one station intro (machines in photos, muscles, how tabata works, difficulty in bolts, default easy),
+  // "put the phone on the floor" before the timer, "find the next machine" + swap in the rest, a weekly-ring screen
+  // before the summary, and summary fixes (walk ring, no minutes bar, questionnaire card). Needs enable_home_v2.
+  // Fail-closed; super admins preview it. NOT graduated: the owner tests it in the park first.
+  { key: 'enableParkLiveV2', firestoreKey: 'enable_park_live_v2', defaultValue: false, superAdminValue: true },
+  // Navigation on the v2 player (28.10.2026, phone test AA2): "navigate to a park / place" (a commute) used to fall
+  // back to the old free-run UI (old laps list, dark dock, ETA carousel) even with enable_home_v2 on. On = the v2
+  // free-run player with the destination + remaining distance + arrival time in its header. Needs enable_home_v2.
+  // Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableCommuteV2PlayerV1', firestoreKey: 'enable_commute_v2_player_v1', defaultValue: false, superAdminValue: true },
+  // Workout coach note (28.10.2026, phone test AB2): the "דגשי האימון" block (#415, CoachNoteBlock) on the
+  // workout preview: 2-4 sentences on WHY this workout was built and WHAT to expect, from the engine's
+  // DecisionRecord. It sat behind the compile-time WORKOUT_COACH_NOTE_V1 (false) and never reached users.
+  // On = the note shows and the description line above it replaces the template "logic cue". Fail-closed;
+  // super admins preview it. Off = identical to today.
+  { key: 'enableWorkoutCoachNoteV1', firestoreKey: 'enable_workout_coach_note_v1', defaultValue: false, superAdminValue: true },
+  // Method "i" sheet (29.10.2026, owner-approved canvas boards MethodStraight / Superset / Pyramid / PyramidPeak /
+  // Tabata): an "i" next to a strength block's title (workout preview + the player's superset / tabata frames) opens a
+  // sheet that explains the method with the block's own exercises, reps / steps and rest, a looping demo built from the
+  // real cards, 3 steps and two "ask Kelly" chips. Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableMethodInfoSheetV1', firestoreKey: 'enable_method_info_sheet_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

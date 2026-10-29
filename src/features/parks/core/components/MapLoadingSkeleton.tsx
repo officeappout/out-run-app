@@ -43,7 +43,6 @@ export default function MapLoadingSkeleton({ visible }: MapLoadingSkeletonProps)
       {visible && (
         <motion.div
           key="map-skeleton"
-          dir="rtl"
           // `backdropFilter` is animated by framer-motion: starts at a
           // heavy blur (~Tailwind `backdrop-blur-xl`) plus a saturation
           // boost that pushes the underlying map's colour pop, then

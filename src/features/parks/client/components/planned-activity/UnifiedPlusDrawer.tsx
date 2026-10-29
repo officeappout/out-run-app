@@ -102,7 +102,7 @@ export default function UnifiedPlusDrawer({
     <button
       key={row.label}
       onClick={row.onSelect}
-      className="flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]"
+      className="flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]"
     >
       <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[14px] bg-v2-tint text-v2-deep [&_svg]:!text-v2-deep">
         {row.icon}
@@ -111,7 +111,7 @@ export default function UnifiedPlusDrawer({
         <span className="block text-[15.5px] font-black text-v2-ink">{row.label}</span>
         <span className="block truncate text-[12.5px] font-bold text-v2-muted">{row.sublabel}</span>
       </span>
-      <ChevronLeft size={17} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted" />
+      <ChevronLeft size={17} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted ltr:-scale-x-100" />
     </button>
   );
 
@@ -119,7 +119,7 @@ export default function UnifiedPlusDrawer({
     <button
       key={row.label}
       onClick={row.onSelect}
-      className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl bg-gray-50 hover:bg-gray-100 active:scale-[0.99] transition-all text-right"
+      className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl bg-gray-50 hover:bg-gray-100 active:scale-[0.99] transition-all text-start"
     >
       <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
         {row.icon}
@@ -128,7 +128,7 @@ export default function UnifiedPlusDrawer({
         <div className="text-sm font-bold text-gray-900">{row.label}</div>
         <div className="text-[11px] text-gray-500 leading-tight mt-0.5">{row.sublabel}</div>
       </div>
-      <ChevronLeft size={16} className="text-gray-300 flex-shrink-0" />
+      <ChevronLeft size={16} className="text-gray-300 flex-shrink-0 ltr:-scale-x-100" />
     </button>
   );
 
@@ -213,7 +213,6 @@ export default function UnifiedPlusDrawer({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden"
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
-            dir="rtl"
           >
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-200" />

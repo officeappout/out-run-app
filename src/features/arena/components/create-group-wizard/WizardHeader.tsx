@@ -29,7 +29,7 @@ export function WizardHeader({
   // The old helper gave the female form only for 'female' — `other` repeats the male text.
   const gender = myGender ?? 'other';
   return (
-    <div className="flex-shrink-0 px-5 pt-4 pb-3" dir="rtl">
+    <div className="flex-shrink-0 px-5 pt-4 pb-3">
       {/* Drag handle */}
       <div className={`mx-auto mb-4 rounded-full ${v2 ? 'h-1.5 w-10 bg-v2-pill-border' : 'w-10 h-1 bg-gray-200'}`} />
 

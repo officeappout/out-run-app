@@ -70,11 +70,11 @@ export default function SlotEditorSheet({ group, slotIndex, onBack, onSaved, sho
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden space-y-0" dir="rtl">
+    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden space-y-0">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
         <button onClick={onBack} className="text-gray-400 hover:text-gray-600 active:scale-90 transition-all">
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4 ltr:-scale-x-100" />
         </button>
         <span className="text-sm font-black text-gray-900 flex-1">{slotIndex !== null ? t('group.slotEditor.titleEdit') : t('group.slotEditor.titleAdd')}</span>
       </div>

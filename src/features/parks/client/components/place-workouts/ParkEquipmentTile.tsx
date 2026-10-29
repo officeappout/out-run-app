@@ -9,6 +9,7 @@
  * there is truly no picture (or it fails to load).
  */
 
+import { useLocalizedGymEquipment } from '@/features/content/equipment/gym/core/useLocalizedGymEquipment';
 import { useState } from 'react';
 import { Dumbbell } from 'lucide-react';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
@@ -27,7 +28,8 @@ export interface ParkEquipmentTileProps {
   onSelect: () => void;
 }
 
-export default function ParkEquipmentTile({ equipment: eq, brand, onSelect }: ParkEquipmentTileProps) {
+export default function ParkEquipmentTile({ equipment: rawEq, brand, onSelect }: ParkEquipmentTileProps) {
+  const eq = useLocalizedGymEquipment(rawEq);
   const [failed, setFailed] = useState(false);
   const image = equipmentImageUrl(eq, brand || null);
   const showImage = !!image && !failed;

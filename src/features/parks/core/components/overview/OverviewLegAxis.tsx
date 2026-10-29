@@ -69,12 +69,12 @@ export default function OverviewLegAxis({
   return (
     <AxisV2.Provider value={v2}>
     <AxisDecor.Provider value={decorations}>
-    <div dir="rtl">
+    <div>
       {top}
 
       {origin ?? <YourLocationRow variant="origin" railBelowDotted={walkThere > 0} firstColorBelow={AER} />}
       {originNote && (
-        <div className="-mt-2 mb-1 whitespace-nowrap pr-14 text-[12px] font-bold text-v2-muted">{originNote}</div>
+        <div className="-mt-2 mb-1 whitespace-nowrap ps-14 text-[12px] font-bold text-v2-muted">{originNote}</div>
       )}
       {walkThere > 0 && <TransportRow label={there!.kind === 'transport' ? there!.label : ''} minutes={walkThere} />}
       <RouteDivider label={startLabel} from={AER} to={firstSegColor} />

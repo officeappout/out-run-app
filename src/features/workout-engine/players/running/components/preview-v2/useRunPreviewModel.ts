@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useRunningConfigStore } from '@/features/workout-engine/core/store/useRunningConfigStore';
 import { computeZones } from '@/features/workout-engine/core/services/running-engine.service';
@@ -26,6 +27,7 @@ export function useRunPreviewModel(workout: RunWorkout | null, extras: RunPrevie
   const basePace = paceProfile?.basePace ?? 0;
   const profileType: RunnerProfileType = paceProfile?.profileType ?? 3;
   const { templateCategory, week } = extras;
+  const lang = useContentLanguage();
 
   return useMemo(() => {
     if (!workout) return null;
@@ -37,10 +39,11 @@ export function useRunPreviewModel(workout: RunWorkout | null, extras: RunPrevie
         templateCategory,
         week,
         showPaceNumbers: profileType !== 3,
+        lang,
       });
     } catch {
       // A malformed template must not take the map / home down — the caller falls back.
       return null;
     }
-  }, [workout, basePace, profileType, config, templateCategory, week]);
+  }, [workout, basePace, profileType, config, templateCategory, week, lang]);
 }

@@ -171,7 +171,7 @@
   "ui.sheet.collapse": "Collapse",
   "ui.sheet.expand": "Expand",
   "ui.improvement.title": "Improvement since last time",
-  "ui.improvement.count": "{n, plural, =1 {One exercise improved} other {{n} exercises improved}}",
+  "ui.improvement.count": "{n, plural, one {One exercise improved} other {{n} exercises improved}}",
   "ui.improvement.compare": "Last time <prev></prev> · Today <today></today>",
   "ui.journey.repeat": "Reps",
   "ui.chart.aria": "Chart",
@@ -184,5 +184,7 @@
   "ui.report.failed": "Couldn’t send. Try again.",
   "ui.report.sent": "Thank you! Your report was sent.",
   "ui.report.sending": "Sending…",
-  "ui.report.send": "Send"
+  "ui.report.send": "Send",
+  "language.switch.aria": "Change language",
+  "language.switch.menu": "Language"
 }

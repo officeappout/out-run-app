@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Square } from 'lucide-react';
 import { hapticWarning } from '@/lib/haptics';
@@ -20,6 +20,10 @@ import { player } from '@/messages/ns/player';
  * Self-contained — owns its own AnimatePresence and visibility via `isOpen`.
  * Both backdrop tap and the "continue" CTA share `onDismiss`.
  *
+ * S1 (pilot wave 2): optional "יציאה בלי שמירה" link (`onDiscard`). Two taps: the first
+ * swaps the copy to what will NOT happen (no history, XP or weekly volume), the second
+ * confirms. Omitted (hybrid station) → the modal is exactly as before.
+ *
  * Extracted from StrengthRunner.tsx (Decoupling Step R-7).
  */
 
@@ -30,10 +34,24 @@ export interface ExitConfirmModalProps {
   onDismiss: () => void;
   /** Absolute early-exit trigger — fires the workout-complete callback. */
   onExit: () => void;
+  /** Leave without saving anything. Omitted → no discard link. */
+  onDiscard?: () => void;
 }
 
-export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConfirmModalProps) {
+export default function ExitConfirmModal({ isOpen, onDismiss, onExit, onDiscard }: ExitConfirmModalProps) {
   const t = useT(player);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  useEffect(() => {
+    if (!isOpen) setConfirmDiscard(false);
+  }, [isOpen]);
+  const handleDiscard = () => {
+    if (!confirmDiscard) {
+      setConfirmDiscard(true);
+      return;
+    }
+    hapticWarning();
+    onDiscard?.();
+  };
   const handleExit = () => {
     hapticWarning();
     onExit();
@@ -72,7 +90,7 @@ export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConf
               className="text-sm text-slate-500 dark:text-slate-400 mb-7"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              {t('strengthPlayer.exit.text')}
+              {t(confirmDiscard ? 'strengthPlayer.exit.discardText' : 'strengthPlayer.exit.text')}
             </p>
 
             <button
@@ -90,6 +108,18 @@ export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConf
             >
               {t('strengthPlayer.exit.end')}
             </button>
+
+            {onDiscard && (
+              <button
+                onClick={handleDiscard}
+                className={confirmDiscard
+                  ? 'block w-full mt-5 h-12 rounded-2xl font-bold text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/40 active:scale-[0.98] transition-transform'
+                  : 'block mx-auto mt-4 text-sm text-slate-400 dark:text-slate-500 underline underline-offset-2 hover:text-slate-600 dark:hover:text-slate-300 transition-colors'}
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                {t(confirmDiscard ? 'strengthPlayer.exit.discardConfirm' : 'strengthPlayer.exit.discard')}
+              </button>
+            )}
           </motion.div>
         </motion.div>
       )}

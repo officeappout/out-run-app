@@ -692,7 +692,7 @@ export async function duplicateExercise(exerciseId: string): Promise<string> {
       // === BASIC FIELDS ===
       name: {
         he: `${originalExercise.name.he || originalExercise.name.en || ''} (עותק)`,
-        en: `${originalExercise.name.en || originalExercise.name.he || ''} (Copy)`,
+        en: '', // empty: to be translated (copying the Hebrew into en corrupted the English catalog)
         es: originalExercise.name.es,
       },
       type: originalExercise.type,

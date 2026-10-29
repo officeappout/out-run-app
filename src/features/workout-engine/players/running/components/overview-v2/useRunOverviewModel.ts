@@ -9,6 +9,7 @@
  */
 
 import { useMemo } from 'react';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useRunningConfigStore } from '@/features/workout-engine/core/store/useRunningConfigStore';
 import { computeZones } from '@/features/workout-engine/core/services/running-engine.service';
@@ -97,17 +98,18 @@ export function useRunOverviewModel(
   }, [workout, active, edits.swap, pace.ctx]);
   const model = useRunPreviewModel(active, extras);
   const swap = active?.mainSwap ?? null;
+  const lang = useContentLanguage();
   const legs = useMemo(() => {
     if (!active || !model) return [];
     try {
       const spec = decodeMainSet(edits.swap);
       const collapseMain = spec && !isUniform(spec) ? { stripLabel: mainSetTitle(spec) } : null;
-      return buildRunOverviewLegs(active.blocks, pace.ctx, { kind: model.kind, showPaceNumbers: pace.showPaceNumbers, walk, collapseMain });
+      return buildRunOverviewLegs(active.blocks, pace.ctx, { kind: model.kind, showPaceNumbers: pace.showPaceNumbers, walk, collapseMain, lang });
     } catch {
       return [];
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, model, pace, walk?.thereMin, walk?.backMin, edits.swap]);
+  }, [active, model, pace, walk?.thereMin, walk?.backMin, edits.swap, lang]);
   if (!active || !model) return null;
   return { model, active, variants, legs, pace, swapGroups, swap };
 }

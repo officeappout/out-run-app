@@ -16,6 +16,9 @@ interface EquipmentTextListEditorProps {
   hint?: string;
   items: string[];
   onChange: (items: string[]) => void;
+  /** English per item (same index). Present => an EN input shows under each Hebrew line. */
+  enItems?: string[];
+  onEnChange?: (items: string[]) => void;
   max: number;
   warnChars: number;
   placeholder?: string;
@@ -27,6 +30,8 @@ export default function EquipmentTextListEditor({
   hint,
   items,
   onChange,
+  enItems,
+  onEnChange,
   max,
   warnChars,
   placeholder,
@@ -37,13 +42,32 @@ export default function EquipmentTextListEditor({
     next[index] = value;
     onChange(next);
   };
-  const remove = (index: number) => onChange(items.filter((_, i) => i !== index));
+  // The English list mirrors every structural change of the Hebrew one so the pairs stay aligned.
+  const padEn = () => items.map((_, i) => enItems?.[i] ?? '');
+  const updateEn = (index: number, value: string) => {
+    const next = padEn();
+    next[index] = value;
+    onEnChange?.(next);
+  };
+  const add = () => {
+    onChange([...items, '']);
+    if (onEnChange) onEnChange([...padEn(), '']);
+  };
+  const remove = (index: number) => {
+    onChange(items.filter((_, i) => i !== index));
+    if (onEnChange) onEnChange(padEn().filter((_, i) => i !== index));
+  };
   const move = (index: number, delta: -1 | 1) => {
     const target = index + delta;
     if (target < 0 || target >= items.length) return;
     const next = [...items];
     [next[index], next[target]] = [next[target], next[index]];
     onChange(next);
+    if (onEnChange) {
+      const en = padEn();
+      [en[index], en[target]] = [en[target], en[index]];
+      onEnChange(en);
+    }
   };
 
   return (
@@ -54,7 +78,7 @@ export default function EquipmentTextListEditor({
         </label>
         <button
           type="button"
-          onClick={() => onChange([...items, ''])}
+          onClick={add}
           disabled={items.length >= max}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cyan-500 text-white rounded-lg font-bold hover:bg-cyan-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -91,6 +115,17 @@ export default function EquipmentTextListEditor({
                     {len}/{warnChars}
                     {over && ' — ארוך מדי למסך האימון, כדאי לקצר'}
                   </p>
+                  {onEnChange && (
+                    <textarea
+                      value={enItems?.[index] ?? ''}
+                      onChange={(e) => updateEn(index, e.target.value)}
+                      rows={2}
+                      dir="ltr"
+                      placeholder="English (optional)"
+                      aria-label={`${label} ${index + 1} (EN)`}
+                      className="mt-2 w-full px-4 py-2.5 text-base text-left border border-gray-300 rounded-xl resize-y focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    />
+                  )}
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
                   <button

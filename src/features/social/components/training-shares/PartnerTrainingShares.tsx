@@ -24,7 +24,7 @@ export function PartnerTrainingSharesList({ shares, now, onJoin }: {
   const t = useT(community);
   if (shares.length === 0) return null;
   return (
-    <section className="space-y-2 px-4" dir="rtl" aria-label={t('trainingShares.title')}>
+    <section className="space-y-2 px-4" aria-label={t('trainingShares.title')}>
       <h3 className="px-1 text-[15px] font-black text-v2-ink">{t('trainingShares.title')}</h3>
       {shares.map((s) => <PartnerTrainingShareRow key={s.id} share={s} now={now} onJoin={onJoin} />)}
     </section>

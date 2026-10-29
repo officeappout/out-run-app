@@ -41,16 +41,16 @@ describe('join success data', () => {
     const legacy = { dayOfWeek: 4, time: '07:00', frequency: 'weekly' as const };
     const g = { id: 'g1', name: 'רצים', category: 'running', scheduleSlots: [slot], schedule: legacy, meetingLocation: { address: 'פארק' } } as unknown as CommunityGroup;
     expect(groupJoinSuccess(g)).toEqual({
-      name: 'רצים', verb: 'ירוץ', groupId: 'g1', scheduleSlots: [slot], category: 'running', address: 'פארק',
+      name: 'רצים', verbKey: 'postJoin.verb.running', groupId: 'g1', scheduleSlots: [slot], category: 'running', address: 'פארק',
     });
     const old = { id: 'g2', name: 'ישן', category: 'mystery', schedule: legacy } as unknown as CommunityGroup;
-    expect(groupJoinSuccess(old)).toMatchObject({ verb: 'יתאמן', scheduleSlots: [legacy], address: undefined });
+    expect(groupJoinSuccess(old)).toMatchObject({ verbKey: 'postJoin.verb.other', scheduleSlots: [legacy], address: undefined });
     const none = { id: 'g3', name: 'ריק', category: 'cycling' } as unknown as CommunityGroup;
-    expect(groupJoinSuccess(none)).toMatchObject({ verb: 'ירכב', scheduleSlots: [] });
+    expect(groupJoinSuccess(none)).toMatchObject({ verbKey: 'postJoin.verb.cycling', scheduleSlots: [] });
   });
   it('event: name + verb only', () => {
-    expect(eventJoinSuccess({ id: 'e1', name: 'מרוץ', category: 'race' } as unknown as CommunityEvent)).toEqual({ name: 'מרוץ', verb: 'ירוץ' });
-    expect(eventJoinSuccess({ id: 'e2', name: 'x', category: '??' } as unknown as CommunityEvent)).toEqual({ name: 'x', verb: 'יתאמן' });
+    expect(eventJoinSuccess({ id: 'e1', name: 'מרוץ', category: 'race' } as unknown as CommunityEvent)).toEqual({ name: 'מרוץ', verbKey: 'postJoin.verb.race' });
+    expect(eventJoinSuccess({ id: 'e2', name: 'x', category: '??' } as unknown as CommunityEvent)).toEqual({ name: 'x', verbKey: 'postJoin.verb.other' });
   });
 });
 

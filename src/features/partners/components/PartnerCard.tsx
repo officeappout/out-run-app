@@ -51,6 +51,7 @@ import { getStageTitle } from '@/features/user/progression/config/stage-titles';
 import { useUserStore } from '@/features/user';
 import { useChatStore } from '@/features/social/store/useChatStore';
 import { useT, type ReactTFunction } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 
@@ -201,6 +202,7 @@ export function PartnerCard({
   v2 = false,
 }: PartnerCardProps) {
   const t = useT(map);
+  const { direction } = useUiDir();
   const avatarSrc = photoURL || resolvePersonaImage(personaId);
   const activity = resolveActivityLine(t, activityStatus, mockPace, lemurStage);
 
@@ -312,7 +314,7 @@ export function PartnerCard({
     const { Icon: ActivityIcon, color: activityColor } = V2_ACTIVITY_ICON[activityStatus ?? 'other'];
     return (
       <div
-        dir="rtl"
+        dir={direction}
         className="relative mx-auto flex w-full flex-col overflow-hidden rounded-v2-card bg-white shadow-v2-card"
         style={{ height: 330 }}
       >
@@ -406,7 +408,7 @@ export function PartnerCard({
 
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className="relative overflow-hidden group cursor-pointer mx-auto transition-transform active:scale-[0.98]"
       style={{
         width: '100%',
@@ -480,7 +482,7 @@ export function PartnerCard({
       />
 
       {/* 5. Content layer — bottom-anchored, identical layout to HeroWorkoutCard */}
-      <div className="absolute inset-0 z-10 flex flex-col justify-end items-center px-4 pb-4" dir="rtl">
+      <div className="absolute inset-0 z-10 flex flex-col justify-end items-center px-4 pb-4" dir={direction}>
 
         {/* 5a. Metadata row — distance + streak */}
         <div className="w-full mb-1 flex items-center justify-between gap-2 text-[13px] font-normal" style={{ color: '#374151' }}>

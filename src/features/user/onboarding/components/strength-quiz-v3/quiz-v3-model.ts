@@ -106,21 +106,31 @@ export function transitionModel(
 
 // ── Slider ───────────────────────────────────────────────────────
 
-/** Muscle groups start in the middle of their steps (no tier screen under the flag). */
-export function middleStepIndex(stepsLength: number): number {
-  if (stepsLength <= 0) return 0;
-  return Math.floor((stepsLength - 1) / 2);
+/**
+ * Muscle groups open on the second (easier) step, not the middle (owner 28.10, Y1): most users then
+ * swipe toward harder, which reads as progress. One step only: that step.
+ */
+export function easyStartIndex(stepsLength: number): number {
+  return stepsLength > 1 ? 1 : 0;
 }
 
-/** Where the slider opens: the middle, or (returning to a group already answered) the nearest step. */
-export function startStepIndex(steps: readonly number[], initialLevel: number, startMiddle: boolean): number {
+/** Where the slider opens: the easy start, or (returning to a group already answered) the nearest step. */
+export function startStepIndex(steps: readonly number[], initialLevel: number, startEasy: boolean): number {
   if (steps.length === 0) return 0;
-  if (startMiddle) return middleStepIndex(steps.length);
+  if (startEasy) return easyStartIndex(steps.length);
   let best = 0;
   for (let i = 1; i < steps.length; i++) {
     if (Math.abs(steps[i] - initialLevel) < Math.abs(steps[best] - initialLevel)) best = i;
   }
   return best;
+}
+
+/** The step levels on either side of `selected` (null at the floor / ceiling). The side cards' previews. */
+export function neighbourSteps(steps: readonly number[], selected: number): { easier: number | null; harder: number | null } {
+  return {
+    easier: selected > 0 ? steps[selected - 1] ?? null : null,
+    harder: selected >= -1 && selected + 1 < steps.length ? steps[selected + 1] ?? null : null,
+  };
 }
 
 /**

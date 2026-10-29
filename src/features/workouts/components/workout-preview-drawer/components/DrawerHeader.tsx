@@ -61,14 +61,14 @@ const DrawerHeaderImpl: React.FC<DrawerHeaderProps> = ({
 
   return (
     <motion.div
-      className="absolute top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800"
+      className="absolute top-0 end-0 start-0 z-50 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800"
       style={{ opacity: headerOpacity, pointerEvents }}
       aria-hidden={v2 && inactive ? true : undefined}
     >
       <div className="flex items-center justify-between px-4 pt-10 pb-3">
         {v2 ? (
           <IconButton aria-label={t('preview.header.close')} tone="surface" size={40} onClick={onClose} tabIndex={inactive ? -1 : undefined}>
-            <ArrowRight size={20} />
+            <ArrowRight className="ltr:-scale-x-100" size={20} />
           </IconButton>
         ) : (
         <button
@@ -76,7 +76,7 @@ const DrawerHeaderImpl: React.FC<DrawerHeaderProps> = ({
           className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 active:scale-90 transition-transform"
           aria-label={t('preview.header.close')}
         >
-          <ArrowRight size={20} />
+          <ArrowRight className="ltr:-scale-x-100" size={20} />
         </button>
         )}
         <h1 className="text-base font-bold text-gray-900 dark:text-white flex-1 text-center px-4 leading-tight line-clamp-2">

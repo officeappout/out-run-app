@@ -29,6 +29,9 @@ const SIDE: Record<string, string> = { l: 'e', r: 's' };
 const CORNER: Record<string, string> = { tl: 'se', tr: 'ss', bl: 'ee', br: 'es' };
 /** Expected logical token for a physical one under RTL (left=end, right=start), variants preserved. */
 function independentMap(token: string): string | null {
+  // important modifier: `!pr-10` -> `!ps-10` (the `!` sits after the variants)
+  const imp = token.match(/^((?:[\w-]+:)*)!(.+)$/);
+  if (imp) { const r = independentMap(imp[1] + imp[2]); return r && r.replace(/^((?:[\w-]+:)*)/, '$1!'); }
   const m = token.match(/^((?:[\w-]+:)*)(-?)(.*)$/)!;
   const [, variants, neg, core] = m;
   let r: RegExpMatchArray | null;

@@ -15,10 +15,10 @@
  * person, above that UI, at hero (≈390×250) and thumbnail (52×52) sizes.
  */
 import type { ProgramCardId } from '../utils/program-card-selection';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export interface BundledGoalPhoto {
   src: string;
@@ -38,21 +38,21 @@ export type GoalImageSource =
 export const BUNDLED_GOAL_PHOTOS = {
   womanPullUp: {
     src: '/images/landing/bg-2.jpg',
-    alt: t('goalImage.alt.pullUp'),
+    get alt() { return t('goalImage.alt.pullUp'); },
     heroPosition: '50% 20%',
     thumbPosition: '50% 12%',
     thumbZoom: 1.4,
   },
   womanPistolSquat: {
     src: '/images/landing/bg-3.jpg',
-    alt: t('goalImage.alt.pistolSquat'),
+    get alt() { return t('goalImage.alt.pistolSquat'); },
     heroPosition: '50% 17%',
     thumbPosition: '50% 8%',
     thumbZoom: 1.4,
   },
   manLSit: {
     src: '/images/onboarding/strength/goal-lsit.jpg', // web-sized copy of gateway/card-strength.png (1.9 MB)
-    alt: t('goalImage.alt.lSit'),
+    get alt() { return t('goalImage.alt.lSit'); },
     heroPosition: '62% 30%',
     thumbPosition: '62% 45%',
   },
@@ -61,15 +61,15 @@ export const BUNDLED_GOAL_PHOTOS = {
 export const GOAL_IMAGE_CONFIG: Record<'male' | 'female', Record<ProgramCardId, GoalImageSource>> = {
   female: {
     // A simple squat — lower-body program, level 1.
-    health: { kind: 'library', programIds: ['lower_body', 'legs'], level: 1, alt: t('goalImage.alt.squat'), fallback: null },
+    health: { kind: 'library', programIds: ['lower_body', 'legs'], level: 1, get alt() { return t('goalImage.alt.squat'); }, fallback: null },
     body_focus: { kind: 'bundled', photo: BUNDLED_GOAL_PHOTOS.womanPullUp },
     skills: { kind: 'bundled', photo: BUNDLED_GOAL_PHOTOS.womanPistolSquat },
   },
   male: {
     // An incline push-up — push program, level 2.
-    health: { kind: 'library', programIds: ['push'], level: 2, alt: t('goalImage.alt.inclinePushUp'), fallback: null },
+    health: { kind: 'library', programIds: ['push'], level: 2, get alt() { return t('goalImage.alt.inclinePushUp'); }, fallback: null },
     // A pull-up — pull program, level 10.
-    body_focus: { kind: 'library', programIds: ['pull'], level: 10, alt: t('goalImage.alt.pullUp'), fallback: null },
+    body_focus: { kind: 'library', programIds: ['pull'], level: 10, get alt() { return t('goalImage.alt.pullUp'); }, fallback: null },
     skills: { kind: 'bundled', photo: BUNDLED_GOAL_PHOTOS.manLSit },
   },
 };
