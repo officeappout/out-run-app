@@ -24,7 +24,7 @@ export const IntervalRunView: React.FC<IntervalRunViewProps> = ({
   const { currentPace } = useRunningPlayer();
 
   const lang = useContentLanguage();
-  const targetLabel = (currentBlock && runBlockLabel(currentBlock, lang)) || 'אינטרוול';
+  const targetLabel = (currentBlock && runBlockLabel(currentBlock, lang)) || 'אינטרוול'; // i18n-allow-hebrew: pre-existing fallback label of the legacy v1 view
 
   const formatTime = (s?: number) => {
     if (!s || s <= 0) return '00:00';
