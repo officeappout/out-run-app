@@ -3,6 +3,16 @@
     "apps": [],
     "details": [
       {
+        "appID": "PPX5UJJ35T.il.co.oversight.out",
+        "paths": [
+          "/join/*",
+          "/session/*",
+          "/school/*",
+          "/community",
+          "/gateway"
+        ]
+      },
+      {
         "appID": "PPX5UJJ35T.co.il.appout.outrun",
         "paths": [
           "/join/*",
