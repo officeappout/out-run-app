@@ -472,6 +472,8 @@ export interface WorkoutGenerationContext {
    *  Undefined = no active program / no cycle anchor. */
   periodizationWeek?: number;
   protocolProbability?: number;
+  /** Weight of each non-straight protocol when one fires (merged protocolWeights); uniform when absent. */
+  protocolWeights?: Record<string, number>;
   preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset' | 'tabata')[];
   /** Kelly (ai_coach_workout_format): the core block is built as a tabata block (falls back to form A when it can't be composed). */
   forcedCoreForm?: 'tabata';

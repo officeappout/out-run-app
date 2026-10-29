@@ -367,8 +367,7 @@ export interface SortAndPairConfig {
  * `home-workout.service.ts` before Phase 4:
  *
  *   shouldPair = !isSingleDomain && (
- *                  workout.appliedProtocol === 'antagonist_pair' ||
- *                  adminPreferredProtocols.includes('antagonist_pair')
+ *                  workout.appliedProtocol === 'antagonist_pair'
  *                )
  *
  * Returns the same `workout` reference (mutated) so call sites can keep
@@ -380,9 +379,9 @@ export function sortAndPair(
 ): GeneratedWorkout {
   // ── Step 1: Re-apply antagonist pairing on the FINAL exercise list ───────
   const fromGenerator = workout.appliedProtocol === 'antagonist_pair';
-  const fromAdminData =
-    config.adminPreferredProtocols?.includes('antagonist_pair') ?? false;
-  const shouldPair = !config.isSingleDomain && (fromGenerator || fromAdminData);
+  // Owner 27.10.2026: pairs only when the protocol roll chose them. The panel merely
+  // LISTING 'antagonist_pair' used to pair every session regardless of the probability.
+  const shouldPair = !config.isSingleDomain && fromGenerator;
 
   if (shouldPair) {
     workout.appliedProtocol = 'antagonist_pair';
@@ -391,7 +390,7 @@ export function sortAndPair(
     console.log(
       `[PresentationFormatter] ✅ Re-applied antagonist pairing on final list ` +
       `(${pairedCount} exercises have pairedWith, ` +
-      `source: ${fromGenerator ? 'generator' : 'adminData'}` +
+      `source: generator` +
       `${config.diagnosticLabel ? `, ${config.diagnosticLabel}` : ''})`,
     );
   }

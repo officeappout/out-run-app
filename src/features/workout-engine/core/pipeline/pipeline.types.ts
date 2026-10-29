@@ -120,6 +120,8 @@ export interface ProtocolHints {
   preferredProtocols?: string[];
   /** Firestore-configured probability scalar (0–1) */
   protocolProbability?: number;
+  /** Per-protocol weights used for the pick once the roll fires (uniform when absent). */
+  protocolWeights?: Record<string, number>;
   /**
    * Native guard: when true, ProtocolInjector raises the effective pyramid
    * probability floor to 0.6 for D3 single-domain sessions so peak pyramids
