@@ -76,7 +76,8 @@ import { RadarPulse } from './UnifiedLocation/sub-components/RadarPulse';
 // enable_entry_globe_v1 — the entry flow's new presentation (explorer quick-signup only)
 import { EntryGlobeLayer } from './UnifiedLocation/entry-globe/EntryGlobeLayer';
 import { DragHintChip } from './UnifiedLocation/entry-globe/DragHintChip';
-import { awaitLocationAnswer, diveStartFor } from './UnifiedLocation/entry-globe/dive-gate';
+import { askAfterDiveHold, diveStartFor } from './UnifiedLocation/entry-globe/dive-gate';
+import { STREET_MAP_IDLE_DELAY_MS, STREET_MAP_MAX_DEFER_MS, shouldMountStreetMap } from './UnifiedLocation/entry-globe/street-map-gate';
 import { markGlobeIntroSeen } from '@/features/parks/core/hooks/entry-camera';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
 import { LOCATE_V1_LEMUR_PX, LOCATE_V1_ZOOM } from './UnifiedLocation/entry-globe/locate-v1';
@@ -221,6 +222,24 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const [mapDragged, setMapDragged] = useState(false);
   const entryGlobeRef = useRef(entryGlobe);
   entryGlobeRef.current = entryGlobe;
+  // AC1: resolves the pending "Earth holds over the country" wait (GlobeStage onHold).
+  const diveHoldRef = useRef<(() => void) | null>(null);
+  // AC2: with the globe on, the street map is built after the Earth (street-map-gate.ts).
+  const [globeSettled, setGlobeSettled] = useState(false);
+  const globeSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleGlobeSettled = useCallback(() => {
+    if (globeSettleTimerRef.current) return;
+    globeSettleTimerRef.current = setTimeout(() => setGlobeSettled(true), STREET_MAP_IDLE_DELAY_MS);
+  }, []);
+  useEffect(() => {
+    if (!entryGlobe) return;
+    const cap = setTimeout(() => setGlobeSettled(true), STREET_MAP_MAX_DEFER_MS);
+    return () => {
+      clearTimeout(cap);
+      if (globeSettleTimerRef.current) clearTimeout(globeSettleTimerRef.current);
+      globeSettleTimerRef.current = null;
+    };
+  }, [entryGlobe]);
 
   // ══════════════════════════════════════════════════════════════════
   // EFFECTS
@@ -640,28 +659,32 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   };
 
   /**
-   * enable_entry_globe_v1 — ask, wait for the answer, THEN dive (owner note 21.10 #5:
-   * the dive used to start under the OS prompt and the user missed it). See dive-gate.ts.
+   * enable_entry_globe_v1: dive first, ask once the Earth holds over the country,
+   * then fly to the fix (pilot note AC1, after owner note 21.10 #5). See dive-gate.ts.
    */
   const handleFindLocationEntryGlobe = async () => {
     const session = ++gpsSessionRef.current;
     userTookOverRef.current = false;
     setStage(LocationStage.LOCATING);
     setLocationError(null);
-    const answer = await awaitLocationAnswer(() => useGPSStore.getState().requestLocationPermission());
-    // "search manually" while the dialog was up — drop it.
+    const answer = await askAfterDiveHold({
+      startDive: () => setGlobeDive('dive'),
+      waitForHold: () => new Promise<void>((resolve) => { diveHoldRef.current = resolve; }),
+      ask: () => {
+        diveHoldRef.current = null;
+        // "search manually" during the dive: never open the OS dialog over the search.
+        if (gpsSessionRef.current !== session) return Promise.resolve('unknown' as const);
+        return useGPSStore.getState().requestLocationPermission();
+      },
+    });
+    // "search manually" while the dive / dialog was up: drop it.
     if (gpsSessionRef.current !== session) return;
-    const start = diveStartFor(answer);
-    if (start === 'never') {
+    if (diveStartFor(answer) === 'never') {
       setLocationError(t('locationStep.error.noFix'));
       setStage(LocationStage.INITIAL);
       return;
     }
-    if (start === 'now') setGlobeDive('dive');
-    return handleFindLocationV2({
-      session,
-      onFirstFix: start === 'after-fix' ? () => setGlobeDive('dive') : undefined,
-    });
+    return handleFindLocationV2({ session });
   };
 
   const handleFindLocation = async () => {
@@ -1030,6 +1053,15 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     if (!mapTutorialV1 || !confirmSettled) return;
     mapRef.current?.getMap()?.easeTo({ zoom: LOCATE_V1_ZOOM, duration: 900 });
   }, [mapTutorialV1, confirmSettled]);
+  // Sticky: once built, the street map is never torn down (e.g. the flag resolving late).
+  const streetMapMountedRef = useRef(false);
+  const mountStreetMap = shouldMountStreetMap({
+    entryGlobe,
+    globeSettled,
+    alreadyMounted: streetMapMountedRef.current,
+    leftRest: stage !== LocationStage.INITIAL || globeDive !== 'rest',
+  });
+  streetMapMountedRef.current = mountStreetMap;
   const showEntryGlobe =
     entryGlobe &&
     globeDive !== 'arrived' &&
@@ -1072,7 +1104,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           </div>
         )}
         
-        {typeof window !== 'undefined' && (
+        {typeof window !== 'undefined' && mountStreetMap && (
           <MapboxMap
             mapRef={mapRef}
             {...viewState}
@@ -1385,6 +1417,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           globePhase={globeDive === 'dive' ? 'dive' : 'rest'}
           diving={entryDiving}
           diveTarget={entryDiving ? userLocation : null}
+          onDiveHold={() => diveHoldRef.current?.()}
+          onGlobeSettled={handleGlobeSettled}
           onDiveArrived={() => {
             setGlobeDive('arrived');
             // One owner of the camera at a time: this dive IS the first-entry flight, so

@@ -3392,6 +3392,7 @@ async function _buildSharedPipeline(
     // these 4 items were previously unreachable by any selection path because
     // nothing read this role at all).
     reinforcementPool: allExercises.filter((ex) => ex.exerciseRole === 'reinforcement'),
+    conditioningPool: allExercises.filter((ex) => ex.movementGroup === 'conditioning'),
     // Apply straight-arm cap on Deload weeks for tendon protection.
     straightArmRatio: (() => {
       if (sessionPolicy.straightArmCap == null) return straightArmRatio;

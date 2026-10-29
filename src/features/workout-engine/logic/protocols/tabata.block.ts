@@ -33,7 +33,7 @@ import {
  *  ContextualEngine.ts:442-451) — duplicated rather than imported because
  *  that method is private to the class; kept behaviorally identical
  *  (no-injuries or no-tagged-exercise always passes; overlap excludes). */
-function passesInjuryShield(exercise: Exercise, userInjuries: InjuryShieldArea[] | undefined): boolean {
+export function passesInjuryShield(exercise: Exercise, userInjuries: InjuryShieldArea[] | undefined): boolean {
   if (!userInjuries?.length) return true;
   if (!exercise.injuryShield?.length) return true;
   return !exercise.injuryShield.some((area) => userInjuries.includes(area));

@@ -36,7 +36,8 @@ function boxContains(outer: Box, v: ViewportBounds): boolean {
  * getDocs network itself is not cancelable — same limitation as the park fetch).
  */
 export function useFacilities(currentZoom: number) {
-    const { facilities, setFacilities } = useMapStore();
+    const facilities = useMapStore((s) => s.facilities);
+    const setFacilities = useMapStore((s) => s.setFacilities);
     const viewportBounds = useMapStore((s) => s.viewportBounds);
     const [loading, setLoading] = useState(false);
     // The padded box the current `facilities` set was fetched for.

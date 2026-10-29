@@ -30,8 +30,11 @@ export const useMapLogic = (
    *  comment on this parameter. Threaded straight through, no logic here. */
   beforeStartWorkout?: () => boolean,
 ) => {
-  const { profile } = useUserStore();
-  const { setSelectedPark } = useMapStore();
+  // Field selectors (AC2, 29.10): a whole-store subscription here re-rendered
+  // MapShell on every map-store write during load (viewport bounds, ready
+  // flags, perf pressure, parks).
+  const profile = useUserStore((s) => s.profile);
+  const setSelectedPark = useMapStore((s) => s.setSelectedPark);
 
   const [workoutMode, setWorkoutMode] = useState<'free' | 'discover'>('discover');
 
