@@ -1,6 +1,7 @@
 /**
  * Firestore Service for Managing Onboarding Questions and Answers
  */
+import { LEVEL_TEXT_FIELDS, normalizeStoredTextFields } from '@/features/content/programs/core/localized-fields';
 import { 
   collection, 
   doc, 
@@ -741,10 +742,9 @@ export async function getLevels(): Promise<LevelDoc[]> {
   try {
     const q = query(collection(db, LEVELS_COLLECTION), orderBy('order', 'asc'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as any),
-    })) as LevelDoc[];
+    return snapshot.docs.map((d) =>
+      normalizeStoredTextFields({ id: d.id, ...(d.data() as any) }, LEVEL_TEXT_FIELDS),
+    ) as LevelDoc[];
   } catch (error) {
     console.error('Error fetching levels:', error);
     throw error;

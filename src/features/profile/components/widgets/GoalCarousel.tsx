@@ -88,7 +88,7 @@ export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
 
   if (v2) {
     return (
-      <div dir="rtl">
+      <div>
         <h3 className="mb-3 text-[15px] font-black text-v2-ink">{t('goalCarousel.title')}</h3>
         {isLoading ? (
           <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-hide">
@@ -126,7 +126,7 @@ export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
   }
 
   return (
-    <div dir="rtl">
+    <div>
       <h3 className="text-sm font-black text-gray-800 mb-3">{t('goalCarousel.title')}</h3>
 
       {isLoading ? (

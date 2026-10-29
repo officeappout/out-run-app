@@ -109,7 +109,9 @@ interface FlagState {
   enable_locale_en: boolean;
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
+  enable_content_locale: boolean;
   push_locale_v1: boolean;
+  hide_he_only_onboarding_steps: boolean;
   enable_app_session_signal: boolean;
   enable_osm_attribution: boolean;
   admin_ai_assistant_v1: boolean;
@@ -131,6 +133,10 @@ interface FlagState {
   enable_overview_more_menu_v1: boolean;
   enable_hill_finder_v1: boolean;
   enable_run_drawer_from_me_v1: boolean;
+  enable_map_tutorial_v1: boolean;
+  enable_park_live_v2: boolean;
+  enable_commute_v2_player_v1: boolean;
+  enable_workout_coach_note_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -890,12 +896,30 @@ const FLAG_CARDS: FlagCardConfig[] = [
     parentKey: 'enable_i18n',
   },
   {
+    key: 'enable_content_locale',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'תוכן בשפת המשתמש',
+    description: 'שמות תרגילים, תיאורים והנחיות מוצגים באנגלית למשתמשים באנגלית. שדה שאין לו תרגום מוצג בעברית. דורש את מתג השפות הראשי. כבוי = תוכן בעברית, בדיוק כמו היום.',
+    parentKey: 'enable_i18n',
+  },
+  {
     key: 'push_locale_v1',
     icon: Languages,
     iconBg: 'bg-indigo-50',
     iconColor: 'text-indigo-600',
     title: 'פושים לפי שפה',
     description: 'פוש נשלח בשפת המשתמש (core.locale): שורות הספרייה של אותה שפה, אחר כך ברירות מחדל מתורגמות, ואחרת עברית. דורש את מתג השפות הראשי. כבוי = כל הפושים בעברית, בדיוק כמו היום. השרת קורא את הערך השמור (לא את ברירת המחדל של הסופר-אדמין).',
+    parentKey: 'enable_i18n',
+  },
+  {
+    key: 'hide_he_only_onboarding_steps',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'הרשמה: דילוג על שלבים בעברית בלבד',
+    description: 'כשהשפה אינה עברית, ההרשמה מדלגת על שלב הפרסונה (צה"ל / תלמיד / עובד משרד), כי אין פרסונה צבאית באנגלית. כבוי = ההרשמה בדיוק כמו היום לכולם. דלוק + עברית = בלי שינוי.',
     parentKey: 'enable_i18n',
   },
   // Analytics — app-session signal (22.10.2026).
@@ -1087,6 +1111,43 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'מגירת הריצה: מתחילים ממני',
     description: 'בתצוגת אימון הריצה על המפה, הכול מתחיל מהמיקום שלך: מתחת לכותרת האימון מופיעה שורת אריחי מסלולים — לולאות שנוצרו מכאן לאימון הזה (אותו מחולל לולאות), ומסלול רשמי רק כשהוא קרוב (עד ק״מ) ומתאים לאימון. האריח הראשון נבחר, לכל אריח שורה ירוקה "למה מתאים", ו"הצעה אחרת" מבקשת סט לולאות חדש. אין קרוסלה מעל המפה ואין מצב "ממסלול". מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // First-run map tutorial (27.10.2026) — canvas boards M1-M8, pilot notes L3, L5, L7-L13.
+  {
+    key: 'enable_map_tutorial_v1',
+    icon: RouteIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'טוטוריאל מפה ראשון',
+    description: 'משתמש חדש במפה: במגירת "גרים ב…" הסבר על הליגה והגרירה מעל הלמור (למור קטן יותר וזום קרוב), כרטיס המסלול במגירת "מה בא לך" עם הקופי החדש, "רק להסתכל מסביב" מבטיח 3 דברים במפה, סיור המסלול (פרטים, העצירה בגינה, הסדר, "יאללה, בואו נתחיל" שפותח את המסלול), כרטיס המסלול האמיתי עם כפתור i ("למה קיבלתי את המסלול") ולחיצה על כל הכרטיס, סיור במגירת האימון, וכרטיס השאלון החדש. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Live park workout v2 (28.10.2026): canvas boards Park 1-12.
+  {
+    key: 'enable_park_live_v2',
+    icon: RouteIcon,
+    iconBg: 'bg-lime-50',
+    iconColor: 'text-lime-600',
+    title: 'אימון פארק לייב: הליכה + מתקנים',
+    description: 'באימון הליכה עם תחנות מתקנים: כרטיס הליכה (זמן, מרחק, מרחק לתחנה, בלי קצב) עם הכפתורים של היום, שורת הודעה מתחת לפסי הסטורי כשמתקרבים לתחנה, טוטוריאל הלייב בסדר החדש, מסך פתיחה אחד לתחנה (מתקנים בתמונות, שרירים, הסבר טבטה, קושי בברקים, ברירת מחדל קל), "הניחו את הטלפון על הרצפה" לפני הטיימר, "מצאו את המתקן הבא" + החלפה במנוחה, מסך טבעת שבועית לפני הסיכום, ותיקוני הסיכום (טבעת הליכה, בלי פס דקות, כרטיס שאלון). דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Navigation on the v2 player (28.10.2026, phone test AA2).
+  {
+    key: 'enable_commute_v2_player_v1',
+    parentKey: 'enable_home_v2',
+    icon: RouteIcon,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-600',
+    title: 'ניווט ליעד בנגן החדש',
+    description: 'ניווט לפארק או למקום ("ניווט" בכרטיס הפארק / בדף הפארק) נפתח בנגן הריצה החדש של בית v2 במקום הנגן הישן (רשימת ההקפות הישנה, הדוק הכהה). בכותרת: היעד, המרחק שנותר ושעת ההגעה המשוערת. דורש את בית v2. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Workout coach note (28.10.2026, phone test AB2).
+  {
+    key: 'enable_workout_coach_note_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'דגשי האימון: למה בנינו את האימון הזה',
+    description: 'בתצוגה המקדימה של אימון כוח: בלוק "דגשי האימון" עם 2-4 משפטים על הסיבה לאימון (התאוששות, חזרה אחרי הפסקה, פער שבועי, מיקוד, מקום) ומה מחכה בו (תרגילים, סטים, מנוחה, עצימות). נבנה ב-#415 ולא הופעל אף פעם. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

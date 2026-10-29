@@ -25,7 +25,7 @@ export default function ExerciseHeroV2({ name, imageUrl, goal, onBack, onEditGoa
           aria-label={t('exerciseAnalytics.hero.back')}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
-          <ChevronRight className="h-5 w-5 text-v2-ink" aria-hidden />
+          <ChevronRight className="h-5 w-5 text-v2-ink ltr:-scale-x-100" aria-hidden />
         </button>
         <div className="min-w-0">
           <p className="whitespace-nowrap text-[12px] font-extrabold text-v2-deep">{t('exerciseAnalytics.hero.eyebrow')}</p>

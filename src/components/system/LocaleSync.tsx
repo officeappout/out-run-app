@@ -34,7 +34,7 @@ export default function LocaleSync() {
   const profileLocale = useUserStore((st) => (st.profile?.core as { locale?: unknown } | undefined)?.locale);
   const profileGender = useUserStore((st) => st.profile?.core?.gender);
   const { flags } = useFeatureFlags(isSuperAdmin);
-  const { enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe } = flags;
+  const { enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, enableContentLocale } = flags;
 
   const legacyLanguage = useAppStore((s) => s.language);
   const legacyDirection = useAppStore((s) => s.direction);
@@ -60,6 +60,11 @@ export default function LocaleSync() {
   useEffect(() => {
     setLocaleState({ gender: resolveUiGender(profileGender, onboardingGender) });
   }, [profileGender, onboardingGender, setLocaleState]);
+
+  // Content (exercise names etc.) resolves in English only with enable_i18n AND enable_content_locale.
+  useEffect(() => {
+    setLocaleState({ contentLocaleOn: !!enableI18n && !!enableContentLocale });
+  }, [enableI18n, enableContentLocale, setLocaleState]);
 
   // Resolve the locale.
   useEffect(() => {

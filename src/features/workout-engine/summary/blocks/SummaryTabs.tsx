@@ -18,7 +18,6 @@ interface SummaryTabsProps {
 export default function SummaryTabs({ tabs, active, onChange }: SummaryTabsProps) {
   return (
     <div
-      dir="rtl"
       style={{ display: 'flex', gap: 4, padding: 4, background: '#eef2f1', borderRadius: 999, fontFamily: 'var(--font-simpler)' }}
     >
       {tabs.map((tab) => {

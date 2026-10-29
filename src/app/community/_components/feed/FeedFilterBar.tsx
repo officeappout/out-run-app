@@ -20,7 +20,7 @@ export function FeedFilterBar({
 }) {
   const t = useT(community);
   return (
-    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="tablist" aria-label={t('communityPage.feed.filterBar.label')} dir="rtl">
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="tablist" aria-label={t('communityPage.feed.filterBar.label')}>
       <button
         type="button"
         onClick={() => setPrivacyOpen(true)}

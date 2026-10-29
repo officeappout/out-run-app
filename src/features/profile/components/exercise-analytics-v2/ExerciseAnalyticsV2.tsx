@@ -64,7 +64,7 @@ export default function ExerciseAnalyticsV2({ exerciseId, userId, exerciseNameHi
   );
 
   return (
-    <div className="min-h-[100dvh] bg-v2-surface pb-16 text-v2-ink" dir="rtl">
+    <div className="min-h-[100dvh] bg-v2-surface pb-16 text-v2-ink">
       <ExerciseHeroV2 name={name} imageUrl={meta.imageUrl} goal={goal} onBack={() => router.back()} onEditGoal={() => setGoalOpen(true)} />
 
       <div className="mx-auto max-w-md space-y-3 px-4 pt-4">

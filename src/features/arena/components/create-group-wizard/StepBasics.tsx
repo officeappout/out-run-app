@@ -31,7 +31,7 @@ export function StepBasics({
           maxLength={60}
           className={v2 ? V2C.input : 'w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400'}
         />
-        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-left'}>{form.name.length}/60</p>
+        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-end'}>{form.name.length}/60</p>
       </div>
 
       <div>
@@ -84,7 +84,7 @@ export function StepBasics({
           maxLength={300}
           className={v2 ? V2C.textarea : 'w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed'}
         />
-        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-left'}>{form.description.length}/300</p>
+        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-end'}>{form.description.length}/300</p>
       </div>
 
     </div>

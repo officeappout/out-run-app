@@ -19,11 +19,7 @@
  * persists.
  */
 import type { CoachGender } from './persona';
-import { makeT } from '@/lib/i18n/t';
-import { coach } from '@/messages/ns/coach';
-
-// Hebrew-only server copy (bundled catalog, sync read).
-const t = makeT('he', coach);
+import { coachT, type CoachLocale } from './coach-locale';
 
 export type SafetyTrigger = 'chest' | 'breath' | 'dizziness' | 'pregnancy' | 'injury';
 
@@ -31,6 +27,11 @@ export type SafetyTrigger = 'chest' | 'breath' | 'dizziness' | 'pregnancy' | 'in
 const NEG = /(?:אין\s+לי|בלי|ללא|לא\s+(?:היה|היתה|הייתה|היו|מרגיש|מרגישה|הרגשתי)(?:\s+לי)?)\s+(?:[^\s]+\s+)?$/;
 
 const OTHER_PERSON = /(?:אשתי|אישתי|בת\s+הזוג\s+שלי|בת\s+זוגי|זוגתי|חברה\s+שלי|אחותי|אמא\s+שלי|אימא\s+שלי|הבת\s+שלי|השכנה|מישהי)\s+(?:[^\s]+\s+){0,2}$/;
+
+// English (Kelly server locale): negation and "someone else" before a symptom. They only ever match Latin
+// words, so Hebrew text is judged exactly as before.
+const NEG_EN = /\b(?:no|not|never|without|(?:do(?:n['’]?t| not)|did(?:n['’]?t| not)|have(?:n['’]?t| not)|never)\s+(?:have|had|feel|felt|get|got|having|experienc\w*))\s+(?:[\w'’-]+\s+){0,2}$/i;
+const OTHER_PERSON_EN = /\b(?:wife|husband|partner|girlfriend|boyfriend|fianc[eé]e?|friend|son|daughter|mom|mum|mother|dad|father|sister|brother|neighbou?r|colleague|coworker|kid|child|grand(?:ma|pa|mother|father)|client|cousin)(?:['’]s)?\s+(?:[\w'’-]+\s+){0,2}$/i;
 
 const before = (t: string, start: number, n = 24) => t.slice(Math.max(0, start - n), start);
 const negated = (t: string, start: number) => NEG.test(before(t, start));
@@ -69,6 +70,28 @@ const RULES: Rule[] = [
     re: /נפצעתי|נקעתי|נקע\s+ב|שברתי|שבר\s+ב|נקרע|קרע\s+ב|התנפח|נפיחות|כאב\s+חד|כאב\s+חזק|כאבים\s+חזקים|כואב\s+לי\s+(?:מאוד|נורא|חזק)|פציעה\s+(?:חדשה|כואבת|מהיום|מאתמול)|\binjur|\bsprain/gi,
     unless: (t, s) => negated(t, s),
   },
+  // English phrasings (Hebrew rules above run first and are unchanged).
+  {
+    trigger: 'chest',
+    re: /\b(?:chest\s+(?:hurts?|is\s+(?:hurting|tight|aching)|feels?\s+tight|tightness|pressure|discomfort)|tight\s+chest|(?:pain|pressure|tightness)\s+in\s+(?:my\s+|the\s+)?chest|(?:left\s+)?arm\s+(?:is\s+)?(?:numb|tingling)|(?:numb|tingling)\s+(?:in\s+)?(?:my\s+|the\s+)?(?:left\s+)?arm|numbness\s+in\s+(?:my\s+)?arm)/gi,
+    unless: (t, s) => /chest\s+muscles?|\bpecs?\b/i.test(t.slice(s, s + 30)),
+  },
+  {
+    trigger: 'breath',
+    re: /\b(?:can['’]?t\s+(?:catch\s+(?:my\s+)?)?breath(?:e)?|cannot\s+breathe|(?:hard|difficult)\s+to\s+breathe|(?:trouble|difficulty)\s+breathing|struggling\s+to\s+breathe|gasping\s+for\s+(?:air|breath))/gi,
+  },
+  {
+    trigger: 'dizziness',
+    re: /\b(?:light-?headed|dizzy|dizziness|faint(?:ed|ing)?|(?:passed|passing|pass|blacked|blacking|black)\s+out|collapsed|lost\s+consciousness)\b/gi,
+  },
+  {
+    trigger: 'pregnancy',
+    re: /\b(?:pregnan(?:t|cy)|expecting\s+a\s+baby|my\s+due\s+date)\b/gi,
+  },
+  {
+    trigger: 'injury',
+    re: /\b(?:(?:broke|broken|fractured|tore|torn|sprained|dislocated|ruptured)\s+(?:my\s+|a\s+|the\s+)?(?:\w+\s+){0,2}(?:ankle|wrist|knee|arm|leg|foot|toe|finger|hand|shoulder|elbow|hip|ribs?|back|neck|collarbone|hamstring|calf|achilles|acl|mcl|meniscus|bone|ligament|tendon)|(?:ankle|wrist|knee|arm|leg|foot|toe|finger|hand|shoulder|elbow|hip|ribs?|collarbone|bone)\s+(?:is|was|feels?|might\s+be)\s+(?:broken|fractured|dislocated)|sharp\s+pain|stabbing\s+pain|severe\s+pain|swollen|swelling|injured|new\s+injury|acute\s+injury)\b/gi,
+  },
 ];
 
 /** First matching trigger (most specific first), or null. */
@@ -78,6 +101,7 @@ export function detectSafetyTrigger(text: string): SafetyTrigger | null {
     for (const m of Array.from(t.matchAll(r.re))) {
       const start = m.index ?? 0;
       if (r.unless?.(t, start, m[0])) continue;
+      if (NEG_EN.test(before(t, start)) || OTHER_PERSON_EN.test(before(t, start, 40))) continue;
       return r.trigger;
     }
   }
@@ -88,7 +112,8 @@ export function detectSafetyTrigger(text: string): SafetyTrigger | null {
  * The fixed reply. No emoji, no dashes, no English, the user addressed by core.gender.
  * Kelly speaks in masculine first person (product decision 18.10.2026).
  */
-export function safetyReply(trigger: SafetyTrigger, gender: CoachGender): string {
+export function safetyReply(trigger: SafetyTrigger, gender: CoachGender, locale: CoachLocale = 'he'): string {
+  const t = coachT(locale);
   const opener = t(trigger === 'pregnancy' ? 'safety.opener.pregnancy' : trigger === 'injury' ? 'safety.opener.injury' : 'safety.opener.chest');
   return t('safety.reply', { opener, stop: t('safety.stop', { gender }), call: t('safety.call', { gender }), gender });
 }

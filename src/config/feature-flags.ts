@@ -358,11 +358,6 @@ export const TIMER_AUTO_ADVANCE_ENABLED = false;
 // its current order — BYTE-IDENTICAL. Gates every R-1.x sub-change.
 export const HOME_ANCHOR_V2_ENABLED = true;
 
-// HOME_INTENSITY_TOGGLE_ENABLED: the easy / balanced / intense pills in the workout preview
-// drawer. Off (27.10.2026, owner): the user always gets the balanced workout; the engine still
-// computes all three options in the background. Flip true to restore the pills.
-export const HOME_INTENSITY_TOGGLE_ENABLED = false;
-
 // POST_WORKOUT_LANDING_V1: the post-workout landing redesign (R, Block A) — after a
 // workout finishes, the top "now" carousel slot is replaced by a compact, NON-blocking
 // summary strip ABOVE the schedule (ring = % of the STABLE daily strength target via

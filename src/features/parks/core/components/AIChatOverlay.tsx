@@ -100,10 +100,9 @@ export default function AIChatOverlay({ isOpen, onClose, onSendMessage, initialM
                             >
                                 <div
                                     className={`max-w-[85%] p-4 rounded-2xl text-sm font-medium shadow-sm ${msg.sender === 'user'
-                                            ? 'bg-white text-gray-800 border border-gray-100 rounded-tr-none'
-                                            : 'bg-violet-600 text-white rounded-tl-none'
+                                            ? 'bg-white text-gray-800 border border-gray-100 rounded-ss-none'
+                                            : 'bg-violet-600 text-white rounded-se-none'
                                         }`}
-                                    dir="rtl"
                                 >
                                     {msg.text}
                                 </div>
@@ -111,7 +110,7 @@ export default function AIChatOverlay({ isOpen, onClose, onSendMessage, initialM
                         ))}
                         {isLoading && (
                             <div className="flex justify-end">
-                                <div className="bg-violet-100 text-violet-600 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
+                                <div className="bg-violet-100 text-violet-600 p-4 rounded-2xl rounded-se-none flex items-center gap-2">
                                     <Loader2 size={16} className="animate-spin" />
                                     <span className="text-xs font-bold">המאמן חושב...</span>
                                 </div>
@@ -129,8 +128,7 @@ export default function AIChatOverlay({ isOpen, onClose, onSendMessage, initialM
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                             placeholder="שאל את המאמן..."
-                            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800 text-right font-medium placeholder:text-gray-400"
-                            dir="rtl"
+                            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800 text-start font-medium placeholder:text-gray-400"
                         />
                         <button
                             onClick={handleSend}

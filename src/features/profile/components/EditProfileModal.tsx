@@ -111,7 +111,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         value={editName}
         onChange={(e) => setEditName(e.target.value)}
         placeholder={t('editProfile.name.placeholder')}
-        className={`w-full bg-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
+        className={`w-full bg-transparent outline-none text-start ${INPUT_TEXT_CLASS}`}
         style={INPUT_TEXT_FIX}
       />
     </div>
@@ -124,7 +124,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         onChange={(e) => setEditBio(e.target.value.slice(0, 150))}
         placeholder={t('editProfile.bio.placeholder')}
         rows={2}
-        className={`w-full bg-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
+        className={`w-full bg-transparent outline-none text-start resize-none ${INPUT_TEXT_CLASS}`}
         style={INPUT_TEXT_FIX}
       />
       <p className="text-[10px] text-gray-400 mt-1">{editBio.length}/150</p>
@@ -230,7 +230,6 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             transition={{ type: 'spring', damping: 32, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
             className="kb-cap bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col"
-            dir="rtl"
           >
             {/* Sticky header */}
             <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 py-3.5 flex items-center justify-between z-10 flex-shrink-0 rounded-t-3xl">

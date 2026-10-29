@@ -9,6 +9,7 @@
  */
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { map } from '@/messages/ns/map';
 import { Sheet, StepBar } from '@/components/ui/v2';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import type { WhatNowAnswer, WhatNowLayout, WhatNowRouteCopy } from '../../services/entry-whatnow';
@@ -21,11 +22,14 @@ export interface WhatNowDrawerProps {
   routeMapUrl: string | null;
   /** Kelly is reachable for this user (AI or unified team chat). */
   showKelly: boolean;
+  /** enable_map_tutorial_v1 (L7): "רק להסתכל מסביב? נראה לך 3 דברים במפה". */
+  browseV1?: boolean;
   onAnswer: (answer: WhatNowAnswer) => void;
 }
 
-export default function WhatNowDrawer({ open, layout, routeCopy, routeMapUrl, showKelly, onAnswer }: WhatNowDrawerProps) {
+export default function WhatNowDrawer({ open, layout, routeCopy, routeMapUrl, showKelly, browseV1 = false, onAnswer }: WhatNowDrawerProps) {
   const t = useT(onboarding);
+  const tm = useT(map);
   return (
     <Sheet
       open={open}
@@ -59,7 +63,7 @@ export default function WhatNowDrawer({ open, layout, routeCopy, routeMapUrl, sh
           onClick={() => onAnswer('browse')}
           className="mt-2 self-center py-2 text-[13.5px] font-bold text-v2-muted"
         >
-          {t('whatNow.browse')}
+          {browseV1 ? tm('mapTutorial.whatNow.browse') : t('whatNow.browse')}
         </button>
       </div>
     </Sheet>

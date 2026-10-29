@@ -7,7 +7,7 @@ import {
   firstWorkoutNote,
   mapTourAfterWhatNow,
   markWhatNowPlanArrival,
-  FIRST_WORKOUT_NOTE,
+  firstWorkoutNoteText,
   isNearParkOrRoute,
   isWhatNowRoutePending,
   WHATNOW_ROUTE_REACH_M,
@@ -15,7 +15,7 @@ import {
   shouldOpenWhatNow,
   shouldSuppressWelcomeDrawer,
   starterChipsFor,
-  WHATNOW_KELLY_CHIPS,
+  whatNowKellyChips,
   WHATNOW_KELLY_URL,
   whatNowMiniMapUrl,
   whatNowRouteCopy,
@@ -128,9 +128,9 @@ describe('once-only persistence', () => {
 
 describe('Kelly chips', () => {
   it('the six ready chips, reached via /ai-coach?starter=entry', () => {
-    expect(WHATNOW_KELLY_CHIPS).toHaveLength(6);
+    expect(whatNowKellyChips()).toHaveLength(6);
     expect(WHATNOW_KELLY_URL).toBe('/ai-coach?starter=entry');
-    expect(starterChipsFor('entry')).toBe(WHATNOW_KELLY_CHIPS);
+    expect(starterChipsFor('entry')).toEqual(whatNowKellyChips());
     expect(starterChipsFor(null)).toBeNull();
     expect(starterChipsFor('other')).toBeNull();
   });
@@ -138,7 +138,7 @@ describe('Kelly chips', () => {
 
 describe('first-workout line', () => {
   it('only with the flag on and before the health declaration', () => {
-    expect(firstWorkoutNote(true, false)).toBe(FIRST_WORKOUT_NOTE);
+    expect(firstWorkoutNote(true, false)).toBe(firstWorkoutNoteText());
     expect(firstWorkoutNote(true, true)).toBeNull();
     expect(firstWorkoutNote(false, false)).toBeNull();
   });
@@ -181,7 +181,7 @@ describe('first-route tutorial + player tip (extends first-run-tour, no fork)', 
     expect(mapTourAfterWhatNow('dismiss')).toBe(true);
     for (const a of ['route', 'plan', 'kelly'] as const) expect(mapTourAfterWhatNow(a)).toBe(false);
     expect(firstRunTourSteps('plan', 'male').map((s) => s.target)).toEqual([FIRST_RUN_COACH.homeWorkout]);
-    expect(starterChipsFor('entry')).toEqual(WHATNOW_KELLY_CHIPS);
+    expect(starterChipsFor('entry')).toEqual(whatNowKellyChips());
   });
   it('"תוכנית" → /home: a one-shot hint that suppresses the second "what first?" drawer', () => {
     const m = new Map<string, string>();

@@ -37,7 +37,6 @@ export default function PartnerCard({ user, myUid }: PartnerCardProps) {
     <div
       onClick={() => router.push(`/profile/${user.uid}`)}
       className="flex items-center gap-3 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 cursor-pointer active:scale-[0.98] transition-transform"
-      dir="rtl"
     >
       {/* Avatar */}
       {user.photoURL ? (

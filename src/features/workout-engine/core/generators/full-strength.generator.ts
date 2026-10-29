@@ -42,6 +42,7 @@ import type { HomeWorkoutOptions } from '../../services/home-workout.types';
 import { resolveWorkoutContext } from '../../services/workout-context-resolver';
 import { DEFAULT_PARK_GEAR } from '../../shared/utils/gear-mapping.utils';
 import { IS_CHEAP_SUGGESTION_RANKING_ENABLED } from '@/config/feature-flags';
+import { fullStrengthAvailableMinutes } from './full-strength-minutes';
 
 const FULL_STRENGTH_WORKOUT_CACHE_CAP = 10;
 const fullStrengthWorkoutCache = new Map<string, GeneratedWorkout>();
@@ -122,10 +123,12 @@ async function resolveFullStrengthTrioOption(
     ? await resolveWorkoutContext(profile, 'park', { gpsCoords: gpsSnapshot, ...(weather?.flag ? { weatherFlag: weather.flag } : {}) })
     : { location: 'home' as ExecutionLocation, availableGear: [] as string[] };
 
+  // No intensity pills in the drawer (AA3): the user's own session length, else the context budget.
+  const availableTime = fullStrengthAvailableMinutes(profile, context.availableTimeMin, new Date());
   const generateAt = (location: ExecutionLocation, parkEquipmentIds?: string[]) =>
     generateHomeWorkoutTrio({
       userProfile: profile,
-      availableTime: context.availableTimeMin,
+      availableTime,
       generateSingleOption: true,
       targetOptionIndex,
       location,

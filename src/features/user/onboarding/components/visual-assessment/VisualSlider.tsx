@@ -114,8 +114,8 @@ interface VisualSliderProps {
 export interface QuizV3SliderProps {
   categories: readonly string[];
   categoryIndex: number;
-  /** Open on the middle step (a group not answered yet) instead of the step nearest initialLevel. */
-  startMiddle: boolean;
+  /** Open on the second (easier) step (a group not answered yet) instead of the step nearest initialLevel. */
+  startEasy: boolean;
   /** Called with the confirmed level and its exercise name, just before onLevelConfirm. */
   onChosen?: (level: number, exerciseName: string | null) => void;
 }
@@ -242,10 +242,10 @@ export default function VisualSlider({
     // Clear the tier carousel so no stale video from the previous category bleeds through.
     setMountedTiers([]);
     setActiveTierId(null);
-    // enable_strength_quiz_v3: a muscle group opens on its middle step (no tier screen); a skill
+    // enable_strength_quiz_v3: a muscle group opens on its second (easier) step (no tier screen); a skill
     // keeps step 0 behind its "not yet" card.
     const v3Start = quizV3 && REGULAR_CATEGORIES.has(category.toLowerCase())
-      ? startStepIndex(steps!, initialLevel, quizV3.startMiddle)
+      ? startStepIndex(steps!, initialLevel, quizV3.startEasy)
       : 0;
     const sv = isSimple ? v3Start : minLevel;
     const realLvl = isSimple ? steps![sv] : minLevel;

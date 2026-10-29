@@ -41,7 +41,7 @@ describe('useQuizV3Assessment', () => {
     expect(api!.transition?.group).toBe('push');
     act(() => api!.leaveTransition());
     expect(api!.transition).toBeNull();
-    expect(api!.sliderProps?.startMiddle).toBe(true);
+    expect(api!.sliderProps?.startEasy).toBe(true);
     act(() => { api!.sliderProps!.onChosen!(6, 'שכיבות סמיכה'); api!.setIndex(1); });
     expect(api!.transition?.group).toBe('pull');
     expect(api!.transition?.saved).toEqual({ group: 'push', level: 6, exerciseName: 'שכיבות סמיכה' });
@@ -60,7 +60,7 @@ describe('useQuizV3Assessment', () => {
     expect(r).toBe('toPrevSlider');
     act(() => api!.setIndex(0));
     expect(api!.transition).toBeNull();
-    expect(api!.sliderProps?.startMiddle).toBe(false);
+    expect(api!.sliderProps?.startEasy).toBe(false);
     act(() => { r = api!.back(); });
     expect(r).toBe('handled');
     act(() => { r = api!.back(); });

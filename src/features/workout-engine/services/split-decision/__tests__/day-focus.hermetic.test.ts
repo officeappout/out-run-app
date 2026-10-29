@@ -37,7 +37,8 @@ async function run(extra: Record<string, unknown>) {
 const mainDomains = (trio: Awaited<ReturnType<typeof run>>) =>
   Array.from(new Set(
     trio.options[1].result.workout.exercises
-      .filter((e) => (e.exerciseRole ?? 'main') === 'main' && !e.protocolBlock)
+      // A core tabata block (protocolBlock) still trains the core domain; other protocol blocks are not counted.
+      .filter((e) => (e.exerciseRole ?? 'main') === 'main' && (!e.protocolBlock || e.exercise.movementGroup === 'core'))
       .flatMap((e) => strictDomainsOfExercise(e.exercise)),
   ));
 

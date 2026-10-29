@@ -48,7 +48,7 @@ export default function ParkHero({ park, v2, onClose, heroHeight, imageOpacity, 
 
         {/* Top controls — fade with hero, pointer-events gated */}
         <motion.div
-          className="absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10"
+          className="absolute top-0 end-0 start-0 px-4 pb-4 flex justify-between items-start z-10"
           style={{
             paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
             opacity: imageOpacity,

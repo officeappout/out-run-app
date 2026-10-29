@@ -34,21 +34,25 @@ import { checkReply, correctionNote, dropHebrewlessSentences, factsFromEvidence,
 import { masculinizeSelfReferences } from './gender-voice';
 import type { CoachGender } from './persona';
 import { ROUND4_GAP_NOTE } from './round4/prompt';
-import { makeT } from '@/lib/i18n/t';
-import { coach } from '@/messages/ns/coach';
+import { checkReplyEn } from './reply-guards-en';
+import { coachT, type CoachLocale } from './coach-locale';
 
-// Hebrew-only server copy: the Hebrew catalog is bundled, read synchronously (the user's locale reaches Kelly in a later wave).
-const t = makeT('he', coach);
+/** The fixed replies in one request's language (Hebrew = the constants below, exactly as before). */
+export function fixedTexts(locale: CoachLocale = 'he'): { refusal: string; empty: string; truncatedTool: string; turnFailed: string } {
+  const t = coachT(locale);
+  return { refusal: t('fixed.refusal'), empty: t('fixed.empty'), truncatedTool: t('fixed.truncatedTool'), turnFailed: t('fixed.turnFailed') };
+}
 
-export const REFUSAL_TEXT = t('fixed.refusal');
-export const EMPTY_TEXT = t('fixed.empty');
-export const TRUNCATED_TOOL_TEXT = t('fixed.truncatedTool');
+const HE_FIXED = fixedTexts('he');
+export const REFUSAL_TEXT = HE_FIXED.refusal;
+export const EMPTY_TEXT = HE_FIXED.empty;
+export const TRUNCATED_TOOL_TEXT = HE_FIXED.truncatedTool;
 /**
  * Stored when a turn throws after the user's message was saved (model / tool / Firestore
  * error): without it the thread keeps the user's message with no reply at all, and on reopen
  * nothing shows that it failed. Kept out of the model history (StoredMessage.failed).
  */
-export const TURN_FAILED_TEXT = t('fixed.turnFailed');
+export const TURN_FAILED_TEXT = HE_FIXED.turnFailed;
 
 /** Short chat replies: thinking off (allowed on Haiku at effort ≤ high), effort low. */
 export const COACH_THINKING: Anthropic.ThinkingConfigParam = { type: 'disabled' };
@@ -112,6 +116,12 @@ export interface TurnConfig {
   modelOptions?: { thinking: Anthropic.ThinkingConfigParam; effort: 'low' | 'medium' | 'high' };
   /** Reply guards. Omitted → only the Hebrew-only check runs (no grounding facts). */
   guards?: TurnGuardConfig;
+  /**
+   * Reply language of this turn (Kelly server locale, ai_coach_locale_v1). Omitted = 'he': the fixed texts and the
+   * Hebrew reply guards run exactly as before. Any other locale uses that language's fixed texts and skips the
+   * Hebrew-only guards (they would strip every Latin word and flag every English reply).
+   */
+  locale?: CoachLocale;
 }
 
 export interface TurnState {
@@ -218,6 +228,9 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
   };
   const log = state.log!;
   log.model = cfg.model;
+  const locale = cfg.locale ?? 'he';
+  const hebrew = locale === 'he';
+  const fixed = hebrew ? null : fixedTexts(locale);
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -245,7 +258,7 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
 
     if (message.stop_reason === 'refusal') {
       log.guards.push({ type: 'refusal', action: 'fixed_text' });
-      appendText(state, REFUSAL_TEXT, deps);
+      appendText(state, fixed?.refusal ?? REFUSAL_TEXT, deps);
       return { kind: 'final', state, stopReason: 'refusal' };
     }
 
@@ -254,8 +267,8 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
 
     // A tool_use cut off by max_tokens may carry a truncated input: never run it.
     if (message.stop_reason === 'max_tokens' && toolUses.length > 0) {
-      emitChecked(state, roundText, deps, null);
-      appendText(state, TRUNCATED_TOOL_TEXT, deps);
+      emitChecked(state, roundText, deps, null, null, false, hebrew);
+      appendText(state, fixed?.truncatedTool ?? TRUNCATED_TOOL_TEXT, deps);
       return { kind: 'final', state, stopReason: 'max_tokens' };
     }
 
@@ -275,23 +288,23 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
               ...(cfg.guards.handoffOpen ? { handoffOpen: true } : {}),
             }
           : null;
-        const issues = checkReply(text, facts, userGender, blind);
+        const issues = hebrew ? checkReply(text, facts, userGender, blind) : checkReplyEn(text, facts, blind);
         if (issues.length && !state.correctionUsed) {
           state.correctionUsed = true;
           for (const i of issues) log.guards.push({ type: guardType(i), action: `reprompt: ${issueDetail(i)}` });
           state.turnMessages.push({ role: 'assistant', content: text });
-          state.turnMessages.push({ role: 'user', content: correctionNote(issues) });
+          state.turnMessages.push({ role: 'user', content: correctionNote(issues, locale === 'en' ? 'en' : 'he') });
           continue; // same round budget: a correction is not a tool round
         }
         for (const i of issues) log.guards.push({ type: guardType(i), action: `unresolved_after_retry: ${issueDetail(i)}` });
-        emitChecked(state, text, deps, facts?.text ?? '', userGender);
+        emitChecked(state, text, deps, facts?.text ?? '', userGender, false, hebrew);
       }
-      if (!state.turnText.trim()) appendText(state, EMPTY_TEXT, deps);
+      if (!state.turnText.trim()) appendText(state, fixed?.empty ?? EMPTY_TEXT, deps);
       return { kind: 'final', state, stopReason: message.stop_reason };
     }
 
     // A tool round: its short preamble ("בודק...") is shown, with foreign words stripped.
-    emitChecked(state, roundText, deps, null, cfg.guards?.userGender ?? null, true);
+    emitChecked(state, roundText, deps, null, cfg.guards?.userGender ?? null, true, hebrew);
 
     state.turnMessages.push({ role: 'assistant', content: message.content });
     state.roundsUsed++;
@@ -399,9 +412,15 @@ function emitChecked(
   evidenceText: string | null,
   userGender: CoachGender | null = null,
   preTool = false,
+  hebrew = true,
 ): void {
   let t = text.trim();
   if (!t) return;
+  // Not Hebrew: the foreign-word strip and the masculine-voice rewrite are Hebrew-only rules.
+  if (!hebrew) {
+    appendText(state, t, deps);
+    return;
+  }
   const words = findForeignWords(t, evidenceText ?? '');
   if (words.length) {
     t = stripForeignWords(t, words);

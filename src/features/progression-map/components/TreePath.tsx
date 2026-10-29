@@ -49,6 +49,7 @@
 import { groupRungsForDisplay } from '../services/build-skill-tree.service';
 import { buildTreePathLayout, DEFAULT_TREE_PATH_LAYOUT_CONFIG } from '../services/tree-path-layout';
 import { deriveState } from '../services/tree-node-state.service';
+import { isPriorityNode } from '../services/tree-node-image-loading';
 import { TreeNode, type TreeNodeState } from './TreeNode';
 import type { SkillTreeData, SkillTreeRung } from '../core/types';
 import { useT } from '@/hooks/useT';
@@ -115,6 +116,9 @@ export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap, v2 = false 
   const segments = groupRungsForDisplay(tree.rungs);
   const layout = buildTreePathLayout(segments);
   const config = DEFAULT_TREE_PATH_LAYOUT_CONFIG;
+  // W4: node order among photo nodes only (gap pills have no photo) — the
+  // first few are on screen when the tree opens and load at priority.
+  let nodeIndex = -1;
 
   return (
     <div className="relative" dir="ltr" style={{ height: layout.totalHeight }}>
@@ -169,6 +173,7 @@ export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap, v2 = false 
         }
 
         const { rung } = entry.segment;
+        nodeIndex += 1;
         const state = deriveState(rung, tree, currentLevel);
         const align = entry.x === config.rightX ? 'start' : 'end';
 
@@ -185,6 +190,7 @@ export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap, v2 = false 
               siblingCount={rung.siblingCount}
               align={align}
               v2={v2}
+              priority={isPriorityNode(nodeIndex)}
               onTap={() => onNodeTap(rung, state, isAboveCurrentLevel(rung, tree, currentLevel))}
               onSwapTap={rung.siblingCount > 0 ? () => onSwapTap(rung) : undefined}
             />

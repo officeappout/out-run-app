@@ -196,7 +196,7 @@ export function ScopeBattleCardView({
       else if (navigator.clipboard) navigator.clipboard.writeText(text);
     };
     return (
-      <div className={`${BATTLE_SURFACE} mb-3`} style={BATTLE_BG} dir="rtl">
+      <div className={`${BATTLE_SURFACE} mb-3`} style={BATTLE_BG}>
         <BattleHeader subtitle={t('leagues.battle.noOpponent', { name: myEntry.scopeName })} />
         <Button variant="primary" size="sm" className="mt-3.5" onClick={handleInvite}>
           <UserPlus size={14} strokeWidth={2.4} aria-hidden />
@@ -222,7 +222,7 @@ export function ScopeBattleCardView({
   const candidates = entries.filter((e) => e.scopeId !== myScopeId);
 
   return (
-    <div className={`${BATTLE_SURFACE} mb-3`} style={BATTLE_BG} dir="rtl">
+    <div className={`${BATTLE_SURFACE} mb-3`} style={BATTLE_BG}>
       <BattleHeader
         subtitle={timeLeft}
         action={
@@ -250,7 +250,7 @@ export function ScopeBattleCardView({
         <span className="mb-5 w-9 h-9 rounded-full bg-white flex items-center justify-center text-v2-amber shadow-v2-ring">
           <Zap size={18} strokeWidth={2.4} fill="currentColor" aria-label={t('leagues.battle.versus')} />
         </span>
-        <div className="min-w-0 text-left">
+        <div className="min-w-0 text-end">
           <div className="text-[14px] font-extrabold text-v2-ink truncate">{opponent.scopeName}</div>
           <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-ink-2">
             {formatNumber(theirs, t.locale)}

@@ -131,7 +131,7 @@ export default function ProgressPage() {
         className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="max-w-md mx-auto px-5 py-1.5 flex items-center justify-between" dir="rtl">
+        <div className="max-w-md mx-auto px-5 py-1.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[#00C9F2]/10 flex items-center justify-center">
               <BarChart2 className="w-4 h-4 text-[#00C9F2]" />
@@ -182,7 +182,7 @@ export default function ProgressPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: groupIdx * 0.04 }}
           >
-            <div className="flex items-center gap-3 mb-3" dir="rtl">
+            <div className="flex items-center gap-3 mb-3">
               <span className="text-sm font-black text-gray-700">{group.label}</span>
               <div className="flex-1 h-px bg-gray-100" />
               <span className="text-xs text-gray-400">{t('activityLog.days', { n: String(group.dates.length) })}</span>

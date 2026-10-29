@@ -9,7 +9,7 @@ import { community } from '@/messages/ns/community';
 export function FeedEmptyState({ v2, onFindPartners }: { v2: boolean; onFindPartners: () => void }) {
   const t = useT(community);
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center px-4" dir="rtl">
+    <div className="flex flex-col items-center justify-center py-16 text-center px-4">
       <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
         <Users className="w-7 h-7 text-gray-400" />
       </div>

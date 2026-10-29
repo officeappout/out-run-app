@@ -13,4 +13,6 @@ export interface JourneyStripItem {
   /** Display text ("6 × 400 מ׳"); when absent, `seconds` is formatted as minutes ("12 דק׳"). */
   label?: string;
   seconds?: number;
+  /** Inert `data-coach` target for a tour (enable_map_tutorial_v1). Absent → no attribute. */
+  coach?: string;
 }

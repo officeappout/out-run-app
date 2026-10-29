@@ -24,7 +24,7 @@ export function GroupAxisChooser({ vm, axis, setAxis, options }: { vm: LeaguesVM
   } = vm;
   const t = useT(community);
   return (
-    <div className="flex items-center gap-2 mb-3" dir="rtl">
+    <div className="flex items-center gap-2 mb-3">
       <div className="relative flex-1">
         <button
           type="button"
@@ -34,7 +34,7 @@ export function GroupAxisChooser({ vm, axis, setAxis, options }: { vm: LeaguesVM
           className="w-full flex items-center justify-between rounded-v2-tile px-4 py-3 active:scale-[0.97] transition-transform ease-v2 border border-v2-hairline-cool"
           style={{ background: 'linear-gradient(135deg, #e8f9fe, #e9fdfb)' }}
         >
-          <div className="text-right">
+          <div className="text-start">
             <span className="text-sm font-black text-gray-900">
               {t('communityPage.axis.between', { axis })}
             </span>
@@ -59,7 +59,7 @@ export function GroupAxisChooser({ vm, axis, setAxis, options }: { vm: LeaguesVM
                 role="option"
                 aria-selected={axis === opt}
                 onClick={() => { setAxis(opt); setAxisMenuOpen(false); }}
-                className={`w-full text-right px-4 py-3 text-sm font-bold transition-colors ${
+                className={`w-full text-start px-4 py-3 text-sm font-bold transition-colors ${
                   axis === opt ? 'text-v2-deep bg-v2-tint' : 'text-v2-ink hover:bg-v2-surface'
                 }`}
               >

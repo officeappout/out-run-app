@@ -24,6 +24,7 @@ import type { Exercise, ExecutionLocation, ExecutionMethod } from '@/features/co
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { AlternativeExerciseOption } from '@/features/workout-engine/generator/services/exercise-replacement.service';
 import { deriveSwappedEntry } from '../utils/derive-swapped-entry.util';
+import { formatRepRange } from '@/features/workout-engine/core/presentation/PresentationFormatter';
 import { healPairedLinks, restoreCollapsedRoles } from '../utils/swap-entries.util';
 import { computeLocationCoverage, type CoverageResult, type CoverageSlot } from './location-coverage.util';
 import { LOCATION_GATE_DEFAULTS, type LocationGateConfig } from './location-gate.config';
@@ -31,6 +32,11 @@ import { methodHasAnyMedia } from '@/features/workout-engine/shared/utils/method
 import { slotRulesFor, buildCandidateFilter, pickReplacement, type SlotRules } from './replacement-rules.util';
 import { cooldownGuideSeconds, pickCooldownGuides } from '@/features/workout-engine/services/cooldown-guide.utils';
 import { isTestOrPlaceholderExercise } from '@/features/workout-engine/shared/utils/test-exercise.utils';
+
+/** A timed override changed reps / metric after the swap: rebuild the card string from it (AB3). */
+function withFreshLabel(e: WorkoutExercise): WorkoutExercise {
+  return e.formattedRepRange != null ? { ...e, formattedRepRange: formatRepRange(e) } : e;
+}
 
 export interface SwapPlanDeps {
   hasLocation(ex: Exercise, location: ExecutionLocation): boolean;
@@ -98,10 +104,10 @@ export async function planLocationSwap(
         const seconds = cooldownGuideSeconds(g.method);
         const timed = { sets: 1, reps: seconds, repsRange: undefined, isTimeBased: true };
         if (we.exercise.id === g.exercise.id) {
-          newEntries.push({ ...we, method: g.method as WorkoutExercise['method'], ...timed });
+          newEntries.push(withFreshLabel({ ...we, method: g.method as WorkoutExercise['method'], ...timed }));
           continue;
         }
-        newEntries.push({ ...deriveSwappedEntry(we, g.exercise, g.method), ...timed });
+        newEntries.push(withFreshLabel({ ...deriveSwappedEntry(we, g.exercise, g.method), ...timed }));
         systemSwaps.push({ from: we, to: g.exercise });
         exclude.add(g.exercise.id);
         if (!oldToNew.has(we.exercise.id)) oldToNew.set(we.exercise.id, g.exercise.id);

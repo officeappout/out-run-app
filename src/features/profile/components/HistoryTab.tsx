@@ -123,7 +123,7 @@ export default function HistoryTab({ onWorkoutClick, workouts, isLoading, remove
   return (
     <div className="space-y-4">
       {/* Filter Bar */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" dir="rtl">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {FILTERS.map((filter) => (
           <button
             key={filter.key}

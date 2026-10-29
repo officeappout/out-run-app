@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { Pointer } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/v2';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
@@ -13,10 +13,13 @@ import QuizV3Header from './QuizV3Header';
 import QuizProgressRow from './QuizProgressRow';
 import SliderSideCard from './SliderSideCard';
 import LevelChip from './LevelChip';
-import { useStepExerciseName } from './useStepExerciseName';
+import SwipeNudgeHint from './SwipeNudgeHint';
+import { useStepPreview } from './useStepExerciseName';
+import { NUDGE_DURATION_S, NUDGE_REPEAT_DELAY_S, nudgeKeyframes } from './swipe-nudge';
 import {
   isQuizV3Group,
   moveSelection,
+  neighbourSteps,
   skillIcon,
   sliderCards,
   swipeDirection,
@@ -62,10 +65,19 @@ export default function SliderV3View(props: SliderV3ViewProps) {
   // A mouse swipe that starts on a side card also clicks it: that click must not move again.
   const justSwiped = useRef(false);
   const cardsRef = useRef<HTMLDivElement>(null);
+  const reduce = !!useReducedMotion();
+  const [rtl, setRtl] = useState(true);
+  useEffect(() => {
+    if (cardsRef.current) setRtl(getComputedStyle(cardsRef.current).direction === 'rtl');
+  }, []);
 
   const selected = notYet ? -1 : selectedIndex;
   const cards = sliderCards(steps.length, selected, hasNotYet);
-  const firstExercise = useStepExerciseName(category, hasNotYet ? steps[0] ?? null : null, demographics, lang);
+  const near = neighbourSteps(steps, selected);
+  const easierPreview = useStepPreview(category, cards.easier === 'step' ? near.easier : null, demographics, lang);
+  const harderPreview = useStepPreview(category, near.harder, demographics, lang);
+  const firstExercise = cards.center === 'notYet' ? harderPreview.name : null;
+  const nudging = hintVisible && !reduce;
   const skillName = t('quiz.slider.category', { category: category.toLowerCase(), name: category });
 
   const move = (dir: -1 | 1) => {
@@ -81,7 +93,6 @@ export default function SliderV3View(props: SliderV3ViewProps) {
     const start = swipeStart.current;
     swipeStart.current = null;
     if (!start) return;
-    const rtl = cardsRef.current ? getComputedStyle(cardsRef.current).direction === 'rtl' : true;
     const dir = swipeDirection(e.clientX - start.x, e.clientY - start.y, rtl);
     if (dir !== 0) { justSwiped.current = true; move(dir); }
   };
@@ -119,9 +130,15 @@ export default function SliderV3View(props: SliderV3ViewProps) {
         onPointerUp={onPointerUp}
         onPointerCancel={() => { swipeStart.current = null; }}
       >
+        <motion.div
+          className="flex h-full w-full items-center justify-center gap-2.5"
+          animate={nudging ? { x: nudgeKeyframes(rtl) } : { x: 0 }}
+          transition={nudging ? { duration: NUDGE_DURATION_S, ease: 'easeInOut', repeat: Infinity, repeatDelay: NUDGE_REPEAT_DELAY_S } : { duration: 0.2 }}
+        >
         <SliderSideCard
           kind="easier"
           hidden={!cards.easier}
+          imageUrl={cards.easier === 'step' ? easierPreview.imageUrl : null}
           label={cards.easier === 'notYet' ? t('quizV3.skill.notYet', { gender }) : t('quiz.slider.easier')}
           ariaLabel={t('quizV3.slider.cardAria', { kind: 'easier' })}
           onPress={() => pressSide(-1)}
@@ -153,7 +170,7 @@ export default function SliderV3View(props: SliderV3ViewProps) {
                 <span className="truncate text-[16px] font-black text-v2-ink">
                   {exerciseLabel ?? t('quiz.slider.category', { category: category.toLowerCase(), name: category })}
                 </span>
-                <span className="truncate text-[13px] text-v2-ink-2">{levelLine}</span>
+                <span className="text-[13px] leading-[18px] text-v2-ink-2" data-level-line>{levelLine}</span>
               </div>
             </>
           )}
@@ -162,19 +179,16 @@ export default function SliderV3View(props: SliderV3ViewProps) {
         <SliderSideCard
           kind="harder"
           hidden={!cards.harder}
+          imageUrl={harderPreview.imageUrl}
           label={cards.center === 'notYet' ? firstExercise : t('quiz.slider.harder')}
           ariaLabel={t('quizV3.slider.cardAria', { kind: 'harder' })}
           onPress={() => pressSide(1)}
         />
 
-        {hintVisible && (
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-[12%] mx-auto flex w-fit items-center gap-2 whitespace-nowrap rounded-full bg-[rgba(14,20,25,0.86)] px-3.5 py-2.5 text-white"
-            data-swipe-hint
-          >
-            <Pointer size={22} strokeWidth={2} aria-hidden />
-            <span className="text-[14px] font-extrabold">{t('quizV3.slider.swipeHint', { gender })}</span>
-          </div>
+        </motion.div>
+
+        {hintVisible && cards.center === 'step' && (
+          <SwipeNudgeHint label={t('quizV3.slider.swipeHint', { gender })} rtl={rtl} reduce={reduce} />
         )}
       </div>
 

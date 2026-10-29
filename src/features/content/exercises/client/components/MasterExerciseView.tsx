@@ -19,6 +19,8 @@
  *     so no existing library content is lost.
  */
 
+import { useShowHeOnlySurfaces } from '@/features/arena/hooks/useShowHeOnlySurfaces';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import {
@@ -219,7 +221,8 @@ function ChainNode({
   const isCurrent = variant === 'same';
   const thumb = resolveExerciseThumbnail(exercise, location);
   const level = getExerciseLevelForProgram(exercise, activeProgramId);
-  const name = getLocalizedText(exercise.name, 'he');
+  const lang = useContentLanguage();
+  const name = getLocalizedText(exercise.name, lang);
 
   if (v2) {
     return (
@@ -427,7 +430,9 @@ export default function MasterExerciseView({
   const v2 = useFeatureFlags(
     !!(mevProfile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin,
   ).flags.enableHomeV2;
-  const isMilitaryPersona = mevProfile ? hasPersona(mevProfile, 'military') : false;
+  // 'service' is also hidden in non-Hebrew UIs (hide_he_only_onboarding_steps); flag off / Hebrew: unchanged.
+  const showHeOnly = useShowHeOnlySurfaces();
+  const isMilitaryPersona = showHeOnly && (mevProfile ? hasPersona(mevProfile, 'military') : false);
 
   const methodOptions = useMemo<MethodOption[]>(() => {
     const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];

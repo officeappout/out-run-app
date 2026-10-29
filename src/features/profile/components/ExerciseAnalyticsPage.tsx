@@ -160,7 +160,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
   );
 
   return (
-    <div className="min-h-[100dvh] bg-[#F8FAFC]" dir="rtl">
+    <div className="min-h-[100dvh] bg-[#F8FAFC]">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -173,7 +173,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
             className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-600 active:bg-gray-100 transition-colors"
             aria-label={t('exerciseAnalyticsV1.back')}
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-5 h-5 ltr:-scale-x-100" />
           </button>
           <div className="flex-1 min-w-0 text-center">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -536,7 +536,6 @@ function GoalPickerModal({
             transition={{ type: 'spring', damping: 22, stiffness: 300 }}
             className="bg-white rounded-2xl w-full max-w-xs shadow-xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
-            dir="rtl"
           >
             {/* Header */}
             <div className="p-5 pb-2">
@@ -668,7 +667,7 @@ function SessionRow({ session, delta }: SessionRowProps) {
     reps.length > 0 ? `${reps.length} × ${reps.join('/')}` : `${session.maxReps}`;
 
   return (
-    <div className="flex items-center px-4 py-3 gap-2" dir="rtl">
+    <div className="flex items-center px-4 py-3 gap-2">
       <div className="flex-1 min-w-0">
         <p className="text-xs font-black text-gray-800 truncate">
           {fmtLongDate(session.dateMs, locale)}

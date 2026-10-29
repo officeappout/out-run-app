@@ -279,7 +279,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
       <button
         key={card.slug}
         type="button"
-        className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
+        className="flex-shrink-0 text-start active:opacity-80 transition-opacity"
         onClick={() => goToProgram(card.slug)}
       >
         <ProgramProgressCard
@@ -296,7 +296,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
       <button
         key={card.slug}
         type="button"
-        className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
+        className="flex-shrink-0 text-start active:opacity-80 transition-opacity"
         style={{ minWidth: 160 }}
         onClick={() => startMiniDomainAssessment(router, card.slug, undefined, domainType)}
       >
@@ -308,7 +308,6 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
             borderRadius: 12,
             border: '1px dashed #CBD5E1',
           }}
-          dir="rtl"
         >
           <h3 className="text-[15px] font-bold text-gray-500 dark:text-gray-400 line-clamp-2 break-words leading-snug">
             {card.name}
@@ -326,7 +325,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
         key={card.slug}
         type="button"
         onClick={() => goToProgram(card.slug)}
-        className={`flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring ${V2_PRESS}`}
+        className={`flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring ${V2_PRESS}`}
       >
         <V2Ring percent={Math.round(card.percent)} size={44} stroke={4}>
           <span className="text-v2-deep">{getProgramIcon(card.iconKey, 'w-4 h-4')}</span>
@@ -340,14 +339,14 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
         <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep tabular-nums">
           {Math.round(card.percent)}%
         </span>
-        <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+        <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
       </button>
     ) : (
       <button
         key={card.slug}
         type="button"
         onClick={() => startMiniDomainAssessment(router, card.slug, undefined, domainType)}
-        className={`flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring ${V2_PRESS}`}
+        className={`flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring ${V2_PRESS}`}
       >
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline">
           {getProgramIcon(card.iconKey, 'w-4 h-4')}
@@ -356,7 +355,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
           <p className="truncate text-[15px] font-extrabold text-v2-ink-2">{card.name}</p>
           <p className="mt-0.5 truncate text-[12.5px] font-bold text-v2-deep">{t('widgets.programs.notAssessedCta')}</p>
         </div>
-        <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+        <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
       </button>
     );
 
@@ -368,7 +367,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
 
   if (v2 && !hasAnyProgram) {
     return (
-      <div dir="rtl">
+      <div>
         <h3 className="mb-3 text-[15px] font-black text-v2-ink">{t('widgets.programs.title')}</h3>
         <div className="flex flex-col items-center gap-3 rounded-v2-card bg-white px-5 py-7 text-center shadow-v2-card">
           <span className="grid h-12 w-12 place-items-center rounded-full bg-v2-tint text-v2-deep">
@@ -389,7 +388,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
 
   if (v2) {
     return (
-      <div className="space-y-5" dir="rtl">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
           <h3 className="text-[15px] font-black text-v2-ink">{t('widgets.programs.title')}</h3>
           <button
@@ -407,7 +406,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
             <button
               type="button"
               onClick={goToMasterProgram}
-              className={`flex w-full items-center gap-4 rounded-v2-card bg-white p-4 text-right shadow-v2-card ${V2_PRESS}`}
+              className={`flex w-full items-center gap-4 rounded-v2-card bg-white p-4 text-start shadow-v2-card ${V2_PRESS}`}
             >
               <V2Ring percent={masterPercent} size={68} stroke={6}>
                 <span className="text-[15px] font-black text-v2-ink tabular-nums">{Math.round(masterPercent)}%</span>
@@ -421,7 +420,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
                   {t('widgets.programs.level', { level: String(masterLevel), max: String(masterMaxLevel) })}
                 </p>
               </div>
-              <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+              <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
             </button>
           </div>
         )}
@@ -467,7 +466,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
   // templateId while entry[1]+ are valid shouldn't hide real programs.
   if (!masterTemplateId && childSlugs.length === 0 && additionalCards.length === 0) {
     return (
-      <div dir="rtl">
+      <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-black text-gray-800">{t('widgets.programs.title')}</h3>
         </div>
@@ -489,7 +488,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
   }
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-5">
       {/* Section header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-black text-gray-800">{t('widgets.programs.title')}</h3>
@@ -508,7 +507,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
           <p className="text-xs font-bold text-gray-400 tracking-wide">{t('widgets.programs.active')}</p>
           <button
             type="button"
-            className="w-full text-right active:opacity-80 transition-opacity"
+            className="w-full text-start active:opacity-80 transition-opacity"
             onClick={goToMasterProgram}
           >
             <ProgramProgressCard

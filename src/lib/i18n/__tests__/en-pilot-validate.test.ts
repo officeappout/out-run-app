@@ -10,20 +10,20 @@ import { LANGUAGE_NEUTRAL, ONBOARDING_SKIPPED, PILOT_SCOPE, validateAll, validat
 
 const messages = path.resolve(__dirname, '../../../messages');
 
-describe('en catalogs (pilot: common, pages, home settings.*; batch 3: player, summary)', () => {
+describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: home (all), profile; batch 5: map)', () => {
   const { issues, reports } = validateAll(messages);
 
-  it('has the expected key counts per catalog (pilot 370 + onboarding 1005 + player 902 + summary 167)', () => {
+  it('has the expected key counts per catalog (pilot 370 + onboarding 1013 + player 929 + summary 178 + home rest 581 + profile 576 + map 919 + library 448 + coach 339 + wide 155)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 186, pages: 17, home: 167, onboarding: 1005, player: 902, summary: 167 });
+    expect(by).toEqual({ common: 186, pages: 17, home: 753, onboarding: 1013, player: 955, summary: 178, profile: 597, social: 124, together: 129, community: 943, map: 959, library: 463, coach: 339, wide: 155, push: 471 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {
     expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
   });
 
-  it('home en holds only settings.* keys', () => {
-    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary']);
+  it('home en holds every he key (batch 4)', () => {
+    expect(Object.keys(PILOT_SCOPE)).toEqual(['common', 'pages', 'home', 'onboarding', 'player', 'summary', 'profile', 'social', 'together', 'community', 'map', 'library', 'coach', 'wide', 'push']);
     const rep = reports.find((r) => r.ns === 'home')!;
     expect(rep.enKeys).toBe(rep.scoped);
   });

@@ -41,14 +41,14 @@ export function WizardFooter({
       className={`flex-shrink-0 px-5 pt-4 pb-4 border-t ${v2 ? 'border-v2-hairline' : 'border-gray-100'}`}
       style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
     >
-      <div className="flex items-center gap-3" dir="rtl">
+      <div className="flex items-center gap-3">
         {/* Back */}
         <button
           onClick={handleBack}
           aria-label={t('createGroup.footer.back')}
           className={v2 ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform active:scale-90' : 'w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0'}
         >
-          <ChevronRight className={v2 ? 'h-5 w-5 text-v2-ink' : 'w-5 h-5 text-gray-600'} />
+          <ChevronRight className={v2 ? 'h-5 w-5 text-v2-ink ltr:-scale-x-100' : 'w-5 h-5 text-gray-600 ltr:-scale-x-100'} />
         </button>
 
         {(outreachMode || step < 5) ? (
@@ -62,7 +62,7 @@ export function WizardFooter({
             }
           >
             {outreachMode ? t('createGroup.footer.nextOutreach') : t('createGroup.footer.next')}
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4 ltr:-scale-x-100" />
           </button>
         ) : (
           <button

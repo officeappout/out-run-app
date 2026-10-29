@@ -50,6 +50,9 @@ import { getLocalizedText } from '@/features/content/shared/localized-text.types
 import { useUserStore } from '@/features/user';
 import type { Park } from '@/features/parks/core/types/park.types';
 import StationWelcomeScreen from './StationWelcomeScreen';
+import ParkStationIntro from './v2/park/ParkStationIntro';
+import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { stationIntroDifficulty, stationIntroView, stationRunPlan, type StationDifficulty } from './park-live-v2';
 import { firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
 import { COACH_TARGET_SKIP } from './station-tutorial';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -121,6 +124,18 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
     () => (stationContext ? scopedFoundStore(hybridEquipmentFound, stationContext.locationKey) : null),
     [stationContext?.locationKey],
   );
+
+  // enable_park_live_v2 (board Park 5, pilot M10 / M11 / M13): one intro per machine station, and the
+  // station difficulty (default easy, kept for the session's later stations) applied to the plan the
+  // player runs. Flag off → the composed plan, unchanged.
+  const parkLive = useParkLiveV2();
+  // null until the user picks a level on the station intro; until then the composed level runs.
+  const [stationDifficulty, setStationDifficulty] = useState<StationDifficulty | null>(null);
+  const runPlan = useMemo(
+    () => (parkLive ? stationRunPlan(stationPlan, stationDifficulty) : stationPlan),
+    [parkLive, stationPlan, stationDifficulty],
+  );
+  const parkIntro = useMemo(() => (parkLive ? stationIntroView(stationPlan) : null), [parkLive, stationPlan]);
 
   const handleStationWorkDone = (exerciseLog: ReturnType<typeof toSegmentExerciseDetail>) => {
     // Count only COMPLETED guided stations (≥1 logged set) — never skipped / empty exits.
@@ -236,6 +251,14 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
                 : undefined
             }
           />
+        ) : parkIntro && guided && stationContext && welcomeDoneFor !== stationContext.stationNumber ? (
+          <ParkStationIntro
+            intro={parkIntro}
+            context={stationContext}
+            difficulty={stationIntroDifficulty(stationPlan, stationDifficulty)}
+            onDifficulty={setStationDifficulty}
+            onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
+          />
         ) : guided && stationContext && welcomeDoneFor !== stationContext.stationNumber ? (
           // PR-B1 guided: welcome-to-the-station BEFORE StrengthRunner mounts (i.e. before
           // its PREPARING countdown). Fast mode never takes this branch.
@@ -250,7 +273,9 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
           />
         ) : (
         <StrengthRunner
-          workout={stationPlan}
+          workout={runPlan ?? stationPlan}
+          // enable_park_live_v2 (boards Park 8-9): phone-on-the-floor before the timer, find + swap in the rest.
+          parkLive={parkLive}
           // F1 (19.08.2026): StrengthRunner's real exerciseLog was previously
           // discarded here (onComplete={() => completeStation()}) — the root
           // cause of hybrid's strength segments having zero per-set detail.

@@ -44,7 +44,7 @@ export default function CityArenaView({
   const isSoftLaunch = rawMode === 'soft_launch';
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-5">
       {/* City Identity Banner removed — the active league card in the
           /community carousel already shows the authority logo, name, and
           member count. The dark banner here was redundant and clashed with

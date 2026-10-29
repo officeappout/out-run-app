@@ -58,14 +58,13 @@ export default function LegPlanStartPreview({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      className="fixed left-0 right-0 z-[60] px-5 pointer-events-none"
+      className="fixed end-0 start-0 z-[60] px-5 pointer-events-none"
       style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
     >
       <button
         type="button"
         onClick={confirmOnce}
-        className="w-full bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto text-right active:scale-[0.98] transition-transform"
-        dir="rtl"
+        className="w-full bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto text-start active:scale-[0.98] transition-transform"
         aria-label={t('legPlan.startNowLabel')}
       >
         {/* Auto-start progress bar */}

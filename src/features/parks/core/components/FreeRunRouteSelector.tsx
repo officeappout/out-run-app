@@ -209,7 +209,7 @@ export default function FreeRunRouteSelector({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[110] pointer-events-auto" dir="rtl">
+    <div className="fixed inset-0 z-[110] pointer-events-auto">
       <AnimatePresence mode="wait">
         {phase === 'searching' ? (
           <RadarAnimation
@@ -308,7 +308,7 @@ function CardsScreen({
               className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
               aria-label="חזור"
             >
-              <ArrowRight size={14} className="text-gray-600" />
+              <ArrowRight size={14} className="text-gray-600 ltr:-scale-x-100" />
             </button>
             <div>
               <h2 className="text-base font-black text-gray-900">בחר מסלול</h2>

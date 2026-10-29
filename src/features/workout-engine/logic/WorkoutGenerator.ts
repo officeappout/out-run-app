@@ -70,6 +70,7 @@ import {
 } from './workout-selection.utils';
 import {
   chooseCoreForm,
+  coreHeadroomMinutes,
   chooseCoreTabataMemberCount,
   buildCoreTabataBlock,
   resolveFollowAlongCoreExercise,
@@ -1394,7 +1395,7 @@ export class WorkoutGenerator {
 
       if (coreForm === 'tabata') {
         const corePool = (context.tabataPool ?? []).filter((ex) => hasExplicitCoreLevel(ex));
-        const memberCount = chooseCoreTabataMemberCount(context.availableTime - estimatedDurationSoFar);
+        const memberCount = chooseCoreTabataMemberCount(coreHeadroomMinutes(context.availableTime, estimatedDurationSoFar));
         coreTabataBlock = buildCoreTabataBlock(workoutExercises, {
           memberCount,
           corePool,

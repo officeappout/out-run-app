@@ -29,7 +29,8 @@ import React from 'react';
 import { Flag, Clock, Navigation, MapPin } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useCommuteEta } from './useCommuteEta';
-import { useT, type ReactTFunction } from '@/hooks/useT';
+import { useT } from '@/hooks/useT';
+import { formatArrivalClock, formatRemainingDistance } from './commute-format';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
 const ACCENT = '#00ADEF';
@@ -44,19 +45,6 @@ function formatEta(seconds: number | null): { value: string; unit: PlayerKey } {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return { value: `${hours}:${mins.toString().padStart(2, '0')}`, unit: 'run.commute.unit.hours' };
-}
-
-function formatRemainingDistance(km: number | null, t: ReactTFunction<PlayerKey>): string {
-  if (km === null || !Number.isFinite(km)) return '--';
-  if (km < 1) return t('run.commute.remainingM', { m: String(Math.round(km * 1000)) });
-  return t('run.commute.remainingKm', { km: km.toFixed(km < 10 ? 2 : 1) });
-}
-
-function formatArrivalClock(date: Date | null): string {
-  if (!date) return '--:--';
-  const hh = date.getHours().toString().padStart(2, '0');
-  const mm = date.getMinutes().toString().padStart(2, '0');
-  return `${hh}:${mm}`;
 }
 
 export default function CommuteStatsCarousel() {

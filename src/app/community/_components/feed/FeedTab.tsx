@@ -131,7 +131,7 @@ export function FeedTab({
       {shareBlock}
       {partnerShares}
       <div className="px-4 space-y-3">
-        <div className="flex items-center justify-between px-1 pt-2" dir="rtl">
+        <div className="flex items-center justify-between px-1 pt-2">
           <span className="text-[11px] text-gray-500">
             {t('communityPage.feed.following', { count: String(following.length) })}
           </span>
@@ -168,7 +168,7 @@ export function FeedTab({
           </m.div>
         ))}
         {v2 && shown.length === 0 && (
-          <p className="py-10 text-center text-[14px] font-bold text-v2-muted" dir="rtl">{t('communityPage.feed.emptyFiltered')}</p>
+          <p className="py-10 text-center text-[14px] font-bold text-v2-muted">{t('communityPage.feed.emptyFiltered')}</p>
         )}
       </div>
     </div>

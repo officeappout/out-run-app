@@ -76,7 +76,7 @@ export function StepMode({
             key={String(opt.value)}
             type="button"
             onClick={() => updateForm('hasMeetups', opt.value)}
-            className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-right ${
+            className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-start ${
               form.hasMeetups === opt.value
                 ? 'border-cyan-500 bg-cyan-50'
                 : 'border-gray-100 bg-gray-50 hover:border-gray-200'
@@ -90,7 +90,7 @@ export function StepMode({
               <span className="text-[11px] text-gray-500 leading-relaxed">{opt.sub}</span>
             </div>
             {form.hasMeetups === opt.value && (
-              <Check className="w-4 h-4 text-cyan-500 flex-shrink-0 mt-1 mr-auto" />
+              <Check className="w-4 h-4 text-cyan-500 flex-shrink-0 mt-1 ms-auto" />
             )}
           </button>
         ))}

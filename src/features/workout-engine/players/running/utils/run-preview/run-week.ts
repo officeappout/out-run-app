@@ -2,7 +2,7 @@
  * Week / day context for the v2 run preview and the weekly run list (pure).
  */
 import { weekdayName } from '@/lib/i18n/core/fmt';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { home } from '@/messages/ns/home';
 import type { Locale } from '@/lib/i18n/locales';
 import { mapRunWeekFromLetters, type RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
@@ -122,7 +122,7 @@ export function buildRunWeekRows<E extends RunScheduleEntryLike>(
 
 export function runWeekSummary(
   rows: readonly RunWeekRow[],
-  t: (key: 'runWeek.summary', values?: { done: number; total: number }) => string = makeT('he', home),
+  t: (key: 'runWeek.summary', values?: { done: number; total: number }) => string = makeLiveT(home),
 ): { total: number; done: number; label: string } {
   const total = rows.length;
   const done = rows.filter((r) => r.state === 'done').length;

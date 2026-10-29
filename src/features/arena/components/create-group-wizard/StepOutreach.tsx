@@ -43,7 +43,7 @@ export function StepOutreach({
       t('createGroup.outreach.howStep3', { org }),
     ];
     return (
-      <div className="space-y-4 pt-4 text-right" dir="rtl">
+      <div className="space-y-4 pt-4 text-start">
         <div className="rounded-v2-card bg-v2-tint px-5 py-6 text-center">
           <span className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring" aria-hidden>
             <OrgIcon size={26} strokeWidth={2.4} />
@@ -91,7 +91,7 @@ export function StepOutreach({
   }
 
   return (
-    <div className="space-y-5 pt-4 text-right" dir="rtl">
+    <div className="space-y-5 pt-4 text-start">
       <div className="bg-gradient-to-b from-amber-50 to-white rounded-3xl p-6 border border-amber-200/60 text-center">
         <div className="text-4xl mb-3">{icon}</div>
         <h3 className="text-base font-black text-gray-900">
@@ -104,7 +104,7 @@ export function StepOutreach({
 
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
         <p className="text-sm font-bold text-gray-900 mb-2">{t('createGroup.outreach.how')}</p>
-        <ol className="text-xs text-gray-600 space-y-1.5 list-decimal pr-4">
+        <ol className="text-xs text-gray-600 space-y-1.5 list-decimal ps-4">
           <li>{t('createGroup.outreach.howStep1', { org })}</li>
           <li>{t('createGroup.outreach.howStep2')}</li>
           <li>{t('createGroup.outreach.howStep3', { org })}</li>

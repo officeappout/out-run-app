@@ -10,6 +10,7 @@
  *   [thumbnail/preview] [name + muscle chip] [chevron]
  */
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import React from 'react';
 import { ChevronLeft } from 'lucide-react';
 import WorkoutCardWrapper from '@/features/workout-engine/components/cards/WorkoutCardWrapper';
@@ -32,7 +33,8 @@ export default function ExerciseLibraryCard({
   onClick,
 }: ExerciseLibraryCardProps) {
   const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
-  const name = getLocalizedText(exercise.name);
+  const lang = useContentLanguage();
+  const name = getLocalizedText(exercise.name, lang);
   const muscle = pickPrimaryMuscle(exercise);
   const previewVideo = pickPreviewVideo(exercise, filterLocation);
   const thumbnailUrl = pickThumbnailUrl(exercise, filterLocation);

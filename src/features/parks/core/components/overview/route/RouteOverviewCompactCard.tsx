@@ -17,6 +17,7 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { ROUTE_CARD_WIDTH } from '../../../constants/routeCardSize';
 import { journeyItemsFromLegs } from '../overview-legs';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
 import { activityMinutes, buildRouteLegs, finishClock, initialRouteActivity } from './route-overview';
 import { RouteShadeTagPill } from '../../route-shade/RouteShade';
@@ -45,6 +46,7 @@ export default function RouteOverviewCompactCard({
   route, activity, isActive, onOpen, onStart, blockedReason = null, blockedLabel, onBlocked, className = '', coachId, ctaCoachId, footnote,
 }: RouteOverviewCompactCardProps) {
   const t = useT(map);
+  const { direction, isRtl } = useUiDir();
   const act = initialRouteActivity(route, activity);
   const min = activityMinutes(route.distance, act);
   const items = journeyItemsFromLegs(buildRouteLegs(route, act, null, t));
@@ -57,7 +59,7 @@ export default function RouteOverviewCompactCard({
     onStart();
   };
   return (
-    <div dir="rtl" data-coach={coachId} onClick={open} role="button" tabIndex={0}
+    <div dir={direction} data-coach={coachId} onClick={open} role="button" tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter') open(); }}
       className={`${ROUTE_CARD_WIDTH} shrink-0 cursor-pointer rounded-[22px] bg-white transition-all duration-300 ease-v2 ${
         isActive ? 'shadow-v2-float ring-2 ring-v2-accent scale-[1.02]' : 'shadow-v2-card opacity-90 scale-[0.97]'
@@ -94,7 +96,7 @@ export default function RouteOverviewCompactCard({
         ) : (
           <button type="button" onClick={cta}
             className="flex h-[42px] w-full items-center justify-center gap-1 whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]">
-            {t('overview.route.card.choose')} <ChevronLeft size={15} />
+            {t('overview.route.card.choose')} <ChevronLeft size={15} className={isRtl ? undefined : '-scale-x-100'} />
           </button>
         )}
         {footnote && (

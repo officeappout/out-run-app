@@ -152,7 +152,7 @@ function LeagueSheetList({
 }) {
   const t = useT(community);
   return (
-    <div className="flex flex-col gap-2" dir="rtl">
+    <div className="flex flex-col gap-2">
       {isLoading ? (
         <>
           <LeagueSheetRowSkeleton />
@@ -169,7 +169,7 @@ function LeagueSheetList({
               onClick={() => onSelect(league.key)}
               aria-selected={active}
               role="tab"
-              className={`flex items-center gap-3 w-full text-right rounded-[20px] p-3 transition-transform ease-v2 active:scale-[0.98] ${
+              className={`flex items-center gap-3 w-full text-start rounded-[20px] p-3 transition-transform ease-v2 active:scale-[0.98] ${
                 active ? 'bg-v2-tint ring-2 ring-v2-accent' : 'bg-white shadow-v2-ring'
               }`}
             >
@@ -270,7 +270,7 @@ export default function LeagueCarousel({
   }
 
   return (
-    <div className="-mx-4" dir="rtl">
+    <div className="-mx-4">
       <div
         className="flex gap-3 overflow-x-auto scrollbar-hide px-4 py-3 snap-x"
         style={{ WebkitOverflowScrolling: 'touch' }}

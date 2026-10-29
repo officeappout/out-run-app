@@ -7,10 +7,10 @@
  */
 import type { MuscleGroup } from '@/features/content/exercises/core/exercise.types';
 import { isHiddenProgram } from '@/lib/hidden-programs';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 /** Muscle icon paths — used inside chips */
 export const MUSCLE_ICON_PATHS: Record<string, string> = {
@@ -26,14 +26,14 @@ export const MUSCLE_ICON_PATHS: Record<string, string> = {
 
 /** Hebrew chip labels for each muscle group ID */
 export const MUSCLE_CHIP_LABELS: Record<string, string> = {
-  chest: t('muscle.chest'),
-  back: t('muscle.back'),
-  shoulders: t('muscle.shoulders'),
-  biceps: t('muscle.biceps'),
-  triceps: t('muscle.triceps'),
-  legs: t('muscle.legs'),
-  core: t('muscle.core'),
-  glutes: t('muscle.glutes'),
+  get chest() { return t('muscle.chest'); },
+  get back() { return t('muscle.back'); },
+  get shoulders() { return t('muscle.shoulders'); },
+  get biceps() { return t('muscle.biceps'); },
+  get triceps() { return t('muscle.triceps'); },
+  get legs() { return t('muscle.legs'); },
+  get core() { return t('muscle.core'); },
+  get glutes() { return t('muscle.glutes'); },
 };
 
 /** Calisthenics skill programs — slug matches Firestore program IDs.
@@ -42,13 +42,13 @@ export const SKILL_MASTER_ID = 'calisthenics_upper';
 
 /** Every skill chip, including ones hidden for now (HIDDEN_PROGRAM_SLUGS). */
 const ALL_SKILL_PROGRAMS: { id: string; nameHe: string }[] = [
-  { id: 'calisthenics_upper', nameHe: t('skill.calisthenicsUpper') },
-  { id: 'front_lever',        nameHe: t('skill.frontLever') },
-  { id: 'muscle_up',          nameHe: t('skill.muscleUp') },
-  { id: 'planche',            nameHe: t('skill.planche') },
-  { id: 'handstand',          nameHe: t('skill.handstand') },
-  { id: 'hspu',               nameHe: t('skill.hspu') },
-  { id: 'one_arm_pullup',     nameHe: t('skill.oneArmPullup') },
+  { id: 'calisthenics_upper', get nameHe() { return t('skill.calisthenicsUpper'); } },
+  { id: 'front_lever',        get nameHe() { return t('skill.frontLever'); } },
+  { id: 'muscle_up',          get nameHe() { return t('skill.muscleUp'); } },
+  { id: 'planche',            get nameHe() { return t('skill.planche'); } },
+  { id: 'handstand',          get nameHe() { return t('skill.handstand'); } },
+  { id: 'hspu',               get nameHe() { return t('skill.hspu'); } },
+  { id: 'one_arm_pullup',     get nameHe() { return t('skill.oneArmPullup'); } },
 ];
 
 /** The skills offered in the onboarding picker — muscle_up / handstand /
@@ -106,8 +106,8 @@ export type MusclePackageKey = 'pull' | 'push' | 'legs' | 'core';
  * (targetArea = index 0 in assessment-visual/page.tsx).
  */
 export const MUSCLE_PACKAGES: { key: MusclePackageKey; nameHe: string; muscles: MuscleGroup[] }[] = [
-  { key: 'pull', nameHe: t('package.pull'), muscles: ['back', 'biceps'] },
-  { key: 'push', nameHe: t('package.push'), muscles: ['shoulders', 'chest', 'triceps'] },
-  { key: 'legs', nameHe: t('package.legs'), muscles: ['glutes', 'legs'] },
-  { key: 'core', nameHe: t('package.core'), muscles: ['core'] },
+  { key: 'pull', get nameHe() { return t('package.pull'); }, muscles: ['back', 'biceps'] },
+  { key: 'push', get nameHe() { return t('package.push'); }, muscles: ['shoulders', 'chest', 'triceps'] },
+  { key: 'legs', get nameHe() { return t('package.legs'); }, muscles: ['glutes', 'legs'] },
+  { key: 'core', get nameHe() { return t('package.core'); }, muscles: ['core'] },
 ];

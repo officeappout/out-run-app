@@ -145,7 +145,7 @@ export default function TrainingHereSheet({
       className="max-h-[88vh]"
       keyboardAware={false}
     >
-      <div className="space-y-4 px-5 pb-4" dir="rtl">
+      <div className="space-y-4 px-5 pb-4">
         <div className="space-y-2">
           {workoutLabel && (
             <InfoRow icon={<Dumbbell size={18} />} label={t('trainingHere.workout.label')} value={workoutLabel} />

@@ -56,7 +56,7 @@ function ProgressionScreenV1() {
   const t = useT(profileNs);
   const { ready, buckets } = useProgressHubBuckets();
   return (
-    <div className="min-h-screen bg-[#F8FAFC]" dir="rtl">
+    <div className="min-h-screen bg-[#F8FAFC]">
       <AppHeader />
 
       <div className="max-w-md mx-auto px-4 py-5 space-y-6">

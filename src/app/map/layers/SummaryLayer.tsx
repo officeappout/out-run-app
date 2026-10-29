@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import WorkoutSummaryPage from '@/features/workout-engine/summary/WorkoutSummaryPage';
@@ -12,6 +12,11 @@ import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
+import ParkRingScreen from '@/features/workout-engine/summary/components/ParkRingScreen';
+import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { useUserStore } from '@/features/user';
+import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
+import { startFullStrengthQuestionnaire } from '@/features/user/onboarding/services/mini-domain-assessment';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -27,6 +32,12 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   const lastCalories = useHybridRun((s) => s.lastCalories);
   const currentStreak = useProgressionStore((s) => s.currentStreak);
   const router = useRouter();
+  // enable_park_live_v2 (boards Park 11-12, pilot N1 / N2 / M7): the weekly-ring screen first, then
+  // the summary with the walk fixes and, with no strength questionnaire yet, the card that opens it.
+  const parkLive = useParkLiveV2();
+  const [ringSeen, setRingSeen] = useState(false);
+  const profile = useUserStore((s) => s.profile);
+  const needsQuiz = parkLive && !!profile && !hasAssessedStrengthDomain(profile as never);
 
   const handleFinish = () => {
     logic.setShowSummary(false);
@@ -47,6 +58,14 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
     router.push('/home');
   };
 
+  // M7: same teardown as "סיום", then the full strength questionnaire (back to /home at its end).
+  const handleStrengthQuiz = () => {
+    useHybridRun.getState().reset();
+    useSessionStore.getState().clearSession();
+    handleFinish();
+    startFullStrengthQuestionnaire(router, profile, '/home');
+  };
+
   // (A mock StrengthDopamineScreen branch with a hard-coded 63% / level 5 used
   // to live here behind logic.showDopamine — nothing ever sets that true, so it
   // was removed. The real level-up screen renders on /workouts/[id]/active.)
@@ -57,6 +76,7 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   // here (instead of the aerobic shell) also kills the false "אימון קצר מדי"
   // notice a hybrid finish used to show (null runner snapshot → wasSaved=false).
   if (logic.showSummary && HYBRID_SUMMARY_ENABLED && finishedHybrid && lastResult) {
+    if (parkLive && !ringSeen) return <ParkRingScreen result={lastResult} onNext={() => setRingSeen(true)} />;
     return (
       <>
         <HybridSummary
@@ -64,6 +84,8 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
           calories={lastCalories}
           streakDays={currentStreak}
           onFinish={handleHybridFinish}
+          parkLive={parkLive}
+          onStrengthQuiz={needsQuiz ? handleStrengthQuiz : undefined}
         />
         <PushReAskAfterWorkout />
       </>

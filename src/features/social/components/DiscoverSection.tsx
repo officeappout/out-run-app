@@ -29,7 +29,7 @@ export default function DiscoverSection({
         <h3 className="text-sm font-black text-gray-900 dark:text-gray-100 flex-1">
           {title}
         </h3>
-        <ChevronLeft className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+        <ChevronLeft className="w-4 h-4 text-gray-300 dark:text-gray-600 ltr:-scale-x-100" />
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide px-1 -mx-1">

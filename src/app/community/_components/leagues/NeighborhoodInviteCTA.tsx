@@ -30,8 +30,7 @@ export function NeighborhoodInviteCTA({ vm }: { vm: LeaguesVM }) {
     // 17.10.2026 (design lab #321): the invite card on the light battle
     // gradient with one primary button — not a second full-gradient card.
     <div
-      className="w-full rounded-v2-card border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-4 text-right"
-      dir="rtl"
+      className="w-full rounded-v2-card border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-4 text-start"
     >
       <div className="flex items-start gap-3">
         <div className="w-[42px] h-[42px] rounded-[14px] flex items-center justify-center flex-shrink-0 bg-white text-v2-deep">

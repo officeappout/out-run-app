@@ -28,7 +28,7 @@ export default function TimedSectionHeader({ spec }: { spec: TimedBlockSpec }) {
   const tone = BLOCK_TONE[h.tone];
   return (
     <>
-      <div className="mb-2.5 flex items-center gap-2" dir="rtl" style={{ fontFamily: 'var(--font-simpler)' }}>
+      <div className="mb-2.5 flex items-center gap-2" style={{ fontFamily: 'var(--font-simpler)' }}>
         <span className={`whitespace-nowrap text-[16px] font-extrabold ${tone.text}`}>{h.name}</span>
         <span dir="ltr" className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-extrabold ring-1 ring-inset ${tone.pill}`}>
           {h.pill}

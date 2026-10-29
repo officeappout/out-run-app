@@ -47,7 +47,9 @@ export function firstWeekArtTrack(profile: ProfileLike | null | undefined): Firs
 
 /**
  * The card for this profile today, or null (not first week / already trained / unknown signup).
- * Day 0 (welcome) is not shown on home: it promised a 12-minute workout with no button (pilot 26.10, O9).
+ * Only cards with a button reach home. Day 0 (welcome) was hidden for promising a 12-minute
+ * workout with no button (pilot 26.10, O9); day 1 (routine) then showed the same promise the
+ * next day (phone test 28.10, Z2). The pushes keep every day; home skips the button-less ones.
  */
 export function firstWeekCardForProfile(
   profile: ProfileLike | null | undefined,
@@ -61,7 +63,7 @@ export function firstWeekCardForProfile(
     hasWorkout: profileHasWorkout(profile, doneToday),
     firstName: name,
   });
-  return card?.lever === 'welcome' ? null : card;
+  return card?.href ? card : null;
 }
 
 /** Per-viewer dismissal key (one card per day). */

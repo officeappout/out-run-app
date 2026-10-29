@@ -45,8 +45,8 @@ exports[`GroupDetailsDrawer — flag off > creator + member, private group: init
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule manager + slot editor > add editor 1`] = `
 {
-  "length": 24147,
-  "sha256": "33f5a331e47b0aa082487ed4598a73f6d5491cf61b146b04ddc06c4cdcb2e480",
+  "length": 24154,
+  "sha256": "a485d0a0ff2b2e467256040889a04f3d7319b9b4952948d20867daf9188e6630",
 }
 `;
 
@@ -68,8 +68,8 @@ exports[`GroupDetailsDrawer — flag off > creator: schedule manager + slot edit
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule manager + slot editor > editor 1`] = `
 {
-  "length": 24212,
-  "sha256": "e8fd58a9f5fae43629e14b2857a5d3ff46bb4496b7fd4a81bde0985935c681dc",
+  "length": 24219,
+  "sha256": "22dbfbc4c9dab161825a0987a25c766079ed2167e0946f00a05c45eebf74b1bb",
 }
 `;
 
@@ -340,8 +340,8 @@ exports[`GroupDetailsDrawer — flag on > creator + member, private group: initi
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule manager + slot editor > add editor 1`] = `
 {
-  "length": 24178,
-  "sha256": "f952de7ca736eed43d455bd679e2b4cb57351a59cad87622e54d30a94a7467a4",
+  "length": 24185,
+  "sha256": "0d9bbefdcc6317b3e2b9678517855672aa4463742d216b87d8f6d83c6d0f1a96",
 }
 `;
 
@@ -363,8 +363,8 @@ exports[`GroupDetailsDrawer — flag on > creator: schedule manager + slot edito
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule manager + slot editor > editor 1`] = `
 {
-  "length": 24243,
-  "sha256": "0de2a1bf08ce5b33fb7ff9c3d665dd6001c971b64fbd82071f0b2e2bf72b5131",
+  "length": 24250,
+  "sha256": "a38b0a8a5d79f5b1c08f541fe9d1c3a17058c3afae2ce58ae840b0a54c3603bd",
 }
 `;
 

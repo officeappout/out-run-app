@@ -43,7 +43,7 @@ vi.mock('@/lib/onboardingPrefs', () => ({
 }));
 vi.mock('@/features/analytics/onboarding-funnel', () => ({ logOnboardingFunnelStep: () => {} }));
 vi.mock('@/features/user/identity/store/useUserStore', () => {
-  const state = () => ({ profile: null });
+  const state = () => ({ profile: null, _hasHydrated: true });
   const useUserStore = (sel: (s: unknown) => unknown) => sel(state());
   (useUserStore as unknown as { getState: () => unknown }).getState = state;
   return { useUserStore };
@@ -94,6 +94,11 @@ async function open(gender: 'male' | 'female' | null, v2 = false, quizV3 = false
   S.quizV3 = quizV3;
   sessionStorage.clear();
   if (gender) sessionStorage.setItem('onboarding_personal_gender', gender);
+  // v3 asks the missing details first (owner 28.10, Y3): a known identity goes straight to the intro.
+  if (quizV3) {
+    sessionStorage.setItem('onboarding_personal_name', 'דני');
+    sessionStorage.setItem('onboarding_personal_dob', '1990-01-01');
+  }
   // LocaleSync (not mounted here) copies the onboarding gender into the store that useT() reads.
   useLocaleStore.setState({ gender: gender ?? 'other' });
   m = await mount(<ProgramPathPage />);

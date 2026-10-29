@@ -13,7 +13,7 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import { FIRST_RUN_COACH, firstRunToursEnabled, homeWeekCoachTarget, shouldArmHomeTour, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
 import { ScheduleTutorialHost } from '@/features/schedule/tutorial-v1';
-import { HomeTodayCards, useHomeToday } from '@/features/schedule/home-today';
+import { HOME_TODAY_CARDS_ON_HOME, HomeTodayCards, useHomeToday } from '@/features/schedule/home-today';
 import { useCoachTargetPresent } from '@/features/user/onboarding/hooks/useCoachTargetPresent';
 import { consumeWhatNowPlanArrival } from '@/features/user/onboarding/services/entry-whatnow';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
@@ -52,7 +52,7 @@ import { composeParkWorkout, type ParkWorkoutDifficulty } from '@/features/worko
 import type { Park } from '@/features/parks/core/types/park.types';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_INTENSITY_TOGGLE_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, RUNNING_ONBOARDING_GATE_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, RUNNING_ONBOARDING_GATE_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { resolveScheduleCardDecision } from '@/lib/running-onboarding-gate';
@@ -111,6 +111,7 @@ import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user
 import { getWorkoutsForDate, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useShowHeOnlySteps } from '@/features/user/onboarding/hooks/useShowHeOnlySteps';
 import { loadingLook } from '@/hooks/feature-flag-viewer-cache';
 import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 import { useCalmReturn } from '@/features/home/hooks/useCalmReturn';
@@ -167,18 +168,9 @@ import { resolveStripSchedule } from '@/features/home/utils/strip-schedule';
 import { useFastStartGuard } from '@/features/home/hooks/useFastStartGuard';
 import { useBackgroundWorkoutHold } from '@/features/home/hooks/useBackgroundWorkoutHold';
 import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHomeCarouselStartupCache';
+import { DEFAULT_JOIN_VERB_KEY, groupJoinVerbKey, type JoinVerbKey } from '@/features/arena/utils/join-verb';
 import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
 
-// i18n-allow-hebrew (whole map): join verbs = text composed by PostJoinSuccessDrawer (community area), same as
-// app/community/_lib/community-constants.ts — they move together with that drawer.
-const GROUP_VERB: Record<string, string> = {
-  walking:      'ילך', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  running:      'ירוץ', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  yoga:         'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  calisthenics: 'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  cycling:      'ירכב', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-  other:        'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
-};
 
 
 // ════════════════════════════════════════════════════════════════════
@@ -186,6 +178,7 @@ const GROUP_VERB: Record<string, string> = {
 // ════════════════════════════════════════════════════════════════════
 
 function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
+  const showHeOnlySteps = useShowHeOnlySteps();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -199,8 +192,8 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
   // percentage still short because strength items counted against them
   // invisibly). completion.items is now correct to render directly.
   const completion = useMemo(
-    () => calculateProfileCompletion(profile),
-    [profile],
+    () => calculateProfileCompletion(profile, undefined, !showHeOnlySteps),
+    [profile, showHeOnlySteps],
   );
 
   if (completion.isVerified || completion.percentage >= 100) return null;
@@ -840,7 +833,7 @@ export default function HomePage() {
   const [bannerGroup, setBannerGroup] = useState<CommunityGroup | null>(null);
   const [joinSuccessData, setJoinSuccessData] = useState<{
     name: string;
-    verb: string;
+    verbKey: JoinVerbKey;
     scheduleSlots?: ScheduleSlot[];
     category?: string;
     address?: string;
@@ -1699,7 +1692,7 @@ export default function HomePage() {
                   : [];
               setJoinSuccessData({
                 name:          group.name,
-                verb:          GROUP_VERB[group.category] ?? 'יתאמן', // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+                verbKey:       groupJoinVerbKey(group.category),
                 scheduleSlots: allSlots,
                 category:      group.category,
                 address:       group.meetingLocation?.address,
@@ -3322,8 +3315,8 @@ export default function HomePage() {
           </motion.div>
         )}
 
-        {/* enable_schedule_tutorial_v1: today's cards (board HomeToday). Off = nothing. */}
-        {homeToday.model && <HomeTodayCards model={homeToday.model} onTrainNow={() => void handleHeroPress()} />}
+        {/* enable_schedule_tutorial_v1: today's cards (board HomeToday). Hidden for now (Z3, see visibility.ts). */}
+        {HOME_TODAY_CARDS_ON_HOME && homeToday.model && <HomeTodayCards model={homeToday.model} onTrainNow={() => void handleHeroPress()} />}
 
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program).
             enable_home_v2: a running-only user (built running plan, no strength program) gets it
@@ -4420,9 +4413,6 @@ export default function HomePage() {
         onStartWorkout={(workoutId) => router.push(`/workouts/${workoutId}/active`)}
         onGeneratedWorkoutUpdate={handleWorkoutGenerated}
         onEditEntry={previewEntry?.entryId ? handleEditFromDrawer : undefined}
-        intensityOptions={HOME_INTENSITY_TOGGLE_ENABLED ? trioSelector?.options : undefined}
-        selectedIntensityIndex={HOME_INTENSITY_TOGGLE_ENABLED ? trioSelector?.selectedIndex : undefined}
-        onSelectIntensity={HOME_INTENSITY_TOGGLE_ENABLED ? trioSelector?.onSelect : undefined}
         surface={openSurface ?? 'home-primary'}
         sourceParkId={previewParkId}
       />
@@ -4568,7 +4558,7 @@ export default function HomePage() {
           if (g) setBannerGroup(g);
         }}
         name={joinSuccessData?.name ?? ''}
-        verb={joinSuccessData?.verb ?? 'יתאמן'} // i18n-allow-hebrew: join verb composed by PostJoinSuccessDrawer
+        verbKey={joinSuccessData?.verbKey ?? DEFAULT_JOIN_VERB_KEY}
         scheduleSlots={joinSuccessData?.scheduleSlots}
         category={joinSuccessData?.category}
         address={joinSuccessData?.address}

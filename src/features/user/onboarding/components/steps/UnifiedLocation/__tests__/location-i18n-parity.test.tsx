@@ -20,6 +20,8 @@ import type { ReactElement } from 'react';
 
 vi.mock('framer-motion', async () => (await import('../../__tests__/i18n-dom-harness')).motionStub);
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
+vi.mock('@/hooks/useMapTutorialV1', () => ({ useMapTutorialV1: () => false }));
+vi.mock('@/hooks/useParkLiveV2', () => ({ useParkLiveV2: () => false }));
 vi.mock('@/features/admin/services/authority.service', () => ({
   getAllAuthorities: async () => [],
   getChildrenByParent: async () => [],

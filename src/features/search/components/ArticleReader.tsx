@@ -72,10 +72,10 @@ export default function ArticleReader({ article, onClose }: { article: ArticleIt
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="article-title" dir="rtl" className="fixed inset-0 z-[56] flex flex-col bg-[#f8fafc]" style={{ colorScheme: 'light' }}>
+    <div role="dialog" aria-modal="true" aria-labelledby="article-title" className="fixed inset-0 z-[56] flex flex-col bg-[#f8fafc]" style={{ colorScheme: 'light' }}>
       <div className="flex items-center gap-3 bg-white/90 px-4 pb-2.5 backdrop-blur" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}>
         <button type="button" onClick={onClose} aria-label={t('search.article.back')} className="grid h-10 w-10 place-items-center rounded-full bg-[#f1f5f9] active:scale-95">
-          <ArrowRight size={20} className="text-[#374151]" aria-hidden />
+          <ArrowRight size={20} className="text-[#374151] ltr:-scale-x-100" aria-hidden />
         </button>
         <span className="truncate text-[14px] font-bold text-[#6b7280]">{t('search.article.eyebrow')}</span>
       </div>

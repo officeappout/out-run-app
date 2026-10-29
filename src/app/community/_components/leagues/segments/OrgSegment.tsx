@@ -27,7 +27,7 @@ export function OrgSegment({ vm }: { vm: LeaguesVM }) {
   );
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6">
       {/* Org identity row removed — the active league card and the small
           label below the carousel already show the org name + emoji. */}
 

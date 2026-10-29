@@ -19,7 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ThumbsUp, ThumbsDown, Minus, CheckCircle, X, EyeOff } from 'lucide-react';
 import { shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
 import { useT } from '@/hooks/useT';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { player, type PlayerKey, type PlayerT } from '@/messages/ns/player';
 
 // ============================================================================
@@ -69,9 +69,8 @@ export interface FeedbackResult {
 /** Local storage key for opt-out preference */
 const SURVEY_OPT_OUT_KEY = 'outrun_survey_opted_out';
 
-/** Hebrew translator for callers outside React (processFeedback's default). */
-let heT: PlayerT | undefined;
-const defaultT = (): PlayerT => (heT ??= makeT('he', player));
+/** Locale-aware translator for callers outside React (processFeedback's default). */
+const defaultT = makeLiveT(player);
 
 const FEEDBACK_OPTIONS: {
   id: WorkoutFeedback;
@@ -148,7 +147,7 @@ export function setSurveyOptOut(optOut: boolean): void {
  * Process feedback → the thank-you line. Record-only: no progress bonus, no
  * level adjustment, for any rating.
  */
-export function processFeedback(feedback: WorkoutFeedback, t: PlayerT = defaultT()): FeedbackResult {
+export function processFeedback(feedback: WorkoutFeedback, t: PlayerT = defaultT): FeedbackResult {
   switch (feedback) {
     case 'too_easy':
       return { feedback, message: t('survey.thanksEasy') };

@@ -42,7 +42,7 @@ export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoute
   const visibleModes = MODES.filter(m => m.alwaysShow || (m.id === 'discover' && hasNearbyRoutes));
 
   return (
-    <div className="flex gap-2 overflow-x-auto scrollbar-hide" dir="rtl">
+    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
       {visibleModes.map(({ id, labelKey, icon: Icon }) => {
         const label = t(labelKey);
         const isActive = activeMode === id;

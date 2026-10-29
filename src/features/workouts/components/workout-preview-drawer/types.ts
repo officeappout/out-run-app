@@ -10,7 +10,6 @@ import type {
   GeneratedWorkout,
   WorkoutExercise as EngineWorkoutExercise,
 } from '@/features/workout-engine/logic/WorkoutGenerator';
-import type { DifficultyValue } from '@/features/workout-engine/components/DifficultyBolts';
 
 // ── Drawer Display Models ────────────────────────────────────────────────
 
@@ -42,19 +41,6 @@ export interface WorkoutData {
 
 // ── Intensity Toggle Row (Part א, "ארכיטקטורת הבית ומנוע-ההמלצות" doc, 21.08.2026) ──
 
-/**
- * One trio option's display data for the inline intensity toggle row.
- * Structurally mirrors StatsOverview's own `TrioOptionSummary` — defined
- * locally here (not imported) to keep this module domain-agnostic per
- * CLAUDE.md's cross-domain import rule (home and workouts stay decoupled,
- * they just happen to agree on this shape).
- */
-export interface IntensityOption {
-  label: string;
-  difficulty: DifficultyValue;
-  duration: number;
-}
-
 // ── Drawer Props ─────────────────────────────────────────────────────────
 
 export interface WorkoutPreviewDrawerProps {
@@ -84,15 +70,6 @@ export interface WorkoutPreviewDrawerProps {
    * `handleWorkoutGenerated` fires with fresh data.
    */
   isGeneratingWorkout?: boolean;
-  /**
-   * Trio/intensity options for the inline toggle row. Only rendered when
-   * there are 2+ options — other WorkoutPreviewDrawer callers (calendar-tap
-   * preview, the custom builder flow, FavoritesSheet) simply don't pass
-   * these, so the row doesn't render there.
-   */
-  intensityOptions?: IntensityOption[];
-  selectedIntensityIndex?: number;
-  onSelectIntensity?: (index: number) => void;
   /**
    * Journey Hub Phase 2 (07.10.2026) — which UI entry point opened this
    * drawer (e.g. 'home-primary', 'carousel', 'calendar', 'training-planner',

@@ -31,15 +31,31 @@ export const ONBOARDING_SKIPPED = new RegExp(
   '^(steps\\.persona\\.(?!code\\.)|steps\\.processing\\.(persona|personaGendered|msg\\.building)$|identity\\.gender\\.|hierarchy\\.|unitDeclaration\\.|personaDrawer\\.staleUnit$|healthDeclaration\\.|health\\.|goalNote\\.example\\.(a18_29\\.(3|4)|a30_44\\.1)$)',
 );
 
-/** Pilot scope (EN-PILOT-PLAN §2): every key of common and pages, the settings.* keys of home. */
+/** Pilot scope (EN-PILOT-PLAN §2): every key of common, pages, home (batch 4) and profile (batch 4). */
 export const PILOT_SCOPE: Record<string, (key: string) => boolean> = {
   common: () => true,
   pages: () => true,
-  home: (k) => k.startsWith('settings.'),
+  home: () => true,
   onboarding: (k) => !ONBOARDING_SKIPPED.test(k),
   player: (k) => !LANGUAGE_NEUTRAL.player.has(k),
   summary: (k) => !LANGUAGE_NEUTRAL.summary.has(k),
+  profile: () => true,
+  social: () => true,
+  together: () => true,
+  community: (k) => !COMMUNITY_HIDDEN.has(k),
+  map: () => true,
+  library: () => true,
+  coach: () => true,
+  wide: () => true,
+  push: () => true,
 };
+
+/** Batch 6 (community): military wording hidden from English users (owner decision 12); these 9 keys stay Hebrew via fallback. */
+export const COMMUNITY_HIDDEN = new Set([
+  'group.location.military', 'leagues.units.range.myBattalionCompanies', 'leagues.units.range.myBrigadeBattalions',
+  'leagues.units.range.allCompanies', 'leagues.units.range.allBrigades', 'communityPage.leagues.v2.tab.units',
+  'communityPage.reserve.scopeLabel', 'communityPage.cards.reserve', 'arenaCreate.card.military.label',
+]);
 
 /**
  * Batch 3 keys that are identical in Hebrew and English (protocol names, symbol-only joiners, brand tokens):
@@ -79,7 +95,40 @@ function outsidePlurals(msg: string): string {
   return out;
 }
 
+/** Select branch labels removed (`{kind, select, workout {Cycling} other {Run}}` -> `\u0000Cycling\u0000Run\u0000`), so a label is never read as a noun. */
+function withoutSelectLabels(msg: string): string {
+  const head = /\{\w+, select,/g;
+  let out = '';
+  let i = 0;
+  for (let m = head.exec(msg); m; m = head.exec(msg)) {
+    if (m.index < i) continue;
+    out += msg.slice(i, m.index);
+    let j = m.index + m[0].length;
+    for (;;) {
+      while (j < msg.length && /\s/.test(msg[j])) j++;
+      if (msg[j] === '}') { j++; break; }
+      const label = /^[=\w]+/.exec(msg.slice(j));
+      if (!label) break;
+      j += label[0].length;
+      while (j < msg.length && /\s/.test(msg[j])) j++;
+      if (msg[j] !== '{') break;
+      let depth = 0;
+      const start = j;
+      for (; j < msg.length; j++) {
+        if (msg[j] === '{') depth++;
+        else if (msg[j] === '}') { depth--; if (depth === 0) { j++; break; } }
+      }
+      out += '\u0000' + withoutSelectLabels(msg.slice(start + 1, j - 1));
+    }
+    out += '\u0000';
+    i = j;
+    head.lastIndex = j;
+  }
+  return out + msg.slice(i);
+}
+
 /** Keys where a count noun sits inside a select branch that is only reached for n > 1 (select 1 / other). */
+export { withoutSelectLabels };
 export const COUNT_NOUN_EXEMPT = new Set(['timedLabels.info.amrap.line2']);
 
 /** Strings that may equal the Hebrew (do-not-translate items). */
@@ -147,7 +196,8 @@ function analyze(message: string): Walked | Error {
 const isGenderSelect = (name: string, branches: string[]) =>
   name === 'gender' || (branches.length > 0 && branches.every((b) => GENDER_BRANCHES.has(b)));
 
-const capFor = (key: string): number | null => {
+const capFor = (key: string, ns = ''): number | null => {
+  if (ns === 'push') return /\.title$/.test(key) ? 40 : /\.body$/.test(key) ? 110 : null; // push titles <= ~40, bodies <= ~110
   if (/\.(cta|button)$|^actions\./.test(key)) return 24;
   if (/\.(chip|tab)\./.test(key)) return 16;
   if (/\.title$/.test(key)) return 32;
@@ -183,7 +233,9 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     if (typeof enMsg !== 'string' || enMsg === '') { add(key, 'V1', 'error', 'empty or non-string'); continue; }
 
     // V8 no Hebrew, V9 apostrophes
-    if (HEBREW.test(enMsg)) add(key, 'V8', 'error', 'Hebrew characters in English');
+    // push copy keeps the Hebrew @tags (@שם, @שעה ...): they are variable keys the senders substitute, not words
+    const forHebrewCheck = ns === 'push' ? enMsg.replace(/@[\u0590-\u05FF_]+/g, '') : enMsg;
+    if (HEBREW.test(forHebrewCheck)) add(key, 'V8', 'error', 'Hebrew characters in English');
     if (enMsg.includes("'")) add(key, 'V9', 'error', "ASCII apostrophe ' (use the typographic ’)");
 
     // V2 parseable
@@ -236,7 +288,7 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     for (const d of numbers(e)) if (!hn.includes(d)) add(key, 'V10', 'error', `number ${d} not in Hebrew`);
 
     // V11 length (warning)
-    const cap = capFor(key);
+    const cap = capFor(key, ns);
     const visible = enMsg.replace(/\{[^}]*\}|<[^>]*>/g, '');
     if (cap && visible.length > cap) add(key, 'V11', 'warn', `${visible.length} chars > cap ${cap}`);
 
@@ -265,7 +317,8 @@ export function validateCatalog({ ns, he, en, inScope = () => true }: ValidateIn
     // V15 a count/number interpolated next to a noun must be an ICU plural (one/other), not "{n} workouts"
     const flat = outsidePlurals(enMsg);
     const COUNT_NOUN = /\{\w+(?:, number)?\}\s+(minutes?|weeks?|days?|hours?|runs?|walks?|steps?|workouts?|exercises?|stations?|stops?|members?|sessions?|questions?|reps|sets|users|people|friends|points?|kudos)\b/i;
-    const cm = COUNT_NOUN.exec(flat);
+    const flatNoLabels = withoutSelectLabels(flat);
+    const cm = COUNT_NOUN.exec(flatNoLabels);
     const cmArg = cm && /^\{(\w+)/.exec(cm[0])![1];
     if (cm && !e.plurals.has(cmArg!) && !COUNT_NOUN_EXEMPT.has(key)) add(key, 'V15', 'error', `count next to a noun without an ICU plural: ${cm[0]}`);
     for (const [n, eb] of e.plurals) {

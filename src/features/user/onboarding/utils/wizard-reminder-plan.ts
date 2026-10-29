@@ -6,7 +6,7 @@
  * Strength: from the confirmed engine-v2 week. Running (the wizard's running
  * step): from the days/time that step put in the onboarding store.
  */
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 import { scheduleIdNameHe } from '@/features/schedule/engine/strengthVocabulary';
 import { RUN_TIME_PRESETS, dayLettersLine } from '@/features/schedule/utils/runWeekRecommendation';
@@ -17,7 +17,7 @@ import {
 } from '@/features/schedule/utils/strengthWeekRecommendation';
 
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export interface WizardReminderPlan {
   subtitle: string;
@@ -28,8 +28,8 @@ export interface WizardReminderPlan {
 
 /** Nothing known yet — a neutral step that still turns reminders on. */
 export const EMPTY_REMINDER_PLAN: WizardReminderPlan = {
-  subtitle: t('reminderPlan.subtitle.empty'),
-  sampleWorkoutName: t('signup.addTrack.reminder.sampleFallback'),
+  get subtitle() { return t('reminderPlan.subtitle.empty'); },
+  get sampleWorkoutName() { return t('signup.addTrack.reminder.sampleFallback'); },
   sampleTime: RUN_TIME_PRESETS.evening.time,
   sessions: [],
 };
@@ -59,8 +59,8 @@ export function runningReminderPlan(store: {
     ? store.runningScheduleTime
     : RUN_TIME_PRESETS.morning.time;
   return {
-    subtitle: t('reminderPlan.subtitle.runs', { count: days.length, days: dayLettersLine(days) }),
-    sampleWorkoutName: t('signup.run.reminder.sampleFallback'),
+    get subtitle() { return t('reminderPlan.subtitle.runs', { count: days.length, days: dayLettersLine(days) }); },
+    get sampleWorkoutName() { return t('signup.run.reminder.sampleFallback'); },
     sampleTime: time,
     sessions: days.map((dow) => ({ dow, time })),
   };
