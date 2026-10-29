@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { ArrowDownCircle, Heart, Loader2, MoreHorizontal, Share2, Tv } from 'lucide-react';
 import { useT } from '@/hooks/useT';
+import { formatNumber } from '@/lib/i18n/core/fmt';
 import { wide } from '@/messages/ns/wide';
 import type { WorkoutActions } from '../types';
 
@@ -81,8 +82,10 @@ export default function OverviewMoreMenu({ actions, onBigScreen }: OverviewMoreM
     fn();
   };
 
-  const percent = new Intl.NumberFormat('he-IL', { style: 'percent' }).format(
+  const percent = formatNumber(
     Math.min(100, Math.max(0, actions.downloadProgress)) / 100,
+    t.locale,
+    { style: 'percent' },
   );
   const downloadHint = actions.isFavDownloading
     ? t('menu.download.busy', { percent })

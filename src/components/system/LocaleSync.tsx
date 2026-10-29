@@ -80,6 +80,10 @@ export default function LocaleSync() {
       const next = pickAppLocale(localeFlags, { profileLocale, storedLocale, deviceLocales: deviceLocalesFor(deviceLocales(), { enableLocaleEn }) });
       setLocaleState({ i18nEnabled: true, locale: next });
       writeLocaleCookie(next);
+      // The legacy he/en dictionary screens (useLanguage / useTranslation: strength live overlay, challenge
+      // pages, old onboarding) read useAppStore.language. Only the explicit picker used to sync it, so an
+      // English locale resolved from the device left them Hebrew. Runs only with enable_i18n on.
+      if (next === 'he' || next === 'en') useAppStore.getState().setLanguage(next);
     });
     return () => {
       cancelled = true;
