@@ -14,6 +14,7 @@
 
 import { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 interface ShimmerPhraseButtonProps {
   /** Rotating phrases (already resolved by the caller, e.g. gendered). */
@@ -37,6 +38,7 @@ export default function ShimmerPhraseButton({
   const [msgIdx, setMsgIdx] = useState(0);
   const [visible, setVisible] = useState(true);
   const [pressed, setPressed] = useState(false);
+  const { direction } = useUiDir();
 
   useEffect(() => {
     if (messages.length <= 1) return;
@@ -51,7 +53,7 @@ export default function ShimmerPhraseButton({
   }, [messages.length, rotateMs]);
 
   return (
-    <div className={`${className} relative`} dir="rtl">
+    <div className={`${className} relative`} dir={direction}>
       <style>{`
         @keyframes shimmerBorder {
           0%   { background-position: 0% 50%; }

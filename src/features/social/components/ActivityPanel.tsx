@@ -170,7 +170,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
           />
 
           <m.div
-            className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl max-h-[80dvh] flex flex-col"
+            className="fixed bottom-0 end-0 start-0 z-[71] bg-white rounded-t-3xl max-h-[80dvh] flex flex-col"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -180,7 +180,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
               <div className="w-10 h-1 rounded-full bg-gray-200" />
             </div>
 
-            <div className="flex items-center justify-between px-5 py-3" dir="rtl">
+            <div className="flex items-center justify-between px-5 py-3">
               <h2 className="text-base font-black text-gray-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}פעילות</h2>
               <button
                 onClick={onClose}
@@ -190,7 +190,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
               </button>
             </div>
 
-            <div className="overflow-y-auto flex-1 px-4 pb-8" dir="rtl">
+            <div className="overflow-y-auto flex-1 px-4 pb-8">
               {content}
             </div>
           </m.div>

@@ -13,10 +13,10 @@
  */
 
 import { hasRunningTrack, hasStrengthTrack } from '@/lib/track-ownership';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export interface GoalOption {
   id: string;
@@ -32,49 +32,49 @@ export interface GoalOption {
 export const GOAL_OPTIONS: GoalOption[] = [
   {
     id: 'routine',
-    shortTitleHe: t('goals.routine.short'),
+    get shortTitleHe() { return t('goals.routine.short'); },
     shortTitleEn: 'Routine',
-    longDescHe: t('goals.routine.long'),
+    get longDescHe() { return t('goals.routine.long'); },
     longDescEn: 'build and maintain a steady routine',
     tag: 'goal_routine',
   },
   {
     id: 'aesthetics',
-    shortTitleHe: t('goals.aesthetics.short'),
+    get shortTitleHe() { return t('goals.aesthetics.short'); },
     shortTitleEn: 'Toning',
-    longDescHe: t('goals.aesthetics.long'),
+    get longDescHe() { return t('goals.aesthetics.long'); },
     longDescEn: 'build a toned and aesthetic body',
     tag: 'goal_aesthetics',
   },
   {
     id: 'fitness',
-    shortTitleHe: t('goals.fitness.short'),
+    get shortTitleHe() { return t('goals.fitness.short'); },
     shortTitleEn: 'Health',
-    longDescHe: t('goals.fitness.long'),
+    get longDescHe() { return t('goals.fitness.long'); },
     longDescEn: 'maintain general fitness and long-term health',
     tag: 'goal_fitness',
   },
   {
     id: 'performance',
-    shortTitleHe: t('goals.performance.short'),
+    get shortTitleHe() { return t('goals.performance.short'); },
     shortTitleEn: 'Performance',
-    longDescHe: t('goals.performance.long'),
+    get longDescHe() { return t('goals.performance.long'); },
     longDescEn: 'improve performance in my sport',
     tag: 'goal_performance',
   },
   {
     id: 'skills',
-    shortTitleHe: t('goals.skills.short'),
+    get shortTitleHe() { return t('goals.skills.short'); },
     shortTitleEn: 'Skills',
-    longDescHe: t('goals.skills.long'),
+    get longDescHe() { return t('goals.skills.long'); },
     longDescEn: 'learn advanced exercises (pull-ups, planche, etc.)',
     tag: 'goal_skills',
   },
   {
     id: 'community',
-    shortTitleHe: t('goals.community.short'),
+    get shortTitleHe() { return t('goals.community.short'); },
     shortTitleEn: 'Community',
-    longDescHe: t('goals.community.long'),
+    get longDescHe() { return t('goals.community.long'); },
     longDescEn: 'meet new partners and join a local community',
     tag: 'goal_community',
   },
@@ -84,41 +84,41 @@ export const GOAL_OPTIONS: GoalOption[] = [
 export const RUN_GOAL_OPTIONS: GoalOption[] = [
   {
     id: 'routine',
-    shortTitleHe: t('goals.runRoutine.short'),
+    get shortTitleHe() { return t('goals.runRoutine.short'); },
     shortTitleEn: 'Running routine',
-    longDescHe: t('goals.runRoutine.long'),
+    get longDescHe() { return t('goals.runRoutine.long'); },
     longDescEn: 'run regularly and build a routine',
     tag: 'goal_routine',
   },
   {
     id: 'fitness',
-    shortTitleHe: t('goals.fitness.short'),
+    get shortTitleHe() { return t('goals.fitness.short'); },
     shortTitleEn: 'Health',
-    longDescHe: t('goals.runFitness.long'),
+    get longDescHe() { return t('goals.runFitness.long'); },
     longDescEn: 'stay fit and healthy for the long run',
     tag: 'goal_fitness',
   },
   {
     id: 'run_distance',
-    shortTitleHe: t('goals.runDistance.short'),
+    get shortTitleHe() { return t('goals.runDistance.short'); },
     shortTitleEn: 'Run farther',
-    longDescHe: t('goals.runDistance.long'),
+    get longDescHe() { return t('goals.runDistance.long'); },
     longDescEn: 'run longer distances',
     tag: 'goal_run_distance',
   },
   {
     id: 'run_pace',
-    shortTitleHe: t('goals.runPace.short'),
+    get shortTitleHe() { return t('goals.runPace.short'); },
     shortTitleEn: 'Run faster',
-    longDescHe: t('goals.runPace.long'),
+    get longDescHe() { return t('goals.runPace.long'); },
     longDescEn: 'improve my pace',
     tag: 'goal_run_pace',
   },
   {
     id: 'community',
-    shortTitleHe: t('goals.community.short'),
+    get shortTitleHe() { return t('goals.community.short'); },
     shortTitleEn: 'Community',
-    longDescHe: t('goals.runCommunity.long'),
+    get longDescHe() { return t('goals.runCommunity.long'); },
     longDescEn: 'meet running partners and join a local community',
     tag: 'goal_community',
   },

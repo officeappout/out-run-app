@@ -30,6 +30,8 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface SetSavedPlaceSheetProps {
   /** Which slot we're setting; null closes the sheet. */
@@ -48,6 +50,7 @@ const KIND_ICON: Record<SavedPlaceKind, React.ElementType> = {
 };
 
 export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceSheetProps) {
+  const t = useT(profileNs);
   const setPlace = useSavedPlacesStore((s) => s.setPlace);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -68,8 +71,8 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
       // Auto-focus once the slide-in animation has had a moment to commit
       // — focusing immediately races with the keyboard reveal on iOS and
       // the input ends up scrolled offscreen.
-      const t = setTimeout(() => inputRef.current?.focus(), 280);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => inputRef.current?.focus(), 280);
+      return () => clearTimeout(timer);
     }
   }, [openKind]);
 
@@ -84,7 +87,7 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
     }
     let cancelled = false;
     setIsSearching(true);
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const results = await MapboxService.searchAddress(query);
         if (!cancelled) setHits(results);
@@ -96,7 +99,7 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
     }, 400);
     return () => {
       cancelled = true;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [query, openKind]);
 
@@ -113,7 +116,7 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
   };
 
   const KindIcon = openKind ? KIND_ICON[openKind] : MapPin;
-  const kindLabel = openKind ? SAVED_PLACE_KIND_LABEL[openKind] : '';
+  const kind = openKind ?? '';
 
   const searchAndResults = (
     <>
@@ -133,7 +136,7 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`כתובת ה${kindLabel} שלך...`}
+            placeholder={t('savedPlace.placeholder', { kind })}
             className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-gray-900 placeholder:text-gray-400 text-right"
           />
           {isSearching && (
@@ -147,11 +150,11 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
         {query.length < 3 ? (
           <div className="text-center py-10 text-gray-400">
             <MapPin size={28} className="mx-auto mb-2 opacity-60" />
-            <p className="text-xs font-medium">הקלד לפחות 3 תווים</p>
+            <p className="text-xs font-medium">{t('savedPlace.hint.minChars')}</p>
           </div>
         ) : hits.length === 0 && !isSearching ? (
           <div className="text-center py-10 text-gray-400">
-            <p className="text-xs font-medium">לא נמצאו תוצאות</p>
+            <p className="text-xs font-medium">{t('savedPlace.empty')}</p>
           </div>
         ) : (
           <ul className="space-y-1">
@@ -201,7 +204,7 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
         scroll="none"
         transition={{ type: 'spring', damping: 32, stiffness: 320 }}
         grabberClassName="flex justify-center pt-3 pb-2"
-        ariaLabel={`הגדרת ${kindLabel}`}
+        ariaLabel={t('savedPlace.title', { kind })}
         header={
           <div className="flex items-center justify-between gap-3 px-5 pb-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -209,11 +212,11 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
                 <KindIcon size={18} className="text-v2-deep" />
               </div>
               <div className="min-w-0">
-                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הגדרת {kindLabel}</h2>
-                <p className="truncate text-[12.5px] font-bold text-v2-muted">חפש כתובת ובחר מהרשימה</p>
+                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('savedPlace.title', { kind })}</h2>
+                <p className="truncate text-[12.5px] font-bold text-v2-muted">{t('savedPlace.subtitle')}</p>
               </div>
             </div>
-            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+            <IconButton aria-label={t('savedPlace.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
               <X size={16} className="text-v2-ink-2" />
             </IconButton>
           </div>
@@ -274,17 +277,17 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
                 </div>
                 <div>
                   <h2 className="text-base font-black text-gray-900 leading-tight">
-                    הגדרת {kindLabel}
+                    {t('savedPlace.title', { kind })}
                   </h2>
                   <p className="text-[11px] text-gray-500 leading-tight">
-                    חפש כתובת ובחר מהרשימה
+                    {t('savedPlace.subtitle')}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="סגור"
+                aria-label={t('savedPlace.close')}
                 className="w-8 h-8 rounded-full bg-gray-100/80 flex items-center justify-center active:scale-90 transition-transform"
               >
                 <X size={14} className="text-gray-600" />

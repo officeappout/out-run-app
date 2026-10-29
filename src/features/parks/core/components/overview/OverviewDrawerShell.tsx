@@ -61,7 +61,7 @@ export default function OverviewDrawerShell({
   }, [snapRequest?.n]);
 
   return (
-    <div className="absolute inset-0 z-[100] pointer-events-none" dir="rtl">
+    <div className="absolute inset-0 z-[100] pointer-events-none">
       <motion.div
         drag="y"
         dragControls={dragControls}
@@ -72,7 +72,7 @@ export default function OverviewDrawerShell({
         onDragStart={() => springRef.current?.stop()}
         onDragEnd={onDragEndSnap}
         animate={controls}
-        className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none"
+        className="absolute top-0 end-0 start-0 bottom-0 pointer-events-none"
         // Route-preview (MAP_OVERVIEW_CHROME_V1): `touch-action:none` lives ONLY on the
         // drag handle (grabber/header), not on this wrapper — `dragListener={false}`
         // means framer drags only via the handle, and leaving this `auto` lets the
@@ -83,8 +83,8 @@ export default function OverviewDrawerShell({
         <motion.div
           ref={cardRef}
           className={v2
-            ? 'absolute top-0 left-0 right-0 bg-v2-surface rounded-t-[28px] shadow-v2-sheet pointer-events-auto flex flex-col overflow-hidden'
-            : 'absolute top-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl pointer-events-auto flex flex-col overflow-hidden'}
+            ? 'absolute top-0 end-0 start-0 bg-v2-surface rounded-t-[28px] shadow-v2-sheet pointer-events-auto flex flex-col overflow-hidden'
+            : 'absolute top-0 end-0 start-0 bg-white rounded-t-3xl shadow-2xl pointer-events-auto flex flex-col overflow-hidden'}
           style={{
             height: cardHeight,
             paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
@@ -100,8 +100,8 @@ export default function OverviewDrawerShell({
             <button type="button" onClick={onBack} aria-label={t('overview.shell.back')}
               onPointerDown={(e) => e.stopPropagation()}
               className={v2
-                ? 'absolute top-3 left-4 grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
-                : 'absolute top-3 left-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform'}>
+                ? 'absolute top-3 end-4 grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                : 'absolute top-3 end-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform'}>
               <ArrowRight size={v2 ? 18 : 16} className={v2 ? 'text-v2-ink' : 'text-gray-600'} />
             </button>
           </div>
@@ -109,7 +109,7 @@ export default function OverviewDrawerShell({
           {/* Sticky summary header (point 3) — fixed while the body scrolls; doubles
               as a drag zone (same onPointerDown → dragControls.start pattern). */}
           <div
-            className={v2 ? 'px-4 pt-1 pb-2.5 pl-16 flex-shrink-0' : 'px-4 pt-0.5 pb-2 flex-shrink-0'}
+            className={v2 ? 'px-4 pt-1 pb-2.5 pe-16 flex-shrink-0' : 'px-4 pt-0.5 pb-2 flex-shrink-0'}
             onPointerDown={(e) => dragControls.start(e)}
             style={{ touchAction: 'none', cursor: 'grab' }}
           >

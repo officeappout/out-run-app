@@ -298,7 +298,7 @@ export function useExerciseSwap({
         );
         const updatedSlot: GeneratedWorkout = {
           ...generatedWorkout,
-          exercises: replaceAtSlot(healed, slotIndex, (we) => deriveSwappedEntry(we, newExercise, method)),
+          exercises: replaceAtSlot(healed, slotIndex, (we) => deriveSwappedEntry(we, newExercise, method, generatedWorkout.difficulty)),
         };
         onGeneratedWorkoutUpdate?.(updatedSlot);
         setSlotIndex(null);
@@ -314,7 +314,7 @@ export function useExerciseSwap({
 
         // Single-source per-entry re-derivation (metric identity, level-delta
         // volume, role-pin, own pair-link) — shared with the bulk swap-all path.
-        return deriveSwappedEntry(we, newExercise, method);
+        return deriveSwappedEntry(we, newExercise, method, generatedWorkout.difficulty);
       });
 
       const updated: GeneratedWorkout = {

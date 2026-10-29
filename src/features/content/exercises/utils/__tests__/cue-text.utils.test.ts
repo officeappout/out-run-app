@@ -180,3 +180,18 @@ describe('gender resolution follows profile.core.gender (g())', () => {
     expect(toCueList([{ male: 'עמוד ישר', female: 'עמדי ישר' }], 'other')).toEqual(['עמוד ישר']);
   });
 });
+
+describe('cue language (enable_content_locale)', () => {
+  const cue = { he: 'גב ישר', en: 'Keep your back straight' };
+  it('default and he give Hebrew, as before', () => {
+    expect(toCueList([cue])).toEqual(['גב ישר']);
+    expect(toCueList([cue], null, 'he')).toEqual(['גב ישר']);
+  });
+  it('en gives English, an empty en falls back to Hebrew', () => {
+    expect(toCueList([cue], null, 'en')).toEqual(['Keep your back straight']);
+    expect(toCueList([{ he: 'גב ישר', en: '' }], null, 'en')).toEqual(['גב ישר']);
+  });
+  it('gendered copy is unchanged by lang', () => {
+    expect(toCueList([{ male: 'עלה', female: 'עלי' }], 'female', 'en')).toEqual(['עלי']);
+  });
+});

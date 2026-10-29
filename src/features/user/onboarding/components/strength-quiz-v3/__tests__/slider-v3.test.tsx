@@ -38,7 +38,7 @@ const svc = { levels: [1, 4, 7, 10, 13, 16] as number[] };
 vi.mock('../../../services/visual-content-resolver.service', () => ({
   getOnboardingLevelsForCategory: async () => svc.levels,
   resolveContent: async (_cat: string, level: number) => ({
-    thumbnailUrl: null, videoUrl: null, videoUrlWebm: null, videoUrlMov: null, onboardingBubbleText: null,
+    thumbnailUrl: `/thumb-${level}.jpg`, videoUrl: null, videoUrlWebm: null, videoUrlMov: null, onboardingBubbleText: null,
     exerciseName: `ex-${level}`, targetReps: '12', unitType: 'reps',
   }),
   prefetchAdjacent: () => {},
@@ -67,7 +67,7 @@ const click = async (el: Element | null) => { await act(async () => { (el as HTM
 const text = () => host!.textContent ?? '';
 
 function v3(over: Partial<QuizV3SliderProps> = {}): QuizV3SliderProps {
-  return { categories: ['push', 'pull', 'legs', 'core'], categoryIndex: 0, startMiddle: true, ...over };
+  return { categories: ['push', 'pull', 'legs', 'core'], categoryIndex: 0, startEasy: true, ...over };
 }
 
 beforeAll(() => {
@@ -88,7 +88,7 @@ afterEach(() => {
 });
 
 describe('VisualSlider + quizV3 (board Slider)', () => {
-  it('opens on the middle step with both chips and "הרמה שלי"', async () => {
+  it('opens on the second (easier) step with both chips, neighbour stills and "הרמה שלי"', async () => {
     await render(<VisualSlider category="push" initialLevel={1} demographics={{ age: 30, gender: 'male' }}
       onLevelConfirm={() => {}} stepIndex={0} totalSteps={4} mode="simple" v2 quizV3={v3()} />);
     expect(q('[data-quiz-v3-slider="push"]')).not.toBeNull();
@@ -103,8 +103,13 @@ describe('VisualSlider + quizV3 (board Slider)', () => {
     expect(q('[data-level-chip="easier"] img')?.getAttribute('src')).toBe('/assets/icons/ui/level_down.svg');
     expect(q('[data-level-chip="easier"]')?.className).toContain('text-orange-500');
     expect(q('[data-level-chip="mine"] img')?.getAttribute('src')).toBe('/assets/icons/ui/level_same.svg');
-    expect(text()).toContain('ex-7'); // middle of 6 steps = index 2 = level 7
-    expect(text()).toContain('רמה 7 · מקסימום: 12 חזרות');
+    expect(text()).toContain('ex-4'); // owner 28.10 (Y1): the second step, index 1 = level 4
+    expect(text()).toContain('רמה 4 · מקסימום: 12 חזרות');
+    // Y1: the side cards show the neighbouring exercises' stills (levels 1 and 7).
+    expect(q('[data-side-card="easier"] [data-side-image]')?.getAttribute('src')).toBe('/thumb-1.jpg');
+    expect(q('[data-side-card="harder"] [data-side-image]')?.getAttribute('src')).toBe('/thumb-7.jpg');
+    // Y2: the reps line is never truncated.
+    expect(q('[data-level-line]')?.className).not.toContain('truncate');
     expect(text()).toContain('מה התרגיל הכי קשה שבטוח תצליח?');
     expect(text()).not.toContain('עוד לא מצליחים?');
     expect(host!.querySelectorAll('[data-quiz-v3-progress] li')[0].getAttribute('data-state')).toBe('current');
@@ -113,7 +118,7 @@ describe('VisualSlider + quizV3 (board Slider)', () => {
   it('hides the easier card at the floor; the swipe hint stays until the first move', async () => {
     await render(<VisualSlider category="pull" initialLevel={1} demographics={{ age: 30, gender: 'female' }}
       onLevelConfirm={() => {}} stepIndex={1} totalSteps={4} mode="simple" v2
-      quizV3={v3({ categoryIndex: 1, startMiddle: false })} />);
+      quizV3={v3({ categoryIndex: 1, startEasy: false })} />);
     expect(q('[data-side-card="easier"]')).toBeNull();
     expect(q('[data-swipe-hint]')?.textContent).toContain('גללי לצדדים');
     await click(q('[data-side-card="harder"]'));
@@ -128,8 +133,8 @@ describe('VisualSlider + quizV3 (board Slider)', () => {
       onLevelConfirm={confirmed} stepIndex={0} totalSteps={4} mode="simple" v2 quizV3={v3({ onChosen: chosen })} />);
     const cta = Array.from(host!.querySelectorAll('button')).find((b) => b.textContent === 'זו הרמה שלי');
     await click(cta!);
-    expect(chosen).toHaveBeenCalledWith(7, 'ex-7');
-    expect(confirmed).toHaveBeenCalledWith(7);
+    expect(chosen).toHaveBeenCalledWith(4, 'ex-4');
+    expect(confirmed).toHaveBeenCalledWith(4);
   });
 
   it('the help link re-opens the tutorial lines', async () => {
@@ -147,7 +152,7 @@ describe('VisualSlider + quizV3, skill (board SliderSkill)', () => {
     const confirmed = vi.fn();
     await render(<VisualSlider category="planche" initialLevel={5} demographics={{ age: 30, gender: 'male' }}
       onLevelConfirm={confirmed} onEscape={escape} stepIndex={0} totalSteps={1} mode="simple" v2
-      quizV3={v3({ categories: ['planche'], startMiddle: false })} />);
+      quizV3={v3({ categories: ['planche'], startEasy: false })} />);
     expect(q('[data-center-card="notYet"]')?.textContent).toContain('עוד לא מצליח');
     expect(q('[data-center-card="notYet"]')?.textContent).toContain('ex-1');
     expect(q('[data-side-card="easier"]')).toBeNull();
@@ -164,7 +169,7 @@ describe('VisualSlider + quizV3, skill (board SliderSkill)', () => {
     const confirmed = vi.fn();
     await render(<VisualSlider category="planche" initialLevel={5} demographics={{ age: 30, gender: 'male' }}
       onLevelConfirm={confirmed} onEscape={escape} stepIndex={0} totalSteps={1} mode="simple" v2
-      quizV3={v3({ categories: ['planche'], startMiddle: false })} />);
+      quizV3={v3({ categories: ['planche'], startEasy: false })} />);
     await click(q('[data-side-card="harder"]'));
     expect(q('[data-center-card="step"]')).not.toBeNull();
     expect(q('[data-side-card="easier"]')?.textContent).toContain('עוד לא מצליח');

@@ -169,6 +169,16 @@
   "postJoin.later": "אחר כך",
   "postJoin.aria": "הצטרפת ל-{name}",
   "postJoin.close": "סגירה",
+  "postJoin.verb.walking": "ילך",
+  "postJoin.verb.running": "ירוץ",
+  "postJoin.verb.yoga": "יתאמן",
+  "postJoin.verb.calisthenics": "יתאמן",
+  "postJoin.verb.cycling": "ירכב",
+  "postJoin.verb.other": "יתאמן",
+  "postJoin.verb.race": "ירוץ",
+  "postJoin.verb.fitness_day": "יתאמן",
+  "postJoin.verb.workshop": "ישתתף",
+  "postJoin.verb.community_meetup": "ישתתף",
   "banner.countdown.started": "החל לפני {mins} דק׳",
   "banner.countdown.now": "עכשיו",
   "banner.countdown.minutes": "עוד {mins} דקות",
@@ -938,5 +948,7 @@
   "arenaCreate.step.schedule": "לו\"ז ומיקום",
   "arenaCreate.step.invite": "הזמנת שותפים",
   "arenaCreate.step.outreach": "הזמנת ארגון",
-  "arenaCreate.step.codeEntry": "כניסה בקוד"
+  "arenaCreate.step.codeEntry": "כניסה בקוד",
+  "addressSearch.placeholder": "חפש כתובת, פארק או אתר...",
+  "addressSearch.empty": "לא נמצאו תוצאות"
 }

@@ -15,13 +15,14 @@ import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
+import type { JoinVerbKey } from '../utils/join-verb';
 import { APP_ORIGIN } from '@/lib/config/domain';
 
 interface PostJoinSuccessDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   name: string;
-  verb: string;
+  verbKey: JoinVerbKey;
   onOpenChat?: () => void;
   /** Schedule slots for ICS generation */
   scheduleSlots?: ScheduleSlot[];
@@ -35,7 +36,7 @@ export default function PostJoinSuccessDrawer({
   isOpen,
   onClose,
   name,
-  verb,
+  verbKey,
   onOpenChat,
   scheduleSlots,
   category,
@@ -90,7 +91,7 @@ export default function PostJoinSuccessDrawer({
         {t('postJoin.title', { name })}
       </h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-        {t('postJoin.subtitle', { verb })}
+        {t('postJoin.subtitle', { verb: t(verbKey) })}
       </p>
 
       {/* ── Preference Toggles ──────────────────────────── */}

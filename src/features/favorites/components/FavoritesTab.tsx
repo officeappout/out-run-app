@@ -109,7 +109,6 @@ const FavoriteWorkoutCard = React.forwardRef<
       whileTap={{ scale: 0.97, backgroundColor: '#F1F5F9' }}
       onClick={onSelect}
       className="w-full flex items-center gap-3 p-3 bg-white rounded-2xl shadow-sm border border-gray-100 transition-transform text-start"
-      dir="rtl"
     >
       {/* Thumbnail */}
       <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0">
@@ -173,7 +172,6 @@ const FavoriteWorkoutRowV2 = React.forwardRef<
       exit={{ opacity: 0, x: -60, transition: { duration: 0.2 } }}
       onClick={onSelect}
       className="flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
-      dir="rtl"
     >
       <span className="grid h-12 w-12 shrink-0 place-items-center rounded-v2-tile bg-v2-tint text-v2-deep">
         <Dumbbell size={20} aria-hidden />
@@ -234,7 +232,7 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
     }
     if (sortedFavorites.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center gap-4 px-6 py-14" dir="rtl">
+        <div className="flex flex-col items-center justify-center gap-4 px-6 py-14">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-v2-tint text-v2-deep">
             <Heart size={26} aria-hidden />
           </span>
@@ -249,7 +247,7 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
     }
     return (
       <div className="space-y-2.5">
-        <p className="text-[12px] font-bold text-v2-muted" dir="rtl">
+        <p className="text-[12px] font-bold text-v2-muted">
           {t('favorites.savedCount', { count: String(sortedFavorites.length) })}
         </p>
         <AnimatePresence mode="popLayout">
@@ -277,7 +275,7 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
 
   if (sortedFavorites.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-6 gap-4" dir="rtl">
+      <div className="flex flex-col items-center justify-center py-16 px-6 gap-4">
         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
           <Heart size={28} className="text-gray-300" />
         </div>
@@ -293,7 +291,7 @@ export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesT
 
   return (
     <div className="space-y-3">
-      <p className="text-[11px] text-gray-400 font-medium text-end" dir="rtl">
+      <p className="text-[11px] text-gray-400 font-medium text-end">
         {t('favorites.savedCount', { count: String(sortedFavorites.length) })}
       </p>
       <AnimatePresence mode="popLayout">

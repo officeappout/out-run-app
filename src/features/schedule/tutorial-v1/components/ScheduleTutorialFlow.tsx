@@ -42,7 +42,6 @@ export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWo
 
   const [step, setStep] = useState<Step>('persona');
   const [days, setDays] = useState(inputs.initial);
-  const [editingDow, setEditingDow] = useState<number | null>(null);
   const [minutes, setMinutes] = useState<number>(DEFAULT_SESSION_MINUTES);
   const [twoPerDay, setTwoPerDay] = useState(true);
   const [longRunPick, setLongRunPick] = useState<number | null>(null);
@@ -103,7 +102,7 @@ export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWo
             order={inputs.order}
             dates={inputs.dates}
             days={days}
-            editingDow={editingDow}
+            target={freeDays(inputs.initial).length}
             minutes={minutes}
             note={note}
             running={inputs.running ? {
@@ -113,14 +112,9 @@ export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWo
               longRunAria: t('tutorial.days.longRunAria', { day: longShort }),
               onCycleLongRun: () => setLongRunPick(nextFreeDay(days, longRunDay)),
             } : null}
-            onToggleDay={(dow) => { setEditingDow(null); setDays((s) => toggleDay(s, dow, inputs.defaultWindow)); }}
-            onWindow={(dow, w) => {
-              const r = tapWindow(days, dow, w);
-              setDays(r.state);
-              setEditingDow(r.editTime ? dow : null);
-            }}
+            onToggleDay={(dow) => setDays((s) => toggleDay(s, dow, inputs.defaultWindow))}
+            onWindow={(dow, w) => setDays((s) => tapWindow(s, dow, w).state)}
             onTime={(dow, time) => setDays((s) => setDayTime(s, dow, time))}
-            onTimeDone={() => setEditingDow(null)}
             onMinutes={setMinutes}
             onBack={() => setStep('persona')}
             onNext={() => setStep('week')}

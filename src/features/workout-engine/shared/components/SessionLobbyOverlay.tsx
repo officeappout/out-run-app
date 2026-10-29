@@ -15,6 +15,8 @@ import { setSessionPhase } from '@/features/arena/services/session-phase.service
 import { createRunInvite } from '@/lib/workoutInvite';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import { useTogetherLayerV1 } from '@/features/workout-engine/together/hooks/useTogetherLayerV1';
 import TogetherLobby from '@/features/workout-engine/together/components/TogetherLobby';
 
@@ -42,6 +44,7 @@ export default function SessionLobbyOverlay(props: SessionLobbyOverlayProps) {
 }
 
 function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: SessionLobbyOverlayProps) {
+  const t = useT(player);
   const gender = useUiGender();
   const profile = useUserStore((s) => s.profile);
   const uid = (profile as any)?.id as string | undefined;
@@ -98,8 +101,8 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
   // Countdown tick
   useEffect(() => {
     if (countdown === null || countdown <= 0) return;
-    const t = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+    return () => clearTimeout(timer);
   }, [countdown]);
 
   // Handle host Start action
@@ -122,7 +125,7 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
   // Share link via navigator.share with WhatsApp fallback
   const handleShare = () => {
     if (!shareUrl) return;
-    const text = `הצטרפו לאימון עם ${groupName ?? 'הקבוצה שלי'} ב-Out!`;
+    const text = t('lobby.share.text', { group: groupName ?? t('lobby.share.groupFallback') });
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({ title: text, url: shareUrl }).catch(() => {
         window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${shareUrl}`)}`, '_blank');
@@ -146,16 +149,16 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
           {countdown !== null && countdown > 0 ? (
             <>
               <div className="text-7xl font-black text-white mb-2">{countdown}</div>
-              <p className="text-white text-lg font-semibold">הקבוצה מתחילה!</p>
+              <p className="text-white text-lg font-semibold">{t('lobby.countdown.starting')}</p>
             </>
           ) : (
             <>
-              <p className="text-white text-xl font-bold mb-6">🏃 בואו נרוץ!</p>
+              <p className="text-white text-xl font-bold mb-6">{t('lobby.go')}</p>
               <button
                 onClick={onStartFreeRun}
                 className="bg-white text-black font-black text-lg rounded-2xl px-10 py-4"
               >
-                התחל ריצה
+                {t('lobby.startRun')}
               </button>
             </>
           )}
@@ -173,10 +176,10 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
       {/* Header */}
       <div className="px-5 pt-16 pb-4">
         <p className="text-white text-xs font-semibold tracking-widest uppercase opacity-60 mb-1">
-          לובי
+          {t('lobby.eyebrow')}
         </p>
         <h2 className="text-white text-2xl font-black">{groupName}</h2>
-        <p className="text-white/60 text-sm mt-1">ממתינים להתחלה...</p>
+        <p className="text-white/60 text-sm mt-1">{t('lobby.waiting')}</p>
       </div>
 
       {/* Roster */}
@@ -192,12 +195,12 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
               </div>
               <span className="text-white font-medium text-sm">{p.name}</span>
               {memberId === uid && (
-                <span className="text-white/50 text-xs">(את/ה)</span>
+                <span className="text-white/50 text-xs">{t('lobby.you')}</span>
               )}
             </div>
           ))}
           {roster.length === 0 && (
-            <p className="text-white/40 text-sm">אין משתתפים עדיין</p>
+            <p className="text-white/40 text-sm">{t('lobby.empty')}</p>
           )}
         </div>
       </div>
@@ -212,7 +215,7 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
                 className="w-full rounded-2xl py-3 text-white font-semibold text-sm"
                 style={{ background: 'rgba(255,255,255,0.15)' }}
               >
-                שלח קישור הצטרפות 🔗
+                {t('lobby.share.cta')}
               </button>
             )}
             <button
@@ -229,7 +232,7 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
             className="w-full rounded-2xl py-4 text-center text-white/60 text-sm font-semibold"
             style={{ background: 'rgba(255,255,255,0.08)' }}
           >
-            ממתינים שהמנהל יתחיל...
+            {t('lobby.waitingHost')}
           </div>
         )}
       </div>

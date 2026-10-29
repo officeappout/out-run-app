@@ -34,6 +34,6 @@ describe('/search shell', () => {
   });
   it('the legacy page is unchanged since the i18n extraction (Hebrew output: legacy-search-i18n-parity)', () => {
     const file = readFileSync(path.resolve(__dirname, '../legacy/LegacySearchPage.tsx'));
-    expect(createHash('sha256').update(file).digest('hex')).toBe('946496ffac456e3c08b848a7a0a9583d5c9871b606a2a19edaf5a44df6a2819d');
+    expect(createHash('sha256').update(file).digest('hex')).toBe('e61d3fdac157c99075c5224d0c4dbc5da84412707834832387bae042e4ce2d0d');
   });
 });

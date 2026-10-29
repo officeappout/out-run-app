@@ -28,6 +28,7 @@ import {
 import { useUserRole } from '@/features/admin/services/auth.service';
 import { ASSESSMENT_MAX_LEVEL_DEFAULTS } from '@/features/user/onboarding/utils/assessment-level-caps';
 // GlobalLevelsManager moved to standalone /admin/levels page
+import { HeEnTextField } from '@/features/content/shared/components/HeEnTextField';
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -125,6 +126,8 @@ export default function ProgramsAdminPage() {
     setProgramForm({
       name: program.name,
       description: program.description || '',
+      nameLocalized: program.nameLocalized,
+      descriptionLocalized: program.descriptionLocalized,
       maxLevels: program.maxLevels || 5,
       isMaster: program.isMaster || false,
       imageUrl: program.imageUrl || '',
@@ -570,27 +573,25 @@ function ProgramForm({
 }) {
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-bold text-gray-700 mb-2">שם התוכנית *</label>
-        <input
-          type="text"
-          value={form.name || ''}
-          onChange={(e) => onChange({ ...form, name: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-          placeholder="לדוגמה: Full Body, Upper Body"
-        />
-      </div>
+      <HeEnTextField
+        label="שם התוכנית *"
+        he={form.name || ''}
+        en={form.nameLocalized?.en ?? ''}
+        onChange={({ he, en }) => onChange({ ...form, name: he, nameLocalized: { he, en } })}
+        placeholderHe="לדוגמה: Full Body, Upper Body"
+        placeholderEn="e.g. Full Body"
+      />
 
-      <div>
-        <label className="block text-sm font-bold text-gray-700 mb-2">תיאור (אופציונלי)</label>
-        <textarea
-          value={form.description || ''}
-          onChange={(e) => onChange({ ...form, description: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-          rows={3}
-          placeholder="תיאור התוכנית..."
-        />
-      </div>
+      <HeEnTextField
+        label="תיאור (אופציונלי)"
+        he={form.description || ''}
+        en={form.descriptionLocalized?.en ?? ''}
+        onChange={({ he, en }) => onChange({ ...form, description: he, descriptionLocalized: { he, en } })}
+        multiline
+        rows={3}
+        placeholderHe="תיאור התוכנית..."
+        placeholderEn="Program description..."
+      />
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -1027,6 +1028,7 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
         programId: program.id,
         levelNumber: lvl,
         levelDescription: existing?.levelDescription || `רמה ${lvl}`,
+        levelDescriptionLocalized: existing?.levelDescriptionLocalized,
         progressionWeight: existing?.progressionWeight ?? 1.0,
         intensityModifier: existing?.intensityModifier ?? 1.0,
         restMultiplier: existing?.restMultiplier ?? 1.0,

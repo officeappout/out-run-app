@@ -8,6 +8,7 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import he from '@/messages/he/push.json';
+import enPush from '@/messages/en/push.json';
 import { push } from '@/messages/ns/push';
 import { registerCatalog } from '../catalogs';
 import { makeT } from '../t';
@@ -145,6 +146,7 @@ describe('push locale handling', () => {
   });
 
   it('the app and the functions translator return the same text for every key and locale', () => {
+    registerCatalog('en', 'push', enPush); // the app loads en lazily; the functions mirror has it built in
     for (const loc of ['he', 'en', 'ru', 'de', 'bad']) {
       const a = pushCopyT(loc);
       const f = functionsPushCopyT(loc);

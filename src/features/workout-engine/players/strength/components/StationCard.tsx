@@ -4,6 +4,8 @@ import React from 'react';
 import { WorkoutSegment } from '@/features/parks';
 import { ChevronDown, Timer, Dumbbell, RotateCcw, Lock } from 'lucide-react';
 import StationExerciseRow from './StationExerciseRow';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface StationCardProps {
     segment: WorkoutSegment;
@@ -14,6 +16,7 @@ interface StationCardProps {
 }
 
 export default function StationCard({ segment, id, isActive = false, isEquipmentUnconfirmed = false }: StationCardProps) {
+  const tx = useT(player);
     return (
         <div className={`flex relative pb-6 scroll-mt-36 group`} id={id}>
             {/* Vertical Connection Line */}
@@ -38,7 +41,7 @@ export default function StationCard({ segment, id, isActive = false, isEquipment
                             <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
                                 <span className="flex items-center gap-1"><Timer size={14} /> {segment.target.value} {segment.target.unit}</span>
                                 <span>•</span>
-                                <span>{segment.exercises?.length || 0} תרגילים</span>
+                                <span>{tx('sweep.station.exercises', { n: segment.exercises?.length || 0 })}</span>
                             </div>
                         </div>
                         <ChevronDown size={20} className="text-gray-300 group-open:rotate-180 transition-transform duration-200" />
@@ -61,7 +64,7 @@ export default function StationCard({ segment, id, isActive = false, isEquipment
 
                         {isActive && (
                             <button className="w-full mt-2 bg-primary text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all">
-                                התחל תרגיל
+                                {tx('sweep.station.startExercise')}
                             </button>
                         )}
                     </div>

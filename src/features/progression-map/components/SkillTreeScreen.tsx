@@ -139,6 +139,7 @@ import type { SkillTreeRung } from '../core/types';
 import type { TreeNodeState } from './TreeNode';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { useT } from '@/hooks/useT';
+import { useProgramText } from '@/features/content/programs/core/useProgramText';
 import { profile as profileNs } from '@/messages/ns/profile';
 
 export interface SkillTreeScreenProps {
@@ -148,6 +149,7 @@ export interface SkillTreeScreenProps {
 export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
   const t = useT(profileNs);
+  const programText = useProgramText();
   const profile = useUserStore((s) => s.profile);
   // Home v2 (enable_home_v2): the program strip docks in the header.
   const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
@@ -309,7 +311,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
               maxLevel={displayTree?.maxLevel ?? currentLevel}
               progressPercent={trackData?.percent ?? null}
               programDescription={programMeta?.description}
-              levelDescription={levelSummary?.realDescription ?? null}
+              levelDescription={levelSummary?.realDescription ? programText(levelSettings, 'levelDescription') : null}
               matchingGoal={levelSummary?.matchingGoal ?? null}
               currentLevelExerciseName={currentLevelExerciseName}
               hasGoals={levelSummary?.hasGoals ?? false}
@@ -397,7 +399,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
               maxLevel={displayTree?.maxLevel ?? currentLevel}
               progressPercent={trackData?.percent ?? null}
               programDescription={programMeta?.description}
-              levelDescription={levelSummary?.realDescription ?? null}
+              levelDescription={levelSummary?.realDescription ? programText(levelSettings, 'levelDescription') : null}
               matchingGoal={levelSummary?.matchingGoal ?? null}
               currentLevelExerciseName={currentLevelExerciseName}
               hasGoals={levelSummary?.hasGoals ?? false}

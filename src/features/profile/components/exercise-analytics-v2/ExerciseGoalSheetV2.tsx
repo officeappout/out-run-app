@@ -33,7 +33,7 @@ export default function ExerciseGoalSheetV2({ open, currentGoal, initialValue, s
       ariaLabel={title}
       header={<SheetHeader title={title} onClose={onClose} className="flex items-center justify-between px-5 pb-1 pt-2" />}
     >
-      <div className="px-5 pb-[max(20px,env(safe-area-inset-bottom))]" dir="rtl">
+      <div className="px-5 pb-[max(20px,env(safe-area-inset-bottom))]">
         <p className="text-[13px] font-bold text-v2-muted">
           {currentGoal != null
             ? t('exerciseAnalytics.goalSheet.current', { goal: String(currentGoal) })

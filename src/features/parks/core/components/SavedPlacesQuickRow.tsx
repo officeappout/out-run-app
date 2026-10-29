@@ -129,7 +129,6 @@ export default function SavedPlacesQuickRow({
             backdropFilter: 'blur(24px) saturate(160%)',
             WebkitBackdropFilter: 'blur(24px) saturate(160%)',
           }}
-          dir="rtl"
         >
           <span
             className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
@@ -138,7 +137,7 @@ export default function SavedPlacesQuickRow({
           >
             <Icon size={14} className={isSet ? 'text-cyan-600' : 'text-gray-500'} />
           </span>
-          <div className="flex-1 min-w-0 text-right">
+          <div className="flex-1 min-w-0 text-start">
             <div className="text-[12px] font-black text-gray-900 leading-tight">
               {label}
             </div>
@@ -158,7 +157,6 @@ export default function SavedPlacesQuickRow({
               backdropFilter: 'blur(24px) saturate(160%)',
               WebkitBackdropFilter: 'blur(24px) saturate(160%)',
             }}
-            dir="rtl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -167,7 +165,7 @@ export default function SavedPlacesQuickRow({
                 setOpenMenuFor(null);
                 onSetRequest(kind);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-right text-[12px] font-bold text-gray-800 active:bg-gray-100"
+              className="w-full flex items-center gap-2 px-3 py-2 text-start text-[12px] font-bold text-gray-800 active:bg-gray-100"
             >
               <Pencil size={12} className="text-cyan-600" />
               ערוך כתובת
@@ -178,7 +176,7 @@ export default function SavedPlacesQuickRow({
                 setOpenMenuFor(null);
                 clearPlace(kind);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-right text-[12px] font-bold text-rose-600 border-t border-gray-100 active:bg-rose-50"
+              className="w-full flex items-center gap-2 px-3 py-2 text-start text-[12px] font-bold text-rose-600 border-t border-gray-100 active:bg-rose-50"
             >
               <Trash2 size={12} />
               מחק
@@ -190,7 +188,7 @@ export default function SavedPlacesQuickRow({
   };
 
   return (
-    <div className="flex gap-2" dir="rtl">
+    <div className="flex gap-2">
       {renderButton('home')}
       {renderButton('work')}
     </div>

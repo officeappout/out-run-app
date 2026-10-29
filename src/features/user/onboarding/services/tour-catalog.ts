@@ -5,10 +5,10 @@
  * (unit-tested).
  */
 import type { ReplayableTour } from './tour-replay';
-import { makeT } from '@/lib/i18n/t';
+import { makeLiveT } from '@/lib/i18n/live-t';
 import { onboarding } from '@/messages/ns/onboarding';
 
-const t = makeT('he', onboarding);
+const t = makeLiveT(onboarding);
 
 export interface TourCatalogEntry {
   id: ReplayableTour;
@@ -18,14 +18,14 @@ export interface TourCatalogEntry {
 }
 
 export const TOUR_CATALOG: readonly TourCatalogEntry[] = [
-  { id: 'home', name: t('tourCatalog.home.name'), line: t('tourCatalog.home.line') },
-  { id: 'plan', name: t('tourCatalog.plan.name'), line: t('tourCatalog.plan.line') },
-  { id: 'map', name: t('tourCatalog.map.name'), line: t('tourCatalog.map.line') },
-  { id: 'route', name: t('tourCatalog.route.name'), line: t('tourCatalog.route.line') },
-  { id: 'route-player', name: t('tourCatalog.routePlayer.name'), line: t('tourCatalog.routePlayer.line') },
-  { id: 'player', name: t('tourCatalog.player.name'), line: t('tourCatalog.player.line') },
-  { id: 'station', name: t('tourCatalog.station.name'), line: t('tourCatalog.station.line') },
-  { id: 'community', name: t('tourCatalog.community.name'), line: t('tourCatalog.community.line') },
+  { id: 'home', get name() { return t('tourCatalog.home.name'); }, get line() { return t('tourCatalog.home.line'); } },
+  { id: 'plan', get name() { return t('tourCatalog.plan.name'); }, get line() { return t('tourCatalog.plan.line'); } },
+  { id: 'map', get name() { return t('tourCatalog.map.name'); }, get line() { return t('tourCatalog.map.line'); } },
+  { id: 'route', get name() { return t('tourCatalog.route.name'); }, get line() { return t('tourCatalog.route.line'); } },
+  { id: 'route-player', get name() { return t('tourCatalog.routePlayer.name'); }, get line() { return t('tourCatalog.routePlayer.line'); } },
+  { id: 'player', get name() { return t('tourCatalog.player.name'); }, get line() { return t('tourCatalog.player.line'); } },
+  { id: 'station', get name() { return t('tourCatalog.station.name'); }, get line() { return t('tourCatalog.station.line'); } },
+  { id: 'community', get name() { return t('tourCatalog.community.name'); }, get line() { return t('tourCatalog.community.line'); } },
 ];
 
 export function tourCatalogEntry(id: ReplayableTour): TourCatalogEntry {

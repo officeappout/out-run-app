@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs';
 import {
-  chooseWhatNowCards, isWhatNowRoutePending, shouldOpenWhatNow, WHATNOW_ROUTE_WAIT_MS, shouldSuppressWelcomeDrawer, whatNowRouteCopy, whatNowSeenKey,
+  chooseWhatNowCards, isWhatNowRoutePending, shouldOpenWhatNow, WHATNOW_ROUTE_WAIT_MS, shouldSuppressWelcomeDrawer, whatNowRouteCopy, whatNowRouteCopyV1, whatNowSeenKey,
   type WhatNowAnswer, type WhatNowLayout, type WhatNowPark, type WhatNowRouteCopy, type WhatNowRouteSuggestion,
 } from '../services/entry-whatnow';
 
@@ -39,8 +39,10 @@ export function useEntryWhatNow(input: {
   route: WhatNowRouteSuggestion | null;
   /** A workout / another flow owns the screen right now. */
   blocked: boolean;
+  /** enable_map_tutorial_v1 (board M2): the route card's new copy. */
+  copyV1?: boolean;
 }): EntryWhatNowState {
-  const { enabled, landing, uid, position, route, blocked } = input;
+  const { enabled, landing, uid, position, route, blocked, copyV1 = false } = input;
   const armed = enabled && landing;
 
   // Seen flag: undefined = still reading.
@@ -93,8 +95,8 @@ export function useEntryWhatNow(input: {
     [park, route],
   );
   const routeCopy = useMemo(
-    () => (layout.near && route ? whatNowRouteCopy(route, park?.name ?? null) : null),
-    [layout.near, route, park],
+    () => (layout.near && route ? (copyV1 ? whatNowRouteCopyV1 : whatNowRouteCopy)(route, park?.name ?? null) : null),
+    [layout.near, route, park, copyV1],
   );
   const routeCenter = useMemo(
     () => (park && position ? { lat: (park.lat + position.lat) / 2, lng: (park.lng + position.lng) / 2 } : null),

@@ -57,6 +57,18 @@ export interface CommuteTarget {
   park?: { id: string; photoUrl: string | null };
 }
 
+/** The live park workout's next turn (board Park 2). `icon` = the maneuver's arrow. */
+export interface ParkTurnInfo {
+  icon: 'straight' | 'slightRight' | 'slightLeft' | 'right' | 'left' | 'destination';
+  /** The street (or the instruction itself when there is no street name). */
+  headline: string;
+  /** The instruction above the street, when a street name is known. */
+  actionLine: string | null;
+  distanceM: number | null;
+  /** Under 50 m (hysteresis to 80 m): the row opens wide. */
+  imminent: boolean;
+}
+
 interface MapStore {
   selectedFacilityType: FacilityType | null;
   facilities: MapFacility[];
@@ -264,6 +276,12 @@ interface MapStore {
    */
   storyBarHeight: number;
   setStoryBarHeight: (h: number) => void;
+  /**
+   * enable_park_live_v2 (board Park 2, pilot M2): the live park workout shows the next turn in its
+   * one-line message row instead of the turn card. TurnCarousel (publishOnly) writes it, the row reads it.
+   */
+  parkTurn: ParkTurnInfo | null;
+  setParkTurn: (t: ParkTurnInfo | null) => void;
   /**
    * enable_home_v2 live players only: px the player's floating chrome covers
    * from the top edge (header card) and from the bottom edge (live card),
@@ -563,6 +581,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setNavCarouselMinimized: (v) => set({ navCarouselMinimized: v }),
   storyBarHeight: 0,
   setStoryBarHeight: (h) => set({ storyBarHeight: h }),
+  parkTurn: null,
+  setParkTurn: (t) => set({ parkTurn: t }),
   playerChrome: null,
   setPlayerChrome: (c) => set({ playerChrome: c }),
   activeTurnIdx: -1,

@@ -297,7 +297,7 @@ export default function WorkoutOverviewPage() {
 
   if (error || !workout) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-b from-white to-gray-50" dir="rtl">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-b from-white to-gray-50">
         <div className="text-center px-6">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">😕</span>
@@ -316,10 +316,10 @@ export default function WorkoutOverviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-900 flex flex-col overflow-hidden" dir="rtl">
+    <div className="min-h-screen bg-white dark:bg-zinc-900 flex flex-col overflow-hidden">
       {/* Sticky Header - Appears on scroll */}
       <div
-        className={`fixed top-0 left-0 right-0 z-50 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 transition-opacity duration-300 ${
+        className={`fixed top-0 end-0 start-0 z-50 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 transition-opacity duration-300 ${
           headerOpacity > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{
@@ -335,7 +335,7 @@ export default function WorkoutOverviewPage() {
             className="w-10 h-10 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 active:scale-90 transition-transform"
             aria-label={t('workoutOverview.back')}
           >
-            <ArrowRight size={20} />
+            <ArrowRight className="ltr:-scale-x-100" size={20} />
           </button>
           <h1 className="text-lg font-black text-gray-900 dark:text-white flex-1 text-center px-4">
             {workout.name}
@@ -373,7 +373,7 @@ export default function WorkoutOverviewPage() {
 
         {/* Top Controls - Only visible when image is visible */}
         <div
-          className={`absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${
+          className={`absolute top-0 end-0 start-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${
             imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           // Replaces hardcoded `pt-14` (56px) — that worked on iPhones with a
@@ -387,7 +387,7 @@ export default function WorkoutOverviewPage() {
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
             aria-label={t('workoutOverview.back')}
           >
-            <ArrowRight size={20} />
+            <ArrowRight className="ltr:-scale-x-100" size={20} />
           </button>
           <button
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
@@ -399,7 +399,7 @@ export default function WorkoutOverviewPage() {
 
         {/* Workout Title Overlay - Moves up and shrinks as we scroll */}
         <div
-          className={`absolute bottom-0 left-0 right-0 p-6 z-10 transition-opacity duration-300 ${
+          className={`absolute bottom-0 end-0 start-0 p-6 z-10 transition-opacity duration-300 ${
             imageOpacity > 0.3 ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           style={{

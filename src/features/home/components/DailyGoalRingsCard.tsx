@@ -35,6 +35,8 @@ import { useWeeklyMovementGoal } from '@/features/home/hooks/useWeeklyMovementGo
 import { ACTIVITY_COLORS } from '@/features/activity/types/activity.types';
 import { WIDGET_CARD_STYLE } from '@/features/home/components/widgets/StrengthVolumeWidget';
 import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 const RING_SIZE_PX = 64;
 
@@ -70,6 +72,7 @@ function GoalRing({ ring, label }: { ring: ActivityRingData; label: string }) {
 }
 
 export default function DailyGoalRingsCard() {
+  const tx = useT(home);
   const strengthStates = useWeeklyStrengthGoal(true);
   const movementStates = useWeeklyMovementGoal(true);
   const todayISO = useMemo(() => toISODate(new Date()), []);
@@ -87,8 +90,8 @@ export default function DailyGoalRingsCard() {
   return (
     <div className="bg-white dark:bg-slate-800 w-full" style={WIDGET_CARD_STYLE}>
       <div className={bothReady ? 'flex items-center justify-center gap-6 overflow-x-auto' : 'flex items-center justify-center'}>
-        {movementReady && <GoalRing ring={buildGoalRing(todayMovementPct, 'cardio')} label="אירובי" />}
-        {strengthReady && <GoalRing ring={buildGoalRing(todayStrengthPct, 'strength')} label="כוח" />}
+        {movementReady && <GoalRing ring={buildGoalRing(todayMovementPct, 'cardio')} label={tx('sweep.goalRings.cardio')} />}
+        {strengthReady && <GoalRing ring={buildGoalRing(todayStrengthPct, 'strength')} label={tx('sweep.goalRings.strength')} />}
       </div>
     </div>
   );

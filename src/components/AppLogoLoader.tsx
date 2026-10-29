@@ -2,6 +2,9 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+
 interface AppLogoLoaderProps {
   /** Optional helper text rendered below the logo. */
   caption?: string;
@@ -28,11 +31,12 @@ export default function AppLogoLoader({
   caption,
   className = 'min-h-screen bg-gradient-to-br from-gray-50 to-gray-100',
 }: AppLogoLoaderProps) {
+  const t = useT(common);
   return (
     <div
       className={`flex flex-col items-center justify-center gap-4 animate-in fade-in duration-300 ${className}`}
       aria-busy="true"
-      aria-label={caption ?? 'טוען...'}
+      aria-label={caption ?? t('status.loading')}
     >
       <div className="relative flex items-center justify-center">
         {/* Soft cyan halo — mirrors BrandedSplashScreen / MapLoadingSkeleton */}

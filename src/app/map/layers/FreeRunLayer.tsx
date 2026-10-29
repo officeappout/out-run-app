@@ -105,7 +105,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const { flags: runFlags } = useFeatureFlags();
   const runnerGender = useUserStore((s) => s.profile?.core?.gender) as 'male' | 'female' | 'other' | undefined;
   // Home v2 (enable_home_v2): the continuous-run player (R2-prop-easy / U-B / U-C).
-  // Commute keeps today's UI (its own ETA carousel). Off ⇒ today's UI, unchanged.
+  // Commute keeps today's UI (its own ETA carousel) unless enable_commute_v2_player_v1. Off ⇒ today's UI, unchanged.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const { flags: adminAwareFlags, loading: adminAwareFlagsLoading } = useFeatureFlags(isSuperAdmin);
   const homeV2 = adminAwareFlags.enableHomeV2;
@@ -117,7 +117,9 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   // The runner's own avatar on the map (discover passes it; free run didn't → generic lemur).
   const runnerPersonaId = useUserStore((s) => s.profile?.personas?.[0]?.id);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
-  const v2 = homeV2 && sessionMode !== 'commute';
+  // enable_commute_v2_player_v1 (phone test AA2): navigating to a park / place also gets the v2 player.
+  const commuteV2 = !adminAwareFlagsLoading && adminAwareFlags.enableCommuteV2PlayerV1;
+  const v2 = homeV2 && (sessionMode !== 'commute' || commuteV2);
   // Home v2 hybrid player (run + strength): the sequencer-driven player replaces today's
   // hybrid overlay for v2 users. Off (or no hybrid session) ⇒ today's flow, unchanged.
   const hybridActive = useHybridRun((s) => s.active);
@@ -403,10 +405,10 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                   />
                   {sideRailParticipants.length > 0 && (
                     <div
-                      className="absolute left-0 right-0 z-[60] flex justify-center pointer-events-none"
+                      className="absolute end-0 start-0 z-[60] flex justify-center pointer-events-none"
                       style={{ top: groupBadgeTop }}
                     >
-                      <div className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[12.5px] font-extrabold text-v2-deep shadow-v2-ring" dir="rtl">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[12.5px] font-extrabold text-v2-deep shadow-v2-ring">
                         {t('mapLayers.freeRun.together', { count: String(sideRailParticipants.length + 1) })}
                       </div>
                     </div>
@@ -427,7 +429,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                   {/* Group count badge — below the story bar / turn card / recenter row (groupBadgeTop). */}
                   {sideRailParticipants.length > 0 && (
                     <div
-                      className="absolute left-0 right-0 z-[60] flex justify-center pointer-events-none"
+                      className="absolute end-0 start-0 z-[60] flex justify-center pointer-events-none"
                       style={{ top: groupBadgeTop }}
                     >
                       <div
@@ -446,7 +448,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
             /* ── Browse mode — pre-run UI ─────────────────────────────────── */
             <div className="absolute inset-0 z-10 pointer-events-none">
               {/* Mode toggle (discover / free) */}
-              <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] left-0 right-0 z-30 px-4 pointer-events-auto">
+              <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] end-0 start-0 z-30 px-4 pointer-events-auto">
                 <div className="max-w-xs mx-auto flex bg-white/90 backdrop-blur-sm rounded-2xl shadow-md border border-gray-100 overflow-hidden">
                   <button
                     onClick={handleBackToDiscover}
@@ -463,7 +465,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               </div>
 
               {/* Start Free Run button */}
-              <div className="absolute bottom-[max(6rem,env(safe-area-inset-bottom))] left-4 right-4 z-20 flex justify-center pointer-events-auto">
+              <div className="absolute bottom-[max(6rem,env(safe-area-inset-bottom))] end-4 start-4 z-20 flex justify-center pointer-events-auto">
                 <button
                   onClick={handleStartFreeRun}
                   className="px-10 py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00BAF7] text-white font-black text-lg shadow-2xl active:scale-[0.97] transition-all flex items-center gap-3"

@@ -56,7 +56,7 @@ export default function RecentActivityList({ workouts, isLoading }: RecentActivi
   const locale = useLocaleStore((s) => s.locale);
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
       <h3 className="text-sm font-black text-gray-800 mb-3">{t('recentActivity.title')}</h3>
 
       {isLoading ? (

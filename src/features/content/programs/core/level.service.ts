@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Level } from './program.types';
+import { LEVEL_TEXT_FIELDS, foldLocalizedFieldsForWrite, normalizeStoredTextFields } from './localized-fields';
 
 const LEVELS_COLLECTION = 'levels';
 
@@ -48,12 +49,12 @@ export async function getAllLevels(): Promise<Level[]> {
     const q = query(collection(db, LEVELS_COLLECTION), orderBy('order', 'asc'));
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => ({
+    return snapshot.docs.map(doc => normalizeStoredTextFields({
       id: doc.id,
       ...doc.data(),
       createdAt: toDate(doc.data().createdAt),
       updatedAt: toDate(doc.data().updatedAt),
-    } as Level));
+    } as Level, LEVEL_TEXT_FIELDS));
   } catch (error) {
     console.error('Error fetching levels:', error);
     throw error;
@@ -70,12 +71,12 @@ export async function getLevel(levelId: string): Promise<Level | null> {
     
     if (!docSnap.exists()) return null;
     
-    return {
+    return normalizeStoredTextFields({
       id: docSnap.id,
       ...docSnap.data(),
       createdAt: toDate(docSnap.data().createdAt),
       updatedAt: toDate(docSnap.data().updatedAt),
-    } as Level;
+    } as Level, LEVEL_TEXT_FIELDS);
   } catch (error) {
     console.error('Error fetching level:', error);
     throw error;
@@ -88,7 +89,7 @@ export async function getLevel(levelId: string): Promise<Level | null> {
 export async function createLevel(data: Omit<Level, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, LEVELS_COLLECTION), {
-      ...data,
+      ...foldLocalizedFieldsForWrite(data, LEVEL_TEXT_FIELDS),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -109,7 +110,7 @@ export async function updateLevel(
   try {
     const docRef = doc(db, LEVELS_COLLECTION, levelId);
     await updateDoc(docRef, {
-      ...data,
+      ...foldLocalizedFieldsForWrite(data, LEVEL_TEXT_FIELDS),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {

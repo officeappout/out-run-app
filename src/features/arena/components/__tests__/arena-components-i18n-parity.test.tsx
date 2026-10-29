@@ -340,8 +340,8 @@ describe.each(V)('sheets, enable_home_v2=%s', (v2) => {
 
   it('PostJoinSuccessDrawer, with and without slots', async () => {
     const out = [
-      html(<PostJoinSuccessDrawer isOpen onClose={noop} name="רצי הירקון" verb="ירוץ" scheduleSlots={[{ dayOfWeek: 1, time: '18:00' } as never]} />),
-      html(<PostJoinSuccessDrawer isOpen onClose={noop} name="יוגה בפארק" verb="יתאמן" />),
+      html(<PostJoinSuccessDrawer isOpen onClose={noop} name="רצי הירקון" verbKey="postJoin.verb.running" scheduleSlots={[{ dayOfWeek: 1, time: '18:00' } as never]} />),
+      html(<PostJoinSuccessDrawer isOpen onClose={noop} name="יוגה בפארק" verbKey="postJoin.verb.yoga" />),
     ];
     await expect(out.join('\n')).toMatchFileSnapshot(snap(`post-join-${vName(v2)}`));
   });

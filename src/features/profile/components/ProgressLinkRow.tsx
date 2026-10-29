@@ -23,7 +23,7 @@ export default function ProgressLinkRow() {
         <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{t('profile.progressLink.title')}</span>
         <span className="block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{t('profile.progressLink.subtitle')}</span>
       </span>
-      <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+      <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
     </Link>
   );
 }

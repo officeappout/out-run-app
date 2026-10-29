@@ -169,7 +169,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                 className="absolute end-0 top-full mt-1 z-20 min-w-[180px] rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700 shadow-lg overflow-hidden"
               >
                 {confirmDelete ? (
-                  <div className="p-3" dir="rtl">
+                  <div className="p-3">
                     <p className="text-xs text-gray-700 dark:text-gray-200 font-medium mb-2">
                       {t('social.post.confirm.title')}
                     </p>
@@ -201,14 +201,14 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                     </div>
                   </div>
                 ) : (
-                  <ul className="py-1" dir="rtl">
+                  <ul className="py-1">
                     {isAuthor && (
                       <li>
                         <button
                           type="button"
                           role="menuitem"
                           onClick={() => setConfirmDelete(true)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-right text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-start text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                           <Trash2 size={16} />
                           {t('social.post.menu.delete')}
@@ -221,7 +221,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                           type="button"
                           role="menuitem"
                           onClick={() => { setShowReport(true); setMenuOpen(false); }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-right text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-start text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
                         >
                           <Flag size={16} />
                           {t('social.post.menu.report')}
@@ -268,7 +268,6 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
   return (
     <div
       className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"
-      dir="rtl"
     >
       {/* Author row */}
       <div className="flex items-center gap-2.5 px-4 pt-4 pb-2">
@@ -308,7 +307,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
         </div>
 
         {/* Metrics grid */}
-        <div className="grid grid-cols-3 divide-x divide-x-reverse divide-gray-100 dark:divide-gray-700/50">
+        <div className="grid grid-cols-3 divide-x rtl:divide-x-reverse divide-gray-100 dark:divide-gray-700/50">
           {/* Duration — always shown */}
           <div className="flex flex-col items-center py-3 px-2">
             <span className="text-base leading-none mb-1">⏱️</span>

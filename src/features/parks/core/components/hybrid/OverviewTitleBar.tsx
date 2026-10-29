@@ -36,14 +36,13 @@ export default function OverviewTitleBar({ title, onBack, eyebrow: eyebrowProp }
   const eyebrow = eyebrowProp === undefined ? t('hybrid.titleBar.eyebrow') : eyebrowProp;
   return (
     <div
-      className="absolute left-0 right-0 z-[70] pointer-events-auto"
+      className="absolute end-0 start-0 z-[70] pointer-events-auto"
       style={{
         top: 0,
         paddingTop: 'env(safe-area-inset-top, 0px)',
         background: OVERVIEW_BLUE,
         boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
       }}
-      dir="rtl"
     >
       <div className="h-[52px] px-3 flex items-center gap-2">
         <button
@@ -52,7 +51,7 @@ export default function OverviewTitleBar({ title, onBack, eyebrow: eyebrowProp }
           aria-label={t('hybrid.titleBar.back')}
           className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full text-white active:scale-95 transition-transform"
         >
-          <ArrowRight size={24} />
+          <ArrowRight className="ltr:-scale-x-100" size={24} />
         </button>
         <div className="min-w-0 flex flex-col justify-center leading-tight">
           {eyebrow ? <span className="text-white/85 text-[11px] font-semibold">{eyebrow}</span> : null}

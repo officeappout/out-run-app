@@ -134,6 +134,10 @@ export default defineConfig({
       'src/features/workout-engine/hybrid/__tests__/**/*.test.tsx',
       // i18n wave 2 batch aa (library namespace, preview.*) — workout preview drawer Hebrew markup parity, static markup.
       'src/features/workouts/components/workout-preview-drawer/__tests__/**/*.test.tsx',
+      // i18n extraction batch ui-2 — Hebrew markup parity of small shared surfaces, static markup.
+      'src/features/user/places/components/__tests__/**/*.test.tsx',
+      'src/features/workout-engine/shared/components/__tests__/**/*.test.tsx',
+      'src/features/workout-engine/core/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (namespace home) — home screen components, Hebrew markup parity (static + jsdom).
       'src/features/home/components/__tests__/**/*.test.tsx',
       // Home progress slot (enable_home_progress_slot_v1) — carousel / cards / minutes ring render tests (jsdom).
@@ -195,6 +199,8 @@ export default defineConfig({
       'scripts/ci/__tests__/**/*.test.ts',
       // i18n wave 4 LTR-host scan — by-reference + transitive fixtures.
       'scripts/i18n/__tests__/**/*.test.ts',
+      // Exercise content pipeline (export / merge / verify / apply): pure parts only, no Firestore.
+      'scripts/i18n/content/__tests__/**/*.test.ts',
       // Demo world scripts (seed / purge / add-viewer) — pure units + one emulator suite (:8089).
       'scripts/demo/__tests__/**/*.test.ts',
       // AI tester runner + overseer (scripts/qa) — pure units only (no browser, no network).

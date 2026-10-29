@@ -58,12 +58,13 @@ function cleanPiece(s: string): string {
  * user's gender via g() (female → female; male / other / unknown → male),
  * falling back to the other form when one is empty.
  */
-export function pickCueText(item: unknown, gender?: CueGender | string | null): string {
+export function pickCueText(item: unknown, gender?: CueGender | string | null, lang: 'he' | 'en' | 'es' = 'he'): string {
   if (typeof item === 'string') return item;
   if (!item || typeof item !== 'object') return '';
   const o = item as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
-  const localized = str(o.he) || str(o.en);
+  // lang 'en' (enable_content_locale): English first, an empty slot falls back to Hebrew. Default = as always.
+  const localized = lang === 'en' ? str(o.en) || str(o.he) : str(o.he) || str(o.en);
   if (localized) return localized;
   const male = str(o.male);
   const female = str(o.female);
@@ -116,12 +117,12 @@ export function splitCueText(text: string): string[] {
  * Accepts a single value or an array of string | `{ he, en }` | `{ male, female }`.
  * Every item is split (see splitCueText), cleaned and de-duplicated in order.
  */
-export function toCueList(raw: unknown, gender?: CueGender | string | null): string[] {
+export function toCueList(raw: unknown, gender?: CueGender | string | null, lang: 'he' | 'en' | 'es' = 'he'): string[] {
   const items = Array.isArray(raw) ? raw : raw == null ? [] : [raw];
   const seen = new Set<string>();
   const out: string[] = [];
   for (const item of items) {
-    for (const piece of splitCueText(pickCueText(item, gender))) {
+    for (const piece of splitCueText(pickCueText(item, gender, lang))) {
       if (!seen.has(piece)) {
         seen.add(piece);
         out.push(piece);
@@ -136,8 +137,8 @@ export function toCueList(raw: unknown, gender?: CueGender | string | null): str
  * clean display string, NOT split. Used for the rest-screen prep note
  * (execution method `notificationText`). '' when empty.
  */
-export function resolveGenderedText(raw: unknown, gender?: CueGender | string | null): string {
-  return pickCueText(raw, gender).replace(INVISIBLE_RE, '').replace(/\s+/g, ' ').trim();
+export function resolveGenderedText(raw: unknown, gender?: CueGender | string | null, lang: 'he' | 'en' | 'es' = 'he'): string {
+  return pickCueText(raw, gender, lang).replace(INVISIBLE_RE, '').replace(/\s+/g, ' ').trim();
 }
 
 /** Minimal structural view of what resolveExerciseCues reads (Firestore doc shapes vary). */

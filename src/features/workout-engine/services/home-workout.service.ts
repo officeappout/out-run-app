@@ -187,7 +187,7 @@ import { enforceStrictFocus, isOnStrictFocus } from '../logic/strict-focus.utils
 import { minMainExercisesFor } from '../logic/session-frame.utils';
 import { rescueEmptyMainBlock, topUpVarietyReserve } from '../logic/never-empty.utils';
 import { resolveProtocolWeights } from '../logic/protocol-weights';
-import { balanceFocusAreas, widenFocusForPullGap } from '../logic/pull-gap.utils';
+import { balanceFocusAreas, stampBodyweightPullGap, widenFocusForPullGap } from '../logic/pull-gap.utils';
 import { topUpFocusDayReserve } from '../logic/focus-floor.utils';
 
 // -- Re-exports consumed by the barrel (index.ts) and external callers --
@@ -1392,6 +1392,7 @@ async function generateHomeWorkoutTrioCore(
       // AFTER the rescue, so an option whose main block was emptied (and refilled) is
       // stamped like its siblings (generator QA V10).
       if (pipeline.focusAreas?.length) balanceFocusAreas(workout, neverEmptyOpts, pipeline.focusAreas);
+      else stampBodyweightPullGap(workout, neverEmptyOpts.availableEquipment);
       // H3: below the duration's minimum with a thin reserve → top the reserve up
       // from the session pool so enforceVolumeCap's Phase V can reach the floor.
       const toppedUp = topUpVarietyReserve(workout, neverEmptyOpts);

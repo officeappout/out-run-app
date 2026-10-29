@@ -17,7 +17,7 @@ export default function ActiveProgramsCarousel() {
   const data = useProgramProgress();
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
         <button

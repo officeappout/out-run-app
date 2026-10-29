@@ -70,9 +70,8 @@ export function LeaguesTab({ vm }: { vm: LeaguesVM }) {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-              className="fixed bottom-0 left-0 right-0 z-[91] bg-white rounded-t-3xl shadow-2xl max-w-md mx-auto"
+              className="fixed bottom-0 end-0 start-0 z-[91] bg-white rounded-t-3xl shadow-2xl max-w-md mx-auto"
               style={{ maxHeight: '85vh' }}
-              dir="rtl"
             >
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 rounded-full bg-gray-200" />
@@ -81,7 +80,7 @@ export function LeaguesTab({ vm }: { vm: LeaguesVM }) {
                 className="px-5 pb-8 pt-2 overflow-y-auto"
                 style={{ maxHeight: 'calc(85vh - 40px)' }}
               >
-                <h3 className="text-[22px] font-black text-v2-ink tracking-v2-tight mb-4 text-right">
+                <h3 className="text-[22px] font-black text-v2-ink tracking-v2-tight mb-4 text-start">
                   {t('communityPage.leagues.sheetTitle')}
                 </h3>
                 <LeagueCarousel

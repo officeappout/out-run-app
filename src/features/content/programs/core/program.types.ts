@@ -4,6 +4,7 @@
  */
 
 export { type LevelGoal } from '@/types/workout';
+import type { LocalizedText } from '../../shared/localized-text.types';
 
 /** Access tier required to view/use this content. 1=Starter, 2=Municipal, 3=Pro/Elite */
 export type ContentTier = 1 | 2 | 3;
@@ -21,6 +22,14 @@ export interface Level {
   name: string; // e.g., "Beginner", "Intermediate"
   order: number; // 1-5 (or more)
   description?: string;
+  /**
+   * Set by the services when the stored `name` / `description` is a LocalizedText {he, en} (English entered in
+   * the admin). `name` / `description` above always hold the Hebrew string. Resolve for display with
+   * resolveContentText(level.nameLocalized ?? level.name, useContentLanguage()). Absent = Hebrew-only (all docs today).
+   * On writes, an `en` here makes the service store LocalizedText; a blank `en` stores the plain Hebrew string.
+   */
+  nameLocalized?: LocalizedText;
+  descriptionLocalized?: LocalizedText;
 
   // XP Thresholds
   minXP?: number;
@@ -40,6 +49,9 @@ export interface Program {
   id: string;
   name: string; // e.g., "Full Body", "Upper Body"
   description?: string;
+  /** See Level.nameLocalized: the LocalizedText behind `name` / `description` when English exists. */
+  nameLocalized?: LocalizedText;
+  descriptionLocalized?: LocalizedText;
   maxLevels?: number; // Maximum level this program supports
   /**
    * Highest level the onboarding level questionnaire (שאלון רמה) may assign
@@ -102,6 +114,9 @@ export interface ProgramLevelSettings {
   programId: string;           // Reference to Program
   levelNumber: number;          // The level number (1, 2, 3, etc.)
   levelDescription: string;     // Instructional/contextual text for this level
+  /** See Level.nameLocalized: the LocalizedText behind `levelDescription` / `assessmentBoldTitle` when English exists. */
+  levelDescriptionLocalized?: LocalizedText;
+  assessmentBoldTitleLocalized?: LocalizedText;
   progressionWeight: number;    // How much completing a workout contributes (0.0 - 1.0, default 1.0)
   
   // Future-proofing fields for intensity modifiers

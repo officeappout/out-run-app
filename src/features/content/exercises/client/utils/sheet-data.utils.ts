@@ -15,6 +15,7 @@ import {
   ExternalVideo,
   findMethodForLocation,
   getLocalizedText,
+  type AppLanguage,
   resolveTutorialForLang,
 } from '../../core/exercise.types';
 import { toCueList } from '../../utils/cue-text.utils';
@@ -100,6 +101,7 @@ export function buildSheetData(
   exercise: Exercise,
   location: string | null,
   preResolvedMethod?: ExecutionMethod | null,
+  lang: AppLanguage = 'he',
 ): SheetData {
   // When the caller supplies an exact method we use it directly — this is the
   // path taken by the switcher so method[0] and method[1] (both "home") stay
@@ -146,12 +148,12 @@ export function buildSheetData(
   const equipmentIds = collectEquipmentIds(exercise, method);
 
   const description = exercise.content?.description
-    ? getLocalizedText(exercise.content.description)
+    ? getLocalizedText(exercise.content.description, lang)
     : '';
   const goal =
     !description && exercise.content?.goal ? exercise.content.goal : '';
   const instructions = exercise.content?.instructions
-    ? getLocalizedText(exercise.content.instructions)
+    ? getLocalizedText(exercise.content.instructions, lang)
     : '';
 
   // Location-aware: cues/highlights are read ONLY from the method matching the
@@ -164,27 +166,27 @@ export function buildSheetData(
   // toCueList splits a cue stored as ONE string with inline "- " bullets,
   // newlines or "1." numbering into separate list items (cue-text.utils).
   const cueSet = new Set<string>();
-  toCueList(exercise.content?.specificCues).forEach((s) => cueSet.add(s));
+  toCueList(exercise.content?.specificCues, undefined, lang).forEach((s) => cueSet.add(s));
   contextMethods.forEach((m) => {
-    toCueList((m as any).specificCues).forEach((s) => cueSet.add(s));
+    toCueList((m as any).specificCues, undefined, lang).forEach((s) => cueSet.add(s));
   });
   if (cueSet.size === 0) {
     contextMethods.forEach((m) => {
-      toCueList(m.highlights).forEach((s) => cueSet.add(s));
+      toCueList(m.highlights, undefined, lang).forEach((s) => cueSet.add(s));
     });
   }
   const cues = Array.from(cueSet);
 
   const tipSet = new Set<string>();
-  toCueList(exercise.content?.highlights).forEach((s) => {
+  toCueList(exercise.content?.highlights, undefined, lang).forEach((s) => {
     if (!cueSet.has(s)) tipSet.add(s);
   });
-  toCueList(exercise.content?.notes).forEach((s) => {
+  toCueList(exercise.content?.notes, undefined, lang).forEach((s) => {
     if (!cueSet.has(s)) tipSet.add(s);
   });
   if (cueSet.size > 0) {
     contextMethods.forEach((m) => {
-      toCueList(m.highlights).forEach((s) => {
+      toCueList(m.highlights, undefined, lang).forEach((s) => {
         if (!cueSet.has(s)) tipSet.add(s);
       });
     });
@@ -192,7 +194,7 @@ export function buildSheetData(
   const tips = Array.from(tipSet);
 
   return {
-    name: getLocalizedText(exercise.name),
+    name: getLocalizedText(exercise.name, lang),
     tutorial,
     legacy,
     posterUrl,

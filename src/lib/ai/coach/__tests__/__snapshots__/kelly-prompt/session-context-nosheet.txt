@@ -1,0 +1,5 @@
+Session context (reliable facts for this conversation):
+- User first name: unknown, do not use a name
+- Gender unknown: use plural or impersonal wording (אתם, אפשר להתחיל, אפשר ללחוץ), never a gendered command, never a slash.
+- Today in Israel: יום ראשון, 2026-10-20, around 07:00
+- The user sheet could not be loaded this turn: call get_user_context, get_schedule or get_progress before stating any fact about the user.

@@ -28,7 +28,7 @@ export function GlobalSegment({ vm }: { vm: LeaguesVM }) {
   } = vm;
   const t = useT(community);
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-4">
       {/* יחידים | קבוצות toggle — mirrors city + org segments */}
       <CompetitionToggle vm={vm} />
 

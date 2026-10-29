@@ -45,10 +45,13 @@ export function WhatNowRouteCard({
         <span className="absolute top-2 start-2 flex h-[22px] items-center rounded-full bg-[#04222b] px-2.5 text-[11px] font-bold text-white">
           {copy.tag}
         </span>
+        {/* enable_map_tutorial_v1 (L5): a white fade between the mini map and the text. */}
+        {copy.cta && <span className="absolute inset-x-0 bottom-0 h-[46px] bg-gradient-to-t from-white to-white/0" aria-hidden />}
       </div>
-      <div className="flex flex-col gap-[3px] px-3.5 py-[11px]">
-        <span className="text-[16px] font-bold">{copy.title}</span>
+      <div className={copy.cta ? 'flex flex-col gap-[3px] px-3.5 pb-3.5 pt-1' : 'flex flex-col gap-[3px] px-3.5 py-[11px]'}>
+        <span className={copy.cta ? 'text-[16.5px] font-black' : 'text-[16px] font-bold'}>{copy.title}</span>
         <span className="text-[12.5px] text-v2-muted">{copy.sub}</span>
+        {copy.cta && <span className="text-[12.5px] font-extrabold text-v2-deep">{copy.cta}</span>}
       </div>
     </button>
   );

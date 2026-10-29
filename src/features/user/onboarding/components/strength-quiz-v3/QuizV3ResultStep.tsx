@@ -65,7 +65,7 @@ export default function QuizV3ResultStep({ levels, average, gender, demographics
             maxLevel={getFollowUpMaxLevel(pathConfig, slot.skillId)}
             mode="simple"
             v2={v2}
-            quizV3={{ categories: [slot.skillId], categoryIndex: 0, startMiddle: false }}
+            quizV3={{ categories: [slot.skillId], categoryIndex: 0, startEasy: false }}
           />
         ) : null
       }

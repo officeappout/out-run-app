@@ -15,6 +15,7 @@ import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import FullTutorialOverlay from './FullTutorialOverlay';
 import TutorialChip from './TutorialChip';
+import NoVideoFallback from './NoVideoFallback';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED } from '@/config/feature-flags';
 import { extractBunnyVideoId } from '@/lib/bunny/bunny.config';
@@ -25,6 +26,8 @@ import { player } from '@/messages/ns/player';
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
   videoUrl: string | null;
+  /** S7: the exercise's photo — shown when there is no playable video (else a calm empty state). */
+  imageUrl?: string | null;
   exerciseName: string;
   exerciseType: 'reps' | 'time' | 'follow-along';
   /** B1: narrow "guided follow-along clip" flag (recovery + guided warmup — carries
@@ -48,8 +51,6 @@ interface ExerciseVideoPlayerProps {
   onVideoElement?: (el: HTMLVideoElement | null) => void;
 }
 
-// Fallback video URL
-const FALLBACK_VIDEO_URL = 'https://assets.mixkit.co/videos/preview/mixkit-girl-doing-squats-in-a-gym-23136-large.mp4';
 
 /**
  * Robust YouTube ID extraction
@@ -79,6 +80,7 @@ function isYouTubeUrl(url: string): boolean {
 export default function ExerciseVideoPlayer({
   exerciseId,
   videoUrl,
+  imageUrl = null,
   exerciseName,
   exerciseType,
   isFollowAlong,
@@ -181,7 +183,7 @@ export default function ExerciseVideoPlayer({
     : cachedVideoUrl?.startsWith('blob:')
       ? cachedVideoUrl
       : isOnline
-        ? (videoUrl || FALLBACK_VIDEO_URL)
+        ? (videoUrl || null)
         : null;
 
   // Check if current video is YouTube (never cache YouTube URLs)
@@ -283,6 +285,8 @@ export default function ExerciseVideoPlayer({
     setVideoLoading(loading);
     onLoadingChange?.(loading);
   }, [onLoadingChange]);
+  const handleFallbackReady = useCallback(() => handleLoadingChange(false), [handleLoadingChange]);
+  const hasVideoSrc = typeof effectiveVideoUrl === 'string' && effectiveVideoUrl.trim() !== '';
 
   // Handle YouTube iframe refresh
   const handleRefreshYouTube = useCallback(() => {
@@ -301,8 +305,13 @@ export default function ExerciseVideoPlayer({
 
   return (
     <div className="absolute inset-0 bg-black overflow-hidden" key={exerciseId}>
+      {/* S7: nothing to play at all (no video, or offline + uncached) → photo / empty state. */}
+      {!hasVideoSrc && (
+        <NoVideoFallback exerciseId={exerciseId} exerciseName={exerciseName} imageUrl={imageUrl} onReady={handleFallbackReady} />
+      )}
+
       {/* Main Video Content - Centered on solid black background */}
-      {effectiveVideoUrl && typeof effectiveVideoUrl === 'string' && effectiveVideoUrl.trim() !== '' && (
+      {hasVideoSrc && (
         <div className="absolute inset-0 flex items-center justify-center">
           {/* YouTube Video */}
           {isYouTubeVideo && youtubeVideoId && youtubeEmbedUrl && !iframeError && (
@@ -437,15 +446,15 @@ export default function ExerciseVideoPlayer({
             />
           )}
 
-          {/* Fallback to image — only when there is genuinely no playable video */}
+          {/* Fallback to image — only when there is genuinely no playable video. S7: a non-video
+              src in the video slot (a photo some composers put there) wins, then the exercise's own
+              photo, then a calm empty state — never the old unrelated stock clip. */}
           {!isYouTubeVideo && !hasValidDirectVideoUrl && !bunnyVideoId && (
-            <img
-              key={`img-${exerciseId}`}
-              src={effectiveVideoUrl}
-              alt={exerciseName}
-              className="absolute inset-0 w-full h-full object-contain"
-              onLoad={() => handleLoadingChange(false)}
-              onError={() => handleLoadingChange(false)}
+            <NoVideoFallback
+              exerciseId={exerciseId}
+              exerciseName={exerciseName}
+              imageUrl={effectiveVideoUrl || imageUrl}
+              onReady={handleFallbackReady}
             />
           )}
 

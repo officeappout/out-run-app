@@ -14,6 +14,7 @@ import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 import { clampedScrollTarget, registerCorrection, type CorrectionPair } from './carousel-scroll-sync.util';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { formatDate } from '@/lib/i18n/core/fmt';
 import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 import { map } from '@/messages/ns/map';
@@ -117,6 +118,7 @@ export default function BottomJourneyContainer({
   const carouselRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
   const t = useT(map);
+  const { direction, isRtl } = useUiDir();
 
   // Walk-time from useWalkToRoute (synced via useMapStore — no prop drilling needed).
   // Real for the currently-focused route only — see estimateWalkMinutesFromKm's
@@ -432,7 +434,7 @@ export default function BottomJourneyContainer({
                     <>
                       <Play size={14} fill="currentColor" />
                       {isTooFar ? tooFarLabels.cta : t('journey.cta.go')}
-                      <ChevronLeft size={14} />
+                      <ChevronLeft size={14} className={isRtl ? undefined : '-scale-x-100'} />
                     </>
                   }
                 />
@@ -494,7 +496,7 @@ export default function BottomJourneyContainer({
                 </div>
 
                 {/* ── Text content below the image ── */}
-                <div className="px-4 pt-2 pb-2 flex flex-col gap-1.5 min-w-0" dir="rtl">
+                <div className="px-4 pt-2 pb-2 flex flex-col gap-1.5 min-w-0" dir={direction}>
                   {/* Source pill */}
                   <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full self-start leading-tight">
                     {sourceName}
@@ -547,7 +549,7 @@ export default function BottomJourneyContainer({
                       </div>
                     )}
                     {distFromUser > 0.1 && isReachable && (
-                      <span className="text-[10px] text-gray-400 shrink-0 mr-auto">
+                      <span className="text-[10px] text-gray-400 shrink-0 me-auto">
                         {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}{distFromUser.toFixed(1)} ממך
                       </span>
                     )}
@@ -579,7 +581,7 @@ export default function BottomJourneyContainer({
                     >
                       <Play size={14} fill="currentColor" />
                       {isReachable ? 'צא לדרך' : 'נווט להתחלה' /* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}
-                      <ChevronLeft size={14} />
+                      <ChevronLeft size={14} className={isRtl ? undefined : '-scale-x-100'} />
                     </button>
                   )}
                 </div>

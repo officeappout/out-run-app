@@ -53,6 +53,15 @@ export function skipExplainers(): OutroScreen {
   return { kind: 'explain', index: EXPLAIN_COUNT };
 }
 
+/**
+ * The summary phase's story-bar fill (owner 28.10, Y6: one bar style for the whole flow): the program
+ * screen opens the phase, each explainer fills it further, the last one nearly completes it.
+ */
+export function summaryPhaseFill(s: OutroScreen): number {
+  if (s.kind === 'explain') return 20 + s.index * 20;
+  return 20;
+}
+
 // ── Explainer 1: "what is level N in <group>" ──────────────────────
 
 /** The group explained: the weakest one; on a tie the first in push / pull / legs / core order. */

@@ -22,6 +22,7 @@
  */
 
 import nextDynamic from 'next/dynamic';
+import { DEFAULT_JOIN_VERB_KEY, eventJoinVerbKey, groupJoinVerbKey, type JoinVerbKey } from '@/features/arena/utils/join-verb';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,23 +75,6 @@ const ExerciseLibraryContent = nextDynamic(
   { ssr: false },
 );
 
-// ── Verb mappings (mirrors /community for consistent success drawer copy) ────
-const GROUP_VERB: Record<string, string> = {
-  walking: 'ילך', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  running: 'ירוץ', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  yoga: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  calisthenics: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  cycling: 'ירכב', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  other: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-};
-
-const EVENT_VERB: Record<string, string> = {
-  race: 'ירוץ', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  fitness_day: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  workshop: 'ישתתף', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  community_meetup: 'ישתתף', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-  other: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
-};
 
 type SearchTopTab = 'groups' | 'people' | 'exercises' | 'events';
 type DiscoverMode = 'my' | 'discover';
@@ -242,7 +226,7 @@ export default function SearchPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     name: string;
-    verb: string;
+    verbKey: JoinVerbKey;
     groupId?: string;
     scheduleSlots?: import('@/types/community.types').ScheduleSlot[];
     category?: string;
@@ -466,7 +450,7 @@ export default function SearchPage() {
               : [];
           setSuccessData({
             name: group.name,
-            verb: GROUP_VERB[group.category] ?? 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer, wave 2I
+            verbKey: groupJoinVerbKey(group.category),
             groupId: group.id,
             scheduleSlots: allSlots,
             category: group.category,
@@ -494,7 +478,7 @@ export default function SearchPage() {
         if (event) {
           setSuccessData({
             name: event.name,
-            verb: EVENT_VERB[event.category] ?? 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer, wave 2I
+            verbKey: eventJoinVerbKey(event.category),
           });
         }
       } catch (err) {
@@ -754,7 +738,7 @@ export default function SearchPage() {
         isOpen={!!successData}
         onClose={() => setSuccessData(null)}
         name={successData?.name ?? ''}
-        verb={successData?.verb ?? 'יתאמן'} // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+        verbKey={successData?.verbKey ?? DEFAULT_JOIN_VERB_KEY}
         scheduleSlots={successData?.scheduleSlots}
         category={successData?.category}
         address={successData?.address}
