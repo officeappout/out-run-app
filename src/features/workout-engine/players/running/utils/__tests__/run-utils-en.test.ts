@@ -159,9 +159,9 @@ describe('run utils in English', () => {
   it('persisted mainSwap stays Hebrew in an English session', () => {
     const swap = encodeMainSet({ unit: 'm', reps: [600, 600, 600, 600], recoverySec: 120 });
     const edits = withSwap(NO_RUN_EDITS, swap);
-    const en = applyRunEdits({ blocks: sixBy400() }, edits, ctx).mainSwap;
+    const en = applyRunEdits<{ blocks: RunBlock[]; mainSwap?: { from: string; to: string } }>({ blocks: sixBy400() }, edits, ctx).mainSwap;
     useLocaleStore.setState({ locale: 'he' });
-    const he = applyRunEdits({ blocks: sixBy400() }, edits, ctx).mainSwap;
+    const he = applyRunEdits<{ blocks: RunBlock[]; mainSwap?: { from: string; to: string } }>({ blocks: sixBy400() }, edits, ctx).mainSwap;
     expect(en).toEqual(he);
     expect(he).toEqual({ from: '6 × 400 מ׳', to: '4 × 600 מ׳' });
   });
