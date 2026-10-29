@@ -94,7 +94,7 @@ describe('data pass-through (additive)', () => {
   });
 });
 
-const seg = (exs: Array<{ id: string; equipment?: string[] }>) => ({ exercises: exs.map((e) => ({ ...e, name: e.id })) });
+const seg = (exs: Array<{ id: string; equipment?: string[]; imageUrl?: string }>) => ({ exercises: exs.map((e) => ({ ...e, name: e.id })) });
 const findIn = (over: Partial<FindInput> = {}): FindInput => ({
   enabled: true,
   seen: createDemoSeenStore(),
@@ -157,6 +157,13 @@ describe('find-the-equipment screen', () => {
     expect(screen.kind).toBe('tabata');
     expect(screen.items.map((i) => [i.exerciseId, i.exIdx])).toEqual([['m1', 0], ['m2', 2]]); // each gets its own swap
     expect(findEquipmentScreen(findIn({ segment: block2, isTabataBlock: true, isFirstTabataInterval: false }))).toBeNull();
+  });
+  it('pilot M9: the screen carries the plan photo (null when the exercise has none)', () => {
+    const block = seg([{ id: 'm1', equipment: ['a'], imageUrl: 'https://img/m1.jpg' }, { id: 'm2', equipment: ['b'] }]);
+    const screen = findEquipmentScreen(findIn({ segment: block, isTabataBlock: true, isFirstTabataInterval: true }))!;
+    expect(screen.items.map((i) => i.imageUrl)).toEqual(['https://img/m1.jpg', null]);
+    const runner = readFileSync(fileURLToPath(new URL('../../players/strength/StrengthRunner.tsx', import.meta.url)), 'utf8');
+    expect(runner).toContain('showPhoto={parkLive}');
   });
 });
 

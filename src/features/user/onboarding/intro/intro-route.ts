@@ -59,6 +59,15 @@ export function resolveQuickSignupHref(
   return INTRO_ROUTE;
 }
 
+/**
+ * L1 — the routes the landing warms while a guest is looking at it, so the tap on
+ * "הרשמה מהירה" doesn't also wait on the next screen's chunk over the network.
+ * /intro is tiny; /explorer is where everyone lands within seconds either way.
+ */
+export function quickSignupPrefetchRoutes(introOn: boolean): string[] {
+  return introOn ? [INTRO_ROUTE, EXPLORER_ROUTE] : [EXPLORER_ROUTE];
+}
+
 /** Wraps a router so runExploreMapFlow's final push honours resolveQuickSignupHref. */
 export function withIntroRedirect<R extends { push: (href: string) => void }>(
   router: R,

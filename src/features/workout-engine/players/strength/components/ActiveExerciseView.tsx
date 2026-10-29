@@ -142,6 +142,8 @@ export interface ActiveExerciseViewProps {
   videoPaused?: boolean;
   /** PR-B2: receives the direct <video> element (see ExerciseVideoPlayer.onVideoElement). */
   onVideoElement?: (el: HTMLVideoElement | null) => void;
+  /** Park live v2 station: the clip plays with sound and resumes by this key (clip-playback.ts). */
+  stationClipKey?: string | null;
   /** PR-B2: start the timed card without its "התחלה" tap (the gate's "צפיתי, התחל" was the tap).
    *  Its normal get-ready still runs; tabata keeps its own autoStart. */
   autoStartTimer?: boolean;
@@ -197,6 +199,7 @@ export default function ActiveExerciseView({
   guidanceLine,
   videoPaused,
   onVideoElement,
+  stationClipKey = null,
   autoStartTimer = false,
   onSetVideoProgress,
   nextUp,
@@ -295,6 +298,8 @@ export default function ActiveExerciseView({
         isPaused={videoPaused ?? isPaused}
         hasAudio={false}
         onVideoElement={handleVideoEl}
+        withSound={stationClipKey != null}
+        resumeKey={stationClipKey}
         fullTutorial={exerciseFullTutorial ?? null}
         tutorialPlacement={drawerV1 || split || immersive ? 'corner' : 'legacy'}
         onVideoProgress={onSetVideoProgress}

@@ -103,6 +103,8 @@ export interface RankedHybridCard {
   park?: NearbyPark;
   /** route_stops only: the route the card is about. */
   route?: RouteWithStops;
+  /** walk_strength only: steps and weekly strength are both done (pilot O8). */
+  goalReached?: boolean;
 }
 
 /** The few profile fields the smart cards read (all optional — field-guards). */

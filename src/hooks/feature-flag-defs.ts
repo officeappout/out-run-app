@@ -81,7 +81,7 @@ export const FLAG_DEFS = [
   // superAdminValue was false (David: "nothing changes in production until I flip it");
   // flipped to true on 17.10.2026 at the owner's request so he can review the first-run
   // experience on his own account — affects super admins only. Fail-closed otherwise.
-  { key: 'enableOnboardingTutorialV1', firestoreKey: 'enable_onboarding_tutorial_v1', defaultValue: false, superAdminValue: true },
+  { key: 'enableOnboardingTutorialV1', firestoreKey: 'enable_onboarding_tutorial_v1', defaultValue: true, superAdminValue: true, graduated: true },
   // Guided station layer (PR-B1, 15.10.2026) — KILL-SWITCH, not a launch gate. The guided
   // "ליווי צעד-אחר-צעד" layer is the default for every user (David's decision); this flag
   // exists only to turn it OFF globally without a deploy (off = everyone gets fast mode,
@@ -384,12 +384,12 @@ export const FLAG_DEFS = [
   // tutorial, the route card a "first workout" line until the health declaration is accepted,
   // and the route player a one-time long-press tip. Fail-closed; super admins preview it.
   // Off = byte-identical map, cards and player.
-  { key: 'enableEntryWhatnowV1', firestoreKey: 'enable_entry_whatnow_v1', defaultValue: false, superAdminValue: true },
+  { key: 'enableEntryWhatnowV1', firestoreKey: 'enable_entry_whatnow_v1', defaultValue: true, superAdminValue: true, graduated: true },
   // Entry single choice (22.10.2026, owner loose-ends batch): a user who already answered (or
   // dismissed) the map's "מה בא לך עכשיו?" drawer no longer also gets the home "מה הדבר הראשון?"
   // WelcomeDrawer — one question, asked once. Fail-closed; super admins preview it. Off = today's
   // home (the drawer shows for every never-trained user).
-  { key: 'enableEntrySingleChoiceV1', firestoreKey: 'enable_entry_single_choice_v1', defaultValue: false, superAdminValue: true },
+  { key: 'enableEntrySingleChoiceV1', firestoreKey: 'enable_entry_single_choice_v1', defaultValue: true, superAdminValue: true, graduated: true },
   // Home two start cards (22.10.2026, owner loose-ends batch, canvas WR-1b / WR-6): a user with no
   // program sees exactly two start cards, "כוח" and "הליכה וריצה" (the aerobic questionnaire: walking
   // goal or running plan), and a walker who walked 4+ weeks in a row gets one dismissible
