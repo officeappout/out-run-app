@@ -17,13 +17,51 @@ export interface FieldRef { id: string; path: string; shape: 'string' | 'localiz
 export const READY_PATHS: Record<string, readonly string[]> = {
   programs: ['name', 'description'],
   levels: ['name', 'description'],
-  programLevelSettings: ['levelDescription', 'assessmentBoldTitle'],
+  programLevelSettings: ['levelDescription', 'assessmentBoldTitle', 'targetGoals[].exerciseName'],
+  // #938: readers accept string | {he,en} in the field itself (pair exposed as <field>Localized); lists hold per-item {he,en}
+  runWorkoutTemplates: ['name', 'description', 'blocks[].label', 'blocks[].restLabel'],
+  runProgramTemplates: ['name', 'volumeCaps[].description'],
+  gym_equipment: ['name', 'description', 'prepNote', 'cues[]', 'tips[]', 'instructions[]'],
+  smart_messages: ['text', 'subText'],
+  outdoorBrands: ['name', 'description'],
+  product_tags: ['name'],
+  // push_messages stays out on purpose: the push sender reads it only after the functions deploy.
 };
 
 export const normPath = (p: string): string => p.replace(/\[\d+\]/g, '[]');
 export const isReadyPath = (collection: string, path: string): boolean => (READY_PATHS[collection] ?? []).includes(normPath(path));
-/** Ready paths are top-level (or dotted maps): arrays cannot be patched with a Firestore field path. */
-export const isPatchablePath = (path: string): boolean => !/\[/.test(path);
+/** Top-level field a path lives in (`blocks[3].label` -> `blocks`): array paths are written by replacing that whole field. */
+export const topKey = (path: string): string => path.split(/[.[]/)[0];
+/** Kept for callers: every ready path is writable now (array fields are replaced whole, see applyWrites). */
+export const isPatchablePath = (_path: string): boolean => true;
+
+/** Value to store for a field: { he, en } (LocalizedText), the shape the #938 / programs normalizers read. */
+function setAtPath(root: unknown, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let cur = root as Record<string, unknown>;
+  parts.forEach((part, pi) => {
+    const m = /^([^[\]]*)((?:\[\d+\])*)$/.exec(part)!;
+    const idx = (m[2].match(/\d+/g) ?? []).map(Number);
+    const steps: Array<string | number> = [m[1], ...idx].filter((x) => x !== '');
+    steps.forEach((st, si) => {
+      const last = pi === parts.length - 1 && si === steps.length - 1;
+      if (last) (cur as any)[st] = value;
+      else cur = (cur as any)[st];
+    });
+  });
+}
+
+/** The top-level fields to update for a doc's writes: clones the live value of each touched field and sets { he, en } inside it. */
+export function applyWrites(live: Record<string, unknown>, ws: Array<{ path: string; write: { he: string; en: string } }>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const w of ws) {
+    const k = topKey(w.path);
+    if (!(k in out)) out[k] = JSON.parse(JSON.stringify(live[k]));
+    if (w.path === k) out[k] = { he: w.write.he, en: w.write.en };
+    else setAtPath(out, w.path, { he: w.write.he, en: w.write.en });
+  }
+  return out;
+}
 
 const isLocalized = (v: unknown): v is { he?: unknown; en?: unknown } =>
   !!v && typeof v === 'object' && !Array.isArray(v) && 'he' in (v as object) && Object.keys(v as object).every((k) => ['he', 'en', 'es'].includes(k));
@@ -84,6 +122,7 @@ export interface ImportFile {
   writeShape: '{he,en}'; writes: WriteEntry[]; needsCode: NeedsCodeEntry[]; alreadyTranslated: number;
   /** New English documents (site_content: one doc per locale). Created with create(), never overwriting. */
   creates?: CreateEntry[];
+  notes?: string;
 }
 export interface CreateEntry { docId: string; data: Record<string, unknown> }
 

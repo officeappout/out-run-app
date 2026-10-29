@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildExport, buildImport, checkTranslation, extractFields, getAtPath, isReadyPath, liveDrift, sourceDriftBetween,
+  applyWrites, buildExport, buildImport, checkTranslation, extractFields, getAtPath, isReadyPath, liveDrift, sourceDriftBetween,
   verifyCreates, verifyImport,
 } from '../collection-bulk';
 
@@ -32,7 +32,8 @@ describe('buildImport', () => {
     const r = buildImport(exp, { 'משיכה': null });
     expect(r.skipped).toEqual(['משיכה']);
     expect(r.missing.length).toBeGreaterThan(0);
-    expect(isReadyPath('runWorkoutTemplates', 'name')).toBe(false);
+    expect(isReadyPath('runWorkoutTemplates', 'blocks[3].label')).toBe(true);
+    expect(isReadyPath('push_messages', 'title')).toBe(false);
     expect(isReadyPath('levels', 'description')).toBe(true);
   });
 });
@@ -74,5 +75,18 @@ describe('creates + live drift', () => {
     expect(liveDrift({ name: 'א' }, w)).toBeNull();
     expect(liveDrift({ name: 'ב' }, w)).toMatch(/changed/);
     expect(liveDrift({ name: { he: 'א', en: 'z' } }, w)).toMatch(/English/);
+  });
+});
+
+describe('applyWrites', () => {
+  it('replaces whole top-level fields, setting { he, en } at array/nested paths and leaving the rest untouched', () => {
+    const live = { blocks: [{ label: 'חימום', n: 1 }, { label: 'ריצה', n: 2 }], cues: ['א', 'ב'], name: 'x', other: 5 };
+    const w = (path: string, he: string, en: string) => ({ path, write: { he, en } });
+    const out = applyWrites(live, [w('blocks[1].label', 'ריצה', 'Run'), w('cues[0]', 'א', 'a'), w('cues[1]', 'ב', 'b'), w('name', 'x', 'X')]);
+    expect(out.blocks).toEqual([{ label: 'חימום', n: 1 }, { label: { he: 'ריצה', en: 'Run' }, n: 2 }]);
+    expect(out.cues).toEqual([{ he: 'א', en: 'a' }, { he: 'ב', en: 'b' }]);
+    expect(out.name).toEqual({ he: 'x', en: 'X' });
+    expect('other' in out).toBe(false);
+    expect(live.cues).toEqual(['א', 'ב']); // input not mutated
   });
 });

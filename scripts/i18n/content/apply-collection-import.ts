@@ -5,8 +5,8 @@
  *   npx tsx scripts/i18n/content/apply-collection-import.ts --import <c>-import.json --export export/<c>.json            # dry run (reads only)
  *   npx tsx scripts/i18n/content/apply-collection-import.ts --import ... --export ... --confirm-production               # writes
  *
- * Writes ONLY (a) the { he, en } value of the listed top-level READY_PATHS fields of existing docs (update with a field path,
- * pinned to the fresh updateTime) and (b) new `-en` documents (create(), fails if the id exists). Refuses targetLang he, any
+ * Writes ONLY (a) the { he, en } value of the listed READY_PATHS fields of existing docs (the touched top-level field is replaced
+ * whole, array items included; update pinned to the fresh updateTime) and (b) new `-en` documents (create(), fails if the id exists). Refuses targetLang he, any
  * non-ready path, any doc whose Hebrew changed or that already has English. Needs-code fields are never touched.
  * Order: verify -> read live -> drift check -> full backup of touched docs (abort if it cannot be written) -> write -> re-read + verify.
  */
@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb, argOf } from './admin';
-import { getAtPath, hebrewAt, liveDrift, verifyCreates, verifyImport } from './collection-bulk';
+import { applyWrites, getAtPath, hebrewAt, liveDrift, topKey, verifyCreates, verifyImport } from './collection-bulk';
 
 const BATCH = 400;
 async function main() {
@@ -43,7 +43,7 @@ async function main() {
     if (!before) { skipped.push(`${id}: not found`); continue; }
     const bad = ws.map((w) => liveDrift(before, w)).find(Boolean);
     if (bad) { skipped.push(`${id}: ${bad}`); continue; }
-    tasks.push({ id, ws, patch: Object.fromEntries(ws.map((w) => [w.path, { he: w.write.he, en: w.write.en }])) });
+    tasks.push({ id, ws, patch: applyWrites(before, ws) });
   }
   console.log(`${tasks.length} docs to update, ${(imp.creates ?? []).length} docs to create, ${skipped.length} skipped`);
   for (const s of skipped.slice(0, 30)) console.log(`SKIP ${s}`);
@@ -64,7 +64,7 @@ async function main() {
       const t = tasks[i + k];
       const changed = !snap.exists || snap.updateTime.toDate().toISOString() !== readTime.get(t.id) || t.ws.some((w) => liveDrift(snap.data(), w));
       if (changed) { console.log(`SKIP ${t.id}: edited concurrently`); return; }
-      batch.update(snap.ref, { ...t.patch, updatedAt: FieldValue.serverTimestamp() }, { lastUpdateTime: snap.updateTime });
+      batch.update(snap.ref, { ...applyWrites(snap.data(), t.ws), updatedAt: FieldValue.serverTimestamp() }, { lastUpdateTime: snap.updateTime });
       done.push(t);
     });
     await batch.commit();
@@ -79,7 +79,12 @@ async function main() {
       if (hebrewAt(after, w.path) !== w.he || v?.en !== w.en) { bad++; console.error(`POST-VERIFY ${t.id} ${w.path}`); }
     }
     const before = live.get(t.id);
-    for (const k of Object.keys(before)) if (!t.ws.some((w) => w.path === k || w.path.startsWith(k + '.')) && k !== 'updatedAt' && JSON.stringify(before[k]) !== JSON.stringify(after[k])) { bad++; console.error(`POST-VERIFY ${t.id}: unrelated field ${k} changed`); }
+    const expected = applyWrites(before, t.ws);
+    for (const k of Object.keys(before)) {
+      if (k === 'updatedAt') continue;
+      const want = k in expected ? expected[k] : before[k];
+      if (JSON.stringify(want) !== JSON.stringify(after[k])) { bad++; console.error(`POST-VERIFY ${t.id}: field ${k} differs from the plan`); }
+    }
   }
   for (const c of imp.creates ?? []) if (!(await db.collection(col).doc(c.docId).get()).exists) { bad++; console.error(`POST-VERIFY ${c.docId} missing`); }
   console.log(bad ? `post-verify FAILED (${bad}); restore from ${backup}` : `post-verify OK: ${done.length} updated, ${(imp.creates ?? []).length} created`);

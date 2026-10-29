@@ -25,12 +25,13 @@ if (col === 'site_content') { // FAQ docs already have English twins (faq-*-en-*
 }
 const { file, missing, skipped } = buildImport({ ...exp, fields }, tr);
 const createsPath = path.join(dir, 'translations', `${col}.creates.json`);
-if (fs.existsSync(createsPath)) {
+if (fs.existsSync(createsPath) && !process.argv.includes('--no-creates')) { // --no-creates: the docs already exist in Firestore
   const c = JSON.parse(fs.readFileSync(createsPath, 'utf8'));
   file.creates = Object.entries(c).map(([docId, data]) => ({ docId, data }));
   // site_content English lives in new docs, not in field writes
   file.needsCode = [];
 }
+if (col === 'push_messages') file.notes = 'needsCode: after functions deploy (the push sender reads {he,en} only once the functions are deployed); then add push_messages to READY_PATHS and rebuild.';
 fs.writeFileSync(path.join(dir, `${col}-import.json`), JSON.stringify(file, null, 2));
 const unique = (a) => new Set(a.map((x) => x.he.trim()));
 const issues = [...verifyImport({ ...exp, fields }, file), ...verifyCreates(col, file.creates ?? [], new Set())];
