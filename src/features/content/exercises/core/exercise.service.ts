@@ -403,6 +403,7 @@ export async function updateExercise(
     
     // === TIMING ===
     preserveField('secondsPerRep');
+    preserveField('conditioningLevel');
     preserveField('defaultRestSeconds');
     
     // === PRODUCTION REQUIREMENTS ===

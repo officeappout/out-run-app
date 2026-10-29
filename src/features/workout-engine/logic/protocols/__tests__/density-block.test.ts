@@ -140,6 +140,32 @@ describe('buildDensityBlock', () => {
   });
 });
 
+describe('conditioning slot', () => {
+  const cond = (name: string, level: number) => cand({
+    id: `c${++n}`, name: { he: name, en: name }, type: 'reps', movementGroup: 'conditioning',
+    conditioningLevel: level, secondsPerRep: 3, symmetry: 'bilateral',
+  } as unknown as Exercise);
+  const BURPEES = [cond('סמוך קום מתחילים', 3), cond('חצי סמוך קום', 4), cond('סמוך קום', 6), cond('סמוך קום עם שכיבת סמיכה', 8)];
+  const base = {
+    format: 'emom' as const, domainLevels: levels({ push: 12, pull: 10, legs: 9 }),
+    pool: POOL, headroomMinutes: 12, excludeIds: new Set<string>(), rand: rand0,
+    conditioningPool: BURPEES, conditioningUserLevel: 9,
+  };
+  const condOf = (r: ReturnType<typeof buildDensityBlock>) => (r?.members ?? []).filter((m) => m.reasoning.includes('conditioning'));
+
+  it('multi-domain: one conditioning move, the hardest ≥2 below the legs level', () => {
+    const c = condOf(buildDensityBlock({ ...base, sessionDomains: ['push', 'pull'] }));
+    expect(c.map((m) => (m.exercise.name as { he: string }).he)).toEqual(['סמוך קום']); // 9 − 6 = 3
+    expect(c[0].protocolBlock).toBe('density');
+  });
+
+  it('never in a one-domain session, never without a fitting level, skipped on the coin flip', () => {
+    expect(condOf(buildDensityBlock({ ...base, sessionDomains: ['pull'] }))).toEqual([]);
+    expect(condOf(buildDensityBlock({ ...base, sessionDomains: ['push', 'pull'], conditioningUserLevel: 4 }))).toEqual([]);
+    expect(condOf(buildDensityBlock({ ...base, sessionDomains: ['push', 'pull'], rand: () => 0.99 }))).toEqual([]);
+  });
+});
+
 describe('mapper split', () => {
   it('seg-main keeps the classic exercises; seg-density right after carries the timed block', () => {
     const segs = [

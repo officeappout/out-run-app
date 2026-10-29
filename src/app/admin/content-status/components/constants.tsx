@@ -63,6 +63,7 @@ export const MOVEMENT_GROUP_LABELS: Record<MovementGroup, string> = {
   core: 'ליבה',
   isolation: 'איסוליישן',
   flexibility: 'גמישות',
+  conditioning: 'סיבולת',
 };
 
 export const EXERCISE_ROLE_LABELS: Record<ExerciseRole, string> = {

@@ -13,7 +13,9 @@
  *   - one domain: EMOM only (AMRAP fatigues one muscle group too fast), one exercise
  *     or two alternating, 8-10 min, ~60% of the usual reps but at least 5 a minute;
  *   - an EMOM set must fit in 40 s (rest until the next minute);
- *   - full pull-ups enter an AMRAP only from pull level 14 (rows / easier variants below).
+ *   - full pull-ups enter an AMRAP only from pull level 14 (rows / easier variants below);
+ *   - several domains only: at most one conditioning move (movementGroup 'conditioning',
+ *     e.g. burpees, owner 29.10.2026), the hardest ≥2 below the user's legs level.
  * Too few eligible exercises → no block (the caller keeps classic sets).
  */
 import type { Exercise, ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
@@ -41,6 +43,8 @@ export const DENSITY_MULTI_MEMBERS = { min: 3, max: 5 } as const;
 export const DENSITY_MINUTES = { multi: { min: 8, max: 12 }, single: { min: 8, max: 10 } } as const;
 export const EMOM_SET_CAP_SEC = 40;
 export const AMRAP_PULL_UP_MIN_LEVEL = 14;
+/** Chance a multi-domain block gets its conditioning slot (when one fits). */
+export const CONDITIONING_SLOT_CHANCE = 0.5;
 
 /** Name fragments that mark a non-dynamic or skill exercise (the corpus has no reliable tag). */
 const EXCLUDED_NAME_PARTS = [
@@ -115,6 +119,10 @@ export interface DensityBuildInput {
   headroomMinutes: number;
   /** Exercises already in the session (never repeated). */
   excludeIds: Set<string>;
+  /** Conditioning moves valid for this session (location / injuries already applied). */
+  conditioningPool?: DensityCandidate[];
+  /** Level conditioning difficulty is matched against (the user's legs level). */
+  conditioningUserLevel?: number;
   rand?: () => number;
 }
 
@@ -148,6 +156,25 @@ function blockMinutes(format: DensityFormat, members: number, single: boolean, h
   return null;
 }
 
+type Picked = DensityCandidate & { gap: number; conditioning?: boolean };
+
+/** The hardest conditioning move ≥2 below the user (ties broken at random), or null. */
+function pickConditioning(input: DensityBuildInput, format: DensityFormat, rand: () => number): Picked | null {
+  const userLevel = input.conditioningUserLevel;
+  if (userLevel == null) return null;
+  const fits: Picked[] = [];
+  for (const c of input.conditioningPool ?? []) {
+    const level = c.exercise.conditioningLevel;
+    if (typeof level !== 'number' || input.excludeIds.has(c.exercise.id) || !isDensityEligible(c.exercise, format)) continue;
+    const gap = userLevel - level;
+    if (gap >= DENSITY_MIN_LEVEL_GAP) fits.push({ ...c, gap, conditioning: true });
+  }
+  if (fits.length === 0) return null;
+  const closest = Math.min(...fits.map((f) => f.gap));
+  const best = fits.filter((f) => f.gap === closest);
+  return best[Math.floor(rand() * best.length)];
+}
+
 /** The block, or null (too few eligible exercises / not enough time). */
 export function buildDensityBlock(input: DensityBuildInput): DensityBuildResult | null {
   const rand = input.rand ?? Math.random;
@@ -177,7 +204,7 @@ export function buildDensityBlock(input: DensityBuildInput): DensityBuildResult 
   }
   byDomain.forEach((list, d) => byDomain.set(d, shuffle(list, rand)));
 
-  const picked: Array<DensityCandidate & { gap: number }> = [];
+  const picked: Picked[] = [];
   if (single) {
     const list = byDomain.get(domains[0]) ?? [];
     if (list.length === 0) return null;
@@ -192,6 +219,12 @@ export function buildDensityBlock(input: DensityBuildInput): DensityBuildResult 
       }
       if (!added) break;
     }
+    // Conditioning slot: before the trim, so a short block drops it first.
+    const extra = rand() < CONDITIONING_SLOT_CHANCE ? pickConditioning(input, format, rand) : null;
+    if (extra) {
+      if (picked.length >= DENSITY_MULTI_MEMBERS.max) picked.pop();
+      picked.push(extra);
+    }
     if (picked.length < DENSITY_MULTI_MEMBERS.min) return null;
   }
 
@@ -203,7 +236,7 @@ export function buildDensityBlock(input: DensityBuildInput): DensityBuildResult 
   }
   if (minutes == null) return null;
 
-  const members: WorkoutExercise[] = picked.map(({ exercise: ex, method, gap }) => ({
+  const members: WorkoutExercise[] = picked.map(({ exercise: ex, method, gap, conditioning }) => ({
     exercise: ex,
     method,
     mechanicalType: ex.mechanicalType ?? 'none',
@@ -213,7 +246,7 @@ export function buildDensityBlock(input: DensityBuildInput): DensityBuildResult 
     restSeconds: 0,
     priority: 'compound',
     score: 0,
-    reasoning: [`density_block:${format}`, `level_gap:${gap}`],
+    reasoning: [`density_block:${format}`, `level_gap:${gap}`, ...(conditioning ? ['conditioning'] : [])],
     exerciseRole: 'main',
     tier: 'match',
     protocolBlock: 'density',
