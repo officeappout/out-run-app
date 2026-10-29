@@ -32,7 +32,8 @@ import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import ExistingAccountModal from '@/components/ExistingAccountModal';
 import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
 import { IntroLanding } from '@/features/user/onboarding/intro/components/IntroLanding';
-import { isIntroPreview, shouldHoldLandingSplash } from '@/features/user/onboarding/intro/intro-route';
+import { isIntroPreview, quickSignupPrefetchRoutes, shouldHoldLandingSplash } from '@/features/user/onboarding/intro/intro-route';
+import { BARRIER_STORY_META, storyImages } from '@/features/user/onboarding/intro/intro-copy';
 import { introAwareRouter } from '@/features/user/onboarding/intro/intro-router';
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
 import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
@@ -538,16 +539,34 @@ export default function LandingPage() {
     return () => unsubscribe();
   }, [router, fastPathTakenRef, isRealFallbackOn]);
 
+  // L1: warm the quick signup's next hop while the guest looks at the landing —
+  // on the phone (remote origin) an un-prefetched push waits on the route's chunk.
+  useEffect(() => {
+    if (authState !== 'guest') return;
+    for (const href of quickSignupPrefetchRoutes(introOn)) router.prefetch(href);
+  }, [authState, introOn, router]);
+
   // ── Primary: "הרשמה מהירה" → runs the same explore-map flow as gateway's
   // "גלו את המפה" card directly, skipping the gateway choice screen. ──
   const handleQuickSignup = useCallback(async () => {
     quickSignupInFlightRef.current = true;
     setAuthState('authenticated'); // reuse the branded splash while this resolves
+    // L1: start the first story's images now (sign-in is still running), so the
+    // intro's first screens don't paint empty frames on a slow connection.
+    if (introOn || introPreview) {
+      for (const src of storyImages(BARRIER_STORY_META[0])) {
+        const img = new window.Image();
+        img.decoding = 'async';
+        img.src = src;
+      }
+    }
     try {
       // enable_entry_intro_v1: the flow's final `/explorer` push becomes `/intro`
       // until the intro has been seen on this device; invite redirects untouched.
       const flowRouter = await introAwareRouter(router, { introOn, preview: introPreview });
-      const proceeded = await runExploreMapFlow(flowRouter);
+      // minTransitionMs 0: the splash has no animation to wait out (L1) —
+      // gateway keeps its 1.2s overlay window by default.
+      const proceeded = await runExploreMapFlow(flowRouter, { minTransitionMs: 0 });
       if (!proceeded) {
         // resolveUser() already logged AUTH_ANONYMOUS (run-explore-map-
         // flow.ts's single chokepoint) — this is the visible half (P0-1,
