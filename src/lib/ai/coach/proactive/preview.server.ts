@@ -67,7 +67,7 @@ export async function previewProactive(db: Firestore, uid: string, flags: Server
   const atHour = explainAll(state, { ignoreSlotTime: true });
   const rows = TRIGGER_PRIORITY.map((trigger, k): PreviewRow => {
     const h = atHour[k];
-    const rendered = h.decision.shouldSend ? renderProactive({ templateKey: h.decision.templateKey, vars: h.decision.vars, gender: state.gender, firstName: state.firstName }) : null;
+    const rendered = h.decision.shouldSend ? renderProactive({ templateKey: h.decision.templateKey, vars: h.decision.vars, gender: state.gender, firstName: state.firstName, locale: state.locale }) : null;
     return {
       trigger,
       now: verdict(real[k].decision, real[k].gate),
@@ -96,7 +96,7 @@ export async function testSendProactive(
   if (!state.hasAi) return { sent: false, reason: 'no_ai' };
   const pick = explainAll(state, { ignoreSlotTime: true, ...(trigger ? { only: [trigger] } : {}) }).find((v) => v.decision.shouldSend)?.decision;
   if (!pick || !pick.shouldSend) return { sent: false, reason: 'nothing_to_send' };
-  const rendered = renderProactive({ templateKey: pick.templateKey, vars: pick.vars, gender: state.gender, firstName: state.firstName });
+  const rendered = renderProactive({ templateKey: pick.templateKey, vars: pick.vars, gender: state.gender, firstName: state.firstName, locale: state.locale });
   const res = await writeProactiveMessage(db, {
     uid: adminUid,
     clock: state.clock,

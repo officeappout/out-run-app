@@ -12,7 +12,7 @@
  */
 import type { SheetScheduleEntry, UserContextSheet } from './context-sheet';
 import type { TypoHint } from './intent';
-import type { CoachLocale } from './coach-locale';
+import { coachT, type CoachLocale } from './coach-locale';
 
 /** Hebrew (the default, byte-identical to before) or English copy for one request. */
 const L = (locale: CoachLocale, he: string, en: string): string => (locale === 'en' ? en : he);
@@ -318,22 +318,18 @@ export function renderSheet(sheet: UserContextSheet, locale: CoachLocale = 'he')
   return lines.join('\n');
 }
 
-/** First-open quick replies, gendered by the user (the user talks TO Kelly, a man, so "תבנה" is fixed). */
-export function quickReplies(gender: CoachGender): string[] {
-  const progress: Record<CoachGender, string> = {
-    male: 'איך אני מתקדם?',
-    female: 'איך אני מתקדמת?',
-    other: 'איך ההתקדמות שלי?',
-  };
-  return ['תבנה לי אימון להיום', progress[gender], 'מה בתוכנית השבוע?'];
+/** Any coach t(): the server one (coachT) or the chat's React one (useT(coach)). */
+type CoachT = (key: Parameters<ReturnType<typeof coachT>>[0], values?: Parameters<ReturnType<typeof coachT>>[1]) => string;
+
+/**
+ * First-open quick replies, gendered by the user (the user talks TO Kelly, a man, so "תבנה" is fixed).
+ * `t` = the chat's coach t() (its locale decides the language); omitted = Hebrew.
+ */
+export function quickReplies(gender: CoachGender, t: CoachT = coachT('he')): string[] {
+  return [t('quick.first.build'), t('quick.first.progress', { gender }), t('quick.first.week')];
 }
 
-export function greeting(gender: CoachGender, firstName: string): string {
-  const hi = firstName ? `היי ${firstName}, ` : 'היי, ';
-  const ask: Record<CoachGender, string> = {
-    male: 'מה בא לך היום? אני יכול לבנות לך אימון, לבדוק איך אתה מתקדם או מה מחכה לך השבוע.',
-    female: 'מה בא לך היום? אני יכול לבנות לך אימון, לבדוק איך את מתקדמת או מה מחכה לך השבוע.',
-    other: 'מה בא היום? אני יכול לבנות אימון, לבדוק את ההתקדמות או מה מחכה השבוע.',
-  };
-  return `${hi}אני קלי, המאמן הדיגיטלי באפליקציה. ${ask[gender]}`;
+export function greeting(gender: CoachGender, firstName: string, t: CoachT = coachT('he')): string {
+  const ask = t('greeting.ask', { gender });
+  return firstName ? t('greeting.named', { name: firstName, ask }) : t('greeting.anon', { ask });
 }

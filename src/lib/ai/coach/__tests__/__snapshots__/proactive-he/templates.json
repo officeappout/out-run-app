@@ -1,0 +1,3086 @@
+[
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון כוח של 30 דקות ב-18:00. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון כוח של 30 דקות ב-18:00. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון כוח של 30 דקות ב-18:00. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון כוח של 30 דקות ב-18:00. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון כוח של 30 דקות ב-18:00. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון כוח של 30 דקות ב-18:00. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון כוח של 30 דקות ב-18:00. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון כוח של 30 דקות ב-18:00. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום מתוכנן אימון כוח של 30 דקות ב-18:00. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום מתוכנן אימון כוח של 30 דקות ב-18:00. משפט אישי. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום מתוכנן אימון כוח של 30 דקות ב-18:00. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": 30,
+      "time": "18:00",
+      "silent": null
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום מתוכנן אימון כוח של 30 דקות ב-18:00. משפט אישי. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון כוח. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון כוח. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון כוח. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון כוח. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון כוח. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון כוח. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון כוח. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון כוח. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום מתוכנן אימון כוח. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום מתוכנן אימון כוח. משפט אישי. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום מתוכנן אימון כוח. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {
+      "label": "אימון כוח",
+      "minutes": null,
+      "time": null,
+      "silent": 1
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום מתוכנן אימון כוח. משפט אישי. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": true,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך אימון. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום יש לך אימון. משפט אישי. רוצה שאבנה לך אותו עכשיו?",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום מתוכנן אימון. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום מתוכנן אימון. משפט אישי. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום מתוכנן אימון. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning",
+    "vars": {},
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום מתוכנן אימון. משפט אישי. אפשר לבנות אותו עכשיו בכפתור למטה.",
+      "actions": [
+        "build_today"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך ריצה של 25 דקות. בהצלחה, אני פה אם תרצה לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך ריצה של 25 דקות. משפט אישי. בהצלחה, אני פה אם תרצה לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום יש לך ריצה של 25 דקות. בהצלחה, אני פה אם תרצה לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום יש לך ריצה של 25 דקות. משפט אישי. בהצלחה, אני פה אם תרצה לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך ריצה של 25 דקות. בהצלחה, אני פה אם תרצי לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום יש לך ריצה של 25 דקות. משפט אישי. בהצלחה, אני פה אם תרצי לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום יש לך ריצה של 25 דקות. בהצלחה, אני פה אם תרצי לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום יש לך ריצה של 25 דקות. משפט אישי. בהצלחה, אני פה אם תרצי לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום מתוכנן ריצה של 25 דקות. בהצלחה, אני פה אם צריך לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום מתוכנן ריצה של 25 דקות. משפט אישי. בהצלחה, אני פה אם צריך לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום מתוכנן ריצה של 25 דקות. בהצלחה, אני פה אם צריך לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "morning_open",
+    "vars": {
+      "label": "ריצה",
+      "minutes": 25,
+      "time": null,
+      "silent": null
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום מתוכנן ריצה של 25 דקות. משפט אישי. בהצלחה, אני פה אם צריך לשנות משהו.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short encouraging sentence for the start of a training day, tied to the user's goal or recent effort"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. רוצה שאבנה לך אימון בבית?",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. משפט אישי. רוצה שאבנה לך אימון בבית?",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. רוצה שאבנה לך אימון בבית?",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. משפט אישי. רוצה שאבנה לך אימון בבית?",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. רוצה שאבנה לך אימון בבית?",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. משפט אישי. רוצה שאבנה לך אימון בבית?",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. רוצה שאבנה לך אימון בבית?",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. משפט אישי. רוצה שאבנה לך אימון בבית?",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. אפשר לבנות אימון בבית בכפתור למטה.",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. משפט אישי. אפשר לבנות אימון בבית בכפתור למטה.",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. אפשר לבנות אימון בבית בכפתור למטה.",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_rain",
+    "vars": {
+      "label": "אימון כוח"
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. נראה שיהיה גשם היום, אז אולי כדאי להעביר את האימון של היום הביתה. משפט אישי. אפשר לבנות אימון בבית בכפתור למטה.",
+      "actions": [
+        "build_home"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that a home workout today still counts"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. אם אתה יוצא לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. אם אתה יוצא לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. אם אתה יוצא לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. אם אתה יוצא לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. אם את יוצאת לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. אם את יוצאת לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. אם את יוצאת לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. אם את יוצאת לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. מי שיוצא לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. מי שיוצא לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. מי שיוצא לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {
+      "label": "ריצה"
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. מי שיוצא לריצה, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. אם אתה יוצא לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. אם אתה יוצא לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. אם אתה יוצא לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. אם אתה יוצא לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. אם את יוצאת לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. אם את יוצאת לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. אם את יוצאת לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. אם את יוצאת לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. מי שיוצא לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב דני. היום חם מאוד בחוץ. מי שיוצא לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. מי שיוצא לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weather_heat",
+    "vars": {},
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "בוקר טוב. היום חם מאוד בחוץ. מי שיוצא לאימון, עדיף מוקדם בבוקר או בצל, ולשתות הרבה מים. משפט אישי.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence that it is fine to go easier in the heat"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: אימון אחד, 25 דקות בסך הכול. כל אימון נספר, יפה מאוד. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: אימון אחד, 25 דקות בסך הכול. משפט אישי. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: אימון אחד, 25 דקות בסך הכול. כל אימון נספר, יפה מאוד. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: אימון אחד, 25 דקות בסך הכול. משפט אישי. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: אימון אחד, 25 דקות בסך הכול. כל אימון נספר, יפה מאוד. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: אימון אחד, 25 דקות בסך הכול. משפט אישי. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: אימון אחד, 25 דקות בסך הכול. כל אימון נספר, יפה מאוד. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: אימון אחד, 25 דקות בסך הכול. משפט אישי. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: אימון אחד, 25 דקות בסך הכול. כל אימון נספר, יפה מאוד. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: אימון אחד, 25 דקות בסך הכול. משפט אישי. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: אימון אחד, 25 דקות בסך הכול. כל אימון נספר, יפה מאוד. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 1,
+      "activeDays": 1,
+      "minutes": 25,
+      "streak": null,
+      "avgSteps": null
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: אימון אחד, 25 דקות בסך הכול. משפט אישי. לשבוע הבא ננסה להוסיף עוד אימון קצר אחד.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. אתה בונה שגרה אמיתית, כל הכבוד. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. משפט אישי. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. אתה בונה שגרה אמיתית, כל הכבוד. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. משפט אישי. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. את בונה שגרה אמיתית, כל הכבוד. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. משפט אישי. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. את בונה שגרה אמיתית, כל הכבוד. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. משפט אישי. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. זו כבר שגרה אמיתית, כל הכבוד. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. משפט אישי. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. זו כבר שגרה אמיתית, כל הכבוד. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 3,
+      "activeDays": 2,
+      "minutes": 90,
+      "streak": 2,
+      "avgSteps": 1050
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: 3 אימונים ב-2 ימים, 90 דקות בסך הכול, רצף של 2 ימים, ממוצע של 1100 צעדים ביום. משפט אישי. לשבוע הבא אפשר להוסיף אימון קצר אחד, אם מתחשק.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. אתה בונה שגרה אמיתית, כל הכבוד. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. משפט אישי. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. אתה בונה שגרה אמיתית, כל הכבוד. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. משפט אישי. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. את בונה שגרה אמיתית, כל הכבוד. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. משפט אישי. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. את בונה שגרה אמיתית, כל הכבוד. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. משפט אישי. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי לדני: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. זו כבר שגרה אמיתית, כל הכבוד. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי לדני: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. משפט אישי. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיכום שבועי: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. זו כבר שגרה אמיתית, כל הכבוד. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "weekly",
+    "vars": {
+      "workouts": 4,
+      "activeDays": 3,
+      "minutes": 160,
+      "streak": 5,
+      "avgSteps": 7420
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיכום שבועי: 4 אימונים ב-3 ימים, 160 דקות בסך הכול, רצף של 5 ימים, ממוצע של 7400 צעדים ביום. משפט אישי. לשבוע הבא כדאי לשמור על יום מנוחה אחד לפחות.",
+      "actions": [
+        "open_schedule"
+      ],
+      "silent": false,
+      "flexHint": "one short warm sentence of praise for this week, without numbers"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "היי דני. חסרה לך בדיקת רמה בליבה, ולכן האימונים שלך עוד לא כוללים את התחום הזה. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי דני. חסרה לך בדיקת רמה בליבה, ולכן האימונים שלך עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "היי. חסרה לך בדיקת רמה בליבה, ולכן האימונים שלך עוד לא כוללים את התחום הזה. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי. חסרה לך בדיקת רמה בליבה, ולכן האימונים שלך עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "היי דני. חסרה לך בדיקת רמה בליבה, ולכן האימונים שלך עוד לא כוללים את התחום הזה. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי דני. חסרה לך בדיקת רמה בליבה, ולכן האימונים שלך עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "היי. חסרה לך בדיקת רמה בליבה, ולכן האימונים שלך עוד לא כוללים את התחום הזה. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי. חסרה לך בדיקת רמה בליבה, ולכן האימונים שלך עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "היי דני. עדיין אין בדיקת רמה בליבה, ולכן האימונים עוד לא כוללים את התחום הזה. זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי דני. עדיין אין בדיקת רמה בליבה, ולכן האימונים עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "היי. עדיין אין בדיקת רמה בליבה, ולכן האימונים עוד לא כוללים את התחום הזה. זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {
+      "slug": "core",
+      "name": "ליבה"
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי. עדיין אין בדיקת רמה בליבה, ולכן האימונים עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.",
+      "actions": [
+        "check_level_core"
+      ],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "היי דני. חסרה לך בדיקת רמה באחד התחומים, ולכן האימונים שלך עוד לא כוללים את התחום הזה. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי דני. חסרה לך בדיקת רמה באחד התחומים, ולכן האימונים שלך עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "היי. חסרה לך בדיקת רמה באחד התחומים, ולכן האימונים שלך עוד לא כוללים את התחום הזה. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי. חסרה לך בדיקת רמה באחד התחומים, ולכן האימונים שלך עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "היי דני. חסרה לך בדיקת רמה באחד התחומים, ולכן האימונים שלך עוד לא כוללים את התחום הזה. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי דני. חסרה לך בדיקת רמה באחד התחומים, ולכן האימונים שלך עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "היי. חסרה לך בדיקת רמה באחד התחומים, ולכן האימונים שלך עוד לא כוללים את התחום הזה. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי. חסרה לך בדיקת רמה באחד התחומים, ולכן האימונים שלך עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות. רוצה לבדוק עכשיו?",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "היי דני. עדיין אין בדיקת רמה באחד התחומים, ולכן האימונים עוד לא כוללים את התחום הזה. זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי דני. עדיין אין בדיקת רמה באחד התחומים, ולכן האימונים עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "היי. עדיין אין בדיקת רמה באחד התחומים, ולכן האימונים עוד לא כוללים את התחום הזה. זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "assessment",
+    "vars": {},
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "היי. עדיין אין בדיקת רמה באחד התחומים, ולכן האימונים עוד לא כוללים את התחום הזה. משפט אישי. זה לוקח כמה דקות, אפשר להתחיל בכפתור למטה.",
+      "actions": [],
+      "silent": false,
+      "flexHint": "one short sentence on why a level check makes the workouts fit better"
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיימת אימון של 32 דקות, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיימת אימון של 32 דקות, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיימת אימון של 32 דקות, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיימת אימון של 32 דקות, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיימת אימון של 32 דקות, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיימת אימון של 32 דקות, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיימת אימון של 32 דקות, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיימת אימון של 32 דקות, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "האימון של 32 דקות נשמר, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "האימון של 32 דקות נשמר, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "האימון של 32 דקות נשמר, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w1",
+      "minutes": 32
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "האימון של 32 דקות נשמר, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיימת אימון, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "male",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיימת אימון, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיימת אימון, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "male",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיימת אימון, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "סיימת אימון, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "female",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיימת אימון, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "סיימת אימון, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "female",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "סיימת אימון, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": null,
+    "r": {
+      "text": "האימון נשמר, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "other",
+    "firstName": "דני",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "האימון נשמר, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": null,
+    "r": {
+      "text": "האימון נשמר, כל הכבוד. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  },
+  {
+    "templateKey": "post_workout",
+    "vars": {
+      "workoutId": "w2"
+    },
+    "gender": "other",
+    "firstName": "",
+    "flex": "משפט אישי.",
+    "r": {
+      "text": "האימון נשמר, כל הכבוד. משפט אישי. איך היה?",
+      "actions": [
+        "rate_easy",
+        "rate_right",
+        "rate_hard"
+      ],
+      "silent": false,
+      "flexHint": null
+    }
+  }
+]

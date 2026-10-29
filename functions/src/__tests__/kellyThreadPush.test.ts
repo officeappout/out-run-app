@@ -9,7 +9,7 @@ vi.mock('firebase-functions', () => ({ logger: { info: vi.fn(), warn: vi.fn(), e
 vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentCreated: (_o: unknown, fn: unknown) => fn }));
 vi.mock('../services/push.service', () => ({ sendPush: vi.fn() }));
 
-import { KELLY_PUSH_DEEP_LINK, kellyProactivePushPlan, kellyPushBody, kellyPushDecision } from '../onKellyThreadMessage';
+import { KELLY_PUSH_DEEP_LINK, KELLY_PUSH_TITLE, kellyProactivePushPlan, kellyPushTitleFor, kellyPushBody, kellyPushDecision } from '../onKellyThreadMessage';
 
 const at = (ms: number) => ({ toMillis: () => ms });
 const NOW = 10_000_000;
@@ -56,5 +56,15 @@ describe('Kelly phase 3 — proactive messages', () => {
   });
   it('a silent proactive message (noPush) is never pushed', () => {
     expect(kellyPushDecision({ source: 'system', text: 'x', noPush: true, proactive: { trigger: 'morning' }, createdAt: at(NOW) }, NOW).push).toBe(false);
+  });
+});
+
+describe('Kelly push title language', () => {
+  it('Hebrew unless the coach-locale flag is on AND the push locale gate resolved to en', () => {
+    expect(kellyPushTitleFor('he', false)).toBe(KELLY_PUSH_TITLE);
+    expect(kellyPushTitleFor('he', true)).toBe(KELLY_PUSH_TITLE);
+    expect(kellyPushTitleFor('en', false)).toBe(KELLY_PUSH_TITLE);
+    expect(kellyPushTitleFor('ru', true)).toBe(KELLY_PUSH_TITLE);
+    expect(kellyPushTitleFor('en', true)).toBe('Kelly');
   });
 });

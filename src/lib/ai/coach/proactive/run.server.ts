@@ -141,18 +141,18 @@ export async function runProactiveSlice(db: Firestore, opts: ProactiveRunOptions
       if (!state) continue;
       const pick = selectProactive(state, { only: mine });
       if (!pick) continue;
-      let rendered = renderProactive({ templateKey: pick.templateKey, vars: pick.vars, gender: state.gender, firstName: state.firstName });
+      let rendered = renderProactive({ templateKey: pick.templateKey, vars: pick.vars, gender: state.gender, firstName: state.firstName, locale: state.locale });
       let llm = false;
       if (llmOn && rendered.flexHint && out.llmCalls < PROACTIVE_LLM_MAX_PER_RUN && !opts.dryRun) {
         out.llmCalls++;
-        const r = await personalizeFlex(db, { uid, gender: state.gender, hint: rendered.flexHint, facts: flexFacts(state) });
+        const r = await personalizeFlex(db, { uid, gender: state.gender, locale: state.locale, hint: rendered.flexHint, facts: flexFacts(state) });
         out.costUsd += r.costUsd;
         if (state.demo) {
           out.demoLlmCalls++;
           await recordDemoKellyUsage(db, r.usage, r.model ?? null, now);
         }
         if (r.sentence) {
-          rendered = renderProactive({ templateKey: pick.templateKey, vars: pick.vars, gender: state.gender, firstName: state.firstName, flex: r.sentence });
+          rendered = renderProactive({ templateKey: pick.templateKey, vars: pick.vars, gender: state.gender, firstName: state.firstName, flex: r.sentence, locale: state.locale });
           llm = true;
         }
       }
