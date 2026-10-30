@@ -14,6 +14,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
 import ParkRingScreen from '@/features/workout-engine/summary/components/ParkRingScreen';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
 import { useUserStore } from '@/features/user';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { startFullStrengthQuestionnaire } from '@/features/user/onboarding/services/mini-domain-assessment';
@@ -35,9 +36,13 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   // enable_park_live_v2 (boards Park 11-12, pilot N1 / N2 / M7): the weekly-ring screen first, then
   // the summary with the walk fixes and, with no strength questionnaire yet, the card that opens it.
   const parkLive = useParkLiveV2();
+  // enable_combo_flow_v1 (board PlayerComboSummary): a combined workout ends the same way, minutes
+  // ring first (walk + strength in the widget colours), then the summary with the walk fixes.
+  const comboFlow = useComboFlowV1();
+  const parkSummary = parkLive || comboFlow;
   const [ringSeen, setRingSeen] = useState(false);
   const profile = useUserStore((s) => s.profile);
-  const needsQuiz = parkLive && !!profile && !hasAssessedStrengthDomain(profile as never);
+  const needsQuiz = parkSummary && !!profile && !hasAssessedStrengthDomain(profile as never);
 
   const handleFinish = () => {
     logic.setShowSummary(false);
@@ -76,7 +81,7 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   // here (instead of the aerobic shell) also kills the false "אימון קצר מדי"
   // notice a hybrid finish used to show (null runner snapshot → wasSaved=false).
   if (logic.showSummary && HYBRID_SUMMARY_ENABLED && finishedHybrid && lastResult) {
-    if (parkLive && !ringSeen) return <ParkRingScreen result={lastResult} onNext={() => setRingSeen(true)} />;
+    if (parkSummary && !ringSeen) return <ParkRingScreen result={lastResult} onNext={() => setRingSeen(true)} />;
     return (
       <>
         <HybridSummary
@@ -84,7 +89,8 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
           calories={lastCalories}
           streakDays={currentStreak}
           onFinish={handleHybridFinish}
-          parkLive={parkLive}
+          parkLive={parkSummary}
+          widgetRings={comboFlow}
           onStrengthQuiz={needsQuiz ? handleStrengthQuiz : undefined}
         />
         <PushReAskAfterWorkout />

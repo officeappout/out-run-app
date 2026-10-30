@@ -51,6 +51,9 @@ export type TabataStepDecision =
       log: {
         targetReps: number | undefined;
         sideData: { right: number; left: number } | undefined;
+        /** A non-time member with no reps / hold target (a park machine) logs the work seconds,
+         *  so a done interval is never saved as 0 = "not done" (AG10). */
+        timedFallbackSec: number | undefined;
       };
       /** True when this interval closes the block (no trailing rest). */
       isLastInterval: boolean;
@@ -99,5 +102,6 @@ export function computeTabataStep(input: TabataStepInput): TabataStepDecision {
       ? { kind: 'advance' }
       : { kind: 'rest', restSec: config.restSec };
 
-  return { kind: 'logAndContinue', log: { targetReps, sideData }, isLastInterval, next };
+  const timedFallbackSec = exerciseType === 'time' ? undefined : config.workSec > 0 ? config.workSec : undefined;
+  return { kind: 'logAndContinue', log: { targetReps, sideData, timedFallbackSec }, isLastInterval, next };
 }

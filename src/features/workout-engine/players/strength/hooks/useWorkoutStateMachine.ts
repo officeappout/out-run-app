@@ -784,7 +784,7 @@ export function useWorkoutStateMachine(
 
         // time-type logs real elapsed from the timer card; reps-type logs the
         // per-set target (resolveSetTarget) as the editable auto value.
-        autoSaveTargetReps(step.log.targetReps, step.log.sideData);
+        autoSaveTargetReps(step.log.targetReps, step.log.sideData, step.log.timedFallbackSec);
 
         if (step.next.kind === 'advance') {
           console.log('[Engine][Tabata] work interval done — advancing immediately (no rest)');
