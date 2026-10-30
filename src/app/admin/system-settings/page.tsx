@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
@@ -1487,9 +1487,13 @@ export default function SystemSettingsPage() {
   }, [router]);
 
   // ── Load current flags ──────────────────────────────────────────────────────
+  // Server-only read: with the persistent multi-tab cache, getDoc can resolve from a
+  // stale local entry (seen 30.10: a cached "no document" made every toggle show its
+  // default). Saving from that state would overwrite the real flags, so a read that
+  // cannot reach the server is treated as a failed load and Save stays blocked.
   useEffect(() => {
     if (!isSuperAdmin) return;
-    getDoc(doc(db, 'system_config', 'feature_flags'))
+    getDocFromServer(doc(db, 'system_config', 'feature_flags'))
       .then((snap) => {
         const result: LoadResult = { status: 'ok', data: snap.exists() ? snap.data() : undefined };
         const { flags: loaded, loadFailed: failed } = resolveLoadedFlags(result, FLAG_KEYS, FIRESTORE_FLAG_DEFAULTS);
@@ -1501,7 +1505,7 @@ export default function SystemSettingsPage() {
         const { flags: loaded, loadFailed: failed } = resolveLoadedFlags({ status: 'error' }, FLAG_KEYS, FIRESTORE_FLAG_DEFAULTS);
         setFlags(loaded as FlagState);
         setLoadFailed(failed);
-        setError('טעינת ההגדרות נכשלה — לא ניתן לשמור עד לרענון מוצלח של הדף.');
+        setError('לא הצלחנו לקרוא את הדגלים מהשרת. בדקו את החיבור ורעננו את הדף. השמירה חסומה עד שהקריאה תצליח.');
       })
       .finally(() => setFlagsLoading(false));
   }, [isSuperAdmin]);
