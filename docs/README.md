@@ -5,7 +5,7 @@
 | תיקייה | מה יש בה | מקור-אמת? |
 |---|---|---|
 | `architecture/` | `STANDARDS.md` (כללי מבנה קוד), מפרט ההרשאות (`SPEC-PERMISSIONS-MODEL.md`), צינור מיפוי ערים (`CITY-MAPPING-PIPELINE-ARCHITECTURE.md`), attribution שיווקי, מנוע ההמלצות | כן, לנושא שלהם |
-| `product/` | `PRODUCT_TECHNICAL_REPORT.md` (תמונת מצב ממאי 2026, חלקית מיושנת), הגדרות KPI, roadmap של אישור מתקנים | תמונת מצב |
+| `product/` | `PRODUCT_TECHNICAL_REPORT.md` (תמונת מצב ממאי 2026, חלקית מיושנת), הגדרות KPI, roadmap של אישור מתקנים, חזון אימון כבלוקים → שילובים → קלי (`workout-blocks-vision.md`) | תמונת מצב |
 | `runbooks/` | QA ובנייה של native (`native-phase-qa.md`), פער ה-package id של Android | נהלים |
 | `specs/2026-08/` | ספקים מאוגוסט 2026 (מסכי סיכום, intensity toggle + קרוסלת בית) | היסטורי-למחצה |
 | `workout-engine/` | תוכנית, מפה, אודיטים ושינויים של מנוע האימונים (`03-CHANGES.md` = יומן שינויים) | כן, לצד `.cursoragents/Workout_Engine_Truth.md` |
