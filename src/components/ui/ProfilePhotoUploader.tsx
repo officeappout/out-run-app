@@ -174,7 +174,7 @@ export default function ProfilePhotoUploader({
         onClick={handlePick}
         disabled={uploading}
         aria-label={t('ui.photo.edit')}
-        className="absolute bottom-0 left-0 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-60"
+        className="absolute bottom-0 end-0 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-60"
         style={{ width: overlayDim, height: overlayDim }}
       >
         {uploading ? (

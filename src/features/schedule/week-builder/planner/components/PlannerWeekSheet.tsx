@@ -27,6 +27,7 @@ import { replanMissed } from '../replanMissed';
 import { createPlannerEngine } from '../runMoveRules';
 import { usePlannerWeek } from '../usePlannerWeek';
 import { weekRangeHe } from '../weekRange';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export type PlannerWeekMode = 'arrange' | 'replan';
 
@@ -44,6 +45,7 @@ export interface PlannerWeekSheetProps {
 }
 
 export default function PlannerWeekSheet({ userId, sunday, mode, onClose, onSaved, initialMoves = null, tellKellyRow = false }: PlannerWeekSheetProps) {
+  const { direction } = useUiDir();
   const t = useT(schedule);
   const state = usePlannerWeek(userId, sunday);
   const [week, setWeek] = useState<PlannerWeek | null>(null);
@@ -129,7 +131,7 @@ export default function PlannerWeekSheet({ userId, sunday, mode, onClose, onSave
         onConfirm={() => (moves.length === 0 ? onClose() : setScopeOpen(true))}
       />
     ) : (
-      <div dir="rtl" className="mx-auto flex w-full max-w-md flex-1 flex-col px-4">
+      <div dir={direction} className="mx-auto flex w-full max-w-md flex-1 flex-col px-4">
         <div className="flex items-center justify-between py-2">
           <h1 className="text-[24px] font-black text-v2-ink">{t('planner.title')}</h1>
           {closeButton}

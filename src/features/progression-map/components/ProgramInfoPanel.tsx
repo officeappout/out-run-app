@@ -119,7 +119,7 @@ export function ProgramInfoPanel({
     const C = 2 * Math.PI * R;
     return (
       <div className="mx-3 mb-2 overflow-hidden rounded-[20px] bg-white shadow-v2-card" dir={direction}>
-        <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-3 px-3.5 pb-2 pt-3 text-right" aria-expanded={expanded}>
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-3 px-3.5 pb-2 pt-3 text-start" aria-expanded={expanded}>
           {/* Level badge — a ring that fills toward the next level */}
           <span className="relative grid h-[52px] w-[52px] shrink-0 place-items-center">
             <svg width="52" height="52" className="absolute inset-0 -rotate-90" aria-hidden>
@@ -223,7 +223,7 @@ export function ProgramInfoPanel({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="w-full flex items-center gap-2.5 px-4 pt-3.5 pb-2 text-right"
+          className="w-full flex items-center gap-2.5 px-4 pt-3.5 pb-2 text-start"
         >
           <span
             className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center flex-shrink-0 text-gray-900"

@@ -26,7 +26,7 @@ export default function KudoToast({ kudo, onDismiss }: KudoToastProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -60 }}
           transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-          className="fixed top-[max(1rem,env(safe-area-inset-top))] left-1/2 z-[200] pointer-events-auto"
+          className="fixed top-[max(1rem,env(safe-area-inset-top))] end-1/2 z-[200] pointer-events-auto"
           style={{ transform: 'translateX(-50%)' }}
         >
           <button

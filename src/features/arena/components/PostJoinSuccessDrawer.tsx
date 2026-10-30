@@ -98,7 +98,7 @@ export default function PostJoinSuccessDrawer({
 
       {/* ── Preference Toggles ──────────────────────────── */}
       {scheduleSlots && scheduleSlots.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-800/60 rounded-2xl p-4 mb-5 space-y-3 text-right">
+        <div className="bg-gray-50 dark:bg-gray-800/60 rounded-2xl p-4 mb-5 space-y-3 text-start">
           <label className="flex items-center justify-between cursor-pointer">
             <span className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
               <CalendarCheck className="w-4 h-4 text-cyan-500" />
@@ -189,7 +189,7 @@ export default function PostJoinSuccessDrawer({
         transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
         ariaLabel={t('postJoin.aria', { name })}
       >
-        <IconButton aria-label={t('postJoin.close')} tone="surface" size={36} className="absolute left-4 top-4 z-10" onClick={handleClose}>
+        <IconButton aria-label={t('postJoin.close')} tone="surface" size={36} className="absolute end-4 top-4 z-10" onClick={handleClose}>
           <X className="h-4 w-4" />
         </IconButton>
         {body}

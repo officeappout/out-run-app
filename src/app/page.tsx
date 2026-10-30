@@ -207,9 +207,8 @@ function LoginDrawer({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl"
+            className="fixed bottom-0 end-0 start-0 z-50 bg-white rounded-t-3xl shadow-2xl"
             style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
-            dir="rtl"
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1">
@@ -219,7 +218,7 @@ function LoginDrawer({
             {/* Close button */}
             <button
               onClick={onClose}
-              className="absolute top-4 left-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              className="absolute top-4 end-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
             >
               <X size={16} />
             </button>
@@ -875,7 +874,6 @@ export default function LandingPage() {
                 transition={{ duration: 0.5, ease: 'easeInOut' }}
                 className="text-slate-900 text-lg font-black text-center drop-shadow-sm"
                 style={{ fontFamily: 'var(--font-simpler)' }}
-                dir="rtl"
               >
                 {t(TAGLINE_KEYS[carouselIndex])}
               </motion.p>
@@ -890,7 +888,6 @@ export default function LandingPage() {
               onClick={handleQuickSignup}
               className="w-full py-4 text-base"
               style={{ fontFamily: 'var(--font-simpler)' }}
-              dir="rtl"
             >
               {t('landing.cta.quickSignup')}
             </BrandCtaButton>
@@ -903,7 +900,6 @@ export default function LandingPage() {
               onClick={handleLoginOpen}
               className="text-slate-500 hover:text-slate-900 text-sm font-bold py-2 transition-colors underline underline-offset-2"
               style={{ fontFamily: 'var(--font-simpler)' }}
-              dir="rtl"
             >
               {t('landing.cta.login')}
             </motion.button>

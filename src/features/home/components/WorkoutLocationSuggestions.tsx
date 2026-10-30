@@ -219,7 +219,7 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
                 : t('nearbySpots.gps.body.routes')}
             </p>
           </div>
-          <ChevronLeft size={16} className="text-slate-500 flex-shrink-0" />
+          <ChevronLeft size={16} className="text-slate-500 flex-shrink-0 ltr:-scale-x-100" />
         </button>
       </motion.div>
     );
@@ -265,7 +265,7 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
           className={`flex items-center gap-0.5 text-[11px] font-bold text-cyan-600 active:opacity-70 transition-opacity${v2 ? ' -my-3 py-3 ps-2' : ''}`}
         >
           {t('nearbySpots.all')}
-          <ChevronLeft size={14} />
+          <ChevronLeft className="ltr:-scale-x-100" size={14} />
         </button>
       </div>
 
@@ -294,9 +294,9 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
                   onError={(e) => { (e.target as HTMLImageElement).src = PARK_FALLBACK_IMAGE; }}
                 />
                 {/* Fade into card body */}
-                <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                <div className="absolute bottom-0 end-0 start-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                 {/* Distance badge */}
-                <div className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md ${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[10px]'} font-bold text-white bg-black/50 backdrop-blur-sm tabular-nums`}>
+                <div className={`absolute bottom-1.5 end-1.5 px-1.5 py-0.5 rounded-md ${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[10px]'} font-bold text-white bg-black/50 backdrop-blur-sm tabular-nums`}>
                   {formatDist(item.distance, t)}
                 </div>
               </div>

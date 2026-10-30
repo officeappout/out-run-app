@@ -40,11 +40,11 @@ export default function CalmReturnCard({
         type="button"
         onClick={onDismiss}
         aria-label={t('calmReturnCard.close')}
-        className="absolute top-3 left-3 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:text-gray-500"
+        className="absolute top-3 end-3 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:text-gray-500"
       >
         <X size={16} />
       </button>
-      <p className="text-base font-extrabold text-gray-900 dark:text-white pl-8">{copy.freshWeekTitle}</p>
+      <p className="text-base font-extrabold text-gray-900 dark:text-white pe-8">{copy.freshWeekTitle}</p>
       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{copy.freshWeekBody}</p>
       {showLevelCheckLink && onLevelCheck && (
         <button

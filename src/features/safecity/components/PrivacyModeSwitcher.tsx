@@ -93,7 +93,7 @@ export default function PrivacyModeSwitcher() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute bottom-14 left-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden w-[200px] z-50"
+            className="absolute bottom-14 end-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden w-[200px] z-50"
           >
             <div className="px-3 py-2 border-b border-gray-50">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
@@ -111,7 +111,7 @@ export default function PrivacyModeSwitcher() {
                     setMode(m.value);
                     setOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-right transition-colors ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-start transition-colors ${
                     isActive
                       ? 'bg-cyan-50'
                       : 'hover:bg-gray-50'

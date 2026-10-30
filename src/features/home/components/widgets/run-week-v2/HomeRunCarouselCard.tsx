@@ -151,7 +151,7 @@ export default function HomeRunCarouselCard({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="block w-full text-right transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            className="block w-full text-start transition-transform duration-150 ease-v2 active:scale-[0.97]"
             aria-label={t('runCard.nextAria', { name: entry.workoutName ?? typeLabel })}
           >
             {card}

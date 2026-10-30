@@ -20,7 +20,7 @@ export default function KellyNearbyParks({ parks, onOpen }: { parks: ParkCardVie
           key={p.parkId}
           type="button"
           onClick={() => onOpen(p.parkId)}
-          className={`flex min-h-[56px] items-center gap-2.5 px-3 py-2 text-right active:bg-v2-tint ${i ? 'border-t border-gray-100' : ''}`}
+          className={`flex min-h-[56px] items-center gap-2.5 px-3 py-2 text-start active:bg-v2-tint ${i ? 'border-t border-gray-100' : ''}`}
           aria-label={
             p.equipment.length
               ? t('parks.ariaEquipment', { name: p.name, km: String(p.distanceKm), equipment: p.equipment.join(', ') })
@@ -38,7 +38,7 @@ export default function KellyNearbyParks({ parks, onOpen }: { parks: ParkCardVie
                 : t('parks.line', { km: String(p.distanceKm) })}
             </span>
           </span>
-          <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+          <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
         </button>
       ))}
     </div>

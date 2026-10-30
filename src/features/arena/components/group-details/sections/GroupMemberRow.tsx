@@ -72,7 +72,7 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
             >
               {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-blue-500" />}
               {t('group.members.promote')}
-              <span className="text-xs text-gray-400 font-normal mr-auto">{t('group.members.promoteHint')}</span>
+              <span className="text-xs text-gray-400 font-normal ms-auto">{t('group.members.promoteHint')}</span>
             </button>
           )}
           {canDemote && (

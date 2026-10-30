@@ -219,7 +219,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
         >
           <div className={`${SHEET_GRABBER_CLASS} !bg-white/80 shadow-v2-ring`} />
         </div>
-        <IconButton aria-label={t('exercises.detail.close')} tone="surface" size={36} className="absolute left-3 top-3 z-30" onClick={close}>
+        <IconButton aria-label={t('exercises.detail.close')} tone="surface" size={36} className="absolute end-3 top-3 z-30" onClick={close}>
           <X size={17} strokeWidth={2.5} />
         </IconButton>
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{master}</div>
@@ -258,7 +258,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             dragElastic={{ top: 0.08, bottom: 0 }}
             dragMomentum={false}
             onDragEnd={(_, info) => { if (info.offset.y > 140) close(); }}
-            className="fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-3xl shadow-drawer flex flex-col overflow-hidden"
+            className="fixed bottom-0 end-0 start-0 z-[61] bg-white rounded-t-3xl shadow-drawer flex flex-col overflow-hidden"
             style={{ y, height: '95vh' }}
             dir={direction}
           >
@@ -275,7 +275,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             <button
               type="button"
               onClick={close}
-              className="absolute top-3 left-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 backdrop-blur-sm z-30 shadow-sm"
+              className="absolute top-3 end-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 backdrop-blur-sm z-30 shadow-sm"
               aria-label={t('exercises.detail.close')}
             >
               <X size={18} strokeWidth={2} />

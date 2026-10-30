@@ -63,15 +63,15 @@ export default function CalculatingProfileScreen({
       {/* Subtle Background Pattern - Math Symbols & Graphs */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
         {/* Math symbols floating */}
-        <div className="absolute top-20 right-10 text-6xl font-mono">∑</div>
-        <div className="absolute top-40 left-20 text-5xl font-mono">∫</div>
-        <div className="absolute bottom-32 right-32 text-4xl font-mono">√</div>
-        <div className="absolute bottom-20 left-10 text-5xl font-mono">π</div>
-        <div className="absolute top-1/2 left-1/4 text-3xl font-mono">α</div>
-        <div className="absolute top-1/3 right-1/3 text-4xl font-mono">β</div>
+        <div className="absolute top-20 start-10 text-6xl font-mono">∑</div>
+        <div className="absolute top-40 end-20 text-5xl font-mono">∫</div>
+        <div className="absolute bottom-32 start-32 text-4xl font-mono">√</div>
+        <div className="absolute bottom-20 end-10 text-5xl font-mono">π</div>
+        <div className="absolute top-1/2 end-1/4 text-3xl font-mono">α</div>
+        <div className="absolute top-1/3 start-1/3 text-4xl font-mono">β</div>
         
         {/* Graph-like lines */}
-        <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 400 400">
+        <svg className="absolute top-0 end-0 w-full h-full" viewBox="0 0 400 400">
           <path
             d="M 50 200 Q 150 100, 250 150 T 450 200"
             stroke="currentColor"
@@ -103,7 +103,7 @@ export default function CalculatingProfileScreen({
           <div className="bg-white rounded-3xl p-8 shadow-2xl border-8 border-slate-900 relative">
             {/* Speech Bubble Tail (pointing DOWN to character, positioned on LEFT) */}
             <div
-              className="absolute bottom-0 left-10 transform translate-y-full"
+              className="absolute bottom-0 end-10 transform translate-y-full"
               style={{
                 width: 0,
                 height: 0,
@@ -113,7 +113,7 @@ export default function CalculatingProfileScreen({
               }}
             />
             <div
-              className="absolute bottom-0 left-10 transform translate-y-full -mt-1"
+              className="absolute bottom-0 end-10 transform translate-y-full -mt-1"
               style={{
                 width: 0,
                 height: 0,
@@ -189,7 +189,7 @@ export default function CalculatingProfileScreen({
       </div>
 
       {/* Decorative Bottom Gradient */}
-      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-blue-100/30 to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 end-0 start-0 h-40 bg-gradient-to-t from-blue-100/30 to-transparent pointer-events-none" />
     </div>
   );
 }

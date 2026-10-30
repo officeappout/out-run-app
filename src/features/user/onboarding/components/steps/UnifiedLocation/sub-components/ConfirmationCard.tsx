@@ -9,6 +9,7 @@ import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
 import { resolveParkImage } from '@/lib/park-image';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 // v2 renders no emoji — strip pictographs (surrogate-pair emoji, dingbats,
 // VS16/ZWJ joiners) from copy that comes from the shared copy matrix.
@@ -39,6 +40,7 @@ export function ConfirmationCard({
   mode = 'onboarding',
   v2 = false,
 }: ConfirmationCardProps) {
+  const { direction: uiDir } = useUiDir();
   const t = useT(onboarding);
   const isExplorer = mode === 'explorer';
   const isBridge = mode === 'bridge';
@@ -372,7 +374,7 @@ export function ConfirmationCard({
           {!isUpdatingLocation && userName && (
             <div 
               className="mb-5 pb-4 border-b border-slate-100"
-              style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
+              style={{ fontFamily: 'var(--font-simpler)', textAlign: uiDir === 'rtl' ? 'right' : 'left', direction: uiDir }}
             >
               {/* Part A: Greeting (Bold Black) + Pain Intro (Brand Blue #38BDF8) */}
               <p className="text-lg leading-relaxed mb-2">
@@ -405,13 +407,13 @@ export function ConfirmationCard({
             <>
               <h2 
                 className="text-xl font-bold leading-tight text-slate-900 mb-2"
-                style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
+                style={{ fontFamily: 'var(--font-simpler)', textAlign: uiDir === 'rtl' ? 'right' : 'left', direction: uiDir }}
               >
                 {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מצאנו את הסביבה הקרובה ביותר ל{detectedNeighborhood || detectedCity || locationText}
               </h2>
               <p 
                 className="text-slate-500 text-sm mb-3 leading-relaxed"
-                style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
+                style={{ fontFamily: 'var(--font-simpler)', textAlign: uiDir === 'rtl' ? 'right' : 'left', direction: uiDir }}
               >
                 {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. הכל בחינם וללא ציוד.
               </p>
@@ -422,7 +424,7 @@ export function ConfirmationCard({
           {!isExplorer && !isUpdatingLocation && !userName && (
             <h2 
               className="text-xl font-bold leading-tight text-slate-900 mb-2"
-              style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
+              style={{ fontFamily: 'var(--font-simpler)', textAlign: uiDir === 'rtl' ? 'right' : 'left', direction: uiDir }}
             >
               {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הגינה הכי קרובה ל{locationText}
             </h2>
@@ -431,7 +433,7 @@ export function ConfirmationCard({
           {!isExplorer && !isUpdatingLocation && !userName && (
             <p 
               className="text-slate-500 text-sm mb-3 leading-relaxed"
-              style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
+              style={{ fontFamily: 'var(--font-simpler)', textAlign: uiDir === 'rtl' ? 'right' : 'left', direction: uiDir }}
             >
               {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. ניתן לגרור את המפה לדיוק המיקום.
             </p>
