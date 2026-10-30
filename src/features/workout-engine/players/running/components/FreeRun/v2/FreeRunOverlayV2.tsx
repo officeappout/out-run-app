@@ -23,6 +23,7 @@ import type { Participant } from '@/features/workout-engine/shared/types/session
 import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome } from '../../../../shared/v2/run-chrome';
 import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
+import { aerobicCells, showLapButton } from '../../../lib/aerobic-player-view';
 import { useFreeChromeNodes } from './useFreeChromeNodes';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import { useGroupSessionGoal } from '../../../hooks/useGroupSessionGoal';
@@ -141,17 +142,30 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
     return () => setStoreStoryBarHeight(0);
   }, [headerH, setStoreStoryBarHeight]);
 
-  const chromeNodes = useFreeChromeNodes({ totals: live.totals, currentPaceSec: live.currentPaceSec, metric: live.metric, isPaused: live.isPaused });
+  // Navigate-to-a-place (commute, enable_commute_v2_player_v1): the destination + remaining + arrival
+  // in the header instead of the lap line (phone test AA2).
+  const commuteContext = useRunningPlayer((s) => (s.sessionMode === 'commute' ? s.commuteContext : null));
+  const commuteEta = useCommuteEta();
+  // enable_combo_flow_v1 (board PlayerMetrics): time + the mode's number + steps / pace / speed.
+  const cells = live.combo
+    ? aerobicCells({
+        mode: live.combo.mode,
+        activity: live.combo.activity,
+        durationSec: live.totals.durationSec,
+        distanceKm: live.totals.distanceKm,
+        routeKm: live.combo.routeKm,
+        etaSec: commuteEta.etaSeconds,
+        paceSec: live.currentPaceSec,
+      })
+    : null;
+  const lapOn = !live.combo || showLapButton(live.combo.mode, live.combo.activity);
+  const chromeNodes = useFreeChromeNodes({ totals: live.totals, currentPaceSec: live.currentPaceSec, metric: live.metric, isPaused: live.isPaused, cells });
   const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: headerH + 56, metric: live.metric === 'speed' ? 'speed' : 'pace', enabled: drawerV1 });
 
   const startShellDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
     dragControls.start(e);
   };
-  // Navigate-to-a-place (commute, enable_commute_v2_player_v1): the destination + remaining + arrival
-  // in the header instead of the lap line (phone test AA2).
-  const commuteContext = useRunningPlayer((s) => (s.sessionMode === 'commute' ? s.commuteContext : null));
-  const commuteEta = useCommuteEta();
   const commute = commuteContext ? commuteHeaderText(commuteEta, commuteContext.label, t) : null;
   const headerProps = {
     leading: <CartProgressIcon items={cartItems} onClick={onMinimize} size={48} ariaLabel={t('run.free.v2.lapsListAria', { done: String(cartItems.filter((i) => i.done).length) })} />,
@@ -247,7 +261,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           compact={chromeNodes.compact}
           large={chromeNodes.large}
           override={tg.vsPanel}
-          buttons={<RunFloatingButtons isPaused={live.isPaused} onPause={live.pause} onResume={live.resume} onLap={live.lap} onStop={live.stop} />}
+          buttons={<RunFloatingButtons isPaused={live.isPaused} onPause={live.pause} onResume={live.resume} onLap={lapOn ? live.lap : undefined} onStop={live.stop} />}
         />
       ) : (
         <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>

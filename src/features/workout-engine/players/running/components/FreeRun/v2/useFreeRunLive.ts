@@ -8,6 +8,8 @@ import type { ContinuousGoal } from '../../../lib/continuous-run';
 import { aerobicLabel, rateMetricFor } from '../../../lib/aerobic-activity';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
+import { aerobicMode, normalizeActivity, routeTitle } from '../../../lib/aerobic-player-view';
 
 /**
  * Live free-run values + actions for the v2 free-run pieces (overlay, mini
@@ -26,6 +28,15 @@ export function useFreeRunLive() {
   const laps = useRunningPlayer((s) => s.laps);
   const activityType = useRunningPlayer((s) => s.activityType);
   const progress = useSessionGoalProgress();
+  // enable_combo_flow_v1 (boards PlayerFreeRun / PlayerMetrics, M26): one player for every walk, run
+  // and ride. The title is the route's name, else "{activity} free" for walks too.
+  const comboOn = useComboFlowV1();
+  const sessionMode = useRunningPlayer((s) => s.sessionMode);
+  const routeName = useRunningPlayer((s) => s.guidedRouteName);
+  const routeKm = useRunningPlayer((s) => s.guidedRouteDistanceKm);
+  const mode = aerobicMode(sessionMode, routeName);
+  const activity = normalizeActivity(activityType);
+  const freeTitle = t('run.free.title.ride', { activity: aerobicLabel(activityType) });
 
   // Calorie goals have no hero / remaining text in this layout — shown as no goal.
   const goal: ContinuousGoal | null =
@@ -63,7 +74,11 @@ export function useFreeRunLive() {
     /** 'speed' for a ride (enable_home_v2 cycling), else 'pace'. */
     metric: rateMetricFor(activityType),
     /** "ריצה חופשית" / "רכיבה חופשית" — today's free-run title for walks and runs. */
-    title: activityType === 'cycling' ? t('run.free.title.ride', { activity: aerobicLabel(activityType) }) : t('run.free.title.run'),
+    title: comboOn
+      ? routeTitle(mode, routeName) ?? freeTitle
+      : activityType === 'cycling' ? freeTitle : t('run.free.title.run'),
+    /** enable_combo_flow_v1: the per-activity drawer (aerobic-player-view). */
+    combo: comboOn ? { mode, activity, routeKm: Number.isFinite(routeKm) ? (routeKm as number) : null } : null,
     laps,
     goal,
     pause,
