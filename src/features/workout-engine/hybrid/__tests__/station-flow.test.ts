@@ -104,6 +104,16 @@ describe('swapExerciseInStationContent — the swap lands in the station plan (w
     expect(content.exercises[1].exercise).toMatchObject({ id: 'b' }); // input untouched
   });
 
+  it('a tabata block follows the swap: the new id takes the old one\'s place (pilot AG5)', () => {
+    const content = { ...block([we('a'), we('m1'), we('m2')]), tabataBlocks: [{ config: { workSec: 30, restSec: 30, rounds: 8 }, exerciseIds: ['m1', 'm2'] }] } as never;
+    const plan = strengthBlockToWorkoutPlan(content);
+    const segIdx = plan.segments.findIndex((sg) => (sg.exercises ?? []).some((e) => e.id === 'm1'));
+    const exIdx = (plan.segments[segIdx]?.exercises ?? []).findIndex((e) => e.id === 'm1');
+    const replaced = swapExerciseInStationContent(content, plan, segIdx, exIdx, { id: 'm9', name: 'מכונה' }, { id: 'm9-m' })!;
+    expect(replaced).not.toBeNull();
+    expect(replaced.tabataBlocks?.[0].exerciseIds).toEqual(['m9', 'm2']);
+  });
+
   it('duplicate ids: the k-th occurrence in the plan maps to the k-th in the block', () => {
     const content = block([we('a'), we('dup'), we('dup')]);
     const plan = strengthBlockToWorkoutPlan(content);

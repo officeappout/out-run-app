@@ -8,6 +8,7 @@ import { useUserStore } from '@/features/user';
 import { useFlameTiersFlag } from '@/features/activity/hooks/useFlameTiersFlag';
 import { useFlameDays } from '@/features/activity/hooks/useFlameDays';
 import type { PendingSession } from '@/features/activity/lib/flame-day-input';
+import { streakMinutesLeftToday } from '../streak-today-left';
 
 /**
  * Home-v2 summaries: this week's 7 streak dots + the best streak, read from
@@ -39,6 +40,7 @@ export function useSummaryStreakWeek({
 }): { days: WeekDot[]; best: number } {
   const weekActivities = useActivityStore((s) => s.weekActivities);
   const longestStreak = useActivityStore((s) => s.longestStreak);
+  const todayActivity = useActivityStore((s) => s.today);
   const tiers = useFlameTiersFlag();
   const uid = useUserStore((s) => s.profile?.id);
   const pastIsos = useMemo(() => (tiers ? weekPastIsos(new Date()) : []), [tiers]);
@@ -48,5 +50,11 @@ export function useSummaryStreakWeek({
     () => buildWeekDots(weekActivities ?? {}, new Date(), flameDayOf ? { flameOf: flameDayOf } : { todayDone }),
     [weekActivities, todayDone, flameDayOf],
   );
-  return { days, best: longestStreak ?? 0 };
+  // Pilot AG6: today's dot carries the minutes still missing, so the strip can say why it's unlit.
+  const leftMinutes = useMemo(() => streakMinutesLeftToday(todayActivity, pending), [todayActivity, pending]);
+  const daysWithLeft = useMemo(
+    () => days.map((d) => (d.isToday && d.state !== 'done' && leftMinutes > 0 ? { ...d, leftMinutes } : d)),
+    [days, leftMinutes],
+  );
+  return { days: daysWithLeft, best: longestStreak ?? 0 };
 }

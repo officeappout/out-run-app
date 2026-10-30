@@ -56,6 +56,9 @@
  * They read `--kb-inset`, which is 0 unless that flag's controller is
  * running — so with the flag off they are a no-op.
  *
+ * Bottom nav: while open the sheet hides the global tab bar (`hideBottomNav`,
+ * default true; src/lib/bottom-nav-suppression.ts).
+ *
  * z-index: only values from the documented budget (`SHEET_Z`, .cursorrules).
  * Portals to document.body by default (escapes stacking contexts and
  * containing blocks); `portal={false}` renders in place, for sheets whose
@@ -85,6 +88,7 @@ import { DEFAULT_SHEET_DISMISS, sheetBottomPadding, shouldDismissSheet } from '.
 import { useT } from '@/hooks/useT';
 import { useUiDir } from '@/lib/i18n/useUiDir';
 import { common } from '@/messages/ns/common';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 
 /** The v2 sheet surface (rounded top, white, sheet shadow). */
 export const SHEET_SURFACE_CLASS = 'rounded-t-[28px] bg-white shadow-v2-sheet';
@@ -196,6 +200,11 @@ export interface SheetProps {
   respectReducedMotion?: boolean;
   /** Replaces the frame's enter / exit (and its transition when given). Absent = slide (or fade). */
   frameMotion?: SheetFrameMotion;
+  /**
+   * Hide the global bottom nav while open (default true), so the nav never covers
+   * the sheet's buttons whatever stacking context the sheet is mounted in.
+   */
+  hideBottomNav?: boolean;
 }
 
 /** A frame's own enter / exit, e.g. a clip-path reveal (framer targets). */
@@ -305,6 +314,7 @@ export default function Sheet({
   closeOnEscape = false,
   respectReducedMotion = false,
   frameMotion,
+  hideBottomNav = true,
 }: SheetProps) {
   const uiDir = useUiDir().direction;
   const dir = dirProp ?? uiDir;
@@ -317,6 +327,7 @@ export default function Sheet({
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   const prefersReduced = useReducedMotion();
+  useSuppressBottomNav(open && hideBottomNav);
   const fadeOnly = respectReducedMotion && !!prefersReduced;
 
   useEffect(() => {

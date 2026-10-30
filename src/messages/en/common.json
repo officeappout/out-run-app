@@ -127,6 +127,7 @@
   "ui.streak.best": "Best: {best}",
   "ui.streak.week": "This week",
   "ui.streak.today": "Today",
+  "ui.streak.todayLeft": "{count, plural, one {# more minute to count today} other {# more minutes to count today}}",
   "ui.sets.legend": "{tone, select, in {On target} below {Below target} other {Not done}}",
   "ui.sets.aria": "Sets",
   "ui.programRing.title": "Progress in my programs",

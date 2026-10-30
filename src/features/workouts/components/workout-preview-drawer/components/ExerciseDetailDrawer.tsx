@@ -23,6 +23,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import Sheet, { SheetGrabber } from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
 
@@ -68,6 +69,8 @@ function ExerciseDetailDrawerImpl({
   const opacity = useTransform(y, [0, 220], [1, 0]);
   const dragControls = useDragControls();
   const { scrollRef } = useSheetScrollChain({ isOpen: isSheetOpen, y, onClose: onDismiss });
+  // classic only (the v2 Sheet hides the tab bar itself).
+  useSuppressBottomNav(isSheetOpen && !v2);
 
   // Location comes from the chosen execution method (home / park / gym).
   // Fall back to locationMapping[0] when the scalar `location` is stale/missing

@@ -786,6 +786,9 @@ export function buildMachinePseudoExercise(
 
   const pseudoExercise = {
     id: machine.id,
+    // Marks a machine pseudo-exercise (pilot AG5): the swap sheet offers the park's other
+    // machines for it (players/strength/logic/machine-swap.ts).
+    sourceEquipmentId: machine.id,
     name,
     type: machine.type,
     loggingMode: 'reps',
@@ -798,6 +801,9 @@ export function buildMachinePseudoExercise(
     content: {},
     stats: { views: 0 },
     movementGroup: machine.movementPattern,
+    // Pilot AG5: the method also lives on the exercise, so a surface that only gets
+    // `exercise` (the swap sheet header) still resolves the machine's photo.
+    execution_methods: [method],
     targetPrograms: domain
       ? [{ programId: domain, level: machine.recommendedLevel }]
       : [],
