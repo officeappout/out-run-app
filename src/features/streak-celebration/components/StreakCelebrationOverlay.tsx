@@ -88,7 +88,7 @@ export default function StreakCelebrationOverlay({ celebration: c, lastStreakDat
       {GLOW_VARIANTS.has(c.variant) && (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-[90px] -ml-[210px] h-[420px] w-[420px] rounded-full"
+          className="pointer-events-none absolute end-1/2 top-[90px] -me-[210px] h-[420px] w-[420px] rounded-full"
           style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.22), rgba(249,115,22,0) 65%)' }}
         />
       )}

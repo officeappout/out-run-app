@@ -35,6 +35,7 @@ export default function ShimmerPhraseButton({
   rotateMs = 5000,
   className = 'px-4 pb-3',
 }: ShimmerPhraseButtonProps) {
+  const { direction: uiDir } = useUiDir();
   const [msgIdx, setMsgIdx] = useState(0);
   const [visible, setVisible] = useState(true);
   const [pressed, setPressed] = useState(false);
@@ -120,7 +121,7 @@ export default function ShimmerPhraseButton({
             gap: 10,
             cursor: 'pointer',
             minHeight: 52,
-            direction: 'rtl',
+            direction: uiDir,
           }}
         >
           {icon ?? <Sparkles size={18} color="#007EA8" strokeWidth={2} style={{ flexShrink: 0 }} />}

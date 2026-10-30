@@ -13,7 +13,7 @@ export default function HelpQAItem({ entry, defaultOpen = false }: { entry: Help
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex min-h-[48px] w-full items-center gap-2 px-4 py-3 text-right"
+        className="flex min-h-[48px] w-full items-center gap-2 px-4 py-3 text-start"
       >
         <span className="flex-1 text-[14.5px] font-bold text-v2-ink">{entry.q}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-v2-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden />

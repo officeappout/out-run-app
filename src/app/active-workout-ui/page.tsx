@@ -156,7 +156,7 @@ export default function ActiveWorkoutPage() {
             </div>
 
             {/* Bottom Action Bar */}
-            <div className="fixed bottom-24 left-0 right-0 px-6 z-40 pointer-events-none">
+            <div className="fixed bottom-24 end-0 start-0 px-6 z-40 pointer-events-none">
                 <button className="w-full pointer-events-auto bg-primary text-white font-bold text-xl py-4 rounded-full shadow-floating flex items-center justify-center gap-2 hover:opacity-90 transition-opacity active:scale-95">
                     <span>התחל אימון</span>
                     <Play size={24} fill="white" />
@@ -164,7 +164,7 @@ export default function ActiveWorkoutPage() {
             </div>
 
             {/* Global Bottom Nav Placeholder */}
-            <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 pb-8 pt-3 px-6 z-50">
+            <nav className="fixed bottom-0 end-0 start-0 bg-white border-t border-gray-100 pb-8 pt-3 px-6 z-50">
                 <div className="flex justify-between items-center max-w-sm mx-auto">
                     <div className="flex flex-col items-center gap-1 text-gray-400">
                         <MapIcon size={24} />

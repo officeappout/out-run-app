@@ -41,7 +41,7 @@ export default function GroupLocationCard({ hasCoords, destLat, destLng, destAdd
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-3" dir={direction}>
+      <div className="absolute bottom-0 end-0 start-0 p-3" dir={direction}>
         <span className="text-xs font-bold text-white truncate block max-w-[80%]">
           {destAddress || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
         </span>

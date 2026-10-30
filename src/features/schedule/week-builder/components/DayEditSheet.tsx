@@ -60,7 +60,7 @@ export default function DayEditSheet({ week, dow, dates, onClose, onMove, onWind
       ariaLabel={day ? t('weekBuilder.edit.title', { day: dayNameHe(day.dow), date: String(dates[day.dow] ?? '') }) : undefined}
     >
       {day && (
-        <div dir="rtl" className="flex flex-col gap-4 px-5 pb-6 font-simpler text-v2-ink">
+        <div className="flex flex-col gap-4 px-5 pb-6 font-simpler text-v2-ink">
           {!day.open && <p className="text-[13.5px] font-bold text-v2-muted">{t('weekBuilder.edit.closed')}</p>}
 
           {onWindow && day.open && day.sessions.length > 0 && (

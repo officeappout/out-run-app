@@ -49,7 +49,7 @@ export default function FirstWeekCard({ card, track, onDismiss }: FirstWeekCardP
           type="button"
           onClick={onDismiss}
           aria-label={t('firstWeekCard.close')}
-          className="absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
+          className="absolute end-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
         >
           <X size={16} className="text-v2-ink-2" />
         </button>
@@ -68,7 +68,7 @@ export default function FirstWeekCard({ card, track, onDismiss }: FirstWeekCardP
             className="mt-3 inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-full bg-white px-4 text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             {card.ctaLabel}
-            <ChevronLeft size={16} strokeWidth={2.6} />
+            <ChevronLeft className="ltr:-scale-x-100" size={16} strokeWidth={2.6} />
           </button>
         )}
       </div>

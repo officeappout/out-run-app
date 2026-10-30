@@ -25,11 +25,11 @@ export default function KingLemurLoadingScreen({
     >
       {/* Subtle Background Pattern - Fitness Elements */}
       <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-20 right-10 w-32 h-32 border-2 border-slate-400 rounded-full"></div>
-        <div className="absolute top-40 left-20 w-24 h-24 border-2 border-slate-400 transform rotate-45"></div>
-        <div className="absolute bottom-32 right-32 w-28 h-28 border-2 border-slate-400 rounded-lg"></div>
-        <div className="absolute bottom-20 left-10 w-20 h-20 border-2 border-slate-400 rounded-full"></div>
-        <div className="absolute top-1/2 left-1/4 w-16 h-16 border-2 border-slate-400 transform -rotate-45"></div>
+        <div className="absolute top-20 start-10 w-32 h-32 border-2 border-slate-400 rounded-full"></div>
+        <div className="absolute top-40 end-20 w-24 h-24 border-2 border-slate-400 transform rotate-45"></div>
+        <div className="absolute bottom-32 start-32 w-28 h-28 border-2 border-slate-400 rounded-lg"></div>
+        <div className="absolute bottom-20 end-10 w-20 h-20 border-2 border-slate-400 rounded-full"></div>
+        <div className="absolute top-1/2 end-1/4 w-16 h-16 border-2 border-slate-400 transform -rotate-45"></div>
       </div>
 
       {/* Main Content Container */}
@@ -75,7 +75,7 @@ export default function KingLemurLoadingScreen({
           <div className="bg-white rounded-3xl p-6 shadow-2xl border-4 border-slate-800 relative">
             {/* Speech Bubble Tail (pointing to character) */}
             <div
-              className="absolute bottom-0 right-1/4 transform translate-y-full"
+              className="absolute bottom-0 start-1/4 transform translate-y-full"
               style={{
                 width: 0,
                 height: 0,
@@ -85,7 +85,7 @@ export default function KingLemurLoadingScreen({
               }}
             />
             <div
-              className="absolute bottom-0 right-1/4 transform translate-y-full -mt-0.5"
+              className="absolute bottom-0 start-1/4 transform translate-y-full -mt-0.5"
               style={{
                 width: 0,
                 height: 0,
@@ -96,7 +96,7 @@ export default function KingLemurLoadingScreen({
             />
 
             {/* Speech Bubble Content */}
-            <div className="relative z-10 space-y-3 text-right">
+            <div className="relative z-10 space-y-3 text-start">
               {/* Greeting */}
               <motion.p
                 initial={{ opacity: 0 }}
@@ -177,7 +177,7 @@ export default function KingLemurLoadingScreen({
       </div>
 
       {/* Decorative Elements */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-200/30 to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 end-0 start-0 h-32 bg-gradient-to-t from-slate-200/30 to-transparent pointer-events-none" />
     </div>
   );
 }

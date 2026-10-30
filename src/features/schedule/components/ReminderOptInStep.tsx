@@ -26,6 +26,7 @@ import {
 import { PUSH_SOFT_ASK_COPY } from '../utils/pushReAsk';
 import { auth } from '@/lib/firebase';
 import { openCalendarOnSwitchOn, useCalendarFeedPath } from '@/lib/calendar-subscription';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface ReminderOptInResult {
   leadMinutes: ReminderLeadMinutes;
@@ -58,6 +59,7 @@ const chipCls = (on: boolean) =>
   }`;
 
 export default function ReminderOptInStep(p: ReminderOptInStepProps) {
+  const { direction } = useUiDir();
   const reduce = useReducedMotion();
   const [lead, setLead] = useState<ReminderLeadMinutes>(p.initialLeadMinutes ?? DEFAULT_REMINDER_LEAD);
   const [calendarSync, setCalendarSync] = useState<boolean>(p.initialCalendarSync ?? false);
@@ -77,7 +79,7 @@ export default function ReminderOptInStep(p: ReminderOptInStepProps) {
   };
 
   return (
-    <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+    <div dir={direction} className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
         <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">שנזכיר לך לפני כל אימון?</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{p.subtitle}</p>

@@ -128,7 +128,7 @@ export default function RefineLevelsPage() {
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-2">
         <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-slate-100 transition-colors">
-          <ArrowRight size={22} className="text-slate-600" />
+          <ArrowRight size={22} className="text-slate-600 ltr:-scale-x-100" />
         </button>
         <div>
           <h1 className="text-lg font-black text-slate-900">{t('refineLevels.title')}</h1>

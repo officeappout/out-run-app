@@ -239,7 +239,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
         transition={{ type: 'spring', stiffness: 340, damping: 30 }}
         ariaLabel={t('safecity.viral.title')}
       >
-        <IconButton aria-label={t('safecity.viral.close')} tone="surface" size={36} className="absolute left-4 top-4 z-10" onClick={onClose}>
+        <IconButton aria-label={t('safecity.viral.close')} tone="surface" size={36} className="absolute end-4 top-4 z-10" onClick={onClose}>
           <X className="h-4 w-4" />
         </IconButton>
         {body}
@@ -264,7 +264,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-            className="fixed bottom-0 left-0 right-0 z-[91] bg-white rounded-t-3xl shadow-2xl"
+            className="fixed bottom-0 end-0 start-0 z-[91] bg-white rounded-t-3xl shadow-2xl"
             style={{ maxHeight: '85vh' }}
           >
             {/* Drag handle */}
@@ -275,7 +275,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
             {/* Close */}
             <button
               onClick={onClose}
-              className="absolute top-4 left-4 p-1 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
+              className="absolute top-4 end-4 p-1 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
             >
               <X size={20} />
             </button>

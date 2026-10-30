@@ -6,8 +6,10 @@ import { MapPin } from 'lucide-react';
 import type { InitialCardProps } from '../location-types';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export function InitialCard({ gender, locationError, onFindLocation, onSearchManually, mode = 'onboarding', detectedNeighborhood, detectedCity, purpose, v2 = false }: InitialCardProps) {
+  const { direction: uiDir } = useUiDir();
   const t = useT(onboarding);
   const isExplorer = mode === 'explorer';
   const isRunning = purpose === 'running';
@@ -97,13 +99,13 @@ export function InitialCard({ gender, locationError, onFindLocation, onSearchMan
         <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-6 pb-8 border-t border-slate-100/40">
           <h2 
             className="text-2xl font-bold leading-tight text-slate-900 mb-3"
-            style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right' }}
+            style={{ fontFamily: 'var(--font-simpler)', textAlign: uiDir === 'rtl' ? 'right' : 'left' }}
           >
             {headline}
           </h2>
           <p 
             className="text-slate-600 leading-relaxed text-sm mb-4"
-            style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right' }}
+            style={{ fontFamily: 'var(--font-simpler)', textAlign: uiDir === 'rtl' ? 'right' : 'left' }}
           >
             {subtitle}
           </p>

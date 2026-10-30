@@ -83,6 +83,7 @@ import IconButton from './IconButton';
 import { SHEET_Z, SPRING_SHEET, type SheetZIndex } from './tokens';
 import { DEFAULT_SHEET_DISMISS, sheetBottomPadding, shouldDismissSheet } from './logic';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { common } from '@/messages/ns/common';
 
 /** The v2 sheet surface (rounded top, white, sheet shadow). */
@@ -183,6 +184,7 @@ export interface SheetProps {
   transition?: Transition;
 
   portal?: boolean;
+  /** Defaults to the UI direction (rtl in Hebrew, ltr in English). */
   dir?: 'rtl' | 'ltr';
   /** Accessible name when there is no `title` (e.g. a custom header). */
   ariaLabel?: string;
@@ -297,13 +299,15 @@ export default function Sheet({
   enterY = '100%',
   transition = SPRING_SHEET,
   portal = true,
-  dir = 'rtl',
+  dir: dirProp,
   ariaLabel,
   keyboardAware = true,
   closeOnEscape = false,
   respectReducedMotion = false,
   frameMotion,
 }: SheetProps) {
+  const uiDir = useUiDir().direction;
+  const dir = dirProp ?? uiDir;
   const kbSurface = keyboardAware ? 'kb-cap' : '';
   const titleId = useId();
   const ownControls = useDragControls();

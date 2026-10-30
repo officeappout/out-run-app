@@ -85,7 +85,7 @@ export default function ChallengeTimerPage() {
         onComplete={handleComplete}
       />
       {/* Language toggle — unobtrusive overlay at top start corner */}
-      <div className="absolute top-4 left-4 z-30">
+      <div className="absolute top-4 end-4 z-30">
         <ChallengeLangToggle variant="dark" />
       </div>
     </div>

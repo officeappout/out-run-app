@@ -69,7 +69,7 @@ export default function FilterSheet({
             onDragEnd={(_, info) => {
               if (info.offset.y > 120) onClose();
             }}
-            className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[80vh] flex flex-col"
+            className="fixed bottom-0 end-0 start-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[80vh] flex flex-col"
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-2 pb-1">

@@ -30,7 +30,7 @@ export default function TourList({ title, headingId = 'help-tours' }: { title: s
                 <span className="text-[14.5px] font-black text-v2-ink">{t.name}</span>
                 <span className="text-[12px] font-semibold leading-snug text-v2-muted">{t.line}</span>
               </span>
-              <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
+              <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300 ltr:-scale-x-100" aria-hidden />
             </button>
           </li>
         ))}

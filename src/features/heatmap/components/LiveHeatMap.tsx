@@ -539,7 +539,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
       </Map>
 
       {/* ═══ TOP BAR: Mode toggle + Date Picker (historical) + Filter ═══ */}
-      <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+      <div className="absolute top-3 end-3 start-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {/* Mode toggle */}
           <div className="flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -554,7 +554,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
               <Radio size={13} />
               <span>שידור חי</span>
               {viewMode === 'live' && (
-                <span className="relative flex h-2 w-2 mr-0.5">
+                <span className="relative flex h-2 w-2 ms-0.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
                 </span>
@@ -577,7 +577,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
           {/* Date Picker — only in historical mode */}
           {viewMode === 'historical' && (
             <div className="relative flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-              <CalendarDays size={13} className="text-indigo-500 mr-0 ml-2.5 shrink-0" />
+              <CalendarDays size={13} className="text-indigo-500 ms-0 me-2.5 shrink-0" />
               <input
                 type="date"
                 value={selectedDate}
@@ -586,7 +586,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
                   setSelectedDate(e.target.value);
                   setHoursBack(24);
                 }}
-                className="bg-transparent text-xs font-bold text-gray-700 pl-3 pr-1 py-2 outline-none cursor-pointer min-w-0 w-[115px] appearance-none"
+                className="bg-transparent text-xs font-bold text-gray-700 pe-3 ps-1 py-2 outline-none cursor-pointer min-w-0 w-[115px] appearance-none"
               />
             </div>
           )}
@@ -608,7 +608,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
       {/* ═══ FILTER DROPDOWN ═══ */}
       {showFilters && (
         <div
-          className="absolute top-16 left-3 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-xl z-10 min-w-[240px] border border-gray-200"
+          className="absolute top-16 end-3 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-xl z-10 min-w-[240px] border border-gray-200"
         >
           <p className="text-xs text-gray-500 font-bold mb-2">סינון</p>
 
@@ -669,7 +669,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
       {/* ═══ HISTORICAL SLIDER PANEL ═══ */}
       {viewMode === 'historical' && (
         <div
-          className="absolute top-16 right-3 left-3 mx-auto max-w-md bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-gray-200 z-[5]"
+          className="absolute top-16 start-3 end-3 mx-auto max-w-md bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-gray-200 z-[5]"
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
@@ -710,7 +710,7 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
       {/* ═══ BOTTOM: Aggregated stats panel — NO individual data ═══ */}
       {stats && stats.totalActive > 0 && (
         <div
-          className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-gray-200"
+          className="absolute bottom-3 end-3 start-3 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-gray-200"
         >
           <div className="grid grid-cols-4 gap-3 text-center">
             <StatCell
@@ -873,7 +873,7 @@ function OverlayToggle({
       >
         <span
           className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${
-            active ? 'right-0.5' : 'right-[18px]'
+            active ? 'start-0.5' : 'start-[18px]'
           }`}
         />
       </span>

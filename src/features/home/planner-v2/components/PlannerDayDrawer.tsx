@@ -116,7 +116,7 @@ export default function PlannerDayDrawer(p: PlannerDayDrawerProps) {
                           {d.km > 0 ? t('plannerV2.day.minutesKm', { n: `${d.minutes}`, km: formatNumber(d.km, locale) }) : t('plannerV2.day.minutes', { n: `${d.minutes}` })}
                         </span>
                       </span>
-                      <ChevronLeft size={18} strokeWidth={2.2} className="shrink-0 text-v2-muted" aria-hidden />
+                      <ChevronLeft size={18} strokeWidth={2.2} className="shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
                     </button>
                   );
                 })}
@@ -144,7 +144,7 @@ export default function PlannerDayDrawer(p: PlannerDayDrawerProps) {
                         <span className="truncate text-[15px] font-extrabold text-v2-ink">{s.titleHe}</span>
                         <span className="truncate text-[12px] font-bold text-v2-muted">{[shownTime(s.time), s.detailHe].filter(Boolean).join(' · ')}</span>
                       </span>
-                      {(s.timeEditable || s.movable) && <ChevronLeft size={18} strokeWidth={2.2} className="shrink-0 text-v2-muted" aria-hidden />}
+                      {(s.timeEditable || s.movable) && <ChevronLeft size={18} strokeWidth={2.2} className="shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />}
                     </button>
                   );
                 })}
@@ -165,7 +165,7 @@ export default function PlannerDayDrawer(p: PlannerDayDrawerProps) {
             className="mx-auto inline-flex items-center gap-1 text-[14px] font-extrabold text-v2-deep underline underline-offset-4"
           >
             {t('plannerV2.day.allProgress')}
-            <ChevronLeft size={16} strokeWidth={2.4} aria-hidden />
+            <ChevronLeft className="ltr:-scale-x-100" size={16} strokeWidth={2.4} aria-hidden />
           </button>
         </div>
       )}
