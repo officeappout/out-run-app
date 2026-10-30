@@ -118,6 +118,7 @@ export function buildWorkoutPlanFromGenerated(
       repsRange: ex.repsRange,
       isGoalExercise: ex.isGoalExercise,
       rampedTarget: ex.rampedTarget,
+      ...(ex.adaptiveNote ? { adaptiveNote: ex.adaptiveNote } : {}),
       isTimeBased: actuallyTimeBased,
       sets: ex.sets,
       execution_methods: ex.exercise.execution_methods || ex.exercise.executionMethods || [],

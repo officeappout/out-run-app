@@ -12,6 +12,7 @@ import { Exercise, MechanicalType, ExecutionLocation, InjuryShieldArea } from '@
 import { ScoredExercise, IntentMode, LifestylePersona, FilterStageCounts } from './ContextualEngine';
 import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
 import type { DecisionRecord } from '../services/decision-record';
+import type { AdaptiveNote } from './adaptive/adaptive-note';
 
 // ============================================================================
 // CORE TYPES
@@ -98,6 +99,8 @@ export interface WorkoutExercise {
   levelDelta?: number;
   isGoalExercise?: boolean;
   rampedTarget?: number;
+  /** Next-workout tag explaining an adaptive change (adaptive-note.ts); absent = nothing changed. */
+  adaptiveNote?: AdaptiveNote;
   /** 3a: this session doesn't move the exercise's progression (deload / heat / calm return). */
   adaptiveSkip?: boolean;
   exerciseRole?: 'warmup' | 'main' | 'cooldown';

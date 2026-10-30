@@ -7,6 +7,8 @@
  * the same FillingButton / callbacks as the portrait card.
  */
 
+import AdaptiveNoteTag from '@/features/workout-engine/components/strength/components/v2/AdaptiveNoteTag';
+import type { AdaptiveNote } from '@/features/workout-engine/logic/adaptive/adaptive-note';
 import React from 'react';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
@@ -25,6 +27,8 @@ export interface ActiveRepsWidePanelProps {
   isSupersetActive: boolean;
   supersetPartnerName: string | null;
   guidanceLine?: string;
+  /** Next-workout tag explaining an adaptive change (first set only). Omitted → none. */
+  adaptiveNote?: AdaptiveNote;
   autoCompleteTime: number;
   isPaused: boolean;
   v2: boolean;
@@ -35,7 +39,7 @@ export interface ActiveRepsWidePanelProps {
 
 export default function ActiveRepsWidePanel({
   activeKey, exerciseName, repsOrDurationText, isUnilateral, targetValue, currentRound, totalRounds,
-  isSupersetActive, supersetPartnerName, guidanceLine, autoCompleteTime, isPaused, v2, nextUp, onComplete, onSwap,
+  isSupersetActive, supersetPartnerName, guidanceLine, adaptiveNote, autoCompleteTime, isPaused, v2, nextUp, onComplete, onSwap,
 }: ActiveRepsWidePanelProps) {
   const t = useT(player);
   return (
@@ -61,6 +65,7 @@ export default function ActiveRepsWidePanel({
         </div>
       )}
       {guidanceLine && <p className="mb-2 text-[16px] font-bold text-v2-deep">{guidanceLine}</p>}
+      {adaptiveNote && <AdaptiveNoteTag note={adaptiveNote} className="mb-2 text-[13px]" />}
       <div className="mt-2 w-full" data-coach="player-done">
         <FillingButton
           key={`fill-${activeKey}`}

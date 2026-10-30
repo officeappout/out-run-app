@@ -143,6 +143,7 @@ export function swapExerciseInStationContent(
     exercise: newExercise as never,
     method: method as never,
     wasSwapped: true,
+    adaptiveNote: undefined,
     // Soft-adaptation Phase 0 (data only): original slot exercise + levels.
     ...swapStampForEntry(exercises[idx], newId, toLevel),
   };

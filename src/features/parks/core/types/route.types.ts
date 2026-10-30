@@ -97,6 +97,8 @@ export interface Exercise {
   isGoalExercise?: boolean;
   /** Progressive overload: ramped target for this session */
   rampedTarget?: number;
+  /** Next-workout tag explaining an adaptive change (workout-engine adaptive-note.ts). */
+  adaptiveNote?: import('@/features/workout-engine/logic/adaptive/adaptive-note').AdaptiveNote;
   /** Whether this is a timed hold vs rep-based */
   isTimeBased?: boolean;
   /** Number of sets (from WorkoutGenerator) */

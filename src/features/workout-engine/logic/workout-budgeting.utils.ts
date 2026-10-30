@@ -19,6 +19,7 @@ import { applyDynamicRepFloor, beginnerRest, PAIR_TRANSITION_REST_SEC } from './
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import { adaptiveExtraSets, adaptiveTarget } from './adaptive/double-progression';
 import { goalRampTarget } from './adaptive/goal-presence';
+import { adaptiveNoteFor } from './adaptive/adaptive-note';
 import {
   DifficultyLevel,
   ExercisePriority,
@@ -750,9 +751,12 @@ export function assignVolume(
     // 3a: +1 set after DP_TOP_SESSIONS_FOR_SET sessions at the top — never on a reduced
     // session, never past the tier's set max (the budget passes may still trim it).
     const adaptiveState = adaptiveOn ? context.adaptiveStates?.[exercise.id] : undefined;
+    let extraApplied = false;
     if (adaptiveOn && !(volumeAdjustment.reductionPercent > 0)) {
       const extra = adaptiveExtraSets(adaptiveState, adaptiveNow);
+      const before = sets;
       if (extra > 0) sets = Math.min(sets + extra, Math.max(sets, tier.sets.max, volumeTier.sets.max));
+      extraApplied = sets > before;
     }
 
     let reps: number;
@@ -1000,6 +1004,14 @@ export function assignVolume(
       ).level;
     })();
 
+    // Next-workout tag: why this exercise's target / sets / variation changed since last time.
+    const adaptiveNote = adaptiveOn
+      ? adaptiveNoteFor({
+          exerciseId, states: context.adaptiveStates, reasoning: scored.reasoning,
+          reps, isHold: timeBased, extraApplied, nowMs: adaptiveNow,
+        })
+      : undefined;
+
     const volumeReasoning = [
       ...scored.reasoning,
       `tier:${tierName}(delta=${delta >= 0 ? '+' : ''}${delta})`,
@@ -1029,6 +1041,7 @@ export function assignVolume(
       isGoalExercise,
       rampedTarget,
       exerciseRole: 'main' as const,
+      ...(adaptiveNote ? { adaptiveNote } : {}),
     };
   });
 }

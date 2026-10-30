@@ -18,6 +18,8 @@
  * onComplete receives the exact elapsed seconds (including overtime).
  */
 
+import AdaptiveNoteTag from '@/features/workout-engine/components/strength/components/v2/AdaptiveNoteTag';
+import type { AdaptiveNote } from '@/features/workout-engine/logic/adaptive/adaptive-note';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { RotateCcw, Pause, Play, Timer, Check } from 'lucide-react';
@@ -87,6 +89,8 @@ interface IsometricTimerCardProps {
   externalPaused?: boolean;
   /** PR-B1 guided mode: one short line under the exercise name ("ממשיכים עד שהטיימר נגמר"). */
   guidanceLine?: string;
+  /** Next-workout tag explaining an adaptive change (first set only). Omitted → none. */
+  adaptiveNote?: AdaptiveNote;
   /** enable_strength_drawer_v1: the card as a two-snap drawer (compact = name + clock + action). Absent = today's card. */
   drawer?: SnapDrawerState | null;
   /** enable_wide_player_v1: next exercise for the wide panel's next-up card. */
@@ -172,6 +176,7 @@ export default function IsometricTimerCard({
   prepSeconds = PREP_SECONDS,
   externalPaused = false,
   guidanceLine,
+  adaptiveNote,
   drawer = null,
   nextUp,
   onClockState,
@@ -647,6 +652,7 @@ export default function IsometricTimerCard({
             {guidanceLine}
           </p>
         )}
+        {adaptiveNote && <AdaptiveNoteTag note={adaptiveNote} className="justify-center text-center -mt-2 mb-4" />}
 
         {/* Pause / Reset controls — hidden for tabata: pausing here would
             desync the block's fixed work+rest×rounds clock. */}

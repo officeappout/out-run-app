@@ -1,5 +1,7 @@
 'use client';
 
+import AdaptiveNoteTag from '@/features/workout-engine/components/strength/components/v2/AdaptiveNoteTag';
+import type { AdaptiveNote } from '@/features/workout-engine/logic/adaptive/adaptive-note';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Maximize2 } from 'lucide-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
@@ -138,6 +140,8 @@ export interface ActiveExerciseViewProps {
   onSwap?: () => void;
   /** PR-B1 guided mode: one short guidance line (reps card / timer card). Omitted → none. */
   guidanceLine?: string;
+  /** Next-workout tag explaining an adaptive change (first set only). Omitted → none. */
+  adaptiveNote?: AdaptiveNote;
   /** PR-B2 demo gate: the clip's own paused state. While the gate holds the PLAYER paused the
    *  demo keeps looping behind it, so this can be false while isPaused is true. Default = isPaused. */
   videoPaused?: boolean;
@@ -198,6 +202,7 @@ export default function ActiveExerciseView({
   onComplete,
   onSwap,
   guidanceLine,
+  adaptiveNote,
   videoPaused,
   onVideoElement,
   stationClipKey = null,
@@ -271,6 +276,7 @@ export default function ActiveExerciseView({
           prepSeconds={timerPrepSeconds}
           externalPaused={isPaused}
           guidanceLine={guidanceLine}
+          adaptiveNote={adaptiveNote}
           drawer={drawer}
           nextUp={split ? nextUp : undefined}
           onClockState={onClockState}
@@ -360,6 +366,7 @@ export default function ActiveExerciseView({
               isSupersetActive={isSupersetActive}
               supersetPartnerName={supersetPartnerName}
               guidanceLine={guidanceLine}
+              adaptiveNote={adaptiveNote}
               autoCompleteTime={autoCompleteTime}
               isPaused={isPaused}
               v2={v2}
@@ -520,6 +527,7 @@ export default function ActiveExerciseView({
                 {guidanceLine}
               </p>
             )}
+            {adaptiveNote && <AdaptiveNoteTag note={adaptiveNote} className="justify-center text-center mb-2" />}
 
             {/* Superset badge + round counter */}
             {isSupersetActive && supersetPartnerName && (
