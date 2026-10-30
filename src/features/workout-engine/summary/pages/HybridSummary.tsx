@@ -19,7 +19,7 @@ import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
 import { useSummaryStreakWeek } from '../hooks/useSummaryStreakWeek';
 import { hybridRings, hybridStationTables } from '../v2-summary.mapping';
-import { isWalkSession, relabelWalkRing } from '../park-summary';
+import { isWalkSession, relabelWalkRing, withWidgetRingColors } from '../park-summary';
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import SummaryDrawerShell, { type DrawerTab } from '../blocks/SummaryDrawerShell';
 import type { SummarySnap } from '../blocks/summary-sheet.util';
@@ -61,6 +61,8 @@ export interface HybridSummaryProps {
   /** enable_park_live_v2 (board Park 12, pilot N2): walk label + title, the streak without the
    *  minutes bar. The caller reads the flag. Omitted → today's summary. */
   parkLive?: boolean;
+  /** enable_combo_flow_v1 (board PlayerComboSummary): rings in the home widget's colours. */
+  widgetRings?: boolean;
   /** enable_park_live_v2 (pilot M7): no strength questionnaire yet → the card that opens it. */
   onStrengthQuiz?: () => void;
   /**
@@ -118,6 +120,7 @@ export default function HybridSummary({
   initialSnap = 'full',
   isReadOnly = false,
   parkLive = false,
+  widgetRings = false,
   onStrengthQuiz,
 }: HybridSummaryProps) {
   const t = useT(summaryNs);
@@ -136,7 +139,11 @@ export default function HybridSummary({
   const completedSegments = summary.completedAerobicSegments + summary.completedStrengthSegments;
   const xpVal = Math.round(xpEarned || 0);
   const stationTables = v2 ? hybridStationTables(segments) : [];
-  const parkWalk = parkLive && isWalkSession(segments);
+  // AG10: a walk session's aerobic tab says "walk", not "run" (every user; copy only).
+  const walkSession = isWalkSession(segments);
+  const parkWalk = parkLive && walkSession;
+  const walkRings = relabelWalkRing(hybridRings(result), parkWalk, t('segment.walking'));
+  const overviewRings = widgetRings ? withWidgetRingColors(walkRings) : walkRings;
 
   // Hero (drag zone): the combined number — total session time — with the two
   // halves as chips. Stays visible when the drawer is collapsed to its peek.
@@ -177,7 +184,7 @@ export default function HybridSummary({
     overview: v2 ? (
       <div className="space-y-3 px-4 pt-4 pb-6">
         <Card padding="md">
-          <MetricRings rings={relabelWalkRing(hybridRings(result), parkWalk, t('segment.walking'))} />
+          <MetricRings rings={overviewRings} />
         </Card>
         {banner}
         {!isReadOnly && (
@@ -226,14 +233,14 @@ export default function HybridSummary({
     aerobic: (
       <div className="px-4 pt-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
-          <StatTile value={summary.totalActualDistanceKm} decimals={2} unit={unitLabel('km', tc)} label={t('hybrid.aerobic.distance')} />
+          <StatTile value={summary.totalActualDistanceKm} decimals={2} unit={unitLabel('km', tc)} label={t(walkSession ? 'hybrid.aerobic.distanceWalk' : 'hybrid.aerobic.distance')} />
           <StatTile
             value={aerobicSec}
             format={() => (aerobicSec > 0 ? formatDuration(aerobicSec) : '--')}
-            label={t('hybrid.aerobic.time')}
+            label={t(walkSession ? 'hybrid.aerobic.timeWalk' : 'hybrid.aerobic.time')}
           />
         </div>
-        <SectionLabel>{t('hybrid.aerobic.segments')}</SectionLabel>
+        <SectionLabel>{t(walkSession ? 'hybrid.aerobic.segmentsWalk' : 'hybrid.aerobic.segments')}</SectionLabel>
         <SegmentRail items={buildRailItems(segments, t, tc, 'aerobic')} />
       </div>
     ),
@@ -251,9 +258,6 @@ export default function HybridSummary({
         </div>
         <SectionLabel>{t('hybrid.strength.stations')}</SectionLabel>
         <SegmentRail items={buildRailItems(segments, t, tc, 'strength')} />
-        <div className="mt-3 text-center text-[12px] font-semibold text-v2-muted">
-          {t('hybrid.strength.detailSoon')}
-        </div>
       </div>
     ),
     stats: (
@@ -273,7 +277,7 @@ export default function HybridSummary({
             format={() => `${completedSegments}/${summary.segmentCount}`}
             label={t('hybrid.stats.segments')}
           />
-          <StatTile value={summary.completedAerobicSegments} label={t('hybrid.stats.aerobicSegments')} />
+          <StatTile value={summary.completedAerobicSegments} label={t(walkSession ? 'hybrid.stats.aerobicSegmentsWalk' : 'hybrid.stats.aerobicSegments')} />
           <StatTile value={summary.completedStrengthSegments} label={t('hybrid.stats.strengthStations')} />
         </div>
         {banner}

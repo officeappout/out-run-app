@@ -348,7 +348,6 @@ describe('summary: hybrid view, drawer, shell, page', () => {
       ['hybrid.aerobic.segments', 'מקטעי ריצה'],
       ['hybrid.strength.setsDone', 'סטים שהושלמו'],
       ['hybrid.strength.stations', 'תחנות כוח'],
-      ['hybrid.strength.detailSoon', 'פירוט תרגילים (מתוכנן/בפועל) — בקרוב'],
       ['hybrid.stats.time', 'זמן'],
       ['hybrid.stats.kcal', 'קק״ל'],
       ['hybrid.stats.segments', 'מקטעים'],
