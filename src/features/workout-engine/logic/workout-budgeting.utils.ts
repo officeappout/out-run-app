@@ -11,7 +11,7 @@
 import { Exercise, MechanicalType, getLocalizedText, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
 import type { ScoredExercise } from './contextual-engine.types';
 import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constants';
-import { COOLDOWN_FULL_LENGTH_TAG } from './session-frame.utils';
+import { COOLDOWN_GUIDE_TAG } from './session-frame.utils';
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { aboveLevelRepRange, isTrueSkillExercise, repCeilingFor, trueSkillHoldCap } from './adaptive/true-skill';
@@ -1249,9 +1249,8 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
 
     if (role === 'cooldown') {
       cooldownExercises.push(ex);
-      // Work seconds — flat 90 s per cooldown slot (follow-along / mobility)
-      // Lean frame (≤30 min): the one cool-down video counts its real length (session-frame.utils).
-      const exWorkSec  = ex.reasoning?.includes(COOLDOWN_FULL_LENGTH_TAG) && ex.isTimeBased ? ex.reps : 90;
+      // Work seconds — flat 90 s per cooldown stretch; the follow-along video is optional, 0 s.
+      const exWorkSec  = ex.reasoning?.includes(COOLDOWN_GUIDE_TAG) ? 0 : 90;
       const exRestSec  = ex.sets * ex.restSeconds;
       cooldownWorkSec += exWorkSec;
       cooldownRestSec += exRestSec;
@@ -1274,17 +1273,20 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
   // ── Warmup block: 0 rest, 5 s transitions, hard-capped at 6 min ─────────
   // Each warmup slot = WARMUP_WORK_SEC_PER_SLOT seconds of active work.
   // Transition time shrinks from the standard 30 s to 5 s (flow circuit).
-  if (warmupExercises.length > 0) {
-    const rawWork = warmupExercises.length * WARMUP_WORK_SEC_PER_SLOT;
-    const rawTrans = (warmupExercises.length - 1) * WARMUP_TRANSITION_SEC;
+  // The joint-rotation guide video (isGeneralWarmup) is optional for the user: not counted.
+  const countedWarmups = warmupExercises.filter((ex) => ex.isGeneralWarmup !== true);
+  if (countedWarmups.length > 0) {
+    const rawWork = countedWarmups.length * WARMUP_WORK_SEC_PER_SLOT;
+    const rawTrans = (countedWarmups.length - 1) * WARMUP_TRANSITION_SEC;
     rawWarmupSec = Math.min(rawWork + rawTrans, WARMUP_BLOCK_CAP_SEC);
-
+  }
+  if (warmupExercises.length > 0) {
     for (const ex of warmupExercises) {
       rows.push({
         role: 'warmup',
         name: (ex.exercise.name as any)?.he ?? ex.exercise.id,
         sets: ex.sets,
-        workSec: WARMUP_WORK_SEC_PER_SLOT,
+        workSec: ex.isGeneralWarmup === true ? 0 : WARMUP_WORK_SEC_PER_SLOT,
         restSec: WARMUP_REST_PER_EXERCISE_SEC,
       });
     }

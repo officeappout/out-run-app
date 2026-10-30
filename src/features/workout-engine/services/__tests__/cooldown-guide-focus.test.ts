@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: { currentUser: null }, app: {} }));
 
 import { pickCooldownGuides } from '../cooldown-guide.utils';
-import { COOLDOWN_FULL_LENGTH_TAG } from '../../logic/session-frame.utils';
+import { COOLDOWN_GUIDE_TAG } from '../../logic/session-frame.utils';
 import { appendCooldownExercises } from '../cooldown.service';
 import { applyDomainPrioritySort } from '../../logic/workout-sorting.utils';
 import { planLocationSwap } from '@/features/workouts/components/workout-preview-drawer/location-gate/plan-location-swap';
@@ -55,7 +55,7 @@ describe('appendCooldownExercises — focus videos', () => {
   it('≤30 min (lean frame, owner 30.10.2026): full body gets ONE video, counted at its real length', () => {
     const cool = runFor(30, 'park', mainWE('m1', 'squat'), mainWE('m2', 'vertical_pull'));
     expect(cool.map((e) => [e.exercise.id, e.reps])).toEqual([[upper.id, 333]]);
-    expect(cool[0].reasoning).toContain(COOLDOWN_FULL_LENGTH_TAG);
+    expect(cool[0].reasoning).toContain(COOLDOWN_GUIDE_TAG);
   });
   it('home workout now gets the follow-along video (real home method)', () => {
     const cool = run('home', mainWE('m1', 'hinge'));

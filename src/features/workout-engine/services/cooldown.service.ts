@@ -21,7 +21,7 @@ import { Exercise, ExecutionLocation } from '@/features/content/exercises/core/e
 import type { ContextualFilterContext } from '../logic/ContextualEngine';
 import type { GeneratedWorkout } from '../logic/WorkoutGenerator';
 import { isWarmupEquipmentAllowed } from './warmup.service';
-import { cooldownCountBudget, COOLDOWN_FULL_LENGTH_TAG, isLeanFrame } from '../logic/session-frame.utils';
+import { cooldownCountBudget, COOLDOWN_GUIDE_TAG, isLeanFrame } from '../logic/session-frame.utils';
 import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
@@ -62,7 +62,7 @@ export function appendCooldownExercises(
   const mains = workout.exercises
     .filter((we) => we.exerciseRole !== 'warmup' && we.exerciseRole !== 'cooldown')
     .map((we) => we.exercise);
-  // ≤30 min (lean frame): one video only, and the estimate counts its real length.
+  // ≤30 min (lean frame): one video only.
   const lean = isLeanFrame(availableTimeMin);
   const picked = pickCooldownGuides(allExercises, location, mains, workoutIds);
   const guides = lean ? picked.slice(0, 1) : picked;
@@ -79,7 +79,7 @@ export function appendCooldownExercises(
         restSeconds: 0,
         priority: 'isolation' as const,
         score: 0,
-        reasoning: ['cooldown: follow-along video for this location', ...(lean ? [COOLDOWN_FULL_LENGTH_TAG] : [])],
+        reasoning: [COOLDOWN_GUIDE_TAG],
         exerciseRole: 'cooldown' as const,
       });
       console.log(`[Cooldown] Follow-along cool-down video "${guide.exercise.id}" (${seconds}s) for ${location}`);
