@@ -512,6 +512,7 @@ function EntryButtons({
   cityName?: string;
 }) {
   const t = useT(map);
+  const { isRtl } = useUiDir();
   const v2 = useContext(FreeRunV2);
   if (v2) {
     return (
@@ -520,7 +521,7 @@ function EntryButtons({
           <button
             type="button"
             onClick={onStartFree}
-            className={`${V2_CTA} flex-1`}
+            className={`${V2_CTA} flex-1${isRtl ? '' : ' min-w-0 !px-2 !text-[15px]'}`}
             aria-label={t('freeRun.startFreeAria')}
           >
             <Play size={16} fill="currentColor" />
@@ -530,7 +531,7 @@ function EntryButtons({
             type="button"
             onClick={onStartWithRoute}
             disabled={!canStartWithRoute}
-            className={`${V2_SECONDARY} h-12 flex-1 text-v2-deep`}
+            className={`${V2_SECONDARY} h-12 flex-1 text-v2-deep${isRtl ? '' : ' min-w-0 !px-2 !text-[13.5px]'}`}
             aria-label={t('freeRun.startRouteAria')}
           >
             <RouteIcon size={17} strokeWidth={2.4} />
