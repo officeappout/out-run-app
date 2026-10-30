@@ -9,7 +9,7 @@ import { barrierLabels, INTRO_IMG, RING_TONES } from '../intro-copy';
 import { LOGO_SLOT_ATTR } from '../intro-route';
 import { EASE_BACK, EASE_CSS, EASE_IN_OUT, EASE_OUT, tween } from '../story-timeline';
 import {
-  RING_CLOSE_BEATS as B, SLOT_POLL_MS, SLOT_WAIT_S, ringClosePlan, ringCloseScale, type RingClosePlan,
+  RING_CLOSE_BEATS as B, SLOT_POLL_MS, SLOT_WAIT_S, popDelay, ringClosePlan, ringCloseScale, type RingClosePlan,
 } from '../ring-close-timeline';
 import { BarrierRing } from './BarrierRing';
 
@@ -36,10 +36,11 @@ function noSlot(cy: number): Rest {
 
 /**
  * The ring closes into the globe (enable_entry_intro_v1, mockup intro-G1): the
- * five coloured segments pop in, the ring closes, it crossfades into the OUT
- * logotype (its own proportions — the ring is not scaled into the "O"), the logo
- * rises into the globe headline's logo slot — waiting for that slot to exist, see
- * ring-close-timeline.ts — and only then the veil lifts over the location step.
+ * five coloured segments assemble, the ring closes, it condenses into the OUT
+ * logotype (its own proportions — the ring is not scaled into the "O"), and the
+ * logo rises into the globe headline's logo slot the moment it is formed, while
+ * the veil lifts under it — see ring-close-timeline.ts (pilot note AF2). If the
+ * slot isn't there yet the logo breathes on the centre until it is.
  * Played only on the hop from /intro.
  * z-[100]: the full-screen overlay tier (.cursorrules Z-Index Budget).
  */
@@ -48,6 +49,8 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [rest, setRest] = useState<Rest | null>(null);
   const [plan, setPlan] = useState<RingClosePlan | null>(null);
+  // The logo is formed but its slot isn't there yet: keep it alive, never frozen.
+  const [waiting, setWaiting] = useState(false);
   // The caller's callback may change identity every render — never restart the timeline for it.
   const done = useRef(onDone);
   done.current = onDone;
@@ -62,25 +65,32 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
     const elapsed = () => (performance.now() - t0) / 1000;
     const cx = box.w / 2;
     const cy = box.h * CENTER_Y;
-    let timer = 0;
-    let end = 0;
+    const timers: number[] = [];
+    const at = (s: number, fn: () => void) => {
+      timers.push(window.setTimeout(fn, Math.max(0, s - elapsed()) * 1000));
+    };
+    let poll = 0;
 
-    const start = (r: Rest) => {
-      const p = ringClosePlan(r.found ? elapsed() : null);
-      setRest(r);
-      setPlan(p);
-      end = window.setTimeout(() => done.current(), Math.max(0, p.doneAt - elapsed()) * 1000);
+    const schedule = (foundAt: number | null) => {
+      const p = ringClosePlan(foundAt);
+      at(p.riseStart, () => {
+        // Re-measure at take-off: the slot's layout may have settled since it was first seen.
+        setRest(foundAt == null ? noSlot(cy) : measureSlot(cx, cy) ?? noSlot(cy));
+        setPlan(p);
+      });
+      at(p.doneAt, () => done.current());
     };
+    // Look for the slot from the first frame, so a ready globe never costs a hold.
     const look = () => {
-      const r = measureSlot(cx, cy);
-      if (r) return start(r);
-      if (elapsed() >= B.riseAt + SLOT_WAIT_S) return start(noSlot(cy));
-      timer = window.setTimeout(look, SLOT_POLL_MS);
+      if (measureSlot(cx, cy)) return schedule(elapsed());
+      if (elapsed() >= B.riseAt + SLOT_WAIT_S) return schedule(null);
+      poll = window.setTimeout(look, SLOT_POLL_MS);
     };
-    timer = window.setTimeout(look, B.riseAt * 1000);
+    look();
+    at(B.crossfadeEnd, () => setWaiting(true));
     return () => {
-      window.clearTimeout(timer);
-      window.clearTimeout(end);
+      window.clearTimeout(poll);
+      timers.forEach((id) => window.clearTimeout(id));
     };
   }, [box]);
 
@@ -92,7 +102,7 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
     tween(
       { opacity: 0, scale: 0.6, rotate: -30 },
       { opacity: 1, scale: 1, rotate: 0 },
-      { duration: 0.45, ease: EASE_BACK, delay: 0.1 + 0.25 * i },
+      { duration: B.popS, ease: EASE_BACK, delay: popDelay(i) },
       false,
     );
 
@@ -110,7 +120,7 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
         className="absolute"
         style={{ left: box.w / 2 - RING / 2, top: cy - RING / 2, scale: k }}
         initial={{ opacity: 1 }}
-        animate={{ opacity: [1, 1, 0], scale: [k, k, 0.6 * k] }}
+        animate={{ opacity: [1, 1, 0], scale: [k, k, 0.45 * k] }}
         transition={{ duration: B.crossfadeEnd, times: [0, B.crossfadeAt / B.crossfadeEnd, 1], ease: EASE_IN_OUT }}
       >
         <BarrierRing
@@ -135,7 +145,7 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
             className="absolute inset-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 0, 1] }}
-            transition={{ duration: B.closeAt + 0.4, times: [0, B.closeAt / (B.closeAt + 0.4), 1], ease: EASE_CSS }}
+            transition={{ duration: B.closeAt + B.closeS, times: [0, B.closeAt / (B.closeAt + B.closeS), 1], ease: EASE_CSS }}
           >
             <defs>
               <linearGradient id="introRingClose" x1="0" y1="0" x2="1" y2="1">
@@ -154,16 +164,21 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
         alt=""
         className="absolute max-w-none"
         style={{ left: box.w / 2 - LOGO_W / 2, top: cy - LOGO_H / 2, width: LOGO_W, height: LOGO_H }}
-        initial={{ opacity: 0, scale: 0.7 }}
+        // Comes in from slightly larger while the ring shrinks: both move inward, one gesture.
+        initial={{ opacity: 0, scale: 1.25 }}
         animate={
           rest
             ? { opacity: rest.found ? 1 : 0, x: rest.dx, y: rest.dy, scale: rest.scale }
-            : { opacity: [0, 0, 1], scale: [0.7, 0.7, 1] }
+            : waiting
+              ? { opacity: 1, scale: [1, 1.04, 1] }
+              : { opacity: [0, 0, 1], scale: [1.25, 1.25, 1] }
         }
         transition={
           rest
             ? { duration: B.riseS, ease: EASE_IN_OUT }
-            : { duration: B.crossfadeEnd, times: [0, B.crossfadeAt / B.crossfadeEnd, 1], ease: EASE_IN_OUT }
+            : waiting
+              ? { duration: 1.2, ease: EASE_IN_OUT, repeat: Infinity }
+              : { duration: B.crossfadeEnd, times: [0, B.crossfadeAt / B.crossfadeEnd, 1], ease: EASE_IN_OUT }
         }
       />
     </div>
