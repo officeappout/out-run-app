@@ -2,7 +2,7 @@
 
 > Trigger: the owner says "add language X" (example below: Spanish, `es`, native "Español", Hebrew "ספרדית").
 > One agent runs phases 0 to 9 without stopping, except at the **owner gates**. Based on how English was done
-> (PLAN.md wave 6, EN-PILOT-PLAN.md, PRs #887 to #955: catalogs #893 #912 #915 #916 #917 #920 #936, content #902 #928 #937 #938 #940, he-only #900 #918, makeLiveT #921 #927, LTR hosts #914 #929 #932, Kelly #935 #941, audit #947, existing users #950, TTS #951, dir #952, health PDF #954).
+> (PLAN.md wave 6, EN-PILOT-PLAN.md, PRs #887 to #968: catalogs #893 #912 #915 #916 #917 #920 #936, content #902 #928 #937 #938 #940, he-only #900 #918, makeLiveT #921 #927, LTR hosts #914 #929 #932, Kelly #935 #941, audit #947, existing users #950, TTS #951, dir #952, health PDF #954).
 > Project skill with the same checklist: `.claude/skills/add-language/SKILL.md`.
 
 ## Owner gates (stop and ask, everything else is yours)
@@ -199,6 +199,65 @@ Store text and screenshots (`store-assets/`), video subtitles (VTT), legal (lawy
 ## Phase 9: handoff to the owner
 
 Report: PR list, counts per namespace, open (!) questions, owner steps in order (native-speaker pass, content apply, functions deploy, Vercel deploy, flags in the order above, device checklist). Never flip flags.
+
+## Device QA checklist (do this on a real phone BEFORE asking for review)
+
+Source: owner's first on-device English test (30.10), PRs #965 #966 #967 #968. Everything below was found on the device, not in unit tests.
+
+### Tester setup (flags)
+- Flags with `superAdminValue: false` (`enable_content_locale`, `hide_he_only_onboarding_steps`) do NOT turn on for super admins. The tester must have them ON in the stored value (or a test account), otherwise content stays Hebrew and he-only steps show.
+- Server-side flags (Kelly `ai_coach_locale_v1`, push `push_locale_v1`) read only the stored value, never the super-admin override. A super admin tester sees Hebrew Kelly and pushes until the stored value is on.
+- Safe global turn-on order: `enable_i18n` and `enable_locale_<xx>` gate everything, so turn the supporting flags on first and these two LAST (order in "Flag turn-on order"). Never the picker before content, he-only hiding and server text are live.
+
+### Look at, on every main screen
+| Check | What bad looks like |
+|---|---|
+| Alignment | text right-aligned, titles hugging the right edge |
+| Chevrons and arrows | "forward" or "next" pointing left |
+| Punctuation position | leading "." "," "!" "?" or ":" jumping to the wrong end |
+| Number + unit order | "min 30", "hr 1", "rounds 2" instead of "30 min" |
+| Ellipsis side | truncation dots on the left of the cut text |
+| Longer strings | wrapped, clipped or overflowing buttons, chips, tabs, headers |
+| Bottom nav vs drawers | nav bar overlapping a sheet or CTA (free-run sub-sheets suppress it) |
+| Sticky headers | transparent header showing content scrolling under it |
+| Source-language leftovers | Hebrew in coach notes, difficulty, muscles, weekday letters, park chips, route names, workout titles/descriptions |
+| Map labels | street/place names still `name_he` |
+| TTS | spoken language equals the text language |
+| Kelly | replies, greeting, safety replies in the new language |
+| Pushes | queued push text in the new language (needs stored flag + functions deployed) |
+
+Also check: Settings rows, plus drawer, chat list, Kelly card, session lobby, schedule builder, planner, home progress grids, onboarding cards, share-live row, stations toggle, map chips, free-run CTAs.
+
+## Root-cause lessons from the device test (#967, #968)
+
+Most "it looks RTL" bugs come from a few shared primitives. **Audit primitives FIRST, screens second.**
+- Shared primitives with a hard-coded `dir`: `<Sheet>` defaulted to `dir="rtl"` (every bottom sheet and drawer), also `HScroller`, `LineChart`, `BarChart`, `StoryBars`. Default them to `useUiDir()`; an explicit `dir` still wins. Grep `dir="rtl"` and `dir: 'rtl'` in `src/components/**` before anything else.
+- Number/unit reversal ("min 30") and leading punctuation are SYMPTOMS of an rtl container around LTR text. Fix the container. The catalog was already "30 min"; changing it is the wrong fix.
+- `ChevronLeft`/`ArrowRight` used as "forward": add `ltr:-scale-x-100` (or a JS conditional inside LTR hosts).
+- Physical classes: `text-right` -> `text-start`, `ml/mr` -> `ms/me`, `left/right` -> `start/end`. Use the wave4 codemod, then `wave4-snapshot-proof`.
+- Carousel cards inside an LTR host (`dir="ltr"` island): `ltr:` variants match ANY ancestor, so each card needs `dir={direction}` from `useUiDir()` (#932 recipe). **Known remaining work: ~390 host-reachable files still use physical classes**, mostly carousel cards (e.g. `StrengthExerciseCard` via `WorkoutStoryBars`). Needs per-card `dir={direction}` plus a device check each.
+- Chat bubbles: the corner radius (tail side) must map to the sender side in both directions.
+- Table headers vs `ltr` number cells (`LapSpeedList`): header alignment and cell direction must agree, set both from the UI direction.
+- Hebrew proof: re-record parity snapshots for class/dir tokens only, run `wave4-snapshot-proof` (independent mapping table) and `wave4-ltr-hosts`; files that the proof cannot diff (hash-only snapshots) are hand-verified.
+
+## Content lessons from the device test (#966)
+
+- Engine-generated text must be catalog-driven, never built from Hebrew literals: workout titles, coach notes (`useCoachNote` must pass the locale), difficulty chips, muscle chips, calm-return titles, weekday letters (home strip, planner, month grid), park amenity chips and CTA lines, session "tomorrow" label, search row type words.
+- Values persisted with a workout stay in the source language (`calmCopy(..., { source: true })`). Localize at display only.
+- Generated route names ("along X", "loop X") are localized at DISPLAY only; stored names and street names untouched.
+- Mapbox labels: `['coalesce', ['get', 'name_<locale>'], ['get', 'name']]`, never fixed `name_he`; relabel on language change; same for run summary and onboarding maps.
+- Readers first, per collection: `parks.description` and `workoutMetadata` title/description accept `{he, xx}`; the source string stays in the field and the pair goes in `<field>Localized`. Additive fields only.
+- Raw-reader audit BEFORE import: grep `String(x)` style readers for every field you are about to localize.
+- Server write paths must preserve the new-language value: `updatePark` flattened a `{he,en}` description when the admin saved the same Hebrew (park-write guard). Check every admin/server write that touches an imported field.
+- Import tooling must handle subcollections (workout titles/descriptions live in subcollections): extend the apply script before promising the content.
+- Rows whose tags resolve to Hebrew words stay Hebrew-only until the tag catalog exists.
+
+## Long-text layout rules (#965)
+
+- Keep button sizes. Allow a 2-line wrap, or slightly smaller text gated by `isRtl` (English only), or shorten the new-language copy. Prefer shortening.
+- Never change Hebrew pixels: gate every size/wrap tweak on the locale or direction, prove with parity snapshots.
+- Typical offenders: plus drawer, share-live row, stations toggle, map chips, free-run CTAs, shimmer button, tab bar labels, weekly consistency card spacing.
+- Free-run sub-sheets suppress the bottom nav. A sticky header must be opaque (fixed for Hebrew too).
 
 ## Lessons learned (one line each: problem, fix)
 
