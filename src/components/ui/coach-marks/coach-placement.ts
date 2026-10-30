@@ -26,22 +26,44 @@ export const COACH_FINGER_GAP = 54;
 /** The caret stays clear of the bubble's rounded corners. */
 export const COACH_CARET_INSET = 26;
 
+/**
+ * Room the bubble needs (title + two lines + the button row) and the screen edges it must
+ * stay inside (status bar / bottom bar). Pilot note AD4a (29.10): the "השבוע שלך" bubble was
+ * pushed above a tall target and ran off the top, covering and clipping the schedule row.
+ */
+export const COACH_BUBBLE_EST_H = 160;
+export const COACH_EDGE_TOP = 56;
+export const COACH_EDGE_BOTTOM = 24;
+
 export function placeCoachBubble(input: {
   box: CoachBox | null;
   rootW: number;
   rootH: number;
   finger?: boolean | 'swipe';
+  /** The bubble's height when known; else COACH_BUBBLE_EST_H. */
+  bubbleH?: number;
 }): CoachPlacement {
   const { box, rootW, rootH } = input;
   if (!box) return { side: 'center', top: Math.round(rootH * 0.4), caretX: null };
-  const below = box.top + box.height / 2 < rootH / 2;
+  const bubbleH = input.bubbleH ?? COACH_BUBBLE_EST_H;
   const bubbleW = Math.max(0, rootW - 2 * COACH_GUTTER);
   const targetX = box.left + box.width / 2 - COACH_GUTTER;
   const caretX = Math.min(Math.max(targetX, COACH_CARET_INSET), Math.max(COACH_CARET_INSET, bubbleW - COACH_CARET_INSET));
+  const gapBelow = input.finger === true ? COACH_FINGER_GAP : COACH_GAP;
+  const roomBelow = rootH - COACH_EDGE_BOTTOM - (box.top + box.height + gapBelow);
+  const roomAbove = box.top - COACH_GAP - COACH_EDGE_TOP;
+  const preferBelow = box.top + box.height / 2 < rootH / 2;
+  // The preferred half wins unless the bubble doesn't fit there and the other half has more room.
+  const below = preferBelow
+    ? roomBelow >= bubbleH || roomBelow >= roomAbove
+    : !(roomAbove >= bubbleH || roomAbove >= roomBelow);
+  // Never past a screen edge: a target too tall for either half gets the bubble over its edge.
   if (below) {
-    return { side: 'below', top: box.top + box.height + (input.finger === true ? COACH_FINGER_GAP : COACH_GAP), caretX };
+    const top = Math.min(box.top + box.height + gapBelow, rootH - COACH_EDGE_BOTTOM - bubbleH);
+    return { side: 'below', top: Math.max(COACH_EDGE_TOP, top), caretX };
   }
-  return { side: 'above', bottom: rootH - box.top + COACH_GAP, caretX };
+  const bottom = Math.min(rootH - box.top + COACH_GAP, rootH - COACH_EDGE_TOP - bubbleH);
+  return { side: 'above', bottom: Math.max(COACH_EDGE_BOTTOM, bottom), caretX };
 }
 
 /** Minimum time a step stays before "הבא" accepts a tap (stops a double tap skipping a step). */

@@ -71,6 +71,13 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
     const liveActivity = usePartnerFilters((s) => s.liveActivity);
     const distanceKm = usePartnerFilters((s) => s.distanceKm);
     const dragControls = useDragControls();
+    // AD4b: tell the map the layers / filter sheets are up, so the floating
+    // "בא לך לזוז?" entry steps aside instead of covering the list.
+    const setLayersSheetOpen = useMapStore((s) => s.setLayersSheetOpen);
+    useEffect(() => {
+        setLayersSheetOpen(isOpen || filterSheetOpen);
+    }, [isOpen, filterSheetOpen, setLayersSheetOpen]);
+    useEffect(() => () => setLayersSheetOpen(false), [setLayersSheetOpen]);
     const t = useT(map);
     const polish = useMapPolishV1();
     const layerOptions = layerOptionsFor(polish);

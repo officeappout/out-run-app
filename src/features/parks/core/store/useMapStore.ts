@@ -488,6 +488,9 @@ interface MapStore {
    */
   isMapVisuallyReady: boolean;
   setMapVisuallyReady: (v: boolean) => void;
+  /** The layers / filter sheet (MapLayersControl) is open: floating map CTAs step aside (AD4b). */
+  isLayersSheetOpen: boolean;
+  setLayersSheetOpen: (v: boolean) => void;
 
   /** See `MapPressureLevel` doc comment above. Written by `useMapPerfMonitor`. */
   pressureLevel: MapPressureLevel;
@@ -652,6 +655,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setViewportSearchActive: (v) => set({ viewportSearchActive: v }),
   isMapVisuallyReady: false,
   setMapVisuallyReady: (v) => set({ isMapVisuallyReady: v }),
+  isLayersSheetOpen: false,
+  setLayersSheetOpen: (v) => set({ isLayersSheetOpen: v }),
 
   pressureLevel: 'normal',
   setPressureLevel: (level) => set({ pressureLevel: level }),

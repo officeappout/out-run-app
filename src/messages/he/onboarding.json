@@ -141,6 +141,8 @@
   "location.entry.confirm.dragLine": "לא בדיוק? גוררים את המפה עד שהלמור על הבית",
   "location.entry.confirm.cta": "כן, זה הבית שלי",
   "location.entry.confirm.notHome": "אני לא בבית עכשיו, אחפש את האזור שלי",
+  "location.entry.drawer.collapse": "כיווץ המגירה",
+  "location.entry.drawer.expand": "הרחבת המגירה",
   "location.entry.search.placeholder": "חפשו עיר או שכונה",
   "location.entry.search.cancel": "ביטול",
   "location.entry.search.clear": "נקה חיפוש",
