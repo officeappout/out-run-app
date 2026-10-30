@@ -18,7 +18,7 @@ const STRENGTH_TITLE_HE = 'אימון כוח'; // i18n-allow-hebrew: data (gener
 export function engineTitleLexicon(tr: TitleKeyLookup): EngineTitleLexicon {
   const he = ENGINE_TITLE_LEXICON_HE;
   // Brand English titles ("Gym Blast 🔥") have no Hebrew letters: they are shown as they are, no catalog key.
-  const hasHebrew = (v: string) => /[֐-׿]/.test(v);
+  const hasHebrew = (v: string) => /[\u0590-\u05ff]/.test(v);
   const mapKeys = (group: string, rec: Record<string, string>): Record<string, string> =>
     Object.fromEntries(Object.entries(rec).map(([k, v]) => [k, v && hasHebrew(v) ? tr(`workoutTitle.${group}.${k}`) : v]));
   return {
@@ -85,7 +85,7 @@ export function displayWorkoutTitle(
 export const ENGINE_TITLE_CATALOG_KEYS: readonly string[] = (() => {
   const he = ENGINE_TITLE_LEXICON_HE;
   const keys: string[] = ['workoutTitle.forPersona', 'workoutTitle.strength'];
-  for (const [mode, rec] of Object.entries(he.templates)) for (const [k, v] of Object.entries(rec)) if (/[֐-׿]/.test(v)) keys.push(`workoutTitle.${mode}.${k}`);
+  for (const [mode, rec] of Object.entries(he.templates)) for (const [k, v] of Object.entries(rec)) if (/[\u0590-\u05ff]/.test(v)) keys.push(`workoutTitle.${mode}.${k}`);
   for (const [k, v] of Object.entries(he.prefixes)) if (v) keys.push(`workoutTitle.prefix.${k}`);
   for (const [k, v] of Object.entries(he.personas)) if (v) keys.push(`workoutTitle.persona.${k}`);
   for (const [k, v] of Object.entries(he.locations)) if (v) keys.push(`workoutTitle.location.${k}`);
