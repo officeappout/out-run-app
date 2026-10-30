@@ -6,7 +6,7 @@ import { Exercise as FirestoreExercise, LoggingMode, findMethodForLocation } fro
 import WorkoutStickyNav from './WorkoutStickyNav';
 import { ArrowUp, Pause, Play, Square, Layers, Crosshair, Volume2, Check, Dumbbell, User } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 interface LiveWorkoutOverlayProps {
     plan: WorkoutPlan;
@@ -65,7 +65,7 @@ export default function LiveWorkoutOverlay({
     onComplete,
 }: LiveWorkoutOverlayProps) {
     const { getLocalized, language } = useTranslation();
-    const { direction } = useLanguage();
+    const { direction } = useUiDir();
     const [repsInput, setRepsInput] = useState<string>('');
 
     // Get current segment and exercise

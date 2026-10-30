@@ -132,11 +132,12 @@ export default function LocaleSync() {
   // <html lang dir> — the old LanguageProvider effect, unchanged while i18n is off / Hebrew.
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const { lang, dir } = decideHtmlLangDir({ i18nEnabled, locale, legacyLanguage, legacyDirection });
+    const legacyToggleScreen = !!pathname?.startsWith('/challenge');
+    const { lang, dir } = decideHtmlLangDir({ i18nEnabled, locale, legacyLanguage, legacyDirection, legacyToggleScreen });
     const html = document.documentElement;
     html.setAttribute('dir', dir);
     html.setAttribute('lang', lang);
-  }, [i18nEnabled, locale, legacyLanguage, legacyDirection]);
+  }, [i18nEnabled, locale, legacyLanguage, legacyDirection, pathname]);
 
   return null;
 }

@@ -119,8 +119,15 @@ export function decideHtmlLangDir(input: {
   locale: Locale;
   legacyLanguage: LegacyStoreLanguage;
   legacyDirection: 'rtl' | 'ltr';
+  /**
+   * The legacy he/en store may drive <html> only on the screens that still own that toggle (the challenge
+   * pages). Everywhere else a Hebrew locale is ALWAYS he/rtl: the legacy store is persisted in localStorage,
+   * so a stale 'en'/'ltr' left by English testing or a challenge visit must never flip a Hebrew user.
+   */
+  legacyToggleScreen?: boolean;
 }): { lang: string; dir: 'rtl' | 'ltr' } {
   if (!input.i18nEnabled || input.locale === SOURCE_LOCALE) {
+    if (input.locale === SOURCE_LOCALE && !input.legacyToggleScreen) return { lang: 'he', dir: 'rtl' };
     return { lang: input.legacyLanguage, dir: input.legacyDirection };
   }
   return { lang: input.locale, dir: dirOf(input.locale) };
