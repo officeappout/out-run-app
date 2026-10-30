@@ -205,7 +205,7 @@ Report: PR list, counts per namespace, open (!) questions, owner steps in order 
 Source: owner's first on-device English test (30.10), PRs #965 #966 #967 #968. Everything below was found on the device, not in unit tests.
 
 ### Tester setup (flags)
-- Flags with `superAdminValue: false` (`enable_content_locale`, `hide_he_only_onboarding_steps`, `push_locale_v1`-style gates) do NOT turn on for super admins. The tester must have them ON in the stored value (or a test account), otherwise content stays Hebrew and he-only steps show.
+- Flags with `superAdminValue: false` (`enable_content_locale`, `hide_he_only_onboarding_steps`) do NOT turn on for super admins. The tester must have them ON in the stored value (or a test account), otherwise content stays Hebrew and he-only steps show.
 - Server-side flags (Kelly `ai_coach_locale_v1`, push `push_locale_v1`) read only the stored value, never the super-admin override. A super admin tester sees Hebrew Kelly and pushes until the stored value is on.
 - Safe global turn-on order: `enable_i18n` and `enable_locale_<xx>` gate everything, so turn the supporting flags on first and these two LAST (order in "Flag turn-on order"). Never the picker before content, he-only hiding and server text are live.
 
