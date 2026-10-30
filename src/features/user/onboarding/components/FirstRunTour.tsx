@@ -42,11 +42,13 @@ interface Props {
   delayMs?: number;
   /** enable_schedule_tutorial_v1 ('home' only): start from today's cards. Absent = the steps as before. */
   homeToday?: HomeTourToday | null;
+  /** enable_home_after_v1: today's workout is done; the home tour's first step points at the after-workout carousel. */
+  afterWorkout?: boolean;
 }
 
 const targetPresent = coachTargetVisible;
 
-export default function FirstRunTour({ tour, active, uid, gender, onClose, delayMs = 600, homeToday }: Props) {
+export default function FirstRunTour({ tour, active, uid, gender, onClose, delayMs = 600, homeToday, afterWorkout = false }: Props) {
   const [steps, setSteps] = useState<CoachMarkStep[] | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -83,7 +85,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
       }
       timer = setTimeout(() => {
         if (!alive || !activeRef.current) return; // the screen got busy — wait for the next calm
-        const shown = presentSteps(firstRunTourSteps(tour, gender, { homeToday: homeTodayRef.current, mapTutorialV1, parkLiveV2 }), targetPresent);
+        const shown = presentSteps(firstRunTourSteps(tour, gender, { homeToday: homeTodayRef.current, mapTutorialV1, parkLiveV2, afterWorkout }), targetPresent);
         if (shown.length === 0) {
           closedRef.current = true;
           onCloseRef.current?.('empty');
@@ -93,7 +95,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
       }, delayMs);
     });
     return () => { alive = false; if (timer) clearTimeout(timer); };
-  }, [active, steps, tour, uid, gender, delayMs, isNew, mapTutorialV1, parkLiveV2]);
+  }, [active, steps, tour, uid, gender, delayMs, isNew, mapTutorialV1, parkLiveV2, afterWorkout]);
 
   if (!steps || typeof document === 'undefined') return null;
 

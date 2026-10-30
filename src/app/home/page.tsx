@@ -3551,7 +3551,11 @@ export default function HomePage() {
           // no-op (this div's only child, nothing left to reorder against) — harmless to
           // leave; removing it isn't needed for correctness and isn't part of this fix.
           const anchorBlock = (
-            <div className="flex flex-col gap-4 mt-0" data-coach={FIRST_RUN_COACH.homeWorkout}>
+            // enable_home_after_v1 (pilot AG7): the tour's "today's workout" target is the workout content itself, not
+            // this wrapper, which also holds the quiet cards above the workout (push re-ask "turn on workout
+            // reminders", calm return, streak, first week); the spotlight used to land on those. After the
+            // workout the target is the after-workout carousel. Off = as before.
+            <div className="flex flex-col gap-4 mt-0" data-coach={homeAfterOn ? undefined : FIRST_RUN_COACH.homeWorkout}>
               {/* ── Daily Workout Hero — always visible ───────────────
                   R-1.5 (order B, workout-first): with HOME_ANCHOR_V2_ENABLED the
                   anchor is pulled ABOVE the tabs/metrics via flex `order-first`,
@@ -4006,9 +4010,10 @@ export default function HomePage() {
                 const pushReAskCard = isViewingToday && !calmCard
                   ? <PushReAskHomeCard className="px-4 mb-3" />
                   : null;
+                const tourContent = homeAfterOn && !homeAfter ? <div data-coach={FIRST_RUN_COACH.homeWorkout}>{content}</div> : content;
                 const contentWithCalm = calmCard || firstWeekCard || pushReAskCard || programStandalone
-                  ? <>{calmCard}{firstWeekCard}{pushReAskCard}{programStandalone}{content}</>
-                  : content;
+                  ? <>{calmCard}{firstWeekCard}{pushReAskCard}{programStandalone}{tourContent}</>
+                  : tourContent;
                 return HOME_ANCHOR_V2_ENABLED
                   ? (
                     <motion.div
@@ -4113,6 +4118,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 data-home-after
+                data-coach={FIRST_RUN_COACH.homeWorkout}
               >
                 <h3 className="text-start text-[16px] font-bold text-gray-900 mb-3">
                   {nextRec ? nextHeaderHe(nextRec, tHome) : allGoalsMet ? tHome('nextHeader.rest.done') : tHome('nextHeader.continue')}
@@ -4307,6 +4313,7 @@ export default function HomePage() {
         uid={profile?.id}
         gender={profile?.core?.gender}
         homeToday={homeTodaySectionPresent ? homeToday.tour : null}
+        afterWorkout={homeAfter}
         onClose={() => { setHomeTourRequested(false); setHomeTourClosed(true); homeToday.consumeArm(); }}
       />
 
