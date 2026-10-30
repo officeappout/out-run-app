@@ -11,6 +11,7 @@
 import { Exercise, MechanicalType, getLocalizedText, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
 import type { ScoredExercise } from './contextual-engine.types';
 import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constants';
+import { COOLDOWN_FULL_LENGTH_TAG } from './session-frame.utils';
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { aboveLevelRepRange, isTrueSkillExercise, repCeilingFor, trueSkillHoldCap } from './adaptive/true-skill';
@@ -1249,7 +1250,8 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
     if (role === 'cooldown') {
       cooldownExercises.push(ex);
       // Work seconds — flat 90 s per cooldown slot (follow-along / mobility)
-      const exWorkSec  = 90;
+      // Lean frame (≤30 min): the one cool-down video counts its real length (session-frame.utils).
+      const exWorkSec  = ex.reasoning?.includes(COOLDOWN_FULL_LENGTH_TAG) && ex.isTimeBased ? ex.reps : 90;
       const exRestSec  = ex.sets * ex.restSeconds;
       cooldownWorkSec += exWorkSec;
       cooldownRestSec += exRestSec;

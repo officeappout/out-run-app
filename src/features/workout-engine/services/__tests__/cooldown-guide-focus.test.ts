@@ -7,6 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: { currentUser: null }, app: {} }));
 
 import { pickCooldownGuides } from '../cooldown-guide.utils';
+import { COOLDOWN_FULL_LENGTH_TAG } from '../../logic/session-frame.utils';
 import { appendCooldownExercises } from '../cooldown.service';
 import { applyDomainPrioritySort } from '../../logic/workout-sorting.utils';
 import { planLocationSwap } from '@/features/workouts/components/workout-preview-drawer/location-gate/plan-location-swap';
@@ -41,14 +42,20 @@ describe('pickCooldownGuides — by body focus', () => {
 });
 
 describe('appendCooldownExercises — focus videos', () => {
-  const run = (loc: string, ...mains: any[]) => {
+  const runFor = (minutes: number, loc: string, ...mains: any[]) => {
     const w = { exercises: mains } as unknown as GeneratedWorkout;
-    appendCooldownExercises(w, pool, { availableEquipment: [] } as any, loc as any, 15);
+    appendCooldownExercises(w, pool, { availableEquipment: [] } as any, loc as any, minutes);
     return applyDomainPrioritySort(w.exercises).filter((e) => e.exerciseRole === 'cooldown');
   };
+  const run = (loc: string, ...mains: any[]) => runFor(45, loc, ...mains);
   it('full body at the park → both videos, upper first, each lasting its clip; mains kept', () => {
     const cool = run('park', mainWE('m1', 'squat'), mainWE('m2', 'vertical_pull'));
     expect(cool.map((e) => [e.exercise.id, e.reps])).toEqual([[upper.id, 333], [lower.id, 260]]);
+  });
+  it('≤30 min (lean frame, owner 30.10.2026): full body gets ONE video, counted at its real length', () => {
+    const cool = runFor(30, 'park', mainWE('m1', 'squat'), mainWE('m2', 'vertical_pull'));
+    expect(cool.map((e) => [e.exercise.id, e.reps])).toEqual([[upper.id, 333]]);
+    expect(cool[0].reasoning).toContain(COOLDOWN_FULL_LENGTH_TAG);
   });
   it('home workout now gets the follow-along video (real home method)', () => {
     const cool = run('home', mainWE('m1', 'hinge'));

@@ -79,3 +79,16 @@ export function shortSessionRestFloor(availableTimeMin: number | undefined): num
   if (availableTimeMin <= 30) return 60;
   return 75;
 }
+
+/**
+ * Lean frame for sessions of 30 min or less (owner 30.10.2026): one warm-up guide video + one
+ * activation, and one cool-down video counted at its real length — so the main part gets the time.
+ */
+export const LEAN_FRAME_MAX_MIN = 30;
+export const LEAN_WARMUP_SLOTS = 2;
+/** Reasoning tag on a cool-down video the duration estimate counts at its real length. */
+export const COOLDOWN_FULL_LENGTH_TAG = 'cooldown: follow-along video (full length counted)';
+
+export function isLeanFrame(availableTimeMin: number | undefined): boolean {
+  return availableTimeMin != null && availableTimeMin > 0 && availableTimeMin <= LEAN_FRAME_MAX_MIN;
+}
