@@ -74,9 +74,9 @@ describe('raw readers never see an object', () => {
     expect(foldRowText({ he: 'ישן', en: '' }, 'חדש')).toBe('חדש');
   });
 
-  it('mergeHebrewEdit: same Hebrew = nothing, edited Hebrew keeps en, plain stored = as sent', () => {
+  it('mergeHebrewEdit: same Hebrew = nothing, edited Hebrew drops the stale en, plain stored = as sent', () => {
     expect(mergeHebrewEdit({ he: 'א', en: 'a' }, 'א')).toBeUndefined();
-    expect(mergeHebrewEdit({ he: 'א', en: 'a' }, 'ב')).toEqual({ he: 'ב', en: 'a' });
+    expect(mergeHebrewEdit({ he: 'א', en: 'a' }, 'ב')).toBe('ב');
     expect(mergeHebrewEdit('א', 'ב')).toBe('ב');
     expect(mergeHebrewEdit(undefined, 'ב')).toBe('ב');
   });

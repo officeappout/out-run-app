@@ -405,11 +405,11 @@ describe('computeParkUpdate: a stored { he, en } description survives a Hebrew-o
     expect('description' in db.updates[0].data).toBe(false);
   });
 
-  it('Hebrew edited: { he: new, en: kept }', async () => {
+  it('Hebrew edited: the stale English is dropped, plain Hebrew stored', async () => {
     const db = makeFakeDb({ authorities, parks: [park({ he: 'גינה יפה', en: 'A lovely park' })] });
     const result = await computeParkUpdate(db, caller, 'park-1', { description: 'גינה יפה מאוד' }, CTX);
     expect(result.status).toBe(200);
-    expect(db.updates[0].data.description).toEqual({ he: 'גינה יפה מאוד', en: 'A lovely park' });
+    expect(db.updates[0].data.description).toBe('גינה יפה מאוד');
   });
 
   it('only the unchanged description sent: a no-op 200, nothing written', async () => {

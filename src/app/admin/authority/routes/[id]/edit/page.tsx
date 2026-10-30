@@ -36,6 +36,8 @@ import {
   GitMerge,
 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { routeDescriptionText } from '@/features/parks/core/utils/route-description';
+import { mergeHebrewEdit } from '@/features/content/shared/stored-text-fields';
 
 // ── Dynamic map imports (SSR-safe) ─────────────────────────────────────────
 const MapComponent = dynamicImport(
@@ -169,7 +171,7 @@ export default function EditRoutePage() {
 
         setRoute(data);
         setName(data.name || '');
-        setDescription(data.description || '');
+        setDescription(routeDescriptionText(data.description));
         setActivityType(data.activityType || data.type || 'running');
         setDifficulty(normalizeDifficulty(data.difficulty));
 
@@ -258,9 +260,11 @@ export default function EditRoutePage() {
     try {
       const images: string[] = imageUrl.trim() ? [imageUrl.trim()] : [];
 
+      // A { he, en } description keeps its English only while the Hebrew is unchanged.
+      const nextDescription = mergeHebrewEdit(route?.description, description.trim());
       await InventoryService.updateRoute(routeId, {
         name:         name.trim(),
-        description:  description.trim(),
+        ...(nextDescription === undefined ? {} : { description: nextDescription as string }),
         activityType: activityType as any,
         difficulty,
         images,
