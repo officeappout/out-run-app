@@ -42,7 +42,7 @@ export {
   DEFAULT_SHEET_SAFE_AREA,
   SPRING_HERO_SNAP,
 } from './Sheet';
-export type { SheetProps, SheetDragOptions } from './Sheet';
+export type { SheetProps, SheetDragOptions, SheetFrameMotion } from './Sheet';
 export { default as ConfirmSheet, CONFIRM_ACTION_CLASS } from './ConfirmSheet';
 export { default as SoftAskCard } from './SoftAskCard';
 export type { SoftAskCardProps } from './SoftAskCard';

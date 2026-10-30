@@ -237,5 +237,17 @@
   "homeToday.done": "בוצע · {min}",
   "homeToday.doneNoMin": "בוצע",
   "homeToday.optionalRole": "רשות · להבה גדולה יותר",
-  "homeToday.hint": "{kind, select, workout {סוגרים אימון וצעדים: להבה גדולה.} other {סוגרים צעדים: להבה גדולה. האימון הקצר הוא רשות.}}"
+  "homeToday.hint": "{kind, select, workout {סוגרים אימון וצעדים: להבה גדולה.} other {סוגרים צעדים: להבה גדולה. האימון הקצר הוא רשות.}}",
+  "featureInfo.week.open": "הסבר על שינוי הלו״ז",
+  "featureInfo.week.topic": "סידור השבוע",
+  "featureInfo.week.kellyContext": "שאלה על {topic}: {q}",
+  "featureInfo.week.fromWeek": "מהשבוע שלך",
+  "featureInfo.week.title": "מסדרים את השבוע",
+  "featureInfo.week.lead": "לוחצים ״{edit}״ ואז ״{arrange}״. גוררים אימון מהידית ליום אחר, או לוחצים על התאריך ובוחרים יום.",
+  "featureInfo.week.step1": "בבית לוחצים ״{edit}״, ואז ״{arrange}״.",
+  "featureInfo.week.step2": "גוררים את האימון מהידית ליום אחר, או לוחצים על התאריך ובוחרים יום.",
+  "featureInfo.week.step3": "״{confirm}״, ובוחרים: {onlyWeek}, או {forward}.",
+  "featureInfo.week.session": "האימון של יום {day}׳",
+  "featureInfo.week.chip1": "למה אי אפשר להזיז ליום הזה?",
+  "featureInfo.week.chip2": "סדר לי במילים"
 }

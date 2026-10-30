@@ -188,5 +188,7 @@
   "language.switch.aria": "Change language",
   "language.switch.menu": "Language",
   "units.sec": "{n} sec",
-  "units.label.sec": "sec"
+  "units.label.sec": "sec",
+  "infoSheet.askKelly": "Got a question? Kelly answers",
+  "infoSheet.kellyAvatar": "K"
 }
