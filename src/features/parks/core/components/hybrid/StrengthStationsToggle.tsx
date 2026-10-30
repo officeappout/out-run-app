@@ -6,6 +6,7 @@
  * Presentational only — no engine coupling.
  */
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { Dumbbell } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
@@ -25,6 +26,7 @@ export default function StrengthStationsToggle({
   v2 = false,
 }: StrengthStationsToggleProps) {
   const t = useT(map);
+  const { isRtl } = useUiDir();
   if (v2) {
     return (
       <div className="px-5 mb-3">
@@ -40,7 +42,7 @@ export default function StrengthStationsToggle({
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-v2-tint text-v2-deep">
               <Dumbbell size={18} strokeWidth={2.4} />
             </span>
-            <span className="truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{t('hybrid.stationsToggle.label')}</span>
+            <span className={isRtl ? 'truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink' : 'line-clamp-2 text-[15px] font-extrabold leading-tight text-v2-ink'}>{t('hybrid.stationsToggle.label')}</span>
           </span>
           <span className="relative inline-flex shrink-0" style={{ width: 42, height: 24 }}>
             <span className={`absolute inset-0 rounded-full transition-colors ${enabled ? 'bg-v2-accent' : 'bg-v2-pill-border'}`} />

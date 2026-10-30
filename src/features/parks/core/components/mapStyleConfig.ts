@@ -88,6 +88,44 @@ function shouldHideByPattern(id: string): boolean {
 // the "(skipped, already done)" behaviour the proof-of-life log already claims
 // but never actually implemented. Cleared per-map by resetFitnessMapStyle() on
 // a genuine style (re)load (see AppMap's 'style.load' handler).
+/**
+ * AD5 (29.10): the base layers the declutter hides, as a pure list. Same rules as
+ * applyFitnessMapStyle's visibility passes (the kill-list, the label sweep and the
+ * pattern pass); our own layers are never included.
+ */
+export function earlyHiddenLayerIds(layerIds: readonly string[]): string[] {
+  return layerIds.filter((id) => {
+    if (isOurLayer(id)) return false;
+    if (HIDE_EXACT.has(id) || shouldHideByPattern(id)) return true;
+    return id.includes('label') && !NUCLEAR_LABEL_KEEP_TOKENS.some((t) => id.includes(t));
+  });
+}
+
+/**
+ * AD5: hide the shops / restaurants / transit labels the moment the style JSON is
+ * parsed (map 'styledata'), before the first tiles paint. The full
+ * applyFitnessMapStyle still runs later (paint, filters); this only removes the
+ * one-second POI flash. Returns true once it ran (the caller stops calling it).
+ */
+export function hidePoiLayersEarly(map: mapboxgl.Map): boolean {
+  let layerIds: string[];
+  try {
+    const layers = map.getStyle()?.layers;
+    if (!layers?.length) return false;
+    layerIds = layers.map((l) => l.id);
+  } catch {
+    return false; // style JSON not parsed yet
+  }
+  for (const id of earlyHiddenLayerIds(layerIds)) {
+    try {
+      map.setLayoutProperty(id, 'visibility', 'none');
+    } catch {
+      /* the full pass retries */
+    }
+  }
+  return true;
+}
+
 const _decluttered = new WeakSet<mapboxgl.Map>();
 
 /**

@@ -28,6 +28,8 @@ import confetti from 'canvas-confetti';
 import { useCachedMediaMap } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { pyramidLabel } from '@/features/workout-engine/logic/protocols/pyramid.processor';
+import PlayerMethodInfo from '../../../../components/method-info/PlayerMethodInfo';
+import { useMethodInfoSheetV1 } from '../../../../components/method-info/useMethodInfoSheetV1';
 import StrengthSetRow, { TapVerdict } from './StrengthSetRow';
 import RestProgressBar from './RestProgressBar';
 import { buildPills, findFirstIncompleteSet } from '../utils/set-status.utils';
@@ -93,6 +95,13 @@ export default function StrengthExerciseCard({
 }: StrengthExerciseCardProps) {
   const { direction } = useUiDir();
   const t = useT(player);
+  // enable_method_info_sheet_v1: a solo main card has no block header, so the "i" that explains
+  // straight sets / the pyramid sits next to its own header. Inside a superset frame the frame owns it.
+  // A rep-only pyramid (repsSequence, no steps) has no sheet yet, so no "i".
+  const methodInfoOn = useMethodInfoSheetV1();
+  const isPyramidEntry = (entry.pyramidSequence?.length ?? 0) > 0;
+  const methodEntries = useMemo(() => [entry], [entry]);
+  const showMethodInfo = methodInfoOn && !useSuperFrame && (isPyramidEntry || !(entry.repsSequence?.length));
   const isCompleted = entry.status === 'completed';
   const isActive = entry.status === 'active';
 
@@ -230,33 +239,8 @@ export default function StrengthExerciseCard({
             : 'border border-[#E0E9FF] dark:border-slate-700 bg-white dark:bg-slate-900 opacity-70',
       ].join(' ');
 
-  return (
-    <div className={chromeClass}>
-      {/* ── Completed checkmark badge (skipped inside superset frame) ── */}
-      {!useSuperFrame && (
-        <AnimatePresence>
-          {isCompleted && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 20, mass: 0.8 }}
-              className="absolute -top-3 -right-3 z-20 w-7 h-7 rounded-full flex items-center justify-center drop-shadow-md"
-              style={{ backgroundColor: '#00BAF7' }}
-            >
-              <Check size={16} className="text-white" strokeWidth={3} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      )}
-
-      {/* ── Slim header (always visible) — name + progress + chevron ── */}
-      <button
-        type="button"
-        onClick={toggleExpanded}
-        className="w-full flex items-center justify-between gap-2 px-3 pt-2.5 pb-1.5"
-        dir={direction}
-      >
+  const headerInner = (
+    <>
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {isCompleted && (
             <Check
@@ -291,7 +275,57 @@ export default function StrengthExerciseCard({
             <ChevronUp size={16} className="text-slate-400" />
           </motion.div>
         </div>
-      </button>
+    </>
+  );
+
+  return (
+    <div className={chromeClass}>
+      {/* ── Completed checkmark badge (skipped inside superset frame) ── */}
+      {!useSuperFrame && (
+        <AnimatePresence>
+          {isCompleted && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20, mass: 0.8 }}
+              className="absolute -top-3 -right-3 z-20 w-7 h-7 rounded-full flex items-center justify-center drop-shadow-md"
+              style={{ backgroundColor: '#00BAF7' }}
+            >
+              <Check size={16} className="text-white" strokeWidth={3} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
+
+      {/* ── Slim header (always visible) — name + progress + chevron ── */}
+      {showMethodInfo ? (
+        // The "i" can't live inside the toggle button, so it sits beside it.
+        <div className="flex items-center pe-3" dir={direction}>
+          <button
+            type="button"
+            onClick={toggleExpanded}
+            className="min-w-0 flex-1 flex items-center justify-between gap-2 ps-3 pe-2 pt-2.5 pb-1.5"
+            dir={direction}
+          >
+            {headerInner}
+          </button>
+          <PlayerMethodInfo
+            kind={isPyramidEntry ? 'pyramid' : 'straight'}
+            label={pyramidTitle ?? entry.exerciseName}
+            entries={methodEntries}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          className="w-full flex items-center justify-between gap-2 px-3 pt-2.5 pb-1.5"
+          dir={direction}
+        >
+          {headerInner}
+        </button>
+      )}
 
       {/* ── Accordion body — only mounted/visible when expanded ───── */}
       <AnimatePresence initial={false}>
