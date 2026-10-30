@@ -70,6 +70,7 @@ import {
   type StrengthSummarySnapshot,
 } from './history/summary-snapshot';
 import { useSummaryKellySlots } from './insights/SummaryKellyInsight';
+import type { AdaptiveChange } from '@/features/workout-engine/logic/adaptive/adaptive-change';
 
 // ============================================================================
 // PROPS
@@ -201,6 +202,8 @@ export interface StrengthSummaryPageProps {
   workoutSegments?: PlanSegment[];
   /** exerciseId → last session's per-set values (Progression Memory), for "improved vs last time". */
   previousSets?: Record<string, number[]>;
+  /** 3a: what the double progression changed this session (live flow; the "מה משתנה בפעם הבאה" card). */
+  adaptiveChanges?: AdaptiveChange[];
 }
 
 // ============================================================================
@@ -230,6 +233,7 @@ export default function StrengthSummaryPage({
   domainSets,
   workoutSegments,
   previousSets,
+  adaptiveChanges,
   isReadOnly = false,
   savedTimedBlocks,
   savedXpEarned = 0,
@@ -416,6 +420,7 @@ export default function StrengthSummaryPage({
       phases: v2Phases,
       ...(timedResults.length > 0 ? { timedResults } : {}),
       ...(kellySlots ? { kelly: kellySlots } : {}),
+      ...(!isReadOnly && adaptiveChanges && adaptiveChanges.length > 0 ? { adaptiveChanges } : {}),
       totals: sessionTotals(v2Phases),
       streakWeek: isReadOnly ? savedStreakView?.streakWeek ?? null : streakWeek,
       week: isReadOnly ? savedStreakView?.week ?? null : buildWeekCard(liveWeek),

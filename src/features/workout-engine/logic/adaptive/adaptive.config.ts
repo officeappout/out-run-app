@@ -44,6 +44,15 @@ export const DP_STEPBACK_HOLD_S = 5;
 export const DP_MISS_SETS_BELOW_MIN = 2;
 /** Progression state older than this is ignored (re-learned from the history floor). */
 export const DP_STATE_STALE_DAYS = 21;
+/**
+ * Big overshoot (owner 30.10.2026): every set at the range top or above, typed or timed (not a
+ * 'default' save), and the average ≥ top + this → the target jumps straight to the top.
+ */
+export const DP_JUMP_OVER_TOP_REPS = 2;
+export const DP_JUMP_OVER_TOP_HOLD_S = 10;
+/** Average ≥ top + this → the harder variation already next session (no top streak needed). */
+export const DP_VARIATION_JUMP_REPS = 4;
+export const DP_VARIATION_JUMP_HOLD_S = 20;
 /** Selection score bonus for the next / previous variation the progression asks for. */
 export const DP_VARIATION_SCORE_BONUS = 25;
 
