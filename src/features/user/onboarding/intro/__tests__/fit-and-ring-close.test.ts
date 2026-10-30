@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { CANVAS_CONTENT_H, CANVAS_FIT_W, CANVAS_MAX_SCALE, fitCanvasScale } from '../canvas-fit';
 import {
-  RING_CLOSE_BEATS as B, RING_CLOSE_GUTTER, RING_CLOSE_SPAN, SLOT_WAIT_S, ringClosePlan, ringCloseScale,
+  RING_CLOSE_BEATS as B, RING_CLOSE_GUTTER, RING_CLOSE_SPAN, SLOT_WAIT_S, popDelay, ringClosePlan, ringCloseScale,
 } from '../ring-close-timeline';
 
 /** Box above the CTA bar: viewport − safe-area top − bar (clamp(104, 17dvh, 150) + safe bottom). */
@@ -32,19 +32,31 @@ describe('intro canvas fits every phone (owner note 21.10 #1 — never scroll)',
 });
 
 describe('ring-close timeline (owner note 21.10 #4)', () => {
-  it('slot already there → the mockup clock: rise at 3.1 s, veil lifts as the logo lands', () => {
-    const p = ringClosePlan(B.riseAt);
+  it('slot already there: rises the instant the logo is formed, veil lifts mid-flight', () => {
+    const p = ringClosePlan(0.2);
     expect(p.riseStart).toBe(B.riseAt);
     expect(p.landAt).toBeCloseTo(B.riseAt + B.riseS);
+    expect(p.veilStart).toBeGreaterThan(p.riseStart);
     expect(p.veilStart).toBeLessThan(p.landAt);
-    expect(p.veilEnd).toBeGreaterThan(p.landAt);
-    expect(p.doneAt).toBe(p.veilEnd);
+    expect(p.doneAt).toBe(Math.max(p.landAt, p.veilEnd));
   });
-  it('slot appears late → the logo waits for it; the veil never lifts before the landing', () => {
+  it('slot appears late: the logo rises the moment it does, the veil never before it', () => {
     const p = ringClosePlan(B.riseAt + 1.2);
     expect(p.riseStart).toBeCloseTo(B.riseAt + 1.2);
-    expect(p.veilEnd).toBeGreaterThan(p.landAt);
     expect(p.veilStart).toBeGreaterThan(B.riseAt + 1.2);
+  });
+  it('slot never found: the veil waits for the landing', () => {
+    const p = ringClosePlan(null);
+    expect(p.veilStart).toBeCloseTo(p.landAt - B.veilLeadS);
+  });
+  it('AF2: one continuous build, no beat waits on a gap', () => {
+    const lastPopEnd = popDelay(4) + B.popS;
+    // the ring closes as the last segment lands, condenses as it closes, rises as it is formed
+    expect(Math.abs(B.closeAt - lastPopEnd)).toBeLessThanOrEqual(0.1);
+    expect(B.crossfadeAt).toBeCloseTo(B.closeAt + B.closeS);
+    expect(B.riseAt).toBe(B.crossfadeEnd);
+    // the happy path is over well before the old 4.6 s
+    expect(ringClosePlan(0).doneAt).toBeLessThan(3.5);
   });
   it('never waits longer than SLOT_WAIT_S', () => {
     expect(ringClosePlan(null).riseStart).toBe(B.riseAt + SLOT_WAIT_S);

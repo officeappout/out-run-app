@@ -20,6 +20,8 @@ export interface EntrySearchOverlayProps {
   filteredCities: CityData[];
   onCitySelect: (city: CityData) => void;
   onBack: () => void;
+  /** Why the search opened on its own (AF4: location access denied). */
+  notice?: string | null;
 }
 
 function Highlighted({ text, query }: { text: string; query: string }) {
@@ -87,6 +89,7 @@ export function EntrySearchOverlay({
   filteredCities,
   onCitySelect,
   onBack,
+  notice,
 }: EntrySearchOverlayProps) {
   const t = useT(onboarding);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +146,12 @@ export function EntrySearchOverlay({
             {t('location.entry.search.cancel')}
           </button>
         </div>
+
+        {notice && (
+          <p role="status" className="mx-1 text-start text-[13px] font-bold leading-[18px] text-v2-ink-2">
+            {notice}
+          </p>
+        )}
 
         <div className="flex gap-1.5" role="tablist">
           {chips.map((chip) => {

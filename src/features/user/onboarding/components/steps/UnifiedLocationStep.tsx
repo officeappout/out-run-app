@@ -76,7 +76,7 @@ import { RadarPulse } from './UnifiedLocation/sub-components/RadarPulse';
 // enable_entry_globe_v1 — the entry flow's new presentation (explorer quick-signup only)
 import { EntryGlobeLayer } from './UnifiedLocation/entry-globe/EntryGlobeLayer';
 import { DragHintChip } from './UnifiedLocation/entry-globe/DragHintChip';
-import { askAfterDiveHold, diveStartFor } from './UnifiedLocation/entry-globe/dive-gate';
+import { askBeforeDive } from './UnifiedLocation/entry-globe/dive-gate';
 import { STREET_MAP_IDLE_DELAY_MS, STREET_MAP_MAX_DEFER_MS, shouldMountStreetMap } from './UnifiedLocation/entry-globe/street-map-gate';
 import { markGlobeIntroSeen } from '@/features/parks/core/hooks/entry-camera';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
@@ -224,8 +224,6 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const [confirmCollapsed, setConfirmCollapsed] = useState(false);
   const entryGlobeRef = useRef(entryGlobe);
   entryGlobeRef.current = entryGlobe;
-  // AC1: resolves the pending "Earth holds over the country" wait (GlobeStage onHold).
-  const diveHoldRef = useRef<(() => void) | null>(null);
   // AC2: with the globe on, the street map is built after the Earth (street-map-gate.ts).
   const [globeSettled, setGlobeSettled] = useState(false);
   const globeSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -669,32 +667,31 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   };
 
   /**
-   * enable_entry_globe_v1: dive first, ask once the Earth holds over the country,
-   * then fly to the fix (pilot note AC1, after owner note 21.10 #5). See dive-gate.ts.
+   * enable_entry_globe_v1: the tap opens the OS dialog, the answer starts the dive
+   * to the fix (pilot note AF4, superseding AC1's ask-after-dive). Denied → the
+   * city search, never a dead end. See dive-gate.ts.
    */
   const handleFindLocationEntryGlobe = async () => {
     const session = ++gpsSessionRef.current;
     userTookOverRef.current = false;
     setStage(LocationStage.LOCATING);
     setLocationError(null);
-    const answer = await askAfterDiveHold({
+    const r = await askBeforeDive({
+      ask: () => useGPSStore.getState().requestLocationPermission(),
+      // "search manually" while the dialog was up: drop the answer.
+      isCurrent: () => gpsSessionRef.current === session,
       startDive: () => setGlobeDive('dive'),
-      waitForHold: () => new Promise<void>((resolve) => { diveHoldRef.current = resolve; }),
-      ask: () => {
-        diveHoldRef.current = null;
-        // "search manually" during the dive: never open the OS dialog over the search.
-        if (gpsSessionRef.current !== session) return Promise.resolve('unknown' as const);
-        return useGPSStore.getState().requestLocationPermission();
-      },
     });
-    // "search manually" while the dive / dialog was up: drop it.
-    if (gpsSessionRef.current !== session) return;
-    if (diveStartFor(answer) === 'never') {
-      setLocationError(t('locationStep.error.noFix'));
-      setStage(LocationStage.INITIAL);
+    if (!r) return;
+    if (r.start === 'never') {
+      handleSearchManually();
+      setLocationError(t('location.entry.denied'));
       return;
     }
-    return handleFindLocationV2({ session });
+    return handleFindLocationV2({
+      session,
+      onFirstFix: r.start === 'after-fix' ? () => setGlobeDive('dive') : undefined,
+    });
   };
 
   const handleFindLocation = async () => {
@@ -1040,6 +1037,9 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const handleSearchManually = () => {
     setStage(LocationStage.SEARCHING);
     setSearchQuery('');
+    // Entry globe: the search shows locationError as its notice (AF4 denied);
+    // a stale "couldn't locate" from an earlier try doesn't belong there.
+    if (entryGlobe) setLocationError(null);
   };
 
   // v2: "search manually instead" from the locating sheet — abandons the
@@ -1427,7 +1427,6 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           globePhase={globeDive === 'dive' ? 'dive' : 'rest'}
           diving={entryDiving}
           diveTarget={entryDiving ? userLocation : null}
-          onDiveHold={() => diveHoldRef.current?.()}
           onGlobeSettled={handleGlobeSettled}
           confirmCollapsed={confirmCollapsed}
           onConfirmCollapsedChange={setConfirmCollapsed}

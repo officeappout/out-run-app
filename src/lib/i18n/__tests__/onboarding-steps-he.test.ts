@@ -25,7 +25,7 @@ describe('onboarding steps + location keys (he)', () => {
   it('key counts per prefix', () => {
     const keys = Object.keys(he);
     expect(keys.filter((k) => k.startsWith('steps.')).length).toBe(130);
-    expect(keys.filter((k) => k.startsWith('location.')).length).toBe(55);
+    expect(keys.filter((k) => k.startsWith('location.')).length).toBe(56);
   });
 
   it('plain strings = the old literals', () => {
