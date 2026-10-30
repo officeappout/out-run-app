@@ -69,6 +69,7 @@ import {
 import { ShadowMatrix, getEffectiveLevelForExercise } from './shadow-level.utils';
 import {
   resolveWorkoutMetadata,
+  setLocalizedCopy,
   detectTimeOfDay,
   detectDayPeriod,
   resolveExperienceLevelFromUserLevel,
@@ -935,6 +936,7 @@ export async function reconcileDeskThemeMismatch(
   const staleTitle = workout.title;
   workout.title = metadata.title;
   workout.description = metadata.description;
+  setLocalizedCopy(workout, metadata);
   if (metadata.aiCue) workout.aiCue = metadata.aiCue;
   if (metadata.logicCue) workout.logicCue = metadata.logicCue;
 
@@ -1456,6 +1458,7 @@ async function generateHomeWorkoutTrioCore(
         const metadata = await resolveWorkoutMetadata(optionMetaCtx, variant, logicTagOverrides);
         if (metadata.title) workout.title = metadata.title;
         if (metadata.description) workout.description = metadata.description;
+        setLocalizedCopy(workout, metadata);
         if (metadata.aiCue) workout.aiCue = metadata.aiCue;
 
         // Stash a LIGHT scalar snapshot (§19 eviction-safe) so swap-all can re-run
@@ -2627,7 +2630,7 @@ async function _buildSharedPipeline(
           ...gatingResultRaw,
           availableDifficulties: gatingResultRaw.availableDifficulties.filter((d) => d <= calmReturn.load.strengthMaxDifficulty),
           isIntenseLocked: true,
-          lockReason: calmCopy(null).lightVersionBadge,
+          lockReason: calmCopy(null, { source: true }).lightVersionBadge,
         }
       : gatingResultRaw;
 
@@ -2644,7 +2647,7 @@ async function _buildSharedPipeline(
     ? applyCalmReturnToPolicy(
         resolveSessionPolicy(cycleWeek, 0),
         calmReturn.load,
-        calmCopy(effectiveGenderForCalm(userProfile)).lightVersionCue,
+        calmCopy(effectiveGenderForCalm(userProfile), { source: true }).lightVersionCue,
       )
     : resolveSessionPolicy(cycleWeek, daysInactive);
 
@@ -3315,7 +3318,7 @@ async function _buildSharedPipeline(
     // Calm return: the generator's own count-based badge/cue/−40% stay off — the calm
     // label + volumeReductionOverride carry the return instead.
     daysInactive: calmReturn ? 0 : daysInactive,
-    ...(calmReturn?.isLightened ? { calmReturnLabel: calmCopy(null).lightVersionBadge } : {}),
+    ...(calmReturn?.isLightened ? { calmReturnLabel: calmCopy(null, { source: true }).lightVersionBadge } : {}),
     intentMode,
     persona,
     location,

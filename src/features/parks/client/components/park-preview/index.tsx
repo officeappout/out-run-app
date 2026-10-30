@@ -196,7 +196,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
                   return (
                     <IconChip
                       key={tag}
-                      label={config.label}
+                      label={t(`parkAmenity.${tag}` as const)}
                       iconSrc={config.iconSrc}
                       IconComponent={config.IconComponent}
                     />

@@ -23,6 +23,8 @@
  * The only hardcoded strings are internal fallbacks for dev/testing.
  */
 
+import { normalizeStoredTextFields, type LocalizedFieldPair } from '@/features/content/programs/core/localized-fields';
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
 import {
   collection,
   getDocs,
@@ -343,6 +345,19 @@ export function resolveExperienceLevelFromUserLevel(
   return 'pro';
 }
 
+/**
+ * Carry the resolved {he, en} title / description pair onto a workout next to the Hebrew strings (additive fields).
+ * No pair -> the keys are removed, so a re-resolved workout never keeps a stale English twin and Firestore never sees `undefined`.
+ */
+export function setLocalizedCopy(
+  workout: { titleLocalized?: LocalizedText; descriptionLocalized?: LocalizedText },
+  metadata: Pick<ResolvedWorkoutMetadata, 'title' | 'description' | 'titleLocalized' | 'descriptionLocalized'>,
+): void {
+  // Only the fields this resolve actually replaced (a template's own pair survives when the resolve found no row).
+  if (metadata.title) { if (metadata.titleLocalized) workout.titleLocalized = metadata.titleLocalized; else delete workout.titleLocalized; }
+  if (metadata.description) { if (metadata.descriptionLocalized) workout.descriptionLocalized = metadata.descriptionLocalized; else delete workout.descriptionLocalized; }
+}
+
 export interface ResolvedWorkoutMetadata {
   /** Dynamic title from Firestore (or fallback) */
   title: string | null;
@@ -356,11 +371,17 @@ export interface ResolvedWorkoutMetadata {
   source: 'firestore' | 'fallback';
   /** BundleID of the winning title (if any) — for cross-content coherence */
   bundleId?: string;
+  /** The {he, en} pair of the winning title / description when the row stores one (tags resolved in both). `title` / `description` stay the Hebrew strings. */
+  titleLocalized?: LocalizedText;
+  descriptionLocalized?: LocalizedText;
 }
 
 // ============================================================================
 // FIRESTORE COLLECTIONS
 // ============================================================================
+
+/** Row text fields that may hold a {he, en} pair. */
+const ROW_TEXT_FIELDS: LocalizedFieldPair[] = ['text', 'description', 'cue', 'phrase'].map((key) => ({ key, localizedKey: `${key}Localized` }));
 
 const METADATA_BASE = 'workoutMetadata';
 const TITLES_SUBCOLLECTION = 'titles';
@@ -1509,6 +1530,8 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
 
 interface ScoredFetchResult {
   text: string | null;
+  /** The picked row's `{he, en}` pair when the row stores one (`text` is then its Hebrew). */
+  textLocalized?: LocalizedText;
   bundleId?: string;
   /** The picked row's own `weather` tag, if any (drives the weather fallback title). */
   weather?: string;
@@ -1566,7 +1589,9 @@ async function scoredFetch(
       : [];
     if (snap.empty && overlayRows.length === 0) return { text: null };
 
-    const allRows = [...applyLocalDocPatches(parentDoc, snap.docs), ...overlayRows];
+    // A row text field may be a string or a {he, en} pair (batch3): rows keep a Hebrew string in the field everything
+    // scores and matches on; the pair rides in `<field>Localized`.
+    const allRows = [...applyLocalDocPatches(parentDoc, snap.docs), ...overlayRows].map((r) => normalizeStoredTextFields(r, ROW_TEXT_FIELDS));
 
     let bestScore = -1;
     let bestRows: any[] = [];
@@ -1639,6 +1664,7 @@ async function scoredFetch(
       bundleId: picked.bundleId,
       weather: typeof picked.weather === 'string' && picked.weather ? picked.weather : undefined,
       candidates,
+      ...(picked[`${textField}Localized`] ? { textLocalized: picked[`${textField}Localized`] as LocalizedText } : {}),
     };
   } catch (error) {
     console.warn(`[WorkoutMetadata] Error in scoredFetch(${parentDoc}/${subCol}):`, error);
@@ -1839,7 +1865,19 @@ async function resolveWorkoutMetadataCore(
     const dropIfBroken = (text: string | null): string | null =>
       text && hasUnresolvedTagArtifacts(text) ? null : text;
 
+    // English twin of the winning title / description: the same tag resolution; dropped with the Hebrew when broken.
+    const pairOf = (resolvedHe: string | null, loc: LocalizedText | undefined): LocalizedText | undefined => {
+      const en = (loc?.en ?? '').trim();
+      if (!resolvedHe || dropIfBroken(resolvedHe) == null || !en) return undefined;
+      const resolvedEn = resolveContentTags(en, tagCtx);
+      return hasUnresolvedTagArtifacts(resolvedEn) ? undefined : { ...loc, he: resolvedHe, en: resolvedEn };
+    };
+    const titleLocalized = weatherFallbackTitle ? undefined : pairOf(resolvedTitle, titleResult.textLocalized);
+    const descriptionLocalized = pairOf(resolvedDescription, descriptionResult.textLocalized);
+
     return {
+      ...(titleLocalized ? { titleLocalized } : {}),
+      ...(descriptionLocalized ? { descriptionLocalized } : {}),
       title:       dropIfBroken(resolvedTitle),
       description: dropIfBroken(resolvedDescription),
       aiCue:       dropIfBroken(resolvedAiCue),

@@ -21,6 +21,8 @@ import { common } from '@/messages/ns/common';
 import { useLocaleStore } from '@/store/useLocaleStore';
 import type { WhereToTrainPark } from './useWhereToTrainParks';
 import { whereLocationOptions } from './where-location-options';
+import { useFeatureInfoSheetsV1 } from '@/features/info-sheets/useFeatureInfoSheetsV1';
+import LocationInfoButton from '@/features/info-sheets/location/LocationInfoButton';
 
 export type WhereToTrainLocation = 'park' | 'home' | 'service';
 
@@ -50,6 +52,8 @@ export default function WhereToTrainSection({
   const tm = useT(map);
   const tc = useT(common);
   const locale = useLocaleStore((s) => s.locale);
+  // enable_feature_info_sheets_v1: the "i" after the title explains the place switch.
+  const infoOn = useFeatureInfoSheetsV1();
 
   const metaParts = (p: WhereToTrainPark) => [
     ...(p.city ? [p.city] : []),
@@ -63,11 +67,22 @@ export default function WhereToTrainSection({
     { key: 'home' as const, label: t('preview.where.home'), icon: <Home size={14} /> },
     { key: 'service' as const, label: t('preview.where.service'), icon: <Shield size={14} /> },
   ].filter((o) => offered.includes(o.key));
+  const homeLine = homeGearLabels.length > 0
+    ? t('preview.where.homeGear', { gear: homeGearLabels.join(' · ') })
+    : t('preview.where.homeBodyweight');
 
   return (
     <section className="relative z-20 px-6 pb-3" aria-label={t('preview.location.title')}>
       <div className="mb-3 flex items-center gap-2.5">
         <h3 className="text-[15px] font-black text-v2-ink">{t('preview.location.title')}</h3>
+        {infoOn && options.length > 1 && (
+          <LocationInfoButton
+            offered={offered}
+            current={location}
+            parkLine={parks[0] ? [parks[0].name, shortDistanceLabel(parks[0].distanceM, locale, tc)].join(' · ') : null}
+            homeLine={homeLine}
+          />
+        )}
         {isSwapping && <span className="text-xs font-bold text-v2-deep animate-pulse">{t('preview.location.swapping')}</span>}
         <span className="flex-1" />
         {options.length > 1 && (
@@ -112,11 +127,7 @@ export default function WhereToTrainSection({
           </HScroller>
         ) : null
       ) : location === 'service' ? null : (
-        <Chip icon={<Home size={14} />}>
-          {homeGearLabels.length > 0
-            ? t('preview.where.homeGear', { gear: homeGearLabels.join(' · ') })
-            : t('preview.where.homeBodyweight')}
-        </Chip>
+        <Chip icon={<Home size={14} />}>{homeLine}</Chip>
       )}
     </section>
   );

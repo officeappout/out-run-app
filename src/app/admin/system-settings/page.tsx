@@ -138,6 +138,7 @@ interface FlagState {
   enable_commute_v2_player_v1: boolean;
   enable_workout_coach_note_v1: boolean;
   enable_method_info_sheet_v1: boolean;
+  enable_feature_info_sheets_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1158,6 +1159,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'הסבר שיטת אימון ("i" ליד כותרת הבלוק)',
     description: 'כפתור i ליד כותרת בלוק כוח (בתצוגה המקדימה, ובנגן ליד סופר סט וטבטה) פותח הסבר קצר על השיטה: סטים רגילים, סופר סט, פירמידה עולה-יורדת, סט שיא או טבטה. ההדגמה בנויה מהתרגילים, החזרות והמנוחות של הבלוק עצמו, עם 3 שלבים ושתי שאלות מוכנות לקלי. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Feature "i" sheets (29.10.2026) — owner-approved canvas boards SwapCard / DragCard / StopsCard / TutStructureCard.
+  {
+    key: 'enable_feature_info_sheets_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'הסברי "i" לפיצ\'רים (מקום, לו"ז, מסלול עם עצירות, מבנה האימון)',
+    description: 'כפתור i ליד "איפה מתאמנים?", ליד "לו"ז אימונים", ליד כותרת מסלול עם תחנות כוח וליד כותרת אימון הכוח פותח הסבר קצר עם הדגמה מהנתונים של המסך עצמו: המקומות שלכם, השבוע שלכם, המקטעים והתחנה של המסלול, והחלקים של האימון. 3 שלבים ושתי שאלות מוכנות לקלי. ההסבר נפתח מתוך ה-i ונסגר בחזרה אליו. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

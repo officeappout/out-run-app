@@ -8,7 +8,7 @@
  * tested without React or Mapbox.
  */
 
-import { PLACE_TYPE_LABEL, splitGeoLabel, type GeoPlaceType } from './geocode-place-type';
+import { placeTypeLabel, searchSourceLabel, splitGeoLabel, type GeoPlaceType } from './geocode-place-type';
 import { withUnit } from '@/lib/i18n/units';
 
 export type SearchGroupId = 'addresses' | 'places' | 'parks' | 'routes';
@@ -177,13 +177,13 @@ export function groupedRowLines(item: GroupableItem & { routeKm?: number }): { p
     const km = item._source === 'route' && item.routeKm && item.routeKm > 0
       ? withUnit('km', (Math.round(item.routeKm * 10) / 10).toFixed(1))
       : '';
-    const fallback = item._source === 'park' ? 'פארק' : 'מסלול';
+    const fallback = searchSourceLabel(item._source);
     const secondary = [km, city].filter(Boolean).join(' · ');
     return { primary, secondary: secondary || fallback };
   }
   const { primary, rest } = splitGeoLabel(item.text);
   const place = stripCountry(rest);
-  const typeWord = item.placeType && item.placeType !== 'address' ? PLACE_TYPE_LABEL[item.placeType] : '';
+  const typeWord = item.placeType && item.placeType !== 'address' ? placeTypeLabel(item.placeType) : '';
   return { primary, secondary: [place, typeWord].filter(Boolean).join(' · ') };
 }
 

@@ -19,6 +19,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Park, ParkStatus } from '../types/park.types';
+import { hebrewOrEmpty, isStoredLocalized } from '@/features/content/shared/stored-text-fields';
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
 
 const PARKS_COLLECTION = 'parks';
 
@@ -52,7 +54,9 @@ function normalizePark(docId: string, data: any): Park {
     id: docId,
     name: data?.name ?? '',
     city: data?.city ?? '',
-    description: data?.description ?? '',
+    // string | {he, en} in Firestore: callers keep reading a Hebrew string; the pair rides in descriptionLocalized.
+    description: isStoredLocalized(data?.description) ? hebrewOrEmpty(data.description) : (data?.description ?? ''),
+    ...(isStoredLocalized(data?.description) ? { descriptionLocalized: data.description as LocalizedText } : {}),
     location: data?.location ?? { lat: 0, lng: 0 },
     image: data?.image ?? undefined,
     imageUrl: data?.imageUrl ?? undefined,
@@ -540,7 +544,13 @@ export async function updatePark(
     
     if (data.name !== undefined) updateData.name = data.name;
     if (data.city !== undefined) updateData.city = data.city;
-    if (data.description !== undefined) updateData.description = data.description;
+    if (data.description !== undefined) {
+      // A park whose description is stored as {he, en}: a save that sends the same Hebrew text must not flatten it.
+      const cur = await getDoc(docRef);
+      const stored = cur.exists() ? cur.data()?.description : undefined;
+      const unchanged = isStoredLocalized(stored) && hebrewOrEmpty(stored) === data.description;
+      if (!unchanged) updateData.description = data.description;
+    }
     if (data.location !== undefined) updateData.location = data.location;
     if (data.image !== undefined) updateData.image = data.image ?? null;
     if (data.facilityType !== undefined) updateData.facilityType = data.facilityType ?? null;

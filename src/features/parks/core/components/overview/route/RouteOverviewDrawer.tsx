@@ -44,6 +44,7 @@ import {
 import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import { localizeRouteName } from '@/features/parks/core/utils/route-name-display';
 
 export interface RouteOverviewDrawerProps {
   route: Route;
@@ -114,7 +115,7 @@ export default function RouteOverviewDrawer({
       header={<>
         <WorkoutOverviewHeader
           v2
-          title={route.name?.trim() || t('overview.route.nameFallback')}
+          title={localizeRouteName(route.name?.trim() ?? '', t.locale) || t('overview.route.nameFallback')}
           meta={[
             { key: 'time', text: t('overview.route.meta.min', { min: String(totalMin) }), tone: 'primary' },
             { key: 'km', text: t('overview.route.meta.km', { km: (route.distance ?? 0).toFixed(1) }), tone: 'secondary' },

@@ -3,6 +3,8 @@
 import React from 'react';
 import { DIFFICULTY_DISPLAY } from '@/lib/difficulty-display';
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
 
 /**
  * DifficultyBolts — shared 3-bolt difficulty pill.
@@ -84,6 +86,7 @@ export default function DifficultyBolts({
   colorScheme = 'cyan',
 }: DifficultyBoltsProps) {
   const { direction } = useUiDir();
+  const t = useT(common);
   const level = normalize(difficulty);
   const px = SIZE_PX[size];
   const severityColor = DIFFICULTY_DISPLAY[level].color;
@@ -126,7 +129,7 @@ export default function DifficultyBolts({
       </div>
       {showLabel && (
         <span className={`${LABEL_CLASS[size]} font-normal text-gray-800 dark:text-gray-100`}>
-          {DIFFICULTY_DISPLAY[level].label}
+          {t(`difficulty.label.${level}`)}
         </span>
       )}
     </div>

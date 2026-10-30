@@ -282,6 +282,9 @@ export interface WorkoutMetadataSnapshot {
 export interface GeneratedWorkout {
   title: string;
   description: string;
+  /** {he, en} pair of the Firestore title / description row (additive; `title` / `description` stay Hebrew). Display: pickText(workout, 'title', contentLang). */
+  titleLocalized?: import('@/features/content/shared/localized-text.types').LocalizedText;
+  descriptionLocalized?: import('@/features/content/shared/localized-text.types').LocalizedText;
   aiCue?: string;
   /** Per-variant coaching explanation shown on the Overview page */
   logicCue?: string;

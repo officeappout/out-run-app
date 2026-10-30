@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocaleStore } from '@/store/useLocaleStore';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -92,7 +93,7 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
                 if (layer.type === 'symbol' && (layer as any).layout?.['text-field']) {
                   map.setLayoutProperty(layer.id, 'text-field', [
                     'coalesce',
-                    ['get', 'name_he'],
+                    ['get', `name_${useLocaleStore.getState().locale}`],
                     ['get', 'name'],
                   ]);
                 }

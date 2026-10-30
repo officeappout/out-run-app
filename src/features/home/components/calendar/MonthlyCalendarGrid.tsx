@@ -33,6 +33,8 @@ import { resolveIconKey } from '@/features/content/programs/core/program-icon.ut
 import { useT } from '@/hooks/useT';
 import { monthName } from '@/lib/i18n/core/fmt';
 import { home } from '@/messages/ns/home';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -256,6 +258,7 @@ export default function MonthlyCalendarGrid({
   activityView = false,
 }: MonthlyCalendarGridProps) {
   const t = useT(home);
+  const tc = useT(common);
   // Cell height is still configurable (TrainingPlannerOverlay passes 56px).
   const effectiveCellHeight = cellHeightProp ?? DEFAULT_CELL_HEIGHT;
 
@@ -410,9 +413,9 @@ export default function MonthlyCalendarGrid({
 
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 gap-0 mb-0.5">
-        {HEBREW_DAYS.map((letter) => (
+        {HEBREW_DAYS.map((letter, i) => (
           <div key={letter} className="flex items-center justify-center h-4">
-            <span className="text-[9px] font-bold text-gray-700 dark:text-gray-400">{letter}</span>
+            <span className="text-[9px] font-bold text-gray-700 dark:text-gray-400">{weekdayLabel(i, 'letter', tc)}</span>
           </div>
         ))}
       </div>

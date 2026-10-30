@@ -814,6 +814,11 @@ export const FLAG_DEFS = [
   // sheet that explains the method with the block's own exercises, reps / steps and rest, a looping demo built from the
   // real cards, 3 steps and two "ask Kelly" chips. Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableMethodInfoSheetV1', firestoreKey: 'enable_method_info_sheet_v1', defaultValue: false, superAdminValue: true },
+  // Feature "i" sheets (29.10.2026, owner-approved canvas boards SwapCard / DragCard / StopsCard / TutStructureCard /
+  // IOrigin): an "i" next to "איפה מתאמנים?", "לו״ז אימונים", the route + stops overview title and the strength preview
+  // title opens a sheet that explains the feature with the screen's own data (locations, the user's week, the route's legs
+  // and station, the workout's sections) and two "ask Kelly" chips. Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableFeatureInfoSheetsV1', firestoreKey: 'enable_feature_info_sheets_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
