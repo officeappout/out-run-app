@@ -36,6 +36,7 @@ import {
 import { useT, type ReactTFunction } from '@/hooks/useT';
 import { home, type HomeKey } from '@/messages/ns/home';
 import { isHiddenProgram } from '@/lib/hidden-programs';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
@@ -266,6 +267,7 @@ export default function WorkoutBuilderSheet({
   defaultIntensity: defaultIntensityParam,
   onClose,
 }: WorkoutBuilderSheetProps) {
+  const { direction: uiDir } = useUiDir();
   const { profile } = useUserStore();
   const { flags: builderFlags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = builderFlags.enableHomeV2;
@@ -1110,7 +1112,7 @@ export default function WorkoutBuilderSheet({
                     setIsUsingRecommendedDefaults(false);
                   }}
                   className="w-full h-2 rounded-full accent-[#00BAF7] cursor-pointer"
-                  style={{ direction: 'rtl' }}
+                  style={{ direction: uiDir }}
                 />
                 <div className="flex justify-between text-[10px] text-gray-400">
                   <span>{t('builder.duration.sliderMax')}</span>
@@ -1125,7 +1127,7 @@ export default function WorkoutBuilderSheet({
         {displayPrograms.length > 0 && (
           <Section v2={v2} title={t('builder.program.section')}>
             <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              <div className="flex gap-2 pb-1" style={{ direction: 'rtl' }}>
+              <div className="flex gap-2 pb-1" style={{ direction: uiDir }}>
                 <button
                   onClick={() => {
                     // "אוטו" fills the grid with the system's recommendation

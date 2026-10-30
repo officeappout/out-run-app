@@ -77,7 +77,7 @@ export default function RunPage() {
       {startTime && <ActiveDashboard />}
 
       {/* 3. כפתורי שליטה (למטה) */}
-      <div className="absolute bottom-10 left-0 right-0 z-20 px-6 pointer-events-none" style={{ bottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))' }}>
+      <div className="absolute bottom-10 end-0 start-0 z-20 px-6 pointer-events-none" style={{ bottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))' }}>
         <div className="flex items-center justify-center gap-6 pointer-events-auto">
           
           {/* כפתור סיום (מופיע רק כשעוצרים - להגנה מטעות) */}
@@ -101,7 +101,7 @@ export default function RunPage() {
             {status === 'active' ? (
               <Pause size={40} fill="currentColor" />
             ) : (
-              <Play size={40} fill="currentColor" className="ml-1" />
+              <Play size={40} fill="currentColor" className="me-1" />
             )}
           </button>
         </div>

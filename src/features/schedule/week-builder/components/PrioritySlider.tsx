@@ -42,7 +42,6 @@ export default function PrioritySlider({ value, onChange, strengthCount, runCoun
         aria-label={t('weekBuilder.ratio.aria')}
         aria-valuetext={t('weekBuilder.ratio.line', { strength: String(strengthCount), run: String(runCount) })}
         className="h-8 w-full cursor-pointer accent-v2-accent"
-        dir="rtl"
       />
     </div>
   );

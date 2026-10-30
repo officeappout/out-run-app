@@ -34,7 +34,7 @@ export function StreakNoticeView({ card, onDismiss }: { card: StreakCardModel; o
   return (
     <Card padding="md" className="relative flex items-center gap-3" dir={direction} role="status" data-streak-card={card.kind}>
       {icon}
-      <div className="min-w-0 flex-1 pl-8">
+      <div className="min-w-0 flex-1 pe-8">
         <p className="text-[15px] font-black text-v2-ink whitespace-nowrap truncate">{card.title}</p>
         <p className="mt-0.5 text-[13px] font-bold leading-snug text-v2-muted">{card.body}</p>
       </div>
@@ -42,7 +42,7 @@ export function StreakNoticeView({ card, onDismiss }: { card: StreakCardModel; o
         type="button"
         onClick={onDismiss}
         aria-label={t('streakCard.close')}
-        className="absolute top-3 left-3 grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline text-v2-ink-2 active:scale-[0.97] transition-transform duration-150 ease-v2"
+        className="absolute top-3 end-3 grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline text-v2-ink-2 active:scale-[0.97] transition-transform duration-150 ease-v2"
       >
         <X size={16} aria-hidden />
       </button>

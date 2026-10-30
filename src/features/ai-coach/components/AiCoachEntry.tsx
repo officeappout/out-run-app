@@ -32,7 +32,7 @@ export function AiCoachInboxRow({ onNavigate }: { onNavigate?: () => void }) {
         onNavigate?.();
         router.push(AI_COACH_PATH);
       }}
-      className="mb-1 flex w-full items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-3 py-3 text-right transition-colors hover:bg-cyan-50"
+      className="mb-1 flex w-full items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-3 py-3 text-start transition-colors hover:bg-cyan-50"
     >
       <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-sky-600 text-white shadow-sm">
         <Sparkles className="h-5 w-5" aria-hidden />
@@ -44,7 +44,7 @@ export function AiCoachInboxRow({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <p className="truncate text-xs text-gray-500">{t('entry.inbox.subtitle')}</p>
       </div>
-      <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
+      <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300 ltr:-scale-x-100" aria-hidden />
     </button>
   );
 }
@@ -62,8 +62,8 @@ export function AiCoachHomeEntry({ v2 }: { v2: boolean }) {
       onClick={() => router.push(AI_COACH_PATH)}
       className={
         v2
-          ? 'flex w-full items-center gap-2.5 rounded-[18px] bg-white/80 px-3 py-2.5 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.99]'
-          : 'flex w-full items-center gap-2.5 rounded-2xl border border-cyan-100 bg-white px-3 py-2.5 text-right shadow-sm active:scale-[0.99]'
+          ? 'flex w-full items-center gap-2.5 rounded-[18px] bg-white/80 px-3 py-2.5 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.99]'
+          : 'flex w-full items-center gap-2.5 rounded-2xl border border-cyan-100 bg-white px-3 py-2.5 text-start shadow-sm active:scale-[0.99]'
       }
       aria-label={t('entry.home.aria')}
     >
@@ -78,7 +78,7 @@ export function AiCoachHomeEntry({ v2 }: { v2: boolean }) {
           {t('entry.home.subtitle')}
         </span>
       </span>
-      <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
+      <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300 ltr:-scale-x-100" aria-hidden />
     </button>
   );
 }
@@ -96,7 +96,7 @@ export function KellyInboxRow({ onNavigate }: { onNavigate?: () => void }) {
         onNavigate?.();
         router.push(AI_COACH_PATH);
       }}
-      className="mb-1 flex w-full items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-3 py-3 text-right transition-colors hover:bg-cyan-50"
+      className="mb-1 flex w-full items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-3 py-3 text-start transition-colors hover:bg-cyan-50"
     >
       <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-sky-600 text-white shadow-sm">
         <Sparkles className="h-5 w-5" aria-hidden />
@@ -115,7 +115,7 @@ export function KellyInboxRow({ onNavigate }: { onNavigate?: () => void }) {
           {unread > 9 ? '9+' : unread}
         </span>
       ) : (
-        <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
+        <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300 ltr:-scale-x-100" aria-hidden />
       )}
     </button>
   );

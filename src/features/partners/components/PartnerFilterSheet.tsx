@@ -154,7 +154,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
               </span>
             </div>
             <div className="relative w-full" style={{ height: 16 }}>
-              <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full bg-v2-hairline" />
+              <div className="absolute top-1/2 end-0 start-0 h-1.5 -translate-y-1/2 rounded-full bg-v2-hairline" />
               <div
                 className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
                 style={{
@@ -255,7 +255,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-[49] bg-white rounded-t-3xl shadow-2xl pointer-events-auto"
+            className="fixed bottom-0 end-0 start-0 z-[49] bg-white rounded-t-3xl shadow-2xl pointer-events-auto"
             dir={direction}
             // 56px = BottomNavbar height. The nav sits at z-50 (above this
             // sheet at z-[49]) and would otherwise occlude the bottom of
@@ -306,7 +306,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
                     with a transparent track so only the thumb shows; dir="rtl"
                     keeps the small-on-right convention used in PartnerFilterBar. */}
                 <div className="relative w-full" style={{ height: 16 }}>
-                  <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 bg-gray-200 rounded-full" />
+                  <div className="absolute top-1/2 end-0 start-0 h-1.5 -translate-y-1/2 bg-gray-200 rounded-full" />
                   <div
                     className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
                     style={{

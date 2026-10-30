@@ -57,7 +57,7 @@ export default function ProgramStartCard({ track, title, valueLine, chipLabel, l
         <div className="mt-2 flex w-full items-center justify-between gap-1">
           <Chip tone="accent" className="!h-6 !px-2 !text-[11.5px] !font-extrabold">{chipLabel}</Chip>
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring" aria-hidden="true">
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <ChevronLeft size={16} strokeWidth={2.6} />}
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <ChevronLeft className="ltr:-scale-x-100" size={16} strokeWidth={2.6} />}
           </span>
         </div>
       </div>

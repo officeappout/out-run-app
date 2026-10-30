@@ -176,7 +176,7 @@ function GoalCard({ goal, index, sessionMode }: GoalCardProps) {
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+          className="absolute top-2 start-2 w-5 h-5 rounded-full flex items-center justify-center"
           style={{ backgroundColor: color }}
         >
           <Trophy className="w-3 h-3 text-white" />

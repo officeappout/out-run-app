@@ -176,7 +176,7 @@ export default function ProfileHeader({
             </div>
           </div>
           {cornerBadge && (
-            <div className="absolute -bottom-1 -right-1 bg-white rounded-full px-1.5 py-0.5 shadow-md border border-gray-100 flex items-center gap-0.5">
+            <div className="absolute -bottom-1 -start-1 bg-white rounded-full px-1.5 py-0.5 shadow-md border border-gray-100 flex items-center gap-0.5">
               {cornerBadge}
             </div>
           )}

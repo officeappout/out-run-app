@@ -9,6 +9,7 @@
 import { ChevronLeft, Users } from 'lucide-react';
 import { IconTile } from '@/components/ui/v2';
 import { suggestionLineHe, type WalkingGroupSuggestion } from '../nearbyWalkingGroup';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface NotAloneCardProps {
   suggestion: WalkingGroupSuggestion | null;
@@ -18,13 +19,14 @@ export interface NotAloneCardProps {
 }
 
 export default function NotAloneCard({ suggestion, onOpenGroup, className = '' }: NotAloneCardProps) {
+  const { direction } = useUiDir();
   if (!suggestion) return null;
   return (
     <button
       type="button"
       onClick={() => onOpenGroup(suggestion.groupId)}
-      className={`flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] ${className}`}
-      dir="rtl"
+      className={`flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] ${className}`}
+      dir={direction}
     >
       <IconTile icon={Users} tone="steps" />
       <span className="min-w-0 flex-1">
@@ -32,7 +34,7 @@ export default function NotAloneCard({ suggestion, onOpenGroup, className = '' }
         <span className="block truncate whitespace-nowrap text-[14.5px] font-black text-v2-ink">{suggestionLineHe(suggestion)}</span>
         <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{suggestion.name} · להצטרף?</span>
       </span>
-      <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted" aria-hidden />
+      <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
     </button>
   );
 }

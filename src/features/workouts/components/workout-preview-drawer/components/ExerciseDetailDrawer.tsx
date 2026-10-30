@@ -155,7 +155,7 @@ function ExerciseDetailDrawerImpl({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 36, stiffness: 320, mass: 0.7 }}
-            className="fixed bottom-0 left-0 right-0 z-[200] bg-white dark:bg-slate-900 shadow-2xl rounded-t-[24px] flex flex-col overflow-hidden"
+            className="fixed bottom-0 end-0 start-0 z-[200] bg-white dark:bg-slate-900 shadow-2xl rounded-t-[24px] flex flex-col overflow-hidden"
             style={{ y, opacity, height: '95vh', fontFamily: 'var(--font-simpler)' }}
             dir={direction}
           >

@@ -6,6 +6,7 @@ import { EASE_V2 } from './tokens';
 import { formatStat, type BarDatum } from './logic';
 import { useT } from '@/hooks/useT';
 import { common } from '@/messages/ns/common';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface LineChartProps {
   data: BarDatum[];
@@ -39,13 +40,15 @@ export default function LineChart({
   highlightKey,
   color = '#00baf7',
   height = 170,
-  dir = 'rtl',
+  dir: dirProp,
   labelEvery,
   ariaLabel,
   className = '',
   formatValue = formatStat,
 }: LineChartProps) {
   const id = useId();
+  const uiDir = useUiDir().direction;
+  const dir = dirProp ?? uiDir;
   const t = useT(common);
   const reduce = useReducedMotion();
   const n = data.length;

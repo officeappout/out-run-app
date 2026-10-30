@@ -295,7 +295,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
             onClick={handleBack}
             className={v2 ? 'flex h-8 items-center gap-1 rounded-full bg-white pe-3 ps-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'flex items-center gap-1 text-xs text-gray-400'}
           >
-            <ChevronRight size={14} />
+            <ChevronRight className="ltr:-scale-x-100" size={14} />
             {t('skillTree.back')}
           </button>
         </div>

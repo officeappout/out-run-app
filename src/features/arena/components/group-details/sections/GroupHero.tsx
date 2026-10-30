@@ -62,8 +62,8 @@ export default function GroupHero({ v2, name, coverImage, catConfig, dragControl
       <div
         className={
           v2
-            ? 'v2-glass-chip absolute bottom-14 right-4 flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold text-white'
-            : 'absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full'
+            ? 'v2-glass-chip absolute bottom-14 start-4 flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold text-white'
+            : 'absolute bottom-4 start-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full'
         }
         dir={direction}
       >

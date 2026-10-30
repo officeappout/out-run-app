@@ -9,6 +9,7 @@
 import { CalendarClock } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { schedule } from '@/messages/ns/schedule';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface CalmArrangeCardProps {
   show: boolean;
@@ -16,10 +17,11 @@ export interface CalmArrangeCardProps {
 }
 
 export default function CalmArrangeCard({ show, onArrange }: CalmArrangeCardProps) {
+  const { direction } = useUiDir();
   const t = useT(schedule);
   if (!show) return null;
   return (
-    <div dir="rtl" className="mx-4 mt-3 flex items-center gap-3 rounded-[18px] bg-white px-3.5 py-3 font-simpler text-v2-ink shadow-v2-card">
+    <div dir={direction} className="mx-4 mt-3 flex items-center gap-3 rounded-[18px] bg-white px-3.5 py-3 font-simpler text-v2-ink shadow-v2-card">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep">
         <CalendarClock size={16} strokeWidth={2.4} aria-hidden />
       </span>

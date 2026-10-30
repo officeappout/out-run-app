@@ -160,18 +160,18 @@ export default function GroupCard({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
           {/* Fade image bottom into card body */}
-          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
-          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2 py-0.5 rounded-full">
+          <div className="absolute bottom-0 end-0 start-0 h-4 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
+          <div className="absolute top-1.5 start-1.5 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2 py-0.5 rounded-full">
             <span>{catConfig.icon}</span>
             <span>{categoryLabel}</span>
           </div>
           {group.source === 'user' && (
-            <div className="absolute top-1.5 left-1.5 bg-emerald-500/90 text-white text-xs font-black px-1.5 py-0.5 rounded-full">
+            <div className="absolute top-1.5 end-1.5 bg-emerald-500/90 text-white text-xs font-black px-1.5 py-0.5 rounded-full">
               {t('groupCard.community')}
             </div>
           )}
           {livePhase && (
-            <div className={`absolute bottom-1.5 left-1.5 flex items-center gap-1 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
+            <div className={`absolute bottom-1.5 end-1.5 flex items-center gap-1 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
               livePhase === 'active' ? 'bg-green-500/90' : 'bg-orange-500/90'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
@@ -288,17 +288,17 @@ export default function GroupCard({
         {/* Dark gradient overlay — top half contrast */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/8 to-transparent" />
         {/* Fade image bottom into white card body */}
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
+        <div className="absolute bottom-0 end-0 start-0 h-8 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
 
         {/* Category chip — top right */}
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
+        <div className="absolute top-2.5 start-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
           <span>{catConfig.icon}</span>
           <span>{categoryLabel}</span>
         </div>
 
         {/* Schedule chip — bottom right over scrim. Data-layer gated, see compact variant's comment above. */}
         {scheduleLabel && (
-          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+          <div className="absolute bottom-2.5 start-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
             <Clock className="w-3 h-3 opacity-80" />
             <span>{scheduleLabel}</span>
           </div>
@@ -306,7 +306,7 @@ export default function GroupCard({
 
         {/* Community-created badge — top left */}
         {group.source === 'user' && (
-          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-black px-2.5 py-1 rounded-full">
+          <div className="absolute top-2.5 end-2.5 flex items-center gap-1 bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-black px-2.5 py-1 rounded-full">
             <Users className="w-3 h-3" />
             <span>{t('groupCard.community')}</span>
           </div>
@@ -314,7 +314,7 @@ export default function GroupCard({
 
         {/* Live session badge — bottom left */}
         {livePhase && (
-          <div className={`absolute bottom-2.5 left-2.5 flex items-center gap-1 text-white text-xs font-black px-2.5 py-1 rounded-full backdrop-blur-sm ${
+          <div className={`absolute bottom-2.5 end-2.5 flex items-center gap-1 text-white text-xs font-black px-2.5 py-1 rounded-full backdrop-blur-sm ${
             livePhase === 'active' ? 'bg-green-500/90' : 'bg-orange-500/90'
           }`}>
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${

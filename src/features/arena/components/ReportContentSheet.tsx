@@ -161,7 +161,7 @@ export default function ReportContentSheet({
                     key={r.id}
                     type="button"
                     onClick={() => setSelectedReason(r.id)}
-                    className={`w-full whitespace-nowrap rounded-[16px] px-4 py-3 text-right text-[15px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                    className={`w-full whitespace-nowrap rounded-[16px] px-4 py-3 text-start text-[15px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
                       selectedReason === r.id
                         ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
                         : 'bg-white text-v2-ink-2 shadow-v2-ring'
@@ -248,7 +248,7 @@ export default function ReportContentSheet({
                       <button
                         key={r.id}
                         onClick={() => setSelectedReason(r.id)}
-                        className={`w-full text-right px-4 py-3 rounded-2xl text-sm font-bold transition-all border ${
+                        className={`w-full text-start px-4 py-3 rounded-2xl text-sm font-bold transition-all border ${
                           selectedReason === r.id
                             ? 'border-red-400 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
                             : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'

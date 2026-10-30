@@ -24,6 +24,7 @@
  */
 
 import React from 'react';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { clampProgress, storyBarState, type StoryBarState } from './logic';
 
 export type { StoryBarState };
@@ -82,13 +83,15 @@ export default function StoryBars({
   fillTransition = 'width 0.9s linear',
   segmentTransition = SEGMENT_TRANSITION_V2,
   fillMode = 'separate',
-  direction = 'rtl',
+  direction: directionProp,
   gapClassName = 'gap-1.5',
   barClassName = 'h-1.5 rounded-full',
   renderOverlay,
   className = '',
 }: StoryBarsProps) {
   const p = clampProgress(progress);
+  const uiDir = useUiDir().direction;
+  const direction = directionProp ?? (uiDir === 'rtl' ? 'rtl' : 'inherit');
   const rtl = direction === 'rtl';
   // Anchor fills at the reading start: physical right in rtl mode.
   const anchor: React.CSSProperties = rtl ? { right: 0 } : { insetInlineStart: 0 };

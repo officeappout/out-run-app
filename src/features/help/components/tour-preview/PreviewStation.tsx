@@ -16,7 +16,7 @@ export default function PreviewStation() {
   const t = useT(legal);
   return (
     <div className="absolute inset-0 flex flex-col bg-v2-surface text-v2-ink">
-      <div className="absolute left-4" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
+      <div className="absolute end-4" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
         <span className="inline-block rounded-full bg-white px-4 py-1.5 text-[13px] font-bold shadow-v2-card" data-coach="station-skip">{t('help.preview.station.skip')}</span>
       </div>
       <div className="px-5" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 72px)' }}>

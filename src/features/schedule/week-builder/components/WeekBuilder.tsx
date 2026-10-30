@@ -24,6 +24,7 @@ import WeekBuilderHeader from './WeekBuilderHeader';
 import WeekDayCard from './WeekDayCard';
 import WhySheet from './WhySheet';
 import { useDayHitTest } from './useDayHitTest';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 const NOTICE_MS = 3500;
 const HIGHLIGHT_MS = 2600;
@@ -67,6 +68,7 @@ export interface WeekBuilderProps<P> {
 }
 
 export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
+  const { direction } = useUiDir();
   const t = useT(schedule);
   const tracks = useMemo(() => tracksOf(p.week), [p.week]);
   const [tab, setTab] = useState<WbTab>('all');
@@ -122,7 +124,7 @@ export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
   const notes = p.week.warningsHe;
 
   return (
-    <div dir="rtl" className="relative mx-auto flex min-h-full w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+    <div dir={direction} className="relative mx-auto flex min-h-full w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <WeekBuilderHeader
         title={p.title}
         subtitle={p.subtitle}

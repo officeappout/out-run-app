@@ -232,7 +232,7 @@ export default function FeedbackFAB({
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -4 }}
                           transition={{ duration: 0.15 }}
-                          className="absolute top-full mt-1 right-0 left-0 z-10 bg-white rounded-xl border border-gray-100 shadow-lg overflow-hidden"
+                          className="absolute top-full mt-1 start-0 end-0 z-10 bg-white rounded-xl border border-gray-100 shadow-lg overflow-hidden"
                         >
                           {FEEDBACK_OPTIONS.map(opt => (
                             <button
@@ -242,14 +242,14 @@ export default function FeedbackFAB({
                                 setShowTypeDropdown(false);
                                 textareaRef.current?.focus();
                               }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-bold text-right transition-colors
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-bold text-start transition-colors
                                 hover:${opt.bgColor} ${selectedType === opt.type ? opt.bgColor : ''}
                                 ${selectedType === opt.type ? opt.color : 'text-gray-700'}`}
                             >
                               <span>{opt.emoji}</span>
                               <span>{opt.label}</span>
                               {selectedType === opt.type && (
-                                <span className="mr-auto text-xs opacity-60">✓</span>
+                                <span className="ms-auto text-xs opacity-60">✓</span>
                               )}
                             </button>
                           ))}
@@ -270,7 +270,7 @@ export default function FeedbackFAB({
                       disabled={loading}
                       className="w-full resize-none text-sm text-gray-700 placeholder:text-gray-300 border-2 border-gray-200 rounded-xl px-3 py-2.5 focus:border-[#5BC2F2] focus:outline-none transition-colors leading-relaxed disabled:opacity-60"
                     />
-                    <span className={`absolute bottom-2 left-2 text-[10px] font-medium transition-colors
+                    <span className={`absolute bottom-2 end-2 text-[10px] font-medium transition-colors
                       ${message.length > MAX_LENGTH * 0.9 ? 'text-red-400' : 'text-gray-300'}`}>
                       {message.length}/{MAX_LENGTH}
                     </span>
@@ -376,7 +376,7 @@ export default function FeedbackFAB({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -4 }}
             transition={{ delay: 0.6, duration: 0.2 }}
-            className="absolute right-full mr-2 bottom-1.5 whitespace-nowrap text-[11px] font-bold text-white bg-gray-800/80 backdrop-blur-sm px-2 py-1 rounded-lg pointer-events-none"
+            className="absolute start-full ms-2 bottom-1.5 whitespace-nowrap text-[11px] font-bold text-white bg-gray-800/80 backdrop-blur-sm px-2 py-1 rounded-lg pointer-events-none"
           >
             משוב / דיווח
           </motion.span>

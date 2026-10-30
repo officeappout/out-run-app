@@ -43,7 +43,7 @@ export default function ExerciseLibraryCard({
     <WorkoutCardWrapper className="py-2 px-3 cursor-pointer" onClick={onClick}>
       {/* Chevron (Left in RTL after row-reverse) — affordance for "open detail" */}
       <div className="flex items-center text-gray-300 ms-1 me-1">
-        <ChevronLeft size={18} />
+        <ChevronLeft className="ltr:-scale-x-100" size={18} />
       </div>
 
       {/* Center: name + muscle chip */}

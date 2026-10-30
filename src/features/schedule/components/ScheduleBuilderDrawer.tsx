@@ -79,6 +79,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import ScheduleBuilderSheetV2 from './ScheduleBuilderSheetV2';
 import { useT } from '@/hooks/useT';
 import { schedule } from '@/messages/ns/schedule';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 const CLOSE_THRESHOLD = 220;
 const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
@@ -133,6 +134,7 @@ interface ScheduleBuilderDrawerProps {
 }
 
 export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planner', onSaved }: ScheduleBuilderDrawerProps) {
+  const { direction } = useUiDir();
   const t = useT(schedule);
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
@@ -425,9 +427,9 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
                 animate(y, 0, SPRING);
               }
             }}
-            className="fixed bottom-0 left-0 right-0 z-[101] max-w-md mx-auto bg-[#F8FAFC] rounded-t-3xl shadow-2xl flex flex-col"
+            className="fixed bottom-0 end-0 start-0 z-[101] max-w-md mx-auto bg-[#F8FAFC] rounded-t-3xl shadow-2xl flex flex-col"
             style={{ height: '92vh', y, opacity }}
-            dir="rtl"
+            dir={direction}
           >
             {/* ── Handle + close ── */}
             <div
@@ -441,7 +443,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
                 onClick={handleClose}
                 onPointerDown={(e) => e.stopPropagation()}
                 aria-label={t('drawer.closeAria')}
-                className="absolute left-3 top-2 w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm active:scale-90 transition-all"
+                className="absolute end-3 top-2 w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm active:scale-90 transition-all"
               >
                 <X className="w-4 h-4 stroke-[2.5] text-gray-900" />
               </button>
@@ -489,7 +491,7 @@ function ChipButton({
             : 'bg-white text-gray-600 border border-slate-200'
       }`}
     >
-      {locked && <Lock size={10} className="absolute top-1.5 right-1.5 text-gray-400" />}
+      {locked && <Lock size={10} className="absolute top-1.5 start-1.5 text-gray-400" />}
       {label}
     </button>
   );

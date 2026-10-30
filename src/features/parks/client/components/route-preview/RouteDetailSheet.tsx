@@ -464,17 +464,17 @@ export default function RouteDetailSheet({
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '85vh', willChange: 'transform' }}
-              className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-[32px] shadow-2xl overflow-hidden"
+              className="fixed bottom-0 end-0 start-0 z-[100] bg-white rounded-t-[32px] shadow-2xl overflow-hidden"
               dir={direction}
             >
               {/* Drag Handle */}
-              <div className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-1 pointer-events-none">
+              <div className="absolute top-0 end-0 start-0 z-[60] flex justify-center pt-3 pb-1 pointer-events-none">
                 <div className="w-10 h-1.5 rounded-full bg-gray-300" />
               </div>
 
               {/* Sticky Header */}
               <div
-                className={`absolute top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 transition-opacity duration-300 ${
+                className={`absolute top-0 end-0 start-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 transition-opacity duration-300 ${
                   headerOpacity > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}
                 style={{ opacity: headerOpacity }}
@@ -484,7 +484,7 @@ export default function RouteDetailSheet({
                   style={{ paddingTop: 'calc(max(2.5rem, env(safe-area-inset-top, 0px) + 0.5rem))' }}
                 >
                   <button onClick={onClose} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center active:scale-90 transition-transform">
-                    <ChevronLeft size={20} className="text-gray-700" />
+                    <ChevronLeft size={20} className="text-gray-700 ltr:-scale-x-100" />
                   </button>
                   <h1 className="text-lg font-black text-gray-900 flex-1 text-center px-4 truncate">
                     {localizeRouteName(route.name ?? '', t.locale) || t('routePreview.nameFallback')}
@@ -521,7 +521,7 @@ export default function RouteDetailSheet({
 
                   {/* Top controls */}
                   <div
-                    className={`absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${heroOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    className={`absolute top-0 end-0 start-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${heroOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                     style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
                   >
                     <button onClick={onClose} className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform">
@@ -576,7 +576,7 @@ export default function RouteDetailSheet({
                       data-gated: renders only for routes that carry that shape. */}
                   {oneWayLabel && (
                     <div className="flex items-center gap-1 mb-3 text-xs font-bold text-gray-500 whitespace-nowrap overflow-hidden">
-                      <MoveLeft size={12} className="flex-shrink-0" />
+                      <MoveLeft size={12} className="flex-shrink-0 ltr:-scale-x-100" />
                       <span className="truncate">{oneWayLabel}</span>
                     </div>
                   )}
@@ -884,7 +884,7 @@ export default function RouteDetailSheet({
                               className="w-full bg-gray-50 rounded-lg px-4 py-3 flex items-center gap-2 active:scale-[0.99] transition-transform"
                             >
                               <span className="text-lg leading-none">🚶</span>
-                              <span className="text-[13px] font-bold text-gray-700 flex-1 text-right">
+                              <span className="text-[13px] font-bold text-gray-700 flex-1 text-start">
                                 {t('routePreview.walk.title')}
                               </span>
                               <span className="text-[12px] font-semibold text-gray-500 whitespace-nowrap">
@@ -954,7 +954,7 @@ export default function RouteDetailSheet({
                             className="w-full bg-gray-50 rounded-lg px-4 py-3 flex items-center gap-2 active:scale-[0.99] transition-transform"
                           >
                             <span className="text-lg leading-none">🗺️</span>
-                            <span className="text-[13px] font-bold text-gray-700 flex-1 text-right truncate">
+                            <span className="text-[13px] font-bold text-gray-700 flex-1 text-start truncate">
                               {localizeRouteName(route.name ?? '', t.locale) || t('routePreview.accordion.routeFallback')}
                             </span>
                             <span className="text-[12px] font-semibold text-gray-500 whitespace-nowrap">
@@ -1227,7 +1227,7 @@ export default function RouteDetailSheet({
 
               {/* Fixed bottom action bar */}
               <div
-                className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200/50 px-4 pt-3"
+                className="absolute bottom-0 end-0 start-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200/50 px-4 pt-3"
                 style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
               >
                 {/* Share-as-live toggle — same primitive used by strength + running previews.

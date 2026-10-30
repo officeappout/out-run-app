@@ -172,6 +172,7 @@ import { useBackgroundWorkoutHold } from '@/features/home/hooks/useBackgroundWor
 import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHomeCarouselStartupCache';
 import { DEFAULT_JOIN_VERB_KEY, groupJoinVerbKey, type JoinVerbKey } from '@/features/arena/utils/join-verb';
 import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 
 
@@ -241,7 +242,7 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
             transition={{ duration: 0.8, ease: 'easeOut' }}
           />
         </div>
-        <span className="text-xs font-bold text-slate-500 min-w-[36px] text-left">
+        <span className="text-xs font-bold text-slate-500 min-w-[36px] text-end">
           {completion.percentage}%
         </span>
         <motion.div
@@ -414,6 +415,7 @@ function isRunningOnboardingGateEnabled(): boolean {
 // ════════════════════════════════════════════════════════════════════
 
 export default function HomePage() {
+  const { direction: uiDir } = useUiDir();
   const router = useRouter();
   // Warm the code-split overlay chunks once the screen is idle (first tap stays instant).
   useHomeOverlayPreload();
@@ -3495,7 +3497,7 @@ export default function HomePage() {
                    internal width. Mirrors the "health" tab grid below. */
                 <div
                   className="w-full grid gap-4 items-stretch"
-                  style={{ gridTemplateColumns: 'minmax(0, 1fr) 111px', direction: 'rtl' }}
+                  style={{ gridTemplateColumns: 'minmax(0, 1fr) 111px', direction: uiDir }}
                 >
                   <ProgramProgressRow />
                   <ConsistencyWidget />
@@ -3504,7 +3506,7 @@ export default function HomePage() {
                 /* מדדי בריאות — activity minutes (right) + steps (left) */
                 <div
                   className="w-full grid gap-4 items-stretch"
-                  style={{ gridTemplateColumns: '1fr 1fr', direction: 'rtl' }}
+                  style={{ gridTemplateColumns: '1fr 1fr', direction: uiDir }}
                 >
                   <ActivityCard />
                   {/* enable_home_progress_slot_v1: the week's active-minutes ring (Progress page's ring) instead of steps. */}
@@ -3726,7 +3728,7 @@ export default function HomePage() {
                           />
                         )}
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-start">
                         {preWorkoutDescription}
                       </p>
                     </div>
@@ -4467,12 +4469,12 @@ export default function HomePage() {
         <>
           <button
             onClick={() => setShowDevPanel(!showDevPanel)}
-            className="fixed bottom-20 left-4 z-50 w-10 h-10 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-lg transition-all active:scale-95"
+            className="fixed bottom-20 end-4 z-50 w-10 h-10 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-lg transition-all active:scale-95"
           >
             <Shield size={18} />
           </button>
           {showDevPanel && (
-            <div className="fixed bottom-32 left-4 z-50 bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl w-56">
+            <div className="fixed bottom-32 end-4 z-50 bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl w-56">
               <p className="text-xs font-bold text-amber-400 mb-3 flex items-center gap-1.5">
                 <Shield size={14} /> Dev Mode — Tier Toggle
               </p>
@@ -4518,7 +4520,7 @@ export default function HomePage() {
               className="flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl max-w-sm w-full"
             >
               <span className="text-lg">🎒</span>
-              <div className="flex-1 text-right">
+              <div className="flex-1 text-start">
                 <p className="text-sm font-bold leading-snug">{tHome('page.gearToast.title')}</p>
                 <p className="text-xs text-slate-300">{tHome('page.gearToast.body')}</p>
               </div>
@@ -4543,7 +4545,7 @@ export default function HomePage() {
               className="flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl max-w-sm w-full"
             >
               <span className="text-lg">⚠️</span>
-              <div className="flex-1 text-right">
+              <div className="flex-1 text-start">
                 <p className="text-sm font-bold leading-snug">{tHome('page.lookupFailed.title')}</p>
                 <p className="text-xs text-slate-300">{tHome('page.lookupFailed.body')}</p>
               </div>

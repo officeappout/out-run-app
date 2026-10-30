@@ -49,14 +49,14 @@ export default function SecureAccountBanner({ userName = 'OUTer', onDismiss }: S
             {/* Close Button */}
             <button
               onClick={handleDismiss}
-              className="absolute top-3 left-3 text-gray-400 hover:text-white transition-colors z-10"
+              className="absolute top-3 end-3 text-gray-400 hover:text-white transition-colors z-10"
               aria-label="סגור"
             >
               <X className="w-5 h-5" />
             </button>
 
             {/* Content */}
-            <div className="flex items-start gap-3 pr-2">
+            <div className="flex items-start gap-3 ps-2">
               {/* Icon */}
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center">
@@ -79,7 +79,7 @@ export default function SecureAccountBanner({ userName = 'OUTer', onDismiss }: S
                   className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold py-2.5 px-4 rounded-xl hover:shadow-lg active:scale-95 transition-all mt-3"
                 >
                   <span>אבטח עכשיו</span>
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-4 h-4 ltr:-scale-x-100" />
                 </button>
               </div>
             </div>

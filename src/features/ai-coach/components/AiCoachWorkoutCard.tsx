@@ -50,7 +50,7 @@ export function GlassTag() {
   const t = useT(coach);
   return (
     <span
-      className="absolute right-2.5 top-2.5 z-20 inline-flex h-6 items-center gap-1 rounded-full px-2 text-[10.5px] font-extrabold text-v2-ink"
+      className="absolute start-2.5 top-2.5 z-20 inline-flex h-6 items-center gap-1 rounded-full px-2 text-[10.5px] font-extrabold text-v2-ink"
       style={{
         background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.55))',
         WebkitBackdropFilter: 'blur(14px) saturate(180%)',
@@ -167,7 +167,7 @@ export function AiCoachWorkoutCardSkeleton() {
     <div role="status" aria-live="polite" data-ai-card="building" className="relative overflow-hidden bg-white" style={frameStyle}>
       <div className="absolute inset-x-0 top-0 h-[62%] bg-v2-tint motion-safe:animate-pulse" aria-hidden />
       <div className="pointer-events-none absolute inset-0" style={{ background: CARD_FADE }} aria-hidden />
-      <div className="absolute right-2.5 top-2.5 inline-flex h-6 items-center gap-1 rounded-full bg-white/85 px-2 text-[11px] font-extrabold text-v2-deep">
+      <div className="absolute start-2.5 top-2.5 inline-flex h-6 items-center gap-1 rounded-full bg-white/85 px-2 text-[11px] font-extrabold text-v2-deep">
         <Sparkles className="h-3 w-3 motion-safe:animate-spin [animation-duration:2.4s]" aria-hidden />
         {t('card.building')}
       </div>

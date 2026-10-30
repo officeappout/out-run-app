@@ -184,7 +184,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
               if (info.offset.y > 100 || info.velocity.y > 500) onClose();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed bottom-0 left-0 right-0 z-[131] bg-white rounded-t-3xl shadow-2xl flex flex-col"
+            className="fixed bottom-0 end-0 start-0 z-[131] bg-white rounded-t-3xl shadow-2xl flex flex-col"
             style={{ maxHeight: '90vh' }}
             dir={direction}
           >

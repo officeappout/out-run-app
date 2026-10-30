@@ -322,7 +322,7 @@ function ProgressionChainRow({
     return (
       <section className="mb-6" dir={direction}>
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="whitespace-nowrap text-right text-[17px] font-black text-v2-ink" style={SECTION_FONT}>
+          <h3 className="whitespace-nowrap text-start text-[17px] font-black text-v2-ink" style={SECTION_FONT}>
             {t('exercises.detail.chain.title')}
           </h3>
           {onOpenProgressionMap && (
@@ -332,7 +332,7 @@ function ProgressionChainRow({
               className="flex h-8 items-center gap-0.5 whitespace-nowrap rounded-full bg-white pe-2 ps-3 text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
               {t('exercises.detail.chain.fullMap')}
-              <ChevronLeft size={15} strokeWidth={2.5} />
+              <ChevronLeft className="ltr:-scale-x-100" size={15} strokeWidth={2.5} />
             </button>
           )}
         </div>
@@ -360,7 +360,7 @@ function ProgressionChainRow({
   return (
     <section className="mb-6" dir={direction}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-right text-[16px] font-semibold text-slate-800" style={SECTION_FONT}>
+        <h3 className="text-start text-[16px] font-semibold text-slate-800" style={SECTION_FONT}>
           {t('exercises.detail.chain.title')}
         </h3>
         {onOpenProgressionMap && (
@@ -852,7 +852,7 @@ export default function MasterExerciseView({
       <div className={v2 ? 'px-4 pt-5 pb-6' : 'px-4 pt-4 pb-6'}>
         {/* Title */}
         <h2
-          className={v2 ? 'mb-4 text-right text-[24px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-xl font-bold text-slate-900 mb-4 text-right'}
+          className={v2 ? 'mb-4 text-start text-[24px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-xl font-bold text-slate-900 mb-4 text-start'}
           style={SECTION_FONT}
         >
           {sheetData.name}
@@ -903,7 +903,7 @@ export default function MasterExerciseView({
                   the two headers are simply never on the same row anymore. */}
               {programs.length > 0 && activeProgramOption && (
                 <section className={`min-w-0 ${!showEquipmentCol ? 'col-span-2' : ''}`}>
-                  <h3 className={v2 ? `${v2H3} mb-2 leading-[30px]` : 'text-right text-[16px] font-semibold text-slate-800 mb-2 leading-[30px]'} style={SECTION_FONT}>
+                  <h3 className={v2 ? `${v2H3} mb-2 leading-[30px]` : 'text-start text-[16px] font-semibold text-slate-800 mb-2 leading-[30px]'} style={SECTION_FONT}>
                     {t('exercises.detail.programs')}
                   </h3>
                   <ProgramPathSwitcher
@@ -926,7 +926,7 @@ export default function MasterExerciseView({
                 <section className={`min-w-0 ${programs.length === 0 ? 'col-span-2' : ''}`}>
                   {/* Header row: "ציוד" + (left) the location switcher badge */}
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <h3 className={v2 ? `${v2H3} leading-[30px]` : 'text-right text-[16px] font-semibold text-slate-800 leading-[30px]'} style={SECTION_FONT}>
+                    <h3 className={v2 ? `${v2H3} leading-[30px]` : 'text-start text-[16px] font-semibold text-slate-800 leading-[30px]'} style={SECTION_FONT}>
                       {t('exercises.detail.gear')}
                     </h3>
                     {hasSwitcher && selectedOption && (
@@ -1021,7 +1021,7 @@ export default function MasterExerciseView({
             <button
               type="button"
               onClick={() => onNavigateToAnalytics?.(exercise.id, sheetData.name)}
-              className={v2 ? 'w-full cursor-pointer rounded-v2-card bg-white p-4 text-right shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'w-full text-right rounded-2xl bg-white border border-slate-100 p-4 shadow-subtle cursor-pointer active:scale-[0.98] transition-transform'}
+              className={v2 ? 'w-full cursor-pointer rounded-v2-card bg-white p-4 text-start shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'w-full text-start rounded-2xl bg-white border border-slate-100 p-4 shadow-subtle cursor-pointer active:scale-[0.98] transition-transform'}
               aria-label={t('exercises.detail.perf.open')}
             >
               <div className="flex items-baseline gap-1.5 mb-1">
@@ -1166,7 +1166,7 @@ export default function MasterExerciseView({
               {/* Right: primary muscle */}
               {primaryMuscle && (
                 <div className="flex-shrink-0">
-                  <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-2 leading-6" style={SECTION_FONT}>
+                  <h3 className="text-start text-[16px] font-semibold text-slate-800 mb-2 leading-6" style={SECTION_FONT}>
                     {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}שריר ראשי
                   </h3>
                   <div className="flex flex-col items-center gap-1.5">
@@ -1189,7 +1189,7 @@ export default function MasterExerciseView({
               {/* Left: secondary muscles — horizontal scrolling slider */}
               {secondaryMuscles.length > 0 && (
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-2 leading-6" style={SECTION_FONT}>
+                  <h3 className="text-start text-[16px] font-semibold text-slate-800 mb-2 leading-6" style={SECTION_FONT}>
                     {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}שרירים משניים
                   </h3>
                   <div className="flex flex-row items-start gap-4 overflow-x-auto no-scrollbar pb-1">
@@ -1219,7 +1219,7 @@ export default function MasterExerciseView({
         {/* ── Section 7: Execution cues ─────────────────────────────────── */}
         {sheetData.cues.length > 0 && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
+            <h3 className="text-start text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
               {t('exercises.detail.cues')}
             </h3>
             <ol className="space-y-2.5">
@@ -1240,7 +1240,7 @@ export default function MasterExerciseView({
         {/* ── Appended details (preserve existing library content) ──────── */}
         {sheetData.description && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
+            <h3 className="text-start text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
               {t('exercises.detail.description')}
             </h3>
             <p className="text-sm text-slate-700 leading-relaxed" style={SECTION_FONT}>
@@ -1251,7 +1251,7 @@ export default function MasterExerciseView({
 
         {sheetData.goal && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
+            <h3 className="text-start text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
               {t('exercises.detail.goals')}
             </h3>
             <div className="flex items-start gap-3 bg-slate-50 rounded-xl p-4" style={{ border: PILL_BORDER }}>
@@ -1265,7 +1265,7 @@ export default function MasterExerciseView({
 
         {sheetData.instructions && sheetData.instructions !== sheetData.description && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
+            <h3 className="text-start text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
               {t('exercises.detail.instructions')}
             </h3>
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line" style={SECTION_FONT}>
@@ -1276,7 +1276,7 @@ export default function MasterExerciseView({
 
         {sheetData.tips.length > 0 && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
+            <h3 className="text-start text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
               {t('exercises.detail.tips')}
             </h3>
             <ul className="space-y-2">
