@@ -79,7 +79,21 @@ function inDirectionConditional(n: ts.Node, stop: ts.Node): boolean {
   return false;
 }
 
-export function transform(file: string, src: string): { out: string; report: FileReport } {
+/**
+ * True when `n` (or an ancestor in this file) is a direction boundary that a surrounding LTR host cannot reach:
+ * the shared v2 `<Sheet>` (its frame always sets its own dir) or an element with `dir={direction}` (useUiDir: rtl in Hebrew).
+ */
+function insideSheet(n: ts.Node): boolean {
+  for (let cur: ts.Node | undefined = n; cur; cur = cur.parent) {
+    if (ts.isJsxElement(cur) && cur !== n && cur.openingElement.tagName.getText() === 'Sheet') return true;
+    const o = openingOf(cur);
+    if (o && dirOf(o) === 'dirvar') return true;
+  }
+  return false;
+}
+
+/** sheetOnly: file sits inside an LTR host; only elements nested in an own-dir boundary (`<Sheet>` or `dir={direction}`) are converted. */
+export function transform(file: string, src: string, sheetOnly = false): { out: string; report: FileReport } {
   const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const edits: Edit[] = [];
   const report: FileReport = { file, classTokens: 0, dirRemoved: 0, iconsFlipped: 0, skipped: [], manual: [] };
@@ -136,7 +150,7 @@ export function transform(file: string, src: string): { out: string; report: Fil
 
   const visit = (n: ts.Node) => {
     const opening = openingOf(n);
-    if (opening) {
+    if (opening && (!sheetOnly || insideSheet(n))) {
       for (const a of opening.attributes.properties) {
         if (!ts.isJsxAttribute(a)) continue;
         const name = a.name.getText();
@@ -213,10 +227,13 @@ if (require.main === module || process.argv[1]?.endsWith('wave4-codemod.ts')) {
       if (hosts) {
         totals.files++;
         totals.ltrHost++;
-        console.log(`LTR-HOST ${f}: rendered inside a direction override (${hosts.join(', ')}); left untouched, needs a dedicated English fix`);
-        continue;
+        if (!/import\s+Sheet\s+from\s+['"][^'"]*\/Sheet['"]|\bdir=\{direction\}/.test(src)) {
+          console.log(`LTR-HOST ${f}: rendered inside a direction override (${hosts.join(', ')}); left untouched, needs a dedicated English fix`);
+          continue;
+        }
+        console.log(`LTR-HOST(sheet-only) ${f}`);
       }
-      const { out, report } = transform(f, src);
+      const { out, report } = transform(f, src, !!hosts);
       totals.files++;
       totals.classTokens += report.classTokens;
       totals.dirRemoved += report.dirRemoved;
