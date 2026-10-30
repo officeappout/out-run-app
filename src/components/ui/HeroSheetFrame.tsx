@@ -21,6 +21,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { motion, AnimatePresence, type DragControls, type MotionValue, type PanInfo } from 'framer-motion';
 import Sheet, { SheetDragHandle, SPRING_HERO_SNAP } from './v2/Sheet';
 import { SHEET_Z } from './v2/tokens';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 
 export interface HeroSheetFrameProps {
   isOpen: boolean;
@@ -57,6 +58,8 @@ export default function HeroSheetFrame({
   ariaLabel,
   children,
 }: HeroSheetFrameProps) {
+  // classic only (the v2 Sheet hides the tab bar itself).
+  useSuppressBottomNav(isOpen && !v2);
   if (v2) {
     return (
       <Sheet

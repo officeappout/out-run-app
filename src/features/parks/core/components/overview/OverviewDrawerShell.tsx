@@ -21,6 +21,7 @@ import OverviewGraphPager from './OverviewGraphPager';
 import type { DetentId } from './overview-detents';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 
 export interface OverviewDrawerShellProps {
   /** Home v2 look (enable_home_v2); false = the pre-v2 drawer, unchanged. */
@@ -55,6 +56,8 @@ export default function OverviewDrawerShell({
     sheetY, cardHeight, springRef, onDragEndSnap, scrollBodyRef, snapTo,
   } = useOverviewSheet(initialDetent);
   const t = useT(map);
+  // Mounted inside the map layer (no portal), so z-index can't lift it over the tab bar: hide the bar.
+  useSuppressBottomNav();
   useEffect(() => {
     if (snapRequest) snapTo(snapRequest.to);
     // eslint-disable-next-line react-hooks/exhaustive-deps

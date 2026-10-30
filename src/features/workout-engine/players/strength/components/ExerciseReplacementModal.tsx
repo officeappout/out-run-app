@@ -25,6 +25,7 @@ import { useSwapFixesV1 } from '../hooks/useSwapFixesV1';
 import { swapOptionImageMethod } from '../logic/swap-fixes';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 interface ExerciseReplacementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -163,6 +164,8 @@ export default function ExerciseReplacementModal({
   const { direction } = useUiDir();
   const t = useT(player);
   const fixesOn = useSwapFixesV1();
+  // Often mounted inside a map layer / drawer (no portal): hide the tab bar so it can't cover the sheet.
+  useSuppressBottomNav(isOpen);
   const [activeTab, setActiveTab] = useState<TabType>('adaptation');
   const [adaptationExercises, setAdaptationExercises] = useState<AlternativeExerciseOption[]>([]);
   const [alternativeExercises, setAlternativeExercises] = useState<AlternativeExerciseOption[]>([]);

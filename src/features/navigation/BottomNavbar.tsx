@@ -6,7 +6,7 @@ import { Home, Map, Users, TrendingUp, User } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useIsBottomNavSuppressed } from '@/lib/bottom-nav-suppression';
 import { V2_NAV_BOTTOM_CSS } from '@/components/ui/v2/bottom-chrome';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
@@ -19,10 +19,10 @@ export default function BottomNavigation() {
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
 
-  // Map sub-states (PlannedPreview / Navigate / Builder layers) request the
-  // navbar slide out via `useSuppressBottomNav()`. We read the counter as
-  // a derived boolean so the bar is hidden whenever ANY suppressor is up.
-  const isSuppressed = useMapStore((s) => s.bottomNavSuppressionCount > 0);
+  // Map layers, drawers and every open v2 sheet request the navbar slide out
+  // via `useSuppressBottomNav()` (src/lib/bottom-nav-suppression.ts). Hidden
+  // whenever ANY suppressor is up.
+  const isSuppressed = useIsBottomNavSuppressed();
 
   // On the map screen the tab bar floats directly over the Mapbox streets.
   // A short white fade above the bar softens that transition (readability +

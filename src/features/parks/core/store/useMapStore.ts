@@ -78,14 +78,6 @@ interface MapStore {
   /** Global detail sheet overlay (works on any page) */
   globalSheet: GlobalSheetState;
   /**
-   * Count of currently-mounted components requesting the global BottomNavbar
-   * be hidden (e.g. the map's PlannedPreview / Navigate / Builder layers,
-   * whose own bottom-anchored CTA cards would otherwise overlap with the
-   * floating navbar). Stored as a counter — not a boolean — so concurrent
-   * suppressors don't fight each other on mount/unmount races.
-   */
-  bottomNavSuppressionCount: number;
-  /**
    * Active partner-finder activity filter — drives which partner markers
    * the map renders while the partner overlay is open. `'all'` shows
    * every partner.
@@ -132,10 +124,6 @@ interface MapStore {
   openGlobalParkSheet: (park: Park) => void;
   openGlobalRouteSheet: (route: Route) => void;
   closeGlobalSheet: () => void;
-  /** Increment the suppression counter — pair with `releaseBottomNav()`. */
-  suppressBottomNav: () => void;
-  /** Decrement the suppression counter (clamped at 0). */
-  releaseBottomNav: () => void;
   setPartnerActivityFilter: (filter: PartnerActivityFilter) => void;
   setLiveUsersVisible: (v: boolean) => void;
   setPendingPartnerOverlay: (intent: { tab: 'live' | 'scheduled' } | null) => void;
@@ -522,7 +510,6 @@ export const useMapStore = create<MapStore>((set, get) => ({
   )),
   pendingDeepLink: null,
   globalSheet: null,
-  bottomNavSuppressionCount: 0,
   partnerActivityFilter: 'all',
   liveUsersVisible: true,
   pendingPartnerOverlay: null,
@@ -547,12 +534,6 @@ export const useMapStore = create<MapStore>((set, get) => ({
   openGlobalParkSheet: (park) => set({ globalSheet: { type: 'park', park }, selectedPark: park }),
   openGlobalRouteSheet: (route) => set({ globalSheet: { type: 'route', route } }),
   closeGlobalSheet: () => set({ globalSheet: null }),
-  suppressBottomNav: () =>
-    set((s) => ({ bottomNavSuppressionCount: s.bottomNavSuppressionCount + 1 })),
-  releaseBottomNav: () =>
-    set((s) => ({
-      bottomNavSuppressionCount: Math.max(0, s.bottomNavSuppressionCount - 1),
-    })),
   setPartnerActivityFilter: (filter) => set({ partnerActivityFilter: filter }),
   setLiveUsersVisible: (v) => set({ liveUsersVisible: v }),
   setPendingPartnerOverlay: (intent) => set({ pendingPartnerOverlay: intent }),
