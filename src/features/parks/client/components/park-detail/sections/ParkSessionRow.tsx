@@ -6,6 +6,7 @@ import type { ProfileUser } from '../../UserProfileSheet';
 import { sessionRowTimeLabel } from '../utils/park-detail-format';
 import { useT } from '@/hooks/useT';
 import { map as mapNs } from '@/messages/ns/map';
+import type { Locale } from '@/lib/i18n/locales';
 
 interface ParkSessionRowProps {
   ev: SessionEnrichment;
@@ -33,7 +34,7 @@ export interface OwnArrivalActions {
  */
 export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwnArrival, onJoin, onOpenProfile, ownArrivalActions }: ParkSessionRowProps) {
   const t = useT(mapNs);
-  const timeLabel = sessionRowTimeLabel(ev.nextStartTime);
+  const timeLabel = sessionRowTimeLabel(ev.nextStartTime, new Date(), t.locale as Locale, (hhmm) => t('routePreview.session.tomorrowAt', { time: hhmm }));
   const count = Math.max(1, ev.currentRegistrations ?? 0);
 
   return (

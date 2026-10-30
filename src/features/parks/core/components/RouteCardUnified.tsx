@@ -30,6 +30,7 @@ import { useUserStore } from '@/features/user';
 import { useT } from '@/hooks/useT';
 import { useUiDir } from '@/lib/i18n/useUiDir';
 import { map } from '@/messages/ns/map';
+import { localizeRouteName } from '@/features/parks/core/utils/route-name-display';
 
 // Aerobic-card accent — the single stat-icon colour shared by all three cards.
 const BRAND = '#00ADEF';
@@ -182,7 +183,7 @@ export default function RouteCardUnified({
           legacy flag-off card used) */}
       <div className="flex items-center gap-2">
         <h3 className={v2 ? 'min-w-0 truncate text-[17px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-[15px] font-black text-gray-900 truncate leading-tight'}>
-          {name}
+          {localizeRouteName(name, t.locale)}
         </h3>
         {recommended && (
           <span

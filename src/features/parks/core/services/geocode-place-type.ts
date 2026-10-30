@@ -7,6 +7,9 @@
  * small vocabulary the search UI can pick an icon + label from.
  */
 
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { map } from '@/messages/ns/map';
+
 export type GeoPlaceType =
   | 'address' // a house address (street + number)
   | 'street'
@@ -66,6 +69,18 @@ export const PLACE_TYPE_LABEL: Record<GeoPlaceType, string> = {
   region: 'אזור',
 };
 
+const tLive = makeLiveT(map);
+
+/** Label in the UI language (Hebrew text identical to PLACE_TYPE_LABEL when the app is Hebrew). */
+export function placeTypeLabel(type: GeoPlaceType): string {
+  return tLive(`placeType.${type}` as const);
+}
+
+/** "פארק" / "מסלול" word of a search row, in the UI language. */
+export function searchSourceLabel(source: 'park' | 'route'): string {
+  return tLive(`searchRow.${source}` as const);
+}
+
 /**
  * Split a geocoder label ("הרצל 12, תל אביב-יפו, ישראל") into a primary line
  * and the rest, for a two-line suggestion row.
@@ -91,10 +106,10 @@ export function suggestionRowLines(item: {
     const i = item.text.indexOf(' · ');
     const primary = i < 0 ? item.text : item.text.slice(0, i);
     const city = i < 0 ? '' : item.text.slice(i + 3);
-    const label = item._source === 'park' ? 'פארק' : 'מסלול';
+    const label = searchSourceLabel(item._source);
     return { primary, secondary: city ? `${label} · ${city}` : label };
   }
   const { primary, rest } = splitGeoLabel(item.text);
-  const label = item.placeType ? PLACE_TYPE_LABEL[item.placeType] : '';
+  const label = item.placeType ? placeTypeLabel(item.placeType) : '';
   return { primary, secondary: [label, rest].filter(Boolean).join(' · ') };
 }

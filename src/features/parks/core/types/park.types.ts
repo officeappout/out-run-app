@@ -2,6 +2,7 @@
  * Park Management Types
  * Unified types for Parks (formerly Park + MapPark)
  */
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
 import { ParkGymEquipment } from '@/features/content/equipment/gym';
 
 export type ParkFacilityType = 'static' | 'cardio' | 'machine';
@@ -245,6 +246,8 @@ export interface Park {
   city?: string;       // Optional for MapPark compatibility
   address?: string;    // From MapPark
   description?: string; // Optional for MapPark compatibility
+  /** The {he, en} pair when the doc stores one (the Hebrew text stays in `description`). Display: pickText(park, 'description', lang). */
+  descriptionLocalized?: LocalizedText;
   
   // Location (dual format for backward compatibility)
   location: { lat: number; lng: number };

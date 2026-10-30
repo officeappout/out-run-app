@@ -14,6 +14,10 @@
  * Copy is in the site's simple voice, with male/female variants instead of slashes.
  */
 import { MAKEUP_MAX_AGE_DAYS, type CalmReturnState } from './policy';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { makeT } from '@/lib/i18n/t';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { home } from '@/messages/ns/home';
 
 export type CalmGender = 'male' | 'female' | 'other' | null | undefined;
 
@@ -53,26 +57,28 @@ export function pickCalmSurface(input: {
   return { kind: 'none' };
 }
 
-function g(gender: CalmGender, male: string, female: string): string {
-  return gender === 'female' ? female : male;
-}
+const tLive = makeLiveT(home);
+const tSource = makeT(SOURCE_LOCALE, home);
 
-/** All user-facing calm-return copy. No numbers, no guilt. */
-export function calmCopy(gender: CalmGender) {
+/**
+ * All user-facing calm-return copy. No numbers, no guilt.
+ * `source: true` gives the Hebrew text for values that are SAVED with a workout or matched by logic
+ * (badge, cue, run label): stored values stay Hebrew, display goes through the live (UI language) copy.
+ */
+export function calmCopy(gender: CalmGender, opts: { source?: boolean } = {}) {
+  const t = opts.source ? tSource : tLive;
+  const mf = gender === 'female' ? 'female' : 'male';
   return {
-    freshWeekTitle: 'שבוע חדש מתחיל היום',
-    freshWeekBody: g(
-      gender,
-      'בנינו לך שבוע קליל להתחלה. תמשיך מאיפה שעצרת.',
-      'בנינו לך שבוע קליל להתחלה. תמשיכי מאיפה שעצרת.',
-    ),
-    levelCheckLink: 'רוצה לבדוק רמה?',
-    welcomeBackTitle: 'חוזרים בקטנה',
-    welcomeBackSubtitle: 'אימון קליל להיום',
-    makeupTitle: 'רוצה להשלים את האימון מאתמול?',
+    freshWeekTitle: t('calmReturn.freshWeek.title'),
+    freshWeekBody: t(`calmReturn.freshWeek.body.${mf}`),
+    levelCheckLink: t('calmReturn.levelCheckLink'),
+    welcomeBackTitle: t('calmReturn.welcomeBack.title'),
+    welcomeBackSubtitle: t('calmReturn.welcomeBack.subtitle'),
+    makeupTitle: t('calmReturn.makeup.title'),
     /** Replaces "🦥 חזרה אחרי X ימים" / "💪 חזרת אחרי X ימים!" in the workout itself. */
-    lightVersionBadge: 'גרסה קלה לחזרה',
-    lightVersionCue: g(gender, 'גרסה קלה לחזרה. בוא נתחיל בנחת.', 'גרסה קלה לחזרה. בואי נתחיל בנחת.'),
-    easyRunLabel: 'ריצה קלה',
+    lightVersionBadge: t('calmReturn.lightVersion.badge'),
+    lightVersionCue: t(`calmReturn.lightVersion.cue.${mf}`),
+    /** A run block label (logic key, matched and saved): always the Hebrew source. */
+    easyRunLabel: 'ריצה קלה', // i18n-allow-hebrew: run block label is data (displayed through run-block-label.ts)
   };
 }

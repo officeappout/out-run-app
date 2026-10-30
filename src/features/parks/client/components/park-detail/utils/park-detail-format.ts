@@ -80,7 +80,12 @@ export function toLocalDateInputValue(d: Date): string {
  * tomorrow, otherwise the short Hebrew weekday + "HH:MM". '' for an
  * unparseable start time.
  */
-export function sessionRowTimeLabel(nextStartTime: string, now: Date = new Date(), locale: Locale = SOURCE_LOCALE): string {
+export function sessionRowTimeLabel(
+  nextStartTime: string,
+  now: Date = new Date(),
+  locale: Locale = SOURCE_LOCALE,
+  tomorrowAt: (hhmm: string) => string = (hhmm) => `מחר ${hhmm}`, // i18n-allow-hebrew: source default; callers pass the catalog line
+): string {
   let timeLabel = '';
   const d = new Date(nextStartTime);
   if (!isNaN(d.getTime())) {
@@ -88,7 +93,7 @@ export function sessionRowTimeLabel(nextStartTime: string, now: Date = new Date(
     const tmrw = new Date(now); tmrw.setDate(tmrw.getDate() + 1);
     const isTomorrow = d.toDateString() === tmrw.toDateString();
     const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : formatDateLoose(d, locale, { weekday: 'short' }) + ` ${hhmm}`;
+    timeLabel = isToday ? hhmm : isTomorrow ? tomorrowAt(hhmm) : formatDateLoose(d, locale, { weekday: 'short' }) + ` ${hhmm}`;
   }
   return timeLabel;
 }

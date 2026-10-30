@@ -8,6 +8,7 @@
  * screen's one.
  */
 
+import { localizeRouteName } from '@/features/parks/core/utils/route-name-display';
 import { ArrowRight, Check, Route as RouteIcon } from 'lucide-react';
 import { IconButton, JourneyStrip, type JourneyStripItem } from '@/components/ui/v2';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -15,6 +16,7 @@ import type { RouteSuggestion } from '../../lib/route-fit';
 import { lapsLabel, routeKm, routeRunShape } from '../../lib/route-fit/distance-fit';
 import { useT, type ReactTFunction } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
+import { map } from '@/messages/ns/map';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface RunRouteSuggestCarouselProps {
@@ -35,6 +37,7 @@ function pillText(n: number, label: string, allLoops: boolean, t: ReactTFunction
 export default function RunRouteSuggestCarousel({ suggestions, selectedId, onSelect, onBack, workoutLabel, minutes, journey }: RunRouteSuggestCarouselProps) {
   const { direction } = useUiDir();
   const t = useT(player);
+  const tMap = useT(map); // loads the `map` catalog (generated route names)
   const allLoops = suggestions.every((s) => routeRunShape(s.route) === 'loop');
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-[70]" dir={direction} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
@@ -61,7 +64,7 @@ export default function RunRouteSuggestCarousel({ suggestions, selectedId, onSel
                 className={`w-[300px] shrink-0 snap-center cursor-pointer rounded-[22px] bg-white transition-all duration-200 ease-v2 ${active ? 'shadow-v2-float ring-2 ring-v2-accent' : 'shadow-v2-card'}`}
                 style={{ padding: '12px 14px 14px' }}>
                 <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">{s.route.name?.trim() || t('run.overview.suggest.nameFallback')}</span>
+                  <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">{localizeRouteName(s.route.name?.trim() ?? '', tMap.locale) || t('run.overview.suggest.nameFallback')}</span>
                   <span className="inline-flex shrink-0 items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline" style={{ padding: '3px 9px' }}>
                     <DifficultyBolts difficulty={s.route.difficulty} size="sm" />
                   </span>

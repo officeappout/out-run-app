@@ -1,6 +1,7 @@
 'use client';
 
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { pickText } from '@/features/content/shared/stored-text-fields';
 import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 
 /** v2 hairline ring (design-language §2). */
@@ -200,9 +201,10 @@ export default function GeneratedWorkoutExerciseList({
     [generatedWorkout],
   );
   const coachNote = useCoachNote(coachRecord);
+  const descriptionText = pickText(generatedWorkout, 'description', contentLang);
   const displayText = coachNote
-    ? generatedWorkout.description
-    : generatedWorkout.logicCue || generatedWorkout.description;
+    ? descriptionText
+    : generatedWorkout.logicCue || descriptionText;
   const diff = generatedWorkout.difficulty;
   const dur = generatedWorkout.estimatedDuration;
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { pickText } from '@/features/content/shared/stored-text-fields';
 import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useMotionValueEvent, useTransform, useDragControls, animate } from 'framer-motion';
@@ -112,6 +114,7 @@ export default function WorkoutPreviewDrawer({
 }: WorkoutPreviewDrawerProps) {
   const homeV2 = useHomeV2();
   const t = useT(library);
+  const contentLang = useContentLanguage();
   const router = useRouter();
   const { profile } = useUserStore();
   const y = useMotionValue(0);
@@ -455,7 +458,7 @@ export default function WorkoutPreviewDrawer({
   // SYNC FIX: generatedWorkout always wins so a post-adjust render never
   // shows stale dynamicContent.
   const displayTitle =
-    generatedWorkout?.title || dynamicContent?.title || workout?.title || '';
+    (generatedWorkout?.title ? pickText(generatedWorkout, 'title', contentLang) : '') || dynamicContent?.title || workout?.title || '';
 
   // enable_where_to_train_v1: "אימון עליון · 45 דק׳" for the shared sheet.
   const whereWorkoutLabel = whereOn && displayTitle

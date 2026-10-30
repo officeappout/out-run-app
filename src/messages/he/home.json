@@ -786,5 +786,15 @@
   "todayActivityLabels.short.strength": "כוח",
   "todayActivityLabels.short.cardio": "אירובי",
   "todayActivityLabels.short.maintenance": "גמישות",
-  "todayActivityLabels.short.hybrid": "משולב"
+  "todayActivityLabels.short.hybrid": "משולב",
+  "calmReturn.freshWeek.title": "שבוע חדש מתחיל היום",
+  "calmReturn.freshWeek.body.male": "בנינו לך שבוע קליל להתחלה. תמשיך מאיפה שעצרת.",
+  "calmReturn.freshWeek.body.female": "בנינו לך שבוע קליל להתחלה. תמשיכי מאיפה שעצרת.",
+  "calmReturn.levelCheckLink": "רוצה לבדוק רמה?",
+  "calmReturn.welcomeBack.title": "חוזרים בקטנה",
+  "calmReturn.welcomeBack.subtitle": "אימון קליל להיום",
+  "calmReturn.makeup.title": "רוצה להשלים את האימון מאתמול?",
+  "calmReturn.lightVersion.badge": "גרסה קלה לחזרה",
+  "calmReturn.lightVersion.cue.male": "גרסה קלה לחזרה. בוא נתחיל בנחת.",
+  "calmReturn.lightVersion.cue.female": "גרסה קלה לחזרה. בואי נתחיל בנחת."
 }
