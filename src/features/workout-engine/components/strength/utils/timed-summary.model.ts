@@ -61,7 +61,8 @@ export interface EmomSummaryModel {
   avgWork: string | null;
   /** Average rest after a finished minute ("0:14"), null when none. */
   avgRest: string | null;
-  bars: Array<{ key: string; label: string; fraction: number; tone: MinuteTone }>;
+  /** One tile per minute (pilot T4: tiles, not run-style bars). `reps` = "8/10" on a partial minute. */
+  minutes: Array<{ key: string; label: string; tone: MinuteTone; reps: string | null }>;
   /** "דקה 10 (כתום): 8 מתוך 10 חזרות" for the first partial minute. */
   note: string | null;
 }
@@ -83,11 +84,11 @@ export function emomSummaryModel(t: PlayerT, r: TimedBlockRecord): EmomSummaryMo
     totalReps: minutes.reduce((a, m) => a + (m.status === 'missed' ? 0 : m.reps ?? 0), 0),
     avgWork: avgWorkSec != null ? clock(avgWorkSec) : null,
     avgRest: avgWorkSec != null ? clock(intervalSec - avgWorkSec) : null,
-    bars: minutes.map((m, i) => ({
+    minutes: minutes.map((m, i) => ({
       key: `m${i}`,
       label: String(i + 1),
       tone: m.status,
-      fraction: m.status === 'done' ? Math.min(1, (m.workSec ?? intervalSec) / intervalSec) : m.status === 'partial' ? 1 : 0.06,
+      reps: m.status === 'partial' ? (m.target ? `${m.reps ?? 0}/${m.target}` : String(m.reps ?? 0)) : null,
     })),
     note: p
       ? p.target

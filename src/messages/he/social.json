@@ -156,5 +156,10 @@
   "shareV2.together.count": "{total} רצים יחד",
   "shareV2.together.pair": "{a} ו{b}",
   "shareV2.together.more": "{names} ועוד {more}",
-  "shareV2.together.ranTogether": "רצנו יחד"
+  "shareV2.together.ranTogether": "רצנו יחד",
+  "shareV2.walk.name": "הליכה",
+  "shareV2.combined.name": "הליכה + כוח",
+  "shareV2.unit.steps": "צעדים",
+  "shareV2.template.exerciseTable": "טבלת תרגילים",
+  "shareV2.template.splits": "מקטעים"
 }

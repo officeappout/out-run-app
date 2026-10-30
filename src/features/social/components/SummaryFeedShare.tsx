@@ -199,6 +199,8 @@ export function PendingSummaryFeedShare({
         routeShape: pending.routeShape,
         paceSplits: pending.paceSplits,
         streakDays: pending.streakDays,
+        // enable_workout_post_v1: a walk's share images get the walk family.
+        ...(pending.activityType ? { activityType: pending.activityType } : {}),
         durationSeconds,
         dateMs,
         together,

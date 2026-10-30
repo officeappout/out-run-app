@@ -101,6 +101,10 @@ export interface ShareModel {
   kmMarks?: KmMark[];
   /** Live group / pair run only (SH-5c). */
   together?: ShareTogetherModel;
+  /** enable_workout_post_v1: the post family is on (new stickers, sticker logo at the bottom). */
+  postV1?: boolean;
+  /** A combined (walk / run + strength) workout. */
+  combined?: boolean;
 }
 
 export interface ShareTogetherPerson {

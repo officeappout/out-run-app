@@ -974,5 +974,6 @@
   "post.card.doneToday": "Done today",
   "post.card.hiddenEnds": "Start and end hidden",
   "post.card.level": "Level",
-  "post.card.openAria": "{title}: open the summary"
+  "post.card.openAria": "{title}: open the summary",
+  "social.share.placeTag": "Place tag"
 }

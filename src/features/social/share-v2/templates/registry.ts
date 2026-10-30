@@ -10,14 +10,15 @@ import { runPhotoRoute } from './run-photo-route';
 import { runTogether } from './run-together';
 import { runSticker, runStickerStats } from './sticker-run';
 import { strengthSticker } from './sticker-strength';
+import { runStickerSplits, strengthStickerTable } from './sticker-post';
 import { strengthCard } from './strength-card';
 import { strengthMinimal } from './strength-minimal';
 import { strengthPhoto } from './strength-photo';
 import type { ShareTemplateDef } from './template';
 
 export const SHARE_TEMPLATES_V2: Record<ShareKind, ShareTemplateDef[]> = {
-  strength: [strengthPhoto, strengthCard, strengthMinimal, strengthSticker],
-  cardio: [runPhotoRoute, runDarkRoute, runMinimal, runTogether, runSticker, runStickerStats],
+  strength: [strengthPhoto, strengthCard, strengthMinimal, strengthSticker, strengthStickerTable],
+  cardio: [runPhotoRoute, runDarkRoute, runMinimal, runTogether, runSticker, runStickerStats, runStickerSplits],
 };
 
 /** The carousel for a format; templates that need data the workout lacks are left out. */
