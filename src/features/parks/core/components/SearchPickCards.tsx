@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import type { Route } from '../types/route.types';
 import type { GeoPlaceType } from '../services/geocode-place-type';
-import { PLACE_TYPE_LABEL, splitGeoLabel } from '../services/geocode-place-type';
+import { placeTypeLabel, splitGeoLabel } from '../services/geocode-place-type';
 import {
   distanceKmTo,
   formatDistanceKm,
@@ -163,7 +163,7 @@ export function SearchDestinationCard({
   const city = stripCountry(rest);
   const km = distanceKmTo(userPos, place.coords);
   const { Icon } = suggestionIcon({ _source: 'mapbox', placeType: place.placeType });
-  const typeLabel = place.placeType ? PLACE_TYPE_LABEL[place.placeType] : t('pick.place.typeFallback');
+  const typeLabel = place.placeType ? placeTypeLabel(place.placeType) : t('pick.place.typeFallback');
   const sub = [city, km != null ? t('pick.place.fromYou', { distance: formatDistanceKm(km) }) : ''].filter(Boolean).join(' · ');
 
   // Official routes passing near the place (read-only, cached list).

@@ -59,6 +59,8 @@ import {
 import { APP_DOMAIN } from '@/lib/config/domain';
 import { useT } from '@/hooks/useT';
 import { home, type HomeKey } from '@/messages/ns/home';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import { useFeatureInfoSheetsV1 } from '@/features/info-sheets/useFeatureInfoSheetsV1';
@@ -833,6 +835,7 @@ export default function SmartWeeklySchedule({
   hideHeader = false,
 }: SmartWeeklyScheduleProps) {
   const t = useT(home);
+  const tc = useT(common);
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -1911,7 +1914,7 @@ export default function SmartWeeklySchedule({
                           className="font-bold transition-colors leading-none"
                           style={{ fontSize: 14, color: dayColor, marginBottom: 4 }}
                         >
-                          {day.day}
+                          {weekdayLabel(HEBREW_DAYS.indexOf(day.day as typeof HEBREW_DAYS[number]), 'letter', tc) || day.day}
                         </span>
                         
                         {/* Day icon — 32×32 slot (matches CONTAINER_SIZE_PX).

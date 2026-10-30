@@ -12,6 +12,7 @@ import type { RunWorkout } from '../players/running/types/run-workout.type';
 import type { PaceProfile } from '../core/types/running.types';
 import {
   resolveWorkoutMetadata,
+  setLocalizedCopy,
   detectTimeOfDay,
   resolveRunningContentSituation,
   type WorkoutMetadataContext,
@@ -85,6 +86,7 @@ export async function resolveRunningWorkoutMetadata(
 
     if (metadata.title) workout.title = metadata.title;
     if (metadata.description) workout.description = metadata.description;
+    setLocalizedCopy(workout, metadata);
     if (metadata.logicCue) workout.logicCue = metadata.logicCue;
     if (metadata.aiCue) workout.aiCue = metadata.aiCue;
     workout.metadataSource = metadata.source;

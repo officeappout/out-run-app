@@ -11,6 +11,9 @@ import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/ge
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 import { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { common } from '@/messages/ns/common';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
 
 // Cache for gear data
 let gearDefinitionsCache: GearDefinition[] | null = null;
@@ -173,39 +176,16 @@ export async function getGearBadgeProps(
   return { label };
 }
 
+const KNOWN_MUSCLES = new Set(['chest', 'back', 'shoulders', 'abs', 'obliques', 'forearms', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'traps', 'cardio', 'full_body', 'core', 'legs', 'lats', 'hip_flexors', 'lower_back', 'upper_back', 'neck', 'adductors', 'abductors', 'serratus']);
+const tCommon = makeLiveT(common);
+
 /**
- * Get muscle group Hebrew label
+ * Get muscle group label (UI language; Hebrew when the app is Hebrew)
  */
 export function getMuscleGroupLabel(muscle: string): string {
-  const MUSCLE_LABELS: Record<string, string> = {
-    chest: 'חזה',
-    back: 'גב',
-    shoulders: 'כתפיים',
-    abs: 'בטן',
-    obliques: 'אלכסונים',
-    forearms: 'אמה',
-    biceps: 'דו ראשי',
-    triceps: 'שלוש ראשי',
-    quads: 'ארבע ראשי',
-    hamstrings: 'מיתר ברך',
-    glutes: 'ישבן',
-    calves: 'שוקיים',
-    traps: 'טרפז',
-    cardio: 'קרדיו',
-    full_body: 'כל הגוף',
-    core: 'ליבה',
-    legs: 'רגליים',
-    lats: 'גב רחב',
-    hip_flexors: 'כופפי הירך',
-    lower_back: 'גב תחתון',
-    upper_back: 'גב עליון',
-    neck: 'צוואר',
-    adductors: 'מקרבי הירך',
-    abductors: 'מרחיקים',
-    serratus: 'המסור',
-  };
-
-  return MUSCLE_LABELS[muscle] || muscle;
+  const key = `muscle.${muscle}`;
+  // Known ids come from the `common` catalog (Hebrew text identical to the old table); unknown ids show as given.
+  return KNOWN_MUSCLES.has(muscle) ? tCommon(key as NamespaceKey<typeof common>) : muscle;
 }
 
 // ============================================================================

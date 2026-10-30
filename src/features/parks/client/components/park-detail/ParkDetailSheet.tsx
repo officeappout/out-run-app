@@ -16,6 +16,10 @@ import HeroSheetFrame from '@/components/ui/HeroSheetFrame';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useT } from '@/hooks/useT';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { pickText } from '@/features/content/shared/stored-text-fields';
+import { map as mapNs } from '@/messages/ns/map';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
 import type { DayFilter } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import SuggestEditSheet from '../contribution-wizard/SuggestEditSheet';
@@ -74,10 +78,10 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onSta
 
   const [suggestEditOpen, setSuggestEditOpen] = useState(false);
   // Pick one CTA line per sheet mount — see START_WORKOUT_CTA_LINES.
-  const startWorkoutCta = useMemo(
-    () => START_WORKOUT_CTA_LINES[Math.floor(Math.random() * START_WORKOUT_CTA_LINES.length)],
-    [],
-  );
+  const tCta = useT(mapNs);
+  const contentLang = useContentLanguage();
+  const ctaIndex = useMemo(() => Math.floor(Math.random() * START_WORKOUT_CTA_LINES.length), []);
+  const startWorkoutCta = tCta(`parkDetail.cta.line.${ctaIndex}` as 'parkDetail.cta.line.0');
   // Gallery expanded image
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [dayFilter, setDayFilter] = useState<DayFilter>('today');
@@ -242,7 +246,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onSta
             {/* DESCRIPTION — free-text paragraph */}
             {park.description && (
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
-                {park.description}
+                {pickText(park, 'description', contentLang)}
               </p>
             )}
 

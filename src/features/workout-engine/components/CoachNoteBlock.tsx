@@ -8,24 +8,36 @@
  * old logicCue line, so both stay in sync).
  */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useWorkoutCoachNoteV1 } from '@/hooks/useWorkoutCoachNoteV1';
 import { renderCoachNote } from '../services/coach-note';
 import type { DecisionRecord } from '../services/decision-record';
 import { useT } from '@/hooks/useT';
+import { useLocaleStore } from '@/store/useLocaleStore';
+import { ensureCatalog } from '@/lib/i18n/catalogs';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { coach } from '@/messages/ns/coach';
 import { player } from '@/messages/ns/player';
 
 /** The note text, or '' when the flag is off / nothing trustworthy to say. */
 export function useCoachNote(record: DecisionRecord | null | undefined): string {
   const on = useWorkoutCoachNoteV1();
+  const locale = useLocaleStore((s) => s.locale);
+  const catalogVersion = useLocaleStore((s) => s.catalogVersion);
+  // The note is rendered from the saved decision record on every open, so it follows the UI language
+  // (the stored record has no text). A catalog that is not loaded yet renders Hebrew until it lands.
+  useEffect(() => {
+    if (locale !== SOURCE_LOCALE) void ensureCatalog(locale, coach.name);
+  }, [locale]);
   return useMemo(() => {
     if (!on || !record) return '';
     try {
-      return renderCoachNote(record);
+      return renderCoachNote(record, { locale });
     } catch {
       return '';
     }
-  }, [on, record]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on, record, locale, catalogVersion]);
 }
 
 export default function CoachNoteBlock({
