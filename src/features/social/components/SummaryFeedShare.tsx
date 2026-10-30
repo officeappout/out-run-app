@@ -29,6 +29,7 @@ import { createWorkoutPost } from '../services/feed.service';
 import { FeedPrivacySheet, FeedShareSheet, SummaryShareCard, type ShareableWorkout } from './FeedPublishSheets';
 import ShareImageSheet from './ShareImageSheet';
 import { shareInputFromPost, type ShareTogether } from '../services/share-image';
+import { registerSummaryShare } from './share-router/summary-share-registry';
 
 export interface SummaryFeedShareProps {
   workout: ShareableWorkout;
@@ -52,6 +53,15 @@ export default function SummaryFeedShare({ workout, onPublish, onSkip }: Summary
   // The photo picked in the share sheet, offered as the share image's background.
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   useEffect(() => () => { if (photoUrl) URL.revokeObjectURL(photoUrl); }, [photoUrl]);
+  // The one share button (ShareRouterSheet, pilot AG2) opens these: the feed sheet while the post
+  // is still undecided, the image sheet while this card is on screen.
+  useEffect(() => {
+    if (status === 'skipped') return undefined;
+    return registerSummaryShare({
+      feed: status === 'ask' ? () => setShareOpen(true) : null,
+      images: () => setImageOpen(true),
+    });
+  }, [status]);
 
   if (status === 'skipped') return null;
 

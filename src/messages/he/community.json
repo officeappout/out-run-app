@@ -950,5 +950,12 @@
   "arenaCreate.step.outreach": "הזמנת ארגון",
   "arenaCreate.step.codeEntry": "כניסה בקוד",
   "addressSearch.placeholder": "חפש כתובת, פארק או אתר...",
-  "addressSearch.empty": "לא נמצאו תוצאות"
+  "addressSearch.empty": "לא נמצאו תוצאות",
+  "shareRouter.title": "שתפו את האימון",
+  "shareRouter.feed": "פרסום בפיד",
+  "shareRouter.feedSub": "החברים שלכם ב-OUT יראו את האימון",
+  "shareRouter.images": "תמונה מעוצבת לרשתות",
+  "shareRouter.imagesSub": "סטורי או פוסט עם נתוני האימון",
+  "shareRouter.phone": "שליחה מהטלפון",
+  "shareRouter.phoneSub": "וואטסאפ, הודעה ועוד"
 }

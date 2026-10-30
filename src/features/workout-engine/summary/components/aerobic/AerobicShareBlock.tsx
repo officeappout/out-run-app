@@ -1,11 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
 import type { GroupSummaryCtx } from '@/features/workout-engine/summary/hooks/useGroupSummaryCtx';
 import { useT } from '@/hooks/useT';
 import { summary } from '@/messages/ns/summary';
+import ShareRouterSheet from '@/features/social/components/share-router/ShareRouterSheet';
+import { useShareRouterV1 } from '@/features/social/components/share-router/useShareRouterV1';
 
 interface Props {
   distanceKm: number;
@@ -20,6 +22,9 @@ interface Props {
  */
 export default function AerobicShareBlock({ distanceKm, groupCtx, wasSaved = true }: Props) {
   const t = useT(summary);
+  // enable_share_router_v1 (pilot AG2): one sheet with feed / images / phone; off = straight to the OS share.
+  const routerOn = useShareRouterV1();
+  const [routerOpen, setRouterOpen] = useState(false);
   const handleShare = async () => {
     const distanceStr = distanceKm > 0 ? t('share.distance', { km: distanceKm.toFixed(2) }) : '';
     const groupPart =
@@ -47,10 +52,11 @@ export default function AerobicShareBlock({ distanceKm, groupCtx, wasSaved = tru
           {t('share.tooShort')}
         </div>
       )}
-      <Button variant="ghost" size="md" block onClick={handleShare}>
+      <Button variant="ghost" size="md" block onClick={routerOn ? () => setRouterOpen(true) : handleShare}>
         <Share2 size={17} strokeWidth={2.4} aria-hidden />
         {t('share.cta')}
       </Button>
+      {routerOn && <ShareRouterSheet open={routerOpen} onClose={() => setRouterOpen(false)} onPhone={() => void handleShare()} />}
     </div>
   );
 }
