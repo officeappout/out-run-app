@@ -15,6 +15,7 @@ import SliderSideCard from './SliderSideCard';
 import LevelChip from './LevelChip';
 import SwipeNudgeHint from './SwipeNudgeHint';
 import { useStepPreview } from './useStepExerciseName';
+import { useCarouselDrag } from './useCarouselDrag';
 import { NUDGE_DURATION_S, NUDGE_REPEAT_DELAY_S, nudgeKeyframes } from './swipe-nudge';
 import {
   isQuizV3Group,
@@ -65,11 +66,13 @@ export default function SliderV3View(props: SliderV3ViewProps) {
   // A mouse swipe that starts on a side card also clicks it: that click must not move again.
   const justSwiped = useRef(false);
   const cardsRef = useRef<HTMLDivElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
   const reduce = !!useReducedMotion();
   const [rtl, setRtl] = useState(true);
   useEffect(() => {
     if (cardsRef.current) setRtl(getComputedStyle(cardsRef.current).direction === 'rtl');
   }, []);
+  const drag = useCarouselDrag(cardsRef, rowRef, rtl, reduce);
 
   const selected = notYet ? -1 : selectedIndex;
   const cards = sliderCards(steps.length, selected, hasNotYet);
@@ -93,18 +96,23 @@ export default function SliderV3View(props: SliderV3ViewProps) {
     const start = swipeStart.current;
     swipeStart.current = null;
     if (!start) return;
+    drag.settle();
     const dir = swipeDirection(e.clientX - start.x, e.clientY - start.y, rtl);
     if (dir !== 0) { justSwiped.current = true; move(dir); }
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const start = swipeStart.current;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    drag.track(Math.abs(dx) > Math.abs(e.clientY - start.y) ? dx : 0);
   };
 
   const pressSide = (dir: -1 | 1) => {
     if (justSwiped.current) { justSwiped.current = false; return; }
     move(dir);
+    drag.pulse();
   };
-
-  const levelLine = repsLabel
-    ? t('quizV3.slider.levelWithMax', { level, max: repsLabel })
-    : t('quizV3.slider.levelLine', { level });
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-v2-surface" data-quiz-v3-slider={category}>
@@ -127,14 +135,16 @@ export default function SliderV3View(props: SliderV3ViewProps) {
         ref={cardsRef}
         className="relative flex min-h-[220px] flex-1 touch-pan-y items-center justify-center gap-2.5 px-2 py-2"
         onPointerDown={(e) => { justSwiped.current = false; swipeStart.current = { x: e.clientX, y: e.clientY }; }}
+        onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => { swipeStart.current = null; }}
+        onPointerCancel={() => { swipeStart.current = null; drag.settle(); }}
       >
         <motion.div
-          className="flex h-full w-full items-center justify-center gap-2.5"
+          className="h-full w-full"
           animate={nudging ? { x: nudgeKeyframes(rtl) } : { x: 0 }}
           transition={nudging ? { duration: NUDGE_DURATION_S, ease: 'easeInOut', repeat: Infinity, repeatDelay: NUDGE_REPEAT_DELAY_S } : { duration: 0.2 }}
         >
+        <div ref={rowRef} className="flex h-full w-full items-center justify-center gap-2.5" data-card-row>
         <SliderSideCard
           kind="easier"
           hidden={!cards.easier}
@@ -166,11 +176,16 @@ export default function SliderV3View(props: SliderV3ViewProps) {
                 <VideoPlayer tiers={tiers} activeTierId={activeTierId} className="h-full w-full" />
                 <LevelChip kind="mine" label={t('quiz.slider.myLevel')} className="absolute start-2.5 top-2.5 z-10" />
               </div>
-              <div className={clsx('flex flex-col gap-0.5 px-3.5 py-3 text-start transition-opacity', contentFading && 'opacity-40')}>
-                <span className="truncate text-[16px] font-black text-v2-ink">
+              {/* AD9: long names take two lines; level and reps sit on one line when they fit, else the reps
+                  wrap whole onto a second line (never mid-phrase, never over each other). */}
+              <div className={clsx('flex flex-col gap-1 px-3.5 py-3 text-start transition-opacity', contentFading && 'opacity-40')}>
+                <span className="line-clamp-2 break-words text-[16px] font-black leading-5 text-v2-ink" data-exercise-name>
                   {exerciseLabel ?? t('quiz.slider.category', { category: category.toLowerCase(), name: category })}
                 </span>
-                <span className="text-[13px] leading-[18px] text-v2-ink-2" data-level-line>{levelLine}</span>
+                <span className="flex flex-wrap items-baseline gap-x-2 text-[13px] leading-[18px] text-v2-ink-2" data-level-line>
+                  <span className="whitespace-nowrap font-bold" data-level-part>{t('quizV3.slider.levelLine', { level })}</span>
+                  {repsLabel && <span className="min-w-0" data-reps-part>{repsLabel}</span>}
+                </span>
               </div>
             </>
           )}
@@ -185,6 +200,7 @@ export default function SliderV3View(props: SliderV3ViewProps) {
           onPress={() => pressSide(1)}
         />
 
+        </div>
         </motion.div>
 
         {hintVisible && cards.center === 'step' && (

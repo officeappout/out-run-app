@@ -23,6 +23,7 @@ import { needsIdentityBeforeSave } from '../../utils/deferred-identity';
 import { backfillOnboardingIdentitySession } from '../../utils/onboarding-entry';
 import { INTRO_STEP_STORAGE_KEY, NEXT_ROUTE, parseIntroStep, type IntroStep } from './quiz-v3-entry';
 import WelcomeCalisthenicsScreen from './WelcomeCalisthenicsScreen';
+import { useEntryScrollReset } from './entry-scroll';
 import AssessmentIntroScreen from './AssessmentIntroScreen';
 
 const BAR = strengthStoryBar('assessment', true);
@@ -84,6 +85,7 @@ export default function StrengthQuizV3Intro({ onExplainerVideo }: StrengthQuizV3
   useEffect(() => {
     resetStaleStrengthEntryState('[StrengthQuizV3]');
   }, []);
+  useEntryScrollReset(step);
 
   useEffect(() => {
     if (!hydrated || step !== null) return;
