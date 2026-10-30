@@ -52,7 +52,7 @@ describe('player (he) strength summary + dopamine screen — byte-identical to t
       ['strengthSummary.timed.emom.reps', 'חזרות'],
       ['strengthSummary.timed.emom.workPerMinute', 'עבודה בדקה'],
       ['strengthSummary.timed.emom.minuteByMinute', 'דקה אחר דקה'],
-      ['strengthSummary.timed.emom.legend', 'גובה = זמן עבודה מתוך הדקה'],
+      ['strengthSummary.timed.emom.legend', 'כחול = בזמן, כתום = חלקי, אפור = פוספס'],
       ['strengthSummary.timed.tabata.title', 'טבטה'],
       ['strengthSummary.goals.title', 'יעדי רמה'],
       ['strengthSummary.goals.total', 'סה״כ יעדים באימון'],
@@ -107,7 +107,7 @@ describe('player (he) strength summary + dopamine screen — byte-identical to t
     expect(t('strengthSummary.timed.emom.avgRest', { rest: '0:14' })).toBe('מנוחה ממוצעת 0:14');
     expect(t('strengthSummary.timed.emom.barsAria', { done: '11/12' })).toBe(`${'11/12'} דקות בזמן`);
     const note = 'דקה 10 (כתום): 8 מתוך 10 חזרות';
-    expect(t('strengthSummary.timed.emom.legendWithNote', { note })).toBe(`גובה = זמן עבודה מתוך הדקה${`. ${note}`}`);
+    expect(t('strengthSummary.timed.emom.legendWithNote', { note })).toBe(`כחול = בזמן, כתום = חלקי, אפור = פוספס${`. ${note}`}`);
   });
 
   it('branches: exercise count, rounds, ordinals, EMOM note, goal unit', () => {

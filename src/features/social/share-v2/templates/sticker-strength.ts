@@ -1,8 +1,9 @@
 /**
  * Strength sticker (SH-5b): transparent PNG — logo, name (2 lines) + level
  * ring when known, three numbers between hairlines, streak when there is one.
+ * enable_workout_post_v1 (owner rule): on a transparent sticker the logo sits at the bottom.
  */
-import { drawLogo } from '../draw/logo';
+import { drawLogo, logoHeight } from '../draw/logo';
 import { drawRing, drawStatGrid, drawText, drawWrapped, hline, measureAt, setFont, drawFlame, statHeight } from '../draw/primitives';
 import { wrapLines } from '../layout';
 import { STICKER_BOX, withStickerBox } from './sticker-common';
@@ -13,7 +14,8 @@ function draw(a: DrawArgs) {
   withStickerBox(a, () => {
     const { ctx, model: m, palette: p } = a;
     const B = STICKER_BOX;
-    drawLogo(ctx, (B - 70) / 2, 10, 70, p);
+    const logoBottom = !!m.postV1;
+    if (!logoBottom) drawLogo(ctx, (B - 70) / 2, 10, 70, p);
     const left = 22;
     const right = B - 22;
     const ring = m.level ? 70 : 0;
@@ -21,7 +23,7 @@ function draw(a: DrawArgs) {
     const lines = wrapLines(m.name, nameW, measureAt(ctx, 34, 900), 2).length;
     const textH = 20 + lines * 35;
     const blockH = Math.max(textH, ring);
-    const top = 50;
+    const top = logoBottom ? 12 : 50;
     const tTop = top + (blockH - textH) / 2;
     drawText(ctx, m.chip, right, tTop, { size: 15, weight: 800, color: p.sub, lineH: 20, maxW: nameW });
     drawWrapped(ctx, m.name, right, tTop + 20, nameW, 2, { size: 34, weight: 900, color: p.fg, lineH: 35 });
@@ -42,6 +44,7 @@ function draw(a: DrawArgs) {
       drawFlame(ctx, B / 2 + w / 2 - 15, y + 2, 15, '#fb923c');
       drawText(ctx, label, B / 2 + w / 2 - 20, y, { size: 15, weight: 800, color: p.fg, lineH: 20 });
     }
+    if (logoBottom) drawLogo(ctx, (B - 64) / 2, B - 6 - logoHeight(64), 64, p);
   });
 }
 

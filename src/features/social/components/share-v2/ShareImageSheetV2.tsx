@@ -15,6 +15,7 @@ import { saveImageToGallery } from '../../services/save-to-gallery';
 import { shareFileName, type ShareImageInput } from '../../services/share-image';
 import { canvasToBlob, shareOrDownload } from '../../services/share-image-render';
 import { buildShareModel } from '../../share-v2/model';
+import { useWorkoutPostV1 } from '../../post-card/useWorkoutPostV1';
 import { renderShareV2 } from '../../share-v2/render';
 import { defaultTemplateId, templateById, templatesFor } from '../../share-v2/templates/registry';
 import type { ShareBackground, ShareFormat, ShareInk } from '../../share-v2/types';
@@ -53,9 +54,15 @@ export default function ShareImageSheetV2({
 }) {
   const t = useT(community);
   const { showToast } = useToast();
-  const inputKey = input ? JSON.stringify(input) : '';
+  // enable_workout_post_v1 (boards PostShare / PostStickers): the post family (walk / combined, new
+  // stickers, sticker logo at the bottom) and the "place tag" switch (off = no park name on the image).
+  const postV1 = useWorkoutPostV1();
+  const [showPlace, setShowPlace] = useState(true);
+  const hasPlace = postV1 && !!input?.parkName;
+  const shown = input && hasPlace && !showPlace ? { ...input, parkName: undefined } : input;
+  const inputKey = shown ? `${JSON.stringify(shown)}|${postV1 ? 1 : 0}` : '';
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const model = useMemo(() => (input ? buildShareModel(input) : null), [inputKey]);
+  const model = useMemo(() => (shown ? buildShareModel(shown, { postV1 }) : null), [inputKey]);
   const kind = input?.kind ?? 'strength';
   const [ownPhoto, setOwnPhoto] = useState<string | null>(null);
   const photoUrl = ownPhoto ?? photoProp ?? input?.photoUrl ?? null;
@@ -74,6 +81,7 @@ export default function ShareImageSheetV2({
     setTemplateId('');
     setBgPick({});
     setInk('white');
+    setShowPlace(true);
   }, [open]);
   useEffect(() => () => { if (ownPhoto) URL.revokeObjectURL(ownPhoto); }, [ownPhoto]);
 
@@ -167,6 +175,24 @@ export default function ShareImageSheetV2({
           />
         )}
       </div>
+
+      {hasPlace && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={showPlace}
+          onClick={() => setShowPlace((v) => !v)}
+          className="mt-3.5 flex w-full items-center gap-3 rounded-[16px] bg-white px-3.5 py-3 text-start shadow-v2-ring"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-extrabold text-v2-ink">{t('social.share.placeTag')}</span>
+            <span className="block truncate text-[12px] font-bold text-v2-muted">{input?.parkName}</span>
+          </span>
+          <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors duration-150 ${showPlace ? 'bg-v2-accent' : 'bg-slate-300'}`} aria-hidden>
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[inset-inline-start] duration-150 ${showPlace ? 'start-[18px]' : 'start-0.5'}`} />
+          </span>
+        </button>
+      )}
 
       <Button variant="cta" block className="mt-5" disabled={!model || !!busy} onClick={() => void handleShare()}>
         <Share2 size={18} strokeWidth={2.6} aria-hidden />
