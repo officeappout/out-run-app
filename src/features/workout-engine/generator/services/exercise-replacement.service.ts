@@ -14,6 +14,7 @@ import { Park } from '@/types/admin-types';
 import { selectExecutionMethodWithBrand } from './execution-method-selector.service';
 import { isHiddenSkillExercise } from '@/lib/hidden-programs';
 import { pickFittingParkMethod } from '../../players/strength/logic/equipment-filter';
+import { compareMachineLevel, machineIdOf, rankMachineSwaps, type MachineLike } from '../../players/strength/logic/machine-swap';
 
 export interface AlternativeExerciseOption {
   exercise: Exercise;
@@ -332,4 +333,42 @@ export async function getAlternativeExercises(
   console.log(`[SwapDebug][Alternatives] ${groupCount} group → ${all.length} valid → ${selected.length} shown`);
   console.groupEnd();
   return selected;
+}
+
+// ── Machine at a park station: the park's other machines (pilot AG5) ──
+
+/**
+ * For a machine pseudo-exercise (machineIdOf), the park's other machines working the same
+ * muscle (rankMachineSwaps), built exactly like the station built the original — so the
+ * pick plays as a machine with its own photo / video. [] for a catalog exercise, or while
+ * the park (with its gymEquipment) isn't known yet.
+ */
+export async function getMachineAlternatives(
+  currentExercise: Exercise,
+  currentLevel: number,
+  park: Park | null,
+  opts?: Pick<SwapQueryOptions, 'excludeIds'>,
+): Promise<AlternativeExerciseOption[]> {
+  if (!machineIdOf(currentExercise)) return [];
+  const parkGear = park?.gymEquipment ?? [];
+  const parkIds = new Set(parkGear.map((g) => g.equipmentId).filter(Boolean));
+  if (parkIds.size === 0) return [];
+  const [{ getAllGymEquipmentCached }, { buildMachinePseudoExercise, TABATA_DIFFICULTY_LADDER }] = await Promise.all([
+    import('@/features/content/equipment/gym/core/gym-equipment.service'),
+    import('../../services/compose-park-strength-workout.service'),
+  ]);
+  const machines = (await getAllGymEquipmentCached()).filter((m) => parkIds.has(m.id));
+  const picks = rankMachineSwaps(currentExercise as MachineLike, machines, { exclude: opts?.excludeIds });
+  const brandOf = new Map(parkGear.map((g) => [g.equipmentId, g.brandName ?? undefined]));
+  return picks.map((m) => {
+    // The config only shapes the WorkoutExercise wrapper; the swap keeps the slot's own prescription.
+    const we = buildMachinePseudoExercise(m, TABATA_DIFFICULTY_LADDER.medium, brandOf.get(m.id));
+    const level = m.recommendedLevel > 0 ? m.recommendedLevel : currentLevel;
+    return {
+      exercise: we.exercise as Exercise,
+      selectedExecutionMethod: we.method,
+      levelComparison: compareMachineLevel(level, currentLevel),
+      resolvedLevel: level,
+    };
+  });
 }
