@@ -1,5 +1,6 @@
 'use client';
 
+import { COACH_MAIN, COACH_WARMUP } from '@/features/workout-engine/tutorial/workout-tutorial';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { pickText } from '@/features/content/shared/stored-text-fields';
 import { useHomeV2 } from "@/features/home/context/HomeV2Context";
@@ -125,6 +126,7 @@ export default function GeneratedWorkoutExerciseList({
     () => groupExercisesIntoSections(generatedWorkout.exercises, timedMainTitle ? { timedMainTitle } : undefined),
     [generatedWorkout.exercises, timedMainTitle],
   );
+  const firstMainId = sections.find((sec) => sec.id !== 'warmup' && sec.id !== 'cooldown')?.id;
   const equipment = useMemo(
     () => collectEquipment(generatedWorkout.exercises),
     [generatedWorkout.exercises],
@@ -401,8 +403,11 @@ export default function GeneratedWorkoutExerciseList({
             })
           : null;
 
+        // enable_workout_tutorial_v1: coach targets for the overview tour (inert attributes otherwise).
+        const coachTarget = isWarmup ? COACH_WARMUP : section.id === firstMainId ? COACH_MAIN : undefined;
         return (
           <section key={section.id} className="mb-8">
+            <div data-coach={coachTarget}>
             {timedSpec ? (
               <TimedSectionHeader spec={timedSpec} methodInfo={methodInfo} />
             ) : (
@@ -419,6 +424,7 @@ export default function GeneratedWorkoutExerciseList({
               methodInfo={methodInfo}
             />
             )}
+            </div>
 
             {showCards && (
               <div

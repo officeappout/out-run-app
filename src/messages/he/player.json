@@ -1171,5 +1171,21 @@
   "blocks.table.km": "ק״מ",
   "blocks.table.time": "זמן",
   "blocks.table.pace": "קצב",
-  "blocks.table.target": "יעד"
+  "blocks.table.target": "יעד",
+  "workoutTutorial.overview.warmupTitle": "עכשיו חימום",
+  "workoutTutorial.overview.warmupText": "כמה דקות קלות להכין את הגוף",
+  "workoutTutorial.overview.mainTitle": "עכשיו החלק העיקרי",
+  "workoutTutorial.overview.mainText": "כאן בונים כוח",
+  "workoutTutorial.phase.warmup": "עכשיו חימום",
+  "workoutTutorial.phase.warmupSub": "מכינים את הגוף",
+  "workoutTutorial.phase.main": "עכשיו החלק העיקרי",
+  "workoutTutorial.phase.mainSub": "כאן בונים כוח",
+  "workoutTutorial.equipment.title": "מה צריך לאימון הזה",
+  "workoutTutorial.equipment.sub": "כדאי להכין את הציוד לפני שמתחילים",
+  "workoutTutorial.equipment.start": "יש לי, מתחילים",
+  "workoutTutorial.equipment.hide": "לא להציג שוב",
+  "workoutTutorial.input.repsTitle": "מילוי חזרות",
+  "workoutTutorial.input.repsText": "כאן מסמנים כמה חזרות עשית. גוללים את הסרגל כדי לשנות",
+  "workoutTutorial.input.timeTitle": "מילוי זמן",
+  "workoutTutorial.input.timeText": "כאן מסמנים כמה זמן החזקת. גוללים את הסרגל כדי לתקן"
 }
