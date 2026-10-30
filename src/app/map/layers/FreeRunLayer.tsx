@@ -53,6 +53,7 @@ import FreeRunMiniV2 from '@/features/workout-engine/players/running/components/
 import { RoutePlayerTip } from '@/features/user/onboarding/components/entry-whatnow/EntryRouteTours';
 import {
   HybridPlayerV2Provider, HybridOverlayV2, HybridSessionListV2, HybridMiniV2, HybridStationHostV2,
+  ComboShellDriver,
 } from '@/features/workout-engine/hybrid/v2';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
@@ -387,6 +388,8 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
             /* ── Workout mode ─────────────────────────────────────────────── */
             <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
               {/* Everything hidden when minimized — laps list must be unobstructed. */}
+              {/* enable_combo_flow_v1: drops / lifts the player between stages (inert when off). */}
+              {hybridV2 && <ComboShellDriver isMinimized={isMinimized} onMinimize={onMinimize} onExpand={onExpand} />}
               {!isMinimized && hybridV2 && <HybridOverlayV2 dragControls={dragControls} onMinimize={onMinimize} />}
               {/* Entry flow v2: first time the route player runs — one tip on pause / stop (design R6).
                   Flag off → not mounted. The tip only shows where its target exists (the v2 controls). */}
