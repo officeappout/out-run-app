@@ -358,7 +358,7 @@ export default function RestScreen({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-              className="absolute bottom-0 left-0 right-0 z-50"
+              className="absolute bottom-0 end-0 start-0 z-50"
             >
               {logDrawerNode}
             </motion.div>

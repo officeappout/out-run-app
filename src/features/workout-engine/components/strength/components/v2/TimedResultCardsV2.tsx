@@ -51,7 +51,7 @@ function AmrapCard({ m }: { m: AmrapSummaryModel }) {
           {m.partial && (
             <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
               <div className="relative h-[30px] w-full overflow-hidden rounded-[9px] bg-[#00baf71f] ring-[1.5px] ring-inset ring-[#00baf7]">
-                <div className="absolute inset-y-0 right-0 bg-[#00baf7] opacity-85" style={{ width: `${Math.round(m.partial.fraction * 100)}%` }} />
+                <div className="absolute inset-y-0 start-0 bg-[#00baf7] opacity-85" style={{ width: `${Math.round(m.partial.fraction * 100)}%` }} />
                 <span dir="ltr" className="relative grid h-full place-items-center text-[11.5px] font-black tabular-nums text-v2-ink">{m.partial.label}</span>
               </div>
               <span className="whitespace-nowrap text-[11px] font-extrabold text-v2-ink-2">{t('strengthSummary.timed.amrap.partial')}</span>

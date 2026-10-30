@@ -84,7 +84,7 @@ export default function AiCoachProposalCard({
   // A builder proposal seen outside the builder (the draft is gone): shown, never actionable.
   const orphan = !!builderMoves && !onApplyBuilder;
   return (
-    <div className="mt-2 w-[min(320px,80vw)] rounded-2xl border border-cyan-100 bg-white p-3.5 text-right shadow-sm">
+    <div className="mt-2 w-[min(320px,80vw)] rounded-2xl border border-cyan-100 bg-white p-3.5 text-start shadow-sm">
       <div className="flex items-center gap-2">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-cyan-50 text-cyan-600">
           {done ? <CalendarCheck className="h-4 w-4" aria-hidden /> : <CalendarDays className="h-4 w-4" aria-hidden />}

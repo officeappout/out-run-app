@@ -381,7 +381,7 @@ export default function ProfilePage() {
             <span className="text-sm font-bold text-gray-700">{t('profilePage.feedback.toggle')}</span>
             <ChevronLeft
               size={16}
-              className={`text-gray-400 flex-shrink-0 mr-auto transition-transform ${feedbackOpen ? '-rotate-90' : ''}`}
+              className={`text-gray-400 flex-shrink-0 ms-auto transition-transform ${feedbackOpen ? '-rotate-90' : ''}`}
             />
           </button>
 

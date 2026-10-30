@@ -6,6 +6,7 @@ import { Search, X, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import type { SearchOverlayProps } from '../location-types';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export function SearchOverlay({
   searchQuery,
@@ -15,6 +16,7 @@ export function SearchOverlay({
   onBack,
   v2 = false,
 }: SearchOverlayProps) {
+  const { direction: uiDir } = useUiDir();
   const t = useT(onboarding);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -153,8 +155,8 @@ export function SearchOverlay({
                 className="w-full bg-gray-100 rounded-xl px-4 py-3 ps-11 text-gray-900 placeholder-gray-500 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#5BC2F2] focus:border-transparent focus:bg-white transition-all"
                 style={{ 
                   fontFamily: 'var(--font-simpler)',
-                  direction: 'rtl',
-                  textAlign: 'right'
+                  direction: uiDir,
+                  textAlign: uiDir === 'rtl' ? 'right' : 'left'
                 }}
               />
               {searchQuery && (

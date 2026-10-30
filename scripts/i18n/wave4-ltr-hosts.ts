@@ -16,7 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import ts from 'typescript';
 
-const OVERRIDE_RE = /direction:\s*['"`]ltr['"`]|\bdir=\{?['"`]ltr['"`]\}?|style=\{\{\s*direction:[ \t]*(?![ \t]|['"`]rtl['"`])/;
+const OVERRIDE_RE = /direction:\s*['"`]ltr['"`]|\bdir=\{?['"`]ltr['"`]\}?|style=\{\{\s*direction:[ \t]*(?![ \t]|['"`]rtl['"`]|uiDir\b)/;
 /** Files that mention a carousel-style direction host by name, or use drag/slider machinery, are hosts by reference. */
 export const HOST_MENTION_RE = /\b(?:StatsCarousel|SuggestionCarousel|WorkoutSelectionCarousel|DashedGoalCarousel)\b|\buseDrag\b|\bembla\b|\bswiper\b/i;
 const PROP_SUBTREE_RE = /\{children\}|\bchildren\b|\.map\(|\brender[A-Z]\w*\(|\bslides\b/;
@@ -81,11 +81,31 @@ function stripImports(src: string): string {
 }
 
 /**
+ * Content of the shared v2 `<Sheet>` is a direction boundary: the frame always sets its own `dir` (default: the UI direction,
+ * explicit prop otherwise), so nothing inside it inherits a `direction: 'ltr'` carousel host. Blank those subtrees (same length)
+ * so components used only inside a Sheet are not treated as rendered inside the host.
+ */
+export function blankSheetSubtrees(file: string, text: string): string {
+  if (!/<Sheet[\s>]/.test(text)) return text;
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const ranges: Array<[number, number]> = [];
+  const visit = (n: ts.Node) => {
+    if (ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'Sheet') { ranges.push([n.getStart(), n.getEnd()]); return; }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  let out = text;
+  for (const [a, b] of ranges) out = out.slice(0, a) + out.slice(a, b).replace(/[^\n]/g, ' ') + out.slice(b);
+  return out;
+}
+
+/**
  * Component files used in `file` (one level), resolved through the file's imports. A component counts when it appears
  * as a JSX tag OR as a bare identifier (passed BY REFERENCE: `component: X`, `Component={X}`, `render: X`, `slides: [X, Y]`,
  * `createElement(X)`, objects/arrays a host iterates). Dynamic `import('./X')` / `lazy(() => import(...))` specifiers count too.
  */
 function renderedFiles(file: string, src: string, root: string, scope: string = src): string[] {
+  scope = blankSheetSubtrees(file, scope);
   const body = stripImports(scope);
   const tags = new Set([...Array.from(body.matchAll(/<([A-Z]\w*)/g), (m) => m[1]), ...Array.from(body.matchAll(/(?<![.\w$])([A-Z]\w*)\b/g), (m) => m[1])]);
   const out = new Set<string>();
@@ -117,6 +137,22 @@ function renderedFiles(file: string, src: string, root: string, scope: string = 
   }
   return Array.from(out);
 }
+
+/**
+ * Files verified BY HAND to be rendered only at page level (outside every carousel element) or inside a Sheet, although the
+ * deliberately over-approximating scan reaches them through a deep render chain.
+ *  - AiCoachEntry: home page body (outside the carousels, checked with the carousel element subtrees of app/home/page.tsx)
+ *    and ChatInbox (inside <Sheet>); those are its only importers (via the HomeWidgets barrel).
+ *  - WorkoutLocationSuggestions, FirstWeekCard, CalmReturnCard, StreakNoticeCard: only imported by app/home/HomeWidgets, used in
+ *    page.tsx outside every SuggestionCarousel element.
+ */
+export const LTR_FILE_OK = new Set([
+  'src/features/ai-coach/components/AiCoachEntry.tsx',
+  'src/features/home/components/WorkoutLocationSuggestions.tsx',
+  'src/features/home/components/first-week/FirstWeekCard.tsx',
+  'src/features/home/components/CalmReturnCard.tsx',
+  'src/features/home/components/streak/StreakNoticeCard.tsx',
+]);
 
 export function scanLtrHosts(root = 'src'): ScanResult {
   const files = walk(root).map((f) => path.resolve(f));
@@ -167,7 +203,7 @@ export function scanLtrHosts(root = 'src'): ScanResult {
   const okHosts = new Set((process.env.W4_LTR_HOST_OK ?? '').split(',').map((x) => x.trim()).filter(Boolean));
   for (const [t, h] of Array.from(inside)) {
     const hs = Array.from(h).map((x) => path.relative(process.cwd(), x)).filter((x) => !okHosts.has(x));
-    if (hs.length) out.set(path.relative(process.cwd(), t), hs);
+    if (hs.length && !LTR_FILE_OK.has(path.relative(process.cwd(), t))) out.set(path.relative(process.cwd(), t), hs);
   }
   return { hosts: result, inside: out };
 }

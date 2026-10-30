@@ -471,7 +471,7 @@ export default function StepsAnalyticsView({
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-v2-ink shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
             aria-label={t('steps.header.back')}
           >
-            <ChevronRight className="w-5 h-5" strokeWidth={2.4} />
+            <ChevronRight className="w-5 h-5 ltr:-scale-x-100" strokeWidth={2.4} />
           </button>
           <div className="flex-1 min-w-0 text-center">
             <p className="text-[11px] font-extrabold text-[#00865a]">{t('steps.header.eyebrow')}</p>

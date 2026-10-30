@@ -94,7 +94,7 @@ export default function BottomNavigation() {
         willChange: 'transform',
       }}
       aria-hidden={isSuppressed}
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-t border-gray-200/60 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
+      className="fixed bottom-0 end-0 start-0 z-50 bg-white/80 backdrop-blur-xl border-t border-gray-200/60 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
     >
       {/* Map-only white fade sitting *above* the bar (bottom-full) so it feathers
           the map→tab-bar edge. Reuses the app's canonical bottom-fade string

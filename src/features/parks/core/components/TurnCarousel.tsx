@@ -891,7 +891,7 @@ export default function TurnCarousel({
               <IconComp size={17} className="text-white" strokeWidth={2.5} />
             </div>
             {/* Headline */}
-            <p className="flex-1 text-black text-sm font-black leading-tight truncate text-right">
+            <p className="flex-1 text-black text-sm font-black leading-tight truncate text-start">
               {headline}
             </p>
             {/* Distance */}

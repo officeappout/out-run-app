@@ -157,7 +157,7 @@ export default function AdaptiveMetricsWrapper({
       dragMomentum={false}
       onDragEnd={handleDragEnd}
       animate={controls}
-      className="absolute left-0 right-0 z-40 px-3 pointer-events-auto"
+      className="absolute end-0 start-0 z-40 px-3 pointer-events-auto"
       style={{ top: 0, touchAction: 'pan-y' }}
     >
       <div

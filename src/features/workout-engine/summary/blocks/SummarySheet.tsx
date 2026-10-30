@@ -47,13 +47,13 @@ export default function SummarySheet({ open, title, onClose, children }: Summary
             onDragEnd={(_, info) => {
               if (info.offset.y > 120) onClose();
             }}
-            className="fixed bottom-0 left-0 right-0 z-[200] max-h-[85vh] overflow-y-auto rounded-t-3xl bg-white shadow-2xl"
+            className="fixed bottom-0 end-0 start-0 z-[200] max-h-[85vh] overflow-y-auto rounded-t-3xl bg-white shadow-2xl"
             style={{ fontFamily: 'var(--font-simpler)', paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
             <div className="sticky top-0 z-10 flex items-center justify-between bg-white px-5 pb-2 pt-4">
               <span
                 aria-hidden
-                className="absolute left-0 right-0 top-2 mx-auto h-1.5 w-10 rounded-full bg-gray-300"
+                className="absolute end-0 start-0 top-2 mx-auto h-1.5 w-10 rounded-full bg-gray-300"
               />
               <span className="text-base font-bold text-gray-900">{title ?? ''}</span>
               <button

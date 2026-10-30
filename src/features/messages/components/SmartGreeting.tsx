@@ -307,7 +307,7 @@ export function SmartGreeting({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="text-xs text-gray-400 dark:text-gray-500 mt-2 italic border-r-2 border-primary/30 pr-2"
+              className="text-xs text-gray-400 dark:text-gray-500 mt-2 italic border-s-2 border-primary/30 ps-2"
             >
               "{dailyQuote}"
             </motion.p>
@@ -406,7 +406,7 @@ export function SmartGreetingText({
         {mainText}
       </span>
       {subText && (
-        <span className="text-gray-500 dark:text-gray-400 mr-1">
+        <span className="text-gray-500 dark:text-gray-400 ms-1">
           {' '}{subText}
         </span>
       )}

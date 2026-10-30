@@ -46,7 +46,7 @@ export default function LemurBubble({ active, line, reducedMotion }: LemurBubble
             <span className="sr-only">{text}</span>
             <span aria-hidden>
               {text!.slice(0, shown)}
-              {caret && <span className="mr-0.5 inline-block h-4 w-0.5 bg-[#00baf7] align-[-2px]" />}
+              {caret && <span className="ms-0.5 inline-block h-4 w-0.5 bg-[#00baf7] align-[-2px]" />}
             </span>
           </span>
         )}

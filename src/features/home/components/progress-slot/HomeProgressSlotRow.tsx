@@ -16,6 +16,7 @@ import { home } from '@/messages/ns/home';
 import StrengthSlide from './StrengthSlide';
 import RunPlanSlide from './RunPlanSlide';
 import WalkPlanSlide from './WalkPlanSlide';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export interface HomeProgressSlotRowProps {
   /** The weekly bars card (ConsistencyWidget), passed in boundary-wrapped by the page. */
@@ -23,6 +24,7 @@ export interface HomeProgressSlotRowProps {
 }
 
 export default function HomeProgressSlotRow({ aside }: HomeProgressSlotRowProps) {
+  const { direction: uiDir } = useUiDir();
   const t = useT(home);
   const running = useUserStore((s) => s.profile?.running);
   const walkingGoal = useUserStore((s) => (s.profile?.lifestyle as { walkingGoal?: unknown } | undefined)?.walkingGoal);
@@ -31,7 +33,7 @@ export default function HomeProgressSlotRow({ aside }: HomeProgressSlotRowProps)
   return (
     <div
       className="grid w-full items-stretch gap-4"
-      style={{ gridTemplateColumns: 'minmax(0, 1fr) 111px', direction: 'rtl' }}
+      style={{ gridTemplateColumns: 'minmax(0, 1fr) 111px', direction: uiDir }}
       data-home-progress-slot={slide?.kind ?? 'strength'}
     >
       <PagedCarousel

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EASE_V2 } from './tokens';
 import { layoutBars, formatStat, type BarDatum } from './logic';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export type { BarDatum } from './logic';
 
@@ -43,7 +44,7 @@ export default function BarChart({
   highlightKey,
   color = '#00baf7',
   height = 180,
-  dir = 'rtl',
+  dir: dirProp,
   labelEvery,
   renderTooltip,
   datasetKey,
@@ -51,6 +52,8 @@ export default function BarChart({
   className = '',
 }: BarChartProps) {
   const reduce = useReducedMotion();
+  const uiDir = useUiDir().direction;
+  const dir = dirProp ?? uiDir;
   const [selected, setSelected] = useState<string | null>(null);
   const { bars, goalRatio } = layoutBars(data, goal, data.length > 14 ? 0.015 : 0.035);
   const every = labelEvery ?? (data.length > 14 ? Math.ceil(data.length / 6) : 1);

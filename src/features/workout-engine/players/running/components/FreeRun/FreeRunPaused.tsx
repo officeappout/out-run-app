@@ -34,7 +34,7 @@ export default function FreeRunPaused({ onBack }: FreeRunPausedProps) {
 
       {/* ── GLASS HEADER (orange accent for paused state) ─────────────── */}
       <header
-        className="absolute top-0 left-0 right-0 z-30 pointer-events-auto"
+        className="absolute top-0 end-0 start-0 z-30 pointer-events-auto"
         style={{ backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
       >
         <div className="h-14 bg-black/50 border-b border-white/10 flex items-center justify-between px-4">
@@ -58,7 +58,7 @@ export default function FreeRunPaused({ onBack }: FreeRunPausedProps) {
             onClick={onBack}
             className="flex items-center justify-center w-11 h-11 rounded-full active:bg-white/10 transition-colors"
           >
-            <ArrowLeft size={22} className="text-white/85" />
+            <ArrowLeft size={22} className="text-white/85 ltr:-scale-x-100" />
           </button>
         </div>
       </header>
@@ -101,7 +101,7 @@ export default function FreeRunPaused({ onBack }: FreeRunPausedProps) {
 
       {/* ── Glass metrics panel ─────────────────────────────────────────── */}
       <div
-        className="absolute left-0 right-0 z-20 px-3 pb-3 pointer-events-auto"
+        className="absolute end-0 start-0 z-20 px-3 pb-3 pointer-events-auto"
         style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px))' }}
       >
         <div
@@ -120,7 +120,7 @@ export default function FreeRunPaused({ onBack }: FreeRunPausedProps) {
 
       {/* ── GLASS BOTTOM NAV ─────────────────────────────────────────────── */}
       <nav
-        className="absolute bottom-0 left-0 right-0 z-30 flex pointer-events-auto"
+        className="absolute bottom-0 end-0 start-0 z-30 flex pointer-events-auto"
         style={{
           minHeight: '4.5rem',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -137,7 +137,7 @@ export default function FreeRunPaused({ onBack }: FreeRunPausedProps) {
         >
           {playerView === 'main' && (
             <span
-              className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full"
+              className="absolute top-0 end-[25%] start-[25%] h-[2px] rounded-b-full"
               style={{ background: ORANGE }}
             />
           )}
@@ -156,7 +156,7 @@ export default function FreeRunPaused({ onBack }: FreeRunPausedProps) {
         >
           {playerView === 'laps' && (
             <span
-              className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full"
+              className="absolute top-0 end-[25%] start-[25%] h-[2px] rounded-b-full"
               style={{ background: ORANGE }}
             />
           )}

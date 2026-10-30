@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 export type HScrollerGap = 2 | 2.5 | 3 | 4;
 export type HScrollerEdge = 0 | 4 | 5;
@@ -19,7 +20,7 @@ export interface HScrollerProps extends HTMLAttributes<HTMLDivElement> {
   snap?: 'mandatory' | 'proximity' | false;
   /** With snap: stop on every item (scroll-snap-stop: always), so a fast flick moves one card. */
   snapStop?: boolean;
-  /** Reading direction. Default 'rtl' (first item on the right). */
+  /** Reading direction. Defaults to the UI direction (first item on the right in Hebrew). */
   dir?: 'rtl' | 'ltr';
 }
 
@@ -31,9 +32,11 @@ export interface HScrollerProps extends HTMLAttributes<HTMLDivElement> {
  *   <HScroller gap={2.5}>{cards.map((c) => <Card key={c.id} className="w-[220px]" />)}</HScroller>
  */
 const HScroller = forwardRef<HTMLDivElement, HScrollerProps>(function HScroller(
-  { children, gap = 2, edge = 5, snap = 'proximity', snapStop = false, dir = 'rtl', className = '', style, ...rest },
+  { children, gap = 2, edge = 5, snap = 'proximity', snapStop = false, dir: dirProp, className = '', style, ...rest },
   ref,
 ) {
+  const uiDir = useUiDir().direction;
+  const dir = dirProp ?? uiDir;
   const snapClass = snap
     ? `snap-x ${snap === 'mandatory' ? 'snap-mandatory' : 'snap-proximity'} [&>*]:snap-start${snapStop ? ' [&>*]:snap-always' : ''}`
     : '';

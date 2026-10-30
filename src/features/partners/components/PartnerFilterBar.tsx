@@ -770,7 +770,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
               to the thumb. Native <input> rides on top with a transparent
               track so only the thumb shows; dir="rtl" matches the FilterBar. */}
           <div className="relative w-full" style={{ height: 16 }}>
-            <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 bg-gray-200 rounded-full" />
+            <div className="absolute top-1/2 end-0 start-0 h-1.5 -translate-y-1/2 bg-gray-200 rounded-full" />
             <div
               className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
               style={{

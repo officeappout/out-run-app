@@ -94,7 +94,7 @@ export default function SegmentRail({ items, onSelect }: SegmentRailProps) {
                   {item.label}
                   {item.detail ? ` · ${item.detail}` : ''}
                 </span>
-                {onSelect && <ChevronLeft size={13} color={color} />}
+                {onSelect && <ChevronLeft className="ltr:-scale-x-100" size={13} color={color} />}
               </button>
             </div>
           </div>

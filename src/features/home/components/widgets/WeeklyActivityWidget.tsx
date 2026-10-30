@@ -43,7 +43,7 @@ export const WeeklyActivityWidget: React.FC<WeeklyActivityWidgetProps> = ({
         {/* Linear Progress Bar */}
         <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2.5 mt-2 relative overflow-hidden">
           <motion.div
-            className="bg-gradient-to-l from-[#00C9F2] to-[#00E5FF] h-full rounded-full absolute top-0 right-0 shadow-[0_0_15px_rgba(0,201,242,0.3)]"
+            className="bg-gradient-to-l from-[#00C9F2] to-[#00E5FF] h-full rounded-full absolute top-0 start-0 shadow-[0_0_15px_rgba(0,201,242,0.3)]"
             initial={{ width: 0 }}
             animate={{ width: `${percentage}%` }}
             transition={{ duration: 1 }}

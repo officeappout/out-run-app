@@ -76,7 +76,7 @@ function TrackStory({ meKm, rivalKm, goalKm, gapM, myColor, rivalColor, isPaused
       >
         {/* Fill up to the leader's position (neutral bg) */}
         <div
-          className="absolute inset-y-0 right-0 rounded-full"
+          className="absolute inset-y-0 start-0 rounded-full"
           style={{
             width: `${Math.max(mePct, rivalPct)}%`,
             background: 'rgba(0,0,0,0.08)',

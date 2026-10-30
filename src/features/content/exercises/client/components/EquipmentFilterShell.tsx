@@ -98,7 +98,7 @@ export default function EquipmentFilterShell({ isOpen, onClose, isProfileMode, v
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.2}
               onDragEnd={(_, info) => { if (info.offset.y > 120) onClose(); }}
-              className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[85vh] flex flex-col"
+              className="fixed bottom-0 end-0 start-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[85vh] flex flex-col"
               dir={direction}
             >
               {/* Drag handle */}

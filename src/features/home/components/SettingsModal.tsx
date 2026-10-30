@@ -213,7 +213,7 @@ function Toggle({
       <motion.div
         animate={{ x: checked ? 24 : 0 }}
         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md"
+        className="absolute top-1 end-1 w-4 h-4 bg-white rounded-full shadow-md"
       />
     </button>
   );
@@ -251,7 +251,7 @@ function SettingsRow({
     const body = (
       <>
         <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[12px] bg-v2-surface text-v2-ink [&_svg]:!text-v2-ink">{icon}</span>
-        <span className="min-w-0 flex-1 text-right">
+        <span className="min-w-0 flex-1 text-start">
           <span className="block text-[14.5px] font-extrabold text-v2-ink">{label}</span>
           {sublabel && <span className="mt-0.5 block text-[12px] font-bold leading-snug text-v2-muted">{sublabel}</span>}
         </span>
@@ -265,7 +265,7 @@ function SettingsRow({
         className={`flex w-full items-center gap-3 px-3.5 py-3 text-start transition-colors ${disabled ? 'cursor-not-allowed opacity-50' : 'active:bg-v2-surface'}`}
       >
         {body}
-        {right ?? <ChevronLeft size={16} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted" />}
+        {right ?? <ChevronLeft size={16} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted ltr:-scale-x-100" />}
       </button>
     ) : (
       <div className="flex items-center gap-3 px-3.5 py-3">
@@ -285,13 +285,13 @@ function SettingsRow({
         }`}
       >
         <div className="flex-shrink-0">{icon}</div>
-        <div className="flex-1 min-w-0 text-right">
+        <div className="flex-1 min-w-0 text-start">
           <p className="text-base font-semibold text-gray-900 font-simpler">{label}</p>
           {sublabel && (
             <p className="text-sm text-gray-400 font-simpler mt-0.5 leading-snug">{sublabel}</p>
           )}
         </div>
-        {right ?? <ChevronLeft size={16} className="text-gray-300 flex-shrink-0" />}
+        {right ?? <ChevronLeft size={16} className="text-gray-300 flex-shrink-0 ltr:-scale-x-100" />}
       </button>
     );
   }
@@ -299,7 +299,7 @@ function SettingsRow({
   return (
     <div className="flex items-center gap-3 py-3.5">
       <div className="flex-shrink-0">{icon}</div>
-      <div className="flex-1 min-w-0 text-right">
+      <div className="flex-1 min-w-0 text-start">
         <p className="text-base font-semibold text-gray-900 font-simpler">{label}</p>
         {sublabel && (
           <p className="text-sm text-gray-400 font-simpler mt-0.5 leading-snug">{sublabel}</p>
@@ -1418,9 +1418,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     type="button"
                     onClick={() => setScreen('main')}
                     aria-label={tc('actions.back')}
-                    className="p-1 -mr-1 text-gray-500 hover:text-gray-800 flex-shrink-0"
+                    className="p-1 -ms-1 text-gray-500 hover:text-gray-800 flex-shrink-0"
                   >
-                    <ArrowRight size={20} />
+                    <ArrowRight className="ltr:-scale-x-100" size={20} />
                   </button>
                 )}
                 <h2 className={v2 ? 'flex-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'flex-1 text-xl font-black text-gray-900 font-simpler'}>
@@ -1566,7 +1566,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <div className="p-2 rounded-lg bg-amber-50 flex-shrink-0">
                         <Tag size={20} className="text-gray-700" />
                       </div>
-                      <div className="flex-1 min-w-0 text-right">
+                      <div className="flex-1 min-w-0 text-start">
                         <p className="text-sm font-semibold text-gray-900 font-simpler">{t('settings.subscription.couponTitle')}</p>
                         {couponSuccessResult && (
                           <div className="mt-1">
@@ -1912,7 +1912,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                   {/* Notification frequency — drives push.service.ts's per-user daily engagement cap */}
                   <div className="pt-4">
-                    <p className="text-sm font-semibold text-gray-900 font-simpler text-right mb-2">{t('settings.freq.title')}</p>
+                    <p className="text-sm font-semibold text-gray-900 font-simpler text-start mb-2">{t('settings.freq.title')}</p>
                     <div className="space-y-2">
                       {(
                         [
@@ -1928,7 +1928,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             type="button"
                             onClick={() => { void handleFrequencyChange(opt.value); }}
                             disabled={!store.isLoaded || frequencySaving}
-                            className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-right transition-colors ${
+                            className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-start transition-colors ${
                               selected ? 'border-cyan-400 bg-cyan-50/50' : 'border-gray-100 bg-gray-50/50'
                             } disabled:opacity-60`}
                           >
@@ -1969,7 +1969,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <div className="p-2 rounded-lg bg-blue-50 flex-shrink-0">
                         <Clock size={18} className="text-blue-500" />
                       </div>
-                      <div className="flex-1 text-right">
+                      <div className="flex-1 text-start">
                         <p className="text-sm font-semibold text-gray-900 font-simpler">{t('settings.reminders.title')}</p>
                         <p className="text-xs text-gray-400 font-simpler mt-0.5">
                           {remindersLoading
@@ -1978,7 +1978,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         </p>
                       </div>
                       <motion.div animate={{ rotate: remindersExpanded ? 90 : 0 }}>
-                        <ChevronLeft size={16} className="text-gray-300" />
+                        <ChevronLeft size={16} className="text-gray-300 ltr:-scale-x-100" />
                       </motion.div>
                     </button>
 
@@ -2210,14 +2210,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[12px] bg-v2-surface text-v2-ink">
                           <Ruler size={20} className="text-v2-ink" />
                         </span>
-                        <span className="min-w-0 flex-1 text-right">
+                        <span className="min-w-0 flex-1 text-start">
                           <span className="block text-[14.5px] font-extrabold text-v2-ink">{t('settings.tools.units')}</span>
                           <span className="mt-0.5 block text-[12px] font-bold leading-snug text-v2-muted">
                             {t('settings.tools.unitName', { unit: store.units })}
                           </span>
                         </span>
                         <motion.span animate={{ rotate: unitsExpanded ? -90 : 0 }} className="flex flex-shrink-0">
-                          <ChevronLeft size={16} strokeWidth={2.6} className="text-v2-muted" />
+                          <ChevronLeft size={16} strokeWidth={2.6} className="text-v2-muted ltr:-scale-x-100" />
                         </motion.span>
                       </button>
                     ) : (
@@ -2229,14 +2229,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <div className="flex-shrink-0">
                           <Ruler size={20} className="text-gray-700" />
                         </div>
-                        <div className="flex-1 min-w-0 text-right">
+                        <div className="flex-1 min-w-0 text-start">
                           <p className="text-base font-semibold text-gray-900 font-simpler">{t('settings.tools.units')}</p>
                           <p className="text-sm text-gray-400 font-simpler mt-0.5">
                             {t('settings.tools.unitName', { unit: store.units })}
                           </p>
                         </div>
                         <motion.div animate={{ rotate: unitsExpanded ? -90 : 0 }} className="flex-shrink-0">
-                          <ChevronLeft size={16} className="text-gray-300" />
+                          <ChevronLeft size={16} className="text-gray-300 ltr:-scale-x-100" />
                         </motion.div>
                       </button>
                     )}
@@ -2476,7 +2476,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <div className="flex-shrink-0">
                       <LogOut size={20} className="text-gray-700" />
                     </div>
-                    <span className="flex-1 text-right text-base font-semibold text-gray-700 font-simpler">{t('settings.logout')}</span>
+                    <span className="flex-1 text-start text-base font-semibold text-gray-700 font-simpler">{t('settings.logout')}</span>
                   </button>
                 </div>
 
@@ -2551,7 +2551,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         onClose();
                         goToCityEdit();
                       }}
-                      className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-right"
+                      className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-start"
                     >
                       <span className="text-cyan-600 font-semibold text-xs">{t('settings.personal.edit')}</span>
                       <span className="flex items-center gap-2">
@@ -2622,7 +2622,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       type="button"
                       onClick={() => setNeighborhoodPickerOpen(true)}
                       disabled={!cityAuthorityId}
-                      className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-right disabled:opacity-50"
+                      className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-start disabled:opacity-50"
                     >
                       <span className="text-cyan-600 font-semibold text-xs">
                         {editNeighborhoodName ? t('settings.personal.neighborhoodEdit') : t('settings.personal.neighborhoodChoose')}

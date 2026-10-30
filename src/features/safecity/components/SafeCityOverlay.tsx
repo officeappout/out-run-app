@@ -39,12 +39,12 @@ export default function SafeCityOverlay({
   return (
     <>
       {/* Privacy FAB — bottom-left */}
-      <div className="absolute bottom-28 left-4 z-20">
+      <div className="absolute bottom-28 end-4 z-20">
         <PrivacyModeSwitcher />
       </div>
 
       {/* Status badge — top-right */}
-      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+      <div className="absolute top-4 end-4 z-20 flex flex-col gap-2">
         {/* Mode indicator */}
         <div className="bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 shadow-md border border-gray-100 flex items-center gap-2">
           <Eye className="w-3.5 h-3.5 text-gray-500" />
@@ -75,7 +75,7 @@ export default function SafeCityOverlay({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-20 left-0 right-0 z-10 px-3"
+            className="absolute bottom-20 end-0 start-0 z-10 px-3"
           >
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {markers.map((m) => (

@@ -113,12 +113,12 @@ export default function WheelPicker({
         style={{ height: ITEM_HEIGHT * VISIBLE_COUNT, fontFamily: 'var(--font-simpler)' }}
       >
         {/* Gradient fades */}
-        <div className="absolute top-0 left-0 right-0 h-14 bg-gradient-to-b from-white via-white/80 to-transparent z-10 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-white via-white/80 to-transparent z-10 pointer-events-none" />
+        <div className="absolute top-0 end-0 start-0 h-14 bg-gradient-to-b from-white via-white/80 to-transparent z-10 pointer-events-none" />
+        <div className="absolute bottom-0 end-0 start-0 h-14 bg-gradient-to-t from-white via-white/80 to-transparent z-10 pointer-events-none" />
 
         {/* Selection highlight */}
         <div
-          className="absolute left-2 right-2 rounded-2xl bg-[#5BC2F2]/5 border border-[#5BC2F2]/30 shadow-[0_0_12px_rgba(91,194,242,0.15)] z-0"
+          className="absolute end-2 start-2 rounded-2xl bg-[#5BC2F2]/5 border border-[#5BC2F2]/30 shadow-[0_0_12px_rgba(91,194,242,0.15)] z-0"
           style={{ top: halfVisible * ITEM_HEIGHT, height: ITEM_HEIGHT }}
         />
 
@@ -135,7 +135,7 @@ export default function WheelPicker({
                 key={v}
                 role="option"
                 aria-selected={isSelected}
-                className="absolute left-0 right-0 flex items-center justify-center will-change-transform"
+                className="absolute end-0 start-0 flex items-center justify-center will-change-transform"
                 style={{
                   height: ITEM_HEIGHT,
                   top: (halfVisible + offset) * ITEM_HEIGHT,
@@ -158,7 +158,7 @@ export default function WheelPicker({
         })()}
 
         {/* Unit label */}
-        <div className="absolute top-1/2 right-3 -translate-y-1/2 z-20 text-sm text-[#5BC2F2]/70" style={{ fontWeight: 600 }}>
+        <div className="absolute top-1/2 start-3 -translate-y-1/2 z-20 text-sm text-[#5BC2F2]/70" style={{ fontWeight: 600 }}>
           {unit}
         </div>
       </div>

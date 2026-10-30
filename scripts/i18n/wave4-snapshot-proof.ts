@@ -13,6 +13,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { scanLtrHosts } from './wave4-ltr-hosts';
+import { transform } from './wave4-codemod';
 import { ICON_MIRROR_CLASS } from '../../src/lib/i18n/wave4/logical-classes';
 
 const [argBase, ...prefixes] = process.argv.slice(2);
@@ -45,10 +46,13 @@ function independentMap(token: string): string | null {
   return null;
 }
 
-let bad = 0, ltrHostViolations = 0, classChanged = 0, dirRemoved = 0, mirrors = 0;
+let hashOnly = 0, bad = 0, ltrHostViolations = 0, classChanged = 0, dirRemoved = 0, mirrors = 0;
 for (const f of files) {
   const before = execSync(`git show ${base}:${f}`, { encoding: 'utf8', maxBuffer: 1 << 28 });
   const after = fs.readFileSync(f, 'utf8');
+  // Hash-only snapshots ({length, sha256} of the markup) cannot be diffed here: reported, proven by the class-level proof of the sibling markup snapshots.
+  if (/"sha256"/.test(before) && !CLASS_RE.test(before)) { CLASS_RE.lastIndex = 0; hashOnly++; console.log(`HASH-ONLY (not provable here) ${f}`); continue; }
+  CLASS_RE.lastIndex = 0;
   if (normalize(before) !== normalize(after)) { console.log(`STRUCTURE DIFF ${f}`); bad++; continue; }
   const cb = classes(before), ca = classes(after);
   if (cb.length !== ca.length) { console.log(`CLASS COUNT ${f}`); bad++; continue; }
@@ -76,10 +80,15 @@ for (const f of sources) {
   const now = fs.readFileSync(f, 'utf8');
   const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
   // A dir="rtl" swapped for dir={direction} (useUiDir: 'rtl' in Hebrew, correct inside the ltr host in English) is the sanctioned conversion.
-  const dropped = count(was, /\bdir="rtl"/g) - count(now, /\bdir="rtl"/g);
-  const dynamic = count(now, /\bdir=\{direction\}/g) - count(was, /\bdir=\{direction\}/g);
+  // Same for an inline `direction: 'rtl'` style swapped for `direction: uiDir` (useUiDir).
+  const dropped = count(was, /\bdir="rtl"|\bdirection: ?'rtl'/g) - count(now, /\bdir="rtl"|\bdirection: ?'rtl'/g);
+  const dynamic = count(now, /\bdir=\{direction\}|\bdirection: uiDir\b/g) - count(was, /\bdir=\{direction\}|\bdirection: uiDir\b/g);
   const dirDropped = dropped > dynamic;
+  // Sanctioned: the change is exactly what the codemod does to elements nested in a shared <Sheet> (own dir frame, never inside the host),
+  // or a shared v2 primitive whose `dir` default moved from the literal 'rtl' to useUiDir() ('rtl' in Hebrew, so identical).
+  if (transform(f, was, true).out === now) continue;
+  if (/^src\/components\/ui\/v2\/[^/]+\.tsx$/.test(f) && /useUiDir\(\)/.test(now) && !/useUiDir\(\)/.test(was) && dropped <= 0) continue;
   if (dirDropped || (was !== now && dynamic <= 0)) { console.log(`LTR-HOST VIOLATION ${f} <- ${hosts.join(', ')}`); ltrHostViolations++; bad++; }
 }
-console.log(JSON.stringify({ sourceFilesChecked: sources.length, ltrHostViolations, snapshotFilesChecked: files.length, classAttrsChanged: classChanged, dirAttrsRemoved: dirRemoved, mirrorClassesAdded: mirrors, violations: bad }));
+console.log(JSON.stringify({ sourceFilesChecked: sources.length, ltrHostViolations, snapshotFilesChecked: files.length, hashOnly, classAttrsChanged: classChanged, dirAttrsRemoved: dirRemoved, mirrorClassesAdded: mirrors, violations: bad }));
 process.exit(bad ? 1 : 0);

@@ -43,7 +43,7 @@ export default function RunRouteSuggestCarousel({ suggestions, selectedId, onSel
     <div className="pointer-events-none absolute inset-x-0 top-0 z-[70]" dir={direction} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
       <div className="pointer-events-auto flex items-center justify-between px-4">
         <IconButton aria-label={t('run.overview.suggest.back')} size={40} onClick={onBack}>
-          <ArrowRight className="h-[18px] w-[18px] text-v2-ink" />
+          <ArrowRight className="h-[18px] w-[18px] text-v2-ink ltr:-scale-x-100" />
         </IconButton>
         {suggestions.length > 0 && (
           <span className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-white/95 px-3.5 text-[13px] font-extrabold text-v2-ink shadow-v2-ring">

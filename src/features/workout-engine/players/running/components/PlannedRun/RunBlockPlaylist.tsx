@@ -117,13 +117,13 @@ export default function RunBlockPlaylist({
             >
               {isActive && (
                 <div
-                  className="absolute right-0 top-0 bottom-0 w-1 rounded-l-full"
+                  className="absolute start-0 top-0 bottom-0 w-1 rounded-e-full"
                   style={{ backgroundColor: block.colorHex || '#00ADEF' }}
                 />
               )}
 
               {isCompleted && (
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                <div className="absolute end-3 top-1/2 -translate-y-1/2 z-10">
                   <Check size={14} className="text-emerald-500" />
                 </div>
               )}

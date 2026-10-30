@@ -104,7 +104,7 @@ export default function WorkoutPreviewScreen({
             onClick={onBack}
             className="w-8 h-8 flex items-center justify-center rounded-full text-white active:bg-white/20 transition-colors min-w-[44px] min-h-[44px]"
           >
-            <ArrowLeft className="transform rotate-180" size={24} />
+            <ArrowLeft className="transform rotate-180 ltr:-scale-x-100" size={24} />
           </button>
         </div>
 
@@ -227,7 +227,7 @@ export default function WorkoutPreviewScreen({
 
       {/* ── Sticky start button ── */}
       <div
-        className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent pointer-events-auto"
+        className="absolute bottom-0 end-0 start-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent pointer-events-auto"
         style={{
           paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
         }}

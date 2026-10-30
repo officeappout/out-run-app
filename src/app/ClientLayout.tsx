@@ -102,7 +102,7 @@ export default function ClientLayout({
           {/* Accessibility entry points — visually hidden until a keyboard / switch /
               screen-reader user focuses them (WCAG 2.4.1 bypass blocks). Reachable
               from every page without adding a global footer over the map / player. */}
-          <div className="sr-only focus-within:not-sr-only focus-within:fixed focus-within:top-2 focus-within:inset-x-2 focus-within:z-[200] focus-within:flex focus-within:flex-wrap focus-within:gap-2 focus-within:justify-center" dir="rtl">
+          <div className="sr-only focus-within:not-sr-only focus-within:fixed focus-within:top-2 focus-within:inset-x-2 focus-within:z-[200] focus-within:flex focus-within:flex-wrap focus-within:gap-2 focus-within:justify-center">
             <a
               href="#main-content"
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"

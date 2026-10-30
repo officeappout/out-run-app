@@ -38,7 +38,7 @@ export default function RunningSegmentCard({
     >
       <div className="flex items-center justify-between w-full gap-4">
         {/* Title (Right in RTL) */}
-        <div className="flex-1 text-right min-w-0">
+        <div className="flex-1 text-start min-w-0">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">
             {title}
           </h3>
@@ -55,7 +55,7 @@ export default function RunningSegmentCard({
 
         {/* Pace Info (Left in RTL) */}
         {pace && (
-          <div className="flex-shrink-0 text-left">
+          <div className="flex-shrink-0 text-end">
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {pace}
             </p>

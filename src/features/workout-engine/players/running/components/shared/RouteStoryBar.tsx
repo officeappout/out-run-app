@@ -225,7 +225,7 @@ export default function RouteStoryBar({
             which maps naturally to "approaching the goal". */}
         {fillPct > 0 && (
           <div
-            className="absolute inset-y-0 right-0 rounded-full"
+            className="absolute inset-y-0 start-0 rounded-full"
             style={{
               width: `${fillPct}%`,
               backgroundColor: color,

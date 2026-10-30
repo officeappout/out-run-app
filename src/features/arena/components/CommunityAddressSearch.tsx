@@ -147,13 +147,13 @@ export default function CommunityAddressSearch({
           placeholder={placeholder ?? t('addressSearch.placeholder')}
           className={
             v2
-              ? `h-12 w-full rounded-[16px] bg-white pl-11 ${selected ? 'pr-11' : 'pr-4'} text-[15px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-v2-accent`
-              : 'w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-white'
+              ? `h-12 w-full rounded-[16px] bg-white pe-11 ${selected ? 'ps-11' : 'ps-4'} text-[15px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-v2-accent`
+              : 'w-full pe-10 ps-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-white'
           }
         />
 
         {/* Icon: spinner or search */}
-        <div className={`absolute top-1/2 -translate-y-1/2 pointer-events-none ${v2 ? 'left-4 text-v2-muted' : 'left-3 text-gray-400'}`}>
+        <div className={`absolute top-1/2 -translate-y-1/2 pointer-events-none ${v2 ? 'end-4 text-v2-muted' : 'end-3 text-gray-400'}`}>
           {loading
             ? <Loader2 className={`w-4 h-4 animate-spin ${v2 ? 'text-v2-deep' : 'text-cyan-500'}`} />
             : <Search className="w-4 h-4" strokeWidth={v2 ? 2.6 : 2} />}
@@ -161,7 +161,7 @@ export default function CommunityAddressSearch({
 
         {/* Confirmed-selection checkmark */}
         {selected && (
-          <div className={`absolute top-1/2 -translate-y-1/2 ${v2 ? 'right-3.5' : 'right-3'}`}>
+          <div className={`absolute top-1/2 -translate-y-1/2 ${v2 ? 'start-3.5' : 'start-3'}`}>
             <div className={v2 ? 'grid h-6 w-6 place-items-center rounded-full bg-v2-tint text-v2-deep' : 'w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center'}>
               <svg className={v2 ? 'h-3 w-3' : 'w-3 h-3 text-white'} viewBox="0 0 12 12" fill="none">
                 <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -176,8 +176,8 @@ export default function CommunityAddressSearch({
         <div
           className={
             v2
-              ? 'absolute z-50 top-full mt-2 left-0 right-0 overflow-hidden rounded-[20px] bg-white shadow-v2-card ring-1 ring-v2-hairline'
-              : 'absolute z-50 top-full mt-1.5 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden'
+              ? 'absolute z-50 top-full mt-2 end-0 start-0 overflow-hidden rounded-[20px] bg-white shadow-v2-card ring-1 ring-v2-hairline'
+              : 'absolute z-50 top-full mt-1.5 end-0 start-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden'
           }
         >
           {suggestions.map((s, i) => {
@@ -193,14 +193,14 @@ export default function CommunityAddressSearch({
                 onMouseDown={(e) => { e.preventDefault(); handleSelect(s); }}
                 className={
                   v2
-                    ? 'flex w-full items-center gap-3 border-b border-v2-hairline px-4 py-3 text-right transition-colors last:border-0 active:bg-v2-tint'
-                    : 'w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-cyan-50 transition-colors text-right border-b border-gray-50 last:border-0'
+                    ? 'flex w-full items-center gap-3 border-b border-v2-hairline px-4 py-3 text-start transition-colors last:border-0 active:bg-v2-tint'
+                    : 'w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-cyan-50 transition-colors text-start border-b border-gray-50 last:border-0'
                 }
               >
                 <div className={v2 ? 'grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-v2-tint' : 'flex-shrink-0 w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center'}>
                   <MapPin className={v2 ? 'h-4 w-4 text-v2-deep' : 'w-3.5 h-3.5 text-cyan-500'} strokeWidth={v2 ? 2.6 : 2} />
                 </div>
-                <div className="flex-1 min-w-0 text-right">
+                <div className="flex-1 min-w-0 text-start">
                   <p className={v2 ? 'truncate text-[14px] font-black text-v2-ink' : 'text-sm font-bold text-gray-900 truncate'}>{primary}</p>
                   {secondary && (
                     <p className={v2 ? 'truncate text-[12px] font-bold text-v2-muted' : 'text-[11px] text-gray-500 truncate'}>{secondary}</p>
@@ -217,8 +217,8 @@ export default function CommunityAddressSearch({
         <div
           className={
             v2
-              ? 'absolute z-50 top-full mt-2 left-0 right-0 rounded-[20px] bg-white px-4 py-3 text-center text-[13px] font-bold text-v2-muted shadow-v2-card ring-1 ring-v2-hairline'
-              : 'absolute z-50 top-full mt-1.5 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 text-sm text-gray-500 text-center'
+              ? 'absolute z-50 top-full mt-2 end-0 start-0 rounded-[20px] bg-white px-4 py-3 text-center text-[13px] font-bold text-v2-muted shadow-v2-card ring-1 ring-v2-hairline'
+              : 'absolute z-50 top-full mt-1.5 end-0 start-0 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 text-sm text-gray-500 text-center'
           }
         >
           {t('addressSearch.empty')}

@@ -30,7 +30,7 @@ export default function LiveAvatar({ marker, onClick }: LiveAvatarProps) {
 
         {/* Verified badge */}
         {marker.isVerified && (
-          <div className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-white rounded-full flex items-center justify-center shadow-sm">
+          <div className="absolute -top-1 -start-1 w-4.5 h-4.5 bg-white rounded-full flex items-center justify-center shadow-sm">
             <ShieldCheck className="w-3.5 h-3.5 text-cyan-500" />
           </div>
         )}

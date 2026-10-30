@@ -328,7 +328,7 @@ export default function ShareAsLiveToggle({
       >
         <div
           className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${
-            shareAsLive ? 'left-0.5' : 'left-[18px]'
+            shareAsLive ? 'end-0.5' : 'end-[18px]'
           }`}
         />
       </button>

@@ -283,7 +283,7 @@ export default function ExerciseLibraryPage() {
               className="p-2 -ms-2 text-gray-500 hover:text-gray-800 rounded-full"
               aria-label={t('exerciseLibraryPage.back.aria')}
             >
-              <ArrowRight size={22} />
+              <ArrowRight className="ltr:-scale-x-100" size={22} />
             </button>
             <h1 className="text-lg font-bold text-gray-900">{t('exerciseLibraryPage.title')}</h1>
           </div>

@@ -118,7 +118,7 @@ export default function CommuteStatsCarousel() {
           label={t('run.commute.remaining')}
           value={remaining}
         />
-        <div className="border-r border-black/5">
+        <div className="border-s border-black/5">
           <SecondaryStat
             icon={<Clock size={14} />}
             label={t('run.commute.arrival')}

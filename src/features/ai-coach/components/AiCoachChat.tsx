@@ -225,7 +225,7 @@ export default function AiCoachChat({
           className="grid h-10 w-10 place-items-center rounded-full bg-gray-100 active:bg-gray-200"
           aria-label={t('chat.backAria')}
         >
-          <ArrowRight className="h-5 w-5 text-gray-700" />
+          <ArrowRight className="h-5 w-5 text-gray-700 ltr:-scale-x-100" />
         </button>
         <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-sky-600 text-white shadow-sm">
           <Sparkles className="h-5 w-5" aria-hidden />
@@ -285,7 +285,7 @@ export default function AiCoachChat({
 
         {showIntro && (
           <div className="flex flex-col items-end">
-            <div className="max-w-[80%] rounded-2xl rounded-tl-sm border border-gray-100 bg-white px-3.5 py-2.5 text-sm leading-snug text-gray-900 shadow-sm">
+            <div className="max-w-[80%] rounded-2xl rounded-se-sm border border-gray-100 bg-white px-3.5 py-2.5 text-sm leading-snug text-gray-900 shadow-sm">
               {greeting(gender, firstNameOf(profile.core?.name), t)}
             </div>
           </div>
@@ -307,10 +307,10 @@ export default function AiCoachChat({
                 <div
                   className={`max-w-[80%] whitespace-pre-line rounded-2xl px-3.5 py-2.5 text-sm leading-snug shadow-sm ${
                     mine
-                      ? 'rounded-tr-sm bg-cyan-500 text-white'
+                      ? 'rounded-ss-sm bg-cyan-500 text-white'
                       : team
-                        ? 'rounded-tl-sm border border-emerald-100 bg-emerald-50/60 text-gray-900'
-                        : 'rounded-tl-sm border border-gray-100 bg-white text-gray-900'
+                        ? 'rounded-se-sm border border-emerald-100 bg-emerald-50/60 text-gray-900'
+                        : 'rounded-se-sm border border-gray-100 bg-white text-gray-900'
                   }`}
                 >
                   {m.text}
@@ -381,7 +381,7 @@ export default function AiCoachChat({
 
         {statusLabel && (
           <div className="flex items-end justify-end">
-            <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-gray-100 bg-white px-3.5 py-2.5 text-[12.5px] font-semibold text-gray-500 shadow-sm">
+            <div className="flex items-center gap-2 rounded-2xl rounded-se-sm border border-gray-100 bg-white px-3.5 py-2.5 text-[12.5px] font-semibold text-gray-500 shadow-sm">
               <span className="flex gap-1" aria-hidden>
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-cyan-400 [animation-delay:-0.2s]" />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-cyan-400 [animation-delay:-0.1s]" />
@@ -471,7 +471,7 @@ export default function AiCoachChat({
             }
           }}
           placeholder={teamMode ? t('chat.input.placeholderTeam') : phase2 ? rotatingPlaceholder : t('chat.input.placeholder')}
-          className="flex-1 rounded-full bg-gray-100 px-4 py-2.5 text-right text-sm text-gray-900 outline-none placeholder:text-gray-400"
+          className="flex-1 rounded-full bg-gray-100 px-4 py-2.5 text-start text-sm text-gray-900 outline-none placeholder:text-gray-400"
           style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
           enterKeyHint="send"
         />
