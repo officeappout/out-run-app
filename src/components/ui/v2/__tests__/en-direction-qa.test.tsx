@@ -108,7 +108,7 @@ describe.each(Object.entries(SCREENS))('%s source', (_name, rel) => {
     expect(bad.map((m) => src.slice(m.index!, m.index! + 80))).toEqual([]);
   });
   it('every ChevronLeft / ArrowRight used as "forward" mirrors in English', () => {
-    for (const m of src.matchAll(/<(ChevronLeft|ArrowRight)\b[^>]*>/g)) {
+    for (const m of Array.from(src.matchAll(/<(ChevronLeft|ArrowRight)\b[^>]*>/g))) {
       expect(m[0], `${rel}: ${m[0]}`).toMatch(/ltr:-scale-x-100|isRtl|direction/);
     }
   });
