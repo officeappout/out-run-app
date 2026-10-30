@@ -69,6 +69,11 @@ export interface ShareImageInput {
   dateMs?: number;
   parkName?: string;
   together?: ShareTogether;
+  // ── enable_workout_post_v1 (the post family): the walk and combined families ──
+  /** A walk (the post card's walk family): steps as the hero, never pace. */
+  activity?: 'walking';
+  /** A combined (walk / run + strength) workout's parts. */
+  hybrid?: { walkKm: number; runKm: number; strengthSets: number };
 }
 
 /** Extra share-only facts a summary can pass along with its workout. */
@@ -129,7 +134,7 @@ export function shareKindFor(activityCategory: string): ShareKind {
 
 /** A feed post, or the summary's not-yet-posted workout (ShareableWorkout). */
 export type ShareSource = Pick<FeedPost, 'activityCategory' | 'durationMinutes'> &
-  Partial<Pick<FeedPost, 'title' | 'distanceKm' | 'paceMinPerKm' | 'paceSecPerKm' | 'routeShape' | 'parkName' | 'createdAt'>> &
+  Partial<Pick<FeedPost, 'title' | 'distanceKm' | 'paceMinPerKm' | 'paceSecPerKm' | 'routeShape' | 'parkName' | 'createdAt' | 'hybridParts'>> &
   FeedPostDetails &
   ShareExtras;
 
@@ -179,6 +184,9 @@ function v2Extras(post: ShareSource): Partial<ShareImageInput> {
   if (date && Number.isFinite(date)) out.dateMs = date;
   if (typeof post.parkName === 'string' && post.parkName.trim()) out.parkName = post.parkName.trim();
   if (post.together && post.together.participantCount >= 2 && post.together.people.length >= 2) out.together = post.together;
+  if (post.activityType === 'walking') out.activity = 'walking';
+  const h = post.hybridParts;
+  if (h) out.hybrid = { walkKm: posNum(h.walkKm) ? h.walkKm : 0, runKm: posNum(h.runKm) ? h.runKm : 0, strengthSets: posNum(h.strengthSets) ? h.strengthSets : 0 };
   return out;
 }
 
