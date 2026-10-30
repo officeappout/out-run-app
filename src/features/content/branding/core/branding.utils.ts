@@ -233,6 +233,33 @@ export function hasUnresolvedTagArtifacts(text: string | null | undefined): bool
 }
 
 /**
+ * Drop the lines (and, inside a line, the sentences) that still carry unresolved tag artifacts,
+ * so a non-Hebrew UI never shows a Hebrew tag name. Clean text is returned unchanged.
+ */
+export function dropUnresolvedTagSegments(text: string): string {
+  if (!hasUnresolvedTagArtifacts(text)) return text;
+  const out: string[] = [];
+  for (const line of text.split('\n')) {
+    if (!hasUnresolvedTagArtifacts(line)) { out.push(line); continue; }
+    const kept = (line.match(/[^.!?]+(?:[.!?]+|$)\s*/g) ?? []).filter((seg) => !hasUnresolvedTagArtifacts(seg)).join('').trim();
+    if (kept) out.push(kept);
+  }
+  return out.join('\n').trim();
+}
+
+/**
+ * A caller-supplied value that is usually one of a known set (group type, weekday). Hebrew: as is.
+ * Other languages: a catalog key ('walking') or its Hebrew label ('קבוצת הליכה') maps through `group`;
+ * free Hebrew text returns `tag` (left unresolved so the caller skips the line). Empty input returns ''.
+ */
+function enumOrText(L: ReturnType<typeof tagLabels>, group: string, raw: string | undefined, tag: string): string {
+  if (!raw) return '';
+  if (L.isHebrew) return raw;
+  const key = L.has(group, raw.toLowerCase()) ? raw.toLowerCase() : L.keyOfHebrew(group, raw.trim());
+  return (key !== undefined ? L.label(group, key) : undefined) ?? L.text(raw) ?? tag;
+}
+
+/**
  * Resolve @tags in notification or description text
  * Supports dynamic replacement based on context
  */
@@ -304,11 +331,12 @@ export function resolveNotificationText(
 
   // ── Social Engagement Engine: Community_Group_New tags ────────────
   if (context.triggerType === 'Community_Group_New') {
+    // Group name is a user-chosen proper name: passed through as is in every language (names are not translated).
     resolved = resolved.replace(tagPattern('@שם_קבוצה'), () => context.groupName || L('group.name'));
-    resolved = resolved.replace(tagPattern('@סוג_קבוצה'), () => context.groupTypeLabel || L('group.type'));
+    resolved = resolved.replace(tagPattern('@סוג_קבוצה'), (tag) => enumOrText(L, 'groupType', context.groupTypeLabel, tag) || L('group.type'));
     resolved = resolved.replace(tagPattern('@מיקום_מפגש'), () => context.meetingLocationName || L('meeting.location'));
     resolved = resolved.replace(tagPattern('@שעת_מפגש'), () => context.meetingTimeFormatted || L('meeting.time'));
-    resolved = resolved.replace(tagPattern('@יום_מפגש'), () => context.meetingDayFormatted || L('meeting.day'));
+    resolved = resolved.replace(tagPattern('@יום_מפגש'), (tag) => enumOrText(L, 'meetingDay', context.meetingDayFormatted, tag) || L('meeting.day'));
   }
 
   // ── Social Engagement Engine: Matchmaking tags (both matchmaking
@@ -318,7 +346,13 @@ export function resolveNotificationText(
     context.triggerType === 'Future_Partner_Plan'
   ) {
     resolved = resolved.replace(tagPattern('@שם_שותף'), () => context.partnerName || L('partner.name'));
-    resolved = resolved.replace(tagPattern('@רמת_שותף'), () => context.partnerLevel || L('partner.level'));
+    resolved = resolved.replace(tagPattern('@רמת_שותף'), (tag) => {
+      const raw = context.partnerLevel;
+      if (!raw || L.isHebrew) return raw || L('partner.level');
+      // 'רמה 7' / '7' rebuild from the number; other free Hebrew text stays unresolved (caller skips the line).
+      const n = /^(?:רמה\s*)?(\d+)$/.exec(raw.trim())?.[1];
+      return n !== undefined ? L('level.next', { n }) : (L.text(raw) ?? tag);
+    });
     resolved = resolved.replace(tagPattern('@שעת_הגעה_שותף'), () => context.partnerArrivalTime || L('partner.arrival'));
   }
 
