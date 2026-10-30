@@ -136,7 +136,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[100000] overflow-y-auto pointer-events-auto"
+            className="fixed start-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[100000] overflow-y-auto pointer-events-auto"
             style={{ fontFamily: 'var(--font-simpler)', isolation: 'isolate' }}
             dir={direction}
           >
@@ -283,7 +283,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                     <motion.div
                       animate={{ x: localSettings.enableAudio ? 24 : 0 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md"
+                      className="absolute top-1 end-1 w-6 h-6 bg-white rounded-full shadow-md"
                     />
                   </button>
                 </div>
@@ -303,7 +303,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                     <motion.div
                       animate={{ x: localSettings.enableAutoPause ? 24 : 0 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md"
+                      className="absolute top-1 end-1 w-6 h-6 bg-white rounded-full shadow-md"
                     />
                   </button>
                 </div>
@@ -323,7 +323,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                     <motion.div
                       animate={{ x: localSettings.enableCountdown ? 24 : 0 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md"
+                      className="absolute top-1 end-1 w-6 h-6 bg-white rounded-full shadow-md"
                     />
                   </button>
                 </div>

@@ -478,6 +478,10 @@ export default function AppMap({
   // after the first successful pass; a real 'style.load' (setStyle / hot-reload
   // rebuilds the layers) re-arms it. See handleMapLoad.
   const hebrewLabelsAppliedRef = useRef(false);
+  // Map label language follows the UI language: `name_<locale>` first (Mapbox streets ships name_en etc.), the
+  // local `name` as the fallback. Hebrew UI keeps `name_he`, exactly as before.
+  const labelLangRef = useRef<string>(tMap.locale);
+  labelLangRef.current = tMap.locale;
   // ── Map paint + location readiness gate ─────────────────────────────────
   // Drives the AI-themed `MapLoadingSkeleton` overlay. False until BOTH:
   //   1. Paint: the Mapbox style has finished parsing (so the declutter pass
@@ -1060,6 +1064,12 @@ export default function AppMap({
       try { map.off('idle', onIdle); } catch { /* map may be gone */ }
     };
   }, [isMapLoaded]);
+
+  // UI language changed while the map is open: relabel (the same forced sweep a style rebuild runs).
+  useEffect(() => {
+    if (!isMapLoaded) return;
+    hebrewHandlerRef.current?.();
+  }, [tMap.locale, isMapLoaded]);
 
   // ── Skeleton dissolve trigger: paint readiness ──────────────────────────
   // Flips `isPaintReady` true on the first Mapbox `idle` event after
@@ -1686,7 +1696,7 @@ export default function AppMap({
           if (CUSTOM_LAYER_IDS.has(layer.id)) continue;
           try {
             if (layer.type === 'symbol' && (layer as any).layout?.['text-field']) {
-              rawMap.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name_he'], ['get', 'name']]);
+              rawMap.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', `name_${labelLangRef.current}`], ['get', 'name']]);
             }
           } catch { /* skip locked/internal layers */ }
         }

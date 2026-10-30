@@ -11,6 +11,8 @@ import { formatDate, formatNumber } from '@/lib/i18n/core/fmt';
 import { useLocaleStore } from '@/store/useLocaleStore';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 import { TRACK_COLORS } from '@/components/ui/v2/track-colors';
 import { ACTIVITY_RING_DAILY_GOAL } from '@/features/home/utils/activity-ring.utils';
 import type { PlannerDayCell, PlannerMonthSection } from '../lib/monthCells';
@@ -57,6 +59,7 @@ function DayCell({ cell, view, selected, onTap }: { cell: PlannerDayCell; view: 
 
 export default function PlannerMonthStrip({ sections, view, selectedIso, stepGoal, onDayTap }: PlannerMonthStripProps) {
   const t = useT(home);
+  const tc = useT(common);
   const locale = useLocaleStore((s) => s.locale);
   const boxRef = useRef<HTMLDivElement>(null);
   const todayRowRef = useRef<HTMLDivElement>(null);
@@ -72,8 +75,8 @@ export default function PlannerMonthStrip({ sections, view, selectedIso, stepGoa
   return (
     <div className="overflow-hidden rounded-[24px] bg-white shadow-v2-card">
       <div className="grid grid-cols-7 border-b border-v2-hairline px-2 pb-1 pt-2.5 text-center text-[11px] font-bold text-v2-muted">
-        {HEBREW_DAYS.map((l) => (
-          <span key={l}>{l}</span>
+        {HEBREW_DAYS.map((l, i) => (
+          <span key={l}>{weekdayLabel(i, 'letter', tc)}</span>
         ))}
       </div>
       <div className="relative">

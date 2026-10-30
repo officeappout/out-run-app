@@ -121,7 +121,7 @@ export default function ParkCardCompact({
               {chips.map((tag) => {
                 const cfg = AMENITY_ICON_MAP[tag];
                 if (!cfg) return null;
-                return <IconChip key={tag} label={cfg.label} iconSrc={cfg.iconSrc} IconComponent={cfg.IconComponent} />;
+                return <IconChip key={tag} label={t(`parkAmenity.${tag}` as const)} iconSrc={cfg.iconSrc} IconComponent={cfg.IconComponent} />;
               })}
             </div>
           )}

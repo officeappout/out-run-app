@@ -10,6 +10,7 @@ export type RunWorkout = {
   title: string;
   titleLocalized?: LocalizedText;
   description?: string;
+  descriptionLocalized?: LocalizedText;
   isQualityWorkout: boolean;
   blocks: RunBlock[];
   videoUrl?: string;

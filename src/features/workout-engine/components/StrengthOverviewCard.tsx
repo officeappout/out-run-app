@@ -239,7 +239,7 @@ export default function StrengthOverviewCard({
                 {(() => {
                   const imgSrc = exercise.imageUrl && (exercise.imageUrl.startsWith('/') || exercise.imageUrl.startsWith('http')) ? exercise.imageUrl : null;
                   return (
-                    <div className="h-full w-32 flex-shrink-0 bg-slate-100 rounded-r-xl rounded-l-none overflow-hidden relative">
+                    <div className="h-full w-32 flex-shrink-0 bg-slate-100 rounded-s-xl rounded-e-none overflow-hidden relative">
                       {imgSrc ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -263,7 +263,7 @@ export default function StrengthOverviewCard({
                 })()}
                 
                 {/* Exercise Content - LEFT side (RTL default) */}
-                <div className="flex-grow px-5 flex flex-col justify-center items-start text-right">
+                <div className="flex-grow px-5 flex flex-col justify-center items-start text-start">
                   <p className="text-sm font-bold text-slate-800 mb-1">{exercise.name}</p>
                   {(exercise.reps || exercise.duration) && (
                     <p className="text-xs font-bold text-[#00B4D8]">

@@ -3,6 +3,7 @@
  * Pure helpers, scoring engine, data fetching, and copy matrix.
  */
 
+import { useLocaleStore } from '@/store/useLocaleStore';
 import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { getAllAuthorities, getChildrenByParent } from '@/features/admin/services/authority.service';
@@ -61,7 +62,7 @@ export function setMapLanguageToHebrew(map: MapboxGLMap) {
         try {
           map.setLayoutProperty(layer.id, 'text-field', [
             'coalesce',
-            ['get', 'name_he'],
+            ['get', `name_${useLocaleStore.getState().locale}`],
             ['get', 'name'],
           ]);
         } catch {

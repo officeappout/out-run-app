@@ -41,8 +41,10 @@
  * `surface` swaps the base surface classes (e.g. a `bg-v2-surface` tint)
  * instead of fighting `bg-white` through `className`.
  *
- * Opt-in extras: `closeOnEscape` (Escape closes while open) and
- * `respectReducedMotion` (fade instead of slide under prefers-reduced-motion).
+ * Opt-in extras: `closeOnEscape` (Escape closes while open),
+ * `respectReducedMotion` (fade instead of slide under prefers-reduced-motion) and
+ * `frameMotion` (your own enter / exit for the frame, e.g. the "i" sheets'
+ * clip-path reveal grown from the button; it wins over the slide and the fade).
  *
  * The surface pads its bottom by `safeArea` (default
  * `max(1.5rem, env(safe-area-inset-bottom))`).
@@ -73,6 +75,7 @@ import {
   type MotionStyle,
   type MotionValue,
   type PanInfo,
+  type TargetAndTransition,
   type Transition,
 } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -191,6 +194,16 @@ export interface SheetProps {
   closeOnEscape?: boolean;
   /** Under prefers-reduced-motion, fade the panel instead of sliding it. Default false. */
   respectReducedMotion?: boolean;
+  /** Replaces the frame's enter / exit (and its transition when given). Absent = slide (or fade). */
+  frameMotion?: SheetFrameMotion;
+}
+
+/** A frame's own enter / exit, e.g. a clip-path reveal (framer targets). */
+export interface SheetFrameMotion {
+  initial: TargetAndTransition;
+  animate: TargetAndTransition;
+  exit: TargetAndTransition;
+  transition?: Transition;
 }
 
 /** Grabber pill row — exported for surfaces that aren't a modal Sheet. */
@@ -291,6 +304,7 @@ export default function Sheet({
   keyboardAware = true,
   closeOnEscape = false,
   respectReducedMotion = false,
+  frameMotion,
 }: SheetProps) {
   const uiDir = useUiDir().direction;
   const dir = dirProp ?? uiDir;
@@ -386,10 +400,10 @@ export default function Sheet({
       aria-label={title != null && !header ? undefined : ariaLabel}
       data-v2-sheet-modal={layout}
       dir={dir}
-      initial={fadeOnly ? { opacity: 0 } : { y: enterY }}
-      animate={fadeOnly ? { opacity: 1 } : { y: 0 }}
-      exit={fadeOnly ? { opacity: 0 } : { y: enterY }}
-      transition={transition}
+      initial={frameMotion ? frameMotion.initial : fadeOnly ? { opacity: 0 } : { y: enterY }}
+      animate={frameMotion ? frameMotion.animate : fadeOnly ? { opacity: 1 } : { y: 0 }}
+      exit={frameMotion ? frameMotion.exit : fadeOnly ? { opacity: 0 } : { y: enterY }}
+      transition={frameMotion?.transition ?? transition}
       drag={drag ? 'y' : false}
       dragListener={drag ? !handleOnly : undefined}
       dragControls={drag && handleOnly ? controls : undefined}

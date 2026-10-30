@@ -25,6 +25,8 @@ export const READY_PATHS: Record<string, readonly string[]> = {
   smart_messages: ['text', 'subText'],
   outdoorBrands: ['name', 'description'],
   product_tags: ['name'],
+  // batch3: park free text. Park NAMES stay as saved (proper nouns). Reader: parks.service normalizePark + pickText.
+  parks: ['description'],
   // push_messages stays out on purpose: the push sender reads it only after the functions deploy.
 };
 

@@ -12,6 +12,7 @@
  * rather than presenting all 4 as undifferentiated buttons.
  */
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import React from 'react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
@@ -52,6 +53,7 @@ export default function UnifiedPlusDrawer({
   onAddWorkout,
 }: UnifiedPlusDrawerProps) {
   const t = useT(map);
+  const { isRtl } = useUiDir();
   const select = (fn: () => void) => () => { onClose(); fn(); };
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   // v2 look (enable_home_v2) — the drawer opens from home and the map.
@@ -109,7 +111,7 @@ export default function UnifiedPlusDrawer({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[15.5px] font-black text-v2-ink">{row.label}</span>
-        <span className="block truncate text-[12.5px] font-bold text-v2-muted">{row.sublabel}</span>
+        <span className={isRtl ? 'block truncate text-[12.5px] font-bold text-v2-muted' : 'block line-clamp-2 text-[12.5px] font-bold leading-tight text-v2-muted'}>{row.sublabel}</span>
       </span>
       <ChevronLeft size={17} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted ltr:-scale-x-100" />
     </button>

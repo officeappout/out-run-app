@@ -28,7 +28,7 @@ export default function ParkAmenitiesSection({ park, v2 }: { park: Park; v2: boo
               return (
                 <IconChip
                   key={tag}
-                  label={cfg.label}
+                  label={t(`parkAmenity.${tag}` as const)}
                   iconSrc={cfg.iconSrc}
                   IconComponent={cfg.IconComponent}
                   v2={v2}

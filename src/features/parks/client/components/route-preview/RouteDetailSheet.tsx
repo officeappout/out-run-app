@@ -41,6 +41,7 @@ import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveT
 import type { WorkoutActivityStatus } from '@/features/safecity/services/presence.service';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import { localizeRouteName } from '@/features/parks/core/utils/route-name-display';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import dynamic from 'next/dynamic';
@@ -486,7 +487,7 @@ export default function RouteDetailSheet({
                     <ChevronLeft size={20} className="text-gray-700 ltr:-scale-x-100" />
                   </button>
                   <h1 className="text-lg font-black text-gray-900 flex-1 text-center px-4 truncate">
-                    {route.name || t('routePreview.nameFallback')}
+                    {localizeRouteName(route.name ?? '', t.locale) || t('routePreview.nameFallback')}
                   </h1>
                   <div className="w-10" />
                 </div>
@@ -503,7 +504,7 @@ export default function RouteDetailSheet({
                 >
                   {coverImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={coverImage} alt={route.name || t('routePreview.nameFallback')} className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={coverImage} alt={localizeRouteName(route.name ?? '', t.locale) || t('routePreview.nameFallback')} className="absolute inset-0 w-full h-full object-cover" />
                   ) : (
                     <div
                       className="absolute inset-0 flex items-center justify-center"
@@ -545,7 +546,7 @@ export default function RouteDetailSheet({
                     className="text-[20px] font-bold text-gray-900 leading-tight"
                     style={{ wordBreak: 'break-word', paddingInlineEnd: 40 }}
                   >
-                    {route.name || t('routePreview.title.unnamed')}
+                    {localizeRouteName(route.name ?? '', t.locale) || t('routePreview.title.unnamed')}
                   </h1>
                 </div>
 
@@ -954,7 +955,7 @@ export default function RouteDetailSheet({
                           >
                             <span className="text-lg leading-none">🗺️</span>
                             <span className="text-[13px] font-bold text-gray-700 flex-1 text-start truncate">
-                              {route.name || t('routePreview.accordion.routeFallback')}
+                              {localizeRouteName(route.name ?? '', t.locale) || t('routePreview.accordion.routeFallback')}
                             </span>
                             <span className="text-[12px] font-semibold text-gray-500 whitespace-nowrap">
                               {formatDuration(route.duration, t)} • {distanceLabelStr}

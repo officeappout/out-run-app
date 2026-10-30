@@ -19,6 +19,7 @@ import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import { useTogetherLayerV1 } from '@/features/workout-engine/together/hooks/useTogetherLayerV1';
 import TogetherLobby from '@/features/workout-engine/together/components/TogetherLobby';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 interface SessionLobbyOverlayProps {
   onStartFreeRun: () => void;
@@ -44,6 +45,7 @@ export default function SessionLobbyOverlay(props: SessionLobbyOverlayProps) {
 }
 
 function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: SessionLobbyOverlayProps) {
+  const { direction: uiDir } = useUiDir();
   const t = useT(player);
   const gender = useUiGender();
   const profile = useUserStore((s) => s.profile);
@@ -143,7 +145,7 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
     return (
       <div
         className="absolute inset-0 z-[60] flex flex-col items-center justify-center"
-        style={{ background: 'rgba(0,0,0,0.75)', direction: 'rtl' }}
+        style={{ background: 'rgba(0,0,0,0.75)', direction: uiDir }}
       >
         <div className="text-center">
           {countdown !== null && countdown > 0 ? (
@@ -171,7 +173,7 @@ function ClassicSessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: S
   return (
     <div
       className="absolute inset-0 z-[60] flex flex-col"
-      style={{ background: 'rgba(0,0,0,0.80)', direction: 'rtl' }}
+      style={{ background: 'rgba(0,0,0,0.80)', direction: uiDir }}
     >
       {/* Header */}
       <div className="px-5 pt-16 pb-4">

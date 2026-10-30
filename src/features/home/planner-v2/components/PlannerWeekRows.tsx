@@ -21,6 +21,8 @@ import { savePlannerWeek } from '@/features/schedule/week-builder/planner/savePl
 import type { WbSession } from '@/features/schedule/week-builder/types';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { common } from '@/messages/ns/common';
+import { weekdayLabel } from '@/lib/i18n/units';
 import PlannerSessionRow from './PlannerSessionRow';
 
 export interface PlannerWeekRowsProps {
@@ -37,6 +39,7 @@ const NOTICE_MS = 3500;
 
 export default function PlannerWeekRows({ userId, model, keys, todayKey, onSaved, onOpenDay, onOpenSession }: PlannerWeekRowsProps) {
   const t = useT(home);
+  const tc = useT(common);
   const [week, setWeek] = useState<PlannerWeek>(model.week);
   const [pending, setPending] = useState<PlannerWeek | null>(null);
   const [saving, setSaving] = useState(false);
@@ -97,7 +100,7 @@ export default function PlannerWeekRows({ userId, model, keys, todayKey, onSaved
               className={`transition-colors duration-150 ${hover === day.dow ? 'bg-v2-tint' : isToday ? 'bg-v2-tint/60' : ''}`}
             >
               <WeekDayRow
-                letter={HEBREW_DAYS[day.dow]}
+                letter={weekdayLabel(day.dow, 'letter', tc)}
                 date={model.dates[day.dow]}
                 muted={day.sessions.length === 0}
                 emptyLabel={t('plannerV2.rest')}

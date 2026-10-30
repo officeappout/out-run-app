@@ -39,7 +39,7 @@ export default function PlayerDrawerCompact({ drawer, title, caption, value, uni
         onPanEnd={drawer.onPanEnd}
         onClick={drawer.toggle}
         aria-label={t('strength.drawer.expandAria')}
-        className="flex min-w-0 flex-1 items-center gap-3 text-right"
+        className="flex min-w-0 flex-1 items-center gap-3 text-start"
         style={{ touchAction: 'none' }}
       >
         {value && (

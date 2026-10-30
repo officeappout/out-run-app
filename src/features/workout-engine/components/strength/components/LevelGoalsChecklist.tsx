@@ -86,7 +86,7 @@ export default function LevelGoalsChecklist({ evaluatedGoals, celebrate = false 
                   unit: goal.unit === 'reps' ? 'reps' : 'other',
                 })}
               </span>
-              <span className={`text-xs font-bold tabular-nums min-w-[3rem] text-left ${
+              <span className={`text-xs font-bold tabular-nums min-w-[3rem] text-end ${
                 goal.achieved ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-300 dark:text-slate-600'
               }`}>
                 {goal.achieved ? `+${bonus}%` : `(${bonus}%)`}

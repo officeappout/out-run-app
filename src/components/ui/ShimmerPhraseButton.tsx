@@ -39,7 +39,7 @@ export default function ShimmerPhraseButton({
   const [msgIdx, setMsgIdx] = useState(0);
   const [visible, setVisible] = useState(true);
   const [pressed, setPressed] = useState(false);
-  const { direction } = useUiDir();
+  const { direction, isRtl } = useUiDir();
 
   useEffect(() => {
     if (messages.length <= 1) return;
@@ -137,9 +137,17 @@ export default function ShimmerPhraseButton({
               transition: visible
                 ? 'opacity 0.4s ease, transform 0.4s ease'
                 : 'opacity 0.3s ease, transform 0.3s ease',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
+              ...(isRtl
+                ? { whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
+                : // Longer English phrases wrap to 2 lines instead of truncating.
+                  {
+                    overflow: 'hidden',
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical' as const,
+                    WebkitLineClamp: 2,
+                    lineHeight: 1.25,
+                    textWrap: 'balance' as const,
+                  }),
             }}
           >
             {messages[msgIdx]}

@@ -70,12 +70,12 @@ export default function ExerciseRow({ exercise }: ExerciseRowProps) {
       </div>
 
       {/* Exercise name */}
-      <div className={`px-4 py-2 rounded-xl border shadow-sm flex-1 mr-4 ${
+      <div className={`px-4 py-2 rounded-xl border shadow-sm flex-1 ms-4 ${
         wasPerformed
           ? 'bg-white dark:bg-slate-700 border-slate-100 dark:border-slate-600'
           : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700 opacity-60'
       }`}>
-        <p className="text-xs font-medium text-slate-800 dark:text-white text-right line-clamp-1">
+        <p className="text-xs font-medium text-slate-800 dark:text-white text-start line-clamp-1">
           {exercise.name}
         </p>
       </div>

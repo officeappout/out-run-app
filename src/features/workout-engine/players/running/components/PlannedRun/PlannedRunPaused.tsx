@@ -48,7 +48,7 @@ export default function PlannedRunPaused({ onBack }: PlannedRunPausedProps) {
           onClick={onBack}
           className="w-8 h-8 flex items-center justify-center rounded-full active:bg-white/20 transition-colors min-w-[44px] min-h-[44px]"
         >
-          <ArrowLeft className="transform rotate-180" size={24} />
+          <ArrowLeft className="transform rotate-180 ltr:-scale-x-100" size={24} />
         </button>
       </header>
 

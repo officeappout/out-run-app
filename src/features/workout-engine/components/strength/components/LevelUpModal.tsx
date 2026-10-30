@@ -95,7 +95,7 @@ export default function LevelUpModal({
               className="w-full py-3.5 rounded-xl bg-gradient-to-l from-[#00C9F2] to-[#00E5FF] text-white font-bold text-base shadow-lg shadow-cyan-500/20 active:scale-[0.97] transition-transform flex items-center justify-center gap-2"
             >
               <span>{t('strengthSummary.levelUp.cta')}</span>
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-5 h-5 ltr:-scale-x-100" />
             </motion.button>
           </motion.div>
         </motion.div>

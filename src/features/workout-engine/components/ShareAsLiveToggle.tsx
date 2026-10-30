@@ -138,7 +138,7 @@ export default function ShareAsLiveToggle({
   v2 = false,
   trainingHere,
 }: ShareAsLiveToggleProps) {
-  const { direction } = useUiDir();
+  const { direction, isRtl } = useUiDir();
   const t = useT(player);
   const profile = useUserStore((s) => s.profile);
   const storedGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
@@ -287,8 +287,8 @@ export default function ShareAsLiveToggle({
           <Users size={18} strokeWidth={2.4} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate whitespace-nowrap text-[14px] font-extrabold text-v2-ink">{headline}</div>
-          <div className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{subheadline}</div>
+          <div className={isRtl ? 'truncate whitespace-nowrap text-[14px] font-extrabold text-v2-ink' : 'line-clamp-2 text-[14px] font-extrabold leading-tight text-v2-ink'}>{headline}</div>
+          <div className={isRtl ? 'truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted' : 'line-clamp-2 text-[12.5px] font-bold leading-tight text-v2-muted'}>{subheadline}</div>
         </div>
         <button
           type="button"
@@ -328,7 +328,7 @@ export default function ShareAsLiveToggle({
       >
         <div
           className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${
-            shareAsLive ? 'left-0.5' : 'left-[18px]'
+            shareAsLive ? 'end-0.5' : 'end-[18px]'
           }`}
         />
       </button>

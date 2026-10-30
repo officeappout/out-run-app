@@ -182,17 +182,17 @@ export default function RunBriefingDrawer({
               onDragEnd={handleDragEnd}
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '95vh', fontFamily: 'var(--font-simpler)', willChange: 'transform' }}
-              className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-[32px] shadow-2xl overflow-hidden"
+              className="fixed bottom-0 end-0 start-0 z-[100] bg-white rounded-t-[32px] shadow-2xl overflow-hidden"
               dir={direction}
             >
               {/* Drag Handle */}
-              <div className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-1 pointer-events-none">
+              <div className="absolute top-0 end-0 start-0 z-[60] flex justify-center pt-3 pb-1 pointer-events-none">
                 <div className="w-10 h-1.5 rounded-full bg-gray-300" />
               </div>
 
               {/* Sticky header on scroll */}
               <div
-                className={`absolute top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 transition-opacity duration-300 ${
+                className={`absolute top-0 end-0 start-0 z-50 bg-white border-b border-gray-200 transition-opacity duration-300 ${
                   headerOpacity > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}
                 style={{ opacity: headerOpacity }}
@@ -229,7 +229,7 @@ export default function RunBriefingDrawer({
                         style={{ background: 'linear-gradient(to top, white 15%, rgba(255,255,255,0.6) 50%, transparent 100%)' }}
                       />
                       <div
-                        className={`absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        className={`absolute top-0 end-0 start-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
                       >
                         <button onClick={onClose}
@@ -237,7 +237,7 @@ export default function RunBriefingDrawer({
                         ><X size={20} /></button>
                         <div className="w-10" />
                       </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
+                      <div className="absolute bottom-0 end-0 start-0 p-6 z-10">
                         <h1 className="text-[20px] font-bold text-gray-900 leading-snug">{workout.title}</h1>
                       </div>
                     </div>
@@ -283,7 +283,7 @@ export default function RunBriefingDrawer({
                       {/* ── Description (logicCue > description, matches Strength typography) ── */}
                       {(workout.logicCue || workout.description) && (
                         <section className="mb-6">
-                          <p className="text-slate-600 text-right leading-relaxed text-sm">
+                          <p className="text-slate-600 text-start leading-relaxed text-sm">
                             {workout.logicCue || workout.description}
                           </p>
                         </section>
@@ -337,7 +337,7 @@ export default function RunBriefingDrawer({
 
                       {/* ── Where to Run ── */}
                       <section className="mt-8 mb-2">
-                        <h3 className="text-right font-bold text-lg mb-3">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}איפה כדאי לי לרוץ?</h3>
+                        <h3 className="text-start font-bold text-lg mb-3">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}איפה כדאי לי לרוץ?</h3>
                         <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
                           {SURFACE_CARDS.map((card) => (
                             <div key={card.id} className="flex-shrink-0 w-[150px] rounded-2xl overflow-hidden bg-white shadow-sm" style={{ border: PILL_BORDER }}>
@@ -385,7 +385,7 @@ export default function RunBriefingDrawer({
 
               {/* ── Sticky GO button ── */}
               {workout && !isLoading && (
-                <div className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200/50 px-4 pt-3"
+                <div className="absolute bottom-0 end-0 start-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200/50 px-4 pt-3"
                   style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
                 >
                   <button onClick={onGo}
@@ -417,7 +417,7 @@ export default function RunBriefingDrawer({
               <div className="flex items-center justify-between px-5 pt-5 pb-2 sticky top-0 bg-white z-10">
                 <button onClick={() => setActiveDrillBlock(null)}
                   className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
-                ><ArrowRight size={18} className="text-gray-500" /></button>
+                ><ArrowRight size={18} className="text-gray-500 ltr:-scale-x-100" /></button>
                 <h2 className="text-base font-black text-gray-900 flex-1 text-center px-4">{activeDrillBlock.label}</h2>
                 <div className="w-9" />
               </div>
