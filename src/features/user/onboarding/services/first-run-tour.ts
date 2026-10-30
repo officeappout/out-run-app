@@ -231,7 +231,7 @@ export function homeTourFromTodaySteps(today: HomeTourToday): FirstRunTourStep[]
 export function firstRunTourSteps(
   tour: AnyFirstRunTourId,
   gender: AppGender | null | undefined,
-  opts?: { homeToday?: HomeTourToday | null; mapTutorialV1?: boolean; parkLiveV2?: boolean },
+  opts?: { homeToday?: HomeTourToday | null; mapTutorialV1?: boolean; parkLiveV2?: boolean; afterWorkout?: boolean },
 ): FirstRunTourStep[] {
   // g(): null / undefined gender -> the male form (the old convention); 'other' -> the neutral branch.
   const gd = { gender: gender ?? 'male' };
@@ -243,7 +243,11 @@ export function firstRunTourSteps(
     case 'home':
       if (opts?.homeToday) return homeTourFromTodaySteps(opts.homeToday);
       return [
-        { target: FIRST_RUN_COACH.homeWorkout, title: t('tour.home.workout.title'), text: t('tour.home.workout.text'), finger: true },
+        // enable_home_after_v1: today's workout is done, so the first step points at the after-workout carousel
+        // (what is left today, swipe) instead of "tap to start".
+        opts?.afterWorkout
+          ? { target: FIRST_RUN_COACH.homeWorkout, title: t('tour.home.after.title'), text: t('tour.home.after.text') }
+          : { target: FIRST_RUN_COACH.homeWorkout, title: t('tour.home.workout.title'), text: t('tour.home.workout.text'), finger: true },
         { target: FIRST_RUN_COACH.homePlus, title: t('tour.home.plus.title'), text: t('tour.home.plus.text') },
         // No week strip yet (no program — most new users): point at the map instead of dropping.
         {
