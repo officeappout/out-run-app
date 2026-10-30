@@ -24,6 +24,7 @@ import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV
 import { consumeIntroArrival } from '@/features/user/onboarding/intro/intro-route';
 import { useT } from '@/hooks/useT';
 import { pages } from '@/messages/ns/pages';
+import { useMapOnlyPushAsk } from '@/features/user/onboarding/components/push-early/useMapOnlyPushAsk';
 
 // enable_entry_intro_v1 — the ring closing into the logo, only on the hop from /intro.
 const RingCloseOverlay = lazy(() =>
@@ -58,6 +59,8 @@ export default function ExplorerPage() {
 
   // Client-only guard — prevents SSR of browser-dependent code
   const [mounted, setMounted] = useState(false);
+  // Map-only signup: the one push soft-ask before the map (useMapOnlyPushAsk).
+  const pushAsk = useMapOnlyPushAsk();
 
   // enable_entry_globe_v1 — the new location-step presentation, for the
   // quick-signup path only: an explicit edit intent (explorer_return_to, e.g.
@@ -156,14 +159,16 @@ export default function ExplorerPage() {
           // Default guest/MAP_ONLY path — unchanged. The actual Firestore
           // write happens in MapShell's fromExplorer effect.
           if (returnTo !== 'profile') {
-            if (entryGlobe) {
-              // Entry flow v2 landing contract (see entry-v2-landing.ts): the
-              // sessionStorage hint survives MapShell's fromExplorer URL cleanup.
-              markEntryV2Landing(sessionStorage);
-              router.push(ENTRY_V2_MAP_URL);
-              return;
-            }
-            router.push('/map?fromExplorer=true');
+            await pushAsk.thenGo(() => {
+              if (entryGlobe) {
+                // Entry flow v2 landing contract (see entry-v2-landing.ts): the
+                // sessionStorage hint survives MapShell's fromExplorer URL cleanup.
+                markEntryV2Landing(sessionStorage);
+                router.push(ENTRY_V2_MAP_URL);
+                return;
+              }
+              router.push('/map?fromExplorer=true');
+            });
             return;
           }
 
@@ -212,6 +217,7 @@ export default function ExplorerPage() {
       />
     </Suspense>
     {ringCloseOverlay}
+    {pushAsk.screen}
     </>
   );
 }
