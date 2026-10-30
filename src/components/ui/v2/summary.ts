@@ -76,6 +76,8 @@ export interface WeekDot {
   level?: 0 | 1 | 2 | 3;
   /** enable_flame_tiers_v1: a workout below the bar — the neutral "started" mark. */
   started?: boolean;
+  /** Today only, when not yet counted: active minutes still missing before it counts (pilot AG6). */
+  leftMinutes?: number;
 }
 
 /** The parts of flameLevelForDay's result a week dot needs. */

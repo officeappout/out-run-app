@@ -127,6 +127,7 @@
   "ui.streak.best": "השיא: {best}",
   "ui.streak.week": "השבוע",
   "ui.streak.today": "היום",
+  "ui.streak.todayLeft": "{count, plural, one {עוד דקה אחת כדי שהיום ייספר} other {עוד # דקות כדי שהיום ייספר}}",
   "ui.sets.legend": "{tone, select, in {ביעד} below {מתחת ליעד} other {לא בוצע}}",
   "ui.sets.aria": "סטים",
   "ui.programRing.title": "התקדמות בתוכניות שלי",

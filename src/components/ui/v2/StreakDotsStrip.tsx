@@ -142,6 +142,7 @@ function WeekBar({ bar }: { bar: StreakWeekBar }) {
 
 export default function StreakDotsStrip({ streak, best, days, bars }: StreakDotsStripProps) {
   const t = useT(common);
+  const leftMinutes = days.find((d) => d.isToday)?.leftMinutes ?? 0;
   return (
     <div className="rounded-v2-card bg-white px-3.5 pb-3.5 pt-3.5 shadow-v2-card">
       <div className="flex items-center gap-2.5">
@@ -181,6 +182,12 @@ export default function StreakDotsStrip({ streak, best, days, bars }: StreakDots
             </div>
           ))}
         </div>
+      )}
+
+      {leftMinutes > 0 && (
+        <p className="mt-2.5 text-center text-[12.5px] font-bold text-[#c2410c]">
+          {t('ui.streak.todayLeft', { count: leftMinutes })}
+        </p>
       )}
 
       {bars && bars.length > 0 && (
