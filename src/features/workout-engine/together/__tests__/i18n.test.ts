@@ -13,7 +13,7 @@ const t = makeT('he', together);
 
 describe('together namespace', () => {
   it('has the expected number of Hebrew keys (bump when adding keys)', () => {
-    expect(Object.keys(he).length).toBe(129);
+    expect(Object.keys(he).length).toBe(132);
   });
   it('every key resolves to its Hebrew text in the he catalog', () => {
     for (const [k, v] of Object.entries(he)) expect((t as any)(k, new Proxy({}, { get: () => 1 })).length).toBeGreaterThan(0);
