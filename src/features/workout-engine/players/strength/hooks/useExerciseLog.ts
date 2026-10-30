@@ -64,7 +64,8 @@ export interface ExerciseLogResult {
    * - Guards against double-saves (same set already logged via playlist pill).
    * - Does NOT advance the cursor or arm rest — single responsibility only.
    */
-  autoSaveTargetReps: (overrideReps?: number, sideData?: { left: number; right: number }) => void;
+  /** `timedFallbackSec`: logged (as a timer value) when the set has no reps / hold target at all. */
+  autoSaveTargetReps: (overrideReps?: number, sideData?: { left: number; right: number }, timedFallbackSec?: number) => void;
   /** Returns a shallow copy of the log (stable across renders; reads live ref). */
   getExerciseLog: () => ExerciseResultLog[];
   /** Reactive shallow copy — updates whenever logVersion bumps. */
@@ -113,7 +114,7 @@ export function useExerciseLog({
    * exercise.pyramidSequence[currentSetIndex] instead.
    */
   const autoSaveTargetReps = useCallback(
-    (overrideReps?: number, sideData?: { left: number; right: number }) => {
+    (overrideReps?: number, sideData?: { left: number; right: number }, timedFallbackSec?: number) => {
       const exercise = (() => {
         const segment = workout.segments[currentSegmentIndex];
         const exercises = getExercises(segment);
@@ -130,8 +131,13 @@ export function useExerciseLog({
       const target = resolveSetTarget(exercise, currentSetIndex);
 
       let reps = overrideReps ?? 0;
+      let usedFallback = false;
       if (overrideReps === undefined) {
         reps = target.reps ?? target.hold ?? 0;
+        if (reps <= 0 && timedFallbackSec && timedFallbackSec > 0) {
+          reps = timedFallbackSec;
+          usedFallback = true;
+        }
       }
 
       const existing = exerciseLogRef.current.find(
@@ -177,7 +183,7 @@ export function useExerciseLog({
       recordSetMeta(
         entry,
         entry.confirmedReps.length - 1,
-        overrideReps !== undefined && isTimed ? 'timer' : 'default',
+        usedFallback || (overrideReps !== undefined && isTimed) ? 'timer' : 'default',
         null,
       );
 

@@ -3,6 +3,7 @@
  * ParkRingScreen — the in-between screen before the park workout's summary (enable_park_live_v2,
  * board Park 11, pilot N1): this week's ring fills (walking + strength, the progress tab's colors),
  * a line from Kelly, and the 150 weekly minutes explained. "הבא" opens the summary.
+ * z-[100] (full-screen overlay tier): above the map's AppHeader (z-[75]), which clipped its top (AG3).
  */
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -52,7 +53,7 @@ export default function ParkRingScreen({ result, onNext }: { result: HybridFinal
   const cardio = ACTIVITY_COLORS.cardio.hex;
   const strength = ACTIVITY_COLORS.strength.hex;
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-v2-surface px-5" dir={direction} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 40px)' }}>
+    <div className="fixed inset-0 z-[100] flex flex-col bg-v2-surface px-5" dir={direction} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 40px)' }}>
       <h1 className="text-center text-[24px] font-black text-v2-ink" style={{ fontFamily: 'var(--font-simpler)' }}>
         {t('parkLive.ring.title')}
       </h1>
