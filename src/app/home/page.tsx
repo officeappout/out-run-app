@@ -149,7 +149,7 @@ import {
   StatsOverview, PreWorkoutCardRenderer, PostWorkoutCardRenderer, TodayActivityStrip, SmartWeeklySchedule,
   ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
-  CalmReturnCard, StreakNoticeCard, FirstWeekHomeCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
+  CalmReturnCard, StreakNoticeCard, FirstWeekHomeCard, PushReAskHomeCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
   HomeProgramSlide, HomeProgressSlotRow, ActivityMinutesRingCard,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
@@ -3983,8 +3983,13 @@ export default function HomePage() {
                 const firstWeekCard = featureFlags.enableHomeV2 && isViewingToday && !calmCard
                   ? <FirstWeekHomeCard profile={profile} doneToday={todayWorkoutDone} />
                   : null;
-                const contentWithCalm = calmCard || firstWeekCard || programStandalone
-                  ? <>{calmCard}{firstWeekCard}{programStandalone}{content}</>
+                // Push re-ask (owner 30.10.2026, every user): only when no calm card is up;
+                // renders nothing unless push was never allowed (utils/pushReAsk 'home').
+                const pushReAskCard = isViewingToday && !calmCard
+                  ? <PushReAskHomeCard className="px-4 mb-3" />
+                  : null;
+                const contentWithCalm = calmCard || firstWeekCard || pushReAskCard || programStandalone
+                  ? <>{calmCard}{firstWeekCard}{pushReAskCard}{programStandalone}{content}</>
                   : content;
                 return HOME_ANCHOR_V2_ENABLED
                   ? (

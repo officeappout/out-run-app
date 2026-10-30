@@ -6,6 +6,7 @@ import OnboardingStoryBar from '../OnboardingStoryBar';
 import { strengthStoryBar } from '../../constants/onboarding-phases';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { useEntryScrollReset } from './entry-scroll';
 
 interface QuizV3HeaderProps {
   onBack?: () => void;
@@ -20,6 +21,7 @@ interface QuizV3HeaderProps {
 /** Back button + the strength v3 story bars (level check, then summary), same row as the v2 slider header. */
 export default function QuizV3Header({ onBack, fillPercent, phase = 'assessment', trailing }: QuizV3HeaderProps) {
   const t = useT(onboarding);
+  useEntryScrollReset();
   const bar = strengthStoryBar(phase === 'summary' ? 'result' : 'assessment', true);
   return (
     <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">

@@ -29,6 +29,7 @@ import WorkoutLocationSuggestionsRaw from '@/features/home/components/WorkoutLoc
 import CalmReturnCardRaw from '@/features/home/components/CalmReturnCard';
 import StreakNoticeCardRaw from '@/features/home/components/streak/StreakNoticeCard';
 import { FirstWeekHomeCard as FirstWeekHomeCardRaw } from '@/features/home/components/first-week/FirstWeekCard';
+import PushReAskHomeCardRaw from '@/features/schedule/components/push-reask/PushReAskHomeCard';
 import HomeRunCarouselCardRaw from '@/features/home/components/widgets/run-week-v2/HomeRunCarouselCard';
 import NextRunWorkoutCardRaw, { type NextRunWorkoutCardProps } from '@/features/home/components/widgets/NextRunWorkoutCard';
 import NearbyGroupsRowRaw from '@/features/home/components/NearbyGroupsRow';
@@ -68,5 +69,6 @@ export const CalmReturnCard = withWidgetBoundary(CalmReturnCardRaw, 'home.CalmRe
 export const StreakNoticeCard = withWidgetBoundary(StreakNoticeCardRaw, 'home.StreakNoticeCard');
 // enable_home_v2: the first-week card (days 0–7, until the first workout).
 export const FirstWeekHomeCard = withWidgetBoundary(FirstWeekHomeCardRaw, 'home.FirstWeekHomeCard');
+export const PushReAskHomeCard = withWidgetBoundary(PushReAskHomeCardRaw, 'home.PushReAskHomeCard');
 export const NearbyGroupsRow = withWidgetBoundary(NearbyGroupsRowRaw, 'home.NearbyGroupsRow');
 export const CommunitySessionBanner = withWidgetBoundary(CommunitySessionBannerRaw, 'home.CommunitySessionBanner');
