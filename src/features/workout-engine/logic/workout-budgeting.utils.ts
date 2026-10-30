@@ -864,7 +864,7 @@ export function assignVolume(
     restSeconds = Math.max(restSeconds, restSafetyFloor(tier));
     // User's level in this exercise's domain (falls back to the session level).
     const restDomain = MG_TO_DOMAIN[exercise.movementGroup ?? ''];
-    restSeconds = beginnerRest(restSeconds, tierName, (restDomain && context.userProgramLevels?.get(restDomain)) ?? context.userLevel);
+    restSeconds = beginnerRest(restSeconds, tierName, (restDomain ? context.userProgramLevels?.get(restDomain) : undefined) ?? context.userLevel);
 
     // Mirror the staircase override into the displayed range so the UI shows
     // the same window we used for the assigned reps. Falls back to the legacy
