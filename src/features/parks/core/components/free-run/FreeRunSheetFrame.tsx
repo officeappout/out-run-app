@@ -17,6 +17,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import Sheet, { SheetHeader } from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
@@ -109,6 +110,8 @@ export function FreeRunSubSheet({
   const { direction } = useUiDir();
   const t = useT(map);
   const dragControls = useDragControls();
+  // The sheet's own CTA/content must not sit under the floating tab bar (any language).
+  useSuppressBottomNav(isOpen);
 
   if (v2) {
     const column = v2Layout === 'column';
