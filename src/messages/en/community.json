@@ -941,5 +941,12 @@
   "arenaCreate.step.outreach": "Invite an organization",
   "arenaCreate.step.codeEntry": "Enter with a code",
   "addressSearch.placeholder": "Search an address, park, or site…",
-  "addressSearch.empty": "No results found"
+  "addressSearch.empty": "No results found",
+  "shareRouter.title": "Share your workout",
+  "shareRouter.feed": "Post to the feed",
+  "shareRouter.feedSub": "Your friends on OUT will see it",
+  "shareRouter.images": "Designed image",
+  "shareRouter.imagesSub": "A story or post with your workout stats",
+  "shareRouter.phone": "Send from your phone",
+  "shareRouter.phoneSub": "WhatsApp, messages and more"
 }
