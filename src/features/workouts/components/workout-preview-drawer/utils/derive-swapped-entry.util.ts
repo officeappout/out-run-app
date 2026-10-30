@@ -127,6 +127,8 @@ export function deriveSwappedEntry(
     ...swapStampForEntry(oldWE, newExercise.id),
     // A successful method/exercise swap clears any prior keep+mark flag.
     dimensionUnavailable: undefined,
+    // The next-workout tag explains the old exercise's change, not the new one's.
+    ...(newExercise.id !== oldWE.exercise.id ? { adaptiveNote: undefined } : {}),
     ...(thisPartnerLink ? { pairedWith: thisPartnerLink } : {}),
   };
   // The old entry's "8-12 חזרות" string would win over the new numbers on the card (AB3).

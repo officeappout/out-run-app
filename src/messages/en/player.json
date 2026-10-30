@@ -1146,5 +1146,11 @@
   "adaptiveChanges.line.up": "You hit the target. Next time {to} {toUnit} instead of {from}.",
   "adaptiveChanges.line.extraSet": "Two sessions in a row at the top of the range. Next time one more set.",
   "adaptiveChanges.line.down": "That was hard this time. Next time {to} {toUnit}, to build a base.",
-  "adaptiveChanges.line.easier": "That was hard a few times in a row. Next time an easier variation, to build a base."
+  "adaptiveChanges.line.easier": "That was hard a few times in a row. Next time an easier variation, to build a base.",
+  "adaptiveNote.up": "Up to {to} {toUnit}. Last time you did {done}",
+  "adaptiveNote.jumpTop": "Jump to {to} {toUnit}. Last time you did {done}, well above the target",
+  "adaptiveNote.harder": "New stage. Last time you did {done} {unit} of {name}",
+  "adaptiveNote.extraSet": "One more set. You hit the target in every set",
+  "adaptiveNote.down": "Adjusted target: {to} {toUnit}. Last time {done}",
+  "adaptiveNote.easier": "An easier variation for now, to build a base"
 }

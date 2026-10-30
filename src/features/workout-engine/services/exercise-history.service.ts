@@ -44,6 +44,7 @@ import {
   type SessionResultInput,
 } from '@/features/workout-engine/logic/adaptive/double-progression';
 import { describeAdaptiveChange, type AdaptiveChange } from '@/features/workout-engine/logic/adaptive/adaptive-change';
+import { withLastChange } from '@/features/workout-engine/logic/adaptive/adaptive-note';
 
 /** 3a (enable_adaptive_reps_v1): per-exercise session context, everything but the values. */
 export type AdaptiveSessionMeta = Omit<SessionResultInput, 'values'>;
@@ -238,8 +239,9 @@ function adaptiveFrom(
     const prev = prevDocs.get(ex.exerciseId)?.adaptive;
     const input = { ...m, values: ex.repsPerSet };
     const next = nextAdaptiveState(prev, input, now);
-    if (next) out.set(ex.exerciseId, next);
     const change = describeAdaptiveChange(prev, next, input, { exerciseId: ex.exerciseId, exerciseName: ex.exerciseName }, now);
+    // A carried (skipped) state keeps its tag; a new one carries this session's change or none.
+    if (next) out.set(ex.exerciseId, next === prev ? next : withLastChange(next, change));
     if (change) changes.push(change);
   }
   return out;

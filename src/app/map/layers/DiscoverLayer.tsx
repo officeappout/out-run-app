@@ -2628,6 +2628,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                       exercise: newExercise,
                       method: executionMethod,
                       wasSwapped: true,
+                      adaptiveNote: undefined,
                       // Phase 0 (data only): original slot exercise + levels for the strength log.
                       ...swapStampForEntry(current, newExercise.id, meta?.toLevel),
                     };

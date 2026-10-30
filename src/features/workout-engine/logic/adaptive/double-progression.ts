@@ -34,6 +34,8 @@ import {
   DP_VARIATION_JUMP_REPS,
 } from './adaptive.config';
 
+import type { AdaptiveLastChange } from './adaptive-note';
+
 export type RepsSourceLike = 'edited' | 'default' | 'timer' | string;
 
 export interface AdaptiveState {
@@ -52,6 +54,8 @@ export interface AdaptiveState {
   /** The range the target was earned in (clamped into today's range at read time). */
   range: { min: number; max: number };
   updatedAtMs: number;
+  /** What the last save changed, for the next workout's tag (adaptive-note.ts). */
+  lastChange?: AdaptiveLastChange;
 }
 
 export interface SessionResultInput {

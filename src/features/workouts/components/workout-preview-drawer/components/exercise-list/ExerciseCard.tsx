@@ -13,6 +13,7 @@ import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workou
 import { buildExerciseVolumeLabel } from '../../utils/exercise-display.utils';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
+import AdaptiveNoteTag from '@/features/workout-engine/components/strength/components/v2/AdaptiveNoteTag';
 
 interface ExerciseCardProps {
   /** Engine wrapper for the exercise being rendered. */
@@ -89,7 +90,7 @@ function ExerciseCardImpl({
       tabIndex={0}
       onClick={handleTap}
       onKeyDown={handleKeyDown}
-      className={`relative w-full bg-white dark:bg-[#1E293B] ${v2 ? "rounded-[16px]" : "rounded-lg"} overflow-hidden border-[0.5px] cursor-pointer active:scale-[0.98] transition-transform h-[70px] ${
+      className={`relative w-full bg-white dark:bg-[#1E293B] ${v2 ? "rounded-[16px]" : "rounded-lg"} overflow-hidden border-[0.5px] cursor-pointer active:scale-[0.98] transition-transform ${exercise.adaptiveNote ? 'min-h-[70px]' : 'h-[70px]'} ${
         isGoal
           ? 'ring-2 ring-cyan-400 border-cyan-200 dark:border-cyan-800 bg-cyan-50/30 dark:bg-cyan-900/20'
           : isSuperset && !framed
@@ -99,8 +100,8 @@ function ExerciseCardImpl({
               : 'border-[#E0E9FF] dark:border-slate-700 shadow-sm'
       }`}
     >
-      <div className="flex items-stretch h-full">
-        <div className="w-[70px] flex-shrink-0 h-full">
+      <div className={`flex items-stretch ${exercise.adaptiveNote ? 'min-h-[70px]' : 'h-full'}`}>
+        <div className={`w-[70px] flex-shrink-0 ${exercise.adaptiveNote ? 'self-stretch min-h-[70px]' : 'h-full'}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img alt={name} className="w-full h-full object-cover" src={cachedImageUrl} loading="lazy" />
         </div>
@@ -124,6 +125,7 @@ function ExerciseCardImpl({
           <div className={`text-[13px] font-normal mt-0.5 ${isGoal ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-800 dark:text-slate-300'}`}>
             {volume}
           </div>
+          {exercise.adaptiveNote && <AdaptiveNoteTag note={exercise.adaptiveNote} className="mt-0.5" />}
         </div>
         <div className="flex items-center pe-3 flex-shrink-0">
           <SwapIcon size={18} onClick={handleSwap} isSwapped={exercise.wasSwapped} />

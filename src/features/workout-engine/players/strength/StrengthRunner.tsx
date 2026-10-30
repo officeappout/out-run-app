@@ -30,6 +30,7 @@
  *   usePlayerMediaSession — OS lock-screen / headphone controls bridge
  */
 
+import type { AdaptiveNote } from '@/features/workout-engine/logic/adaptive/adaptive-note';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -868,6 +869,7 @@ export default function StrengthRunner({
         autoStartTimer={!blockWorkSec && isTimeExercise && gatePassedKey === activeKey}
         // PR-B1 guided only: one short line under the exercise. Timed (incl. tabata) → neutral
         // "ממשיכים עד שהטיימר נגמר"; reps → gendered "עשה/י X חזרות…". Follow-along: none.
+        adaptiveNote={sm.currentRound === 1 ? (sm.activeExercise as { adaptiveNote?: AdaptiveNote } | null)?.adaptiveNote : undefined}
         guidanceLine={
           !guided || sm.exerciseType === 'follow-along'
             ? undefined

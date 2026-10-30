@@ -1156,5 +1156,11 @@
   "adaptiveChanges.line.up": "עמדת ביעד. בפעם הבאה {to} {toUnit} במקום {from}.",
   "adaptiveChanges.line.extraSet": "פעמיים ברצף בראש הטווח. בפעם הבאה סט נוסף.",
   "adaptiveChanges.line.down": "היה קשה הפעם. בפעם הבאה {to} {toUnit}, כדי לבנות בסיס.",
-  "adaptiveChanges.line.easier": "היה קשה כמה פעמים ברצף. בפעם הבאה גרסה קלה יותר, כדי לבנות בסיס."
+  "adaptiveChanges.line.easier": "היה קשה כמה פעמים ברצף. בפעם הבאה גרסה קלה יותר, כדי לבנות בסיס.",
+  "adaptiveNote.up": "עלית ל-{to} {toUnit}. בפעם הקודמת עשית {done}",
+  "adaptiveNote.jumpTop": "קפיצה ל-{to} {toUnit}. בפעם הקודמת עשית {done}, הרבה מעל היעד",
+  "adaptiveNote.harder": "שלב חדש. בפעם הקודמת עשית {done} {unit} של {name}",
+  "adaptiveNote.extraSet": "סט נוסף. עמדת ביעד בכל הסטים",
+  "adaptiveNote.down": "יעד מותאם: {to} {toUnit}. בפעם הקודמת {done}",
+  "adaptiveNote.easier": "גרסה קלה יותר לבינתיים, כדי לבנות בסיס"
 }
