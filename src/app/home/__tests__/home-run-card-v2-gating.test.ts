@@ -30,8 +30,8 @@ describe('home/page.tsx — v2 run card wiring', () => {
   });
 
   it('a too-short run (partial) sits under the "עוד מחכה לך היום" header, not in the standalone spot', () => {
-    expect(pageSrc).toContain("const partialRunBelowHeader = featureFlags.enableHomeV2 && isSelectedDateToday && !!homeRun.slot?.partial && postWorkoutHasCards;");
-    expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader ? (");
+    expect(pageSrc).toContain("const partialRunBelowHeader = featureFlags.enableHomeV2 && isSelectedDateToday && !!homeRun.slot?.partial && postWorkoutHasCards && !homeAfter;");
+    expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader && !homeAfterRun ? (");
     const headerAt = pageSrc.indexOf("nextHeaderHe(nextRec, tHome)");
     const partialAt = pageSrc.indexOf('data-run-partial-slot');
     expect(headerAt).toBeGreaterThan(-1);
@@ -77,7 +77,7 @@ describe('home/page.tsx — v2 run card wiring', () => {
   it('the standalone run card only renders off the v2 slot, beside the StatsOverview fallback', () => {
     expect(pageSrc).toContain('resolveRunSlotSurface(\n                  homeRun.slot,');
     // (a partial run moves under the after-workout header instead — see the partial test above)
-    expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader ? (");
+    expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader && !homeAfterRun ? (");
     expect(pageSrc).toMatch(/\{standaloneRunCard\}\s*<StatsOverview/);
   });
 
