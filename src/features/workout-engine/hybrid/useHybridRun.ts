@@ -482,9 +482,9 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     if (HYBRID_SUMMARY_ENABLED) {
       set({ finishedHybrid: true, lastResult: result, lastCalories: planCalories });
       // The laps before the runner teardown (finishWorkout, further down) clears them.
-      void import('@/features/workout-engine/players/running/store/useRunningPlayer').then(({ useRunningPlayer }) =>
-        set({ lastLaps: useRunningPlayer.getState().laps.map((l) => ({ ...l })) }),
-      );
+      void import('@/features/workout-engine/players/running/store/useRunningPlayer')
+        .then(({ useRunningPlayer }) => set({ lastLaps: (useRunningPlayer.getState().laps ?? []).map((l) => ({ ...l })) }))
+        .catch(() => {});
     }
 
     // ── The SINGLE hybrid doc ────────────────────────────────────────────────
