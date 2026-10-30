@@ -20,7 +20,7 @@ registerCatalog('en', brandingTags.name, enCatalog);
 /** Catalog keys that are fallbacks / glue, never a value a context field can select. */
 const RESERVED = new Set(['fallback', 'notificationFallback', 'nextFallback']);
 
-const HEBREW_LETTER = /[֐-׿]/;
+const HEBREW_LETTER = new RegExp('[\u0590-\u05FF]'); // the Hebrew block, written as escapes
 
 export type TagGender = 'male' | 'female' | 'other';
 
