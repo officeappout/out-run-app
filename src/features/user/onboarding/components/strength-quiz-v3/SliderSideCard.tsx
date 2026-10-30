@@ -30,7 +30,7 @@ export default function SliderSideCard({ kind, label, ariaLabel, imageUrl, hidde
       onClick={onPress}
       aria-label={ariaLabel}
       data-side-card={kind}
-      className="relative flex h-[74%] w-[23%] max-w-[92px] flex-shrink-0 flex-col items-center justify-between overflow-hidden rounded-[22px] bg-[#e6edf2] px-1.5 py-3 transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
+      className="relative flex h-[74%] w-[23%] max-w-[92px] flex-shrink-0 flex-col items-center justify-between overflow-hidden rounded-[22px] bg-[#e6edf2] px-1.5 py-3 scale-[0.92] opacity-90 transition-[transform,opacity] duration-200 ease-v2 active:scale-[0.88] touch-manipulation"
     >
       {imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element

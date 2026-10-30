@@ -45,6 +45,7 @@ import { createStructureDirector } from './StructureDirector';
 import { filterForDomain, PoolFactory } from './PoolFactory';
 import { resolveToSlug } from '../../services/program-hierarchy.utils';
 import { DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../../logic/workout-selection.utils';
+import { plannedSetTotal } from '../../logic/protocols/block-volume';
 
 // ============================================================================
 // REST-DAY FALLBACK
@@ -412,7 +413,7 @@ export class PipelineOrchestrator {
 
     if (correctedMain !== mainExercises) {
       workout.exercises = [...correctedMain, ...blockMembers, ...supportExercises];
-      const correctedTotal = workout.exercises.reduce((s, e) => s + e.sets, 0);
+      const correctedTotal = plannedSetTotal(workout.exercises);
       if (correctedTotal !== workout.totalPlannedSets) {
         log.push(`budget_correction: ${workout.totalPlannedSets} → ${correctedTotal} sets`);
         workout.totalPlannedSets = correctedTotal;

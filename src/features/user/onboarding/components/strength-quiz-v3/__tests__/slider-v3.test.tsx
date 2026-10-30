@@ -104,7 +104,12 @@ describe('VisualSlider + quizV3 (board Slider)', () => {
     expect(q('[data-level-chip="easier"]')?.className).toContain('text-orange-500');
     expect(q('[data-level-chip="mine"] img')?.getAttribute('src')).toBe('/assets/icons/ui/level_same.svg');
     expect(text()).toContain('ex-4'); // owner 28.10 (Y1): the second step, index 1 = level 4
-    expect(text()).toContain('רמה 4 · מקסימום: 12 חזרות');
+    // AD9: level and reps are separate parts, so the reps wrap whole instead of mid-phrase.
+    expect(q('[data-level-part]')?.textContent).toBe('רמה 4');
+    expect(q('[data-reps-part]')?.textContent).toBe('מקסימום: 12 חזרות');
+    expect(q('[data-level-line]')?.className).toContain('flex-wrap');
+    expect(q('[data-level-part]')?.className).toContain('whitespace-nowrap');
+    expect(q('[data-exercise-name]')?.className).toContain('line-clamp-2');
     // Y1: the side cards show the neighbouring exercises' stills (levels 1 and 7).
     expect(q('[data-side-card="easier"] [data-side-image]')?.getAttribute('src')).toBe('/thumb-1.jpg');
     expect(q('[data-side-card="harder"] [data-side-image]')?.getAttribute('src')).toBe('/thumb-7.jpg');
