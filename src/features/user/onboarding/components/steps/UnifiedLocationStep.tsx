@@ -220,6 +220,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const [globeDive, setGlobeDive] = useState<'rest' | 'dive' | 'arrived'>('rest');
   // "גוררים את המפה כדי לדייק" hides after the user's first drag.
   const [mapDragged, setMapDragged] = useState(false);
+  // AD2: the "גרים ב…?" drawer collapses when the user drags the map (and by its handle).
+  const [confirmCollapsed, setConfirmCollapsed] = useState(false);
   const entryGlobeRef = useRef(entryGlobe);
   entryGlobeRef.current = entryGlobe;
   // AC1: resolves the pending "Earth holds over the country" wait (GlobeStage onHold).
@@ -328,6 +330,11 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     if (entryGlobe && stage === LocationStage.INITIAL) setGlobeDive('rest');
   }, [entryGlobe, stage]);
 
+  // AD2: every new "גרים ב…?" opens expanded.
+  useEffect(() => {
+    if (stage !== LocationStage.CONFIRMING) setConfirmCollapsed(false);
+  }, [stage]);
+
   // Focus search input
   useEffect(() => {
     if (stage === LocationStage.SEARCHING && searchInputRef.current) {
@@ -394,7 +401,10 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     // placing the pin themselves; a late GPS refinement must not override it.
     const byUser = isUserCameraMove(evt);
     if (byUser) userTookOverRef.current = true;
-    if (byUser && entryGlobeRef.current) setMapDragged(true);
+    if (byUser && entryGlobeRef.current) {
+      setMapDragged(true);
+      setConfirmCollapsed(true);
+    }
     setIsDragging(true);
     // Only a new user gesture supersedes a pending drag lookup — a
     // programmatic move (fitBounds etc.) no longer re-schedules it on
@@ -1419,6 +1429,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           diveTarget={entryDiving ? userLocation : null}
           onDiveHold={() => diveHoldRef.current?.()}
           onGlobeSettled={handleGlobeSettled}
+          confirmCollapsed={confirmCollapsed}
+          onConfirmCollapsedChange={setConfirmCollapsed}
           onDiveArrived={() => {
             setGlobeDive('arrived');
             // One owner of the camera at a time: this dive IS the first-entry flight, so
