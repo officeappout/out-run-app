@@ -37,9 +37,9 @@ function noSlot(cy: number): Rest {
 /**
  * The ring closes into the globe (enable_entry_intro_v1, mockup intro-G1): the
  * five coloured segments assemble, the ring closes, it condenses into the OUT
- * logotype (its own proportions — the ring is not scaled into the "O"), and the
+ * logotype (its own proportions: the ring is not scaled into the "O"), and the
  * logo rises into the globe headline's logo slot the moment it is formed, while
- * the veil lifts under it — see ring-close-timeline.ts (pilot note AF2). If the
+ * the veil lifts under it; see ring-close-timeline.ts (pilot note AF2). If the
  * slot isn't there yet the logo breathes on the centre until it is.
  * Played only on the hop from /intro.
  * z-[100]: the full-screen overlay tier (.cursorrules Z-Index Budget).
