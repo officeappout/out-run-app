@@ -12,9 +12,10 @@ import {
   type StepsAnalyticsStats,
   type StepsTimeRange,
 } from '@/features/activity/lib/steps-analytics.logic';
+import { STEPS_PER_KM_ESTIMATE } from '@/lib/steps-estimate';
 
-/** The existing page's fallback when no distance is synced (~1,300 steps per km). */
-export const STEPS_PER_KM_ESTIMATE = 1300;
+/** The existing page's fallback when no distance is synced (~1,300 steps per km). Shared in src/lib. */
+export { STEPS_PER_KM_ESTIMATE };
 /** A brisk walk, for "≈ N min of walking" to the goal. */
 export const STEPS_PER_MINUTE_WALK = 100;
 

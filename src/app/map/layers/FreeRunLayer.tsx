@@ -55,6 +55,7 @@ import {
   HybridPlayerV2Provider, HybridOverlayV2, HybridSessionListV2, HybridMiniV2, HybridStationHostV2,
   ComboShellDriver,
 } from '@/features/workout-engine/hybrid/v2';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
@@ -120,7 +121,9 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   // enable_commute_v2_player_v1 (phone test AA2): navigating to a park / place also gets the v2 player.
   const commuteV2 = !adminAwareFlagsLoading && adminAwareFlags.enableCommuteV2PlayerV1;
-  const v2 = homeV2 && (sessionMode !== 'commute' || commuteV2);
+  // enable_combo_flow_v1 (AE5, board PlayerInventory): the walk to a route's start is the same v2 player.
+  const comboFlow = useComboFlowV1();
+  const v2 = homeV2 && (sessionMode !== 'commute' || commuteV2 || comboFlow);
   // Home v2 hybrid player (run + strength): the sequencer-driven player replaces today's
   // hybrid overlay for v2 users. Off (or no hybrid session) ⇒ today's flow, unchanged.
   const hybridActive = useHybridRun((s) => s.active);

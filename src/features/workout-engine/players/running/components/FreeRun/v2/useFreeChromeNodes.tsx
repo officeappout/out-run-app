@@ -7,7 +7,10 @@
  */
 
 import React, { useMemo } from 'react';
-import { FreeCompact, FreeLarge } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
+import { Cell, Cells, FreeCompact, FreeLarge } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
+import type { AerobicCellSpec } from '../../../lib/aerobic-player-view';
+import { withUnit, type CommonT } from '@/lib/i18n/units';
+import { common } from '@/messages/ns/common';
 import type { RunDataStripItem } from '../../../../shared/v2/run-chrome/RunDataStrip';
 import type { TogetherLiveStatus } from '@/features/workout-engine/together/hooks/useTogetherSession';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
@@ -21,8 +24,12 @@ export function useFreeChromeNodes(p: {
   currentPaceSec: number;
   metric: 'pace' | 'speed' | undefined;
   isPaused: boolean;
+  /** enable_combo_flow_v1 (board PlayerMetrics): the three numbers for this activity / mode. */
+  cells?: AerobicCellSpec[] | null;
 }) {
   const t = useT(together);
+  const tc = useT(common);
+  const cells = p.cells ?? null;
   const elevationGain = useRunningPlayer((s) => s.elevationGain);
   const { totals, currentPaceSec } = p;
   const speed = p.metric === 'speed';
@@ -72,6 +79,47 @@ export function useFreeChromeNodes(p: {
       elapsedSec: totals.durationSec,
       elevGainM: elevationGain > 0 ? elevationGain : undefined,
     };
+    if (cells) {
+      const shown = cells.map((c) => ({ value: cellValue(c, rate, tc), label: t(CELL_LABEL[c.key]) }));
+      const row = (size: number) => (
+        <Cells>
+          {shown.map((c) => (
+            <Cell key={c.label} label={c.label} value={c.value} size={size} />
+          ))}
+        </Cells>
+      );
+      // A pace gauge only where pace is one of the numbers (a run).
+      const paced = cells.some((c) => c.key === 'pace' || c.key === 'speed');
+      return { strip: shown, compact: row(26), large: paced ? large : row(30), live };
+    }
     return { strip, compact, large, live };
-  }, [t, totals.durationSec, totals.distanceKm, currentPaceSec, speed, p.isPaused, elevationGain]);
+  }, [t, tc, cells, totals.durationSec, totals.distanceKm, currentPaceSec, speed, p.isPaused, elevationGain]);
+}
+
+const CELL_LABEL = {
+  time: 'chrome.label.time',
+  km: 'chrome.label.km',
+  kmLeft: 'chrome.label.kmToFinish',
+  arrival: 'chrome.label.arrival',
+  steps: 'chrome.label.steps',
+  pace: 'chrome.label.pace',
+  speed: 'chrome.label.speed',
+} as const;
+
+function cellValue(c: AerobicCellSpec, rate: (sec: number) => string, tc: CommonT): string {
+  if (c.value == null) return '--';
+  switch (c.key) {
+    case 'time':
+      return fmtClock(c.value);
+    case 'km':
+      return c.value.toFixed(2);
+    case 'kmLeft':
+      return c.value.toFixed(1);
+    case 'arrival':
+      return withUnit('min', String(Math.max(1, Math.ceil(c.value / 60))), tc);
+    case 'steps':
+      return Math.round(c.value).toLocaleString('en-US');
+    default:
+      return rate(c.value);
+  }
 }
