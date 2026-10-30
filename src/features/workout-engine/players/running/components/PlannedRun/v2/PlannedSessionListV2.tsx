@@ -6,6 +6,9 @@
  * a sheet: the whole session as sections (warm-up · main set · cool-down);
  * in the main set every rep is a row with its result box (time, target,
  * in-range / slow by N s, avg pace). Upcoming rows can be jumped to.
+ *
+ * enable_combo_flow_v1 (board PlayerIntervalsTabata): the same sections in the block language
+ * (BlockSection: done = closed with details, live = "now"), the reps as one SegmentTable.
  */
 
 import React, { useState } from 'react';
@@ -32,6 +35,10 @@ import {
 } from '../../../lib/planned-rep-results';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import { SegmentTable } from '@/components/ui/v2';
+import { BlockSection } from '../../../../shared/v2';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
+import { plannedRepRows, sectionStatus } from '../../../lib/planned-segment-rows';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
 interface Props {
@@ -68,6 +75,7 @@ export default function PlannedSessionListV2({
   const { direction } = useUiDir();
   const t = useT(player);
   const [jumpTarget, setJumpTarget] = useState<number | null>(null);
+  const blocksOn = useComboFlowV1();
   const sections = planSections(blocks);
   const current = blocks[currentBlockIndex] ?? null;
   // During a recovery inside the main set, the NEXT rep row carries the countdown.
@@ -186,6 +194,12 @@ export default function PlannedSessionListV2({
   const mainRows = hasReps ? sections.main.filter((i) => !isRestBlock(blocks[i])) : sections.main;
   const mainColor = hasReps ? v2BlockColor(blocks[mainRows[0]]) : V2_BLOCK_COLORS.easy;
   const blocksMeta = (n: number) => t('run.session.blocksMeta', { n });
+  // One target band for the rep table head, when every rep shares it.
+  const repBands = mainRows.filter((i) => !isShortLeg(blocks[i])).map((i) => resolveTarget(blocks[i]));
+  const mainBand =
+    showNumbers && repBands.length > 0 && repBands[0].min > 0 && repBands.every((b) => b.min === repBands[0].min && b.max === repBands[0].max)
+      ? fmtBand(repBands[0].min, repBands[0].max)
+      : '';
 
   return (
     <div className="h-full overflow-y-auto bg-v2-surface px-4 pb-32" dir={direction} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
@@ -204,6 +218,59 @@ export default function PlannedSessionListV2({
         </button>
       </div>
 
+      {blocksOn ? (
+        <>
+          {sections.warmup.length > 0 && (
+            <BlockSection
+              title={t('run.session.section.warmup')}
+              meta={blocksMeta(sections.warmup.length)}
+              status={sectionStatus(sections.warmup, currentBlockIndex, focusIndex)}
+              color={V2_BLOCK_COLORS.wrapper}
+            >
+              {card(sections.warmup, false)}
+            </BlockSection>
+          )}
+          {mainRows.length > 0 && (
+            <BlockSection
+              title={hasReps ? t('run.session.section.main') : t('run.session.section.workout')}
+              meta={
+                hasReps
+                  ? sameRest
+                    ? t('run.session.repsMetaRest', { n: reps.total, rest: String(sameRest) })
+                    : t('run.session.repsMeta', { n: reps.total })
+                  : blocksMeta(mainRows.length)
+              }
+              status={sectionStatus(sections.main, currentBlockIndex, focusIndex)}
+              color={mainColor}
+            >
+              {hasReps ? (
+                <SegmentTable
+                  columns={{ name: t('blocks.table.rep'), km: t('blocks.table.km'), time: t('blocks.table.time'), pace: t('blocks.table.pace') }}
+                  target={mainBand ? { label: t('blocks.table.target'), value: mainBand } : null}
+                  summary={summary.scored > 0 ? t('run.session.inRange', { inRange: String(summary.inRange), scored: String(summary.scored) }) : null}
+                  rows={plannedRepRows({ blocks, indices: mainRows, reps, records, currentBlockIndex, focusIndex, currentRemaining }).map((r, k) => {
+                    const idx = mainRows[k];
+                    return idx > currentBlockIndex && idx !== focusIndex ? { ...r, onClick: () => setJumpTarget(idx) } : r;
+                  })}
+                />
+              ) : (
+                card(mainRows, false)
+              )}
+            </BlockSection>
+          )}
+          {sections.cooldown.length > 0 && (
+            <BlockSection
+              title={t('run.session.section.cooldown')}
+              meta={blocksMeta(sections.cooldown.length)}
+              status={sectionStatus(sections.cooldown, currentBlockIndex, focusIndex)}
+              color={V2_BLOCK_COLORS.wrapper}
+            >
+              {card(sections.cooldown, false)}
+            </BlockSection>
+          )}
+        </>
+      ) : (
+      <>
       {sections.warmup.length > 0 && (
         <>
           {sectionHead(t('run.session.section.warmup'), V2_BLOCK_COLORS.wrapper, blocksMeta(sections.warmup.length))}
@@ -232,6 +299,8 @@ export default function PlannedSessionListV2({
           {sectionHead(t('run.session.section.cooldown'), V2_BLOCK_COLORS.wrapper, blocksMeta(sections.cooldown.length))}
           {card(sections.cooldown, inSection(sections.cooldown))}
         </>
+      )}
+      </>
       )}
 
       <div className="mt-4 flex items-center justify-between gap-3 rounded-[20px] bg-white px-4 py-3 shadow-v2-ring">

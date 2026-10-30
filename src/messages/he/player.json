@@ -1162,5 +1162,14 @@
   "adaptiveNote.harder": "שלב חדש. בפעם הקודמת עשית {done} {unit} של {name}",
   "adaptiveNote.extraSet": "סט נוסף. עמדת ביעד בכל הסטים",
   "adaptiveNote.down": "יעד מותאם: {to} {toUnit}. בפעם הקודמת {done}",
-  "adaptiveNote.easier": "גרסה קלה יותר לבינתיים, כדי לבנות בסיס"
+  "adaptiveNote.easier": "גרסה קלה יותר לבינתיים, כדי לבנות בסיס",
+  "blocks.status.now": "עכשיו",
+  "blocks.status.done": "הושלם",
+  "blocks.details": "פרטים",
+  "blocks.close": "סגור",
+  "blocks.table.rep": "חזרה",
+  "blocks.table.km": "ק״מ",
+  "blocks.table.time": "זמן",
+  "blocks.table.pace": "קצב",
+  "blocks.table.target": "יעד"
 }

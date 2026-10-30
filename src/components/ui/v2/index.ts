@@ -145,3 +145,5 @@ export { default as HeroMediaBackground } from './HeroMediaBackground';
 // Workout rails on place pages (park / route): the media card with home's treatment, whole card = start.
 export { default as MediaWorkoutCard, MEDIA_WORKOUT_CARD_W, MEDIA_WORKOUT_CARD_H, MEDIA_WORKOUT_CARD_ART_H } from './MediaWorkoutCard';
 export type { MediaWorkoutCardProps, MediaWorkoutCardMedia } from './MediaWorkoutCard';
+export { default as SegmentTable } from './SegmentTable';
+export type { SegmentTableProps, SegmentTableRow, SegmentPaceTone } from './SegmentTable';

@@ -38,3 +38,5 @@ export type { PlayerDrawerCompactProps } from './PlayerDrawerCompact';
 // enable_together_layer_v1 — the shared presence rail (who is here + a tiny live status).
 export { default as PresenceRail } from './PresenceRail';
 export type { PresenceRailProps } from './PresenceRail';
+export { default as BlockSection } from './BlockSection';
+export type { BlockSectionProps, BlockSectionStatus } from './BlockSection';

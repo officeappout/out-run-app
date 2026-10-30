@@ -1152,5 +1152,14 @@
   "adaptiveNote.harder": "New stage. Last time you did {done} {unit} of {name}",
   "adaptiveNote.extraSet": "One more set. You hit the target in every set",
   "adaptiveNote.down": "Adjusted target: {to} {toUnit}. Last time {done}",
-  "adaptiveNote.easier": "An easier variation for now, to build a base"
+  "adaptiveNote.easier": "An easier variation for now, to build a base",
+  "blocks.status.now": "Now",
+  "blocks.status.done": "Done",
+  "blocks.details": "Details",
+  "blocks.close": "Close",
+  "blocks.table.rep": "Rep",
+  "blocks.table.km": "Km",
+  "blocks.table.time": "Time",
+  "blocks.table.pace": "Pace",
+  "blocks.table.target": "Target"
 }
