@@ -65,7 +65,7 @@ vi.mock('@/features/user', () => {
 vi.mock('@/components/ui/Toast', () => ({ useToast: () => ({ showToast: () => {} }) }));
 vi.mock('@/features/parks/core/store/useMapStore', () => {
   const noop = () => {};
-  const state = () => ({ ...hoisted.mapState, toggleLayer: noop, setLiveUsersVisible: noop, setFreeRunCarouselRoutes: noop });
+  const state = () => ({ ...hoisted.mapState, toggleLayer: noop, setLiveUsersVisible: noop, setFreeRunCarouselRoutes: noop, setLayersSheetOpen: noop });
   const useMapStore = (sel?: (s: Record<string, unknown>) => unknown) => (sel ? sel(state()) : state());
   return { useMapStore };
 });

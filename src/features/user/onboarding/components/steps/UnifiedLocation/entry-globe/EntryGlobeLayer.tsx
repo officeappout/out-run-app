@@ -39,6 +39,8 @@ export interface EntryGlobeLayerProps {
   trainingContext: TrainingContext | null;
   onConfirm: () => void;
   onSearchOther: () => void;
+  confirmCollapsed?: boolean;
+  onConfirmCollapsedChange?: (collapsed: boolean) => void;
 
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -115,6 +117,8 @@ export function EntryGlobeLayer(p: EntryGlobeLayerProps) {
             trainingContext={p.trainingContext}
             onConfirm={p.onConfirm}
             onSearchOther={p.onSearchOther}
+            collapsed={p.confirmCollapsed}
+            onCollapsedChange={p.onConfirmCollapsedChange}
           />
         )}
 
