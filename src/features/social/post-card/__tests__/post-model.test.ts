@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FeedPost } from '../../services/feed.service';
-import { POST_RING_COLORS, postFromDone, postFromFeed, postKindOf, postKindOfDone } from '../post-model';
+import { POST_RING_COLORS, postFromDone, postFromFeed, postFromHistory, postKindOf, postKindOfDone } from '../post-model';
 
 const base = { type: 'workout', activityCategory: 'cardio', durationMinutes: 25, activityCredit: 25 } as unknown as FeedPost;
 const keys = (p: { rings: { key: string }[] }) => p.rings.map((r) => r.key);
@@ -69,5 +69,18 @@ describe('postFromDone (home carousel)', () => {
   });
   it('strength: sets · time', () => {
     expect(keys(postFromDone({ category: 'strength', title: 'S', setsCompleted: 8, minutes: 18 }))).toEqual(['sets', 'time']);
+  });
+});
+
+describe('postFromHistory (profile)', () => {
+  it('a saved walk → walk family, the route name as title', () => {
+    const p = postFromHistory({ category: 'cardio', workoutType: 'walking', routeName: 'Yarkon', distance: 2, duration: 1800 }, 'Walk');
+    expect(p.kind).toBe('walk');
+    expect(p.title).toBe('Yarkon');
+    expect(p.rings.map((r) => r.key)).toEqual(['steps', 'distance', 'time']);
+  });
+  it('a saved hybrid → combined; a strength workout keeps the fallback title', () => {
+    expect(postFromHistory({ category: 'hybrid', workoutType: 'hybrid', distance: 2, setsCompleted: 6, duration: 1800 }, 'H').kind).toBe('combined');
+    expect(postFromHistory({ category: 'strength', workoutType: 'strength', setsCompleted: 8, duration: 900 }, 'S').title).toBe('S');
   });
 });

@@ -158,6 +158,27 @@ export function postKindOfDone(d: Pick<DoneInput, 'category' | 'workoutType'>): 
   return 'strength';
 }
 
+/** A saved workout (profile history: WorkoutHistoryEntry subset) → the same model as the home slide. */
+export function postFromHistory(w: {
+  category?: string;
+  workoutType?: string;
+  routeName?: string;
+  distance?: number;
+  duration?: number;
+  pace?: number;
+  setsCompleted?: number;
+}, title = ''): PostModel {
+  return postFromDone({
+    category: w.category === 'cardio' || w.category === 'hybrid' ? 'cardio' : w.category ?? 'strength',
+    workoutType: w.workoutType ?? null,
+    title: w.routeName || title,
+    distance: w.distance,
+    duration: w.duration,
+    pace: w.pace,
+    setsCompleted: w.setsCompleted,
+  });
+}
+
 export function postFromDone(d: DoneInput): PostModel {
   const kind = postKindOfDone(d);
   const km = d.distance;

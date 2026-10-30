@@ -15,6 +15,9 @@ import { weekdayLabel } from '@/lib/i18n/units';
 import { Activity, Bike, Dumbbell, PersonStanding, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import ActivityTileGrid, { type ActivityTile } from './ActivityTileGrid';
+import WorkoutPostList from '@/features/social/post-card/WorkoutPostList';
+import { postFromHistory } from '@/features/social/post-card/post-model';
+import { useWorkoutPostV1 } from '@/features/social/post-card/useWorkoutPostV1';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
@@ -117,6 +120,21 @@ export default function WorkoutGrid({
       onClick: workoutId ? () => onOpen(workoutId) : undefined,
     };
   });
+
+  // enable_workout_post_v1: the history as the one workout post card (loading / empty stay the grid's).
+  const postV1 = useWorkoutPostV1();
+  if (postV1 && !isLoading && workouts.length > 0) {
+    return (
+      <WorkoutPostList
+        items={workouts.map((w, idx) => ({
+          key: w.id ?? `idx-${idx}`,
+          model: postFromHistory(w),
+          meta: dayCaption(w, t) || null,
+          onOpen: w.id ? () => onOpen(w.id as string) : undefined,
+        }))}
+      />
+    );
+  }
 
   return (
     <ActivityTileGrid

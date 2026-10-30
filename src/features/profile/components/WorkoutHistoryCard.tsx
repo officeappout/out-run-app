@@ -11,6 +11,9 @@ import ActivityHistoryCard from './cards/ActivityHistoryCard';
 import RecoveryHistoryCard from './cards/RecoveryHistoryCard';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
+import WorkoutPostCard from '@/features/social/post-card/WorkoutPostCard';
+import { postFromHistory } from '@/features/social/post-card/post-model';
+import { useWorkoutPostV1 } from '@/features/social/post-card/useWorkoutPostV1';
 
 interface WorkoutHistoryCardProps {
   workout: WorkoutHistoryEntry;
@@ -31,7 +34,12 @@ interface WorkoutHistoryCardProps {
  * Routes to the appropriate card component based on workoutType
  */
 export default function WorkoutHistoryCard({ workout, onClick, onDeleteRequest }: WorkoutHistoryCardProps) {
+  // enable_workout_post_v1: the history row is the one workout post card (compact), same as home / feed.
+  const postV1 = useWorkoutPostV1();
   const renderCard = (handleTap: () => void) => {
+    if (postV1) {
+      return <WorkoutPostCard model={postFromHistory(workout)} surface="compact" onOpen={handleTap} />;
+    }
     switch (workout.workoutType) {
       case 'running':
         return <RunningHistoryCard workout={workout} onClick={handleTap} />;
