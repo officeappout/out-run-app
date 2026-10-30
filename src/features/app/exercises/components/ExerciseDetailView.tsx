@@ -7,7 +7,7 @@ import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear
 import { Play, CheckCircle2, Volume2, RotateCcw, Dumbbell, Accessibility, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
-import { resolveDescription, TagResolverContext } from '@/features/content/branding/core/branding.utils';
+import { resolveDescription, dropUnresolvedTagSegments, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 
 interface ExerciseDetailViewProps {
   exercise: Exercise;
@@ -99,7 +99,9 @@ export default function ExerciseDetailView({
         location: executionMethod?.location || 'home',
         currentTime: new Date(),
       };
-      return resolveDescription(rawDescription, context, lang);
+      const resolved = resolveDescription(rawDescription, context, lang);
+      // Non-Hebrew: an unresolved tag would show its Hebrew name, so drop that line / sentence.
+      return lang === 'he' ? resolved : dropUnresolvedTagSegments(resolved);
     }
     
     return rawDescription;
