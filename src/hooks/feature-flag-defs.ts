@@ -842,6 +842,11 @@ export const FLAG_DEFS = [
   // map or photo square with the title and 3 rings in the widget colours. Fail-closed; super admins preview it.
   // Off = identical to today.
   { key: 'enableWorkoutPostV1', firestoreKey: 'enable_workout_post_v1', defaultValue: false, superAdminValue: true },
+  // Strength workout tutorial (30.10.2026, pilot S2): on the overview, first time only, two bubbles "now the warm-up" /
+  // "now the main part"; in the player a short phase card at the warm-up and at the main part; an equipment sheet at
+  // the start of a workout that needs gear (like the park station intro, "don't show again"); and one bubble on the
+  // first reps / time input ever. Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableWorkoutTutorialV1', firestoreKey: 'enable_workout_tutorial_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
