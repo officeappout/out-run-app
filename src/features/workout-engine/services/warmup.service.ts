@@ -24,7 +24,7 @@ import {
   HOME_EXCLUSIVE_GEAR_IDS,
 } from './trio-modifiers.service';
 import { collectMethodGear } from '../shared/constants/domain-mapping.constants';
-import { warmupSlotBudget, WARMUP_SLOT_SECONDS } from '../logic/session-frame.utils';
+import { isLeanFrame, LEAN_WARMUP_SLOTS, warmupSlotBudget, WARMUP_SLOT_SECONDS } from '../logic/session-frame.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 import { isExerciseSkillEligible } from '../core/middleware/InputSanitizerMiddleware';
@@ -665,7 +665,9 @@ export function prependWarmupExercises(
   const isWarmupGuide = (ex: Exercise) => ex.isFollowAlong === true && ex.exerciseRole === 'warmup';
   const addGuideBuckets = (pool: Exercise[], reason: string): string[] => {
     const names: string[] = [];
-    for (const bucket of planWarmupGuideBuckets(pool, bodyFocus)) {
+    // ≤30 min: one guide video only (lean frame), the full-body second video is dropped.
+    const buckets = planWarmupGuideBuckets(pool, bodyFocus);
+    for (const bucket of isLeanFrame(availableTimeMin) ? buckets.slice(0, 1) : buckets) {
       const chosen = pickWithVariety(bucket.filter((ex) => !workoutIds.has(ex.id)));
       if (!chosen) continue;
       addToBlock(chosen, reason, undefined, true);
@@ -999,8 +1001,10 @@ export function prependWarmupExercises(
   // A full-body workout's second guide video (26.10.2026) is ON TOP of the ladder budget —
   // the warm-up grows by that slot rather than trimming a ladder slot; main work is untouched.
   const generalGuideCount = warmupBlock.filter((we) => we.isGeneralWarmup === true).length;
-  const maxSlots = warmupSlotBudget(availableTimeMin) + extraWarmupSlots(extraWarmupMinutes)
-    + Math.max(0, generalGuideCount - 1);
+  const maxSlots = isLeanFrame(availableTimeMin)
+    ? LEAN_WARMUP_SLOTS + extraWarmupSlots(extraWarmupMinutes) // ≤30 min: one guide + one activation
+    : warmupSlotBudget(availableTimeMin) + extraWarmupSlots(extraWarmupMinutes)
+      + Math.max(0, generalGuideCount - 1);
   let finalBlock = warmupBlock;
   if (warmupBlock.length > maxSlots) {
     const familyOf = (we: WorkoutExercise): string =>

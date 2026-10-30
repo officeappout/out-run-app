@@ -71,7 +71,7 @@ const main = (id: string, movementGroup: string): WorkoutExercise =>
 const workoutOf = (...mains: WorkoutExercise[]): GeneratedWorkout =>
   ({ title: { he: '', en: '' }, description: { he: '', en: '' }, exercises: mains, estimatedDuration: 20, structure: 'full', difficulty: 2 }) as any;
 
-function warmupIdsFor(mains: WorkoutExercise[], timeMin = 15): string[] {
+function warmupIdsFor(mains: WorkoutExercise[], timeMin = 45): string[] {
   const workout = workoutOf(...mains);
   const catalog = [guide('g-upper', 'warmup_upper'), guide('g-lower', 'warmup_lower')];
   // empty levels → maxUserLevel 1 → no ladder, only Stage 1 guides
@@ -88,8 +88,11 @@ describe('prependWarmupExercises — joint-rotation guide by workout focus', () 
   it('lower-body workout → the lower guide only', () => {
     expect(warmupIdsFor([main('m1', 'squat'), main('m2', 'hinge')])).toEqual(['g-lower']);
   });
-  it('full-body workout → both, upper first, even on a short session', () => {
-    expect(warmupIdsFor([main('m1', 'squat'), main('m2', 'vertical_pull')], 10)).toEqual(['g-upper', 'g-lower']);
+  it('full-body workout → both, upper first', () => {
+    expect(warmupIdsFor([main('m1', 'squat'), main('m2', 'vertical_pull')])).toEqual(['g-upper', 'g-lower']);
+  });
+  it('≤30 min (lean frame, owner 30.10.2026): full body gets one guide only', () => {
+    expect(warmupIdsFor([main('m1', 'squat'), main('m2', 'vertical_pull')], 30)).toEqual(['g-upper']);
   });
   it('full-body keeps all main exercises', () => {
     const workout = workoutOf(main('m1', 'squat'), main('m2', 'vertical_pull'));

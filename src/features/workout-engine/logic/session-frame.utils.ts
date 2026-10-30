@@ -79,3 +79,20 @@ export function shortSessionRestFloor(availableTimeMin: number | undefined): num
   if (availableTimeMin <= 30) return 60;
   return 75;
 }
+
+/**
+ * Lean frame for sessions of 30 min or less (owner 30.10.2026): one warm-up guide video + one
+ * activation, and one cool-down video, so the main part gets the time.
+ */
+export const LEAN_FRAME_MAX_MIN = 30;
+export const LEAN_WARMUP_SLOTS = 2;
+/**
+ * Reasoning tag on a follow-along cool-down video. Like the warm-up joint-rotation guide
+ * (`isGeneralWarmup`), it is optional for the user, so the duration estimate counts 0 for it
+ * (owner 30.10.2026).
+ */
+export const COOLDOWN_GUIDE_TAG = 'cooldown: follow-along video for this location';
+
+export function isLeanFrame(availableTimeMin: number | undefined): boolean {
+  return availableTimeMin != null && availableTimeMin > 0 && availableTimeMin <= LEAN_FRAME_MAX_MIN;
+}
