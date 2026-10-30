@@ -111,29 +111,29 @@ describe('subcollections (workoutMetadata paths)', () => {
     expect(exportableDoc('programs', { archived: true })).toBe(true);
   });
 
-  it('content tags: numeric tags stay byte for byte, Hebrew-word tags make the row Hebrew-only', () => {
+  it('content tags: numeric tags stay byte for byte, unknown tags make the row Hebrew-only', () => {
     expect(checkTranslation('בטן חזקה ב-@זמן_אימון דקות', 'Strong abs in @זמן_אימון minutes')).toEqual([]);
     expect(checkTranslation('בטן חזקה ב-@זמן_אימון דקות', 'Strong abs in minutes')).toHaveLength(1); // tag dropped
     expect(checkTranslation('דקות', 'דקות')).toContain('Hebrew characters in English');
     expect(unsafeTags('שבוע @weekNumber, @basePace ו@זמן_אימון')).toEqual([]);
-    expect(unsafeTags('אימון @קטגוריה ב@מיקום')).toEqual(['@קטגוריה', '@מיקום']);
+    expect(unsafeTags('אימון @קטגוריה ב@מיקום @תג_לא_מוכר')).toEqual(['@תג_לא_מוכר']);
   });
 
   it('builds writes for the ready field, verify flags unsafe tags and archived rows are drift', () => {
     const exp = buildExport(TITLES, [
       { id: 't1', data: { text: 'בוקר טוב', category: 'כוח' } },
       { id: 't2', data: { text: 'אימון @זמן_אימון דקות' } },
-      { id: 't3', data: { text: 'סוגרים שבוע ב@מיקום' } },
+      { id: 't3', data: { text: 'סוגרים שבוע ב@תג_לא_מוכר' } },
       { id: 't4', data: { text: 'ישן', archived: true } },
     ].filter((d) => exportableDoc(TITLES, d.data)), 'T');
     expect(exp.docCount).toBe(3);
-    const { file, missing } = buildImport(exp, { 'בוקר טוב': 'Good morning', 'כוח': null, 'אימון @זמן_אימון דקות': 'A @זמן_אימון minute workout', 'סוגרים שבוע ב@מיקום': null });
+    const { file, missing } = buildImport(exp, { 'בוקר טוב': 'Good morning', 'כוח': null, 'אימון @זמן_אימון דקות': 'A @זמן_אימון minute workout', 'סוגרים שבוע ב@תג_לא_מוכר': null });
     expect(missing).toEqual([]);
     expect(file.writes.map((w) => w.docId)).toEqual(['t1', 't2']);
     expect(file.needsCode).toEqual([]);
     expect(verifyImport(exp, file)).toEqual([]);
     // an unsafe-tag row slipped into the writes is refused
-    const bad = { ...file, writes: [...file.writes, { docId: 't3', path: 'text', he: 'סוגרים שבוע ב@מיקום', en: 'Closing the week at @מיקום', write: { he: 'סוגרים שבוע ב@מיקום', en: 'Closing the week at @מיקום' } }] };
+    const bad = { ...file, writes: [...file.writes, { docId: 't3', path: 'text', he: 'סוגרים שבוע ב@תג_לא_מוכר', en: 'Closing the week at @תג_לא_מוכר', write: { he: 'סוגרים שבוע ב@תג_לא_מוכר', en: 'Closing the week at @תג_לא_מוכר' } }] };
     expect(verifyImport(exp, bad).map((i) => i.check)).toContain('unsafe-tag');
     // the live doc was archived since the export: skip
     expect(liveDrift({ text: 'בוקר טוב', archived: true }, file.writes[0])).toBe('archived row');

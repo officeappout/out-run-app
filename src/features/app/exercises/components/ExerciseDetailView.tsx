@@ -92,18 +92,14 @@ export default function ExerciseDetailView({
     if (typeof window !== 'undefined' && rawDescription.includes('@')) {
       const context: TagResolverContext = {
         userProfile: profile || undefined,
-        userName: profile?.core?.name?.split(' ')[0] || 'משתמש',
-        userGoal: profile?.core?.mainGoal === 'healthy_lifestyle' ? 'אורח חיים בריא' :
-                 profile?.core?.mainGoal === 'performance_boost' ? 'שיפור ביצועים' :
-                 profile?.core?.mainGoal === 'weight_loss' ? 'ירידה במשקל' :
-                 profile?.core?.mainGoal === 'skill_mastery' ? 'שליטה במיומנויות' : 'אימון',
+        userName: profile?.core?.name?.split(' ')[0] || undefined,
         exerciseName: exerciseName,
-        category: exercise.programIds?.[0] || 'כוח',
+        category: exercise.programIds?.[0] || 'strength',
         muscles: muscleGroups,
         location: executionMethod?.location || 'home',
         currentTime: new Date(),
       };
-      return resolveDescription(rawDescription, context);
+      return resolveDescription(rawDescription, context, lang);
     }
     
     return rawDescription;
