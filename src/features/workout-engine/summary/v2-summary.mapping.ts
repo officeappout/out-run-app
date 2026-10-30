@@ -13,10 +13,12 @@ import type { ExerciseSetsRow } from '@/components/ui/v2/ExerciseSetsTable';
 import type { SessionSegmentRecord } from '@/features/workout-engine/core/services/storage.service';
 import { stationRows } from '@/features/workout-engine/components/strength/utils/summary-v2.mapping';
 import type { RepPaceRow } from '@/components/ui/v2/RepPaceTable';
+import type { SegmentTableRow } from '@/components/ui/v2/SegmentTable';
 import type { PlannedBlockRecord } from '@/features/workout-engine/core/services/storage.service';
 import {
   fmtBand,
   fmtClock,
+  fmtDistance,
   fmtPace,
   paceClassText,
   recordClass,
@@ -174,6 +176,8 @@ export interface RepTableModel {
   /** "5/6 בטווח" (overview row chip). */
   shortLabel: string | null;
   reps: number;
+  /** enable_combo_flow_v1 (board PlayerSegmentTable): the same reps as SegmentTable rows (planned leg · km · time · pace). */
+  table?: SegmentTableRow[];
 }
 
 /**
@@ -210,5 +214,18 @@ export function repTableModel(records: readonly PlannedBlockRecord[] | null | un
     summaryLabel: s.scored > 0 ? t('mapping.rep.inRange', { inRange: String(s.inRange), scored: String(s.scored) }) : null,
     shortLabel: s.label,
     reps: records.length,
+    table: records.map((r, i) => {
+      const c = recordClass(r);
+      return {
+        key: `${r.blockIndex}-${i}`,
+        n: r.rep > 0 ? r.rep : i + 1,
+        name: r.plannedDistanceMeters ? fmtDistance(r.plannedDistanceMeters) : r.plannedDurationSeconds ? fmtClock(r.plannedDurationSeconds) : r.label,
+        km: (Math.max(0, r.distanceMeters) / 1000).toFixed(2),
+        time: fmtClock(r.durationSeconds),
+        pace: r.avgPaceSec ? fmtPace(r.avgPaceSec) : null,
+        paceTone: c ? (c.band === 'in' ? 'in' : 'off') : 'none',
+        ...(c ? { paceNote: paceClassText(c) } : {}),
+      };
+    }),
   };
 }

@@ -36,6 +36,8 @@ import PersonalRecordTag from './PersonalRecordTag';
 import AerobicShareBlock from './AerobicShareBlock';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
 import LapPaceChart from '../shared/LapPaceChart';
+import RepSegmentTable from '../RepSegmentTable';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
 import { XP_REWARDS } from '@/types/contribution.types';
 import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
 import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
@@ -168,6 +170,8 @@ export default function AerobicSummaryView({
   // v2 only: planned runs' per-rep results (optional `blockResults`; older
   // docs and free runs have none ⇒ null ⇒ today's laps UI).
   const repTable = v2 ? repTableModel(workout.blockResults) : null;
+  // enable_combo_flow_v1 (board PlayerSegmentTable): the per-rep rows as the shared SegmentTable.
+  const tableOn = useComboFlowV1();
   // v2 runs: the summary differs by workout type (easy / intervals / long).
   const runModel = v2 && activityType === 'running' ? runTypeModel(workout, v2.plan) : null;
   // A ride (v2 only) — speed + climb instead of pace; run-only blocks keep a foot activity.
@@ -527,7 +531,7 @@ export default function AerobicSummaryView({
         </div>
       ) : repTable && (
         <Card padding="md" className="mb-3">
-          <RepPaceTable rows={repTable.rows} band={repTable.band} summaryLabel={repTable.summaryLabel} />
+          <RepPaceTable rows={repTable.rows} band={repTable.band} summaryLabel={repTable.summaryLabel} table={tableOn ? <RepSegmentTable model={repTable} /> : undefined} />
         </Card>
       )}
       {runModel?.splitsFromLaps ? null : isRide && workout.laps && workout.laps.length > 0 ? (

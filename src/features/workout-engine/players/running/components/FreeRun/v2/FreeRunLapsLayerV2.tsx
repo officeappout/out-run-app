@@ -4,6 +4,7 @@
  * FreeRunLapsLayerV2 — the session list BEHIND the v2 free-run player (the
  * laps), in the shared SessionListLayer frame. One row per lap, the live lap
  * marked "עכשיו". Owner rule: a lap under 400 m shows no pace.
+ * enable_combo_flow_v1 (board PlayerSegmentTable): the laps as the shared SegmentTable.
  */
 
 import React from 'react';
@@ -14,12 +15,16 @@ import { fmtSpeed, speedKmh } from '../../../lib/aerobic-activity';
 import { useFreeRunLive } from './useFreeRunLive';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import { SegmentTable } from '@/components/ui/v2';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
+import { lapTableRows } from '../../../lib/planned-segment-rows';
 
 export default function FreeRunLapsLayerV2({ onClose }: { onClose: () => void }) {
   const t = useT(player);
   const { laps, totals, metric, title } = useFreeRunLive();
   const ride = metric === 'speed';
   const rows = lapRows(laps, metric);
+  const tableOn = useComboFlowV1();
   const avg = avgPaceSec(totals.durationSec, totals.distanceKm);
   const time = fmtClock(totals.durationSec);
   const km = totals.distanceKm.toFixed(2);
@@ -41,6 +46,12 @@ export default function FreeRunLapsLayerV2({ onClose }: { onClose: () => void })
           <p className="text-[15px] font-black text-v2-ink">{t('run.free.laps.empty.title')}</p>
           <p className="mt-1 text-[13px] font-bold text-v2-muted">{ride ? t('run.free.laps.empty.bodyRide') : t('run.free.laps.empty.bodyRun')}</p>
         </div>
+      ) : tableOn ? (
+        <SegmentTable
+          className="mt-4"
+          columns={{ name: t('run.free.laps.col.lap'), km: t('run.free.laps.col.km'), time: t('run.free.laps.col.time'), pace: ride ? t('run.free.laps.col.speed') : t('run.free.laps.col.pace') }}
+          rows={lapTableRows(rows, (n, active) => (active ? t('run.free.laps.rowActive', { n: String(n) }) : t('run.free.laps.row', { n: String(n) })))}
+        />
       ) : (
         <div className="mt-4 overflow-hidden rounded-[20px] bg-white p-1 shadow-v2-ring">
           <div className="flex items-center gap-3 px-3 pb-1 pt-2 text-[12px] font-extrabold text-v2-muted">
