@@ -5,6 +5,7 @@
  */
 import type { MetricRing } from '@/components/ui/v2/MetricRings';
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
+import { ACTIVITY_COLORS } from '@/features/activity/types/activity.types';
 
 type Segments = HybridFinalizeResult['segments'];
 
@@ -18,6 +19,16 @@ export function isWalkSession(segments: Segments): boolean {
 export function relabelWalkRing(rings: MetricRing[], walking: boolean, walkLabel: string): MetricRing[] {
   if (!walking) return rings;
   return rings.map((r) => (r.key === 'distance' ? { ...r, label: walkLabel } : r));
+}
+
+/**
+ * enable_combo_flow_v1 (board PlayerComboSummary): the summary rings take the home widget's
+ * activity colours (aerobic / strength), the same as the weekly ring screen before it.
+ */
+export function withWidgetRingColors(rings: MetricRing[]): MetricRing[] {
+  return rings.map((r) =>
+    r.key === 'distance' ? { ...r, color: ACTIVITY_COLORS.cardio.hex } : r.key === 'sets' ? { ...r, color: ACTIVITY_COLORS.strength.hex } : r,
+  );
 }
 
 export interface WeekRingView {

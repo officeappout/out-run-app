@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { isWalkSession, relabelWalkRing, weekRingView } from '../park-summary';
+import { isWalkSession, relabelWalkRing, weekRingView, withWidgetRingColors } from '../park-summary';
+import { ACTIVITY_COLORS } from '@/features/activity/types/activity.types';
 
 const seg = (kind: 'aerobic' | 'strength', aerobicType?: 'walking' | 'running') =>
   ({ index: 0, kind, ...(aerobicType ? { aerobicType } : {}) }) as never;
@@ -27,5 +28,17 @@ describe('park summary (N1, N2)', () => {
     const full = weekRingView({ cardio: 140, strength: 40 }, { aerobicSec: 0, strengthSec: 0 }, 150);
     expect(full.aerobicFrac + full.strengthFrac).toBeLessThanOrEqual(1);
     expect(weekRingView(null, { aerobicSec: 0, strengthSec: 0 }, 0).goalMin).toBe(150);
+  });
+});
+
+describe('withWidgetRingColors (enable_combo_flow_v1)', () => {
+  it('distance takes the aerobic widget colour, sets the strength one, others untouched', () => {
+    const rings = [
+      { key: 'distance', color: '#000' },
+      { key: 'sets', color: '#111' },
+      { key: 'segments', color: '#222' },
+    ] as never;
+    const out = withWidgetRingColors(rings) as unknown as Array<{ key: string; color: string }>;
+    expect(out.map((r) => r.color)).toEqual([ACTIVITY_COLORS.cardio.hex, ACTIVITY_COLORS.strength.hex, '#222']);
   });
 });
