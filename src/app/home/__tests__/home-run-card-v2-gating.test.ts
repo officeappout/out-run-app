@@ -98,9 +98,9 @@ describe('home/page.tsx — v2 run card wiring', () => {
     // A start plan on its own = the start cards' own carousel; otherwise the standalone slide.
     expect(pageSrc).toContain("const programStandalone = programSurface === 'standalone' && programSlide.plan.mode === 'start' ? (");
     expect(pageSrc).toContain(") : programSurface === 'standalone' ? (");
-    expect(pageSrc).toContain('<>{calmCard}{firstWeekCard}{programStandalone}{content}</>');
+    expect(pageSrc).toContain('<>{calmCard}{firstWeekCard}{pushReAskCard}{programStandalone}{content}</>');
     // Flag off: plan 'none' → no standalone, the slot renders `content` exactly as before.
-    expect(pageSrc).toMatch(/calmCard \|\| firstWeekCard \|\| programStandalone\s*\?[\s\S]*?:\s*content;/);
+    expect(pageSrc).toMatch(/calmCard \|\| firstWeekCard \|\| pushReAskCard \|\| programStandalone\s*\?[\s\S]*?:\s*content;/);
     // enable_home_v2 first-week card: flag off → null, so the slot is unchanged.
     expect(pageSrc).toContain('const firstWeekCard = featureFlags.enableHomeV2 && isViewingToday && !calmCard');
   });

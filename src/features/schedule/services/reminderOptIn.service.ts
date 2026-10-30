@@ -28,6 +28,7 @@ import {
   PUSH_SOFTASK_DEFERRED_KEY,
   parsePrefTimestamp,
   pushReAskShownKey,
+  PUSH_REASK_HOME_COUNT_KEY,
   type PushReAskMoment,
 } from '../utils/pushReAsk';
 
@@ -102,6 +103,18 @@ export function recordReminderDeferral(now: number = Date.now()): void {
 
 export async function readReAskShownAt(moment: PushReAskMoment): Promise<number | null> {
   return parsePrefTimestamp(await getOnboardingPrefAsync(pushReAskShownKey(moment)));
+}
+
+/** How many times the home re-ask was shown on this device. */
+export async function readHomeReAskCount(): Promise<number> {
+  const n = Number(await getOnboardingPrefAsync(PUSH_REASK_HOME_COUNT_KEY));
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+/** The home card was shown: stamp the time and bump the count (cooldown + cap). */
+export function markHomeReAskShown(count: number, now: number = Date.now()): void {
+  markReAskShown('home', now);
+  setOnboardingPref(PUSH_REASK_HOME_COUNT_KEY, String(count + 1));
 }
 
 export function markReAskShown(moment: PushReAskMoment, now: number = Date.now()): void {
