@@ -34,7 +34,7 @@ describe('timed summary cards (A-2f / A-4f)', () => {
     expect(roundOrdinal(t, 14)).toBe('בסבב ה-14');
   });
 
-  it('EMOM: minutes on time, averages, bars by tone', () => {
+  it('EMOM: minutes on time, averages, a tile per minute', () => {
     const spec: TimedBlockSpec = { format: 'emom', config: { intervalSec: 60, totalIntervals: 3 }, items: [ex('a', 12), ex('b', 10)] };
     const s = reduceTimedAll(initTimed(spec), [
       { type: 'START', atMs: T0 },
@@ -48,7 +48,8 @@ describe('timed summary cards (A-2f / A-4f)', () => {
     expect(m.totalReps).toBe(20);
     expect(m.avgWork).toBe('0:40');
     expect(m.avgRest).toBe('0:20');
-    expect(m.bars.map((b) => b.tone)).toEqual(['done', 'partial', 'missed']);
+    expect(m.minutes.map((b) => b.tone)).toEqual(['done', 'partial', 'missed']);
+    expect(m.minutes.map((b) => b.reps)).toEqual([null, '8/10', null]);
     expect(m.note).toBe('דקה 2 (כתום): 8 מתוך 10 חזרות');
     expect(amrapSummaryModel(t, rec(s))).toBeNull();
   });

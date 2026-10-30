@@ -3,13 +3,13 @@
 /**
  * TimedResultCardsV2 — the format cards of the v2 strength summary
  * (enable_home_v2): AMRAP "התוצאה שלך · 4 סבבים מלאים · ועוד 16 חזרות"
- * with a tile per round (board A-2f), EMOM "11/12 דקות בזמן" + minute-by-
- * minute bars (A-4f), tabata intervals. Presentational; the numbers come
+ * with a tile per round (board A-2f), EMOM "11/12 דקות בזמן" + a tile per
+ * minute (A-4f; pilot T4: tiles, not run-style bars), tabata intervals. Presentational; the numbers come
  * from utils/timed-summary.model (live: this session's blocks; history: the
  * doc's `timedBlocks`). The sets table below stays the shared one.
  */
 import React from 'react';
-import { Check, Timer } from 'lucide-react';
+import { Check, Timer, X } from 'lucide-react';
 import { Card, IconTile } from '@/components/ui/v2';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
@@ -64,7 +64,11 @@ function AmrapCard({ m }: { m: AmrapSummaryModel }) {
   );
 }
 
-const BAR: Record<MinuteTone, string> = { done: 'bg-[#8b5cf6]', partial: 'bg-[#f97316]', missed: 'bg-v2-pill-border' };
+const TILE: Record<MinuteTone, string> = {
+  done: 'bg-[#00baf7] text-white',
+  partial: 'bg-[#f973161f] ring-[1.5px] ring-inset ring-[#f97316] text-v2-ink',
+  missed: 'bg-v2-pill-border text-v2-muted',
+};
 
 function EmomCards({ m }: { m: EmomSummaryModel }) {
   const { direction } = useUiDir();
@@ -104,11 +108,13 @@ function EmomCards({ m }: { m: EmomSummaryModel }) {
             </span>
           )}
         </div>
-        <div className="flex items-end gap-2" dir={direction} role="img" aria-label={t('strengthSummary.timed.emom.barsAria', { done: m.doneLabel })}>
-          {m.bars.map((b) => (
-            <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-              <div className="flex h-20 w-full max-w-[34px] items-end">
-                <div className={`w-full rounded-[8px_8px_4px_4px] ${BAR[b.tone]}`} style={{ height: `${Math.round(b.fraction * 100)}%` }} />
+        <div className="grid grid-cols-6 gap-1.5" dir={direction} role="img" aria-label={t('strengthSummary.timed.emom.barsAria', { done: m.doneLabel })}>
+          {m.minutes.map((b) => (
+            <div key={b.key} className="flex min-w-0 flex-col items-center gap-1">
+              <div className={`grid h-[30px] w-full place-items-center rounded-[9px] ${TILE[b.tone]}`}>
+                {b.tone === 'done' && <Check size={16} strokeWidth={3} aria-hidden />}
+                {b.tone === 'missed' && <X size={14} strokeWidth={3} aria-hidden />}
+                {b.reps && <span dir="ltr" className="text-[11.5px] font-black tabular-nums">{b.reps}</span>}
               </div>
               <span className="whitespace-nowrap text-[11px] font-bold tabular-nums text-v2-muted">{b.label}</span>
             </div>
