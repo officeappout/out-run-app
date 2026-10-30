@@ -21,9 +21,11 @@ import { CalendarPlus, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sheet from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
-import { X, Footprints, Users, MapPin, Zap, ChevronLeft } from 'lucide-react';
+import { X, Footprints, Users, MapPin, Zap, ChevronLeft, Sparkles } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import { coach } from '@/messages/ns/coach';
+import { coachGenderOf } from '@/lib/ai/coach/persona';
 
 interface UnifiedPlusDrawerProps {
   isOpen: boolean;
@@ -34,6 +36,11 @@ interface UnifiedPlusDrawerProps {
   onReport: () => void;
   /** v2: "add a workout to the schedule" (home passes it; the map doesn't). */
   onAddWorkout?: () => void;
+  /**
+   * enable_home_after_v1: Kelly moves from the home top card into this menu, as the first, highlighted row.
+   * The caller passes it only when Kelly is open to the user (canUseAi); v2 look only.
+   */
+  onAskKelly?: () => void;
 }
 
 interface Row {
@@ -51,8 +58,11 @@ export default function UnifiedPlusDrawer({
   onAddLocation,
   onReport,
   onAddWorkout,
+  onAskKelly,
 }: UnifiedPlusDrawerProps) {
   const t = useT(map);
+  const tc = useT(coach);
+  const gender = useUserStore((st) => coachGenderOf(st.profile?.core?.gender));
   const { isRtl } = useUiDir();
   const select = (fn: () => void) => () => { onClose(); fn(); };
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
@@ -150,6 +160,25 @@ export default function UnifiedPlusDrawer({
         title={t('plus.title')}
       >
         <div className="space-y-4 px-5 pb-4">
+          {onAskKelly && (
+            <div className="space-y-2" data-plus-kelly>
+              <div className="px-1 text-[13px] font-extrabold text-v2-deep">{tc('entry.kelly.badge')}</div>
+              <button
+                onClick={select(onAskKelly)}
+                aria-label={tc('entry.home.aria')}
+                className="flex w-full items-center gap-3 rounded-[20px] bg-v2-tint p-3 text-start ring-[1.5px] ring-inset ring-v2-accent transition-transform duration-150 ease-v2 active:scale-[0.98]"
+              >
+                <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[14px] bg-white text-v2-deep">
+                  <Sparkles size={18} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15.5px] font-black text-v2-ink">{tc('entry.ask', { gender })}</span>
+                  <span className={isRtl ? 'block truncate text-[12.5px] font-bold text-v2-muted' : 'block line-clamp-2 text-[12.5px] font-bold leading-tight text-v2-muted'}>{tc('entry.home.subtitle')}</span>
+                </span>
+                <ChevronLeft size={17} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted ltr:-scale-x-100" />
+              </button>
+            </div>
+          )}
           {[
             {
               title: t('plus.section.activity'),
