@@ -9,7 +9,8 @@
  *   • full_park / assessment_prompt and route_stops — the existing resolveSlots slots, kept
  *     only when ranked visible, with the reason line (and, for route_stops, the route id so
  *     the compose uses the route the card talks about).
- *   • aerobic_quick — always last, unchanged.
+ *   • aerobic_quick — always last; on a goal-met day with no goal-met card it carries that line
+ *     (pilot O8: otherwise a lone free walk shows with no explanation).
  * The top-ranked hybrid card carries the "מומלץ" badge.
  */
 
@@ -50,11 +51,12 @@ export function buildWalkStrengthSlot(card: RankedHybridCard, aerobicKind: 'walk
     recommended: false,
     accent: BRAND,
     reason: card.reason,
+    ...(card.goalReached ? { goalReached: true } : {}),
     cacheKeySuffix: `|p:${card.park.id}|km:${sizing.walkKm}|s:${sizing.strengthSets}`,
   };
 }
 
-export function resolveSmartSlots(env: SlotEnv, ranked: RankedHybridCard[]): HybridSlot[] {
+export function resolveSmartSlots(env: SlotEnv, ranked: RankedHybridCard[], opts: { goalReachedReason?: string | null } = {}): HybridSlot[] {
   if (!env.enableHybridSlots) return [];
   // The old one-station 'recommended' card is retired here — walk_strength replaces it.
   const legacy = resolveSlots({ ...env, enableRecommendedHybrid: false });
@@ -87,6 +89,9 @@ export function resolveSmartSlots(env: SlotEnv, ranked: RankedHybridCard[]): Hyb
   const topHybridId = cards[0]?.kind === 'hybrid' ? cards[0].id : null;
   const out: HybridSlot[] = cards.map((s) => ({ ...s, recommended: s.id === topHybridId }));
   const quick = byId.get('aerobic_quick');
-  if (quick) out.push(quick);
+  if (quick) {
+    const explain = opts.goalReachedReason && !ranked.some((c) => c.goalReached);
+    out.push(explain ? { ...quick, reason: opts.goalReachedReason as string, goalReached: true } : quick);
+  }
   return out;
 }

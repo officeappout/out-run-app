@@ -100,6 +100,8 @@ interface SlotBase {
   accent: string;
   /** enable_hybrid_cards_v2 only: one short Hebrew line — why this card is offered now. */
   reason?: string;
+  /** Pilot O8: the day's goal is met (steps + weekly strength): the reason line always shows. */
+  goalReached?: boolean;
   /**
    * enable_hybrid_cards_v2 only: appended to the warm-cache key so a card whose compose
    * inputs changed (another park / route / size) never reuses a stale plan. Absent → ''.

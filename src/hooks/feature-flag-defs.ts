@@ -102,10 +102,11 @@ export const FLAG_DEFS = [
   // a smart "הליכה + כוח" walk through a nearby park (replaces the old one-station recommended
   // card; hidden when no park is near), "אימון מלא בפארק" mainly on a strength day, "מסלול +
   // עצירות" only near a route with stops. Also routes the free-run drawer's "תחנות כוח" toggle
-  // to the same smart walk (hidden with no park near). Fail-closed; superAdminValue false — the
-  // panel toggle is the ONE switch, so the flag-off pass shows exactly what users get.
+  // to the same smart walk (hidden with no park near). Fail-closed. superAdminValue true (pilot O8,
+  // 30.10.2026): super admins get superAdminValue, never the panel value, so `false` hid the smart
+  // carousel from the owner while the panel had it ON for everyone else.
   // Off = today's carousel, byte-identical (src/features/workout-engine/hybrid/smart-cards).
-  { key: 'enableHybridCardsV2', firestoreKey: 'enable_hybrid_cards_v2', defaultValue: false, superAdminValue: false },
+  { key: 'enableHybridCardsV2', firestoreKey: 'enable_hybrid_cards_v2', defaultValue: false, superAdminValue: true },
   // Sderot pilot G3.1 (15.10.2026) — walk-to-first-stop: a persistent walking card with live
   // distance + secondary "הגעתי"; the big "הגעתי לתחנה" CTA only after the user walked INTO the
   // approach radius (never on the first fix at a park-start). Normal fail-closed launch gate;

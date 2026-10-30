@@ -8,7 +8,7 @@ vi.mock('@/config/feature-flags', () => ({
 
 import { resolveSlots, presetToIntent, HYBRID_PRESETS, type SlotEnv, type HybridSlot } from '../../hybrid-slots';
 import { resolveSmartSlots } from '../resolve-smart-slots';
-import { rankHybridCards } from '../rank-hybrid-cards';
+import { goalReachedToday, rankHybridCards } from '../rank-hybrid-cards';
 import { sessionTypesForRoute } from '../route-session-types';
 import type { HybridSituation } from '../situation.types';
 
@@ -110,5 +110,32 @@ describe('flag-off parity (enable_hybrid_cards_v2 off never reaches smart-cards)
       expect(s).not.toHaveProperty('reason');
       expect(s).not.toHaveProperty('cacheKeySuffix');
     }
+  });
+});
+
+describe('pilot O8: a goal-met day with no equipped park near', () => {
+  const done = sit({
+    nearestEquippedPark: null,
+    routesWithStops: [],
+    steps: { stepsRemaining: 0, stepGoal: 8000 },
+    strength: { weeklyBudget: 40, totalSetsCompleted: 40 },
+  });
+  it('goalReachedToday ignores the park; a day with steps left is not goal-met', () => {
+    expect(goalReachedToday(done)).toBe(true);
+    expect(goalReachedToday(sit())).toBe(false);
+  });
+  it('the lone free walk carries the goal-met line (else it shows with no explanation)', () => {
+    const slots = resolveSmartSlots(env(), rankHybridCards(done), { goalReachedReason: 'goal' });
+    expect(ids(slots)).toEqual(['aerobic_quick']);
+    expect(slots[0]).toMatchObject({ reason: 'goal', goalReached: true });
+  });
+  it('a park in range keeps the line on the walk_strength card, not twice', () => {
+    const near = { ...done, nearestEquippedPark: { id: 'p1', name: 'x', distanceM: 300 } };
+    const slots = resolveSmartSlots(env(), rankHybridCards(near), { goalReachedReason: 'goal' });
+    expect(slots.find((s) => s.id === 'walk_strength')).toMatchObject({ goalReached: true });
+    expect(slots.find((s) => s.id === 'aerobic_quick')?.reason).toBeUndefined();
+  });
+  it('no goal-met reason → the free walk is unchanged', () => {
+    expect(resolveSmartSlots(env(), rankHybridCards(done)).at(-1)?.reason).toBeUndefined();
   });
 });

@@ -292,7 +292,8 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         subtitle={tutorialV1 ? undefined : slot.subtitle}
         difficulty={slot.bolts}
         recommended={slot.recommended}
-        extraContent={tutorialV1 ? totalLine : extraLine}
+        // Pilot O8: a goal-met card keeps its line even in the tutorial layout (it IS the card's message).
+        extraContent={tutorialV1 ? (slot.goalReached ? reasonLine : totalLine) : extraLine}
         onInfo={tutorialV1 ? onInfo : undefined}
         // L12: the whole focused card opens the route (same arming as the CTA; a peeking card's tap
         // is the carousel wrapper's "centre me").
