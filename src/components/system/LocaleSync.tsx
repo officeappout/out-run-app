@@ -42,7 +42,7 @@ export default function LocaleSync() {
   const profileStatus = useUserStore((st) => (st.profile?.core as { onboardingStatus?: unknown } | undefined)?.onboardingStatus ?? (st.profile as { onboardingStatus?: unknown } | null)?.onboardingStatus);
   const profileCreatedAt = useUserStore((st) => (st.profile as { createdAt?: unknown } | null)?.createdAt);
   const profileGender = useUserStore((st) => st.profile?.core?.gender);
-  const { flags } = useFeatureFlags(isSuperAdmin);
+  const { flags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, enableContentLocale } = flags;
 
   const legacyLanguage = useAppStore((s) => s.language);
@@ -128,6 +128,18 @@ export default function LocaleSync() {
       cancelled = true;
     };
   }, [enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, isSuperAdmin, profileLocale, profileId, hasProfile, profileCreatedAt, profileStatus, hydrated, authResolved, setLocaleState]);
+
+  // The legacy store ('out-app-storage') persists, and /challenge writes it (browser language + its own toggle),
+  // so it can be stuck on 'en' for a Hebrew user. Outside /challenge it must mirror the resolved locale: whenever
+  // Hebrew is resolved (incl. enable_i18n off) put it back on he/rtl, on every route change away from /challenge.
+  // English testers (enable_i18n + en) are handled by the resolve effect above and left alone here.
+  useEffect(() => {
+    if (flagsLoading || pathname?.startsWith('/challenge')) return;
+    if (enableI18n && !i18nEnabled) return; // flag on, locale still resolving: don't flicker English testers
+    if (i18nEnabled && locale !== 'he') return;
+    const st = useAppStore.getState();
+    if (st.language !== 'he') st.setLanguage('he');
+  }, [flagsLoading, enableI18n, pathname, i18nEnabled, locale, legacyLanguage]);
 
   // <html lang dir> — the old LanguageProvider effect, unchanged while i18n is off / Hebrew.
   useEffect(() => {

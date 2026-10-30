@@ -7,7 +7,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const state = { i18n: true, stored: 'en' as string | null };
+const state = { i18n: true, stored: 'en' as string | null, path: '/home' };
 
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 vi.mock('@/hooks/useFeatureFlags', () => ({
@@ -16,7 +16,7 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
   }),
 }));
 vi.mock('@/features/user', () => ({ useUserStore: (sel: (s: unknown) => unknown) => sel({ profile: { core: {} } }) }));
-vi.mock('next/navigation', () => ({ usePathname: () => '/home' }));
+vi.mock('next/navigation', () => ({ usePathname: () => state.path }));
 vi.mock('@/lib/i18n/locale-cookie', () => ({ clearLocaleCookie: () => undefined, writeLocaleCookie: () => undefined }));
 vi.mock('@/lib/onboardingPrefs', () => ({ getOnboardingPrefAsync: async () => state.stored }));
 
@@ -40,6 +40,7 @@ const render = async () => {
 beforeEach(() => {
   state.i18n = true;
   state.stored = 'en';
+  state.path = '/home';
   useAppStore.setState({ language: 'he', direction: 'rtl' });
   useLocaleStore.setState({ locale: 'he', i18nEnabled: false });
   host = document.createElement('div');
@@ -64,10 +65,36 @@ describe('LocaleSync mirrors the locale into the legacy language store', () => {
     expect(useAppStore.getState().language).toBe('he');
   });
 
-  it('enable_i18n off → the legacy store is never touched', async () => {
+  it('enable_i18n off + stale en outside /challenge → reset to he/rtl', async () => {
     state.i18n = false;
     useAppStore.setState({ language: 'en', direction: 'ltr' });
     await render();
+    expect(useAppStore.getState().language).toBe('he');
+    expect(useAppStore.getState().direction).toBe('rtl');
+  });
+
+  it('stale en + Hebrew resolved with enable_i18n on → he', async () => {
+    state.stored = 'he';
+    useAppStore.setState({ language: 'en', direction: 'ltr' });
+    await render();
+    expect(useAppStore.getState().language).toBe('he');
+  });
+
+  it('/challenge keeps its own en toggle', async () => {
+    state.i18n = false;
+    state.path = '/challenge/abc';
+    useAppStore.setState({ language: 'en', direction: 'ltr' });
+    await render();
     expect(useAppStore.getState().language).toBe('en');
+  });
+
+  it('leaving /challenge resets the stale en', async () => {
+    state.i18n = false;
+    state.path = '/challenge/abc';
+    useAppStore.setState({ language: 'en', direction: 'ltr' });
+    await render();
+    state.path = '/home';
+    await render();
+    expect(useAppStore.getState().language).toBe('he');
   });
 });
