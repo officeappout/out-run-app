@@ -349,7 +349,7 @@ export default function ExerciseReplacementModal({
                     onError={(e) => { (e.target as HTMLImageElement).src = '/images/park-placeholder.svg'; }}
                   />
                 </div>
-                <div className="flex-1 text-right">
+                <div className="flex-1 text-start">
                   <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">{t('swapModal.header')}</p>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 leading-tight">
                     {getLocalizedText(currentExercise.name, 'he')}
@@ -362,7 +362,7 @@ export default function ExerciseReplacementModal({
                 </div>
                 <button
                   onClick={onClose}
-                  className="absolute top-5 left-5 w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 active:scale-90 transition-transform"
+                  className="absolute top-5 end-5 w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 active:scale-90 transition-transform"
                   aria-label={t('swapModal.closeAria')}
                 >
                   <X size={18} />
@@ -436,7 +436,7 @@ export default function ExerciseReplacementModal({
                           alt={getLocalizedText(option.exercise.name, 'he')}
                         />
 
-                        <div className="flex-1 flex flex-col gap-1.5 text-right items-start">
+                        <div className="flex-1 flex flex-col gap-1.5 text-start items-start">
                           <h3 className="font-bold text-lg text-slate-900 dark:text-white w-full">
                             {getLocalizedText(option.exercise.name, 'he')}
                           </h3>
@@ -466,12 +466,12 @@ export default function ExerciseReplacementModal({
 
             {/* ── Sticky CTA ── */}
             <div
-              className="absolute bottom-0 left-0 right-0 px-6 pt-4 bg-gradient-to-t from-white dark:from-[#1E1E1E] via-white/95 dark:via-[#1E1E1E]/95 to-transparent"
+              className="absolute bottom-0 end-0 start-0 px-6 pt-4 bg-gradient-to-t from-white dark:from-[#1E1E1E] via-white/95 dark:via-[#1E1E1E]/95 to-transparent"
               style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
             >
               {/* ── Optional reason chips (one row, skippable) ── */}
               <div className="mb-3 -mx-6 px-6 pt-2 bg-white/95 dark:bg-[#1E1E1E]/95">
-                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2 text-right">
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2 text-start">
                   {t('swapModal.reason.prompt')}
                 </p>
                 <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
@@ -495,7 +495,7 @@ export default function ExerciseReplacementModal({
                   })}
                 </div>
                 {reason === 'pain' && (
-                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1.5 text-right">
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1.5 text-start">
                     {t('swapModal.reason.painNote')}
                   </p>
                 )}

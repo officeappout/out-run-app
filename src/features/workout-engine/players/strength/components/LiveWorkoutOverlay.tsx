@@ -214,7 +214,7 @@ export default function LiveWorkoutOverlay({
 
             {/* Scrollable Drawer - Only show for station segments with exercise data */}
             {currentSegment?.type === 'station' && (currentExercise || currentWorkoutExercise) && (
-                <div className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50">
+                <div className="absolute bottom-0 end-0 start-0 pointer-events-auto z-50">
                     <div className="bg-white dark:bg-zinc-900 rounded-t-[40px] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] pt-10 px-8 pb-12 max-h-[70vh] overflow-y-auto scrollbar-hide">
                     {/* Title Section */}
                     <div className="text-center mb-6">
@@ -385,7 +385,7 @@ export default function LiveWorkoutOverlay({
 
             {/* Bottom Unified Control Panel - Show when not in station drawer mode */}
             {(!currentSegment || currentSegment.type !== 'station' || (!currentExercise && !currentWorkoutExercise)) && (
-                <div className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50">
+                <div className="absolute bottom-0 end-0 start-0 pointer-events-auto z-50">
                     {/* Workout Timeline - Sits on top of dashboard */}
                     <div className="px-4 pb-2">
                         <div className="bg-white/95 backdrop-blur-sm rounded-t-2xl shadow-lg border-t border-x border-gray-100 pt-2">

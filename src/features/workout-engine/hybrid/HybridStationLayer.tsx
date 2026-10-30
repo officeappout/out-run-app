@@ -375,7 +375,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
           onClick={() => skipStation()}
           // PR-B4: the tutorial's pause/skip bubble points here.
           data-coach={COACH_TARGET_SKIP}
-          className="fixed left-4 z-[121] pointer-events-auto rounded-full px-3 py-1.5 text-[12px] font-bold text-gray-500 bg-white/90 border border-gray-200 shadow-sm active:scale-95 transition-transform"
+          className="fixed end-4 z-[121] pointer-events-auto rounded-full px-3 py-1.5 text-[12px] font-bold text-gray-500 bg-white/90 border border-gray-200 shadow-sm active:scale-95 transition-transform"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         >
           {t('hybrid.layer.skip')}
@@ -433,7 +433,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   if (walkFlag && walkUi === 'walking') {
     const card = (
       <div
-        className="fixed left-0 right-0 z-[110] flex justify-center pointer-events-none px-6"
+        className="fixed end-0 start-0 z-[110] flex justify-center pointer-events-none px-6"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 150px)' }}
         dir={direction}
       >

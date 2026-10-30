@@ -294,7 +294,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={() => setMapFollowEnabled(true)}
-            className="absolute bottom-28 right-4 z-30 w-10 h-10 rounded-full
+            className="absolute bottom-28 start-4 z-30 w-10 h-10 rounded-full
                        bg-white/90 shadow-lg flex items-center justify-center pointer-events-auto"
           >
             <LocateFixed size={20} className="text-blue-500" />
@@ -400,7 +400,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                   onClick={onBack}
                   className="w-8 h-8 flex items-center justify-center rounded-full text-slate-600 active:bg-slate-100 transition-colors min-w-[44px] min-h-[44px]"
                 >
-                  <ArrowLeft className="transform rotate-180" size={20} />
+                  <ArrowLeft className="transform rotate-180 ltr:-scale-x-100" size={20} />
                 </button>
               </div>
 
@@ -415,7 +415,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
             {/* Stats card — full width, rounded bottom only */}
             <section className="bg-white pt-2 pb-3 z-20 shrink-0 relative w-full rounded-b-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
               {/* GPS Indicator — absolute, doesn't affect layout */}
-              <div className="absolute top-1 right-4 z-30 pointer-events-none">
+              <div className="absolute top-1 start-4 z-30 pointer-events-none">
                 <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
               </div>
               <PlannedCarousel />
@@ -604,7 +604,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
       {/* Hidden element to measure safe-area-inset-bottom */}
       <div
         ref={safeAreaRef}
-        className="fixed bottom-0 left-0 w-0 pointer-events-none"
+        className="fixed bottom-0 end-0 w-0 pointer-events-none"
         style={{ height: 'env(safe-area-inset-bottom, 0px)' }}
       />
     </div>

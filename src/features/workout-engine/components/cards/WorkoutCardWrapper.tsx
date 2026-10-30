@@ -50,7 +50,7 @@ export default function WorkoutCardWrapper({
       {/* Status Color Bar (Right side in RTL) */}
       {statusColor && (
         <div
-          className="absolute top-0 right-0 bottom-0 w-1"
+          className="absolute top-0 start-0 bottom-0 w-1"
           style={{ backgroundColor: statusColor }}
         />
       )}

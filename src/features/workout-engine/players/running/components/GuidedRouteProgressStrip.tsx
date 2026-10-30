@@ -51,7 +51,7 @@ export default function GuidedRouteProgressStrip() {
 
   return (
     <div
-      className="absolute left-4 right-4 z-40 pointer-events-none"
+      className="absolute end-4 start-4 z-40 pointer-events-none"
       style={{ top: 'calc(max(1rem, env(safe-area-inset-top, 0px)) + 5.5rem)' }}
       dir={direction}
     >
@@ -85,7 +85,7 @@ export default function GuidedRouteProgressStrip() {
           aria-valuenow={Math.round(progressPct)}
         >
           <div
-            className="absolute inset-y-0 right-0 rounded-full transition-[width] duration-500 ease-out"
+            className="absolute inset-y-0 start-0 rounded-full transition-[width] duration-500 ease-out"
             style={{
               width: `${progressPct}%`,
               background: `linear-gradient(to left, ${PRIMARY}, ${PRIMARY_DARK})`,

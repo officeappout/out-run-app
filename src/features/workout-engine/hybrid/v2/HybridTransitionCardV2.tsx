@@ -64,7 +64,7 @@ export default function HybridTransitionCardV2({ api }: { api: HybridPlayerV2Api
             <span className="block truncate whitespace-nowrap text-[15px] font-black text-v2-ink">{tv.first.name}</span>
             {tv.moreText && <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{tv.moreText}</span>}
           </div>
-          <div className="shrink-0 text-left">
+          <div className="shrink-0 text-end">
             {tv.first.target && <span className="block whitespace-nowrap text-[16px] font-black text-v2-ink">{tv.first.target}</span>}
             {tv.first.setsText && <span className="block whitespace-nowrap text-[12px] font-bold text-v2-muted">{tv.first.setsText}</span>}
           </div>

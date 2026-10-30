@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { MilestoneEvent } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
 import { player } from '@/messages/ns/player';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 
 interface MilestoneFeedProps {
   milestones: MilestoneEvent[];
@@ -15,6 +16,7 @@ interface MilestoneFeedProps {
 const AUTO_DISMISS_MS = 3000;
 
 export default function MilestoneFeed({ milestones }: MilestoneFeedProps) {
+  const { direction: uiDir } = useUiDir();
   const tc = useT(common);
   const tx = useT(player);
   // Queue of milestone ids already shown — avoids re-displaying on re-render.
@@ -71,7 +73,7 @@ export default function MilestoneFeed({ milestones }: MilestoneFeedProps) {
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
               maxWidth: 240,
-              direction: 'rtl',
+              direction: uiDir,
             }}
           >
             {label}

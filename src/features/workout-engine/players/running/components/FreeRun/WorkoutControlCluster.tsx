@@ -159,7 +159,7 @@ export default function WorkoutControlCluster() {
           second child → left  edge (שמאל) = Lap   / Stop
       */}
       <div
-        className="absolute left-0 right-0 z-50 flex items-center justify-between px-[18px] pointer-events-auto"
+        className="absolute end-0 start-0 z-50 flex items-center justify-between px-[18px] pointer-events-auto"
         dir={direction}
         style={{ bottom: 'var(--session-bar-clearance, 88px)' }}
       >

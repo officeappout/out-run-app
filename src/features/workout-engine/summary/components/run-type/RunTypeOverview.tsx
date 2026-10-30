@@ -64,7 +64,7 @@ function OpenSegmentsRow({
       >
         {chip}
       </span>
-      <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted" aria-hidden />
+      <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
     </button>
   );
 }

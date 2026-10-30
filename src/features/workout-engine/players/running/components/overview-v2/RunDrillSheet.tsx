@@ -81,7 +81,7 @@ export default function RunDrillSheet({ block, onClose }: RunDrillSheetProps) {
         header={(
           <div className="flex items-center justify-between px-5 pb-2">
             <IconButton aria-label={t('run.overview.drill.back')} tone="surface" size={36} onClick={onClose}>
-              <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2.4} />
+              <ArrowRight className="h-[18px] w-[18px] ltr:-scale-x-100" strokeWidth={2.4} />
             </IconButton>
             <h2 className="flex-1 truncate whitespace-nowrap px-4 text-center text-[17px] font-black text-v2-ink">{title}</h2>
             <span className="w-9" />
