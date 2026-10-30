@@ -1141,5 +1141,16 @@
   "runUtils.fit.label.yes": "מתאים",
   "runUtils.fit.label.yesLaps": "מתאים ב-{laps}",
   "runUtils.fit.label.close": "כמעט מתאים",
-  "runUtils.fit.label.no": "לא מתאים לאימון של היום"
+  "runUtils.fit.label.no": "לא מתאים לאימון של היום",
+  "adaptiveChanges.title": "מה משתנה בפעם הבאה",
+  "adaptiveChanges.range": "{min} עד {max}",
+  "adaptiveChanges.unit.reps": "{n, plural, one {חזרה} other {חזרות}}",
+  "adaptiveChanges.unit.seconds": "{n, plural, one {שנייה} other {שניות}}",
+  "adaptiveChanges.line.harderJump": "עשית {done} {unit}, הרבה מעל הטווח. בפעם הבאה ננסה גרסה קשה יותר.",
+  "adaptiveChanges.line.harderStreak": "כמה אימונים ברצף בראש הטווח. בפעם הבאה ננסה גרסה קשה יותר.",
+  "adaptiveChanges.line.jumpTop": "עשית {done} {unit}, מעל הטווח. בפעם הבאה {to} {toUnit} במקום {from}.",
+  "adaptiveChanges.line.up": "עמדת ביעד. בפעם הבאה {to} {toUnit} במקום {from}.",
+  "adaptiveChanges.line.extraSet": "פעמיים ברצף בראש הטווח. בפעם הבאה סט נוסף.",
+  "adaptiveChanges.line.down": "היה קשה הפעם. בפעם הבאה {to} {toUnit}, כדי לבנות בסיס.",
+  "adaptiveChanges.line.easier": "היה קשה כמה פעמים ברצף. בפעם הבאה גרסה קלה יותר, כדי לבנות בסיס."
 }
