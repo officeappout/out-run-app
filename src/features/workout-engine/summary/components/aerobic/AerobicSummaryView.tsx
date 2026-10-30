@@ -225,7 +225,7 @@ export default function AerobicSummaryView({
         type="button"
         onClick={() => setExpandedMap(true)}
         aria-label={t('aerobic.expandMap')}
-        className="absolute top-2.5 left-2.5 rounded-[12px] shadow-v2-ring active:scale-[0.97] transition-transform duration-200 ease-v2"
+        className="absolute top-2.5 end-2.5 rounded-[12px] shadow-v2-ring active:scale-[0.97] transition-transform duration-200 ease-v2"
       >
         <IconTile icon={Maximize2} tone="neutral" size="sm" className="!bg-white" />
       </button>
@@ -317,7 +317,7 @@ export default function AerobicSummaryView({
               <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-[#ecfdf5] px-3 text-[12px] font-extrabold tabular-nums text-[#047857]">
                 {repTable.shortLabel ?? t('aerobic.repsChip', { reps: String(repTable.reps) })}
               </span>
-              <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted" aria-hidden />
+              <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
             </button>
           ) : workout.laps && workout.laps.length > 0 && (
             <button
@@ -333,7 +333,7 @@ export default function AerobicSummaryView({
               <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-v2-tint px-3 text-[12px] font-extrabold tabular-nums text-v2-deep">
                 {t('aerobic.lapsChip', { count: String(workout.laps.length) })}
               </span>
-              <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted" aria-hidden />
+              <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
             </button>
           )}
         </>
@@ -605,7 +605,7 @@ export default function AerobicSummaryView({
             type="button"
             onClick={() => setExpandedMap(false)}
             aria-label={t('aerobic.closeMap')}
-            className="absolute right-4 rounded-[12px] shadow-v2-float active:scale-[0.97] transition-transform duration-200 ease-v2"
+            className="absolute start-4 rounded-[12px] shadow-v2-float active:scale-[0.97] transition-transform duration-200 ease-v2"
             style={{ top: 'calc(16px + env(safe-area-inset-top, 0px))' }}
           >
             <IconTile icon={X} tone="neutral" size="md" className="!bg-white" />

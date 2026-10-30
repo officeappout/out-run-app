@@ -70,7 +70,7 @@ export const IntervalRunView: React.FC<IntervalRunViewProps> = ({
               {targetLabel}
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-start">
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
               זמן כולל
             </div>
@@ -88,7 +88,7 @@ export const IntervalRunView: React.FC<IntervalRunViewProps> = ({
           </div>
           <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
             {/* Target band */}
-            <div className="absolute inset-y-0 left-0 right-0 mx-8 rounded-full bg-emerald-100" />
+            <div className="absolute inset-y-0 end-0 start-0 mx-8 rounded-full bg-emerald-100" />
             {/* Current marker */}
             <motion.div
               className="absolute inset-y-0 w-2 rounded-full bg-emerald-500 shadow-md"

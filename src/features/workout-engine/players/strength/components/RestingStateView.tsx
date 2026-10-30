@@ -126,7 +126,7 @@ export default function RestingStateView({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ type: 'spring', damping: 22, stiffness: 300 }}
-            className="absolute left-4 right-4 z-[60]"
+            className="absolute end-4 start-4 z-[60]"
             style={{ bottom: 'calc(env(safe-area-inset-bottom, 16px) + 160px)' }}
             dir={direction}
           >

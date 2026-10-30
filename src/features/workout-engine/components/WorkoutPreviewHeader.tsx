@@ -166,7 +166,7 @@ export default function WorkoutPreviewHeader({
         <div className="absolute bottom-0 inset-x-0 h-[60%] bg-gradient-to-t from-white via-white/90 to-transparent dark:from-gray-950 dark:via-gray-950/90 z-[5] pointer-events-none" />
 
         <div
-          className="absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10"
+          className="absolute top-0 end-0 start-0 px-4 pb-4 flex justify-between items-start z-10"
           // Replaces hardcoded `pt-14`. See WorkoutOverview page for rationale.
           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
         >
@@ -175,7 +175,7 @@ export default function WorkoutPreviewHeader({
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
             aria-label={t('preview.back')}
           >
-            <ArrowRight size={20} />
+            <ArrowRight className="ltr:-scale-x-100" size={20} />
           </button>
           <button
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
@@ -228,7 +228,7 @@ export default function WorkoutPreviewHeader({
         )}
 
         {description && (
-          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed text-right">
+          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed text-start">
             {description}
           </p>
         )}

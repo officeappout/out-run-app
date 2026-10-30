@@ -329,7 +329,7 @@ function LevelProgressBar({
       {/* Progress bar */}
       <div className="flex-1 h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden relative">
         <motion.div 
-          className="absolute right-0 top-0 h-full bg-primary rounded-full"
+          className="absolute start-0 top-0 h-full bg-primary rounded-full"
           initial={{ width: 0 }}
           animate={{ width: `${percentage}%` }}
           transition={{ duration: 1, ease: "easeOut" }}
@@ -555,7 +555,7 @@ export default function StrengthDopamineScreen({
             disabled={!isComplete}
             className="w-full bg-transparent py-4 rounded-2xl text-slate-500 dark:text-slate-400 font-bold text-lg active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            <ArrowRight className="w-5 h-5" />
+            <ArrowRight className="w-5 h-5 ltr:-scale-x-100" />
             {t('dopamine.back')}
           </button>
         </div>

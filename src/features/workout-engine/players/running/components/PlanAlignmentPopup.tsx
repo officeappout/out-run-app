@@ -51,7 +51,7 @@ export function PlanRealignPopup({
           >
             <button
               onClick={onClose}
-              className="absolute top-4 left-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+              className="absolute top-4 end-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
             >
               <X size={16} className="text-gray-500" />
             </button>
@@ -138,7 +138,7 @@ export function RebuildPopup({
           >
             <button
               onClick={onClose}
-              className="absolute top-4 left-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+              className="absolute top-4 end-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
             >
               <X size={16} className="text-gray-500" />
             </button>
