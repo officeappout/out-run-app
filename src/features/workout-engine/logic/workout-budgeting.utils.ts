@@ -14,6 +14,8 @@ import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constan
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { aboveLevelRepRange, isTrueSkillExercise, repCeilingFor, trueSkillHoldCap } from './adaptive/true-skill';
+import { applyDynamicRepFloor, beginnerRest, PAIR_TRANSITION_REST_SEC } from './rest-reps-rules';
+import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import { adaptiveExtraSets, adaptiveTarget } from './adaptive/double-progression';
 import { goalRampTarget } from './adaptive/goal-presence';
 import {
@@ -797,7 +799,9 @@ export function assignVolume(
 
         if (Math.abs(levelDiff) <= 1) {
           // Rule A — High Intensity: exercise is at or ±1 user level
-          if (isPushPull) { reps = 1 + Math.floor(Math.random() * 3); uniRepsRange = { min: 1, max: 3 }; }
+          // 1–3 only for a true skill (one-arm pull-up…); archer / one-arm rows get 3–5 (owner 30.10.2026).
+          if (isPushPull && trueSkill) { reps = 1 + Math.floor(Math.random() * 3); uniRepsRange = { min: 1, max: 3 }; }
+          else if (isPushPull)         { reps = 3 + Math.floor(Math.random() * 3); uniRepsRange = { min: 3, max: 5 }; }
           else            { reps = 3 + Math.floor(Math.random() * 4); uniRepsRange = { min: 3, max: 6 }; }
         } else if (levelDiff >= 2 && difficulty !== 1) {
           // Rule B — Moderate Intensity: exercise is ≥2 levels below user.
@@ -858,6 +862,9 @@ export function assignVolume(
     }
 
     restSeconds = Math.max(restSeconds, restSafetyFloor(tier));
+    // User's level in this exercise's domain (falls back to the session level).
+    const restDomain = MG_TO_DOMAIN[exercise.movementGroup ?? ''];
+    restSeconds = beginnerRest(restSeconds, tierName, (restDomain ? context.userProgramLevels?.get(restDomain) : undefined) ?? context.userLevel);
 
     // Mirror the staircase override into the displayed range so the UI shows
     // the same window we used for the assigned reps. Falls back to the legacy
@@ -970,6 +977,11 @@ export function assignVolume(
       if (coreFloor) {
         reps = coreFloor.reps;
         repsRange = coreFloor.repsRange;
+      }
+      const repFloor = applyDynamicRepFloor(isTrueSkillExercise(exercise), false, reps, repsRange);
+      if (repFloor) {
+        reps = repFloor.reps;
+        repsRange = repFloor.repsRange;
       }
     }
 
@@ -1131,6 +1143,11 @@ export function rederiveVolumeForSwappedExercise(
       reps = coreFloor.reps;
       repsRange = coreFloor.repsRange;
     }
+    const repFloor = applyDynamicRepFloor(isTrueSkillExercise(newExercise), false, reps, repsRange);
+    if (repFloor) {
+      reps = repFloor.reps;
+      repsRange = repFloor.repsRange;
+    }
   }
 
   let restSeconds = tier.rest.min + Math.floor(Math.random() * (tier.rest.max - tier.rest.min + 1));
@@ -1224,7 +1241,13 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
   const tabataMembers:     WorkoutExercise[] = [];
   const densityMembers:    WorkoutExercise[] = [];
 
-  for (const ex of exercises) {
+  // Antagonist pair: the first member (partner later in the list) rests only the A→B transition.
+  const indexById = new Map(exercises.map((e, i) => [e.exercise.id, i]));
+  const isPairFirst = (ex: WorkoutExercise, i: number) =>
+    !!ex.pairedWith && (indexById.get(ex.pairedWith) ?? -1) > i;
+
+  for (let exIndex = 0; exIndex < exercises.length; exIndex++) {
+    const ex = exercises[exIndex];
     const role = ex.exerciseRole ?? 'main';
 
     // ── Tabata block members (Stage 3.1) ───────────────────────────────────
@@ -1263,7 +1286,7 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
     const sideMultiplier = ex.exercise.symmetry === 'unilateral' ? 2 : 1;
     const exWorkSec      = ex.sets * setTime * sideMultiplier;
     // Rest seconds — full staircase value, no cap.
-    const exRestSec      = ex.sets * ex.restSeconds;
+    const exRestSec      = ex.sets * (isPairFirst(ex, exIndex) ? PAIR_TRANSITION_REST_SEC : ex.restSeconds);
     mainWorkSec += exWorkSec;
     mainRestSec += exRestSec;
     rows.push({ role, name: (ex.exercise.name as any)?.he ?? ex.exercise.id, sets: ex.sets, workSec: exWorkSec, restSec: exRestSec });

@@ -44,6 +44,8 @@ import {
 } from '../../logic/workout-sorting.utils';
 import { calculateEstimatedDuration } from '../../logic/workout-budgeting.utils';
 import { minMainExercisesFor, shortSessionRestFloor } from '../../logic/session-frame.utils';
+import { applyDynamicRepFloor, restCompressionFloor } from '../../logic/rest-reps-rules';
+import { isTrueSkillExercise } from '../../logic/adaptive/true-skill';
 import { classifyPyramidShape } from '../../logic/protocols/pyramid.processor';
 
 // ============================================================================
@@ -242,6 +244,12 @@ export function formatRepRange(ex: WorkoutExercise): string {
   // `ex.reps` / `ex.repsRange` in place — see `clampStaticSkillHold` for
   // rationale.
   if (isTimeBased) clampStaticSkillHold(ex);
+  // ── Rep floor safety net (owner 30.10.2026) ── swap / inject paths downstream of
+  // assignVolume keep the replaced slot's reps; no regular main exercise ships under 3.
+  else if ((ex.exerciseRole ?? 'main') === 'main' && !ex.protocolBlock) {
+    const floored = applyDynamicRepFloor(isTrueSkillExercise(ex.exercise), false, ex.reps, ex.repsRange ?? { min: ex.reps, max: ex.reps });
+    if (floored) { ex.reps = floored.reps; ex.repsRange = floored.repsRange; }
+  }
 
   // Resolve range bounds.  When repsRange is missing, synthesize a degenerate
   // range from the static reps value so we can route through one code path.
@@ -590,13 +598,15 @@ export function enforceVolumeCap(
 
   // ── Phase R: compress rest (short sessions) ─────────────────────────────
   // Sets are already at the floor; before ANY whole exercise is removed, shorten
-  // main rest by 15 s per pass (all mains at once) down to shortSessionRestFloor
+  // main rest by 15 s per pass (easier mains only, rest-reps-rules.ts) down to shortSessionRestFloor
   // (10 min → 40 s … >30 min → 75 s). Tabata blocks keep their fixed timing.
   while (estimatedMin > config.durationCap && guardIterations < maxIterations) {
     let compressed = false;
     for (const ex of workout.exercises) {
-      if (ex.exerciseRole !== 'main' || ex.protocolBlock || !(ex.restSeconds > restFloor)) continue;
-      ex.restSeconds = Math.max(restFloor, ex.restSeconds - 15);
+      // Above-level work keeps its rest; at-level stops at 90 s (owner 30.10.2026, rest-reps-rules.ts).
+      const floor = restCompressionFloor(ex.tier, restFloor, config.durationCap);
+      if (ex.exerciseRole !== 'main' || ex.protocolBlock || floor == null || !(ex.restSeconds > floor)) continue;
+      ex.restSeconds = Math.max(floor, ex.restSeconds - 15);
       if (!ex.reasoning.some(r => r.startsWith('volume_guard:rest_compressed'))) {
         ex.reasoning.push(`volume_guard:rest_compressed(${label}floor=${restFloor}s)`);
       }

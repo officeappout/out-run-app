@@ -86,20 +86,20 @@ describe('pure helpers', () => {
 });
 
 describe('assignVolume with 3d', () => {
-  it('flag OFF: a regular pull-up one level above stays at 1–3 (today)', () => {
+  it('flag OFF context: a regular pull-up one level above still never goes under 3 reps (rep floor, 30.10)', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.99);
     const [r] = assignVolume([scored(ex('מתח'), 1)], ctx(), noAdj, 2);
-    expect(r.repsRange).toEqual({ min: 1, max: 3 });
-    expect(r.reps).toBeLessThanOrEqual(3);
+    expect(r.repsRange).toEqual({ min: 3, max: 3 });
+    expect(r.reps).toBe(3);
   });
 
-  it('flag ON: regular pull-up hard → 3–6, elite → 2–5', () => {
+  it('flag ON: regular pull-up hard → 3–6, elite → 3–4', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.99);
     const [hard] = assignVolume([scored(ex('מתח'), 1)], ctx(ON), noAdj, 2);
     expect(hard.repsRange).toEqual({ min: 3, max: 6 });
     expect(hard.reps).toBe(6);
     const [elite] = assignVolume([scored(ex('מתח'), 2)], ctx(ON), noAdj, 2);
-    expect(elite.repsRange).toEqual({ min: 2, max: 5 });
+    expect(elite.repsRange).toEqual({ min: 3, max: 4 });
   });
 
   it('flag ON: a true skill above level keeps 1–3 and ≤5', () => {
@@ -130,9 +130,9 @@ describe('assignVolume with 3d', () => {
 });
 
 describe('rederiveVolumeForSwappedExercise with 3d', () => {
-  it('a regular pull-up swapped in one level above: 1–3 off, 3–6 on', () => {
+  it('a regular pull-up swapped in one level above: never under 3 off, 3–6 on', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.99);
-    expect(rederiveVolumeForSwappedExercise(ex('מתח'), 1, 2).repsRange).toEqual({ min: 1, max: 3 });
+    expect(rederiveVolumeForSwappedExercise(ex('מתח'), 1, 2).repsRange).toEqual({ min: 3, max: 3 });
     expect(rederiveVolumeForSwappedExercise(ex('מתח'), 1, 2, undefined, undefined, ON).repsRange).toEqual({ min: 3, max: 6 });
   });
 });
