@@ -139,6 +139,7 @@ interface FlagState {
   enable_workout_coach_note_v1: boolean;
   enable_method_info_sheet_v1: boolean;
   enable_feature_info_sheets_v1: boolean;
+  enable_combo_flow_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1168,6 +1169,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'הסברי "i" לפיצ\'רים (מקום, לו"ז, מסלול עם עצירות, מבנה האימון)',
     description: 'כפתור i ליד "איפה מתאמנים?", ליד "לו"ז אימונים", ליד כותרת מסלול עם תחנות כוח וליד כותרת אימון הכוח פותח הסבר קצר עם הדגמה מהנתונים של המסך עצמו: המקומות שלכם, השבוע שלכם, המקטעים והתחנה של המסלול, והחלקים של האימון. 3 שלבים ושתי שאלות מוכנות לקלי. ההסבר נפתח מתוך ה-i ונסגר בחזרה אליו. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Combined workout flow (30.10.2026) — owner-approved canvas boards PlayerTransition* / PlayerCombo*.
+  {
+    key: 'enable_combo_flow_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'אימון משולב: מעברים בין שלבים (הליכה, תחנת כוח, ריצה)',
+    description: 'באימון עם הליכה או ריצה ותחנת כוח: צ׳יפ "יוצאים לדרך" בהתחלה, כרטיס "הגעת לתחנה!" כשמגיעים לגינה, ומסך "סיימתם את תחנת הכוח" בעיצוב החדש. בהמשך: מהלך האימון יורד לרגע והנקודה עוברת לשלב הבא, ומסך סיום וסיכום משולבים. צריך את הבית החדש. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

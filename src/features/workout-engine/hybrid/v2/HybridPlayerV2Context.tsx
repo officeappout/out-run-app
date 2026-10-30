@@ -25,6 +25,7 @@ import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
 import { hybridRunSnapshot, setHybridFinalizeOverride, useHybridRun } from '../useHybridRun';
 import { needsLegacyArrive, needsSequencerStart, runLegSkipEvents, stationCloseEvents } from './hybrid-v2-sync';
 import { useStartAtPark } from '../useStartAtPark';
+import { ComboFlowProvider } from './combo/ComboFlowContext';
 
 export interface HybridPlayerV2Api {
   enabled: boolean;
@@ -173,5 +174,10 @@ export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean
     [enabled, plan, names, label, state, view, strip, legs, arriveNow, skipUpcoming, skipStation, startStationNow, extendTransition, toggleTransitionPause, finish],
   );
 
-  return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
+  // enable_combo_flow_v1: the stage-change choreography reads this same api (inert when off).
+  return (
+    <Ctx.Provider value={api}>
+      <ComboFlowProvider>{children}</ComboFlowProvider>
+    </Ctx.Provider>
+  );
 }

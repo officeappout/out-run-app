@@ -9,6 +9,8 @@ export type { PlayerShellProps, PlayerShellApi } from './PlayerShell';
 export { default as MiniPlayer } from './MiniPlayer';
 export type { MiniPlayerProps } from './MiniPlayer';
 export { default as SessionListLayer } from './SessionListLayer';
+export { default as FloatingStatusChip } from './FloatingStatusChip';
+export type { FloatingStatusChipProps } from './FloatingStatusChip';
 export type { SessionListLayerProps } from './SessionListLayer';
 export { default as PlayerHeaderCard, HeaderProgressBar } from './PlayerHeaderCard';
 export type { PlayerHeaderCardProps } from './PlayerHeaderCard';

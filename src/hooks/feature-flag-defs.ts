@@ -819,6 +819,12 @@ export const FLAG_DEFS = [
   // title opens a sheet that explains the feature with the screen's own data (locations, the user's week, the route's legs
   // and station, the workout's sections) and two "ask Kelly" chips. Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableFeatureInfoSheetsV1', firestoreKey: 'enable_feature_info_sheets_v1', defaultValue: false, superAdminValue: true },
+  // Combined workout flow (30.10.2026, owner-approved canvas boards PlayerTransition* / PlayerCombo* /
+  // PlayerSegmentTable / PlayerSummaryCoverage): the hybrid v2 player (walk / run + strength stations) gets one
+  // choreography between stages (celebrate, the session list drops, "now" moves, the next player comes up), the
+  // upgraded arrival card ("you made it to the station") and station-done sheet, a "start" chip, and later the combined finish and
+  // summary. Needs enable_home_v2. Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableComboFlowV1', firestoreKey: 'enable_combo_flow_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
