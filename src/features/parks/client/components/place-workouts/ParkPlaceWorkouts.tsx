@@ -31,6 +31,7 @@ import { usePlaceUserContext } from './hooks/usePlaceUserContext';
 import { usePlaceWorkoutStart } from './hooks/usePlaceWorkoutStart';
 import { placePhotoOf } from './place-card-media';
 import { pickWorkoutCardMedia } from './workout-card-media';
+import { isEmptyGeneratedWorkout, withoutHiddenCard } from './place-workout-empty';
 
 export interface PlaceLeadCta {
   label: string;
@@ -65,8 +66,11 @@ function useNearestRouteKm(location: { lat: number; lng: number } | undefined): 
 
 type GeneratedState = Omit<GeneratedLead, 'media'> & { exercises: WorkoutExercise[] };
 
-/** Generates the park workout card's workout once per (park, difficulty, minutes): its meta line and hero media. */
-function useLeadWorkout(park: Park, equipment: readonly GymEquipment[], lead: PlaceWorkoutSuggestion | undefined): GeneratedLead | 'loading' | null {
+/**
+ * Generates the park workout card's workout once per (park, difficulty, minutes): its meta line and hero media.
+ * 'empty' = the generator built nothing (pilot AG8): the card is hidden rather than offering 0 min / 0 exercises.
+ */
+function useLeadWorkout(park: Park, equipment: readonly GymEquipment[], lead: PlaceWorkoutSuggestion | undefined): GeneratedLead | 'loading' | 'empty' | null {
   const profile = useUserStore((s) => s.profile);
   const posterFromVideo = useLocationGateV1(); // enable_location_gate_v1, as home's card
   const [state, setState] = useState<{ key: string; value: GeneratedState | null } | null>(null);
@@ -101,6 +105,7 @@ function useLeadWorkout(park: Park, equipment: readonly GymEquipment[], lead: Pl
     if (!start) return null;
     if (!key || ready === undefined) return 'loading';
     if (!ready) return null;
+    if (isEmptyGeneratedWorkout(ready)) return 'empty';
     const media = pickWorkoutCardMedia(ready.exercises, 'park', posterFromVideo ? { posterFromVideo } : undefined);
     return { durationMin: ready.durationMin, exerciseCount: ready.exerciseCount, media };
   }, [start, key, ready, posterFromVideo]);
@@ -119,11 +124,15 @@ export default function ParkPlaceWorkouts({ park, equipment, userLocation, onClo
     nearestRouteKm,
   }), [park.id, equipment, nearestRouteKm]);
 
-  const suggestions = useMemo(() => (place && ctx ? suggestWorkoutsForPlace(place, ctx) : []), [place, ctx]);
-  const banner = useMemo(() => (place && ctx ? pickPlaceBanner(place, ctx, suggestions) : null), [place, ctx, suggestions]);
+  const ranked = useMemo(() => (place && ctx ? suggestWorkoutsForPlace(place, ctx) : []), [place, ctx]);
   // The park workout card (the plan's or the alternative): the one generated on open.
-  const strengthCard = suggestions.find((s) => s.start.kind === 'park_strength');
-  const lead = useLeadWorkout(park, equipment, strengthCard);
+  const strengthCard = ranked.find((s) => s.start.kind === 'park_strength');
+  const generated = useLeadWorkout(park, equipment, strengthCard);
+  // An empty generated workout hides its card (AG8); the other cards stay.
+  const emptyCard = generated === 'empty' ? strengthCard : null;
+  const suggestions = useMemo(() => withoutHiddenCard(ranked, emptyCard), [ranked, emptyCard]);
+  const lead = generated === 'empty' ? null : generated;
+  const banner = useMemo(() => (place && ctx ? pickPlaceBanner(place, ctx, suggestions) : null), [place, ctx, suggestions]);
   const placePhoto = useMemo(() => placePhotoOf(park), [park]);
   const start = usePlaceWorkoutStart({ park, todayRun, basePaceSecPerKm: basePace, onClose });
 
@@ -147,7 +156,7 @@ export default function ParkPlaceWorkouts({ park, equipment, userLocation, onClo
       suggestions={suggestions}
       banner={banner}
       lead={lead}
-      leadId={strengthCard?.id ?? null}
+      leadId={emptyCard ? null : strengthCard?.id ?? null}
       placePhoto={placePhoto}
       planRunBlocks={todayRun?.workout.blocks ?? null}
       paceCtx={paceCtx}

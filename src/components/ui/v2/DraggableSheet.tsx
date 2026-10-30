@@ -6,6 +6,7 @@ import { EASE_V2 } from './tokens';
 import { resolveSnap, rubberBand } from './logic';
 import { useT } from '@/hooks/useT';
 import { common } from '@/messages/ns/common';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 
 export interface DraggableSheetProps {
   /**
@@ -61,6 +62,8 @@ export default function DraggableSheet({
   const t = useT(common);
   const reduce = useReducedMotion();
   const controls = useDragControls();
+  // Mounted = open: the global tab bar steps aside while the sheet is up.
+  useSuppressBottomNav();
   const [vh, setVh] = useState(SSR_VIEWPORT);
   const footerRef = useRef<HTMLDivElement>(null);
   const [footerH, setFooterH] = useState(0);
