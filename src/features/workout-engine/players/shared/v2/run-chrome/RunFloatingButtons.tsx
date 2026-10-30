@@ -17,7 +17,8 @@ export interface RunFloatingButtonsProps {
   isPaused: boolean;
   onPause: () => void;
   onResume: () => void;
-  onLap: () => void;
+  /** Omitted = no lap button (walks, routes: board PlayerMetrics). */
+  onLap?: () => void;
   onStop: () => void;
 }
 
@@ -55,6 +56,8 @@ export default function RunFloatingButtons({ isPaused, onPause, onResume, onLap,
           <StopHold onStop={onStop} label={t('chrome.btn.stopAria')} />
           <Caption>{t('chrome.btn.stop')}</Caption>
         </span>
+      ) : !onLap ? (
+        <span aria-hidden />
       ) : (
         <span className="pointer-events-auto flex flex-col items-center gap-1">
           <button
