@@ -420,6 +420,9 @@ export default function ExerciseVideoPlayer({
               autoPlay={!isPaused}
               loop={exerciseType !== 'follow-along'}
               muted={shouldMuteVideo}
+              // Station clips (park live, AG9): the machine photo until the first frame decodes,
+              // never a black tile on the rest screen's "find the next machine" preview.
+              poster={withSound && imageUrl ? imageUrl : undefined}
               playsInline
               {...{"webkit-playsinline": "true"}}
               preload="auto"

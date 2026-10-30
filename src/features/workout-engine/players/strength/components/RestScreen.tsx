@@ -216,7 +216,7 @@ export default function RestScreen({
                   key={`rest-preview-${videoKey}`}
                   exerciseId={`rest-preview-${videoKey}`}
                   videoUrl={previewVideoUrl}
-                  imageUrl={nextExercise.imageUrl ?? null}
+                  imageUrl={(stationClips ? posterUrl : nextExercise.imageUrl) ?? null}
                   exerciseName={nextExercise.name}
                   exerciseType="reps"
                   isPaused={isPaused}
