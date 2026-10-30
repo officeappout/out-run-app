@@ -572,6 +572,7 @@
   "settings.account.passwordSent": "Email sent ✓",
   "settings.account.password": "Password and security",
   "settings.account.passwordSubSocial": "Signed in with Google / Apple, no password needed",
+  "settings.account.deleteSub": "Permanently deletes your account and all your data",
   "settings.account.passwordSubSent": "Check your inbox",
   "settings.account.passwordSubIdle": "Send a password reset link",
   "settings.section.subscription": "Membership",
