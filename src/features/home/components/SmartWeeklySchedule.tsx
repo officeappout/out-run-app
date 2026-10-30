@@ -63,6 +63,9 @@ import { common } from '@/messages/ns/common';
 import { weekdayLabel } from '@/lib/i18n/units';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { formatNumber } from '@/lib/i18n/core/fmt';
+import { useFeatureInfoSheetsV1 } from '@/features/info-sheets/useFeatureInfoSheetsV1';
+import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
+import WeekInfoButton from '@/features/info-sheets/week/WeekInfoButton';
 
 // ============================================================================
 // TYPES
@@ -938,6 +941,10 @@ export default function SmartWeeklySchedule({
     const key = resolveIconKey(programIconKey, userProgram);
     return key;
   }, [programIconKey, userProgram]);
+  // enable_feature_info_sheets_v1: an "i" after the title explains how the week is changed —
+  // only where the week builder is that way (enable_week_builder_v1).
+  const featureInfoOn = useFeatureInfoSheetsV1();
+  const weekBuilderOn = useWeekBuilderV1();
   
   const { 
     summary: weeklySummary,
@@ -1687,7 +1694,30 @@ export default function SmartWeeklySchedule({
     <div className="mb-0 relative z-10 w-full max-w-[358px] mx-auto">
       {/* ── Header — OUTSIDE the card ─────────────────────────── */}
       {!hideHeader && <div className="flex items-center justify-between mb-1 px-1">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('weekStrip.title')}</h2>
+        {featureInfoOn && weekBuilderOn && onOpenPlanner && !showOverlay ? (
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('weekStrip.title')}</h2>
+            <WeekInfoButton
+              editLabel={t('weekStrip.edit')}
+              programIconKey={resolvedIconKey}
+              days={schedule.map((day, index) => {
+                const dayData = effectiveActivityData.get(index);
+                const date = new Date();
+                date.setDate(date.getDate() + (index - date.getDay()));
+                return {
+                  dow: index,
+                  letter: day.day,
+                  date: date.getDate(),
+                  planned: isTrainingDay(day.day),
+                  done: !!(dayData?.workoutDone ?? dayData?.isCompleted),
+                  past: !!dayData && !dayData.isToday && !dayData.isFuture,
+                };
+              })}
+            />
+          </div>
+        ) : (
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('weekStrip.title')}</h2>
+        )}
         {!hideMonthToggle && (
           <div className="flex items-center gap-2 relative z-20">
             <button

@@ -16,6 +16,7 @@
  * the surface is tappable; tapping routes to the matching onboarding.
  */
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import React from 'react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useRouter } from 'next/navigation';
@@ -48,17 +49,18 @@ interface MiniBarsProps {
  * removed).
  */
 function MiniBars({ caption, done, target, fillColor = '#00C9F2', icon }: MiniBarsProps) {
+  const { isRtl } = useUiDir();
   const safeTarget = Math.max(1, target);
   const v2 = useHomeV2();
   if (v2) {
     return (
       <div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1 text-[13px] font-extrabold text-v2-muted">
+        <div className={isRtl ? 'flex items-center justify-between' : 'flex items-center justify-between gap-2'}>
+          <span className={isRtl ? 'flex items-center gap-1 text-[13px] font-extrabold text-v2-muted' : 'flex min-w-0 items-center gap-1 text-[13px] font-extrabold text-v2-muted'}>
             {icon}
-            {caption}
+            {isRtl ? caption : <span className="truncate">{caption}</span>}
           </span>
-          <span className="text-[18px] font-black leading-none tabular-nums text-v2-ink" dir="ltr">
+          <span className={(isRtl ? '' : 'shrink-0 ') + 'text-[18px] font-black leading-none tabular-nums text-v2-ink'} dir="ltr">
             {done}/{safeTarget}
           </span>
         </div>

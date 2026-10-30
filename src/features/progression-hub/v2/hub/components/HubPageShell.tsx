@@ -51,7 +51,7 @@ export default function HubPageShell({
 
   return (
     <div className="min-h-[100dvh] bg-v2-surface text-v2-ink" data-hub-page={kind}>
-      <header className="sticky top-0 z-20 bg-v2-surface/95 shadow-[0_1px_0_rgba(14,27,42,0.06)]">
+      <header className="sticky top-0 z-30 bg-v2-surface shadow-[0_1px_0_rgba(14,27,42,0.06)]">
         <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-2.5">
           <button
             type="button"

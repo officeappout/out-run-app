@@ -222,7 +222,9 @@ export const FUNCTIONS_CATALOGS = {
       "muscle.serratus": "המסור",
       "difficulty.label.1": "קל",
       "difficulty.label.2": "בינוני",
-      "difficulty.label.3": "קשה"
+      "difficulty.label.3": "קשה",
+      "infoSheet.askKelly": "יש שאלה? קלי עונה",
+      "infoSheet.kellyAvatar": "ק"
     },
     "en": {
       "actions.continue": "Continue",
@@ -442,7 +444,9 @@ export const FUNCTIONS_CATALOGS = {
       "muscle.serratus": "Serratus",
       "difficulty.label.1": "Easy",
       "difficulty.label.2": "Medium",
-      "difficulty.label.3": "Hard"
+      "difficulty.label.3": "Hard",
+      "infoSheet.askKelly": "Got a question? Kelly answers",
+      "infoSheet.kellyAvatar": "K"
     },
     "ru": {},
     "de": {},

@@ -216,5 +216,7 @@
   "muscle.serratus": "Serratus",
   "difficulty.label.1": "Easy",
   "difficulty.label.2": "Medium",
-  "difficulty.label.3": "Hard"
+  "difficulty.label.3": "Hard",
+  "infoSheet.askKelly": "Got a question? Kelly answers",
+  "infoSheet.kellyAvatar": "K"
 }

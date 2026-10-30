@@ -1,5 +1,6 @@
 "use client";
 
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import React from 'react';
 import { Map, Zap, Users } from 'lucide-react';
 import { useT } from '@/hooks/useT';
@@ -39,6 +40,7 @@ const BRAND_CYAN = '#00E5FF';
 
 export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoutes, partnerCount }: MapModeHeaderProps) {
   const t = useT(map);
+  const { isRtl } = useUiDir();
   const visibleModes = MODES.filter(m => m.alwaysShow || (m.id === 'discover' && hasNearbyRoutes));
 
   return (
@@ -54,7 +56,7 @@ export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoute
           <button
             key={id}
             onClick={() => onModeChange(isActive ? 'idle' : id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all active:scale-95 shrink-0 ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all active:scale-95 shrink-0${isRtl ? '' : ' !px-3'} ${
               isActive
                 ? 'text-white'
                 : 'bg-white backdrop-blur-md text-gray-700 border border-gray-100 hover:bg-white'

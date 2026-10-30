@@ -39,6 +39,8 @@ import { common } from '@/messages/ns/common';
 import { withUnit } from '@/lib/i18n/units';
 import { RouteDrawerTour } from '@/features/user/onboarding/components/entry-whatnow/EntryRouteTours';
 import { DRAWER_COACH, tagDrawerCoach } from '../overview/map-tutorial-coach';
+import { useFeatureInfoSheetsV1 } from '@/features/info-sheets/useFeatureInfoSheetsV1';
+import StopsInfoButton from '@/features/info-sheets/stops/StopsInfoButton';
 
 const ACCENT = '#00ADEF';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
@@ -97,6 +99,8 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const mapTutorialV1 = useMapTutorialV1();
   const profile = useUserStore((st) => st.profile);
   const tMap = useT(map);
+  // enable_feature_info_sheets_v1: an "i" after a route + stops title explains walk → station → walk.
+  const featureInfoOn = useFeatureInfoSheetsV1();
   const tc = useT(common);
   const firstWorkoutNote = mapTutorialV1 && !hasAcceptedHealthDeclaration(profile) ? tMap('mapTutorial.drawer.firstWorkoutNote') : null;
   // enable_hybrid_difficulty_carousel off (pilot 26.10, M11): no carousel; the engine's pick runs.
@@ -207,6 +211,14 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     aerobicKind,
   }));
   const journeyItems = mapTutorialV1 ? tagDrawerCoach(legItems) : legItems;
+  // Same legs as the strip, in the user's language (the sheet's demo reads their titles).
+  const stopsInfoLegs = featureInfoOn && composed.fullParkRun === false && !fallbackHint && composed.station?.name
+    ? buildHybridLegs(plan.segments, {
+        stationName: composed.station.name,
+        walkLegs: showWalkLegs ? { thereMin: roundTripLegs!.walkThereMin, backMin: roundTripLegs!.walkBackMin } : null,
+        aerobicKind,
+      }, tMap)
+    : null;
 
   // Point 15: publish the station fractions for the map route gradient (cleared on
   // unmount so non-hybrid routes render with their normal flat color).
@@ -232,7 +244,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             duration · finish. */}
         <WorkoutOverviewHeader
           v2={v2}
-          title={overviewTitle}
+          title={stopsInfoLegs && composed.station?.name ? (
+            <span className="inline-flex items-center gap-2">
+              {overviewTitle}
+              <StopsInfoButton legs={stopsInfoLegs} segments={plan.segments} stationName={composed.station.name} />
+            </span>
+          ) : overviewTitle}
           meta={[
             { key: 'time', text: withUnit('min', totalMin, tc), tone: 'primary' },
             { key: 'finish', text: tMap('hybridOverview.meta.finish', { time: finishClock }), tone: 'secondary' },

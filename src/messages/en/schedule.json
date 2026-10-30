@@ -237,5 +237,17 @@
   "homeToday.done": "Completed · {min}",
   "homeToday.doneNoMin": "Completed",
   "homeToday.optionalRole": "Optional · bigger flame",
-  "homeToday.hint": "{kind, select, workout {Close your workout and steps for the biggest flame.} other {Close your steps for a bigger flame. The short workout is optional.}}"
+  "homeToday.hint": "{kind, select, workout {Close your workout and steps for the biggest flame.} other {Close your steps for a bigger flame. The short workout is optional.}}",
+  "featureInfo.week.open": "About changing the schedule",
+  "featureInfo.week.topic": "arranging the week",
+  "featureInfo.week.kellyContext": "A question about {topic}: {q}",
+  "featureInfo.week.fromWeek": "From your week",
+  "featureInfo.week.title": "Arranging your week",
+  "featureInfo.week.lead": "Tap \"{edit}\", then \"{arrange}\". Drag a workout by its handle to another day, or tap the date and pick a day.",
+  "featureInfo.week.step1": "On home, tap \"{edit}\", then \"{arrange}\".",
+  "featureInfo.week.step2": "Drag the workout by its handle to another day, or tap the date and pick a day.",
+  "featureInfo.week.step3": "\"{confirm}\", then choose: {onlyWeek}, or {forward}.",
+  "featureInfo.week.session": "Workout on {day}",
+  "featureInfo.week.chip1": "Why can’t I move it to that day?",
+  "featureInfo.week.chip2": "Arrange it for me in words"
 }
