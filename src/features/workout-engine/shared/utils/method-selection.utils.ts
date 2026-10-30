@@ -137,13 +137,17 @@ export function selectMethodForContext(
   // the 'park' location (the only location that previously carried
   // constraints.bypassLimits === true, so `location === 'park'` is exactly
   // equivalent to the former guard).
+  // Pilot T6 (2026-10-30): isOptional items (backpack, yoga block) are NOT assumed outdoors.
+  // Indoors they are things every home has; at a park the user must actually have them, else a
+  // backpack-loaded "Romanian deadlift" reached gear-less outdoor sessions. The floor surfaces
+  // above still pass.
   const applyParkGating = (list: ExecutionMethod[]): ExecutionMethod[] => {
     if (location !== 'park') return list;
     return list.filter(m => {
       const allIds = collectMethodGear(m);
       if (allIds.length === 0) return true;
       const requiredIds = allIds.filter(
-        id => id !== 'bodyweight' && id !== 'none' && !SURFACE_GEAR_AT_PARK.has(id) && !isGearOptional(id),
+        id => id !== 'bodyweight' && id !== 'none' && !SURFACE_GEAR_AT_PARK.has(id),
       );
       if (requiredIds.length === 0) return true;
       return requiredIds.every(reqId => satisfiesGearRequirement(reqId, normalizedAvailable));
