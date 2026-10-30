@@ -5,6 +5,9 @@
  * A-4e, A-1d): the block's cart ring + totals, what is already in the basket
  * (earlier segments collapsed to one line), what comes next (the next item
  * marked "עכשיו", upcoming dimmed) and the segments after the block.
+ *
+ * enable_combo_flow_v1 (board PlayerIntervalsTabata): the earlier parts, this block and the parts
+ * after it as BlockSections (done / now / ahead), the block's rows under its own title.
  */
 import React from 'react';
 import { Footprints } from 'lucide-react';
@@ -12,6 +15,9 @@ import { CartProgressIcon, ExerciseThumb } from '@/components/ui/v2';
 import type { CartRingItem } from '@/components/ui/v2';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
 import SessionListLayer from '../../../shared/v2/SessionListLayer';
+import BlockSection from '../../../shared/v2/BlockSection';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
+import { STRIP_COLORS } from '../../../../engines/strip-item';
 import type { PillTone, TimedListModel, TimedListRow } from '../logic/timed-list';
 import { useT } from '@/hooks/useT';
 import { player, type PlayerT } from '@/messages/ns/player';
@@ -81,6 +87,29 @@ export default function TimedSessionList({ workout, segmentIndex, blockTitle, mo
   const t = useT(player);
   const before = workout.segments.map((_, i) => (i < segmentIndex ? segmentLine(workout, i, t) : null)).filter(Boolean) as string[];
   const after = workout.segments.map((_, i) => (i > segmentIndex ? segmentLine(workout, i, t) : null)).filter(Boolean) as string[];
+  const blocksOn = useComboFlowV1();
+  if (blocksOn) {
+    return (
+      <SessionListLayer subtitle={`${blockTitle} · ${workout.name}`} onClose={onClose}>
+        {before.map((line) => (
+          <BlockSection key={line} title={line} status="done" color={STRIP_COLORS.strength} />
+        ))}
+        <BlockSection title={blockTitle} meta={t('strengthPlayer.timed.list.remaining', { summary: model.summary, remaining })} status="now" color={STRIP_COLORS.strength}>
+          <ul className="space-y-2">
+            {model.done.map((r) => (
+              <Row key={r.key} row={r} />
+            ))}
+            {model.queue.map((r) => (
+              <Row key={r.key} row={r} dim={!r.now} />
+            ))}
+          </ul>
+        </BlockSection>
+        {after.map((line) => (
+          <BlockSection key={line} title={line} status="ahead" color={STRIP_COLORS.strength} />
+        ))}
+      </SessionListLayer>
+    );
+  }
   return (
     <SessionListLayer subtitle={`${blockTitle} · ${workout.name}`} onClose={onClose}>
       <div className="mt-4 flex items-center gap-3 rounded-[20px] bg-white px-3 py-3 shadow-v2-ring">
