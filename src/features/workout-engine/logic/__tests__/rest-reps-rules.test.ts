@@ -32,3 +32,26 @@ describe('restCompressionFloor', () => {
     expect(restCompressionFloor('hard', 45, 15)).toBeNull();
   });
 });
+
+describe('shortSessionWantsPairs', () => {
+  it('≤30 min, level ≥6, pairs allowed', async () => {
+    const { shortSessionWantsPairs } = await import('../rest-reps-rules');
+    expect(shortSessionWantsPairs(30, 6, true)).toBe(true);
+    expect(shortSessionWantsPairs(45, 12, true)).toBe(false);
+    expect(shortSessionWantsPairs(30, 5, true)).toBe(false);
+    expect(shortSessionWantsPairs(20, 10, false)).toBe(false);
+  });
+});
+
+describe('calculateEstimatedDuration with a pair', () => {
+  it('the first member of a pair counts only the 10 s transition', async () => {
+    const { calculateEstimatedDuration } = await import('../workout-budgeting.utils');
+    const ex = (id: string, pairedWith?: string) => ({
+      exercise: { id, name: { he: id }, secondsPerRep: 3, symmetry: 'bilateral' },
+      exerciseRole: 'main', sets: 3, reps: 8, restSeconds: 120, isTimeBased: false, pairedWith,
+    }) as never;
+    const unpaired = calculateEstimatedDuration([ex('a'), ex('b')]);
+    const paired = calculateEstimatedDuration([ex('a', 'b'), ex('b', 'a')]);
+    expect(unpaired - paired).toBeGreaterThanOrEqual(5); // 3 × (120 − 10) s ≈ 5.5 min saved
+  });
+});

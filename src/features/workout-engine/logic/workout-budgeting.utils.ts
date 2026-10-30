@@ -14,7 +14,8 @@ import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constan
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { aboveLevelRepRange, isTrueSkillExercise, repCeilingFor, trueSkillHoldCap } from './adaptive/true-skill';
-import { applyDynamicRepFloor, beginnerRest } from './rest-reps-rules';
+import { applyDynamicRepFloor, beginnerRest, PAIR_TRANSITION_REST_SEC } from './rest-reps-rules';
+import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import { adaptiveExtraSets, adaptiveTarget } from './adaptive/double-progression';
 import { goalRampTarget } from './adaptive/goal-presence';
 import {
@@ -861,9 +862,9 @@ export function assignVolume(
     }
 
     restSeconds = Math.max(restSeconds, restSafetyFloor(tier));
-    // User's level in this exercise's domain = exercise level − levelDiff (scored.levelDiff = ex − user).
-    const exLevelForRest = scored.programLevel ?? exercise.targetPrograms?.[0]?.level;
-    restSeconds = beginnerRest(restSeconds, tierName, exLevelForRest != null ? exLevelForRest - delta : undefined);
+    // User's level in this exercise's domain (falls back to the session level).
+    const restDomain = MG_TO_DOMAIN[exercise.movementGroup ?? ''];
+    restSeconds = beginnerRest(restSeconds, tierName, (restDomain && context.userProgramLevels?.get(restDomain)) ?? context.userLevel);
 
     // Mirror the staircase override into the displayed range so the UI shows
     // the same window we used for the assigned reps. Falls back to the legacy
@@ -1240,7 +1241,13 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
   const tabataMembers:     WorkoutExercise[] = [];
   const densityMembers:    WorkoutExercise[] = [];
 
-  for (const ex of exercises) {
+  // Antagonist pair: the first member (partner later in the list) rests only the A→B transition.
+  const indexById = new Map(exercises.map((e, i) => [e.exercise.id, i]));
+  const isPairFirst = (ex: WorkoutExercise, i: number) =>
+    !!ex.pairedWith && (indexById.get(ex.pairedWith) ?? -1) > i;
+
+  for (let exIndex = 0; exIndex < exercises.length; exIndex++) {
+    const ex = exercises[exIndex];
     const role = ex.exerciseRole ?? 'main';
 
     // ── Tabata block members (Stage 3.1) ───────────────────────────────────
@@ -1279,7 +1286,7 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
     const sideMultiplier = ex.exercise.symmetry === 'unilateral' ? 2 : 1;
     const exWorkSec      = ex.sets * setTime * sideMultiplier;
     // Rest seconds — full staircase value, no cap.
-    const exRestSec      = ex.sets * ex.restSeconds;
+    const exRestSec      = ex.sets * (isPairFirst(ex, exIndex) ? PAIR_TRANSITION_REST_SEC : ex.restSeconds);
     mainWorkSec += exWorkSec;
     mainRestSec += exRestSec;
     rows.push({ role, name: (ex.exercise.name as any)?.he ?? ex.exercise.id, sets: ex.sets, workSec: exWorkSec, restSec: exRestSec });

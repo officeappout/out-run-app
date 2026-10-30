@@ -978,6 +978,9 @@ function stampResolvedLocation(trio: HomeWorkoutTrioResult): HomeWorkoutTrioResu
   return trio;
 }
 
+/** Parent programs whose level docs never carry protocolWeights (they wrap child domains). */
+const WEIGHTLESS_PARENT_PROGRAMS = new Set(['full_body', 'upper_body', 'calisthenics_upper']);
+
 export async function generateHomeWorkoutTrio(
   options: HomeWorkoutOptions,
 ): Promise<HomeWorkoutTrioResult> {
@@ -3160,7 +3163,9 @@ async function _buildSharedPipeline(
       }
 
       if (levelSettings.protocolWeights) protocolWeightEntries.push(levelSettings.protocolWeights);
-      else protocolWeightEntries.push(undefined);
+      // A parent program's level (full_body / upper_body / calisthenics_upper) carries no weights —
+      // it abstains; only a real program without weights (e.g. a skill track) vetoes (30.10.2026).
+      else if (!WEIGHTLESS_PARENT_PROGRAMS.has(domainKey)) protocolWeightEntries.push(undefined);
 
       // ── Tabata union track: collect this program's setting (priority order) ──
       tabataCandidates.push({

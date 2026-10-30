@@ -10,6 +10,8 @@
  *     sessions of 20 min or less, where the minimum-exercise floor would otherwise blow the
  *     time — there at-level work may still go to the session floor (until short sessions
  *     swap in easier variants instead).
+ *   - Short sessions (≤30 min) from level 6 pair push + pull (antagonist pair): the player
+ *     rests only PAIR_TRANSITION_REST_SEC between the two, full rest after the pair.
  */
 import type { TierName } from './workout-generator.types';
 
@@ -49,4 +51,15 @@ export function restCompressionFloor(tier: TierName | string | undefined, sessio
     return Math.max(sessionFloor, AT_LEVEL_REST_FLOOR_SEC);
   }
   return sessionFloor;
+}
+
+/** A→B rest inside an antagonist pair — the player's SUPERSET_TRANSITION_REST (useSupersetPredicates.ts). */
+export const PAIR_TRANSITION_REST_SEC = 10;
+export const PAIRS_MIN_LEVEL = 6;
+export const PAIRS_SHORT_SESSION_MAX_MIN = 30;
+
+/** A short session from level 6 trains push + pull as pairs when the panel allows pairs. */
+export function shortSessionWantsPairs(availableTimeMin: number | undefined, userLevel: number | undefined, pairsAllowed: boolean): boolean {
+  return pairsAllowed && availableTimeMin != null && availableTimeMin <= PAIRS_SHORT_SESSION_MAX_MIN
+    && userLevel != null && userLevel >= PAIRS_MIN_LEVEL;
 }
