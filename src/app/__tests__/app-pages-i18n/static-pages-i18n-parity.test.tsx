@@ -19,6 +19,15 @@ vi.mock('next/navigation', () => {
 });
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 vi.mock('@/features/safecity/services/referral.service', () => ({ captureReferralParam: () => {} }));
+// Legal pages resolve their language per request (?lang= / out_locale cookie + stored flags): no cookie,
+// no param here = the Hebrew default, which must never read the flags.
+vi.mock('server-only', () => ({}));
+vi.mock('next/headers', () => ({ cookies: () => ({ get: () => undefined }) }));
+vi.mock('@/lib/ai/entitlement.server', () => ({
+  getServerFeatureFlags: () => {
+    throw new Error('Hebrew legal pages must not read flags');
+  },
+}));
 
 import AccessibilityPage, * as accessibilityMod from '@/app/accessibility/page';
 import PrivacyPage, * as privacyMod from '@/app/privacy/page';
@@ -29,6 +38,8 @@ import LeagueDeepLinkPage from '@/app/league/page';
 import MapError from '@/app/map/error';
 
 const html = (el: ReactElement) => renderToStaticMarkup(el).replaceAll('<!-- -->', '');
+/** The legal pages are async server components now: await the element, then render it. */
+const page = async (Page: (p: object) => Promise<ReactElement>) => html(await Page({}));
 const snap = (name: string) => `./__snapshots__/static/${name}.html`;
 
 type MetaModule = { metadata?: unknown; generateMetadata?: () => unknown };
@@ -37,17 +48,17 @@ const meta = async (mod: MetaModule) =>
 
 describe('legal pages (server components)', () => {
   it('accessibility statement', async () => {
-    await expect(html(<AccessibilityPage />)).toMatchFileSnapshot(snap('accessibility'));
+    await expect(await page(AccessibilityPage)).toMatchFileSnapshot(snap('accessibility'));
     await expect(await meta(accessibilityMod as MetaModule)).toMatchFileSnapshot(snap('accessibility-metadata'));
   });
 
   it('privacy policy', async () => {
-    await expect(html(<PrivacyPage />)).toMatchFileSnapshot(snap('privacy'));
+    await expect(await page(PrivacyPage)).toMatchFileSnapshot(snap('privacy'));
     await expect(await meta(privacyMod as MetaModule)).toMatchFileSnapshot(snap('privacy-metadata'));
   });
 
   it('delete data', async () => {
-    await expect(html(<DeleteDataPage />)).toMatchFileSnapshot(snap('delete-data'));
+    await expect(await page(DeleteDataPage)).toMatchFileSnapshot(snap('delete-data'));
     await expect(await meta(deleteDataMod as MetaModule)).toMatchFileSnapshot(snap('delete-data-metadata'));
   });
 });
