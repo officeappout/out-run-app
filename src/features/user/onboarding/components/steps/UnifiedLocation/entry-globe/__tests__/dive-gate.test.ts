@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { DIVE_HOLD_TIMEOUT_MS, LOCATION_ANSWER_TIMEOUT_MS, askAfterDiveHold, awaitLocationAnswer, diveStartFor } from '../dive-gate';
+import { LOCATION_ANSWER_TIMEOUT_MS, askBeforeDive, awaitLocationAnswer, diveStartFor } from '../dive-gate';
 
 describe('dive starts only after the location answer (owner note 21.10 #5)', () => {
   it('granted → dive now; denied → never; unknown / timeout → after the first fix', () => {
@@ -42,47 +42,40 @@ describe('dive starts only after the location answer (owner note 21.10 #5)', () 
   });
 });
 
-describe('AC1: the OS dialog opens only after the Earth holds over the country', () => {
-  it('dive starts first, the ask waits for the hold', async () => {
+describe('AF4: the tap opens the OS dialog first, the answer starts the dive', () => {
+  it('asks before anything moves; granted starts the dive', async () => {
     const events: string[] = [];
-    let hold!: () => void;
-    const p = askAfterDiveHold({
+    let answer!: (a: 'granted') => void;
+    const p = askBeforeDive({
+      ask: () => { events.push('ask'); return new Promise((r) => { answer = r; }); },
+      isCurrent: () => true,
       startDive: () => events.push('dive'),
-      waitForHold: () => new Promise<void>((r) => { hold = r; }),
-      ask: async () => { events.push('ask'); return 'granted'; },
     });
     await Promise.resolve();
-    expect(events).toEqual(['dive']);
-    hold();
-    await expect(p).resolves.toBe('granted');
-    expect(events).toEqual(['dive', 'ask']);
+    expect(events).toEqual(['ask']);
+    answer('granted');
+    await expect(p).resolves.toEqual({ answer: 'granted', start: 'now' });
+    expect(events).toEqual(['ask', 'dive']);
   });
 
-  it('the hold wait is armed before the dive starts (an instant hold is not missed)', async () => {
-    const events: string[] = [];
-    let hold: (() => void) | null = null;
-    const p = askAfterDiveHold({
-      startDive: () => { events.push('dive'); hold?.(); },
-      waitForHold: () => { events.push('arm'); return new Promise<void>((r) => { hold = r; }); },
-      ask: async () => { events.push('ask'); return 'denied'; },
-    });
-    await expect(p).resolves.toBe('denied');
-    expect(events).toEqual(['arm', 'dive', 'ask']);
+  it('denied never dives (the caller opens the city search)', async () => {
+    const startDive = vi.fn();
+    const r = await askBeforeDive({ ask: async () => 'denied', isCurrent: () => true, startDive });
+    expect(r).toEqual({ answer: 'denied', start: 'never' });
+    expect(startDive).not.toHaveBeenCalled();
   });
 
-  it('a hold that never comes still asks after the hold timeout', async () => {
-    vi.useFakeTimers();
-    const ask = vi.fn(async () => 'granted' as const);
-    const p = askAfterDiveHold({ startDive: () => {}, waitForHold: () => new Promise(() => {}), ask });
-    await vi.advanceTimersByTimeAsync(DIVE_HOLD_TIMEOUT_MS - 1);
-    expect(ask).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(1);
-    await expect(p).resolves.toBe('granted');
-    expect(ask).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
+  it('unknown leaves the dive to the first fix', async () => {
+    const startDive = vi.fn();
+    const r = await askBeforeDive({ ask: async () => 'unknown', isCurrent: () => true, startDive });
+    expect(r?.start).toBe('after-fix');
+    expect(startDive).not.toHaveBeenCalled();
   });
 
-  it('the hold timeout covers the whole targetless dive (lift + region)', () => {
-    expect(DIVE_HOLD_TIMEOUT_MS).toBeGreaterThan(1100 + 1700);
+  it('a late answer after the user moved on is dropped: no dive behind the search', async () => {
+    const startDive = vi.fn();
+    const r = await askBeforeDive({ ask: async () => 'granted', isCurrent: () => false, startDive });
+    expect(r).toBeNull();
+    expect(startDive).not.toHaveBeenCalled();
   });
 });

@@ -128,6 +128,7 @@
   "location.entry.initial.body": "כדי להראות לך את מסלולי ההליכה, גינות הכושר והמקומות הכי קרובים אליך, נבקש גישה למיקום.",
   "location.entry.initial.cta": "הראו לי מה יש לידי",
   "location.entry.initial.manual": "בחירת עיר ושכונה באופן ידני",
+  "location.entry.denied": "אין גישה למיקום, אז נחפש יחד: הקלידו את העיר או השכונה שלכם.",
   "location.entry.dive.pill": "מחפשים גינות ומסלולים לידך…",
   "location.entry.dive.manual": "לוקח זמן? חיפוש ידני",
   "location.entry.dragHint": "גוררים את המפה כדי לדייק",

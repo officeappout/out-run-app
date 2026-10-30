@@ -5,19 +5,20 @@
  * i.e. at the same moment the OS location prompt opened — the Earth flew in behind
  * the system dialog and the user, busy approving, missed the whole dive.
  *
- * Pilot note AC1 (29.10): asking BEFORE the dive was wrong too: the OS dialog
- * covered the resting Earth and the dive started only after it closed.
+ * Pilot note AC1 (29.10) then moved the ask to AFTER the dive held over the
+ * country (PR #960). Pilot note AF4 (30.10) supersedes that on purpose: the
+ * owner wants the blue "search my area" tap itself to open the OS dialog, and
+ * the dive to start from the answer, straight to the user's real location.
  *
- * The rule now: the dive starts on the tap (Earth lifts, flies to the country,
- * no prompt), the OS dialog opens once the Earth HOLDS over Israel, and the
- * answer decides the rest:
- *   granted  → the fix is fetched; the street flight starts when it lands
- *              (globe-camera.ts "continue smoothly")
- *   denied   → back to the resting Earth, the drawer with the error + manual search
+ * The rule now: nothing asks before the tap; the tap opens the OS dialog while
+ * the Earth rests; the answer decides the rest:
+ *   granted  → dive now; the fix is fetched meanwhile and the street flight
+ *              starts when it lands (globe-camera.ts "continue smoothly")
+ *   denied   → no dive; the city search opens (picking a place dives to it)
  *   unknown  → the platform can't tell before the fix (web without the
- *              Permissions API, or a prompt still pending): the prompt IS the fix
- *              request, so dive once the first fix comes back
- *   timeout  → the OS never answered (a stuck plugin): same as unknown — the fix
+ *              Permissions API, or Android "approximate only"): the fix request
+ *              decides, dive once the first fix comes back
+ *   timeout  → the OS never answered (a stuck plugin): same as unknown, the fix
  *              request carries its own timeout and error path
  */
 
@@ -26,12 +27,6 @@ export type DiveStart = 'now' | 'after-fix' | 'never';
 
 /** How long the step waits for the OS dialog's answer before carrying on without it. */
 export const LOCATION_ANSWER_TIMEOUT_MS = 30_000;
-
-/**
- * Longest wait for the Earth to hold over the country before asking anyway
- * (lift 1100 + region 1700 + slack, and room for a globe that loads late).
- */
-export const DIVE_HOLD_TIMEOUT_MS = 6_000;
 
 type Timers = { set: typeof setTimeout; clear: typeof clearTimeout };
 const REAL_TIMERS: Timers = { set: setTimeout, clear: clearTimeout };
@@ -72,27 +67,21 @@ export function awaitLocationAnswer(
 }
 
 /**
- * AC1 order: start the dive, wait until the Earth holds over the country (or
- * the hold timeout), THEN ask. `waitForHold` is armed before the dive starts so
- * an instant hold (reduced motion, no globe) is never missed.
+ * AF4 order: ask first (the tap's own gesture opens the OS dialog), then start
+ * the dive only if the answer allows it. `isCurrent` drops a late answer when
+ * the user moved on meanwhile (e.g. "search manually"): no dive behind them.
+ * Resolves null for a dropped answer.
  */
-export async function askAfterDiveHold(opts: {
-  startDive: () => void;
-  waitForHold: () => Promise<void>;
+export async function askBeforeDive(opts: {
   ask: () => Promise<'granted' | 'denied' | 'unknown'>;
-  holdTimeoutMs?: number;
+  isCurrent: () => boolean;
+  startDive: () => void;
   answerTimeoutMs?: number;
   timers?: Timers;
-}): Promise<LocationAnswer> {
-  const timers = opts.timers ?? REAL_TIMERS;
-  const hold = opts.waitForHold();
-  opts.startDive();
-  await new Promise<void>((resolve) => {
-    const timer = timers.set(resolve, opts.holdTimeoutMs ?? DIVE_HOLD_TIMEOUT_MS);
-    hold.then(
-      () => { timers.clear(timer); resolve(); },
-      () => { timers.clear(timer); resolve(); },
-    );
-  });
-  return awaitLocationAnswer(opts.ask, opts.answerTimeoutMs, timers);
+}): Promise<{ answer: LocationAnswer; start: DiveStart } | null> {
+  const answer = await awaitLocationAnswer(opts.ask, opts.answerTimeoutMs, opts.timers ?? REAL_TIMERS);
+  if (!opts.isCurrent()) return null;
+  const start = diveStartFor(answer);
+  if (start === 'now') opts.startDive();
+  return { answer, start };
 }

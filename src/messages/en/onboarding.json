@@ -128,6 +128,7 @@
   "location.entry.initial.body": "To show you walking routes, outdoor gyms, and places near you, we’ll ask for location access.",
   "location.entry.initial.cta": "Show me what’s nearby",
   "location.entry.initial.manual": "Choose a city manually",
+  "location.entry.denied": "No access to your location, so let’s search: type your city or neighborhood.",
   "location.entry.dive.pill": "Looking for outdoor gyms and routes near you…",
   "location.entry.dive.manual": "Taking long? Search manually",
   "location.entry.dragHint": "Drag the map to fine-tune",

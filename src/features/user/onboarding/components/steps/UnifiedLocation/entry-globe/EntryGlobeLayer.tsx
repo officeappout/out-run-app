@@ -130,6 +130,7 @@ export function EntryGlobeLayer(p: EntryGlobeLayerProps) {
             filteredCities={p.filteredCities}
             onCitySelect={p.onCitySelect}
             onBack={p.onBackFromSearch}
+            notice={p.locationError}
           />
         )}
       </AnimatePresence>
