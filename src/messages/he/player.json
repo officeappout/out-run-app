@@ -1171,5 +1171,11 @@
   "blocks.table.km": "ק״מ",
   "blocks.table.time": "זמן",
   "blocks.table.pace": "קצב",
-  "blocks.table.target": "יעד"
+  "blocks.table.target": "יעד",
+  "parkLive.gate.watched": "צפיתי",
+  "parkLive.gate.sound": "הפעילו סאונד",
+  "parkLive.gate.piston": "הבוכנה נותנת התנגדות: ככל שדוחפים מהר יותר, קשה יותר.",
+  "parkLive.ready.title": "טיימר {sec} שניות, מוכנים?",
+  "parkLive.ready.body": "ספירה לאחור של 3 שניות, ואז מתחילים.",
+  "parkLive.ready.cta": "מוכנים"
 }

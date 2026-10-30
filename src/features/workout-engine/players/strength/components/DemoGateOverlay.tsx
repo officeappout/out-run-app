@@ -8,6 +8,7 @@
  * video's own "צפה בהסבר המלא" CTA (bottom-[236px], z-[46]) remains visible and tappable.
  */
 import { motion } from 'framer-motion';
+import { Volume2 } from 'lucide-react';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
@@ -20,11 +21,13 @@ interface Props {
   ctaLabel: string;
   /** enable_park_live_v2 (board Park 8): one line above the CTA ("put the phone on the floor…"). */
   hint?: string | null;
+  /** Park machines (M16): a "turn the sound on" button above the CTA; runs inside the tap. */
+  sound?: { label: string; onTap: () => void } | null;
   /** Must run synchronously inside the tap (it unmutes/plays the clip — a user-gesture API). */
   onStart: () => void;
 }
 
-export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, hint, onStart }: Props) {
+export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, hint, sound, onStart }: Props) {
   const { direction } = useUiDir();
   const t = useT(player);
   return (
@@ -52,6 +55,16 @@ export default function DemoGateOverlay({ exerciseName, cue, ctaLabel, hint, onS
         <p className="mt-3 text-[14px] font-bold leading-snug text-slate-700 dark:text-slate-200" style={{ fontFamily: 'var(--font-simpler)' }}>
           {hint}
         </p>
+      ) : null}
+      {sound ? (
+        <button
+          type="button"
+          onClick={sound.onTap}
+          className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-extrabold text-slate-900 shadow-v2-ring active:scale-[0.97] transition-transform"
+        >
+          <Volume2 size={18} strokeWidth={2.4} aria-hidden />
+          {sound.label}
+        </button>
       ) : null}
       <BrandCtaButton onClick={onStart} className="w-full h-14 rounded-full text-[16px] font-bold mt-4">
         {ctaLabel}

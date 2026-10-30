@@ -80,6 +80,8 @@ import { clipKey } from './logic/clip-playback';
 import {
   shouldGateExercise, timerLeadInSeconds, gateClipMuted, type DemoSeenStore,
 } from './logic/demo-gate';
+import { isMachineFirstInterval, parkMachineFindScreen, parkMachineNeedsWatch, parkStepHolds, type ParkMachineStep } from './logic/park-machine-flow';
+import ParkMachineReady from './components/ParkMachineReady';
 import { isPlayerAudioMuted } from './logic/player-audio-mute';
 import FirstRunTour, { type FirstRunTourCloseReason } from '@/features/user/onboarding/components/FirstRunTour';
 import type { RepsSource, SwapOpenContext, SwapSource } from '@/features/workout-engine/adaptation/adaptation.types';
@@ -496,13 +498,26 @@ export default function StrengthRunner({
   const isFirstTabataInterval =
     isTabataBlock && sm.currentRound === 1 && sm.currentExerciseIndex === 0 && sm.currentSide !== 'left';
   const gateActiveKey = `active-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}-set-${sm.currentRound}`;
+  // Pilot M15 / M16 (enable_park_live_v2, machine tabata): find → watch the machine's full video →
+  // "ready?" → 3-2-1, once per MACHINE before its own first interval (park-machine-flow.ts).
+  const machineFirst = isMachineFirstInterval({ parkMachine, currentRound: sm.currentRound, currentSide: sm.currentSide ?? null });
+  const [parkStep, setParkStep] = useState<{ key: string; step: ParkMachineStep } | null>(null);
   const [, setGateTick] = useState(0); // re-render after the (non-reactive) seen-store changes
   const [gatePassedKey, setGatePassedKey] = useState<string | null>(null);
   const gateVideoElRef = useRef<HTMLVideoElement | null>(null);
   const gateTransitionKeyRef = useRef<string | null>(null);
   // PR-B3: find-the-equipment comes first; the demo gate is only considered once no find screen
   // is pending for this exercise → welcome → find → gate → set. Both use the same hold.
-  const findScreen = findEquipmentScreen({
+  const findScreen = parkMachine
+    ? parkMachineFindScreen({
+        enabled: !!findEquipment,
+        seen: findEquipment,
+        workoutState: sm.workoutState,
+        firstInterval: machineFirst,
+        exIdx: sm.currentExerciseIndex,
+        exercise: workout.segments[sm.currentSegmentIndex]?.exercises?.[sm.currentExerciseIndex],
+      })
+    : findEquipmentScreen({
     enabled: !!findEquipment,
     seen: findEquipment,
     workoutState: sm.workoutState,
@@ -522,7 +537,9 @@ export default function StrengthRunner({
     isTabataBlock,
     isFirstTabataInterval,
   };
-  const needsGate = !needsFind && shouldGateExercise(gateInput);
+  const parkWatchInput = { enabled: !!demoGate, seen: demoGate, firstInterval: machineFirst, exerciseId: sm.activeExercise?.id };
+  const needsGate = !needsFind && (parkMachine ? parkMachineNeedsWatch({ ...parkWatchInput, workoutState: sm.workoutState }) : shouldGateExercise(gateInput));
+  const parkHold = parkMachine && parkStepHolds(parkStep, gateActiveKey);
   // First-run player tour (onboarding slice 2): armed only while the first set is still in
   // PREPARING, then held exactly like the demo gate (PREPARING → ACTIVE, paused) until it closes.
   const [playerTour, setPlayerTour] = useState<'idle' | 'armed' | 'done'>('idle');
@@ -539,7 +556,8 @@ export default function StrengthRunner({
   }, [playerTour, timed.active, firstRunTour, sm.workoutState, sm.currentSegmentIndex, sm.currentExerciseIndex, initialCheckpoint, embedded, demoGate, findEquipment]);
   const needsTour = playerTour === 'armed' && !needsFind && !needsGate && !timed.active;
   const tourActive = needsTour && sm.workoutState === 'ACTIVE';
-  const needsHold = needsFind || needsGate || needsTour;
+  const needsHold = needsFind || needsGate || needsTour || parkHold;
+  const parkActive = parkHold && sm.workoutState === 'ACTIVE';
   const gateActive = needsGate && sm.workoutState === 'ACTIVE';
   const findActive = needsFind && sm.workoutState === 'ACTIVE';
   // Layout effect → the hold lands before paint, so no clock gets a tick in.
@@ -559,12 +577,29 @@ export default function StrengthRunner({
     setGatePassedKey(gateActiveKey);
     setGateTick((n) => n + 1);
     // Next: the demo gate if this exercise's demo wasn't watched yet (stay held), else the set.
-    const gateNext = shouldGateExercise({ ...gateInput, workoutState: 'ACTIVE' });
+    const gateNext = parkMachine ? parkMachineNeedsWatch({ ...parkWatchInput, workoutState: 'ACTIVE' }) : shouldGateExercise({ ...gateInput, workoutState: 'ACTIVE' });
     if (!gateNext && sm.isPaused) sm.togglePause();
-  }, [findScreen, findEquipment, gateActiveKey, gateInput, sm]);
+  }, [findScreen, findEquipment, gateActiveKey, gateInput, parkMachine, parkWatchInput, sm]);
+
+  // Inside a tap (a user gesture): unmute + play the demo clip — unless the session mute is on.
+  const handleGateSound = useCallback(() => {
+    const el = gateVideoElRef.current;
+    if (!el) return;
+    el.muted = gateClipMuted(isPlayerAudioMuted());
+    const attempt = el.play();
+    if (attempt && typeof attempt.catch === 'function') attempt.catch(() => { el.muted = true; el.play().catch(() => {}); });
+  }, []);
 
   const handleGateStart = useCallback(() => {
-    // Inside the tap (a user gesture): unmute + play the demo clip — unless the session mute is on.
+    // Park machine (M16): "צפיתי" marks only this machine and goes on to "ready?", still held.
+    if (parkMachine) {
+      const id = sm.activeExercise?.id;
+      if (id) demoGate?.add(id);
+      setGatePassedKey(gateActiveKey);
+      setGateTick((n) => n + 1);
+      setParkStep({ key: gateActiveKey, step: 'ready' });
+      return;
+    }
     const el = gateVideoElRef.current;
     if (el) {
       el.muted = gateClipMuted(isPlayerAudioMuted());
@@ -581,7 +616,7 @@ export default function StrengthRunner({
     setGatePassedKey(gateActiveKey);
     setGateTick((n) => n + 1);
     if (sm.isPaused) sm.togglePause(); // release the hold → the timer / rep set starts now
-  }, [isTabataBlock, workout.segments, sm, demoGate, gateActiveKey]);
+  }, [parkMachine, isTabataBlock, workout.segments, sm, demoGate, gateActiveKey]);
 
   const handlePlayerTourClose = useCallback((reason: FirstRunTourCloseReason) => {
     setPlayerTour('done');
@@ -863,7 +898,7 @@ export default function StrengthRunner({
         // PR-B2: the demo keeps looping behind the gate while the player is held paused, and the
         // gate needs the <video> element to unmute it inside the tap. A timed (non-tabata) card
         // starts on its own after "צפיתי, התחל" — that tap was the start.
-        videoPaused={gateActive ? false : sm.isPaused}
+        videoPaused={gateActive || parkActive ? false : sm.isPaused}
         onVideoElement={(el) => { gateVideoElRef.current = el; }}
         stationClipKey={stationClips ? clipKey(sm.exerciseBunnyVideoId, sm.exerciseVideoUrl) : null}
         autoStartTimer={!blockWorkSec && isTimeExercise && gatePassedKey === activeKey}
@@ -1005,9 +1040,23 @@ export default function StrengthRunner({
               <DemoGateOverlay
                 exerciseName={sm.exerciseName}
                 cue={sm.executionSteps?.[0] ?? null}
-                ctaLabel={parkMachine ? t('parkLive.gate.cta') : t('strengthPlayer.demoGate.cta', { gender: userGender })}
-                hint={parkMachine ? t('parkLive.gate.hint') : null}
+                ctaLabel={parkMachine ? t('parkLive.gate.watched') : t('strengthPlayer.demoGate.cta', { gender: userGender })}
+                hint={parkMachine ? `${t('parkLive.gate.piston')} ${t('parkLive.gate.hint')}` : null}
+                sound={parkMachine ? { label: t('parkLive.gate.sound'), onTap: handleGateSound } : null}
                 onStart={handleGateStart}
+              />
+            )}
+
+            {/* M16: "a 20-second timer, ready?" → 3-2-1 → the timer (park machines, still held). */}
+            {parkActive && parkStep && parkStep.step !== 'done' && (
+              <ParkMachineReady
+                step={parkStep.step}
+                workSec={(sm.currentSegment as { protocolConfig?: { workSec?: number } } | null)?.protocolConfig?.workSec ?? 20}
+                onReady={() => setParkStep({ key: gateActiveKey, step: 'count' })}
+                onGo={() => {
+                  setParkStep({ key: gateActiveKey, step: 'done' });
+                  if (sm.isPaused) sm.togglePause();
+                }}
               />
             )}
 
@@ -1021,7 +1070,7 @@ export default function StrengthRunner({
             />
 
             {/* Header overlay — also the drag handle for minimize */}
-            {showHeader && !gateActive && !findActive && !immersive && (
+            {showHeader && !gateActive && !findActive && !parkActive && !immersive && (
               <RunnerHeader
                 progressBars={mixedBars ?? sm.progressBars}
                 autoCompleteTime={sm.autoCompleteTime}

@@ -47,7 +47,8 @@ function ItemMedia({ item, size, photo }: { item: FindItem; size: number; photo:
   return <EquipmentIcon id={item.equipmentIds[0]} size={size} />;
 }
 
-const labels = (item: FindItem) => item.equipmentIds.map((id) => resolveEquipmentLabel(id)).join(' + ');
+// A park machine (M16) has no gear ids: its own name is the label.
+const labels = (item: FindItem) => (item.equipmentIds.length ? item.equipmentIds.map((id) => resolveEquipmentLabel(id)).join(' + ') : item.exerciseName);
 
 interface Props {
   screen: FindScreen;
@@ -123,9 +124,11 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap, 
             <h2 className="text-[24px] font-black text-slate-900 dark:text-white leading-tight" style={{ fontFamily: 'var(--font-simpler)' }}>
               {labels(single)}
             </h2>
-            <p className="text-[14px] text-slate-500 mt-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-              {t('strengthPlayer.findEquipment.forExercise', { name: single.exerciseName })}
-            </p>
+            {single.equipmentIds.length > 0 && (
+              <p className="text-[14px] text-slate-500 mt-1" style={{ fontFamily: 'var(--font-simpler)' }}>
+                {t('strengthPlayer.findEquipment.forExercise', { name: single.exerciseName })}
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -1161,5 +1161,11 @@
   "blocks.table.km": "Km",
   "blocks.table.time": "Time",
   "blocks.table.pace": "Pace",
-  "blocks.table.target": "Target"
+  "blocks.table.target": "Target",
+  "parkLive.gate.watched": "Watched",
+  "parkLive.gate.sound": "Turn on sound",
+  "parkLive.gate.piston": "The piston gives the resistance: the faster you push, the harder it gets.",
+  "parkLive.ready.title": "A {sec}-second timer, ready?",
+  "parkLive.ready.body": "A 3-second countdown, then we start.",
+  "parkLive.ready.cta": "Ready"
 }
