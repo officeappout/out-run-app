@@ -69,7 +69,9 @@ describe('enforceVolumeCap — Phase C convergence (availableTime contract)', ()
     // two lowest-scored mains and ship a 2-exercise 15-minute workout.
     const w = workoutOf([
       warmupEx('w1'), warmupEx('w2'),
-      mainEx('pushups', 65), mainEx('rows', 70), mainEx('dips', 80), mainEx('pullups', 90),
+      // At-level work (tier match): a ≤20-min session may still compress it (rest-reps-rules.ts).
+      mainEx('pushups', 65, { tier: 'match' }), mainEx('rows', 70, { tier: 'match' }),
+      mainEx('dips', 80, { tier: 'match' }), mainEx('pullups', 90, { tier: 'match' }),
       cooldownEx('stretch'),
     ]);
     const result = enforceVolumeCap(w, { durationCap: 15 }) as { estimatedDuration: number };
@@ -79,6 +81,17 @@ describe('enforceVolumeCap — Phase C convergence (availableTime contract)', ()
     expect(ms.map((e) => e.exercise.id)).toEqual(['pushups', 'rows', 'dips', 'pullups']);
     expect(ms.every((e) => e.restSeconds < 120 && e.restSeconds >= 45)).toBe(true);
     expect(ms.every((e) => e.sets === 2)).toBe(true);
+  });
+
+  it('ABOVE-LEVEL REST IS NEVER CUT (owner 30.10.2026): hard-tier mains keep 120 s', () => {
+    const w = workoutOf([
+      warmupEx('w1'),
+      mainEx('a', 65), mainEx('b', 70), mainEx('c', 80), mainEx('d', 90),
+      cooldownEx('stretch'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 15 });
+    const ms = mains(result as never) as Array<{ restSeconds: number }>;
+    expect(ms.every((e) => e.restSeconds === 120)).toBe(true);
   });
 
   it('TOLERANCE HONOURED: a plan already inside cap+3 is not trimmed further', () => {

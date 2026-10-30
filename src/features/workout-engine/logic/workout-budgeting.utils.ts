@@ -14,6 +14,7 @@ import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constan
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { aboveLevelRepRange, isTrueSkillExercise, repCeilingFor, trueSkillHoldCap } from './adaptive/true-skill';
+import { applyDynamicRepFloor, beginnerRest } from './rest-reps-rules';
 import { adaptiveExtraSets, adaptiveTarget } from './adaptive/double-progression';
 import { goalRampTarget } from './adaptive/goal-presence';
 import {
@@ -797,7 +798,9 @@ export function assignVolume(
 
         if (Math.abs(levelDiff) <= 1) {
           // Rule A — High Intensity: exercise is at or ±1 user level
-          if (isPushPull) { reps = 1 + Math.floor(Math.random() * 3); uniRepsRange = { min: 1, max: 3 }; }
+          // 1–3 only for a true skill (one-arm pull-up…); archer / one-arm rows get 3–5 (owner 30.10.2026).
+          if (isPushPull && trueSkill) { reps = 1 + Math.floor(Math.random() * 3); uniRepsRange = { min: 1, max: 3 }; }
+          else if (isPushPull)         { reps = 3 + Math.floor(Math.random() * 3); uniRepsRange = { min: 3, max: 5 }; }
           else            { reps = 3 + Math.floor(Math.random() * 4); uniRepsRange = { min: 3, max: 6 }; }
         } else if (levelDiff >= 2 && difficulty !== 1) {
           // Rule B — Moderate Intensity: exercise is ≥2 levels below user.
@@ -858,6 +861,9 @@ export function assignVolume(
     }
 
     restSeconds = Math.max(restSeconds, restSafetyFloor(tier));
+    // User's level in this exercise's domain = exercise level − levelDiff (scored.levelDiff = ex − user).
+    const exLevelForRest = scored.programLevel ?? exercise.targetPrograms?.[0]?.level;
+    restSeconds = beginnerRest(restSeconds, tierName, exLevelForRest != null ? exLevelForRest - delta : undefined);
 
     // Mirror the staircase override into the displayed range so the UI shows
     // the same window we used for the assigned reps. Falls back to the legacy
@@ -970,6 +976,11 @@ export function assignVolume(
       if (coreFloor) {
         reps = coreFloor.reps;
         repsRange = coreFloor.repsRange;
+      }
+      const repFloor = applyDynamicRepFloor(isTrueSkillExercise(exercise), false, reps, repsRange);
+      if (repFloor) {
+        reps = repFloor.reps;
+        repsRange = repFloor.repsRange;
       }
     }
 
@@ -1130,6 +1141,11 @@ export function rederiveVolumeForSwappedExercise(
     if (coreFloor) {
       reps = coreFloor.reps;
       repsRange = coreFloor.repsRange;
+    }
+    const repFloor = applyDynamicRepFloor(isTrueSkillExercise(newExercise), false, reps, repsRange);
+    if (repFloor) {
+      reps = repFloor.reps;
+      repsRange = repFloor.repsRange;
     }
   }
 

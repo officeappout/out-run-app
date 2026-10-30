@@ -19,7 +19,7 @@ export const SKILL_HOLD_CEILING_S = 12;
 /** Regular exercise one level above the user (hard tier): its own range instead of 1–3. */
 export const NON_SKILL_HARD_REPS = { min: 3, max: 6 } as const;
 /** Regular exercise two+ levels above the user (elite tier). */
-export const NON_SKILL_ELITE_REPS = { min: 2, max: 5 } as const;
+export const NON_SKILL_ELITE_REPS = { min: 3, max: 4 } as const;
 /** Upper bound for a regular exercise at hard/elite tier (history / goal ramp never go past it). */
 export const NON_SKILL_HARD_REP_CEILING = 8;
 
