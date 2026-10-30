@@ -49,3 +49,11 @@ Merge approvals. Glossary (!) decisions + formality. Any flag flip. Functions + 
 - Count tests collide: no per-locale counts, merge PRs sequentially from fresh main. Never `vitest -u` unfiltered. Flaky `map-w4-drawer-parity`: rerun once.
 - Max ~3 parallel agents; names agent separate and first; translation chunks write only their own file.
 - Plural categories from `Intl.PluralRules`; no long dash; no ICU-quote traps; no zero-width/NBSP unless the profile allows.
+
+## Device QA (after phase 3 and 7, before review; details in the playbook "Device QA checklist")
+- Tester flags: `superAdminValue: false` flags (`enable_content_locale`, `hide_he_only_onboarding_steps`) do not turn on for super admins; server flags (Kelly, push) read only stored values. Turn supporting flags on first, `enable_i18n` / `enable_locale_<xx>` last.
+- Look at per screen: alignment, chevron direction, punctuation position, "30 min" order, ellipsis side, long strings, bottom nav vs drawers, sticky headers, leftover source language (coach note, difficulty, muscles, weekday letters, park chips, route names), map labels, TTS, Kelly, pushes.
+- Audit shared primitives FIRST (`Sheet`, `HScroller`, charts, `StoryBars` hard-coded `dir`). "min 30" and leading punctuation mean an rtl container, not a catalog bug. `ChevronLeft` as forward -> `ltr:-scale-x-100`; `text-right` -> `text-start`.
+- LTR-host carousel cards need per-card `dir={direction}` (~390 files still physical, known work).
+- Engine text (titles, coach notes, difficulty, muscles, weekday letters) catalog-driven; generated route names localized at display only; Mapbox `coalesce(name_<locale>, name)`; readers + raw-reader audit before import; server write paths must preserve the new-language value (park-write guard); import tooling must cover subcollections.
+- Long text: keep button sizes, 2-line wrap or smaller text gated by `isRtl`, or shorten copy. Never change Hebrew pixels.
