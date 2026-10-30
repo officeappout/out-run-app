@@ -18,6 +18,7 @@ import AddStrengthProgramCardRaw from '@/features/home/components/AddStrengthPro
 import HomeProgramSlideRaw from '@/features/home/components/start-cards/HomeProgramSlide';
 import TodayActivityStripRaw from '@/features/home/components/TodayActivityStrip';
 import DoneTodayCardRaw from '@/features/home/components/DoneTodayCard';
+import HomeDonePostRaw from '@/features/home/components/HomeDonePost';
 import StepsSummaryCardRaw from '@/features/home/components/widgets/StepsSummaryCard';
 import RacePredictionCardRaw from '@/features/home/components/widgets/RacePredictionCard';
 import HomeProgressSlotRowRaw, { type HomeProgressSlotRowProps } from '@/features/home/components/progress-slot/HomeProgressSlotRow';
@@ -55,6 +56,7 @@ export const AddStrengthProgramCard = withWidgetBoundary(AddStrengthProgramCardR
 // enable_home_v2: the start-pair / add-track slide of the daily carousels.
 export const HomeProgramSlide = withWidgetBoundary(HomeProgramSlideRaw, 'home.HomeProgramSlide');
 export const DoneTodayCard = withWidgetBoundary(DoneTodayCardRaw, 'home.DoneTodayCard');
+export const HomeDonePost = withWidgetBoundary(HomeDonePostRaw, 'home.HomeDonePost');
 export const StepsSummaryCard = withWidgetBoundary(StepsSummaryCardRaw, 'home.StepsSummaryCard');
 export const RacePredictionCard = withWidgetBoundary(RacePredictionCardRaw, 'home.RacePredictionCard');
 // enable_home_progress_slot_v1: strength ↔ running/walking pair beside the bars; the week's active-minutes ring.

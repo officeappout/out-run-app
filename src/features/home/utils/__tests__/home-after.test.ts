@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { composeHomeAfterSlides, isHomeAfterActive, runTodayStillDue, HOME_AFTER_DONE_ID } from '../home-after';
+import { composeHomeAfterSlides, isHomeAfterActive, runTodayStillDue, homeAfterDoneSlideId, isHomeAfterDoneSlideId, HOME_AFTER_DONE_ID } from '../home-after';
 
 type S = { id: string; topUp?: boolean };
 const compose = (remaining: S[], runToday: S | null, done: S | null, tail: S[] = []) =>
-  composeHomeAfterSlides<S>({ remaining, planned: runToday ? [runToday] : [], tail, done, isTopUp: (s) => !!s.topUp, idOf: (s) => s.id }).map((s) => s.id);
+  composeHomeAfterSlides<S>({ remaining, planned: runToday ? [runToday] : [], tail, done: done ? [done] : [], isTopUp: (s) => !!s.topUp, idOf: (s) => s.id }).map((s) => s.id);
 
 const done: S = { id: HOME_AFTER_DONE_ID };
 const run: S = { id: 'run-plan-card' };
@@ -53,5 +53,15 @@ describe('composeHomeAfterSlides', () => {
 
   it('no done slide when nothing is done', () => {
     expect(compose([{ id: 'steps' }], run, null)).toEqual(['run-plan-card', 'steps']);
+  });
+});
+
+describe('done slides (stage 3)', () => {
+  it('one per finished workout, last, in order', () => {
+    const d = (k: string): S => ({ id: homeAfterDoneSlideId(k) });
+    const ids = composeHomeAfterSlides<S>({ remaining: [{ id: 'steps' }], planned: [], done: [d('w1'), d('w2')], isTopUp: () => false, idOf: (s) => s.id }).map((s) => s.id);
+    expect(ids).toEqual(['steps', 'home-after-done:w1', 'home-after-done:w2']);
+    expect(ids.filter(isHomeAfterDoneSlideId)).toHaveLength(2);
+    expect(isHomeAfterDoneSlideId('steps')).toBe(false);
   });
 });
