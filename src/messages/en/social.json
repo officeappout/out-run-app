@@ -156,5 +156,10 @@
   "shareV2.together.count": "{total, plural, one {# runner} other {# runners}} together",
   "shareV2.together.pair": "{a} and {b}",
   "shareV2.together.more": "{names} and {more} more",
-  "shareV2.together.ranTogether": "We ran together"
+  "shareV2.together.ranTogether": "We ran together",
+  "shareV2.walk.name": "Walk",
+  "shareV2.combined.name": "Walk + strength",
+  "shareV2.unit.steps": "steps",
+  "shareV2.template.exerciseTable": "Exercise table",
+  "shareV2.template.splits": "Splits"
 }

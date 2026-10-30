@@ -10,6 +10,7 @@ import { buildTogetherModel } from './together';
 import type { ShareModel, ShareSetRow, ShareStatV2 } from './types';
 import { unitLabel, weekdayLabel } from '@/lib/i18n/units';
 import { fastestLapUnit, shareCommonT, shareT, streakUnit, strengthDefaultName } from './copy';
+import { estimateSteps } from '@/lib/steps-estimate';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const posNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
@@ -125,6 +126,46 @@ function runModel(input: ShareImageInput): ShareModel {
   };
 }
 
-export function buildShareModel(input: ShareImageInput): ShareModel {
-  return input.kind === 'cardio' ? runModel(input) : strengthModel(input);
+export interface ShareModelOptions {
+  /** enable_workout_post_v1: the post family (walk / combined, new stickers, sticker logo at the bottom). */
+  postV1?: boolean;
+}
+
+/** Walk family: the steps are the hero, then km and time; never a pace. */
+function walkModel(base: ShareModel, input: ShareImageInput): ShareModel {
+  const km = posNum(input.distanceKm) ? input.distanceKm : 0;
+  const name = input.title || shareT('shareV2.walk.name');
+  const steps = estimateSteps(km);
+  return {
+    ...base,
+    name,
+    chip: [name, input.parkName].filter(Boolean).join(' · '),
+    hero: steps > 0 ? { value: steps.toLocaleString('en-US'), unit: shareT('shareV2.unit.steps') } : base.hero,
+    stats: [...(km > 0 ? [{ value: km.toFixed(1), unit: unitLabel('km', shareCommonT) }] : []), base.duration],
+    pace: undefined,
+    fastest: undefined,
+    splits: undefined,
+  };
+}
+
+/** Combined family: total time as the hero; the walk / run km and the strength sets beside it. */
+function combinedModel(base: ShareModel, input: ShareImageInput): ShareModel {
+  const h = input.hybrid!;
+  const name = input.title || shareT('shareV2.combined.name');
+  const aerKm = h.walkKm + h.runKm;
+  const stats: ShareStatV2[] = [
+    ...(aerKm > 0 ? [{ value: aerKm.toFixed(1), unit: unitLabel('km', shareCommonT) }] : []),
+    ...(h.strengthSets > 0 ? [{ value: String(h.strengthSets), unit: shareT('shareV2.unit.sets') }] : []),
+  ];
+  const total = durationStat(input, false);
+  return { ...base, name, chip: [name, input.parkName].filter(Boolean).join(' · '), hero: total, stats, pace: undefined, fastest: undefined, splits: undefined, combined: true };
+}
+
+export function buildShareModel(input: ShareImageInput, opts: ShareModelOptions = {}): ShareModel {
+  const base = input.kind === 'cardio' ? runModel(input) : strengthModel(input);
+  if (!opts.postV1) return base;
+  const post = { ...base, postV1: true };
+  if (input.hybrid) return combinedModel(post, input);
+  if (input.kind === 'cardio' && input.activity === 'walking') return walkModel(post, input);
+  return post;
 }

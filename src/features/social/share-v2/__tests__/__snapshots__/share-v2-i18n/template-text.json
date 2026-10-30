@@ -1929,6 +1929,11 @@
   ],
   [
     "label",
+    "strength-sticker-table",
+    "טבלת תרגילים"
+  ],
+  [
+    "label",
     "run-photo-route",
     "מסלול על תמונה"
   ],
@@ -4524,5 +4529,10 @@
       "40",
       "דקות"
     ]
+  ],
+  [
+    "label",
+    "run-sticker-splits",
+    "מקטעים"
   ]
 ]

@@ -983,5 +983,6 @@
   "post.card.doneToday": "בוצע היום",
   "post.card.hiddenEnds": "התחלה וסוף מוסתרים",
   "post.card.level": "שלב",
-  "post.card.openAria": "{title}: פתיחת הסיכום"
+  "post.card.openAria": "{title}: פתיחת הסיכום",
+  "social.share.placeTag": "תג מקום"
 }
