@@ -97,6 +97,7 @@ import {
 // Protocol registry — dispatcher replaces hard-coded protocol if-tree
 import { findProcessor } from './protocols/protocol-processor.registry';
 import { buildTabataBlock, passesInjuryShield } from './protocols/tabata.block';
+import { plannedSetTotal } from './protocols/block-volume';
 import { buildDensityBlock, densityDomainOf, type DensityBlockSpec, type DensityCandidate, type DensityDomain } from './protocols/density-block';
 import { pickWeightedProtocol } from './protocol-weights';
 import { TABATA_BLOCK_SECONDS } from './protocols/tabata.constants';
@@ -1576,7 +1577,8 @@ export class WorkoutGenerator {
 
     // Step 10: Stats
     const stats = calculateWorkoutStats(workoutExercises, difficulty, finalEstimatedDuration, context.userWeight);
-    const totalPlannedSets = workoutExercises.reduce((sum, ex) => sum + ex.sets, 0);
+    // Timed blocks count by their set equivalent (protocols/block-volume.ts, PR 8a).
+    const totalPlannedSets = plannedSetTotal(workoutExercises);
 
     // ── WHY LOGGER: Per-exercise score breakdown ──
     const exerciseBreakdowns: string[] = [];

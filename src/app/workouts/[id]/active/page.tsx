@@ -24,6 +24,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { completedSetsFor } from '@/features/workout-engine/logic/protocols/block-volume';
 import type { ExecutionMethod } from '@/features/content/exercises';
 import { 
   StrengthDopamineScreen, 
@@ -1190,7 +1191,9 @@ export default function ActiveWorkoutPage() {
     for (const segment of workoutPlan.segments) {
       if (!segment.exercises) continue;
       for (const ex of segment.exercises) {
-        const setsCount = logMap.get(ex.id) ?? ex.sets ?? 0;
+        // Timed blocks count by their set equivalent (block-volume.ts, PR 8a): EMOM minute /
+        // AMRAP round = 1 set, a 4-minute tabata = 2 sets.
+        const setsCount = completedSetsFor(segment, ex.sets, logMap.get(ex.id));
         if (setsCount === 0) continue;
 
         // ── Pass A: anatomical domain (unchanged legacy path) ──────────
