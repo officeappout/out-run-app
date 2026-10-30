@@ -297,6 +297,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // pokes through the MapLoadingSkeleton during load. Mirrors AppMap's
   // isVisuallyReady; reveals all controls together the moment the map paints.
   const isMapVisuallyReady = useMapStore((s) => s.isMapVisuallyReady);
+  // AD4b: the floating "בא לך לזוז?" entry steps aside while the layers sheet is open.
+  const isLayersSheetOpen = useMapStore((s) => s.isLayersSheetOpen);
   // Baseline bounds — set once viewportBounds first arrives (map loaded).
   // When the user taps "חפש באזור זה" this is reset to the current bounds so
   // the button only reappears after a subsequent pan.
@@ -2261,7 +2263,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
 
             {/* ── On-map hybrid entry ("מה עושים היום?") — idle only, flag-gated.
                 Opens the slot layer (resetHybridFlow('slots') — passive, no compose). */}
-            {mapFeatureFlags.enableHybridSlots && mapMode === 'idle' && isMapVisuallyReady && (
+            {mapFeatureFlags.enableHybridSlots && mapMode === 'idle' && isMapVisuallyReady && !isLayersSheetOpen && (
               <div
                 className="absolute end-0 start-0 z-[100] pointer-events-none"
                 style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}

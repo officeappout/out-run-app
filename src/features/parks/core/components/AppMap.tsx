@@ -37,7 +37,7 @@ import { map as mapNs } from '@/messages/ns/map';
 
 import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
 import { hapticLight } from '@/lib/haptics';
-import { applyFitnessMapStyle, resetFitnessMapStyle, WALK_LEG_LINE_PAINT } from './mapStyleConfig';
+import { applyFitnessMapStyle, hidePoiLayersEarly, resetFitnessMapStyle, WALK_LEG_LINE_PAINT } from './mapStyleConfig';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 import MapLoadingSkeleton from '@/features/parks/core/components/MapLoadingSkeleton';
 import { segmentPathByZone, bearingBetween, buildLaneOffsetPath, buildDirectionMarkers, isOutAndBackPath, pathLengthMeters, isSameCoord } from '../services/geoUtils';
@@ -1643,6 +1643,16 @@ export default function AppMap({
     // sample and gradually fill Mapbox's WebGL buffer pool.
   }, [navigationTurns, activeTurnIdx, focusedRoute?.id, focusedRoute?.path]);
 
+  // AD5 (29.10): hide the POI labels on the first 'styledata', before the first
+  // paint; onLoad (below) fires after it, so the declutter alone came a beat late.
+  const earlyPoiHiddenRef = useRef(false);
+  const handleStyleData = (e: { target?: unknown }) => {
+    if (earlyPoiHiddenRef.current) return;
+    const target = e?.target as { getStyle?: unknown } | undefined;
+    const rawMap = (typeof target?.getStyle === 'function' ? target : mapRef.current?.getMap?.()) as mapboxgl.Map | undefined;
+    if (rawMap) earlyPoiHiddenRef.current = hidePoiLayersEarly(rawMap);
+  };
+
   const handleMapLoad = (e: any) => {
     const rawMap = e?.target || mapRef.current?.getMap?.() || mapRef.current;
     if (!rawMap || typeof rawMap.getStyle !== 'function') return;
@@ -1808,6 +1818,7 @@ export default function AppMap({
       <Map
         ref={mapRef}
         onLoad={handleMapLoad}
+        onStyleData={handleStyleData}
         onZoom={(e) => {
           // Threshold-commit (see ZOOM_COMMIT_EPSILON): return prev unchanged so
           // React bails the render until the zoom moves far enough to possibly

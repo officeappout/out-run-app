@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Flag, Trees, Trophy } from 'lucide-react';
-import { StepBar } from '@/components/ui/v2';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
 import { resolveParkImage } from '@/lib/park-image';
 import type { NearbyFacility, SportContext, TrainingContext } from '../location-types';
@@ -30,6 +29,9 @@ export interface EntryConfirmDrawerProps {
   trainingContext: TrainingContext | null;
   onConfirm: () => void;
   onSearchOther: () => void;
+  /** AD2: collapsed by the user (handle) or by a map drag; the CTA stays visible. */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 /** CONFIRMING — "גרים ב…?" with the nearest park (or the existing pioneer box). */
@@ -44,6 +46,8 @@ export function EntryConfirmDrawer({
   trainingContext,
   onConfirm,
   onSearchOther,
+  collapsed = false,
+  onCollapsedChange,
 }: EntryConfirmDrawerProps) {
   const t = useT(onboarding);
   const tm = useT(map);
@@ -60,8 +64,21 @@ export function EntryConfirmDrawer({
   const photo = park ? resolveParkImage(park, 160) : '';
 
   return (
-    <EntryDrawer>
-      {v1 && <StepBar current={1} />}
+    <EntryDrawer
+      collapsed={collapsed}
+      onCollapsedChange={onCollapsedChange}
+      pinned={
+        <EntryCta onClick={onConfirm} disabled={isLoadingParks}>
+          {t('location.entry.confirm.cta')}
+        </EntryCta>
+      }
+      footer={
+        <EntryLink onClick={onSearchOther} tone="deep">
+          {t('location.entry.confirm.notHome')}
+        </EntryLink>
+      }
+    >
+      {/* AD1: the step bar comes from EntryDrawer itself (it was rendered twice under v1). */}
       <span className="text-[13px] font-bold text-v2-deep">{t('location.entry.confirm.eyebrow')}</span>
       <h2 className="-mt-1 text-[22px] font-black leading-7 !tracking-[-0.02em] text-v2-ink">
         {place ? t('location.entry.confirm.title', { place }) : ' '}
@@ -122,12 +139,6 @@ export function EntryConfirmDrawer({
       )}
 
       {!v1 && <span className="text-center text-[12.5px] text-v2-muted">{t('location.entry.confirm.dragLine')}</span>}
-      <EntryCta onClick={onConfirm} disabled={isLoadingParks}>
-        {t('location.entry.confirm.cta')}
-      </EntryCta>
-      <EntryLink onClick={onSearchOther} tone="deep">
-        {t('location.entry.confirm.notHome')}
-      </EntryLink>
     </EntryDrawer>
   );
 }

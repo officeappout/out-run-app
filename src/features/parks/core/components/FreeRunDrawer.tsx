@@ -39,6 +39,7 @@ import { useLegPlanStore } from '../store/useLegPlanStore';
 import { isWeightMissing } from '@/features/user/core/utils/weight-status';
 import { usePendingAddressStore } from '../store/usePendingAddressStore';
 import { useAutoRouteOnce } from '../hooks/useAutoRouteOnce';
+import { useSuppressBottomNav } from '../hooks/useSuppressBottomNav';
 import {
   compileLegPlan,
   MAX_LEGS_PER_PLAN,
@@ -1329,6 +1330,9 @@ export default function FreeRunDrawer({
   onAutoRouteHandled,
 }: FreeRunDrawerProps) {
   const t = useT(map);
+  // AD4c (29.10): the drawer owns the bottom edge; the floating tab bar hid
+  // "עם מסלול / בלי מסלול" behind it. Same pattern as the other map drawers.
+  useSuppressBottomNav();
   // Home v2 (enable_home_v2) — this drawer is a map layer, outside HomeV2Context.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const drawerFlags = useFeatureFlags(isSuperAdmin).flags;

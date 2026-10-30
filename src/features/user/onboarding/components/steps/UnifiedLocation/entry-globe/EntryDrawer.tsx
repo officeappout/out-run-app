@@ -4,20 +4,52 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { SHEET_SURFACE_CLASS, SHEET_GRABBER_CLASS } from '@/components/ui/v2/Sheet';
 import StepBar from '@/components/ui/v2/StepBar';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
+import { collapsedAfterSwipe } from './drawer-collapse';
 
 /**
  * The entry flow's bottom drawer frame: white, rounded-28 top, grabber, the
  * step bar (step 1 — "האזור שלך"), then the content. The step is `fixed
  * inset-0`, so the drawer owns the bottom safe-area inset, once.
+ *
+ * Collapsible (AD2) when `onCollapsedChange` is given: the grabber becomes a
+ * handle (tap toggles, swipe down / up collapses / expands, see
+ * drawer-collapse.ts). Collapsed, only `pinned` (the primary CTA) stays.
  */
 export function EntryDrawer({
   children,
   delay = 0,
+  collapsed = false,
+  onCollapsedChange,
+  pinned,
+  footer,
 }: {
   children: React.ReactNode;
   /** Seconds — the first drawer waits for the Earth to rise. */
   delay?: number;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
+  /** Always visible, under the collapsible content. */
+  pinned?: React.ReactNode;
+  /** Under `pinned`, collapses with the content (e.g. the secondary link). */
+  footer?: React.ReactNode;
 }) {
+  const t = useT(onboarding);
+  const collapsible = !!onCollapsedChange;
+  const isCollapsed = collapsible && collapsed;
+  const fold = (key: string, node: React.ReactNode) => (
+    <motion.div
+      key={key}
+      initial={false}
+      animate={isCollapsed ? { height: 0, opacity: 0 } : { height: 'auto', opacity: 1 }}
+      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+      className="-mx-1 flex flex-col gap-3 overflow-hidden px-1"
+      aria-hidden={isCollapsed || undefined}
+    >
+      {node}
+    </motion.div>
+  );
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -30,9 +62,23 @@ export function EntryDrawer({
         className={`${SHEET_SURFACE_CLASS} flex flex-col gap-3 px-5 pt-3`}
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
       >
-        <div className={`mx-auto ${SHEET_GRABBER_CLASS}`} />
-        <StepBar current={1} />
-        {children}
+        {collapsible ? (
+          <motion.button
+            type="button"
+            aria-expanded={!isCollapsed}
+            aria-label={t(isCollapsed ? 'location.entry.drawer.expand' : 'location.entry.drawer.collapse')}
+            onTap={() => onCollapsedChange(!isCollapsed)}
+            onPanEnd={(_e, info) => onCollapsedChange(collapsedAfterSwipe(isCollapsed, info.offset.y, info.velocity.y))}
+            className="-mx-5 -mt-3 flex h-7 touch-none items-center justify-center"
+          >
+            <span className={SHEET_GRABBER_CLASS} />
+          </motion.button>
+        ) : (
+          <div className={`mx-auto ${SHEET_GRABBER_CLASS}`} />
+        )}
+        {collapsible ? fold('content', <><StepBar current={1} />{children}</>) : <><StepBar current={1} />{children}</>}
+        {pinned}
+        {footer && (collapsible ? fold('footer', footer) : footer)}
       </div>
     </motion.div>
   );
