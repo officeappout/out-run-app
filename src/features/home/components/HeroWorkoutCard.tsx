@@ -227,6 +227,9 @@ export function EquipmentBadgeRow({
   showBodyweightFallback?: boolean;
 }) {
   const t = useT(home);
+  const { isRtl } = useUiDir();
+  // The card sits in an LTR carousel track (no dir of its own), so a logical `start-4` would not follow the language: pick the edge in JS.
+  const edge = isRtl ? 'right-4' : 'left-4';
   const iconSize = Math.round(badgeSize * 0.55);
   const badgeBase = {
     width: badgeSize,
@@ -237,7 +240,7 @@ export function EquipmentBadgeRow({
   if (!icons.length) {
     if (!showBodyweightFallback) return null;
     return (
-      <div className={`absolute right-4 flex gap-1.5 z-20 ${className}`} style={{ bottom: '42%' }}>
+      <div className={`absolute ${edge} flex gap-1.5 z-20 ${className}`} style={{ bottom: '42%' }}>
         <div
           className="bg-white/90 shadow-sm flex items-center justify-center"
           style={badgeBase}
@@ -251,7 +254,7 @@ export function EquipmentBadgeRow({
 
   const overflow = (total ?? icons.length) - icons.length;
   return (
-    <div className={`absolute right-4 flex gap-1.5 z-20 ${className}`} style={{ bottom: '42%' }}>
+    <div className={`absolute ${edge} flex gap-1.5 z-20 ${className}`} style={{ bottom: '42%' }}>
       {icons.map((icon, i) => (
         <EquipmentBadge
           key={icon.srcList?.[0] ?? icon.src ?? i}
