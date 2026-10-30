@@ -141,6 +141,8 @@
   "location.entry.confirm.dragLine": "Not quite right? Drag the map until the pin is on your home",
   "location.entry.confirm.cta": "Yes, this is my home",
   "location.entry.confirm.notHome": "I’m not home right now. I’ll search for my area.",
+  "location.entry.drawer.collapse": "Collapse the drawer",
+  "location.entry.drawer.expand": "Expand the drawer",
   "location.entry.search.placeholder": "Search a city or neighborhood",
   "location.entry.search.cancel": "Cancel",
   "location.entry.search.clear": "Clear search",
