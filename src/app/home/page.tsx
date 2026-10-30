@@ -153,6 +153,8 @@ import {
   HomeProgramSlide, HomeProgressSlotRow, ActivityMinutesRingCard,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
+import { useAiCoachAccess } from '@/features/ai-coach/hooks/useAiCoachAccess';
+import { AI_COACH_PATH } from '@/features/ai-coach/components/AiCoachEntry';
 import { isStepsGoalInCarousel } from '@/features/home/utils/steps-goal-slot';
 import { GOAL_MET_BONUS_WALK_STEPS } from '@/features/home/components/carousel/StepsGoalReachedCard';
 import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
@@ -425,6 +427,7 @@ export default function HomePage() {
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, rawFlags: liveFlags, loading: flagsLoading, ready: flagsReady } = useFeatureFlags(isSuperAdmin);
+  const { canUseAi } = useAiCoachAccess();
   // enable_home_v2 day focus: the recommended split decides each strength day (upper / lower …)
   // for every generation home triggers. Set during render (idempotent) so it is in place
   // before any child effect generates; off → false → the generator runs as before.
@@ -3291,8 +3294,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* "קלי AI" entry — renders nothing unless aiCoachEnabled + entitlement + adult. */}
-        <AiCoachHomeEntry v2={featureFlags.enableHomeV2} />
+        {/* "קלי AI" entry — renders nothing unless aiCoachEnabled + entitlement + adult. enable_home_after_v1 moves it to the "+" menu. */}
+        {!homeAfterOn && <AiCoachHomeEntry v2={featureFlags.enableHomeV2} />}
 
         {/* Today Activity Strip — Stage D+E (19.08.2026, "completion-loop" plan),
             relocated to the very top of the page (21.08.2026, "ארכיטקטורת הבית
@@ -4379,6 +4382,7 @@ export default function HomePage() {
         onAddLocation={() => setWizardOpen(true)}
         onReport={() => setReportOpen(true)}
         onAddWorkout={() => setShowPlanner(true)}
+        onAskKelly={homeAfterOn && canUseAi ? () => router.push(AI_COACH_PATH) : undefined}
       />
       <PlannedActivityComposeSheet
         isOpen={composeOpen}
