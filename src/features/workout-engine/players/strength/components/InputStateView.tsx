@@ -141,6 +141,7 @@ export default function InputStateView({
         </h2>
 
         {/* Horizontal ruler picker(s) */}
+        <div data-coach="wt-input">
         {isUnilateralForInput ? (
           <div className="space-y-1">
             {/* Right side */}
@@ -193,6 +194,7 @@ export default function InputStateView({
             unitType={unitType}
           />
         )}
+        </div>
 
         {/* Confirm button */}
         <button

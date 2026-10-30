@@ -131,6 +131,7 @@ export default function LogDrawerContent({
           : isUnilateral ? t('strengthPlayer.logDrawer.prompt.repsSide') : t('strengthPlayer.logDrawer.prompt.reps')}
       </h2>
 
+      <div data-coach="wt-input">
       {!isDrawerStable ? (
         <div className="w-full h-[72px] flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-[#00B4FF] border-t-transparent rounded-full animate-spin" />
@@ -193,6 +194,7 @@ export default function LogDrawerContent({
           />
         );
       })()}
+      </div>
 
       <button
         onClick={isUnilateral ? handleUnilateralClick : handleBilateralClick}

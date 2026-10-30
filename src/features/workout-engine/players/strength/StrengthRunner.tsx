@@ -30,6 +30,14 @@
  *   usePlayerMediaSession — OS lock-screen / headphone controls bridge
  */
 
+import { useWorkoutTutorialV1 } from '@/hooks/useWorkoutTutorialV1';
+import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
+import {
+  equipmentSheetHiddenKey, phaseCardFor, shouldArmEquipmentSheet, workoutEquipmentIds, type WorkoutPhase,
+} from '@/features/workout-engine/tutorial/workout-tutorial';
+import WorkoutPhaseCard from '@/features/workout-engine/tutorial/WorkoutPhaseCard';
+import WorkoutEquipmentSheet from '@/features/workout-engine/tutorial/WorkoutEquipmentSheet';
+import WorkoutInputTour from '@/features/workout-engine/tutorial/WorkoutInputTour';
 import type { AdaptiveNote } from '@/features/workout-engine/logic/adaptive/adaptive-note';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
@@ -540,6 +548,26 @@ export default function StrengthRunner({
   const parkWatchInput = { enabled: !!demoGate, seen: demoGate, firstInterval: machineFirst, exerciseId: sm.activeExercise?.id };
   const needsGate = !needsFind && (parkMachine ? parkMachineNeedsWatch({ ...parkWatchInput, workoutState: sm.workoutState }) : shouldGateExercise(gateInput));
   const parkHold = parkMachine && parkStepHolds(parkStep, gateActiveKey);
+  // Workout tutorial (enable_workout_tutorial_v1, pilot S2): the equipment sheet holds the first
+  // set like the demo gate (before the first-run tour); phase cards and the first-input bubble
+  // never hold anything. Never in an embedded (park station) runner.
+  const tutorialOn = useWorkoutTutorialV1() && !embedded;
+  const equipIds = useMemo(() => workoutEquipmentIds(workout.segments), [workout.segments]);
+  const [equipSheet, setEquipSheet] = useState<'idle' | 'armed' | 'done'>('idle');
+  useLayoutEffect(() => {
+    if (equipSheet !== 'idle' || timed.active) return;
+    if (shouldArmEquipmentSheet({
+      enabled: tutorialOn,
+      hidden: !!getOnboardingPref(equipmentSheetHiddenKey(profileId)),
+      gearCount: equipIds.length,
+      workoutState: sm.workoutState,
+      segmentIndex: sm.currentSegmentIndex,
+      exerciseIndex: sm.currentExerciseIndex,
+      resumed: !!initialCheckpoint,
+    })) setEquipSheet('armed');
+  }, [equipSheet, timed.active, tutorialOn, profileId, equipIds.length, sm.workoutState, sm.currentSegmentIndex, sm.currentExerciseIndex, initialCheckpoint]);
+  const needsEquip = equipSheet === 'armed' && !needsFind && !needsGate && !timed.active;
+  const equipActive = needsEquip && sm.workoutState === 'ACTIVE';
   // First-run player tour (onboarding slice 2): armed only while the first set is still in
   // PREPARING, then held exactly like the demo gate (PREPARING → ACTIVE, paused) until it closes.
   const [playerTour, setPlayerTour] = useState<'idle' | 'armed' | 'done'>('idle');
@@ -554,10 +582,20 @@ export default function StrengthRunner({
       guidedGates: embedded || !!demoGate || !!findEquipment,
     })) setPlayerTour('armed');
   }, [playerTour, timed.active, firstRunTour, sm.workoutState, sm.currentSegmentIndex, sm.currentExerciseIndex, initialCheckpoint, embedded, demoGate, findEquipment]);
-  const needsTour = playerTour === 'armed' && !needsFind && !needsGate && !timed.active;
+  const needsTour = playerTour === 'armed' && !needsFind && !needsGate && !needsEquip && !timed.active;
   const tourActive = needsTour && sm.workoutState === 'ACTIVE';
-  const needsHold = needsFind || needsGate || needsTour || parkHold;
+  const needsHold = needsFind || needsGate || needsEquip || needsTour || parkHold;
   const parkActive = parkHold && sm.workoutState === 'ACTIVE';
+  const [phaseCard, setPhaseCard] = useState<WorkoutPhase | null>(null);
+  const phaseRoleRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!tutorialOn || needsHold || sm.workoutState !== 'ACTIVE') return;
+    const role = (sm.activeExercise as { exerciseRole?: string } | null)?.exerciseRole;
+    const card = phaseCardFor(phaseRoleRef.current, role);
+    phaseRoleRef.current = role;
+    if (card) setPhaseCard(card);
+  }, [tutorialOn, needsHold, sm.workoutState, sm.activeExercise]);
+  const clearPhaseCard = useCallback(() => setPhaseCard(null), []);
   const gateActive = needsGate && sm.workoutState === 'ACTIVE';
   const findActive = needsFind && sm.workoutState === 'ACTIVE';
   // Layout effect → the hold lands before paint, so no clock gets a tick in.
@@ -617,6 +655,12 @@ export default function StrengthRunner({
     setGateTick((n) => n + 1);
     if (sm.isPaused) sm.togglePause(); // release the hold → the timer / rep set starts now
   }, [parkMachine, isTabataBlock, workout.segments, sm, demoGate, gateActiveKey]);
+
+  const handleEquipClose = useCallback((hideForGood: boolean) => {
+    setEquipSheet('done');
+    if (hideForGood) setOnboardingPref(equipmentSheetHiddenKey(profileId), '1');
+    if (sm.isPaused) sm.togglePause(); // release the hold → the first set starts now
+  }, [profileId, sm]);
 
   const handlePlayerTourClose = useCallback((reason: FirstRunTourCloseReason) => {
     setPlayerTour('done');
@@ -1059,6 +1103,16 @@ export default function StrengthRunner({
                 }}
               />
             )}
+            {/* Workout tutorial (enable_workout_tutorial_v1) — portals over the player. */}
+            {tutorialOn && <WorkoutPhaseCard phase={isMinimized ? null : phaseCard} onDone={clearPhaseCard} />}
+            {equipActive && !isMinimized && (
+              <WorkoutEquipmentSheet gearIds={equipIds} location={workout.workoutLocation} onClose={handleEquipClose} />
+            )}
+            <WorkoutInputTour
+              enabled={tutorialOn && !isMinimized && !needsHold && (sm.isLogDrawerOpen || sm.workoutState === 'INPUT')}
+              uid={profileId}
+              isTime={sm.exerciseType === 'time'}
+            />
 
             {/* First-run player tour — over the held first set (portal; see FirstRunTour). */}
             <FirstRunTour

@@ -172,7 +172,7 @@ describe('order: find → gate → set', () => {
     const runner = readFileSync(fileURLToPath(new URL('../../players/strength/StrengthRunner.tsx', import.meta.url)), 'utf8');
     // M16: park machines use the per-machine watch step; everything else the generic gate.
     expect(runner).toContain('const needsGate = !needsFind && (parkMachine ? parkMachineNeedsWatch({ ...parkWatchInput, workoutState: sm.workoutState }) : shouldGateExercise(gateInput));');
-    expect(runner).toContain('const needsHold = needsFind || needsGate || needsTour || parkHold;');
+    expect(runner).toContain('const needsHold = needsFind || needsGate || needsEquip || needsTour || parkHold;');
     const found = runner.slice(runner.indexOf('const handleEquipmentFound'), runner.indexOf('const handleGateStart'));
     expect(found).toContain('if (!gateNext && sm.isPaused) sm.togglePause();'); // stays held when the gate is next
   });

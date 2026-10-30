@@ -1167,5 +1167,21 @@
   "parkLive.gate.piston": "The piston gives the resistance: the faster you push, the harder it gets.",
   "parkLive.ready.title": "A {sec}-second timer, ready?",
   "parkLive.ready.body": "A 3-second countdown, then we start.",
-  "parkLive.ready.cta": "Ready"
+  "parkLive.ready.cta": "Ready",
+  "workoutTutorial.overview.warmupTitle": "Now the warm-up",
+  "workoutTutorial.overview.warmupText": "A few easy minutes to get the body ready",
+  "workoutTutorial.overview.mainTitle": "Now the main part",
+  "workoutTutorial.overview.mainText": "This is where strength is built",
+  "workoutTutorial.phase.warmup": "Now the warm-up",
+  "workoutTutorial.phase.warmupSub": "Getting the body ready",
+  "workoutTutorial.phase.main": "Now the main part",
+  "workoutTutorial.phase.mainSub": "This is where strength is built",
+  "workoutTutorial.equipment.title": "What this workout needs",
+  "workoutTutorial.equipment.sub": "Get the equipment ready before you start",
+  "workoutTutorial.equipment.start": "Got it, let’s start",
+  "workoutTutorial.equipment.hide": "Don’t show again",
+  "workoutTutorial.input.repsTitle": "Logging reps",
+  "workoutTutorial.input.repsText": "Mark how many reps you did here. Scroll the ruler to change it",
+  "workoutTutorial.input.timeTitle": "Logging time",
+  "workoutTutorial.input.timeText": "Mark how long you held here. Scroll the ruler to fix it"
 }

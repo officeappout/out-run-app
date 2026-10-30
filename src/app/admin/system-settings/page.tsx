@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
@@ -147,6 +147,7 @@ interface FlagState {
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
   enable_flame_tiers_v1: boolean;
+  enable_workout_tutorial_v1: boolean;
 }
 
 // ============================================================================
@@ -1246,6 +1247,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: '"סיימתי להיום" אמיתי ולהבות בשלוש דרגות',
     description: 'אימון כוח נחשב "סיימתי להיום" רק מ-⅔ מיעד הסטים היומי ולפחות 4 סטים (ביום מנוחה / בלי תקציב: 4 סטים). מתחת לזה הבית לא מציג "סיימת", אזור האימון נשאר וכרטיס "נשארו X סטים להיום" מופיע. אימוני "לדוגמה" נספרים כמו כל אימון. כל הלהבות (רצועת השבוע, הקפסולות בבית v2, נקודות השבוע במסכי הסיכום) מחושבות מאותו כלל: להבה קטנה = יום שנספר לרצף (10 דקות פעילות או יעד צעדים), בינונית = גם יעד יומי אחד (כוח או אירובי), גדולה ובולטת = גם כוח וגם אירובי. אימון מתחת לרף מקבל סימן "התחיל" קטן, לא להבה. מסך הסיכום כבר לא מסמן את היום כ"בוצע" אוטומטית. מונה הרצף לא משתנה. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
+  // Strength workout tutorial (30.10.2026, pilot S2).
+  {
+    key: 'enable_workout_tutorial_v1',
+    icon: Flame,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'הדרכה באימון כוח',
+    description: 'בדף המבט על, בפעם הראשונה: שתי בועות "עכשיו חימום" ו"עכשיו החלק העיקרי". בנגן: כרטיס מעבר קצר בתחילת החימום ובתחילת החלק העיקרי. בתחילת אימון שיש בו ציוד: חלון "מה צריך לאימון הזה" עם הציוד בתמונות, אפשר לבטל ולבחור "לא להציג שוב". בסט הראשון שממלאים אי פעם: בועה שמסבירה איך ממלאים חזרות או זמן. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
 ];
 
 const FLAG_KEYS = FLAG_CARDS.map((c) => c.key);
@@ -1487,9 +1497,13 @@ export default function SystemSettingsPage() {
   }, [router]);
 
   // ── Load current flags ──────────────────────────────────────────────────────
+  // Server-only read: with the persistent multi-tab cache, getDoc can resolve from a
+  // stale local entry (seen 30.10: a cached "no document" made every toggle show its
+  // default). Saving from that state would overwrite the real flags, so a read that
+  // cannot reach the server is treated as a failed load and Save stays blocked.
   useEffect(() => {
     if (!isSuperAdmin) return;
-    getDoc(doc(db, 'system_config', 'feature_flags'))
+    getDocFromServer(doc(db, 'system_config', 'feature_flags'))
       .then((snap) => {
         const result: LoadResult = { status: 'ok', data: snap.exists() ? snap.data() : undefined };
         const { flags: loaded, loadFailed: failed } = resolveLoadedFlags(result, FLAG_KEYS, FIRESTORE_FLAG_DEFAULTS);
@@ -1501,7 +1515,7 @@ export default function SystemSettingsPage() {
         const { flags: loaded, loadFailed: failed } = resolveLoadedFlags({ status: 'error' }, FLAG_KEYS, FIRESTORE_FLAG_DEFAULTS);
         setFlags(loaded as FlagState);
         setLoadFailed(failed);
-        setError('טעינת ההגדרות נכשלה — לא ניתן לשמור עד לרענון מוצלח של הדף.');
+        setError('לא הצלחנו לקרוא את הדגלים מהשרת. בדקו את החיבור ורעננו את הדף. השמירה חסומה עד שהקריאה תצליח.');
       })
       .finally(() => setFlagsLoading(false));
   }, [isSuperAdmin]);

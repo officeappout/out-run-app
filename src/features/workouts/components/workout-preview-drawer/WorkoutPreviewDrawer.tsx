@@ -1,5 +1,7 @@
 'use client';
 
+import { useWorkoutTutorialV1 } from '@/hooks/useWorkoutTutorialV1';
+import WorkoutOverviewTour from '@/features/workout-engine/tutorial/WorkoutOverviewTour';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { pickText } from '@/features/content/shared/stored-text-fields';
 import { useHomeV2 } from "@/features/home/context/HomeV2Context";
@@ -119,6 +121,7 @@ export default function WorkoutPreviewDrawer({
   const contentLang = useContentLanguage();
   const router = useRouter();
   const { profile } = useUserStore();
+  const tutorialOn = useWorkoutTutorialV1();
   const y = useMotionValue(0);
   // Opacity fades as the user drags the sheet down — starts immediately, completes at 220 px.
   const opacity = useTransform(y, [0, 220], [1, 0]);
@@ -881,6 +884,12 @@ export default function WorkoutPreviewDrawer({
           onPublished={(_id, place) => where.pickOnly(place)}
         />
       )}
+
+      {/* enable_workout_tutorial_v1: first-time "now the warm-up" / "now the main part" bubbles. */}
+      <WorkoutOverviewTour
+        enabled={tutorialOn && isOpen && !!generatedWorkout && !isRecomputing && !detailExercise && !replacementModalOpen}
+        uid={profile?.id}
+      />
 
       {/* Exercise detail hero drawer (memoised + lazy) — regular exercises only;
           machine pseudo-exercises are routed to EquipmentDetailDrawer below. */}
