@@ -142,6 +142,7 @@ interface FlagState {
   enable_combo_flow_v1: boolean;
   enable_home_after_v1: boolean;
   enable_share_router_v1: boolean;
+  enable_workout_post_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1198,6 +1199,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'כפתור "שתפו" אחד בסיכום אימון',
     description: 'בסיכום האימון, "שתפו" פותח חלון קטן עם 3 אפשרויות: פרסום בפיד של האפליקציה, תמונות מעוצבות לרשתות, ושליחה מהטלפון (וואטסאפ וכו׳). היום הכפתור פותח ישר את השיתוף של הטלפון. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Workout post card (30.10.2026), owner-approved canvas boards PostTypes / PostCompact / PostFeed.
+  {
+    key: 'enable_workout_post_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'כרטיס אימון אחד: בבית, בפיד ובשיתוף',
+    description: 'כרטיס אחד לכל אימון שהסתיים, לפי הסוג (כוח, ריצה, הליכה, משולב): ריבוע עם מפת לילה או תמונה, שם האימון ו־3 טבעות בצבעי הווידג׳ט. בבית זה הכרטיס הקטן של "בוצע היום" בקרוסלה, ובפיד זה הפוסט. הליכה מקבלת טבעת צעדים ולא טבעת ריצה. בהמשך: תמונות השיתוף והסטיקרים. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {
