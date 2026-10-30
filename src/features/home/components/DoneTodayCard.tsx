@@ -30,6 +30,11 @@ export interface DoneTodayCardProps {
   onCardTap?: (card: TodayActivityCardData) => void;
   /** Run-done state: an extra line on the row of a run that counted for today's slot, by workout id. */
   notes?: Readonly<Record<string, string>>;
+  /**
+   * enable_home_after_v1: the card is the last slide of the after-workout carousel: its own
+   * surface, full slide height, rows scroll inside, the "done today" title.
+   */
+  slide?: boolean;
 }
 
 const TONE = {
@@ -39,7 +44,7 @@ const TONE = {
   maintenance: { fg: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', check: '#8b5cf6' },
 } as const;
 
-export default function DoneTodayCard({ cards, workouts, onCardTap, notes }: DoneTodayCardProps) {
+export default function DoneTodayCard({ cards, workouts, onCardTap, notes, slide = false }: DoneTodayCardProps) {
   const { direction } = useUiDir();
   const v2 = useHomeV2();
   const t = useT(home);
@@ -47,9 +52,19 @@ export default function DoneTodayCard({ cards, workouts, onCardTap, notes }: Don
   const rows = buildDoneWorkoutRows(cards, workouts, t.locale, notes);
 
   return (
-    <section dir={direction} aria-label={t('doneToday.aria')}>
-      <h3 className="mb-1.5 whitespace-nowrap px-1 text-[13px] font-extrabold text-v2-deep">{t('doneToday.title')}</h3>
-      <ul className="space-y-1.5">
+    <section
+      dir={direction}
+      aria-label={t('doneToday.aria')}
+      data-home-after-done={slide || undefined}
+      className={slide ? 'flex h-full w-full flex-col rounded-v2-card bg-v2-surface p-3' : undefined}
+    >
+      <h3 className={slide
+        ? 'mb-2 whitespace-nowrap px-1 text-[16px] font-black text-v2-ink'
+        : 'mb-1.5 whitespace-nowrap px-1 text-[13px] font-extrabold text-v2-deep'}
+      >
+        {t(slide ? 'homeAfter.done.title' : 'doneToday.title')}
+      </h3>
+      <ul className={slide ? 'min-h-0 flex-1 space-y-1.5 overflow-y-auto' : 'space-y-1.5'}>
         {rows.map(({ card, meta, tappable }) => {
           const tone = TONE[card.category] ?? TONE.strength;
           const iconKey = resolveIconKey(card.programId, card.workoutType ?? (card.category === 'steps' ? 'walking' : card.category));

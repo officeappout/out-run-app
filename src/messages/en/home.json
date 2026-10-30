@@ -159,6 +159,7 @@
   "doneToday.title": "My activity today",
   "doneToday.sets": "{n, plural, one {# set} other {# sets}}",
   "doneToday.runPlan": "Week {week} of {total} · run {n} of {target}",
+  "homeAfter.done.title": "Done today",
   "steps.connect.declined": "You declined earlier, want to connect?",
   "steps.connect.notConnected": "Not connected yet",
   "steps.openAria": "Open steps analysis: {steps} of {goal}",

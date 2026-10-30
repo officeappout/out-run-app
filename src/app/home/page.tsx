@@ -160,6 +160,7 @@ import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
 import { placeProgramSlides, programStartSlideId, programStartTrackOf, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { PICK_PROGRAM_STRIP_HINT_KEY } from '@/features/home/components/start-cards/program-start-copy';
 import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
+import { composeHomeAfterSlides, isHomeAfterActive, runTodayStillDue, HOME_AFTER_DONE_ID } from '@/features/home/utils/home-after';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
@@ -1102,6 +1103,16 @@ export default function HomePage() {
   // the slot on its own, the workout section stays under it, no post-workout carousel.
   const strengthBelowBar = flameTiers && isSelectedDateToday && !isTodayWorkoutDone
     && (strengthStartedNotDone || !!postWorkoutData);
+  // enable_home_after_v1 (owner, canvas option B, 30.10.2026): after today's workout, everything for
+  // today is ONE carousel under the week strip (what is left first, the done slide last); no
+  // encouragement banner, no done card above the strip, no separate run / walk card. Off → as today.
+  const homeAfterOn = featureFlags.enableHomeV2 && !!featureFlags.enableHomeAfterV1;
+  const homeAfter = isHomeAfterActive({
+    flag: !!featureFlags.enableHomeAfterV1,
+    v2: featureFlags.enableHomeV2,
+    isToday: isSelectedDateToday,
+    workoutDone: isTodayWorkoutDone,
+  });
 
   // F2.3 (19.08.2026, "unified workout summary" plan): tapping a
   // TodayActivityCard opens the real workout it represents.
@@ -2002,7 +2013,11 @@ export default function HomePage() {
   // Run-done state (owner 23.10.2026): a too-short run's demoted card sits under the "עוד מחכה לך
   // היום" header, in the after-workout cards area — not above the day's summary. Only while that
   // area shows; otherwise it keeps the standalone spot.
-  const partialRunBelowHeader = featureFlags.enableHomeV2 && isSelectedDateToday && !!homeRun.slot?.partial && postWorkoutHasCards;
+  const partialRunBelowHeader = featureFlags.enableHomeV2 && isSelectedDateToday && !!homeRun.slot?.partial && postWorkoutHasCards && !homeAfter;
+  // enable_home_after_v1: today's run / walk join the carousel instead of their standalone card
+  // (RUNNING mode keeps StatsOverview's own run card, exactly as resolveRunSlotSurface does).
+  const homeAfterRun = homeAfter && resolvedDashboardMode !== 'RUNNING' && runTodayStillDue(homeRun.slot);
+  const homeAfterWalk = homeAfter && !!walkSlot;
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Health declaration check
   const isHealthMissing = (() => {
@@ -3203,7 +3218,7 @@ export default function HomePage() {
 
       {/* ── Global Motivation Banner (post-workout) ── */}
       <AnimatePresence>
-        {showMotivationBanner && postWorkoutMsg && (
+        {showMotivationBanner && postWorkoutMsg && !homeAfterOn && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -3309,7 +3324,7 @@ export default function HomePage() {
             rendered further down this same page for that other date. */}
         {/* Pilot O4 (29.10.2026): a steps-only day's "goal reached" card lives inside the
             carousel now (StepsGoalReachedCard on the steps slot), not as a strip above it. */}
-        {isSelectedDateToday && (postWorkoutDone || todayWorkoutDone || todayStepGoalMet) && (todayActivityCards.length > 0 || (todayStepGoalCard && !stepsGoalInCarousel)) && (
+        {!homeAfter && isSelectedDateToday && (postWorkoutDone || todayWorkoutDone || todayStepGoalMet) && (todayActivityCards.length > 0 || (todayStepGoalCard && !stepsGoalInCarousel)) && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -3656,12 +3671,12 @@ export default function HomePage() {
                     : isTodayWorkoutDone ? 'done'
                     : 'empty',
                 );
-                const standaloneWalkCard = walkSlotSurface === 'standalone' ? (
+                const standaloneWalkCard = walkSlotSurface === 'standalone' && !homeAfterWalk ? (
                   <ErrorBoundary fallback={null}>
                     <div className="mx-auto mb-4 w-full max-w-[358px] px-4">{walkCard(true)}</div>
                   </ErrorBoundary>
                 ) : null;
-                const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader ? (
+                const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot && !partialRunBelowHeader && !homeAfterRun ? (
                   <div className="mx-auto mb-4 w-full max-w-[358px] px-4">
                     <HomeRunCarouselCard
                       standalone
@@ -4032,7 +4047,93 @@ export default function HomePage() {
             && (postWorkoutData || todayWorkoutDone || strengthStartedNotDone)
             && postWorkoutSuggestions === null;
 
-          const continueActivityBlock = isSelectedDateToday && postWorkoutCarouselLoading ? (
+          const renderPostWorkoutSlide = (s: PostWorkoutItem | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem) => (
+            isRunPlanCarouselItem(s) ? (
+              homeRun.slot ? (
+                <ErrorBoundary fallback={null}>
+                  <HomeRunCarouselCard
+                    slot={homeRun.slot}
+                    profile={profile}
+                    currentWeek={homeRun.currentWeek}
+                    weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
+                    calmReturn={calmReturn.state}
+                    onSkipToday={homeRun.skipToday}
+                    onUndoSkip={homeRun.undoSkip}
+                  />
+                </ErrorBoundary>
+              ) : null
+            ) : isProgramStartCarouselItem(s) ? (
+              programStartSlide(programStartTrackOf(s.id)!)
+            ) : isProgramSlideCarouselItem(s) ? (
+              programSlideCard
+            ) : isStrengthInviteCarouselItem(s) ? (
+              <AddStrengthProgramCard
+                profile={profile}
+                onNavigate={(navigate, cancel) => interceptWorkoutStart(navigate, 'strength', cancel)}
+              />
+            ) : (
+              <PostWorkoutCardRenderer
+                suggestion={s}
+                titleOverride={strengthTopUp.mode === 'top-up' && s.generatorId === 'partial-completion' ? topUpTitleHe(strengthTopUp.remainingSets, tHome) : undefined}
+                onStart={() => handlePostWorkoutSuggestionStart(s)}
+                isStarting={startingSuggestionId === s.id}
+                userGender={profile?.core?.gender}
+                healthConnected={healthConnected}
+                onConnectSteps={triggerHealthPermission}
+              />
+            )
+          );
+
+          // enable_home_after_v1: one carousel, built even before the engine's cards land (the done
+          // slide and today's run / walk are known already); the engine's cards join in front.
+          const homeAfterDoneCards = todayStepGoalCard ? [...todayActivityCards, todayStepGoalCard] : todayActivityCards;
+          const homeAfterItems = homeAfter
+            ? composeHomeAfterSlides<PostWorkoutItem | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID } | { id: typeof HOME_AFTER_DONE_ID }>({
+              remaining: postWorkoutHasCards && postWorkoutBase
+                ? placeProgramSlides<PostWorkoutItem | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem>(postWorkoutBase, programSlide.plan, programSlideItems)
+                : [],
+              planned: [
+                ...(homeAfterWalk && walkSlot?.kind === 'today' ? [{ id: WALK_CARD_ID } as const] : []),
+                ...(homeAfterRun ? [{ id: RUN_PLAN_CARD_ID } as const] : []),
+              ],
+              tail: homeAfterWalk && walkSlot?.kind !== 'today' ? [{ id: WALK_CARD_ID } as const] : [],
+              isTopUp: (s) => 'generatorId' in s && s.generatorId === TOP_UP_GENERATOR_ID,
+              done: homeAfterDoneCards.length > 0 ? { id: HOME_AFTER_DONE_ID } : null,
+              idOf: (s) => s.id,
+            })
+            : null;
+
+          const continueActivityBlock = homeAfterItems ? (
+            homeAfterItems.length > 0 ? (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                data-home-after
+              >
+                <h3 className="text-start text-[16px] font-bold text-gray-900 mb-3">
+                  {nextRec ? nextHeaderHe(nextRec, tHome) : allGoalsMet ? tHome('nextHeader.rest.done') : tHome('nextHeader.continue')}
+                </h3>
+                <SuggestionCarousel<typeof homeAfterItems[number]>
+                  items={homeAfterItems}
+                  keyExtractor={(s) => s.id}
+                  cardHeight={330}
+                  passiveDots
+                  renderCard={(s) => s.id === HOME_AFTER_DONE_ID ? (
+                    <DoneTodayCard
+                      slide
+                      cards={homeAfterDoneCards}
+                      workouts={todaysWorkouts ?? []}
+                      onCardTap={handleTodayActivityCardTap}
+                      notes={runDoneNotes}
+                    />
+                  ) : isWalkCarouselItem(s) ? (
+                    <ErrorBoundary fallback={null}>{walkCard(false)}</ErrorBoundary>
+                  ) : renderPostWorkoutSlide(s as PostWorkoutItem | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem)}
+                />
+              </motion.div>
+            ) : null
+          ) : isSelectedDateToday && postWorkoutCarouselLoading ? (
             <div>
               <div className="h-4 w-40 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-3" />
               <CarouselSkeleton />
@@ -4077,42 +4178,7 @@ export default function HomePage() {
                 keyExtractor={(s) => s.id}
                 cardHeight={330}
                 passiveDots={featureFlags.enableHomeV2}
-                renderCard={(s) =>
-                  isRunPlanCarouselItem(s) ? (
-                    homeRun.slot ? (
-                      <ErrorBoundary fallback={null}>
-                        <HomeRunCarouselCard
-                          slot={homeRun.slot}
-                          profile={profile}
-                          currentWeek={homeRun.currentWeek}
-                          weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
-                          calmReturn={calmReturn.state}
-                          onSkipToday={homeRun.skipToday}
-                          onUndoSkip={homeRun.undoSkip}
-                        />
-                      </ErrorBoundary>
-                    ) : null
-                  ) : isProgramStartCarouselItem(s) ? (
-                    programStartSlide(programStartTrackOf(s.id)!)
-                  ) : isProgramSlideCarouselItem(s) ? (
-                    programSlideCard
-                  ) : isStrengthInviteCarouselItem(s) ? (
-                    <AddStrengthProgramCard
-                      profile={profile}
-                      onNavigate={(navigate, cancel) => interceptWorkoutStart(navigate, 'strength', cancel)}
-                    />
-                  ) : (
-                    <PostWorkoutCardRenderer
-                      suggestion={s}
-                      titleOverride={strengthTopUp.mode === 'top-up' && s.generatorId === 'partial-completion' ? topUpTitleHe(strengthTopUp.remainingSets, tHome) : undefined}
-                      onStart={() => handlePostWorkoutSuggestionStart(s)}
-                      isStarting={startingSuggestionId === s.id}
-                      userGender={profile?.core?.gender}
-                      healthConnected={healthConnected}
-                      onConnectSteps={triggerHealthPermission}
-                    />
-                  )
-                }
+                renderCard={renderPostWorkoutSlide}
               />
             </motion.div>
           ) : null;
