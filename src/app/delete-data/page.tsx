@@ -1,17 +1,17 @@
 import React, { createElement, Fragment, type ReactNode } from 'react';
 import type { Metadata } from 'next';
-import { makeT } from '@/lib/i18n/t';
+import { legalHostAttrs } from '@/features/legal/legal-locale';
+import { legalT, type LegalSearchParams } from '@/features/legal/legal-locale.server';
 import { SOURCE_LOCALE } from '@/lib/i18n/locales';
-import { legal } from '@/messages/ns/legal';
 
 /**
- * Server component: no locale store here. The server-side locale read (out_locale cookie) is wave 4E
- * (src/lib/i18n/locale-cookie.ts) — until then the page renders from the Hebrew source catalog.
+ * Server component. Language: ?lang= / out_locale cookie, gated by the stored i18n flags
+ * (src/features/legal/legal-locale.ts); Hebrew by default.
  */
-const pageT = () => makeT(SOURCE_LOCALE, legal);
+type PageProps = { searchParams?: LegalSearchParams };
 
-export function generateMetadata(): Metadata {
-  const t = pageT();
+export async function generateMetadata({ searchParams }: PageProps = {}): Promise<Metadata> {
+  const { t } = await legalT(searchParams);
   return {
     title: t('deleteData.meta.title'),
     description: t('deleteData.meta.description'),
@@ -47,14 +47,13 @@ const NOTES = [
   'deleteData.notes.subscription',
 ] as const;
 
-// dir="rtl" is deliberate: this page is Hebrew-only legal text (lang="he"), it must not follow the UI locale.
-export default function DeleteDataPage() {
-  const t = pageT();
+// The page is its own dir/lang host (he/rtl by default): it follows the request's legal locale, not the UI store.
+export default async function DeleteDataPage({ searchParams }: PageProps = {}) {
+  const { locale, t } = await legalT(searchParams);
   return (
     <div
       className="min-h-screen bg-gradient-to-b from-slate-50 to-white"
-      dir="rtl"
-      lang="he"
+      {...legalHostAttrs(locale)}
     >
       {/* ── Sticky header ── */}
       <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-10">
@@ -254,7 +253,7 @@ export default function DeleteDataPage() {
             </p>
           </div>
           <a
-            href="/privacy"
+            href={locale === SOURCE_LOCALE ? '/privacy' : `/privacy?lang=${locale}`}
             className="flex-shrink-0 flex items-center gap-1.5 text-[#5BC2F2] text-sm font-semibold hover:underline"
           >
             {t('deleteData.privacyLink.cta')}

@@ -1,25 +1,23 @@
 import React, { createElement, Fragment, type ReactNode } from 'react';
 import type { Metadata } from 'next';
-import { makeT } from '@/lib/i18n/t';
+import { legalHostAttrs } from '@/features/legal/legal-locale';
+import { legalT, type LegalSearchParams } from '@/features/legal/legal-locale.server';
+import { accessibilityLastUpdated } from '@/features/legal/legal-dates';
 import { SOURCE_LOCALE } from '@/lib/i18n/locales';
-import { legal } from '@/messages/ns/legal';
 
 /**
- * Server component: no locale store here. The server-side locale read (out_locale cookie) is wave 4E
- * (src/lib/i18n/locale-cookie.ts) — until then the statement renders from the Hebrew source catalog.
+ * Server component. Language: ?lang= / out_locale cookie, gated by the stored i18n flags
+ * (src/features/legal/legal-locale.ts); Hebrew by default.
  */
-const pageT = () => makeT(SOURCE_LOCALE, legal);
+type PageProps = { searchParams?: LegalSearchParams };
 
-export function generateMetadata(): Metadata {
-  const t = pageT();
+export async function generateMetadata({ searchParams }: PageProps = {}): Promise<Metadata> {
+  const { t } = await legalT(searchParams);
   return {
     title: t('accessibility.meta.title'),
     description: t('accessibility.meta.description'),
   };
 }
-
-/** Bump on every material change to the statement or to the real conformance status. */
-const ACCESSIBILITY_LAST_UPDATED_HE = '27 באוקטובר 2026'; // i18n-allow-hebrew: date text — wave 3 (fmt)
 
 const COORDINATOR = {
   name: 'דוד מובשוביץ', // i18n-allow-hebrew: a person's name (data)
@@ -35,17 +33,19 @@ const P = 'text-sm text-slate-700 leading-relaxed';
 const LINK =
   'font-semibold text-[#007EA8] underline underline-offset-2 hover:text-[#006E96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007EA8] rounded-sm';
 
-export default function AccessibilityStatementPage() {
-  const t = pageT();
+export default async function AccessibilityStatementPage({ searchParams }: PageProps = {}) {
+  const { locale, t } = await legalT(searchParams);
+  // Hebrew keeps its original physical pr-5 (byte-identical markup); every other locale gets the logical ps-5.
+  const doneListPad = locale === SOURCE_LOCALE ? 'pr-5' : 'ps-5';
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir="rtl" lang="he">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" {...legalHostAttrs(locale)}>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <a href="/home" className={`${LINK} inline-block mb-4 text-sm`}>
           {t('accessibility.backToApp')}
         </a>
         <header className="mb-6">
           <h1 className="text-2xl font-black text-slate-900">{t('accessibility.title')}</h1>
-          <p className="text-xs text-slate-600 mt-1">{t('accessibility.lastUpdated', { date: ACCESSIBILITY_LAST_UPDATED_HE })}</p>
+          <p className="text-xs text-slate-600 mt-1">{t('accessibility.lastUpdated', { date: accessibilityLastUpdated(locale) })}</p>
         </header>
 
         <div className="space-y-5">
@@ -71,7 +71,7 @@ export default function AccessibilityStatementPage() {
 
           <section aria-labelledby="a11y-done" className={SECTION}>
             <h2 id="a11y-done" className={H2}>{t('accessibility.done.title')}</h2>
-            <ul className="list-disc pr-5 space-y-1.5">
+            <ul className={`list-disc ${doneListPad} space-y-1.5`}>
               <li className={P}>{t('accessibility.done.iconButtons')}</li>
               <li className={P}>{t('accessibility.done.contrast')}</li>
               <li className={P}>{t('accessibility.done.intervalLabel')}</li>

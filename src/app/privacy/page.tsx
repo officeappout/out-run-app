@@ -1,24 +1,24 @@
 import React from 'react';
 import {
   buildPrivacyDoc,
-  LEGAL_LAST_UPDATED_HE,
   LEGAL_VERSION,
   toParagraphs,
+  type LegalT,
 } from '@/features/legal/legal-content';
 import type { Metadata } from 'next';
-import { makeT } from '@/lib/i18n/t';
-import { SOURCE_LOCALE } from '@/lib/i18n/locales';
-import { legal } from '@/messages/ns/legal';
+import { legalHostAttrs } from '@/features/legal/legal-locale';
+import { legalT, type LegalSearchParams } from '@/features/legal/legal-locale.server';
+import { legalLastUpdated } from '@/features/legal/legal-dates';
 
 /**
- * Server component: no locale store here. The server-side locale read (out_locale cookie) is wave 4E
- * (src/lib/i18n/locale-cookie.ts) — until then the page chrome renders from the Hebrew source catalog.
- * The policy text itself is buildPrivacyDoc (src/features/legal/legal-content.ts, catalog `privacyDoc.*`) — not this page's copy.
+ * Server component. Language: ?lang= / out_locale cookie, gated by the stored i18n flags
+ * (src/features/legal/legal-locale.ts); Hebrew by default. The policy text itself is buildPrivacyDoc
+ * (src/features/legal/legal-content.ts, catalog `privacyDoc.*`) — not this page's copy.
  */
-const pageT = () => makeT(SOURCE_LOCALE, legal);
+type PageProps = { searchParams?: LegalSearchParams };
 
-export function generateMetadata(): Metadata {
-  const t = pageT();
+export async function generateMetadata({ searchParams }: PageProps = {}): Promise<Metadata> {
+  const { t } = await legalT(searchParams);
   return {
     title: t('privacy.meta.title'),
     description: t('privacy.meta.description'),
@@ -27,12 +27,12 @@ export function generateMetadata(): Metadata {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Section numbers that receive special enhanced styling */
-const HEALTH_SECTION_TITLE = '2. נתוני בריאות — Apple HealthKit ו-Google Health Connect'; // i18n-allow-hebrew: data — compared with buildPrivacyDoc section titles
-const CONTACT_SECTION_TITLE = '14. יצירת קשר'; // i18n-allow-hebrew: data — compared with buildPrivacyDoc section titles
+/** Sections that receive special enhanced styling, matched by their buildPrivacyDoc catalog titles. */
+const HEALTH_SECTION_KEY = 'privacyDoc.s3.title';
+const CONTACT_SECTION_KEY = 'privacyDoc.s15.title';
 
 /** The four zero-sharing commitments (subsection 2.3) that get badge treatment */
-const ZERO_SHARING_SUBSECTION = '2.3 התחייבויות מוחלטות'; // i18n-allow-hebrew: data — compared with buildPrivacyDoc subsection titles
+const ZERO_SHARING_SUBSECTION_KEY = 'privacyDoc.s3.u3.title';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -57,8 +57,7 @@ function Paragraphs({
 }
 
 /** Highlighted card used for zero-sharing commitments (subsection 2.3) */
-function CommitmentsCard({ body }: { body: string | string[] }) {
-  const t = pageT();
+function CommitmentsCard({ body, t }: { body: string | string[]; t: LegalT }) {
   const items = toParagraphs(body);
   return (
     <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-2xl p-5 space-y-2.5">
@@ -87,13 +86,15 @@ const HEALTH_DATA_ICONS: Record<string, string> = {
 function HealthSubsection({
   title,
   body,
+  t,
 }: {
   title: string;
   body: string | string[];
+  t: LegalT;
 }) {
   const key = title.split(' ')[0]; // e.g. "2.1"
   const icon = HEALTH_DATA_ICONS[key] ?? '•';
-  const isCommitments = title === ZERO_SHARING_SUBSECTION;
+  const isCommitments = title === t(ZERO_SHARING_SUBSECTION_KEY);
 
   return (
     <div className="ms-0 mt-4">
@@ -104,7 +105,7 @@ function HealthSubsection({
         <h4 className="font-bold text-slate-800 text-sm">{title}</h4>
       </div>
       {isCommitments ? (
-        <CommitmentsCard body={body} />
+        <CommitmentsCard body={body} t={t} />
       ) : (
         <ul className="space-y-1.5 me-2">
           {toParagraphs(body).map((item, i) => (
@@ -124,16 +125,18 @@ function HealthSubsection({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-// dir="rtl" is deliberate: this page is Hebrew-only legal text (lang="he"), it must not follow the UI locale.
-export default function PrivacyPage() {
-  const t = pageT();
+// The page is its own dir/lang host (he/rtl by default): it follows the request's legal locale, not the UI store.
+export default async function PrivacyPage({ searchParams }: PageProps = {}) {
+  const { locale, t } = await legalT(searchParams);
   const doc = buildPrivacyDoc(t);
+  const updated = legalLastUpdated(locale);
+  const healthTitle = t(HEALTH_SECTION_KEY);
+  const contactTitle = t(CONTACT_SECTION_KEY);
 
   return (
     <div
       className="min-h-screen bg-gradient-to-b from-slate-50 to-white"
-      dir="rtl"
-      lang="he"
+      {...legalHostAttrs(locale)}
     >
       {/* ── Hero header ── */}
       <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-10">
@@ -158,7 +161,7 @@ export default function PrivacyPage() {
               {doc.title}
             </h1>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              {t('privacy.version', { version: LEGAL_VERSION, date: LEGAL_LAST_UPDATED_HE })}
+              {t('privacy.version', { version: LEGAL_VERSION, date: updated })}
             </p>
           </div>
         </div>
@@ -177,8 +180,8 @@ export default function PrivacyPage() {
         {/* ── Sections ── */}
         <div className="space-y-6">
           {doc.sections.map((section) => {
-            const isHealth = section.title === HEALTH_SECTION_TITLE;
-            const isContact = section.title === CONTACT_SECTION_TITLE;
+            const isHealth = section.title === healthTitle;
+            const isContact = section.title === contactTitle;
 
             return (
               <section
@@ -251,6 +254,7 @@ export default function PrivacyPage() {
                           key={sub.title}
                           title={sub.title}
                           body={sub.body}
+                          t={t}
                         />
                       ) : (
                         <div key={sub.title} className="pt-4 first:pt-0">
@@ -300,7 +304,7 @@ export default function PrivacyPage() {
         {/* ── Footer ── */}
         <footer className="mt-10 text-center space-y-2">
           <p className="text-xs text-slate-600">
-            {t('privacy.footer.effective', { date: LEGAL_LAST_UPDATED_HE })}
+            {t('privacy.footer.effective', { date: updated })}
           </p>
           <p className="text-xs text-slate-600">
             {t('footer.copyright')}
