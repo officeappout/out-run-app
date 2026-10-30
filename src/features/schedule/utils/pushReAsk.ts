@@ -23,6 +23,12 @@
  *                      while the OS permission is still 'prompt'.
  *  - 'streak_3'      — once ever, on the summary that brings the streak to
  *                      3+ days, only while the permission is still 'prompt'.
+ *  - 'home'          — a home card for users who never allowed push (owner
+ *                      30.10.2026: only 19% of new signups had a token, and a
+ *                      reinstall never asks again). Every HOME_REASK_COOLDOWN_DAYS,
+ *                      at most HOME_REASK_MAX_SHOWS times per device. 'prompt' →
+ *                      the OS dialog; 'denied' (native only) → the OS settings.
+ *                      Not behind enable_home_v2.
  * At most one post-workout sheet per summary (pickPostWorkoutReAsk).
  */
 import type { PushPermissionState } from './reminderOptIn';
@@ -30,7 +36,7 @@ import type { PushPermissionState } from './reminderOptIn';
 /** Device pref: epoch ms of the last v2 soft-ask "לא עכשיו". */
 export const PUSH_SOFTASK_DEFERRED_KEY = 'push_softask_deferred_at';
 
-export type PushReAskMoment = 'settings' | 'first_workout' | 'streak_3' | 'signup_start';
+export type PushReAskMoment = 'settings' | 'first_workout' | 'streak_3' | 'signup_start' | 'home';
 
 /** Device pref: epoch ms the re-ask for this moment was shown. */
 export function pushReAskShownKey(moment: PushReAskMoment): string {
@@ -61,6 +67,37 @@ export interface PushReAskInput {
   iosWebBlocked?: boolean;
 }
 
+/** Device pref: how many times the home re-ask was shown. */
+export const PUSH_REASK_HOME_COUNT_KEY = 'push_reask_home_count';
+
+/** Days between two home re-asks. */
+export const HOME_REASK_COOLDOWN_DAYS = 3;
+
+/** The home re-ask stops after this many shows on a device. */
+export const HOME_REASK_MAX_SHOWS = 5;
+
+const DAY_MS = 86_400_000;
+
+/** What the home card offers: the OS prompt, the OS settings, or nothing. */
+export type HomeReAskAction = 'prompt' | 'open_settings' | null;
+
+export function homeReAskAction(input: {
+  permission: PushPermissionState;
+  shownAt: number | null;
+  shownCount: number;
+  now: number;
+  isNative: boolean;
+  /** iOS Safari outside an installed PWA — the OS cannot prompt at all. */
+  iosWebBlocked?: boolean;
+}): HomeReAskAction {
+  const { permission, shownAt, shownCount, now } = input;
+  if (shownCount >= HOME_REASK_MAX_SHOWS) return null;
+  if (shownAt != null && now - shownAt < HOME_REASK_COOLDOWN_DAYS * DAY_MS) return null;
+  if (permission === 'prompt') return input.iosWebBlocked ? null : 'prompt';
+  if (permission === 'denied' && input.isNative) return 'open_settings';
+  return null;
+}
+
 /** The streak that earns the streak re-ask. */
 export const STREAK_REASK_DAYS = 3;
 
@@ -69,6 +106,7 @@ export const FIRST_WORKOUT_MAX_COUNT = 1;
 
 export function shouldShowPushReAsk(input: PushReAskInput): boolean {
   const { moment, permission } = input;
+  if (moment === 'home') return false; // cooldown rules: homeReAskAction
   if (moment === 'settings') {
     if (permission === 'prompt') return true;
     return permission === 'granted' && (input.pushEnabled === false || input.trainingReminder === false);

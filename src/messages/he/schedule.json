@@ -249,5 +249,12 @@
   "featureInfo.week.step3": "״{confirm}״, ובוחרים: {onlyWeek}, או {forward}.",
   "featureInfo.week.session": "האימון של יום {day}׳",
   "featureInfo.week.chip1": "למה אי אפשר להזיז ליום הזה?",
-  "featureInfo.week.chip2": "סדר לי במילים"
+  "featureInfo.week.chip2": "סדר לי במילים",
+  "pushReAsk.home.title": "שנזכיר לך לפני אימון?",
+  "pushReAsk.home.body": "נזכיר לך רק לפני אימון ונשמור על הרצף",
+  "pushReAsk.home.accept": "כן, תזכירו לי",
+  "pushReAsk.home.defer": "לא עכשיו",
+  "pushReAsk.home.deniedTitle": "ההתראות כבויות",
+  "pushReAsk.home.deniedBody": "כדי שנזכיר לך לפני אימון, צריך להפעיל התראות בהגדרות הטלפון",
+  "pushReAsk.home.openSettings": "מעבר להגדרות"
 }
