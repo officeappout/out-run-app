@@ -31,6 +31,8 @@ import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
 import { isWalkingLeg } from '../park-live-v2';
 import ParkWalkDrawer from './park/ParkWalkDrawer';
 import ParkMessageRow from './park/ParkMessageRow';
+import ComboStartChip from './combo/ComboStartChip';
+import { useComboFlow } from './combo/ComboFlowContext';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
 interface Props {
@@ -51,6 +53,8 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   const chrome = usePublishedPlayerChrome({ bottomGapPx: 12, headerIncludesSafeTop: true });
   // enable_park_live_v2 (boards Park 1-2): walking legs get the walk drawer + the station message row.
   const parkLive = useParkLiveV2();
+  // enable_combo_flow_v1: the start chip under the header (board PlayerTransitionStart).
+  const combo = useComboFlow();
   if (!api?.enabled || !api.view || !api.strip) return null;
 
   const view = api.view;
@@ -58,6 +62,8 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   const cart = toCartItems(api.strip);
   const walkLeg = view.phase === 'run' || view.phase === 'cooldown' || view.phase === 'idle';
   const parkWalk = parkLive && walkLeg && isWalkingLeg(view);
+  // enable_combo_flow_v1: the arrival card is the attached bottom sheet too.
+  const arrival = combo.on && view.phase === 'transition';
 
   // The tour anchors wrap the cart and the bars only under the flag, so the flag-off DOM is unchanged.
   const cartIcon = (
@@ -88,13 +94,15 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
         </div>
       </div>
 
+      {combo.on && <ComboStartChip top={`calc(env(safe-area-inset-top, 0px) + ${header.height + 12}px)`} />}
+
       <div className="pointer-events-none absolute left-4 z-10" style={{ top: `calc(env(safe-area-inset-top, 0px) + ${header.height + 16}px)` }}>
         <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
       </div>
 
-      {parkWalk ? (
+      {parkWalk || arrival ? (
         <div ref={chrome.cardRef} className="absolute inset-x-0 bottom-0 z-10" dir={direction}>
-          <ParkWalkDrawer api={api} onOpenList={onMinimize} />
+          {arrival ? <HybridTransitionCardV2 api={api} arrival /> : <ParkWalkDrawer api={api} onOpenList={onMinimize} />}
         </div>
       ) : (
       <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }} dir={direction}>

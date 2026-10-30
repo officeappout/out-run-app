@@ -53,6 +53,7 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import StationWelcomeScreen from './StationWelcomeScreen';
 import ParkStationIntro from './v2/park/ParkStationIntro';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { useComboFlowV1 } from './v2/combo/useComboFlowV1';
 import { stationIntroDifficulty, stationIntroView, stationRunPlan, type StationDifficulty } from './park-live-v2';
 import { firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
 import { COACH_TARGET_SKIP } from './station-tutorial';
@@ -134,6 +135,8 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   // station difficulty (default easy, kept for the session's later stations) applied to the plan the
   // player runs. Flag off → the composed plan, unchanged.
   const parkLive = useParkLiveV2();
+  // enable_combo_flow_v1 (v2 player only): the station-done screen is a bottom sheet over the map.
+  const comboSheet = useComboFlowV1() && !!v2;
   // null until the user picks a level on the station intro; until then the composed level runs.
   const [stationDifficulty, setStationDifficulty] = useState<StationDifficulty | null>(null);
   const runPlan = useMemo(
@@ -242,7 +245,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   // Station live — StrengthRunner owns the screen until the block completes.
   if (phase === 'station' && stationPlan) {
     return (
-      <div className="fixed inset-0 z-[120] bg-white pointer-events-auto" dir={direction}>
+      <div className={`fixed inset-0 z-[120] pointer-events-auto ${comboSheet && pendingStationComplete ? 'bg-transparent' : 'bg-white'}`} dir={direction}>
         {pendingStationComplete ? (
           // G2.4: non-final station done → short completion screen; the run clock stays
           // paused until "המשך במסלול" (continueAfterStation).
@@ -250,6 +253,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
             summary={pendingStationComplete}
             context={stationContext}
             onContinue={continueAfterStation}
+            sheet={comboSheet}
             fastPrompt={
               stationContext && fastPromptFor === stationContext.stationNumber
                 ? { onAccept: () => setGuidedStationChoice(false) }
