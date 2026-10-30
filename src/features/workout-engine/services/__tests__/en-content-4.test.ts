@@ -126,7 +126,7 @@ describe('engine title', () => {
     expect(index.get('אימון התאוששות לסטודנטים בבית')).toBe('Recovery workout for students at home');
     expect(index.get('אימון כוח עצים 💪 בחדר כושר')).toBe('Max strength workout 💪 at the gym');
     expect(index.get('Gym Blast 🔥')).toBe('Gym Blast 🔥');
-    for (const [heTitle, enTitle] of index) expect(enTitle, heTitle).not.toMatch(/[֐-׿]/);
+    for (const [heTitle, enTitle] of Array.from(index.entries())) expect(enTitle, heTitle).not.toMatch(/[֐-׿]/);
   });
 
   it('display: pair first (content language), engine catalog second (UI language), Hebrew as saved otherwise', () => {
