@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RunBlock } from '../../types/run-block.type';
 import type { PlannedBlockRecord } from '../planned-rep-results';
-import { plannedRepRows, sectionStatus } from '../planned-segment-rows';
+import { lapTableRows, plannedRepRows, sectionStatus } from '../planned-segment-rows';
 
 const rep = (id: string) => ({ id, type: 'interval', distanceMeters: 400 }) as unknown as RunBlock;
 const blocks = [rep('a'), rep('b'), rep('c')];
@@ -47,5 +47,19 @@ describe('sectionStatus', () => {
     expect(sectionStatus([5], 3, 4)).toBe('ahead');
     expect(sectionStatus([4], 3, 4)).toBe('now');
     expect(sectionStatus([], 0, 0)).toBe('ahead');
+  });
+});
+
+describe('lapTableRows', () => {
+  it('maps lap rows 1:1, the live lap is current, no pace stays null', () => {
+    const out = lapTableRows(
+      [
+        { id: 'l1', n: 1, distanceText: '1.00', timeText: '5:48', paceText: '5:48', active: false },
+        { id: 'l2', n: 2, distanceText: '0.30', timeText: '1:50', paceText: null, active: true },
+      ],
+      (n, active) => (active ? `lap ${n} now` : `lap ${n}`),
+    );
+    expect(out[0]).toMatchObject({ key: 'l1', n: 1, name: 'lap 1', km: '1.00', time: '5:48', pace: '5:48', current: false });
+    expect(out[1]).toMatchObject({ name: 'lap 2 now', pace: null, current: true });
   });
 });

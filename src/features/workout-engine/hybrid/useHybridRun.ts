@@ -14,6 +14,7 @@
 import { create } from 'zustand';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
+import type { Lap } from '@/features/workout-engine/core/types/session.types';
 import type { HybridPlan, HybridPlannedSegment } from './compose-hybrid-session.service';
 import type { HybridControllerHandle } from './hybrid-session-controller';
 import type { HybridPhase, HybridRunState, HybridFinalizeResult } from './hybrid-orchestrator';
@@ -191,6 +192,9 @@ export interface HybridRunStore {
   finishedHybrid: boolean;
   lastResult: HybridFinalizeResult | null;
   lastCalories: number;
+  /** The aerobic legs' laps (the running player's, at finish), for the summary's lap chart / table.
+   *  In memory only; the saved doc is unchanged. */
+  lastLaps: Lap[];
   /** G2.4: context of the station being run (is it the last one? what's next?) — set on arrive. */
   stationContext: StationContext | null;
   /** G2.4: set when a NON-final station's block is done → the completion screen is showing. */
@@ -254,6 +258,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   finishedHybrid: false,
   lastResult: null,
   lastCalories: 0,
+  lastLaps: [],
   stationContext: null,
   pendingStationComplete: null,
 
@@ -291,6 +296,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       finishedHybrid: false,
       lastResult: null,
       lastCalories: 0,
+      lastLaps: [],
       stationContext: null,
       pendingStationComplete: null,
     });
@@ -475,6 +481,10 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     // this reuses the value finalize() already produced.
     if (HYBRID_SUMMARY_ENABLED) {
       set({ finishedHybrid: true, lastResult: result, lastCalories: planCalories });
+      // The laps before the runner teardown (finishWorkout, further down) clears them.
+      void import('@/features/workout-engine/players/running/store/useRunningPlayer')
+        .then(({ useRunningPlayer }) => set({ lastLaps: (useRunningPlayer.getState().laps ?? []).map((l) => ({ ...l })) }))
+        .catch(() => {});
     }
 
     // ── The SINGLE hybrid doc ────────────────────────────────────────────────
@@ -576,6 +586,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       finishedHybrid: false,
       lastResult: null,
       lastCalories: 0,
+      lastLaps: [],
       stationContext: null,
       pendingStationComplete: null,
     });

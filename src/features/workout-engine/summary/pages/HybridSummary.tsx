@@ -20,6 +20,9 @@ import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.type
 import { useSummaryStreakWeek } from '../hooks/useSummaryStreakWeek';
 import { hybridRings, hybridStationTables } from '../v2-summary.mapping';
 import { isWalkSession, relabelWalkRing, withWidgetRingColors } from '../park-summary';
+import type { Lap } from '@/features/workout-engine/core/types/session.types';
+import LapPaceChart from '../components/shared/LapPaceChart';
+import HybridLapsTable from './HybridLapsTable';
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import SummaryDrawerShell, { type DrawerTab } from '../blocks/SummaryDrawerShell';
 import type { SummarySnap } from '../blocks/summary-sheet.util';
@@ -63,6 +66,8 @@ export interface HybridSummaryProps {
   parkLive?: boolean;
   /** enable_combo_flow_v1 (board PlayerComboSummary): rings in the home widget's colours. */
   widgetRings?: boolean;
+  /** enable_combo_flow_v1 (board PlayerSummaryCoverage): the aerobic legs' laps → chart + table. */
+  laps?: Lap[];
   /** enable_park_live_v2 (pilot M7): no strength questionnaire yet → the card that opens it. */
   onStrengthQuiz?: () => void;
   /**
@@ -121,6 +126,7 @@ export default function HybridSummary({
   isReadOnly = false,
   parkLive = false,
   widgetRings = false,
+  laps,
   onStrengthQuiz,
 }: HybridSummaryProps) {
   const t = useT(summaryNs);
@@ -242,6 +248,12 @@ export default function HybridSummary({
         </div>
         <SectionLabel>{t(walkSession ? 'hybrid.aerobic.segmentsWalk' : 'hybrid.aerobic.segments')}</SectionLabel>
         <SegmentRail items={buildRailItems(segments, t, tc, 'aerobic')} />
+        {laps && laps.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {laps.length > 1 && <LapPaceChart laps={laps} />}
+            <HybridLapsTable laps={laps} />
+          </div>
+        )}
       </div>
     ),
     strength: v2 && stationTables.length > 0 ? (

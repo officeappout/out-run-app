@@ -1,6 +1,8 @@
 'use client';
 
 import { Card, RepPaceTable } from '@/components/ui/v2';
+import RepSegmentTable from '../RepSegmentTable';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
 import SegmentRail from '../../blocks/SegmentRail';
 import type { RunTypeModel } from '../../run-type/run-type.mapping';
 import type { RepTableModel } from '../../v2-summary.mapping';
@@ -16,6 +18,8 @@ import { summary } from '@/messages/ns/summary';
  */
 export default function RunTypeSegments({ model, repTable }: { model: RunTypeModel; repTable: RepTableModel | null }) {
   const t = useT(summary);
+  // enable_combo_flow_v1: the per-rep rows as the shared SegmentTable.
+  const tableOn = useComboFlowV1();
   const showReps = model.kind === 'intervals' && repTable;
   const showSplits = model.kind !== 'intervals' && model.splits;
   if (!showReps && !showSplits) return null;
@@ -23,7 +27,7 @@ export default function RunTypeSegments({ model, repTable }: { model: RunTypeMod
     <div className="space-y-3">
       {showReps && (
         <Card padding="md">
-          <RepPaceTable rows={repTable.rows} band={repTable.band} summaryLabel={repTable.summaryLabel} />
+          <RepPaceTable rows={repTable.rows} band={repTable.band} summaryLabel={repTable.summaryLabel} table={tableOn ? <RepSegmentTable model={repTable} /> : undefined} />
         </Card>
       )}
       {showReps && model.course.length > 0 && (

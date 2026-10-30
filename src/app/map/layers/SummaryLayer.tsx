@@ -31,6 +31,7 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   const finishedHybrid = useHybridRun((s) => s.finishedHybrid);
   const lastResult = useHybridRun((s) => s.lastResult);
   const lastCalories = useHybridRun((s) => s.lastCalories);
+  const lastLaps = useHybridRun((s) => s.lastLaps);
   const currentStreak = useProgressionStore((s) => s.currentStreak);
   const router = useRouter();
   // enable_park_live_v2 (boards Park 11-12, pilot N1 / N2 / M7): the weekly-ring screen first, then
@@ -91,6 +92,7 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
           onFinish={handleHybridFinish}
           parkLive={parkSummary}
           widgetRings={comboFlow}
+          laps={comboFlow ? lastLaps : undefined}
           onStrengthQuiz={needsQuiz ? handleStrengthQuiz : undefined}
         />
         <PushReAskAfterWorkout />

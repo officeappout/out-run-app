@@ -45,6 +45,8 @@ export interface RepPaceTableProps {
   variant?: 'full' | 'chart';
   /** Small caption under the chart ("ירוק = בטווח · כתום = מחוץ לטווח"). */
   legend?: string;
+  /** Replaces the row list (variant 'full') with the caller's table, e.g. the shared SegmentTable. */
+  table?: React.ReactNode;
 }
 
 const TONE = {
@@ -106,6 +108,7 @@ export default function RepPaceTable({
   title,
   variant = 'full',
   legend,
+  table,
 }: RepPaceTableProps) {
   const t = useT(common);
   if (rows.length === 0) return null;
@@ -122,7 +125,8 @@ export default function RepPaceTable({
       </div>
       <Chart rows={rows} band={band} barColor={barColor} />
       {legend && <div className="mt-1.5 whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{legend}</div>}
-      {variant === 'full' && (
+      {variant === 'full' && table && <div className="mt-3">{table}</div>}
+      {variant === 'full' && !table && (
       <div className="mt-2 divide-y divide-v2-hairline">
         {rows.map((r) => {
           const tone = TONE[r.tone];

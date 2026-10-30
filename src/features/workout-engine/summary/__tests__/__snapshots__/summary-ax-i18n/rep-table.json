@@ -41,7 +41,39 @@
   },
   "summaryLabel": "2 מתוך 3 חזרות בטווח",
   "shortLabel": "2/3 בטווח",
-  "reps": 3
+  "reps": 3,
+  "table": [
+   {
+    "key": "1-0",
+    "n": 1,
+    "name": "אינטרוול",
+    "km": "0.40",
+    "time": "1:55",
+    "pace": "4:48",
+    "paceTone": "in",
+    "paceNote": "בטווח"
+   },
+   {
+    "key": "3-1",
+    "n": 2,
+    "name": "אינטרוול",
+    "km": "0.40",
+    "time": "1:59",
+    "pace": "4:58",
+    "paceTone": "off",
+    "paceNote": "איטי ב-3 שנ׳"
+   },
+   {
+    "key": "5-2",
+    "n": 3,
+    "name": "אינטרוול",
+    "km": "0.40",
+    "time": "1:56",
+    "pace": "4:50",
+    "paceTone": "in",
+    "paceNote": "בטווח"
+   }
+  ]
  },
  "unscored": {
   "rows": [
@@ -57,6 +89,17 @@
   "band": null,
   "summaryLabel": null,
   "shortLabel": null,
-  "reps": 1
+  "reps": 1,
+  "table": [
+   {
+    "key": "1-0",
+    "n": 1,
+    "name": "אינטרוול",
+    "km": "0.40",
+    "time": "0:40",
+    "pace": null,
+    "paceTone": "none"
+   }
+  ]
  }
 }

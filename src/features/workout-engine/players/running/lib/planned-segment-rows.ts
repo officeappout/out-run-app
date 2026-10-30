@@ -51,3 +51,17 @@ export function sectionStatus(indices: readonly number[], currentBlockIndex: num
   if (indices.includes(focusIndex) || indices.includes(currentBlockIndex)) return 'now';
   return indices.every((x) => x < currentBlockIndex) ? 'done' : 'ahead';
 }
+
+/** Laps of a free run / walk / route (or a hybrid's aerobic legs) as SegmentTable rows. */
+export function lapTableRows(rows: readonly { id: string; n: number; distanceText: string; timeText: string; paceText: string | null; active: boolean }[], name: (n: number, active: boolean) => string): Omit<SegmentTableRow, 'onClick'>[] {
+  return rows.map((r) => ({
+    key: r.id,
+    n: r.n,
+    name: name(r.n, r.active),
+    km: r.distanceText,
+    time: r.timeText,
+    pace: r.paceText,
+    paceTone: 'none',
+    current: r.active,
+  }));
+}
