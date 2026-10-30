@@ -825,6 +825,12 @@ export const FLAG_DEFS = [
   // upgraded arrival card ("you made it to the station") and station-done sheet, a "start" chip, and later the combined finish and
   // summary. Needs enable_home_v2. Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableComboFlowV1', firestoreKey: 'enable_combo_flow_v1', defaultValue: false, superAdminValue: true },
+  // Home after a workout (30.10.2026, owner-approved canvas option B, boards HomeAfterB / HomeAfterRules): everything
+  // for today in ONE carousel under the week strip, what is left first (top-up, today's run, the engine's cards) and
+  // the "done today" slide last; no encouragement banner, no separate done card or run card. Later stages: Kelly in
+  // the "+" menu, the done slide as the workout post, the home tutorial. Needs enable_home_v2. Fail-closed; super
+  // admins preview it. Off = identical to today.
+  { key: 'enableHomeAfterV1', firestoreKey: 'enable_home_after_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

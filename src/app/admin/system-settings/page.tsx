@@ -140,6 +140,7 @@ interface FlagState {
   enable_method_info_sheet_v1: boolean;
   enable_feature_info_sheets_v1: boolean;
   enable_combo_flow_v1: boolean;
+  enable_home_after_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1178,6 +1179,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'אימון משולב: מעברים בין שלבים (הליכה, תחנת כוח, ריצה)',
     description: 'באימון עם הליכה או ריצה ותחנת כוח: צ׳יפ "יוצאים לדרך" בהתחלה, כרטיס "הגעת לתחנה!" כשמגיעים לגינה, ומסך "סיימתם את תחנת הכוח" בעיצוב החדש. בהמשך: מהלך האימון יורד לרגע והנקודה עוברת לשלב הבא, ומסך סיום וסיכום משולבים. צריך את הבית החדש. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Home after a workout (30.10.2026), owner-approved canvas option B (HomeAfterB / HomeAfterRules).
+  {
+    key: 'enable_home_after_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'הבית אחרי אימון: הכל בקרוסלה אחת',
+    description: 'אחרי שסיימתם אימון היום: כל מה שלהיום בקרוסלה אחת מתחת ללו"ז. קודם מה שנשאר (אימון משלים, הריצה של היום, שאר ההצעות), ובסוף כרטיס "בוצע היום" שלחיצה עליו פותחת את סיכום האימון. בלי פס העידוד, בלי כרטיס "הפעילות שלי היום" נפרד למעלה ובלי כרטיס ריצה נפרד. בהמשך: קלי עוברת לתפריט +, כרטיס הבוצע בעיצוב פוסט, והדרכת הבית. צריך את הבית החדש. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

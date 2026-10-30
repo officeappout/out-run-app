@@ -159,6 +159,7 @@
   "doneToday.title": "הפעילות שלי היום",
   "doneToday.sets": "{n, plural, other {# סטים}}",
   "doneToday.runPlan": "שבוע {week} מתוך {total} · ריצה {n} מתוך {target}",
+  "homeAfter.done.title": "בוצע היום",
   "steps.connect.declined": "דחית קודם, רוצה לחבר?",
   "steps.connect.notConnected": "עוד לא חובר",
   "steps.openAria": "פתח ניתוח צעדים: {steps} מתוך {goal}",
