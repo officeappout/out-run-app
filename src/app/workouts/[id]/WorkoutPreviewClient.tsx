@@ -10,6 +10,9 @@ import type { DecisionRecord } from '@/features/workout-engine/services/decision
 import StrengthExerciseCard from '@/features/workout-engine/components/cards/StrengthExerciseCard';
 import RunningSegmentCard from '@/features/workout-engine/components/cards/RunningSegmentCard';
 import { getAllExercisesCached, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
+import { pickText } from '@/features/content/shared/stored-text-fields';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
 import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { getSharedWorkout, type SharedWorkoutDoc } from '@/features/workout-engine/services/share.service';
@@ -47,6 +50,9 @@ interface WorkoutData {
   id: string;
   title: string;
   description?: string;
+  /** Additive {he, en} pairs of the content rows behind the title / description; display via pickText(.., contentLang). */
+  titleLocalized?: LocalizedText;
+  descriptionLocalized?: LocalizedText;
   level?: string;
   difficulty?: string;
   duration?: number;
@@ -292,6 +298,8 @@ function convertSharedToLocal(t: LibraryT, shared: SharedWorkoutDoc & { id: stri
       id: shared.id,
       title: shared.title,
       description: shared.description,
+      ...(shared.titleLocalized ? { titleLocalized: shared.titleLocalized } : {}),
+      ...(shared.descriptionLocalized ? { descriptionLocalized: shared.descriptionLocalized } : {}),
       difficulty: DIFFICULTY_MAP[shared.difficulty] || 'medium',
       duration: shared.estimatedDuration,
       segments,
@@ -533,7 +541,9 @@ export default function WorkoutPreviewClient({
   const sender = senderOf(sharedDoc);
   const invite = inviteView(sharedDoc);
   const hero = sharedPlan ? heroMediaOf(sharedPlan) : {};
+  const contentLang = useContentLanguage();
   const [logicCue, setLogicCue] = useState<string | null>(null);
+  const [logicCuePair, setLogicCuePair] = useState<LocalizedText | null>(null);
   const [decisionRecord, setDecisionRecord] = useState<DecisionRecord | null>(null);
   const coachNote = useCoachNote(decisionRecord);
 
@@ -552,12 +562,15 @@ export default function WorkoutPreviewClient({
         const plan = JSON.parse(raw);
         if (plan?.segments) setStoredSegments(plan.segments);
         if (plan?.logicCue) setLogicCue(plan.logicCue);
+        if (plan?.logicCue && plan?.logicCueLocalized) setLogicCuePair(plan.logicCueLocalized);
         if (plan?.decisionRecord) setDecisionRecord(plan.decisionRecord);
         if (plan?.name || plan?.totalDuration) {
           setWorkout((prev) => prev ?? {
             id: workoutId,
             title: plan.name || t('sharedWorkout.fallback.title'),
             description: plan.description || t('sharedWorkout.fallback.description'),
+            ...(plan.titleLocalized ? { titleLocalized: plan.titleLocalized } : {}),
+            ...(plan.descriptionLocalized ? { descriptionLocalized: plan.descriptionLocalized } : {}),
             difficulty: plan.difficulty || 'medium',
             duration: plan.totalDuration || 45,
             segments: [],
@@ -583,7 +596,12 @@ export default function WorkoutPreviewClient({
       const shared = await getSharedWorkout(workoutId);
       if (shared) {
         const { workout: sharedWorkout, segments } = convertSharedToLocal(t, shared);
-        setWorkout((prev) => prev ?? sharedWorkout);
+        // The server-title placeholder (prev) keeps its fields; the content pairs of the shared doc are added to it.
+        setWorkout((prev) => (prev ? {
+          ...prev,
+          ...(sharedWorkout.titleLocalized ? { titleLocalized: sharedWorkout.titleLocalized } : {}),
+          ...(sharedWorkout.descriptionLocalized ? { descriptionLocalized: sharedWorkout.descriptionLocalized } : {}),
+        } : sharedWorkout));
         setStoredSegments(segments);
         setSharedPlan(sharedDocToGeneratedWorkout(shared));
         setSharedDoc(shared);
@@ -682,8 +700,8 @@ export default function WorkoutPreviewClient({
 
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <WorkoutPreviewHeader
-        title={workout?.title || t('sharedWorkout.fallback.title')}
-        description={coachNote ? workout?.description : logicCue || workout?.description}
+        title={(workout ? pickText(workout, 'title', contentLang) : '') || t('sharedWorkout.fallback.title')}
+        description={coachNote ? (workout ? pickText(workout, 'description', contentLang) : undefined) : (logicCue ? pickText({ logicCue, logicCueLocalized: logicCuePair }, 'logicCue', contentLang) : '') || (workout ? pickText(workout, 'description', contentLang) : undefined)}
         difficulty={workout?.difficulty === 'easy' ? 1 : workout?.difficulty === 'hard' ? 3 : 2}
         estimatedDuration={workout?.duration}
         heroMediaUrl={richPreview ? hero.imageUrl ?? heroMedia?.thumbnailUrl : heroMedia?.thumbnailUrl}

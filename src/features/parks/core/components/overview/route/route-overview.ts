@@ -6,6 +6,8 @@
  */
 
 import type { Route } from '@/features/parks/core/types/route.types';
+import { routeDescriptionText } from '@/features/parks/core/utils/route-description';
+import type { AppLanguage } from '@/features/content/shared/localized-text.types';
 import type { AmenityCategory } from '@/features/parks/core/types/osm-amenity.types';
 import { haversineKm } from '@/features/arena/utils/distance';
 import { isRouteLitVerified } from '@/features/parks/core/services/route-quality-badges.service';
@@ -243,8 +245,8 @@ export function alongRoutePoints(route: Pick<Route, 'path' | 'facilityStops' | '
 }
 
 /** Placeholder prose until per-route descriptions come from the admin panel. */
-export function routeDescription(route: Pick<Route, 'description' | 'distance' | 'city'>, t: MapT, cityName?: string): string {
-  const own = route.description?.trim();
+export function routeDescription(route: Pick<Route, 'description' | 'distance' | 'city'>, t: MapT, cityName?: string, lang: AppLanguage = 'he'): string {
+  const own = routeDescriptionText(route.description, lang).trim();
   if (own) return own;
   const city = cityName ?? route.city;
   const km = (route.distance ?? 0).toFixed(1);

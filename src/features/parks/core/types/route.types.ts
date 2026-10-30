@@ -431,7 +431,8 @@ export interface RouteTrailInfo {
 export interface Route {
   id: string;
   name: string;
-  description?: string;
+  /** Hebrew string, or { he, en } after the English content import: read via routeDescriptionText. */
+  description?: string | import('@/features/content/shared/localized-text.types').LocalizedText;
   descriptionKey?: string;
 
   // Numeric data

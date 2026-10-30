@@ -12,6 +12,7 @@
 
 import { Exercise, ExecutionMethod, ExecutionLocation, getLocalizedText } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, LIFESTYLE_LABELS } from './ContextualEngine';
+import { composeEngineTitle, ENGINE_TITLE_LEXICON_HE } from './engine-title';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
 import {
@@ -261,63 +262,6 @@ export function shouldFireGeneralFinisherTabata(
     Math.random() <= tabataP
   );
 }
-
-const TITLE_TEMPLATES: Record<IntentMode, Record<string, string>> = {
-  normal: {
-    home: 'אימון יומי בבית',
-    park: 'אימון בפארק',
-    office: 'מיני-אימון במשרד',
-    street: 'אימון רחוב',
-    gym: 'אימון חדר כושר',
-    airport: 'אימון מהיר בשדה תעופה',
-    school: 'אימון בהפסקה',
-    default: 'אימון יומי',
-  },
-  blast: {
-    home: 'Blast בבית! 🔥',
-    park: 'Park Blast Session 🔥',
-    office: 'Office Blast 🔥',
-    street: 'Street Blast 🔥',
-    gym: 'Gym Blast 🔥',
-    default: 'Blast Session! 🔥',
-  },
-  on_the_way: {
-    home: 'אימון בוקר מהיר',
-    office: 'Quick Office Pump',
-    default: 'אימון בדרך 🚗',
-  },
-  field: {
-    default: 'אימון שטח 🎖️',
-  },
-};
-
-const DIFFICULTY_TITLE_PREFIX: Record<DifficultyLevel, string> = {
-  1: 'אימון התאוששות',
-  2: '',
-  3: 'אימון כוח עצים 💪',
-};
-
-const PERSONA_LABELS_HE: Record<string, string> = {
-  parent: 'הורים עסוקים',
-  student: 'סטודנטים',
-  pupil: 'תלמידים',
-  office_worker: 'עובדי משרד',
-  military: 'אנשי צה"ל',
-  vatikim: 'בני גיל הזהב',
-  pro_athlete: 'ספורטאי קצה',
-  default: '',
-};
-
-const LOCATION_LABELS_HE: Record<string, string> = {
-  home: 'בבית',
-  park: 'בפארק',
-  office: 'במשרד',
-  street: 'ברחוב',
-  gym: 'בחדר כושר',
-  airport: 'בשדה תעופה',
-  school: 'בבית ספר',
-  default: '',
-};
 
 const DESCRIPTION_TEMPLATES: Record<string, string[]> = {
   parent: [
@@ -2078,29 +2022,12 @@ export class WorkoutGenerator {
   // ── TITLE / DESCRIPTION / CUE ───────────────────────────────────────────
 
   private generateTitle(context: WorkoutGenerationContext, difficulty: DifficultyLevel): string {
-    const parts: string[] = [];
-    const difficultyPrefix = DIFFICULTY_TITLE_PREFIX[difficulty];
-    if (difficultyPrefix) {
-      parts.push(difficultyPrefix);
-    } else {
-      const templates = TITLE_TEMPLATES[context.intentMode] || TITLE_TEMPLATES.normal;
-      parts.push(templates[context.location] || templates.default || 'אימון יומי');
-    }
-    if (context.persona && !difficultyPrefix) {
-      const personaLabel = PERSONA_LABELS_HE[context.persona];
-      if (personaLabel) parts[0] = `${parts[0]} ל${personaLabel}`;
-    }
-    if (difficultyPrefix && context.location) {
-      const locationLabel = LOCATION_LABELS_HE[context.location];
-      if (locationLabel) {
-        if (context.persona) {
-          const personaLabel = PERSONA_LABELS_HE[context.persona];
-          if (personaLabel) parts.push(`ל${personaLabel}`);
-        }
-        parts.push(locationLabel);
-      }
-    }
-    return parts.join(' ');
+    return composeEngineTitle(ENGINE_TITLE_LEXICON_HE, {
+      intentMode: context.intentMode,
+      difficulty,
+      location: context.location,
+      persona: context.persona ?? undefined,
+    });
   }
 
   private generateDescription(context: WorkoutGenerationContext, difficulty: DifficultyLevel): string {

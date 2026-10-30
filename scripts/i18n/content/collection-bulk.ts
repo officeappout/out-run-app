@@ -27,8 +27,30 @@ export const READY_PATHS: Record<string, readonly string[]> = {
   product_tags: ['name'],
   // batch3: park free text. Park NAMES stay as saved (proper nouns). Reader: parks.service normalizePark + pickText.
   parks: ['description'],
+  // batch3 routes: only the `description` text (names, city and trail.* stay as saved). Reader: routeDescriptionText (route-description.ts).
+  official_routes: ['description'],
+  curated_routes: ['description'],
+  // batch3 (subcollections, addressed by their full path). Readers: workout-metadata.service (normalizeStoredTextFields on every row).
+  // Only rows without an unresolved Hebrew-word tag get a write (the build step leaves those rows Hebrew-only).
+  'workoutMetadata/workoutTitles/titles': ['text'],
+  'workoutMetadata/smartDescriptions/descriptions': ['description'],
+  'workoutMetadata/logicCues/cues': ['text', 'cue'],
   // push_messages stays out on purpose: the push sender reads it only after the functions deploy.
 };
+
+/** A collection argument is a top-level name (`parks`) or a slash path to a subcollection (`workoutMetadata/workoutTitles/titles`). */
+export function isValidCollectionPath(col: string): boolean {
+  const parts = col.split('/');
+  return parts.length % 2 === 1 && parts.every((p) => /^[A-Za-z0-9_-]+$/.test(p));
+}
+export const isSubcollectionPath = (col: string): boolean => col.includes('/');
+/** File-name safe key of a collection path (`a/b/c` -> `a__b__c`); top-level names are unchanged. */
+export const collectionFileKey = (col: string): string => col.replace(/\//g, '__');
+/** Docs an export skips: archived rows of the workoutMetadata subcollections are not served by the app. */
+export function exportableDoc(col: string, data: unknown): boolean {
+  if (!isSubcollectionPath(col)) return true;
+  return (data as { archived?: unknown } | null)?.archived !== true;
+}
 
 export const normPath = (p: string): string => p.replace(/\[\d+\]/g, '[]');
 export const isReadyPath = (collection: string, path: string): boolean => (READY_PATHS[collection] ?? []).includes(normPath(path));
@@ -161,13 +183,21 @@ export function buildImport(exp: ExportFile, translations: Record<string, string
 }
 
 export interface Issue { check: string; docId: string; path: string; message: string }
-const tokens = (s: string): string[] => (s.match(/\{[^}]+\}|@\w+|\d+(?:[.,:]\d+)*/g) ?? []).sort();
+/** Content tags (`@זמן_אימון`, `@name`) resolve at read time in both languages: they stay byte for byte in the English. */
+export const CONTENT_TAG = /@[\w֐-׿]+/g;
+/**
+ * Content tags whose resolved value is a number or a pace (no Hebrew word). A row with ANY other tag (focus, location, intensity,
+ * category, level name, streak reason, ...) resolves to Hebrew words, so an English twin would mix languages: it is never written.
+ */
+export const SAFE_CONTENT_TAGS: readonly string[] = ['@זמן_אימון', '@basePace', '@קצב_בסיס', '@weekNumber', '@שבוע', '@אחוז_התקדמות_רמה', '@אחוז_התקדמות', '@רצף'];
+export const unsafeTags = (he: string): string[] => Array.from(new Set((he.match(CONTENT_TAG) ?? []).filter((t) => !SAFE_CONTENT_TAGS.includes(t))));
+const tokens = (s: string): string[] => (s.match(/\{[^}]+\}|@[\w֐-׿]+|\d+(?:[.,:]\d+)*/g) ?? []).sort();
 
 /** Translation quality gate shared by verify + apply: no Hebrew, no long dash, numbers/placeholders kept, not empty. */
 export function checkTranslation(he: string, en: string): string[] {
   const p: string[] = [];
   if (!en.trim()) p.push('empty English');
-  if (HEBREW.test(en)) p.push('Hebrew characters in English');
+  if (HEBREW.test(en.replace(CONTENT_TAG, ''))) p.push('Hebrew characters in English');
   if (/[—―]/.test(en)) p.push('long dash');
   if (/copy of|\(copy\)/i.test(en)) p.push('"Copy of"');
   if (en !== en.trim()) p.push('leading/trailing space');
@@ -181,6 +211,7 @@ export function checkTranslation(he: string, en: string): string[] {
 /** Import vs export: every write maps to an exported field with identical Hebrew, only ready paths, valid shape. */
 export function verifyImport(exp: ExportFile, imp: ImportFile): Issue[] {
   const issues: Issue[] = [];
+  if (!isValidCollectionPath(imp.collection)) issues.push({ check: 'collection', docId: '', path: '', message: `invalid collection path ${imp.collection}` });
   if (imp.collection !== exp.collection) issues.push({ check: 'collection', docId: '', path: '', message: `${imp.collection} != ${exp.collection}` });
   if (imp.targetLang !== 'en') issues.push({ check: 'lang', docId: '', path: '', message: 'targetLang must be en' });
   const byKey = new Map(exp.fields.map((f) => [`${f.id}\u0000${f.path}`, f]));
@@ -196,6 +227,7 @@ export function verifyImport(exp: ExportFile, imp: ImportFile): Issue[] {
     if (w.write.en !== w.en) issues.push({ check: 'shape', docId: w.docId, path: w.path, message: 'write.en != en' });
     if (!isReadyPath(imp.collection, w.path) || !isPatchablePath(w.path)) issues.push({ check: 'not-ready-path', docId: w.docId, path: w.path, message: 'the app does not read { he, en } here' });
     for (const m of checkTranslation(w.he, w.en)) issues.push({ check: 'quality', docId: w.docId, path: w.path, message: m });
+    if (isSubcollectionPath(imp.collection) && unsafeTags(w.he).length) issues.push({ check: 'unsafe-tag', docId: w.docId, path: w.path, message: `${unsafeTags(w.he).join(' ')} resolves to Hebrew words: the row stays Hebrew-only` });
   }
   for (const n of imp.needsCode) {
     const f = byKey.get(`${n.docId}\u0000${n.path}`);
@@ -221,6 +253,7 @@ export function sourceDriftBetween(saved: ExportFile, fresh: ExportFile): Issue[
 
 /** Live doc vs a write: Hebrew still the same and no English there yet (null = safe to write). */
 export function liveDrift(live: unknown, w: WriteEntry): string | null {
+  if ((live as { archived?: unknown } | null)?.archived === true) return 'archived row';
   const he = hebrewAt(live, w.path);
   if (he !== w.he) return he === undefined ? 'field missing' : 'Hebrew changed since export';
   if (englishAt(live, w.path).trim()) return 'English already present';

@@ -8,13 +8,14 @@
  * Writes ONLY (a) the { he, en } value of the listed READY_PATHS fields of existing docs (the touched top-level field is replaced
  * whole, array items included; update pinned to the fresh updateTime) and (b) new `-en` documents (create(), fails if the id exists). Refuses targetLang he, any
  * non-ready path, any doc whose Hebrew changed or that already has English. Needs-code fields are never touched.
+ * The collection may be a subcollection path (workoutMetadata/workoutTitles/titles); archived rows are skipped.
  * Order: verify -> read live -> drift check -> full backup of touched docs (abort if it cannot be written) -> write -> re-read + verify.
  */
 import fs from 'fs';
 import path from 'path';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb, argOf } from './admin';
-import { applyWrites, getAtPath, hebrewAt, liveDrift, topKey, verifyCreates, verifyImport } from './collection-bulk';
+import { applyWrites, collectionFileKey, getAtPath, hebrewAt, liveDrift, topKey, verifyCreates, verifyImport } from './collection-bulk';
 
 const BATCH = 400;
 async function main() {
@@ -35,7 +36,12 @@ async function main() {
   const byDoc = new Map<string, typeof imp.writes>();
   for (const w of imp.writes) byDoc.set(w.docId, [...(byDoc.get(w.docId) ?? []), w]);
   const live = new Map<string, any>(), readTime = new Map<string, string>();
-  for (const id of byDoc.keys()) { const s = await db.collection(col).doc(id).get(); if (s.exists) { live.set(id, s.data()); readTime.set(id, s.updateTime.toDate().toISOString()); } }
+  const ids = Array.from(byDoc.keys());
+  for (let i = 0; i < ids.length; i += 300) { // batched live reads (getAll), not one get() per doc
+    for (const s of await db.getAll(...ids.slice(i, i + 300).map((id) => db.collection(col).doc(id)))) {
+      if (s.exists) { live.set(s.id, s.data()); readTime.set(s.id, s.updateTime.toDate().toISOString()); }
+    }
+  }
   const tasks: Array<{ id: string; ws: any[]; patch: Record<string, unknown> }> = [];
   const skipped: string[] = [];
   for (const [id, ws] of byDoc) {
@@ -51,7 +57,7 @@ async function main() {
 
   const dir = argOf('--backup-dir') ?? 'backups';
   fs.mkdirSync(dir, { recursive: true });
-  const backup = path.join(dir, `i18n-${col}-en-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  const backup = path.join(dir, `i18n-${collectionFileKey(col)}-en-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   fs.writeFileSync(backup, JSON.stringify({ updated: Object.fromEntries(tasks.map((t) => [t.id, live.get(t.id)])), created: (imp.creates ?? []).map((c) => c.docId) }, null, 2));
   if (!fs.existsSync(backup) || fs.statSync(backup).size === 0) throw new Error('backup not written; aborting');
   console.log(`backup: ${backup} (restore: write "updated" docs back, delete "created" ids)`);

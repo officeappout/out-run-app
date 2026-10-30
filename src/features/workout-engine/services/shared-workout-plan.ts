@@ -11,7 +11,7 @@
 import type { GeneratedWorkout, WorkoutExercise } from '../logic/WorkoutGenerator';
 import type { SharedExercise, SharedWorkoutDoc } from './share.service';
 
-type SharedDocLike = Pick<SharedWorkoutDoc, 'title' | 'description' | 'difficulty' | 'estimatedDuration' | 'totalPlannedSets' | 'isRecovery' | 'structure'> & {
+type SharedDocLike = Pick<SharedWorkoutDoc, 'title' | 'description' | 'titleLocalized' | 'descriptionLocalized' | 'difficulty' | 'estimatedDuration' | 'totalPlannedSets' | 'isRecovery' | 'structure'> & {
   exercises?: SharedExercise[] | null;
   equipment?: string[] | null;
 };
@@ -73,6 +73,8 @@ export function sharedDocToGeneratedWorkout(doc: SharedDocLike | null | undefine
   return {
     title: doc.title || '',
     description: doc.description || '',
+    ...(doc.titleLocalized ? { titleLocalized: doc.titleLocalized } : {}),
+    ...(doc.descriptionLocalized ? { descriptionLocalized: doc.descriptionLocalized } : {}),
     exercises,
     estimatedDuration: doc.estimatedDuration ?? 0,
     structure: (doc.structure || 'standard') as GeneratedWorkout['structure'],

@@ -8,6 +8,7 @@ import { formatPaceSeconds } from '../../../../core/services/running-engine.serv
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { runBlockLabel } from '../../utils/run-preview/run-block-label';
+import { runCoachText } from '../../utils/run-preview/run-preview-model';
 import RunStoryBar from './RunStoryBar';
 import type RunWorkout from '../../types/run-workout.type';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
@@ -114,7 +115,7 @@ export default function WorkoutPreviewScreen({
           </h1>
           {workout.description && (
             <p className="text-xs text-white/50 mt-1 leading-relaxed line-clamp-2">
-              {workout.logicCue || workout.description}
+              {runCoachText(workout, lang)}
             </p>
           )}
         </div>

@@ -288,6 +288,8 @@ export interface GeneratedWorkout {
   aiCue?: string;
   /** Per-variant coaching explanation shown on the Overview page */
   logicCue?: string;
+  /** {he, en} pair of the logic-cue row (additive; `logicCue` stays Hebrew). Display: pickText(workout, 'logicCue', contentLang). */
+  logicCueLocalized?: import('@/features/content/shared/localized-text.types').LocalizedText;
   exercises: WorkoutExercise[];
   estimatedDuration: number;
   structure: WorkoutStructure;

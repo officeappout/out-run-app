@@ -5,6 +5,7 @@ import { collection, getDocs, Timestamp, query, where } from 'firebase/firestore
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { Heart } from 'lucide-react';
+import { normalizeMetadataRow } from '@/features/workout-engine/services/workout-metadata-content-fields';
 
 interface MotivationalPhrase {
   id: string;
@@ -80,7 +81,8 @@ export default function DailyPhrase({ location: locationOverride, className = ''
       // 4. General fallback
 
       const allPhrasesSnapshot = await getDocs(phrasesRef);
-      const allPhrases = allPhrasesSnapshot.docs.map((doc) => ({
+      // `phrase` may be a { he, en } pair (batch3): normalize to the Hebrew string this component has always shown.
+      const allPhrases = allPhrasesSnapshot.docs.map((doc) => normalizeMetadataRow({
         id: doc.id,
         ...doc.data(),
       } as MotivationalPhrase));

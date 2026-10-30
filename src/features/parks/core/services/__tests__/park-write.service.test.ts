@@ -391,3 +391,37 @@ describe('computeParkUpdate — the mandatory denial scenarios', () => {
     expect((auditRow?.data.oldValue as string)?.includes('Old Name')).toBe(true);
   });
 });
+
+describe('computeParkUpdate: a stored { he, en } description survives a Hebrew-only edit', () => {
+  const caller: ParkWriteCaller = { kind: 'authority_manager', uid: 'am-uid', authorityId: 'city-haifa' };
+  const park = (description: unknown) => ({ id: 'park-1', authorityId: 'city-haifa', name: 'P', description });
+  const authorities = [{ id: 'city-haifa', managerIds: ['am-uid'] }];
+
+  it('same Hebrew text again: the description is not written, the English stays', async () => {
+    const db = makeFakeDb({ authorities, parks: [park({ he: 'גינה יפה', en: 'A lovely park' })] });
+    const result = await computeParkUpdate(db, caller, 'park-1', { name: 'P2', description: 'גינה יפה' }, CTX);
+    expect(result.status).toBe(200);
+    expect(db.updates[0].data.name).toBe('P2');
+    expect('description' in db.updates[0].data).toBe(false);
+  });
+
+  it('Hebrew edited: the stale English is dropped, plain Hebrew stored', async () => {
+    const db = makeFakeDb({ authorities, parks: [park({ he: 'גינה יפה', en: 'A lovely park' })] });
+    const result = await computeParkUpdate(db, caller, 'park-1', { description: 'גינה יפה מאוד' }, CTX);
+    expect(result.status).toBe(200);
+    expect(db.updates[0].data.description).toBe('גינה יפה מאוד');
+  });
+
+  it('only the unchanged description sent: a no-op 200, nothing written', async () => {
+    const db = makeFakeDb({ authorities, parks: [park({ he: 'גינה יפה', en: 'A lovely park' })] });
+    const result = await computeParkUpdate(db, caller, 'park-1', { description: 'גינה יפה' }, CTX);
+    expect(result).toEqual({ status: 200, body: { updatedFields: [] } });
+    expect(db.updates.length).toBe(0);
+  });
+
+  it('plain Hebrew stored (every park today): the description is written as sent', async () => {
+    const db = makeFakeDb({ authorities, parks: [park('גינה')] });
+    await computeParkUpdate(db, caller, 'park-1', { description: 'גינה חדשה' }, CTX);
+    expect(db.updates[0].data.description).toBe('גינה חדשה');
+  });
+});

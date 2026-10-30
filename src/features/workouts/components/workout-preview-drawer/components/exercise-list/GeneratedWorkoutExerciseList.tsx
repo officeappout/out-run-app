@@ -204,7 +204,7 @@ export default function GeneratedWorkoutExerciseList({
   const descriptionText = pickText(generatedWorkout, 'description', contentLang);
   const displayText = coachNote
     ? descriptionText
-    : generatedWorkout.logicCue || descriptionText;
+    : (generatedWorkout.logicCue ? pickText(generatedWorkout, 'logicCue', contentLang) : '') || descriptionText;
   const diff = generatedWorkout.difficulty;
   const dur = generatedWorkout.estimatedDuration;
 

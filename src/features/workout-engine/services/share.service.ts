@@ -30,6 +30,9 @@ export type SharedSenderGender = 'male' | 'female' | 'other';
 export interface SharedWorkoutDoc {
   title: string;
   description: string;
+  /** {he, en} pairs of the content rows behind title / description (additive; absent on older shares and when the row has no English). */
+  titleLocalized?: { he: string; en: string; es?: string };
+  descriptionLocalized?: { he: string; en: string; es?: string };
   difficulty: number;
   estimatedDuration: number;
   exerciseCount: number;
@@ -229,6 +232,8 @@ export async function persistSharedWorkout(
   const raw: Omit<SharedWorkoutDoc, 'createdAt'> = {
     title: workout.title || '',
     description: workout.description || '',
+    ...(workout.titleLocalized ? { titleLocalized: workout.titleLocalized } : {}),
+    ...(workout.descriptionLocalized ? { descriptionLocalized: workout.descriptionLocalized } : {}),
     difficulty: workout.difficulty,
     estimatedDuration: workout.estimatedDuration ?? 0,
     exerciseCount: workout.exercises.length,

@@ -27,6 +27,7 @@ import {
     Pencil,
     ImageOff,
 } from 'lucide-react';
+import { routeDescriptionText } from '@/features/parks/core/utils/route-description';
 
 // ── helpers ────────────────────────────────────────────────────────
 function activityEmoji(type?: string) {
@@ -313,8 +314,8 @@ export default function AuthorityRoutesPage() {
                                                     </span>
                                                 )}
                                             </div>
-                                            {route.description && (
-                                                <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{route.description}</p>
+                                            {routeDescriptionText(route.description) && (
+                                                <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{routeDescriptionText(route.description)}</p>
                                             )}
                                             {route.importSourceName && (
                                                 <p className="text-[10px] text-gray-300 mt-0.5 truncate">📦 {route.importSourceName}</p>

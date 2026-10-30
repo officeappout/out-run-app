@@ -1038,5 +1038,13 @@
   "featureInfo.stops.step3": "At the park, the drawer comes back up with the strength station.",
   "featureInfo.stops.caption": "While you walk, the drawer slides down and you see yourself on the map",
   "featureInfo.stops.chip1": "Can I skip a station?",
-  "featureInfo.stops.chip2": "What if the park is busy?"
+  "featureInfo.stops.chip2": "What if the park is busy?",
+  "mockLocation.chip": "Location",
+  "mockLocation.close": "Close",
+  "mockLocation.title": "Dev location",
+  "mockLocation.blockedDuringWorkout": "Mock location can’t be turned on during a workout",
+  "mockLocation.on": "Turn on",
+  "mockLocation.off": "Turn off",
+  "mockLocation.manualCoords": "Manual coordinates",
+  "mockLocation.setCoords": "Set coordinates"
 }

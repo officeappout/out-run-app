@@ -2717,6 +2717,9 @@ export default function HomePage() {
         name: gw.title || 'אימון כוח', // i18n-allow-hebrew: runner plan text (manual, PR list)
         description: gw.description || '',
         logicCue: gw.logicCue || '',
+        ...(gw.logicCueLocalized ? { logicCueLocalized: gw.logicCueLocalized } : {}),
+        ...(gw.titleLocalized ? { titleLocalized: gw.titleLocalized } : {}),
+        ...(gw.descriptionLocalized ? { descriptionLocalized: gw.descriptionLocalized } : {}),
         // "דגשי האימון" source (light scalars) — read by WorkoutPreviewClient,
         // rendered only while WORKOUT_COACH_NOTE_V1 is on.
         decisionRecord: gw.decisionRecord,

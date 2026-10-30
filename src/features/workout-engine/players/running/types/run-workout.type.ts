@@ -30,6 +30,8 @@ export type RunWorkout = {
 
   /** Coaching explanation resolved from Firestore metadata (replaces generic description in briefing). */
   logicCue?: string;
+  /** {he, en} pair of the logic-cue row (display only; `logicCue` stays Hebrew). */
+  logicCueLocalized?: LocalizedText;
   /** Motivational phrase resolved from Firestore metadata. */
   aiCue?: string;
   /** Where the metadata came from ('firestore' | 'fallback'). */

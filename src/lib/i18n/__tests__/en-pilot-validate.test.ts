@@ -15,7 +15,7 @@ describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: 
 
   it('has the expected key counts per catalog (pilot 370 + onboarding 1069 + player 929 + summary 178 + home rest 581 + profile 576 + map 919 + library 448 + coach 349 + wide 155)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 220, pages: 17, home: 798, onboarding: 1138, player: 1123, summary: 178, profile: 597, social: 158, together: 129, community: 943, map: 1040, library: 489, coach: 349, wide: 155, push: 471, schedule: 258, legal: 359 });
+    expect(by).toEqual({ common: 220, pages: 17, home: 838, onboarding: 1138, player: 1123, summary: 178, profile: 597, social: 158, together: 129, community: 943, map: 1048, library: 489, coach: 349, wide: 155, push: 471, schedule: 258, legal: 359 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {

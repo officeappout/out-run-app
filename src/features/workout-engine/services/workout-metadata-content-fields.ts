@@ -6,6 +6,28 @@
  * the Node import script can use it as-is.
  */
 
+import { normalizeStoredTextFields, type LocalizedFieldPair } from '@/features/content/programs/core/localized-fields';
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
+
+/** Row text fields that may hold a {he, en} pair (batch3): `text` (titles, logic cues), `description`, `cue`, `phrase`. */
+export const CONTENT_ROW_TEXT_FIELDS: LocalizedFieldPair[] = ['text', 'description', 'cue', 'phrase'].map((key) => ({ key, localizedKey: `${key}Localized` }));
+
+/**
+ * Raw readers (admin lists, simulators, DailyPhrase) must never see an object where they expect a string: the Hebrew string stays
+ * in the field, the pair moves to `<field>Localized`. A plain-Hebrew row comes back unchanged.
+ */
+export function normalizeMetadataRow<T extends object>(row: T): T {
+  return normalizeStoredTextFields(row, CONTENT_ROW_TEXT_FIELDS);
+}
+
+/**
+ * Admin edit of a row's Hebrew text: a row that already has English keeps it ({ ...pair, he: new text }); no pair, plain string.
+ * Saving the Hebrew form must not flatten the stored pair.
+ */
+export function foldRowText(pair: LocalizedText | null | undefined, he: string): string | LocalizedText {
+  return pair && (pair.en ?? '').trim() ? { ...pair, he } : he;
+}
+
 /**
  * FNV-1a 32-bit hash → 8-char hex string (UTF-16 code units, like the
  * original admin implementation). Deterministic, fast, fine for short strings.

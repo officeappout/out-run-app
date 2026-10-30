@@ -35,6 +35,8 @@ import { injectParentPersonaData } from './inject-parent-data';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
 import type { PushMessage, PushMessageStatus, PushChannel } from '@/features/admin/services/engagement.service';
+import { normalizeMetadataRow, foldRowText } from '@/features/workout-engine/services/workout-metadata-content-fields';
+import type { LocalizedText } from '@/features/content/shared/localized-text.types';
 // Brand fields removed per David's request
 
 // ============================================================================
@@ -691,7 +693,8 @@ export default function WorkoutSettingsPage() {
     try {
       const notificationsRef = collection(db, `${WORKOUT_METADATA_COLLECTION}/notifications/notifications`);
       const snapshot = await getDocs(notificationsRef);
-      return snapshot.docs.map((doc) => ({
+      // a text field may be a { he, en } pair (batch3): the Hebrew string stays in the field, the pair in <field>Localized
+      return snapshot.docs.map((doc) => normalizeMetadataRow({
         id: doc.id,
         ...doc.data(),
         createdAt: toDate(doc.data().createdAt),
@@ -723,7 +726,8 @@ export default function WorkoutSettingsPage() {
     try {
       const descriptionsRef = collection(db, `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions`);
       const snapshot = await getDocs(descriptionsRef);
-      return snapshot.docs.map((doc) => ({
+      // a text field may be a { he, en } pair (batch3): the Hebrew string stays in the field, the pair in <field>Localized
+      return snapshot.docs.map((doc) => normalizeMetadataRow({
         id: doc.id,
         ...doc.data(),
         createdAt: toDate(doc.data().createdAt),
@@ -739,7 +743,8 @@ export default function WorkoutSettingsPage() {
     try {
       const cuesRef = collection(db, `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`);
       const snapshot = await getDocs(cuesRef);
-      return snapshot.docs.map((doc) => ({
+      // a text field may be a { he, en } pair (batch3): the Hebrew string stays in the field, the pair in <field>Localized
+      return snapshot.docs.map((doc) => normalizeMetadataRow({
         id: doc.id,
         ...doc.data(),
         createdAt: toDate(doc.data().createdAt),
@@ -755,7 +760,8 @@ export default function WorkoutSettingsPage() {
     try {
       const titlesRef = collection(db, `${WORKOUT_METADATA_COLLECTION}/workoutTitles/titles`);
       const snapshot = await getDocs(titlesRef);
-      return snapshot.docs.map((doc) => ({
+      // a text field may be a { he, en } pair (batch3): the Hebrew string stays in the field, the pair in <field>Localized
+      return snapshot.docs.map((doc) => normalizeMetadataRow({
         id: doc.id,
         ...doc.data(),
         createdAt: toDate(doc.data().createdAt),
@@ -771,7 +777,8 @@ export default function WorkoutSettingsPage() {
     try {
       const phrasesRef = collection(db, `${WORKOUT_METADATA_COLLECTION}/motivationalPhrases/phrases`);
       const snapshot = await getDocs(phrasesRef);
-      return snapshot.docs.map((doc) => ({
+      // a text field may be a { he, en } pair (batch3): the Hebrew string stays in the field, the pair in <field>Localized
+      return snapshot.docs.map((doc) => normalizeMetadataRow({
         id: doc.id,
         ...doc.data(),
         createdAt: toDate(doc.data().createdAt),
@@ -789,6 +796,7 @@ export default function WorkoutSettingsPage() {
         const titleRef = doc(db, `${WORKOUT_METADATA_COLLECTION}/workoutTitles/titles`, editingTitle);
         await setDoc(titleRef, {
           ...titleForm,
+          text: foldRowText((titles.find((r) => r.id === editingTitle) as { textLocalized?: LocalizedText } | undefined)?.textLocalized, titleForm.text ?? ''),
           updatedAt: serverTimestamp(),
         }, { merge: true });
       } else {
@@ -820,6 +828,7 @@ export default function WorkoutSettingsPage() {
         const phraseRef = doc(db, `${WORKOUT_METADATA_COLLECTION}/motivationalPhrases/phrases`, editingPhrase);
         await setDoc(phraseRef, {
           ...phraseData,
+          phrase: foldRowText((phrases.find((r) => r.id === editingPhrase) as { phraseLocalized?: LocalizedText } | undefined)?.phraseLocalized, phraseData.phrase ?? ''),
           updatedAt: serverTimestamp(),
         }, { merge: true });
       } else {
@@ -2800,6 +2809,7 @@ export default function WorkoutSettingsPage() {
                           const descriptionRef = doc(db, `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions`, editingDescription);
                           await setDoc(descriptionRef, {
                             ...descriptionForm,
+                            description: foldRowText((smartDescriptions.find((r) => r.id === editingDescription) as { descriptionLocalized?: LocalizedText } | undefined)?.descriptionLocalized, descriptionForm.description ?? ''),
                             updatedAt: serverTimestamp(),
                           }, { merge: true });
                         } else {
@@ -3214,6 +3224,7 @@ export default function WorkoutSettingsPage() {
                           const cueRef = doc(db, `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`, editingLogicCue);
                           await setDoc(cueRef, {
                             ...logicCueForm,
+                            text: foldRowText((logicCues.find((r) => r.id === editingLogicCue) as { textLocalized?: LocalizedText } | undefined)?.textLocalized, logicCueForm.text ?? ''),
                             updatedAt: serverTimestamp(),
                           }, { merge: true });
                         } else {

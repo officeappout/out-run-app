@@ -30,6 +30,7 @@ import type { ExecutionLocation } from '@/features/content/exercises/core/exerci
 import type { PersonaId } from '@/types/persona.types';
 import { getFirestore } from 'firebase-admin/firestore';
 import { loadV2Rows, loadV2DocPatches, DEFAULT_CONTENT_DIR } from './lib/workout-copy-v2';
+import { normalizeMetadataRow } from '@/features/workout-engine/services/workout-metadata-content-fields';
 
 const RUNS_PER_SCENARIO = 4;
 
@@ -118,7 +119,7 @@ function matchesExpect(text: string, expect: Scenario['expect']): boolean {
 async function main() {
   const patches = loadV2DocPatches(DEFAULT_CONTENT_DIR).workoutTitles;
   const snap = await getFirestore().collection('workoutMetadata/workoutTitles/titles').get();
-  liveTitles = snap.docs.map(d => ({ ...d.data(), ...(patches[d.id] ?? {}) })).filter(r => !r.archived);
+  liveTitles = snap.docs.map(d => normalizeMetadataRow({ ...d.data(), ...(patches[d.id] ?? {}) })).filter(r => !r.archived);
   const out: string[] = [];
   out.push('| Scenario | Session | Winning title → description | Winning row | OK |');
   out.push('|---|---|---|---|---|');

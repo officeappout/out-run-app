@@ -70,6 +70,7 @@ import { ShadowMatrix, getEffectiveLevelForExercise } from './shadow-level.utils
 import {
   resolveWorkoutMetadata,
   setLocalizedCopy,
+  setLocalizedLogicCue,
   detectTimeOfDay,
   detectDayPeriod,
   resolveExperienceLevelFromUserLevel,
@@ -939,6 +940,7 @@ export async function reconcileDeskThemeMismatch(
   setLocalizedCopy(workout, metadata);
   if (metadata.aiCue) workout.aiCue = metadata.aiCue;
   if (metadata.logicCue) workout.logicCue = metadata.logicCue;
+  setLocalizedLogicCue(workout, metadata);
 
   return { reconciled: true, newMetadataCtx: neutralizedCtx, bundleId: metadata.bundleId, staleTitle };
 }
@@ -1468,7 +1470,9 @@ async function generateHomeWorkoutTrioCore(
 
         if (metadata.logicCue) {
           workout.logicCue = metadata.logicCue;
+          setLocalizedLogicCue(workout, metadata);
         } else {
+          delete workout.logicCueLocalized;
           workout.logicCue = computeLevelAwareLogicCue(
             variant,
             pipeline.userProgramLevels,

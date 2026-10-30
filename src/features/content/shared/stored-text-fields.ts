@@ -28,6 +28,19 @@ export function hebrewOrEmpty(v: unknown): string {
   return isStoredLocalized(v) ? hebrewOf(v) : '';
 }
 
+/**
+ * What to store when a Hebrew-only edit of a field hits a stored value. Returns:
+ *  - `undefined`: nothing to write (the stored {he, en} pair already has this Hebrew),
+ *  - the new Hebrew as a plain string when the Hebrew changed (the old English would be stale),
+ *  - the incoming value as is: stored was plain, or the edit already carries a pair.
+ * Mirrors the client updatePark guard; used by the server-side park update.
+ */
+export function mergeHebrewEdit(stored: unknown, incoming: unknown): unknown {
+  if (typeof incoming !== 'string' || !isStoredLocalized(stored)) return incoming;
+  if (hebrewOrEmpty(stored) === incoming) return undefined;
+  return incoming;
+}
+
 export interface ListFieldPair {
   key: string;
   localizedKey: string;

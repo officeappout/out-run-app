@@ -148,6 +148,7 @@ export function usePlannedRunWorkout({
             if (metadata.title) w.title = metadata.title;
             if (metadata.description) w.description = metadata.description;
             w.logicCue = metadata.logicCue ?? undefined;
+            if (metadata.logicCue && metadata.logicCueLocalized) w.logicCueLocalized = metadata.logicCueLocalized; else delete w.logicCueLocalized;
             w.aiCue = metadata.aiCue ?? undefined;
             w.metadataSource = metadata.source;
           }
