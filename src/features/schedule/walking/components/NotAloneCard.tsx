@@ -19,7 +19,7 @@ export interface NotAloneCardProps {
 }
 
 export default function NotAloneCard({ suggestion, onOpenGroup, className = '' }: NotAloneCardProps) {
-  const { direction } = useUiDir();
+  const { direction, isRtl } = useUiDir();
   if (!suggestion) return null;
   return (
     <button
@@ -34,7 +34,7 @@ export default function NotAloneCard({ suggestion, onOpenGroup, className = '' }
         <span className="block truncate whitespace-nowrap text-[14.5px] font-black text-v2-ink">{suggestionLineHe(suggestion)}</span>
         <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{suggestion.name} · להצטרף?</span>
       </span>
-      <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted ltr:-scale-x-100" aria-hidden />
+      <ChevronLeft size={18} strokeWidth={2.4} className={`shrink-0 text-v2-muted ${isRtl ? 'ltr:-scale-x-100' : '-scale-x-100'}`} aria-hidden />
     </button>
   );
 }
