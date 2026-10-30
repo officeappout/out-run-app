@@ -55,6 +55,8 @@ import { useWhereToTrainV1 } from '@/hooks/useWhereToTrainV1';
 import { mergeRouteSessions } from './route-sessions';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { routeDescriptionText } from '@/features/parks/core/utils/route-description';
 // enable_place_workouts_v1 — loaded only when the flag is on (flag off: nothing imported, nothing read).
 const RoutePlaceChips = dynamic(() => import('../place-workouts/RoutePlaceChips'), { ssr: false });
 const RoutePlaceWorkouts = dynamic(() => import('../place-workouts/RoutePlaceWorkouts'), { ssr: false });
@@ -158,6 +160,7 @@ export default function RouteDetailSheet({
 }: RouteDetailSheetProps) {
   const { direction } = useUiDir();
   const t = useT(map);
+  const contentLang = useContentLanguage();
   const y = useMotionValue(0);
   const rawOpacity = useTransform(y, [0, 300], [1, 0]);
   const opacity = useTransform(rawOpacity, (v) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1));
@@ -1090,9 +1093,9 @@ export default function RouteDetailSheet({
                   )}
 
                   {/* Description */}
-                  {route.description && (
+                  {routeDescriptionText(route.description, contentLang) && (
                     <p className="text-sm text-gray-600 leading-relaxed mb-6">
-                      {route.description}
+                      {routeDescriptionText(route.description, contentLang)}
                     </p>
                   )}
 

@@ -40,6 +40,7 @@ import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import { SOURCE_LOCALE } from '@/lib/i18n/locales';
 import { makeT, type TFunction } from '@/lib/i18n/t';
 import { coach } from '@/messages/ns/coach';
+import { CONTENT_ROW_TEXT_FIELDS } from './workout-metadata-content-fields';
 
 // ============================================================================
 // TYPES
@@ -358,6 +359,15 @@ export function setLocalizedCopy(
   if (metadata.description) { if (metadata.descriptionLocalized) workout.descriptionLocalized = metadata.descriptionLocalized; else delete workout.descriptionLocalized; }
 }
 
+/** Same for the coach line (logicCue): the {he, en} pair rides next to the Hebrew string; no pair removes the key. */
+export function setLocalizedLogicCue(
+  workout: { logicCueLocalized?: LocalizedText },
+  metadata: Pick<ResolvedWorkoutMetadata, 'logicCue' | 'logicCueLocalized'>,
+): void {
+  if (!metadata.logicCue) return;
+  if (metadata.logicCueLocalized) workout.logicCueLocalized = metadata.logicCueLocalized; else delete workout.logicCueLocalized;
+}
+
 export interface ResolvedWorkoutMetadata {
   /** Dynamic title from Firestore (or fallback) */
   title: string | null;
@@ -374,6 +384,8 @@ export interface ResolvedWorkoutMetadata {
   /** The {he, en} pair of the winning title / description when the row stores one (tags resolved in both). `title` / `description` stay the Hebrew strings. */
   titleLocalized?: LocalizedText;
   descriptionLocalized?: LocalizedText;
+  /** The {he, en} pair of the winning logic-cue row (workoutMetadata/logicCues/cues), tags resolved in both. `logicCue` stays the Hebrew string. */
+  logicCueLocalized?: LocalizedText;
 }
 
 // ============================================================================
@@ -381,7 +393,7 @@ export interface ResolvedWorkoutMetadata {
 // ============================================================================
 
 /** Row text fields that may hold a {he, en} pair. */
-const ROW_TEXT_FIELDS: LocalizedFieldPair[] = ['text', 'description', 'cue', 'phrase'].map((key) => ({ key, localizedKey: `${key}Localized` }));
+const ROW_TEXT_FIELDS: LocalizedFieldPair[] = CONTENT_ROW_TEXT_FIELDS;
 
 const METADATA_BASE = 'workoutMetadata';
 const TITLES_SUBCOLLECTION = 'titles';
@@ -1698,7 +1710,7 @@ async function fetchLogicCue(
   variant: TrioVariant,
   activeBundleId?: string,
   isUsable?: (text: string) => boolean,
-): Promise<string | null> {
+): Promise<{ text: string | null; textLocalized?: LocalizedText }> {
   try {
     const ref = collection(db, METADATA_BASE, LOGIC_CUES_PARENT, LOGIC_CUES_SUBCOLLECTION);
     const snap = await getDocs(ref);
@@ -1709,7 +1721,9 @@ async function fetchLogicCue(
       let bestScore = -1;
       let bestRows: any[] = [];
 
-      for (const row of [...snap.docs.map(d => d.data()), ...overlayRows]) {
+      // `text` / `cue` may be a string or a {he, en} pair (batch3): the Hebrew string stays in the field, the pair rides in `<field>Localized`.
+      const rows = [...snap.docs.map(d => d.data()), ...overlayRows].map((r) => normalizeStoredTextFields(r, ROW_TEXT_FIELDS));
+      for (const row of rows) {
         const rowVariant = row.variant;
         if (rowVariant && rowVariant !== variant && rowVariant !== 'all') continue;
         // scoreContentRow applies the sport-type and airport guards (a
@@ -1733,13 +1747,14 @@ async function fetchLogicCue(
           const bundleNote = activeBundleId && picked.bundleId === activeBundleId ? ` | bundle=${activeBundleId}(+${BUNDLE_SYNC_BOOST})` : '';
           console.log(`[WorkoutMetadata] LogicCue (${variant}): "${result}" | score=${bestScore} | tied=${bestRows.length}${bundleNote}`);
         }
-        return result;
+        const textLocalized = (picked.text ? picked.textLocalized : picked.cueLocalized) as LocalizedText | undefined;
+        return { text: result, ...(textLocalized ? { textLocalized } : {}) };
       }
     }
   } catch (error) {
     console.warn(`[WorkoutMetadata] fetchLogicCue error:`, error);
   }
-  return null;
+  return { text: null };
 }
 
 // ============================================================================
@@ -1832,11 +1847,12 @@ async function resolveWorkoutMetadataCore(
     }
 
     // ── Pass 2: Remaining content with bundle boost ──
-    const [descriptionResult, phraseResult, logicCue] = await Promise.all([
+    const [descriptionResult, phraseResult, logicCueResult] = await Promise.all([
       fetchSmartDescription(ctx, activeBundleId, includeCandidates, isUsable),
       fetchMotivationalPhrase(ctx, activeBundleId, isUsable),
-      variant ? fetchLogicCue(ctx, variant, activeBundleId, isUsable) : Promise.resolve(null),
+      variant ? fetchLogicCue(ctx, variant, activeBundleId, isUsable) : Promise.resolve({ text: null } as { text: string | null; textLocalized?: LocalizedText }),
     ]);
+    const logicCue = logicCueResult.text;
 
     // Weather fallback title: weather is flagged, the caller allows it (recommended card),
     // and no weather-tagged title row won — use the built-in line instead of generic copy.
@@ -1874,8 +1890,10 @@ async function resolveWorkoutMetadataCore(
     };
     const titleLocalized = weatherFallbackTitle ? undefined : pairOf(resolvedTitle, titleResult.textLocalized);
     const descriptionLocalized = pairOf(resolvedDescription, descriptionResult.textLocalized);
+    const logicCueLocalized = pairOf(resolvedLogicCue, logicCueResult.textLocalized);
 
     return {
+      ...(logicCueLocalized ? { logicCueLocalized } : {}),
       ...(titleLocalized ? { titleLocalized } : {}),
       ...(descriptionLocalized ? { descriptionLocalized } : {}),
       title:       dropIfBroken(resolvedTitle),

@@ -13,6 +13,7 @@ import type { PaceProfile } from '../core/types/running.types';
 import {
   resolveWorkoutMetadata,
   setLocalizedCopy,
+  setLocalizedLogicCue,
   detectTimeOfDay,
   resolveRunningContentSituation,
   type WorkoutMetadataContext,
@@ -88,6 +89,7 @@ export async function resolveRunningWorkoutMetadata(
     if (metadata.description) workout.description = metadata.description;
     setLocalizedCopy(workout, metadata);
     if (metadata.logicCue) workout.logicCue = metadata.logicCue;
+    setLocalizedLogicCue(workout, metadata);
     if (metadata.aiCue) workout.aiCue = metadata.aiCue;
     workout.metadataSource = metadata.source;
 

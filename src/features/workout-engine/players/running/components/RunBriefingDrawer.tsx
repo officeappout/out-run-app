@@ -10,6 +10,8 @@ import { useNearbyParks, PARK_FALLBACK_IMAGE } from '@/features/parks/core/hooks
 import ExerciseDetailContent from '@/features/workout-engine/players/strength/components/ExerciseDetailContent';
 import RunBlockBriefingCard from './RunBlockBriefingCard';
 import { groupBlocksIntoSections } from '../utils/run-preview/run-sections';
+import { runCoachText } from '../utils/run-preview/run-preview-model';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import type RunWorkout from '../types/run-workout.type';
 import type { RunBlock } from '../types/run-block.type';
 import type { RunZoneType, RunnerProfileType } from '@/features/workout-engine/core/types/running.types';
@@ -86,6 +88,7 @@ export default function RunBriefingDrawer({
   isOpen, onClose, onGo, workout, isLoading,
 }: RunBriefingDrawerProps) {
   const { direction } = useUiDir();
+  const lang = useContentLanguage();
   const profile = useUserStore((s) => s.profile);
   const config = useRunningConfigStore((s) => s.config);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -284,7 +287,7 @@ export default function RunBriefingDrawer({
                       {(workout.logicCue || workout.description) && (
                         <section className="mb-6">
                           <p className="text-slate-600 text-right leading-relaxed text-sm">
-                            {workout.logicCue || workout.description}
+                            {runCoachText(workout, lang)}
                           </p>
                         </section>
                       )}

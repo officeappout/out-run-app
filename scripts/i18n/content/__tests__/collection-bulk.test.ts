@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyWrites, buildExport, buildImport, checkTranslation, extractFields, getAtPath, isReadyPath, liveDrift, sourceDriftBetween,
-  verifyCreates, verifyImport,
+  verifyCreates, verifyImport, collectionFileKey, exportableDoc, isValidCollectionPath, unsafeTags,
 } from '../collection-bulk';
 
 const docs = [
@@ -88,5 +88,63 @@ describe('applyWrites', () => {
     expect(out.name).toEqual({ he: 'x', en: 'X' });
     expect('other' in out).toBe(false);
     expect(live.cues).toEqual(['א', 'ב']); // input not mutated
+  });
+});
+
+describe('subcollections (workoutMetadata paths)', () => {
+  const TITLES = 'workoutMetadata/workoutTitles/titles';
+
+  it('collection paths: odd number of safe segments only; file key replaces slashes', () => {
+    expect(isValidCollectionPath('parks')).toBe(true);
+    expect(isValidCollectionPath(TITLES)).toBe(true);
+    expect(isValidCollectionPath('workoutMetadata/workoutTitles')).toBe(false); // a document, not a collection
+    expect(isValidCollectionPath('a/../b')).toBe(false);
+    expect(isValidCollectionPath('')).toBe(false);
+    expect(collectionFileKey(TITLES)).toBe('workoutMetadata__workoutTitles__titles');
+    expect(collectionFileKey('parks')).toBe('parks');
+  });
+
+  it('archived rows of subcollections are not exported; top-level docs always are', () => {
+    expect(exportableDoc(TITLES, { archived: true })).toBe(false);
+    expect(exportableDoc(TITLES, { archived: false })).toBe(true);
+    expect(exportableDoc(TITLES, {})).toBe(true);
+    expect(exportableDoc('programs', { archived: true })).toBe(true);
+  });
+
+  it('content tags: numeric tags stay byte for byte, Hebrew-word tags make the row Hebrew-only', () => {
+    expect(checkTranslation('בטן חזקה ב-@זמן_אימון דקות', 'Strong abs in @זמן_אימון minutes')).toEqual([]);
+    expect(checkTranslation('בטן חזקה ב-@זמן_אימון דקות', 'Strong abs in minutes')).toHaveLength(1); // tag dropped
+    expect(checkTranslation('דקות', 'דקות')).toContain('Hebrew characters in English');
+    expect(unsafeTags('שבוע @weekNumber, @basePace ו@זמן_אימון')).toEqual([]);
+    expect(unsafeTags('אימון @קטגוריה ב@מיקום')).toEqual(['@קטגוריה', '@מיקום']);
+  });
+
+  it('builds writes for the ready field, verify flags unsafe tags and archived rows are drift', () => {
+    const exp = buildExport(TITLES, [
+      { id: 't1', data: { text: 'בוקר טוב', category: 'כוח' } },
+      { id: 't2', data: { text: 'אימון @זמן_אימון דקות' } },
+      { id: 't3', data: { text: 'סוגרים שבוע ב@מיקום' } },
+      { id: 't4', data: { text: 'ישן', archived: true } },
+    ].filter((d) => exportableDoc(TITLES, d.data)), 'T');
+    expect(exp.docCount).toBe(3);
+    const { file, missing } = buildImport(exp, { 'בוקר טוב': 'Good morning', 'כוח': null, 'אימון @זמן_אימון דקות': 'A @זמן_אימון minute workout', 'סוגרים שבוע ב@מיקום': null });
+    expect(missing).toEqual([]);
+    expect(file.writes.map((w) => w.docId)).toEqual(['t1', 't2']);
+    expect(file.needsCode).toEqual([]);
+    expect(verifyImport(exp, file)).toEqual([]);
+    // an unsafe-tag row slipped into the writes is refused
+    const bad = { ...file, writes: [...file.writes, { docId: 't3', path: 'text', he: 'סוגרים שבוע ב@מיקום', en: 'Closing the week at @מיקום', write: { he: 'סוגרים שבוע ב@מיקום', en: 'Closing the week at @מיקום' } }] };
+    expect(verifyImport(exp, bad).map((i) => i.check)).toContain('unsafe-tag');
+    // the live doc was archived since the export: skip
+    expect(liveDrift({ text: 'בוקר טוב', archived: true }, file.writes[0])).toBe('archived row');
+    expect(liveDrift({ text: 'בוקר טוב' }, file.writes[0])).toBeNull();
+  });
+
+  it('only whole-field { he, en } writes: a slash collection path is a ready path only when listed', () => {
+    expect(isReadyPath(TITLES, 'text')).toBe(true);
+    expect(isReadyPath(TITLES, 'category')).toBe(false);
+    expect(isReadyPath('workoutMetadata/logicCues/cues', 'text')).toBe(true);
+    expect(isReadyPath('workoutMetadata/motivationalPhrases/phrases', 'phrase')).toBe(false);
+    expect(applyWrites({ text: 'בוקר טוב', category: 'כוח' }, [{ path: 'text', write: { he: 'בוקר טוב', en: 'Good morning' } }])).toEqual({ text: { he: 'בוקר טוב', en: 'Good morning' } });
   });
 });

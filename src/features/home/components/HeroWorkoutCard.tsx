@@ -20,6 +20,7 @@ import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { hapticMedium } from '@/lib/haptics';
 import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
 import { useT } from '@/hooks/useT';
+import { useDisplayWorkoutTitle } from '../hooks/useDisplayWorkoutTitle';
 import { useLocationGateV1 } from '@/hooks/useLocationGateV1';
 import { home } from '@/messages/ns/home';
 import HeroMediaBackground from '@/components/ui/v2/HeroMediaBackground';
@@ -480,6 +481,7 @@ export default function HeroWorkoutCard({
     : null;
 
   const ctaText = useMemo(() => getGenderedCtaText(userGender, workout.title), [userGender, workout.title]);
+  const displayTitle = useDisplayWorkoutTitle(workout.title, workout.titleParts);
   // Home v2 (enable_home_v2): softer card (v2 radius + navy shadow, no hard border),
   // heavier title, the CTA as the screen's one filled gradient with a play glyph.
   const v2 = useHomeV2();
@@ -562,7 +564,7 @@ export default function HeroWorkoutCard({
             className={`${v2 ? 'font-black text-[#0e1419]' : 'font-semibold text-gray-800'} dark:text-white leading-snug`}
             style={{ fontSize: isSide ? 14 : v2 ? 18 : 16, letterSpacing: v2 ? '-0.02em' : undefined }}
           >
-            {workout.title}
+            {displayTitle}
           </h4>
         </div>
 

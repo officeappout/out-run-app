@@ -28,6 +28,7 @@ import { getAllPrograms } from '@/features/content/programs/core/program.service
 import type { Program as ProgramDoc } from '@/features/content/programs/core/program.types';
 import { resolveNotificationText, resolveDescription, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { Clock, Timer, RotateCcw, Repeat } from 'lucide-react';
+import { normalizeMetadataRow } from '@/features/workout-engine/services/workout-metadata-content-fields';
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -265,7 +266,7 @@ export default function SimulatorPage() {
     try {
       const ref = collection(db, `${WORKOUT_METADATA_COLLECTION}/notifications/notifications`);
       const snapshot = await getDocs(ref);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+      return snapshot.docs.map(doc => normalizeMetadataRow({ id: doc.id, ...doc.data() } as Notification));
     } catch { return []; }
   };
 
@@ -273,7 +274,7 @@ export default function SimulatorPage() {
     try {
       const ref = collection(db, `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions`);
       const snapshot = await getDocs(ref);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SmartDescription));
+      return snapshot.docs.map(doc => normalizeMetadataRow({ id: doc.id, ...doc.data() } as SmartDescription));
     } catch { return []; }
   };
 
@@ -281,7 +282,7 @@ export default function SimulatorPage() {
     try {
       const ref = collection(db, `${WORKOUT_METADATA_COLLECTION}/workoutTitles/titles`);
       const snapshot = await getDocs(ref);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkoutTitle));
+      return snapshot.docs.map(doc => normalizeMetadataRow({ id: doc.id, ...doc.data() } as WorkoutTitle));
     } catch { return []; }
   };
 

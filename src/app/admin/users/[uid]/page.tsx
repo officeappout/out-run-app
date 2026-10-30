@@ -55,6 +55,7 @@ import {
   bucketWorkoutsByDay,
 } from '../shared.utils';
 import { DailyTrendChart } from '../charts';
+import { hebrewOrEmpty } from '@/features/content/shared/stored-text-fields';
 
 const ONBOARDING_STEP_LABELS: Record<string, string> = {
   ACCESS_CODE: 'קוד גישה',
@@ -261,8 +262,9 @@ export default function UserDetailPage() {
           );
           const textByBundleId = new Map<string, string>();
           corpusSnap.docs.forEach((d) => {
-            const data = d.data() as { bundleId?: string; text?: string };
-            if (data.bundleId && data.text) textByBundleId.set(data.bundleId, data.text);
+            const data = d.data() as { bundleId?: string; text?: unknown };
+            const text = hebrewOrEmpty(data.text); // string, or the Hebrew slot of a { he, en } pair
+            if (data.bundleId && text) textByBundleId.set(data.bundleId, text);
           });
           grouped = grouped.map((e) => ({ ...e, copyText: e.variantId ? textByBundleId.get(e.variantId) : undefined }));
         }

@@ -25,7 +25,9 @@ export interface RunPreviewInput {
   blocks: RunBlock[];
   category?: string | null;
   logicCue?: string;
+  logicCueLocalized?: LocalizedText;
   description?: string;
+  descriptionLocalized?: LocalizedText;
 }
 
 export interface RunPreviewOptions extends RunPaceContext {
@@ -68,6 +70,12 @@ function runTemplateTitle(w: Pick<RunPreviewInput, 'title' | 'titleLocalized'>, 
   return lang !== 'he' && w.titleLocalized ? getLocalizedText(w.titleLocalized, lang) || w.title : w.title;
 }
 
+/** The coach line under the run title: logic cue, else description, each in `lang` when it has an English pair (Hebrew unchanged). */
+export function runCoachText(w: Pick<RunPreviewInput, 'logicCue' | 'logicCueLocalized' | 'description' | 'descriptionLocalized'>, lang: AppLanguage): string {
+  const pick = (he?: string, loc?: LocalizedText) => (lang !== 'he' && loc ? getLocalizedText(loc, lang) || he || '' : he || '');
+  return pick(w.logicCue, w.logicCueLocalized) || pick(w.description, w.descriptionLocalized);
+}
+
 export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions): RunPreviewModel {
   const ctx: RunPaceContext = { basePace: opts.basePace, zones: opts.zones };
   const showPaceNumbers = opts.showPaceNumbers ?? true;
@@ -107,7 +115,7 @@ export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions
     strip: buildIntensityStrip(w.blocks, ctx),
     stripLabels: stripPhaseLabels(w.blocks, ctx, { reps, mainLabel: kind === 'tempo' ? rt('runUtils.strip.tempo') : undefined }),
     ladder: showPaceNumbers ? buildZoneLadder(opts.zones, mainZone(w.blocks)) : [],
-    tip: (w.logicCue || w.description || '').trim() || null,
+    tip: runCoachText(w, opts.lang ?? 'he').trim() || null,
     surfaces: surfaceTilesFor(kind),
   };
 }

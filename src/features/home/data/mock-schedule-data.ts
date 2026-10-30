@@ -33,6 +33,8 @@ export interface MockWorkout {
   aiCue?: string;
   isGenerated?: boolean;
   isRecovery?: boolean;
+  /** Engine title parts for display in the UI language (title stays the Hebrew string above). */
+  titleParts?: import('@/features/workout-engine/logic/engine-title-display').WorkoutTitleParts;
 }
 
 export const MOCK_WORKOUTS: Record<string, MockWorkout> = {

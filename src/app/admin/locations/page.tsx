@@ -72,6 +72,7 @@ import {
 } from '@/features/admin/services/category-branding.service';
 import type { CategoryBrandingConfig, BrandingCategoryKey } from '@/features/admin/services/category-branding.service';
 import { getFacilityIcon, resolveCategoryKey } from '@/lib/utils/facility-icon';
+import { routeDescriptionText } from '@/features/parks/core/utils/route-description';
 
 const storage = getStorage();
 
@@ -1612,7 +1613,7 @@ export default function LocationsPage() {
             const routeParks: Park[] = routes.map((r: RouteType) => ({
                 id: r.id,
                 name: r.name,
-                description: r.description || '',
+                description: routeDescriptionText(r.description),
                 location: r.path && r.path.length > 0
                     ? { lat: r.path[0][1], lng: r.path[0][0] }
                     : { lat: 0, lng: 0 },

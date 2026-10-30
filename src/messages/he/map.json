@@ -1038,5 +1038,13 @@
   "featureInfo.stops.step3": "מגיעים לגינה: המגירה עולה עם תחנת הכוח.",
   "featureInfo.stops.caption": "בזמן ההליכה המגירה יורדת, ורואים את עצמכם במפה",
   "featureInfo.stops.chip1": "אפשר לדלג על תחנה?",
-  "featureInfo.stops.chip2": "מה אם הגינה תפוסה?"
+  "featureInfo.stops.chip2": "מה אם הגינה תפוסה?",
+  "mockLocation.chip": "מיקום",
+  "mockLocation.close": "סגור",
+  "mockLocation.title": "מיקום פיתוח",
+  "mockLocation.blockedDuringWorkout": "אי אפשר להדליק מיקום מדומה בזמן אימון",
+  "mockLocation.on": "הפעל",
+  "mockLocation.off": "כבה",
+  "mockLocation.manualCoords": "קואורדינטות ידניות",
+  "mockLocation.setCoords": "הגדר קואורדינטות"
 }

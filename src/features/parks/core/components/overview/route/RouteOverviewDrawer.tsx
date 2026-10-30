@@ -45,6 +45,7 @@ import ReportProblemButton from '@/features/generation-review/components/ReportP
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { localizeRouteName } from '@/features/parks/core/utils/route-name-display';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 export interface RouteOverviewDrawerProps {
   route: Route;
@@ -69,6 +70,7 @@ export default function RouteOverviewDrawer({
   route, initialActivity, userLocation, cityName, onBack, onStart, onNavigate, onOpenFullDetails, topSlot, showCredits = false,
 }: RouteOverviewDrawerProps) {
   const t = useT(map);
+  const contentLang = useContentLanguage();
   const [activity, setActivity] = useState<RouteActivity>(() => initialRouteActivity(route, initialActivity));
   const [detailOpen, setDetailOpen] = useState(false);
   const [weightNudge, setWeightNudge] = useState(false);
@@ -155,7 +157,7 @@ export default function RouteOverviewDrawer({
       {detailOpen && (
         <div className="mt-2">
           <div className="mb-2.5 flex items-start gap-1.5 text-[14px] leading-relaxed text-v2-ink-2">
-            <MapPin size={14} style={{ color: '#64748b', flexShrink: 0, marginTop: 4 }} /> {routeDescription(route, t, cityName)}
+            <MapPin size={14} style={{ color: '#64748b', flexShrink: 0, marginTop: 4 }} /> {routeDescription(route, t, cityName, contentLang)}
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-[13px] font-bold text-v2-ink-2 shadow-v2-ring">

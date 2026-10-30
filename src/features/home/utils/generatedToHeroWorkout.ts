@@ -26,5 +26,6 @@ export function generatedToHeroWorkout(gw: GeneratedWorkout): MockWorkout {
     description: gw.description,
     isRecovery: gw.isRecovery,
     isGenerated: true,
+    titleParts: { title: gw.title, ...(gw.titleLocalized ? { titleLocalized: gw.titleLocalized } : {}), dayFocus: gw.dayFocus ?? null },
   };
 }

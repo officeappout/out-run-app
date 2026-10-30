@@ -42,6 +42,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
 import { computeNeedsFacilityDetails } from '../utils/park-completeness.util';
+import { mergeHebrewEdit } from '@/features/content/shared/stored-text-fields';
 
 // ── Caller resolution ───────────────────────────────────────────────────
 
@@ -415,6 +416,13 @@ export async function computeParkUpdate(
       continue;
     }
     updates[key] = value;
+  }
+  // A park whose description is stored as { he, en }: a Hebrew-only edit keeps the English (same text: nothing to write).
+  // Applies to every caller, root included (the loop above writes root's fields as sent).
+  if (typeof updates.description === 'string' && rejectedFields.length === 0) {
+    const merged = mergeHebrewEdit(existingPark.description, updates.description);
+    if (merged === undefined) delete updates.description; else updates.description = merged;
+    if (merged === undefined && Object.keys(updates).length === 0) return { status: 200, body: { updatedFields: [] } };
   }
   if (rejectedFields.length > 0) {
     return { status: 400, body: { error: `שדות לא מורשים: ${rejectedFields.join(', ')}` } };
