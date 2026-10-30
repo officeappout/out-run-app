@@ -251,7 +251,7 @@ export default function StrengthExerciseCard({
           )}
           <span
             className={[
-              'text-sm font-bold truncate text-start',
+              'text-sm font-bold truncate text-right',
               isCompleted
                 ? 'text-slate-500 dark:text-slate-400'
                 : 'text-slate-900 dark:text-white',
