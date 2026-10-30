@@ -94,8 +94,8 @@ describe('no timer advances while the gate is up', () => {
     expect(runner).toContain('isPaused={sm.isPaused}');
   });
   it('only the demo clip keeps playing behind the gate; the tap releases the hold', () => {
-    expect(runner).toContain('videoPaused={gateActive ? false : sm.isPaused}');
-    const tap = runner.slice(runner.indexOf('const handleGateStart = useCallback'), runner.indexOf('}, [isTabataBlock, workout.segments'));
+    expect(runner).toContain('videoPaused={gateActive || parkActive ? false : sm.isPaused}');
+    const tap = runner.slice(runner.indexOf('const handleGateStart = useCallback'), runner.indexOf('}, [parkMachine, isTabataBlock, workout.segments'));
     expect(tap).toContain('el.muted = gateClipMuted(isPlayerAudioMuted());');
     expect(tap.indexOf('el.play()')).toBeLessThan(tap.indexOf('sm.togglePause()')); // sound first, inside the tap
   });
