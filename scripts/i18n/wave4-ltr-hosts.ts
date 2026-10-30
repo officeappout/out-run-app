@@ -152,6 +152,10 @@ export const LTR_FILE_OK = new Set([
   'src/features/home/components/first-week/FirstWeekCard.tsx',
   'src/features/home/components/CalmReturnCard.tsx',
   'src/features/home/components/streak/StreakNoticeCard.tsx',
+  // Carousel-card chevrons / badge edge picked in JS from useUiDir (Hebrew markup byte-identical, English mirrored).
+  'src/features/home/components/HeroWorkoutCard.tsx',
+  'src/features/home/components/start-cards/ProgramStartCard.tsx',
+  'src/features/schedule/walking/components/NotAloneCard.tsx',
 ]);
 
 export function scanLtrHosts(root = 'src'): ScanResult {
