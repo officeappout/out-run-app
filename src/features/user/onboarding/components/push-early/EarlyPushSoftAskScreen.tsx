@@ -21,10 +21,11 @@ export interface EarlyPushSoftAskScreenProps {
 
 export default function EarlyPushSoftAskScreen({ busy, onAccept, onDefer }: EarlyPushSoftAskScreenProps) {
   return (
-    <div
-      className="mx-auto flex min-h-[calc(100dvh-env(safe-area-inset-top,0px))] w-full max-w-md flex-col bg-v2-surface font-simpler text-v2-ink"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-    >
+    // Pilot note AF3: fills <main>'s content box. <main> (ClientLayout) already
+    // reserves the bottom safe area and this route gets no top inset, so the old
+    // own bottom padding doubled the home-indicator gap and the
+    // calc(100dvh - top inset) height left an empty band under the buttons.
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         <div
           className="grid h-[140px] w-[140px] place-items-center rounded-full"

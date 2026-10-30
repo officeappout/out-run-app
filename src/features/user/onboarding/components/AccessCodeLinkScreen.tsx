@@ -92,7 +92,7 @@ export default function AccessCodeLinkScreen() {
 
   if (result) {
     return (
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink">
+      <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink">
         <div className="flex w-full max-w-xs flex-col items-center gap-4 rounded-v2-card bg-white px-5 py-6 text-center shadow-v2-card">
           <span className="grid h-12 w-12 place-items-center rounded-full bg-v2-tint" aria-hidden>
             <CheckCircle2 size={24} className="text-v2-up" />
@@ -109,7 +109,7 @@ export default function AccessCodeLinkScreen() {
 
   const disabled = loading || !code.trim();
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink">
       <div className="flex flex-col items-center text-center">
         <span className="mb-3 grid h-12 w-12 place-items-center rounded-full bg-v2-tint" aria-hidden>
           <KeyRound size={22} className="text-v2-deep" />

@@ -63,7 +63,7 @@ export default function EarlyPushSoftAskGate({ context, children }: { context?: 
 
   // Flag off / other contexts: exactly today's screen, no wait.
   if (!eligibleContext || (ready && !v2) || decision === 'pass') return <>{children}</>;
-  if (decision === 'pending') return <div className="min-h-[100dvh] bg-v2-surface" aria-busy />;
+  if (decision === 'pending') return <div className="min-h-full bg-v2-surface" aria-busy />;
 
   const accept = async () => {
     const uid = auth.currentUser?.uid;
