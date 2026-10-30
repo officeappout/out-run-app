@@ -15,8 +15,10 @@ import { useHybridPlayerV2 } from '../HybridPlayerV2Context';
 import { comboSteps, detectComboTransition, type ComboPoint, type ComboStage, type ComboStep, type ComboTransitionKind } from './combo-choreography';
 import { useComboFlowV1 } from './useComboFlowV1';
 
-/** The session-list drop / dot move is not wired yet (next stage of the build): only the start chip is timed. */
-export const COMBO_LAYER_WIRED = false;
+/** The session list drops and the dot moves (ComboShellDriver + HybridSessionListV2). The finish run
+ *  lands with the combined finish / summary stage, so it stays untimed for now. */
+export const COMBO_LAYER_WIRED = true;
+const layerFor = (kind: ComboTransitionKind) => COMBO_LAYER_WIRED && kind !== 'finish';
 
 export interface ComboFlowApi {
   on: boolean;
@@ -60,7 +62,7 @@ export function ComboFlowProvider({ children }: { children: React.ReactNode }) {
     if (!on || !point) return;
     const kind = detectComboTransition(prev, point);
     if (!kind) return;
-    const steps = comboSteps(kind, { withLayer: COMBO_LAYER_WIRED, reducedMotion: reduce });
+    const steps = comboSteps(kind, { withLayer: layerFor(kind), reducedMotion: reduce });
     if (!steps.length) return;
     idRef.current += 1;
     setRun({ id: idRef.current, kind, steps });

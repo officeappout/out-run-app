@@ -5,6 +5,9 @@
  * (F-2e, F-3d) in the shared SessionListLayer frame: one section per leg,
  * a station as exercise cards with a box per set, a run leg in the same
  * boxes. The live leg is marked "עכשיו".
+ *
+ * enable_combo_flow_v1: the blocks sit on a side axis with the "you" dot (ComboAxisSection), and
+ * while the stage-change choreography is on screen a tap anywhere skips to the next player.
  */
 
 import React, { useMemo } from 'react';
@@ -20,6 +23,9 @@ import { useHybridPlayerV2 } from './HybridPlayerV2Context';
 import { hybridListSections, listTotals } from './hybrid-v2-list';
 import { HYBRID_V2_COLORS, headerView } from './hybrid-v2-view';
 import { exerciseImageOf, exerciseNameOf } from './exercise-display';
+import { useComboFlow } from './combo/ComboFlowContext';
+import ComboAxisSection, { axisColor } from './combo/ComboAxisSection';
+import { comboDotIndex, comboSkippable } from './combo/combo-list';
 
 function RunThumb() {
   return (
@@ -40,7 +46,10 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
     () => (api?.enabled ? hybridListSections(api.plan, api.legs, api.names, exerciseNameOf, exerciseImageOf, t) : []),
     [api?.enabled, api?.plan, api?.legs, api?.names, t],
   );
+  const combo = useComboFlow();
   if (!api?.enabled || !api.view) return null;
+  const dot = combo.on ? comboDotIndex(sections.map((x) => x.status), combo.kind, combo.stage) : -1;
+  const withThumb = (x: (typeof sections)[number]) => (x.kind === 'run' ? x.rows.map((r) => ({ ...r, thumb: <RunThumb /> })) : x.rows);
   const h = headerView(api.view, api.plan, api.names, api.label, t);
 
   return (
@@ -58,6 +67,22 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
           progress={api.strip.progress}
         />
       )}
+      {combo.on && comboSkippable(combo.stage) && (
+        <button type="button" onClick={combo.skip} aria-label={t('hybrid.v2.combo.skipAria')} className="fixed inset-0 z-30 cursor-default bg-transparent" />
+      )}
+      {combo.on ? (
+        <div className="mt-4">
+          {sections.map((s, i) => (
+            <ComboAxisSection
+              key={s.key}
+              section={s}
+              rows={withThumb(s)}
+              hasDot={i === dot}
+              nextColor={sections[i + 1] ? axisColor(sections[i + 1].kind) : null}
+            />
+          ))}
+        </div>
+      ) : (
       <div className="mt-4 space-y-5">
         {sections.map((s) => (
           <section key={s.key} aria-current={s.status === 'active' ? 'step' : undefined}>
@@ -75,13 +100,11 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
               )}
               <span className="ms-auto shrink-0 whitespace-nowrap text-[12px] font-bold text-v2-muted">{s.meta}</span>
             </div>
-            <ExerciseSetsTable
-              hideLegend
-              rows={s.kind === 'run' ? s.rows.map((r) => ({ ...r, thumb: <RunThumb /> })) : s.rows}
-            />
+            <ExerciseSetsTable hideLegend rows={withThumb(s)} />
           </section>
         ))}
       </div>
+      )}
     </SessionListLayer>
   );
 }
