@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Exercise, ExecutionMethod, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { resolveSwapOptionImage } from '../logic/swap-option-media';
-import { getExerciseVariations, getAlternativeExercises, AlternativeExerciseOption } from '../../../generator/services/exercise-replacement.service';
+import { getExerciseVariations, getAlternativeExercises, getMachineAlternatives, AlternativeExerciseOption } from '../../../generator/services/exercise-replacement.service';
+import { machineIdOf } from '../logic/machine-swap';
 import {
   getMuscleGroupLabel,
   normalizeGearId,
@@ -25,6 +26,7 @@ import { useSwapFixesV1 } from '../hooks/useSwapFixesV1';
 import { swapOptionImageMethod } from '../logic/swap-fixes';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 interface ExerciseReplacementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -163,6 +165,8 @@ export default function ExerciseReplacementModal({
   const { direction } = useUiDir();
   const t = useT(player);
   const fixesOn = useSwapFixesV1();
+  // Often mounted inside a map layer / drawer (no portal): hide the tab bar so it can't cover the sheet.
+  useSuppressBottomNav(isOpen);
   const [activeTab, setActiveTab] = useState<TabType>('adaptation');
   const [adaptationExercises, setAdaptationExercises] = useState<AlternativeExerciseOption[]>([]);
   const [alternativeExercises, setAlternativeExercises] = useState<AlternativeExerciseOption[]>([]);
@@ -199,13 +203,22 @@ export default function ExerciseReplacementModal({
     const postFilter = (list: AlternativeExerciseOption[]) =>
       fixesOn ? list : filterAlternativesByEquipment(list, allowedEquipmentIds);
 
+    // Pilot AG5: a park machine's "adaptation" = the park's other machines for the same muscle
+    // (it has no base_movement_id, so catalog variations are always empty). Built as machines,
+    // they skip the bodyweight/equipment post-filter.
+    const isMachine = !!machineIdOf(currentExercise);
+
     (async () => {
       try {
-        const variations = await getExerciseVariations(
-          currentExercise, currentLevel, location, park, userProfile, activeProgramId, opts,
-        );
+        const variations = isMachine
+          ? await getMachineAlternatives(currentExercise, currentLevel, park, {
+              excludeIds: new Set(excludeExerciseIds ?? []),
+            })
+          : await getExerciseVariations(
+              currentExercise, currentLevel, location, park, userProfile, activeProgramId, opts,
+            );
         if (id !== fetchId.current) return;
-        setAdaptationExercises(postFilter(variations));
+        setAdaptationExercises(isMachine ? variations : postFilter(variations));
         setLoadingAdaptation(false);
 
         const tab1Ids = new Set(variations.map((v) => v.exercise.id));
@@ -233,7 +246,10 @@ export default function ExerciseReplacementModal({
   const handleReplace = useCallback(async () => {
     if (!selectedExercise) return;
     let method: ExecutionMethod | undefined;
-    if (allowedEquipmentIds) {
+    if (machineIdOf(selectedExercise.exercise) && selectedExercise.selectedExecutionMethod) {
+      // A park machine (AG5): its own machine method (brand photo / video), built with it.
+      method = selectedExercise.selectedExecutionMethod;
+    } else if (allowedEquipmentIds) {
       // Station: the method the filter found doable with this park's equipment.
       method = selectedExercise.selectedExecutionMethod;
     } else if (activeTab === 'adaptation') {
