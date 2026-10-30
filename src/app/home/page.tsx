@@ -147,7 +147,7 @@ import {
 } from './HomeOverlays';
 import {
   StatsOverview, PreWorkoutCardRenderer, PostWorkoutCardRenderer, TodayActivityStrip, SmartWeeklySchedule,
-  ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
+  ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, HomeDonePost, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
   CalmReturnCard, StreakNoticeCard, FirstWeekHomeCard, PushReAskHomeCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
   HomeProgramSlide, HomeProgressSlotRow, ActivityMinutesRingCard,
@@ -162,7 +162,7 @@ import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
 import { placeProgramSlides, programStartSlideId, programStartTrackOf, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { PICK_PROGRAM_STRIP_HINT_KEY } from '@/features/home/components/start-cards/program-start-copy';
 import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
-import { composeHomeAfterSlides, isHomeAfterActive, runTodayStillDue, HOME_AFTER_DONE_ID } from '@/features/home/utils/home-after';
+import { composeHomeAfterSlides, isHomeAfterActive, runTodayStillDue, homeAfterDoneSlideId, isHomeAfterDoneSlideId } from '@/features/home/utils/home-after';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
@@ -4091,7 +4091,7 @@ export default function HomePage() {
           // slide and today's run / walk are known already); the engine's cards join in front.
           const homeAfterDoneCards = todayStepGoalCard ? [...todayActivityCards, todayStepGoalCard] : todayActivityCards;
           const homeAfterItems = homeAfter
-            ? composeHomeAfterSlides<PostWorkoutItem | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID } | { id: typeof HOME_AFTER_DONE_ID }>({
+            ? composeHomeAfterSlides<PostWorkoutItem | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID } | { id: string; doneCard: TodayActivityCardData }>({
               remaining: postWorkoutHasCards && postWorkoutBase
                 ? placeProgramSlides<PostWorkoutItem | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem>(postWorkoutBase, programSlide.plan, programSlideItems)
                 : [],
@@ -4101,7 +4101,7 @@ export default function HomePage() {
               ],
               tail: homeAfterWalk && walkSlot?.kind !== 'today' ? [{ id: WALK_CARD_ID } as const] : [],
               isTopUp: (s) => 'generatorId' in s && s.generatorId === TOP_UP_GENERATOR_ID,
-              done: homeAfterDoneCards.length > 0 ? { id: HOME_AFTER_DONE_ID } : null,
+              done: homeAfterDoneCards.map((card) => ({ id: homeAfterDoneSlideId(card.key), doneCard: card })),
               idOf: (s) => s.id,
             })
             : null;
@@ -4122,13 +4122,12 @@ export default function HomePage() {
                   keyExtractor={(s) => s.id}
                   cardHeight={330}
                   passiveDots
-                  renderCard={(s) => s.id === HOME_AFTER_DONE_ID ? (
-                    <DoneTodayCard
-                      slide
-                      cards={homeAfterDoneCards}
-                      workouts={todaysWorkouts ?? []}
-                      onCardTap={handleTodayActivityCardTap}
-                      notes={runDoneNotes}
+                  renderCard={(s) => 'doneCard' in s && isHomeAfterDoneSlideId(s.id) ? (
+                    <HomeDonePost
+                      card={s.doneCard}
+                      workout={todaysWorkouts?.find((w) => w.id === s.doneCard.key)}
+                      note={runDoneNotes?.[s.doneCard.key]}
+                      onOpen={handleTodayActivityCardTap}
                     />
                   ) : isWalkCarouselItem(s) ? (
                     <ErrorBoundary fallback={null}>{walkCard(false)}</ErrorBoundary>
