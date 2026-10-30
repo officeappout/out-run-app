@@ -25,7 +25,12 @@ describe('<html lang dir>', () => {
   it('i18n off: exactly the old LanguageProvider values (legacy store)', () => {
     expect(decideHtmlLangDir({ i18nEnabled: false, locale: 'he', legacyLanguage: 'he', legacyDirection: 'rtl' })).toEqual({ lang: 'he', dir: 'rtl' });
     // The challenge pages' he/en toggle keeps working as today.
-    expect(decideHtmlLangDir({ i18nEnabled: false, locale: 'he', legacyLanguage: 'en', legacyDirection: 'ltr' })).toEqual({ lang: 'en', dir: 'ltr' });
+    expect(decideHtmlLangDir({ i18nEnabled: false, locale: 'he', legacyLanguage: 'en', legacyDirection: 'ltr', legacyToggleScreen: true })).toEqual({ lang: 'en', dir: 'ltr' });
+  });
+  it('Hebrew is rtl even with a stale persisted en/ltr legacy store (any screen but the challenge toggle)', () => {
+    for (const i18nEnabled of [false, true]) {
+      expect(decideHtmlLangDir({ i18nEnabled, locale: 'he', legacyLanguage: 'en', legacyDirection: 'ltr' })).toEqual({ lang: 'he', dir: 'rtl' });
+    }
   });
   it('i18n on + Hebrew: still the legacy values', () => {
     expect(decideHtmlLangDir({ i18nEnabled: true, locale: 'he', legacyLanguage: 'he', legacyDirection: 'rtl' })).toEqual({ lang: 'he', dir: 'rtl' });
