@@ -2118,6 +2118,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   paceSplits: isRide ? undefined : buildPaceSplits(completedLaps),
                   // The v2 card shows a ride's average speed (km/h), not pace.
                   ...(isRide ? { activityType: 'cycling' as const } : {}),
+                  // The post card's walk family (steps, not a running ring).
+                  ...(activityType === 'walking' ? { activityType: 'walking' as const } : {}),
                   streakDays: streakFor(useActivityStore.getState().currentStreak),
                 }).catch(() => {});
               }

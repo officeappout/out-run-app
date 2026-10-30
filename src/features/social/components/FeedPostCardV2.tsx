@@ -12,6 +12,9 @@
  *     small inset), big numbers (a ride: km/h instead of pace —
  *     feed-cardio-stats.ts), per-lap pace bars when the run had laps.
  * Every section hides itself when its field is missing — nothing invented.
+ *
+ * enable_workout_post_v1 (boards PostFeed / PostTypes): the same header and actions around the one
+ * workout post card (WorkoutPostCard, surface "feed").
  */
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -24,6 +27,9 @@ import RouteLine from './RouteLine';
 import ShareImageSheet from './ShareImageSheet';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
+import WorkoutPostCard from '../post-card/WorkoutPostCard';
+import { postFromFeed } from '../post-card/post-model';
+import { useWorkoutPostV1 } from '../post-card/useWorkoutPostV1';
 
 /**
  * Activity colours — the same as the home flames. The label is the
@@ -152,6 +158,7 @@ export default function FeedPostCardV2({
 }: FeedPostCardV2Props) {
   const t = useT(community);
   const [shareOpen, setShareOpen] = useState(false);
+  const postV1 = useWorkoutPostV1();
   // The id whose colours (and label) the card uses — unknown categories look like strength.
   const actId = V2_ACTIVITY[post.activityCategory] ? post.activityCategory : 'strength';
   const act = V2_ACTIVITY[actId];
@@ -223,6 +230,17 @@ export default function FeedPostCardV2({
     isAuthor && shareOpen && typeof document !== 'undefined'
       ? createPortal(<ShareImageSheet open onClose={() => setShareOpen(false)} input={shareInputFromPost(post)} />, document.body)
       : null;
+
+  // ── enable_workout_post_v1: the one workout post card ─────────────────
+  if (postV1) {
+    return (
+      <>
+        <WorkoutPostCard model={postFromFeed(post)} surface="feed" header={header} footer={actions || <div className="h-1" />} />
+        {report}
+        {shareSheet}
+      </>
+    );
+  }
 
   // ── Run / walk ────────────────────────────────────────────────────────
   if (isCardio) {

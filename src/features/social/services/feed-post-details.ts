@@ -41,10 +41,11 @@ export interface FeedPostDetails {
   photoUrl?: string;
   photoPath?: string;
   /**
-   * Only ever 'cycling' (a ride, enable_home_v2): the card shows the ride's
-   * average speed (km/h) instead of a runner's pace. Absent = run / walk.
+   * 'cycling' (a ride, enable_home_v2): the card shows the ride's average speed
+   * (km/h) instead of a runner's pace. 'walking' (enable_workout_post_v1): the
+   * post card's walk family (steps, never a running ring). Absent = a run.
    */
-  activityType?: 'cycling';
+  activityType?: 'cycling' | 'walking';
 }
 
 export const MAX_TOP_EXERCISES = 3;
@@ -229,7 +230,7 @@ export function sanitizePostDetails(data: Record<string, unknown>): FeedPostDeta
   if (photoUrl && /^https:\/\//.test(photoUrl)) out.photoUrl = photoUrl;
   const photoPath = str(data.photoPath, 300);
   if (photoPath) out.photoPath = photoPath;
-  if (data.activityType === 'cycling') out.activityType = 'cycling';
+  if (data.activityType === 'cycling' || data.activityType === 'walking') out.activityType = data.activityType;
   return out;
 }
 

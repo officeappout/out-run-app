@@ -836,6 +836,12 @@ export const FLAG_DEFS = [
   // of the OS share sheet directly. A router over the existing pieces. Fail-closed; super admins preview it.
   // Off = identical to today.
   { key: 'enableShareRouterV1', firestoreKey: 'enable_share_router_v1', defaultValue: false, superAdminValue: true },
+  // Workout post card (30.10.2026, owner-approved canvas boards PostTypes / PostCompact / PostFeed / PostShare /
+  // PostPhoto* / PostStickers): ONE post card for a finished workout, used on the home carousel's done slide, as the
+  // feed post and (next stage) in the share images. One design per family (strength, run, walk, combined): a night
+  // map or photo square with the title and 3 rings in the widget colours. Fail-closed; super admins preview it.
+  // Off = identical to today.
+  { key: 'enableWorkoutPostV1', firestoreKey: 'enable_workout_post_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

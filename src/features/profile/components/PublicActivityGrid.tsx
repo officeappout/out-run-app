@@ -22,6 +22,9 @@
 import { Activity, Dumbbell, Moon } from 'lucide-react';
 import type { FeedPost } from '@/features/social/services/feed.service';
 import ActivityTileGrid, { type ActivityTile } from './ActivityTileGrid';
+import WorkoutPostList from '@/features/social/post-card/WorkoutPostList';
+import { postFromFeed } from '@/features/social/post-card/post-model';
+import { useWorkoutPostV1 } from '@/features/social/post-card/useWorkoutPostV1';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
@@ -73,6 +76,11 @@ export default function PublicActivityGrid({
   v2?: boolean;
 }) {
   const t = useT(profileNs);
+  // enable_workout_post_v1: the public posts as the one workout post card (no detail page yet, so no tap).
+  const postV1 = useWorkoutPostV1();
+  if (postV1 && !isLoading && posts.length > 0) {
+    return <WorkoutPostList items={posts.map((p) => ({ key: p.id, model: postFromFeed(p) }))} />;
+  }
   const tiles: ActivityTile[] = posts.map((post) => {
     const { Icon, label, tileGradient } = getActivityMeta(post, t);
     const tone = V2_TONE[post.activityCategory] ?? V2_TONE.cardio;

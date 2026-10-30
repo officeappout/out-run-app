@@ -6,6 +6,9 @@
  * workout's icon and title, a row of big numbers, and "details". Tapping it opens that workout's summary
  * (onOpen); a met step goal has no summary, so it is not a button. Numbers come from homeDonePostStats,
  * real values only.
+ *
+ * enable_workout_post_v1 (board PostCompact): the slide is the one workout post card, compact surface
+ * (icon, title, one line, 3 small rings), so home, feed and share read the same.
  */
 
 import React from 'react';
@@ -16,6 +19,9 @@ import type { TodayActivityCardData } from './TodayActivityCard';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import WorkoutPostCard from '@/features/social/post-card/WorkoutPostCard';
+import { postFromDone } from '@/features/social/post-card/post-model';
+import { useWorkoutPostV1 } from '@/features/social/post-card/useWorkoutPostV1';
 
 export interface HomeDonePostProps {
   card: TodayActivityCardData;
@@ -40,6 +46,15 @@ export default function HomeDonePost({ card, workout, note, onOpen }: HomeDonePo
   const time = donePostTime(workout, t.locale);
   const iconKey = resolveIconKey(card.programId, card.workoutType ?? (card.category === 'steps' ? 'walking' : card.category));
   const open = card.category !== 'steps' && onOpen ? () => onOpen(card) : undefined;
+  const postV1 = useWorkoutPostV1();
+  if (postV1) {
+    const model = postFromDone({ ...card, ...workout, note: note ?? null });
+    return (
+      <div className="flex h-full w-full items-start" data-home-after-post={card.key}>
+        <WorkoutPostCard model={model} surface="compact" meta={time} onOpen={open} />
+      </div>
+    );
+  }
 
   const body = (
     <>
