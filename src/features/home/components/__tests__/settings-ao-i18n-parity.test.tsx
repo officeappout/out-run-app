@@ -284,3 +284,27 @@ describe('sub screens', () => {
     await expect(render({ screen: 'privacy' })).toMatchFileSnapshot(snap(`privacy-${name.replace(/ /g, '-')}`));
   });
 });
+
+// AD7 / W3 (pilot notes, 28.10): deletion reachable from the account section, and the neighborhood picker opened
+// from settings renders inside its z-[101] layer instead of under it.
+describe('account deletion + sheets layer', () => {
+  it.each([
+    ['v1', {}],
+    ['v2', allFlags],
+  ] as const)('%s: "מחק חשבון" sits in the account section, above logout', (_name, f) => {
+    Object.assign(flags, f);
+    const out = render();
+    const rows = out.split('מחק חשבון').length - 1;
+    expect(rows).toBe(2); // account row + danger-zone button
+    expect(out.indexOf('מחק חשבון')).toBeLessThan(out.indexOf('התנתק'));
+    expect(out).toContain('מחיקה לצמיתות של החשבון וכל הנתונים');
+  });
+
+  it('NeighborhoodPickerSheet (z-70/71) mounts inside the z-[101] settings layer', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../SettingsModal.tsx', import.meta.url), 'utf8');
+    const layerEnd = src.indexOf('</SettingsV2.Provider>');
+    expect(src.indexOf('<NeighborhoodPickerSheet')).toBeGreaterThan(0);
+    expect(src.indexOf('<NeighborhoodPickerSheet')).toBeLessThan(layerEnd);
+  });
+});
