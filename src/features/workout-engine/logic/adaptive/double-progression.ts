@@ -3,6 +3,8 @@
  *
  * After each session the exercise's state moves one step:
  *   success (every working set hit the target)  → target +1 rep / +5 s, up to the range top
+ *     · big overshoot (every set ≥ top, average ≥ top + DP_JUMP_OVER_TOP_*) → straight to the top;
+ *       average ≥ top + DP_VARIATION_JUMP_* → the harder variation already next session
  *     · DP_TOP_SESSIONS_FOR_SET successes in a row AT the top       → +1 set (max DP_MAX_EXTRA_SETS)
  *     · DP_TOP_SESSIONS_FOR_VARIATION successes in a row at the top → prefer the harder variation
  *   miss (≥2 sets below the range min, or the average below it)    → hold the target
@@ -17,6 +19,8 @@
  */
 import {
   DP_HOLD_STEP_S,
+  DP_JUMP_OVER_TOP_HOLD_S,
+  DP_JUMP_OVER_TOP_REPS,
   DP_MAX_EXTRA_SETS,
   DP_MISS_SESSIONS_FOR_STEPBACK,
   DP_MISS_SETS_BELOW_MIN,
@@ -26,6 +30,8 @@ import {
   DP_STEPBACK_REPS,
   DP_TOP_SESSIONS_FOR_SET,
   DP_TOP_SESSIONS_FOR_VARIATION,
+  DP_VARIATION_JUMP_HOLD_S,
+  DP_VARIATION_JUMP_REPS,
 } from './adaptive.config';
 
 export type RepsSourceLike = 'edited' | 'default' | 'timer' | string;
@@ -82,6 +88,20 @@ export function evaluateSession(input: SessionResultInput): SessionOutcome {
   return allHit ? 'success' : 'neutral';
 }
 
+export type Overshoot = 'none' | 'jump_top' | 'harder_variation';
+
+/** How far a session went past the range top. Only typed / timed sets count ('default' never does). */
+export function overshootOf(input: SessionResultInput): Overshoot {
+  const { values, sources, range, isHold } = input;
+  if (!values.length || !isNum(range?.max)) return 'none';
+  if (sources?.some((s) => s === 'default')) return 'none';
+  if (!values.every((v) => v >= range.max)) return 'none';
+  const over = values.reduce((s, v) => s + v, 0) / values.length - range.max;
+  if (over >= (isHold ? DP_VARIATION_JUMP_HOLD_S : DP_VARIATION_JUMP_REPS)) return 'harder_variation';
+  if (over >= (isHold ? DP_JUMP_OVER_TOP_HOLD_S : DP_JUMP_OVER_TOP_REPS)) return 'jump_top';
+  return 'none';
+}
+
 function initialState(input: SessionResultInput, nowMs: number): AdaptiveState {
   return {
     v: 1,
@@ -129,13 +149,15 @@ export function nextAdaptiveState(
 
   if (outcome === 'success') {
     const atTop = target >= range.max;
-    next.topStreak = atTop ? base.topStreak + 1 : 0;
+    const overshoot = overshootOf(input);
+    // A big overshoot below the top counts as the first session at the top.
+    next.topStreak = atTop ? base.topStreak + 1 : overshoot !== 'none' ? 1 : 0;
     next.missStreak = 0;
-    next.nextTarget = Math.min(range.max, target + step);
+    next.nextTarget = overshoot !== 'none' ? range.max : Math.min(range.max, target + step);
     next.extraSets = next.topStreak >= DP_TOP_SESSIONS_FOR_SET
       ? Math.min(DP_MAX_EXTRA_SETS, base.extraSets + 1)
       : base.extraSets;
-    if (next.topStreak >= DP_TOP_SESSIONS_FOR_VARIATION) next.variationStep = 1;
+    if (next.topStreak >= DP_TOP_SESSIONS_FOR_VARIATION || overshoot === 'harder_variation') next.variationStep = 1;
     return next;
   }
 

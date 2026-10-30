@@ -19,6 +19,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useT } from '@/hooks/useT';
 import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import { genderArg } from '@/lib/i18n/core/i18n-core';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 
 function RingsIcon({ className }: { className?: string }) {
   return (
@@ -100,6 +101,8 @@ export function JITSetupModal({
   useEffect(() => {
     if (!isOpen) setIdentitySaved(false);
   }, [isOpen]);
+  // Full-screen setup (identity form, health declaration): the tab bar must not cover its buttons.
+  useSuppressBottomNav(isOpen && requirements.length > 0);
 
   if (!isOpen || requirements.length === 0) return null;
 

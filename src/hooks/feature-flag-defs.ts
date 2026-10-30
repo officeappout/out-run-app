@@ -831,6 +831,11 @@ export const FLAG_DEFS = [
   // the "+" menu, the done slide as the workout post, the home tutorial. Needs enable_home_v2. Fail-closed; super
   // admins preview it. Off = identical to today.
   { key: 'enableHomeAfterV1', firestoreKey: 'enable_home_after_v1', defaultValue: false, superAdminValue: true },
+  // One share button (pilot AG2, 30.10.2026): "share" on a workout summary opens ONE small sheet with three ways to
+  // share (post to the in-app feed, designed images for social networks, send via phone = the OS share sheet) instead
+  // of the OS share sheet directly. A router over the existing pieces. Fail-closed; super admins preview it.
+  // Off = identical to today.
+  { key: 'enableShareRouterV1', firestoreKey: 'enable_share_router_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

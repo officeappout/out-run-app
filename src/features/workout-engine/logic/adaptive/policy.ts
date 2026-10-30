@@ -24,7 +24,8 @@ export const POLICY_OFF: ProgressionPolicy = Object.freeze({
 
 export function resolveProgressionPolicy(isSuperAdmin: boolean): ProgressionPolicy {
   return {
-    trueSkillCap: isSuperAdmin || readLiveFlag('enableSkillCapTrueSkills'),
+    // Graduated 30.10.2026 (owner: no 1-rep push-ups) — on for everyone; the panel flag is no longer read.
+    trueSkillCap: true,
     adaptiveReps: isSuperAdmin || readLiveFlag('enableAdaptiveRepsV1'),
     goalPresence: isSuperAdmin || readLiveFlag('enableGoalPresenceV1'),
   };

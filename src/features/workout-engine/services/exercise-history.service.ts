@@ -43,6 +43,7 @@ import {
   type AdaptiveState,
   type SessionResultInput,
 } from '@/features/workout-engine/logic/adaptive/double-progression';
+import { describeAdaptiveChange, type AdaptiveChange } from '@/features/workout-engine/logic/adaptive/adaptive-change';
 
 /** 3a (enable_adaptive_reps_v1): per-exercise session context, everything but the values. */
 export type AdaptiveSessionMeta = Omit<SessionResultInput, 'values'>;
@@ -114,11 +115,11 @@ export async function saveExerciseHistory(
   exercises: WorkoutExerciseResult[],
   /** 3a: passed only while enable_adaptive_reps_v1 is on — adds the `adaptive` field. */
   adaptiveMeta?: Map<string, AdaptiveSessionMeta>,
-): Promise<void> {
-  if (!userId || exercises.length === 0) return;
+): Promise<AdaptiveChange[]> {
+  if (!userId || exercises.length === 0) return [];
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     console.log('[ExerciseHistory] Offline — skipping save');
-    return;
+    return [];
   }
 
   // enable_home_v2 (owner approved 20.10.2026): keep bestReps / bestAt /
@@ -131,7 +132,8 @@ export async function saveExerciseHistory(
   const prevDocs = wantAggregates || wantAdaptive ? await readPrevDocs(userId, exercises) : null;
   const now = Date.now();
   const aggregates = wantAggregates && prevDocs ? aggregatesFrom(prevDocs, exercises, now) : null;
-  const adaptive = wantAdaptive && prevDocs ? adaptiveFrom(prevDocs, exercises, adaptiveMeta!, now) : null;
+  const changes: AdaptiveChange[] = [];
+  const adaptive = wantAdaptive && prevDocs ? adaptiveFrom(prevDocs, exercises, adaptiveMeta!, now, changes) : null;
 
   const writes = exercises.flatMap((ex) => {
     // ── Write 1: overwrite the "last session" document (original behavior) ──
@@ -177,6 +179,7 @@ export async function saveExerciseHistory(
     `[ExerciseHistory] Dual-write complete: ${exercises.length} exercises` +
     ` (last-session overwrite + sessions append) for user ${userId}`,
   );
+  return changes;
 }
 
 type PrevDoc = (Partial<ExerciseAggregate> & { adaptive?: AdaptiveState }) | null;
@@ -217,19 +220,27 @@ function aggregatesFrom(
   return out;
 }
 
-/** 3a: next double-progression state per exercise (a skipped session carries the old one). */
+/**
+ * 3a: next double-progression state per exercise (a skipped session carries the old one).
+ * Pushes what changed for the user into `changes` (the summary's "מה משתנה בפעם הבאה").
+ */
 function adaptiveFrom(
   prevDocs: Map<string, PrevDoc>,
   exercises: WorkoutExerciseResult[],
   meta: Map<string, AdaptiveSessionMeta>,
   now: number,
+  changes: AdaptiveChange[],
 ): Map<string, AdaptiveState> {
   const out = new Map<string, AdaptiveState>();
   for (const ex of exercises) {
     const m = meta.get(ex.exerciseId);
     if (!m || !prevDocs.has(ex.exerciseId)) continue;
-    const next = nextAdaptiveState(prevDocs.get(ex.exerciseId)?.adaptive, { ...m, values: ex.repsPerSet }, now);
+    const prev = prevDocs.get(ex.exerciseId)?.adaptive;
+    const input = { ...m, values: ex.repsPerSet };
+    const next = nextAdaptiveState(prev, input, now);
     if (next) out.set(ex.exerciseId, next);
+    const change = describeAdaptiveChange(prev, next, input, { exerciseId: ex.exerciseId, exerciseName: ex.exerciseName }, now);
+    if (change) changes.push(change);
   }
   return out;
 }

@@ -19,7 +19,7 @@ export const SKILL_HOLD_CEILING_S = 12;
 /** Regular exercise one level above the user (hard tier): its own range instead of 1–3. */
 export const NON_SKILL_HARD_REPS = { min: 3, max: 6 } as const;
 /** Regular exercise two+ levels above the user (elite tier). */
-export const NON_SKILL_ELITE_REPS = { min: 2, max: 5 } as const;
+export const NON_SKILL_ELITE_REPS = { min: 3, max: 4 } as const;
 /** Upper bound for a regular exercise at hard/elite tier (history / goal ramp never go past it). */
 export const NON_SKILL_HARD_REP_CEILING = 8;
 
@@ -44,6 +44,15 @@ export const DP_STEPBACK_HOLD_S = 5;
 export const DP_MISS_SETS_BELOW_MIN = 2;
 /** Progression state older than this is ignored (re-learned from the history floor). */
 export const DP_STATE_STALE_DAYS = 21;
+/**
+ * Big overshoot (owner 30.10.2026): every set at the range top or above, typed or timed (not a
+ * 'default' save), and the average ≥ top + this → the target jumps straight to the top.
+ */
+export const DP_JUMP_OVER_TOP_REPS = 2;
+export const DP_JUMP_OVER_TOP_HOLD_S = 10;
+/** Average ≥ top + this → the harder variation already next session (no top streak needed). */
+export const DP_VARIATION_JUMP_REPS = 4;
+export const DP_VARIATION_JUMP_HOLD_S = 20;
 /** Selection score bonus for the next / previous variation the progression asks for. */
 export const DP_VARIATION_SCORE_BONUS = 25;
 

@@ -7,6 +7,8 @@
  * also render from fixtures (dev preview /debug/design-v2/summary).
  */
 
+import type { AdaptiveChange } from '@/features/workout-engine/logic/adaptive/adaptive-change';
+import AdaptiveChangesCardV2 from './components/v2/AdaptiveChangesCardV2';
 import React from 'react';
 import { Trophy, Trash2, Flame, Layers, Flag } from 'lucide-react';
 import AnimatedFlame from '@/components/ui/AnimatedFlame';
@@ -49,6 +51,8 @@ import { useSwapFixesV1 } from '@/features/workout-engine/players/strength/hooks
 /** Home-v2 (enable_home_v2) data. Absent ⇒ today's summary, unchanged. */
 export interface StrengthSummaryV2Data {
   phases: PhaseSummary[];
+  /** 3a: what changes next session per exercise (live flow only). */
+  adaptiveChanges?: AdaptiveChange[];
   /** Timed blocks (AMRAP score, EMOM minutes): this session's, or the saved doc's `timedBlocks`. */
   timedResults?: TimedBlockRecord[];
   totals: SessionTotals;
@@ -236,6 +240,8 @@ export default function StrengthSummaryView({
           )}
 
           <ImprovementsCardV2 phases={v2.phases} kelly={v2.kelly} />
+
+          {v2.adaptiveChanges && <AdaptiveChangesCardV2 changes={v2.adaptiveChanges} />}
 
           <ProgramSuggestionCard
             suggestions={visibleSuggestions}

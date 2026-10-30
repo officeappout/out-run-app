@@ -23,6 +23,7 @@ import { getAllExercisesCached, getExercise as getFirestoreExercise, Exercise as
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
+import type { AdaptiveChange } from '@/features/workout-engine/logic/adaptive/adaptive-change';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { completedSetsFor } from '@/features/workout-engine/logic/protocols/block-volume';
 import type { ExecutionMethod } from '@/features/content/exercises';
@@ -697,6 +698,8 @@ export default function ActiveWorkoutPage() {
 
   // === UNIFIED PROGRESSION (single source of truth for both Dopamine + Summary) ===
   const [progressionResult, setProgressionResult] = useState<WorkoutCompletionResult | null>(null);
+  // 3a: what the double progression changed — the summary's "מה משתנה בפעם הבאה" card.
+  const [adaptiveChanges, setAdaptiveChanges] = useState<AdaptiveChange[]>([]);
   // enable_levelup_v2 only reads this (the "שומר…" pill); set when the background run throws.
   const [progressionFailed, setProgressionFailed] = useState(false);
   const preWorkoutPercentRef = useRef(0);
@@ -1398,9 +1401,9 @@ export default function ActiveWorkoutPage() {
         // Persist per-exercise reps to Firestore for future session smart targets
         // 3a: adaptive meta only while enable_adaptive_reps_v1 is on (off = today's write).
         const adaptiveMeta = adaptiveRepsOnRef.current ? buildAdaptiveSessionMeta(rawLog, workoutPlan) : undefined;
-        saveExerciseHistory(uid, exerciseResults, adaptiveMeta).catch((e) =>
-          console.warn('[ActiveWorkoutPage] saveExerciseHistory failed (non-critical):', e),
-        );
+        saveExerciseHistory(uid, exerciseResults, adaptiveMeta)
+          .then(setAdaptiveChanges)
+          .catch((e) => console.warn('[ActiveWorkoutPage] saveExerciseHistory failed (non-critical):', e));
 
         if (result.success) {
           const g = result.activeProgramGain;
@@ -2221,6 +2224,7 @@ export default function ActiveWorkoutPage() {
           isRecovery={stableWorkoutPlan.isRecovery}
           workoutSegments={stableWorkoutPlan.segments}
           previousSets={exerciseHistoryMap}
+          adaptiveChanges={adaptiveChanges}
         />
         </>
       );
@@ -2256,6 +2260,7 @@ export default function ActiveWorkoutPage() {
         // enable_home_v2 display-only inputs (phase breakdown + "vs last time").
         workoutSegments={stableWorkoutPlan.segments}
         previousSets={exerciseHistoryMap}
+        adaptiveChanges={adaptiveChanges}
       />
       </>
     );

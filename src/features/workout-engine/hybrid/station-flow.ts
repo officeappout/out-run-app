@@ -137,6 +137,7 @@ export function swapExerciseInStationContent(
   if (idx === -1) return null;
   const exercises = content.exercises.slice();
   const newId = (newExercise as { id?: string } | null)?.id ?? '';
+  const oldId = (exercises[idx]?.exercise as { id?: string } | undefined)?.id ?? '';
   exercises[idx] = {
     ...exercises[idx],
     exercise: newExercise as never,
@@ -145,5 +146,14 @@ export function swapExerciseInStationContent(
     // Soft-adaptation Phase 0 (data only): original slot exercise + levels.
     ...swapStampForEntry(exercises[idx], newId, toLevel),
   };
-  return { ...content, exercises };
+  // A tabata block selects its exercises by id: the replacement takes the old one's place in it
+  // (pilot AG5, a machine swapped for another machine stays on the same tabata clock).
+  // Only when no other entry still carries the old id (duplicate ids keep their block membership).
+  const oldIdGone = !exercises.some((e) => (e.exercise as { id?: string } | undefined)?.id === oldId);
+  const tabataBlocks = content.tabataBlocks?.map((blk) =>
+    oldId && newId && oldIdGone && blk.exerciseIds.includes(oldId)
+      ? { ...blk, exerciseIds: blk.exerciseIds.map((id) => (id === oldId ? newId : id)) }
+      : blk,
+  );
+  return { ...content, exercises, ...(tabataBlocks ? { tabataBlocks } : {}) };
 }

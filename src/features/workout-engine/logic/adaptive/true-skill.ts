@@ -32,7 +32,8 @@ export const TRUE_SKILL_BASE_MOVEMENTS: ReadonlySet<string> = new Set([
   'handstand_pushup',
   'muscle_up',
   'human_flag',
-  'pistol_squat',
+  // 'pistol_squat' left out (30.10.2026): the catalog files ~45 regular leg moves (squat, sumo
+  // squat, step-ups, lunges, calf raises) under that base movement. Pistols match by name below.
 ]);
 
 /** Name patterns of the true-skill moves themselves (not their program's accessories). */
@@ -62,10 +63,11 @@ export function isTrueSkillExercise(exercise: Exercise | null | undefined): bool
   if (!exercise) return false;
   const tags = (exercise.tags ?? []) as string[];
   if (tags.includes('true_skill')) return true;
+  const names = namesOf(exercise);
+  // Excluded drills first: pseudo-planche push-ups are filed under base movement 'planche'.
+  if (names.some((n) => NOT_TRUE_SKILL_PATTERNS.some((p) => p.test(n)))) return false;
   const base = exercise.base_movement_id;
   if (base && TRUE_SKILL_BASE_MOVEMENTS.has(base)) return true;
-  const names = namesOf(exercise);
-  if (names.some((n) => NOT_TRUE_SKILL_PATTERNS.some((p) => p.test(n)))) return false;
   return names.some((n) => TRUE_SKILL_NAME_PATTERNS.some((p) => p.test(n)));
 }
 

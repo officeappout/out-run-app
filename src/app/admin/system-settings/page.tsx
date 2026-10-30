@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, Flame, QrCode, Tv, MoreHorizontal, Mountain,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, Flame, QrCode, Tv, MoreHorizontal, Mountain, Share2,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -141,6 +141,7 @@ interface FlagState {
   enable_feature_info_sheets_v1: boolean;
   enable_combo_flow_v1: boolean;
   enable_home_after_v1: boolean;
+  enable_share_router_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1188,6 +1189,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'הבית אחרי אימון: הכל בקרוסלה אחת',
     description: 'אחרי שסיימתם אימון היום: כל מה שלהיום בקרוסלה אחת מתחת ללו"ז. קודם מה שנשאר (אימון משלים, הריצה של היום, שאר ההצעות), ובסוף כרטיס "בוצע היום" שלחיצה עליו פותחת את סיכום האימון. בלי פס העידוד, בלי כרטיס "הפעילות שלי היום" נפרד למעלה ובלי כרטיס ריצה נפרד. בהמשך: קלי עוברת לתפריט +, כרטיס הבוצע בעיצוב פוסט, והדרכת הבית. צריך את הבית החדש. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // One share button on workout summaries (pilot AG2, 30.10.2026).
+  {
+    key: 'enable_share_router_v1',
+    icon: Share2,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'כפתור "שתפו" אחד בסיכום אימון',
+    description: 'בסיכום האימון, "שתפו" פותח חלון קטן עם 3 אפשרויות: פרסום בפיד של האפליקציה, תמונות מעוצבות לרשתות, ושליחה מהטלפון (וואטסאפ וכו׳). היום הכפתור פותח ישר את השיתוף של הטלפון. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {

@@ -99,6 +99,7 @@ import {
 import { findProcessor } from './protocols/protocol-processor.registry';
 import { buildTabataBlock, passesInjuryShield } from './protocols/tabata.block';
 import { plannedSetTotal } from './protocols/block-volume';
+import { shortSessionWantsPairs } from './rest-reps-rules';
 import { buildDensityBlock, densityDomainOf, type DensityBlockSpec, type DensityCandidate, type DensityDomain } from './protocols/density-block';
 import { pickWeightedProtocol } from './protocol-weights';
 import { TABATA_BLOCK_SECONDS } from './protocols/tabata.constants';
@@ -1972,7 +1973,17 @@ export class WorkoutGenerator {
     const adminProtocols = context.preferredProtocols;
     const adminProbability = context.protocolProbability;
 
+    // Short session from level 6 (owner 30.10.2026): when no other protocol fires, pair push +
+    // pull rather than cut sets — whenever the level's panel settings allow pairs at all.
+    const pairsAllowed = !!adminProtocols?.includes('antagonist_pair') || (context.protocolWeights?.antagonist_pair ?? 0) > 0;
+    const wantsPairs = shortSessionWantsPairs(context.availableTime, context.userLevel, pairsAllowed);
+    const pairsResult = () => {
+      console.log('[WorkoutGenerator][selectProtocol] Short session ≥L6 → antagonist pairs');
+      return { structure: 'standard' as WorkoutStructure, setType: 'antagonist_pair' };
+    };
+
     if (!adminProtocols?.length) {
+      if (wantsPairs) return pairsResult();
       if (adminProbability != null && adminProbability > 0) {
         console.log('[WorkoutGenerator][selectProtocol] ⚠️  Probability set but no protocols list — check Firestore lookup');
       } else {
@@ -1983,6 +1994,7 @@ export class WorkoutGenerator {
 
     const probability = adminProbability ?? 0;
     if (probability <= 0) {
+      if (wantsPairs) return pairsResult();
       console.log(
         '[WorkoutGenerator][selectProtocol] ⛔ Protocol probability = 0 ' +
         '(Deload/Rebuild week or protocolMultiplier killed it) — straight sets',
@@ -1992,6 +2004,7 @@ export class WorkoutGenerator {
 
     const roll = Math.random();
     if (roll > probability) {
+      if (wantsPairs) return pairsResult();
       console.log(
         `[WorkoutGenerator][selectProtocol] Random roll ${roll.toFixed(3)} > p=${probability} — ` +
         `protocol did NOT fire this session (expected ~${Math.round((1 - probability) * 100)}% of the time)`,
