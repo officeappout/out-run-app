@@ -1885,7 +1885,7 @@ async function resolveWorkoutMetadataCore(
     const pairOf = (resolvedHe: string | null, loc: LocalizedText | undefined): LocalizedText | undefined => {
       const en = (loc?.en ?? '').trim();
       if (!resolvedHe || dropIfBroken(resolvedHe) == null || !en) return undefined;
-      const resolvedEn = resolveContentTags(en, tagCtx);
+      const resolvedEn = resolveContentTags(en, tagCtx, 'en');
       return hasUnresolvedTagArtifacts(resolvedEn) ? undefined : { ...loc, he: resolvedHe, en: resolvedEn };
     };
     const titleLocalized = weatherFallbackTitle ? undefined : pairOf(resolvedTitle, titleResult.textLocalized);

@@ -6,8 +6,13 @@
 import { NotificationTriggerType } from './branding.types';
 import { formatNumber } from '@/lib/i18n/core/fmt';
 import { UserFullProfile } from '@/features/user';
-import { getUserFirstName, getUserGoalHebrew } from './branding.service';
-import { RUNNING_WORKOUT_CATEGORY_LABELS_HE as RUN_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
+import { tagLabels } from './branding-tag-labels';
+import type { Locale } from '@/lib/i18n/locales';
+
+/** The language tag VALUES resolve in (tag NAMES are always the Hebrew tokens). Default 'he'. */
+export type TagLang = Locale | string;
+
+const genderOf = (g: string | undefined): 'male' | 'female' | 'other' => (g === 'female' ? 'female' : g === 'male' ? 'male' : 'other');
 
 export interface TagResolverContext {
   // Persona & Location
@@ -233,10 +238,12 @@ export function hasUnresolvedTagArtifacts(text: string | null | undefined): bool
  */
 export function resolveNotificationText(
   text: string,
-  context: TagResolverContext
+  context: TagResolverContext,
+  lang: TagLang = 'he',
 ): string {
   if (!text) return '';
-  
+
+  const L = tagLabels(lang, genderOf(context.userGender));
   let resolved = text;
   const now = context.currentTime || new Date();
   const hour = now.getHours();
@@ -248,25 +255,25 @@ export function resolveNotificationText(
   });
   
   resolved = resolved.replace(tagPattern('@זמן_יום'), () => {
-    if (hour >= 5 && hour < 12) return 'בוקר';
-    if (hour >= 12 && hour < 17) return 'צהריים';
-    if (hour >= 17 && hour < 22) return 'ערב';
-    return 'לילה';
+    if (hour >= 5 && hour < 12) return L('timeOfDay.morning');
+    if (hour >= 12 && hour < 17) return L('timeOfDay.noon');
+    if (hour >= 17 && hour < 22) return L('timeOfDay.evening');
+    return L('timeOfDay.night');
   });
   
   // Location-based tags (only for Location_Based triggers)
   if (context.triggerType === 'Location_Based') {
     resolved = resolved.replace(tagPattern('@שם_הפארק'), () => {
       if (context.locationName) return context.locationName;
-      if (context.location === 'park') return 'הפארק הקרוב';
-      return 'המיקום';
+      if (context.location === 'park') return L('park.nearest');
+      return L('location.fallback');
     });
     
     resolved = resolved.replace(tagPattern('@שם_המתקן'), () => {
       if (context.locationName) return context.locationName;
-      if (context.location === 'gym') return 'מכון הכושר';
-      if (context.location === 'park') return 'המתקן בפארק';
-      return 'המתקן';
+      if (context.location === 'gym') return L('facility.gym');
+      if (context.location === 'park') return L('facility.park');
+      return L('facility.default');
     });
   }
   
@@ -282,26 +289,26 @@ export function resolveNotificationText(
   // non-league notification never gets accidentally substituted with
   // an unrelated rank value from a stale context.
   if (context.triggerType === 'League_Overtake') {
-    resolved = resolved.replace(tagPattern('@שם_עוקף'), () => context.overtakingUserName || 'שחקן');
+    resolved = resolved.replace(tagPattern('@שם_עוקף'), () => context.overtakingUserName || L('league.player'));
     resolved = resolved.replace(tagPattern('@מיקום_חדש'), () => (
       typeof context.newLeaderboardRank === 'number'
         ? String(context.newLeaderboardRank)
-        : '—'
+        : L('league.rankFallback')
     ));
     resolved = resolved.replace(tagPattern('@פער_צעדים'), () => (
       typeof context.stepDelta === 'number' && Number.isFinite(context.stepDelta)
-        ? formatNumber(context.stepDelta, 'he')
-        : 'כמה'
+        ? formatNumber(context.stepDelta, L.lang)
+        : L('league.gapFallback')
     ));
   }
 
   // ── Social Engagement Engine: Community_Group_New tags ────────────
   if (context.triggerType === 'Community_Group_New') {
-    resolved = resolved.replace(tagPattern('@שם_קבוצה'), () => context.groupName || 'קבוצה חדשה');
-    resolved = resolved.replace(tagPattern('@סוג_קבוצה'), () => context.groupTypeLabel || 'קבוצת כושר');
-    resolved = resolved.replace(tagPattern('@מיקום_מפגש'), () => context.meetingLocationName || 'המיקום');
-    resolved = resolved.replace(tagPattern('@שעת_מפגש'), () => context.meetingTimeFormatted || 'שעה קרובה');
-    resolved = resolved.replace(tagPattern('@יום_מפגש'), () => context.meetingDayFormatted || 'בקרוב');
+    resolved = resolved.replace(tagPattern('@שם_קבוצה'), () => context.groupName || L('group.name'));
+    resolved = resolved.replace(tagPattern('@סוג_קבוצה'), () => context.groupTypeLabel || L('group.type'));
+    resolved = resolved.replace(tagPattern('@מיקום_מפגש'), () => context.meetingLocationName || L('meeting.location'));
+    resolved = resolved.replace(tagPattern('@שעת_מפגש'), () => context.meetingTimeFormatted || L('meeting.time'));
+    resolved = resolved.replace(tagPattern('@יום_מפגש'), () => context.meetingDayFormatted || L('meeting.day'));
   }
 
   // ── Social Engagement Engine: Matchmaking tags (both matchmaking
@@ -310,9 +317,9 @@ export function resolveNotificationText(
     context.triggerType === 'Social_Matchmaking' ||
     context.triggerType === 'Future_Partner_Plan'
   ) {
-    resolved = resolved.replace(tagPattern('@שם_שותף'), () => context.partnerName || 'שותף');
-    resolved = resolved.replace(tagPattern('@רמת_שותף'), () => context.partnerLevel || 'רמה זהה');
-    resolved = resolved.replace(tagPattern('@שעת_הגעה_שותף'), () => context.partnerArrivalTime || 'בקרוב');
+    resolved = resolved.replace(tagPattern('@שם_שותף'), () => context.partnerName || L('partner.name'));
+    resolved = resolved.replace(tagPattern('@רמת_שותף'), () => context.partnerLevel || L('partner.level'));
+    resolved = resolved.replace(tagPattern('@שעת_הגעה_שותף'), () => context.partnerArrivalTime || L('partner.arrival'));
   }
 
   // Persona tags. Canonical PersonaId vocabulary since the 01.09.2026
@@ -322,120 +329,52 @@ export function resolveNotificationText(
   // active_soldier keys never match a live value anymore, so every
   // military/vatikim/pro_athlete user silently got the 'משתמש' fallback
   // instead of a real label until this was caught.
-  const personaLabels: Record<string, string> = {
-    parent: 'הורה',
-    student: 'סטודנט',
-    pupil: 'תלמיד',
-    office_worker: 'עובד משרד',
-    military: 'חייל',
-    vatikim: 'גיל הזהב',
-    pro_athlete: 'ספורטאי',
-  };
-  
   resolved = resolved.replace(tagPattern('@פרסונה'), () => {
-    if (context.persona && personaLabels[context.persona]) {
-      return personaLabels[context.persona];
-    }
-    return 'משתמש';
+    return L.label('persona', context.persona) ?? L('persona.fallback');
   });
   
   // Location tags
-  const locationLabels: Record<string, string> = {
-    home: 'בית',
-    park: 'פארק',
-    office: 'משרד',
-    street: 'רחוב',
-    gym: 'מכון כושר',
-    school: 'בית ספר',
-    airport: 'שדה תעופה',
-    library: 'ספרייה',
-  };
-  
   resolved = resolved.replace(tagPattern('@מיקום'), () => {
-    if (context.location && locationLabels[context.location]) {
-      return locationLabels[context.location];
-    }
-    return 'המיקום';
+    return L.label('location', context.location) ?? L('location.fallback');
   });
   
   // Exercise/Workout tags
-  resolved = resolved.replace(tagPattern('@שם_תרגיל'), () => {
-    return context.exerciseName || 'התרגיל';
+  resolved = resolved.replace(tagPattern('@שם_תרגיל'), (tag) => {
+    const name = context.exerciseName ? L.text(context.exerciseName) : undefined;
+    if (context.exerciseName && name === undefined) return tag;
+    return name || L('exercise.fallback');
   });
   
-  resolved = resolved.replace(tagPattern('@קטגוריה'), () => {
-    return context.category || 'כוח';
+  resolved = resolved.replace(tagPattern('@קטגוריה'), (tag) => {
+    if (!context.category) return L('category.notificationFallback');
+    if (L.isHebrew) return context.category;
+    return L.label('category', context.category) ?? L.text(context.category) ?? tag;
   });
   
   resolved = resolved.replace(tagPattern('@שרירים'), () => {
     if (context.muscles && context.muscles.length > 0) {
-      const muscleLabels: Record<string, string> = {
-        chest: 'חזה',
-        back: 'גב',
-        shoulders: 'כתפיים',
-        abs: 'בטן',
-        quads: 'ארבע ראשי',
-        hamstrings: 'המסטרינג',
-        glutes: 'ישבן',
-      };
       const labels = context.muscles
         .slice(0, 2)
-        .map(m => muscleLabels[m] || m)
-        .join(' ו-');
-      return labels || 'כל הגוף';
+        .map(m => L.label('muscles', m) ?? m)
+        .join(L('equipment.join'));
+      return labels || L('muscles.fallback');
     }
-    return 'כל הגוף';
+    return L('muscles.fallback');
   });
   
   // Goal tags
-  resolved = resolved.replace(tagPattern('@מטרה'), () => {
-    return context.goal || 'אימון';
+  resolved = resolved.replace(tagPattern('@מטרה'), (tag) => {
+    if (L.isHebrew) return context.goal || L('goal.fallback');
+    return context.goal ? (L.label('goal', context.goal) ?? L.text(context.goal) ?? tag) : L('goal.fallback');
   });
   
-  // Gender-sensitive tags
-  const userGender = context.userGender || 'other';
-  const isFemale = userGender === 'female';
-  const isMale = userGender === 'male';
-  
-  // @את/ה -> 'את' for female, 'אתה' for male
-  resolved = resolved.replace(tagPattern('@את/ה'), () => {
-    if (isFemale) return 'את';
-    if (isMale) return 'אתה';
-    return 'אתם'; // Neutral (unknown gender): plural, never a slash
-  });
-  
-  // @מוכן/ה -> 'מוכנה' for female, 'מוכן' for male
-  resolved = resolved.replace(tagPattern('@מוכן/ה'), () => {
-    if (isFemale) return 'מוכנה';
-    if (isMale) return 'מוכן';
-    return 'מוכנים'; // Neutral (unknown gender): plural, never a slash
-  });
-  
-  // @בוא/י -> 'בואי' for female, 'בוא' for male
-  resolved = resolved.replace(tagPattern('@בוא/י'), () => {
-    if (isFemale) return 'בואי';
-    if (isMale) return 'בוא';
-    return 'בואו'; // Neutral (unknown gender): plural, never a slash
-  });
-  
-  // @עשית/ה -> 'עשית' for female, 'עשית' for male (same in past tense)
-  resolved = resolved.replace(tagPattern('@עשית/ה'), () => {
-    return 'עשית'; // Same for both genders
-  });
-  
-  // @תוכל/י -> 'תוכלי' for female, 'תוכל' for male
-  resolved = resolved.replace(tagPattern('@תוכל/י'), () => {
-    if (isFemale) return 'תוכלי';
-    if (isMale) return 'תוכל';
-    return 'תוכלו'; // Neutral (unknown gender): plural, never a slash
-  });
-  
-  // @תרצה/י -> 'תרצי' for female, 'תרצה' for male
-  resolved = resolved.replace(tagPattern('@תרצה/י'), () => {
-    if (isFemale) return 'תרצי';
-    if (isMale) return 'תרצה';
-    return 'תרצו'; // Neutral (unknown gender): plural, never a slash
-  });
+  // Gender-sensitive tags (the gender select lives in the catalog; unknown gender = the plural forms)
+  resolved = resolved.replace(tagPattern('@את/ה'), () => L('gender.you'));
+  resolved = resolved.replace(tagPattern('@מוכן/ה'), () => L('gender.ready'));
+  resolved = resolved.replace(tagPattern('@בוא/י'), () => L('gender.come'));
+  resolved = resolved.replace(tagPattern('@עשית/ה'), () => L('gender.did'));
+  resolved = resolved.replace(tagPattern('@תוכל/י'), () => L('gender.can'));
+  resolved = resolved.replace(tagPattern('@תרצה/י'), () => L('gender.would'));
   
   return resolved;
 }
@@ -643,9 +582,12 @@ export function getAvailableTags(triggerType?: NotificationTriggerType): Array<{
  */
 export function resolveDescription(
   template: string,
-  context: TagResolverContext
+  context: TagResolverContext,
+  lang: TagLang = 'he',
 ): string {
   if (!template) return '';
+
+  const L = tagLabels(lang, genderOf(context.userGender));
   
   let resolved = template;
   
@@ -653,169 +595,76 @@ export function resolveDescription(
   resolved = resolved.replace(tagPattern('@שם'), () => {
     // Priority: userProfile.core.name > userName > fallback
     if (context.userProfile?.core?.name) {
-      const firstName = getUserFirstName(context.userProfile);
-      return firstName;
+      const firstName = context.userProfile.core.name.split(' ')[0].trim();
+      return firstName || L('name.fallback');
     }
     if (context.userName) {
       // If userName contains a space, take first name only
       const firstName = context.userName.split(' ')[0];
-      return firstName || 'משתמש';
+      return firstName || L('name.fallback');
     }
-    return 'משתמש';
+    return L('name.fallback');
   });
   
-  // Goal tag (@מטרה) - ensure Hebrew goal names
-  resolved = resolved.replace(tagPattern('@מטרה'), () => {
+  // Goal tag (@מטרה) - goal names in the content language
+  resolved = resolved.replace(tagPattern('@מטרה'), (tag) => {
     // Priority: userProfile.core.mainGoal > userGoal > goal > fallback
     if (context.userProfile?.core?.mainGoal) {
-      return getUserGoalHebrew(context.userProfile);
+      return L.label('goal', context.userProfile.core.mainGoal) ?? L('goal.fallback');
     }
     const goal = context.userGoal || context.goal;
-    if (!goal) return 'אימון';
+    if (!goal) return L('goal.fallback');
     
-    // Map English goal values to Hebrew if needed
-    const goalMap: Record<string, string> = {
-      'healthy_lifestyle': 'אורח חיים בריא',
-      'performance_boost': 'שיפור ביצועים',
-      'weight_loss': 'ירידה במשקל',
-      'skill_mastery': 'שליטה במיומנויות',
-      'אורח חיים בריא': 'אורח חיים בריא',
-      'שיפור ביצועים': 'שיפור ביצועים',
-      'ירידה במשקל': 'ירידה במשקל',
-      'שליטה במיומנויות': 'שליטה במיומנויות',
-    };
-    
-    return goalMap[goal] || goal;
+    // English goal keys map to the language's label; Hebrew labels map back through the catalog
+    const direct = L.label('goal', goal);
+    if (direct !== undefined) return direct;
+    const viaHebrew = L.keyOfHebrew('goal', goal);
+    if (viaHebrew !== undefined) return L.label('goal', viaHebrew) as string;
+    return L.text(goal) ?? tag;
   });
   
   // Gender-sensitive tags (same as in resolveNotificationText)
-  const userGender = context.userGender || 'other';
-  const isFemale = userGender === 'female';
-  const isMale = userGender === 'male';
-  
-  resolved = resolved.replace(tagPattern('@את/ה'), () => {
-    if (isFemale) return 'את';
-    if (isMale) return 'אתה';
-    return 'אתם';
-  });
-  
-  resolved = resolved.replace(tagPattern('@מוכן/ה'), () => {
-    if (isFemale) return 'מוכנה';
-    if (isMale) return 'מוכן';
-    return 'מוכנים';
-  });
-  
-  resolved = resolved.replace(tagPattern('@בוא/י'), () => {
-    if (isFemale) return 'בואי';
-    if (isMale) return 'בוא';
-    return 'בואו';
-  });
-  
-  resolved = resolved.replace(tagPattern('@תוכל/י'), () => {
-    if (isFemale) return 'תוכלי';
-    if (isMale) return 'תוכל';
-    return 'תוכלו';
-  });
-  
-  resolved = resolved.replace(tagPattern('@תרצה/י'), () => {
-    if (isFemale) return 'תרצי';
-    if (isMale) return 'תרצה';
-    return 'תרצו';
-  });
+  resolved = resolved.replace(tagPattern('@את/ה'), () => L('gender.you'));
+  resolved = resolved.replace(tagPattern('@מוכן/ה'), () => L('gender.ready'));
+  resolved = resolved.replace(tagPattern('@בוא/י'), () => L('gender.come'));
+  resolved = resolved.replace(tagPattern('@תוכל/י'), () => L('gender.can'));
+  resolved = resolved.replace(tagPattern('@תרצה/י'), () => L('gender.would'));
   
   // Muscle tag (@שריר)
   resolved = resolved.replace(tagPattern('@שריר'), () => {
     if (context.muscles && context.muscles.length > 0) {
-      const muscleLabels: Record<string, string> = {
-        chest: 'חזה',
-        back: 'גב',
-        shoulders: 'כתפיים',
-        abs: 'בטן',
-        obliques: 'אלכסונים',
-        forearms: 'אמה',
-        biceps: 'דו ראשי',
-        triceps: 'שלוש ראשי',
-        quads: 'ארבע ראשי',
-        hamstrings: 'מיתר ברך',
-        glutes: 'ישבן',
-        calves: 'שוקיים',
-        traps: 'טרפז',
-        cardio: 'קרדיו',
-        full_body: 'כל הגוף',
-        core: 'ליבה',
-        legs: 'רגליים',
-      };
       const primaryMuscle = context.muscles[0];
-      return muscleLabels[primaryMuscle] || primaryMuscle || 'השרירים';
+      return L.label('muscle', primaryMuscle) || primaryMuscle || L('muscle.fallback');
     }
-    return 'השרירים';
+    return L('muscle.fallback');
   });
   
   // Location tag (@מיקום)
-  const locationLabels: Record<string, string> = {
-    home: 'בית',
-    park: 'פארק',
-    office: 'משרד',
-    street: 'רחוב',
-    gym: 'מכון כושר',
-    school: 'בית ספר',
-    airport: 'שדה תעופה',
-    library: 'ספרייה',
-  };
-  
-  resolved = resolved.replace(tagPattern('@מיקום'), () => {
-    if (context.location && locationLabels[context.location]) {
-      return locationLabels[context.location];
-    }
-    if (context.locationName) {
-      return context.locationName;
-    }
-    return 'המיקום';
+  resolved = resolved.replace(tagPattern('@מיקום'), (tag) => {
+    const known = L.label('location', context.location);
+    if (known !== undefined) return known;
+    if (context.locationName) return L.text(context.locationName) ?? tag;
+    return L('location.fallback');
   });
   
   // Equipment tag (@ציוד)
-  resolved = resolved.replace(tagPattern('@ציוד'), () => {
+  resolved = resolved.replace(tagPattern('@ציוד'), (tag) => {
     if (context.equipment && context.equipment.length > 0) {
-      return context.equipment.slice(0, 2).join(' ו-');
+      const names = context.equipment.slice(0, 2).map((e) => L.text(e));
+      if (names.some((e) => e === undefined)) return tag;
+      return names.join(L('equipment.join'));
     }
-    return 'ציוד מינימלי';
+    return L('equipment.fallback');
   });
 
   // === Golden Content tags ===
 
   // @ספורט — user's sport type
-  const sportLabels: Record<string, string> = {
-    // כוח ותנועה
-    calisthenics: 'קליסתניקס',
-    crossfit: 'קרוספיט',
-    functional: 'פונקציונלי',
-    movement: 'תנועה',
-    // אירובי וסיבולת
-    running: 'ריצה',
-    walking: 'הליכה',
-    cycling: 'רכיבה',
-    swimming: 'שחייה',
-    // משחקי כדור
-    basketball: 'כדורסל',
-    soccer: 'כדורגל',
-    tennis: 'טניס',
-    padel: 'פאדל',
-    // גוף-נפש
-    yoga: 'יוגה',
-    pilates: 'פילאטיס',
-    flexibility: 'גמישות',
-    // אתגרי
-    climbing: 'טיפוס',
-    skate_roller: 'סקייט / רולר',
-    martial_arts: 'אמנויות לחימה',
-    general: 'אימון',
-  };
-
-  resolved = resolved.replace(tagPattern('@ספורט'), () => {
-    if (context.sportType && sportLabels[context.sportType]) {
-      return sportLabels[context.sportType];
-    }
-    return context.sportType || 'אימון';
+  resolved = resolved.replace(tagPattern('@ספורט'), (tag) => {
+    const known = L.label('sport', context.sportType);
+    if (known !== undefined) return known;
+    if (!context.sportType) return L('sport.fallback');
+    return L.text(context.sportType) ?? tag;
   });
 
   // @רמה — user's experience level, gendered (2026-10-01).
@@ -839,48 +688,27 @@ export function resolveDescription(
   // gender defaults to the male form (isFemale false when gender is absent
   // or 'other'), per explicit instruction — flagged here for revisit, not a
   // silent assumption.
-  const levelLabels: Record<string, { male: string; female: string }> = {
-    beginner: { male: 'מתחיל', female: 'מתחילה' },
-    intermediate: { male: 'בינוני', female: 'בינונית' },
-    advanced: { male: 'מתקדם', female: 'מתקדמת' },
-    pro: { male: 'מקצוען', female: 'מקצוענית' },
-  };
-
-  resolved = resolved.replace(tagPattern('@רמה'), () => {
-    const entry = context.experienceLevel ? levelLabels[context.experienceLevel] : undefined;
-    if (entry) {
-      return isFemale ? entry.female : entry.male;
-    }
-    return context.experienceLevel || 'כל הרמות';
+  // (The male/female forms live in the catalog as one gender select per level.)
+  resolved = resolved.replace(tagPattern('@רמה'), (tag) => {
+    const known = L.label('level', context.experienceLevel);
+    if (known !== undefined) return known;
+    if (!context.experienceLevel) return L('level.fallback');
+    return L.text(context.experienceLevel) ?? tag;
   });
 
   // @מגדר — dynamic grammar helper (זכר/נקבה text)
   resolved = resolved.replace(tagPattern('@מגדר'), () => {
-    if (isFemale) return 'נקבה';
-    if (isMale) return 'זכר';
-    return 'כללי';
+    return L('gender.label');
   });
 
   // === Progress & Level-Up tags ===
 
   // @שם_תוכנית — current program name
-  const programLabels: Record<string, string> = {
-    pulling: 'משיכה',
-    pushing: 'דחיפה',
-    core: 'ליבה',
-    legs: 'רגליים',
-    upper_body: 'פלג עליון',
-    lower_body: 'פלג תחתון',
-    full_body: 'גוף מלא',
-    handstand: 'עמידת ידיים',
-    skills: 'סקילס',
-  };
-
-  resolved = resolved.replace(tagPattern('@שם_תוכנית'), () => {
-    if (context.currentProgram && programLabels[context.currentProgram]) {
-      return programLabels[context.currentProgram];
-    }
-    return context.currentProgram || 'התוכנית';
+  resolved = resolved.replace(tagPattern('@שם_תוכנית'), (tag) => {
+    const known = L.label('program', context.currentProgram);
+    if (known !== undefined) return known;
+    if (!context.currentProgram) return L('program.fallback');
+    return L.text(context.currentProgram) ?? tag;
   });
 
   // @אחוז_התקדמות: progress percentage. Unknown or 0 → the sentence carrying it is dropped
@@ -891,9 +719,9 @@ export function resolveDescription(
   // @רמה_הבאה — target level
   resolved = resolved.replace(tagPattern('@רמה_הבאה'), () => {
     if (context.targetLevel !== undefined && context.targetLevel !== null) {
-      return `רמה ${context.targetLevel}`;
+      return L('level.next', { n: String(context.targetLevel) });
     }
-    return 'הרמה הבאה';
+    return L('level.nextFallback');
   });
 
   // === Proximity tags ===
@@ -902,22 +730,22 @@ export function resolveDescription(
   resolved = resolved.replace(tagPattern('@מרחק'), () => {
     if (context.distanceMeters !== undefined && context.distanceMeters !== null) {
       if (context.distanceMeters < 1000) {
-        return `${context.distanceMeters} מטר`;
+        return L('distance.meters', { n: String(context.distanceMeters) });
       }
-      return `${(context.distanceMeters / 1000).toFixed(1)} ק"מ`;
+      return L('distance.km', { n: (context.distanceMeters / 1000).toFixed(1) });
     }
-    return 'קרוב';
+    return L('distance.near');
   });
 
   // @זמן_הגעה — estimated arrival time
   resolved = resolved.replace(tagPattern('@זמן_הגעה'), () => {
     if (context.estimatedArrivalMinutes !== undefined && context.estimatedArrivalMinutes !== null) {
       if (context.estimatedArrivalMinutes < 1) {
-        return 'פחות מדקה';
+        return L('eta.lessThanMinute');
       }
-      return `${Math.round(context.estimatedArrivalMinutes)} דקות הליכה`;
+      return L('eta.minutes', { n: String(Math.round(context.estimatedArrivalMinutes)) });
     }
-    return 'קצר';
+    return L('eta.fallback');
   });
 
   // === Workout Analysis Tags ===
@@ -931,84 +759,50 @@ export function resolveDescription(
   });
 
   // @עצימות — difficulty level mapped to Hebrew
-  const difficultyLabels: Record<number | string, string> = {
-    1: 'קליל',
-    2: 'מאתגר',
-    3: 'שורף',
-    easy: 'קליל',
-    medium: 'מאתגר',
-    hard: 'שורף',
-  };
-
   resolved = resolved.replace(tagPattern('@עצימות'), () => {
-    if (context.difficulty !== undefined && context.difficulty !== null && difficultyLabels[context.difficulty]) {
-      return difficultyLabels[context.difficulty];
-    }
-    return 'מאתגר';
+    return L.label('difficulty', context.difficulty) ?? L('difficulty.fallback');
   });
 
   // @מיקוד — dominant muscle focus (>50% of exercises)
-  const muscleLabelsHe: Record<string, string> = {
-    glutes: 'עכוז',
-    abs: 'בטן',
-    core: 'ליבה',
-    biceps: 'ביצפס',
-    triceps: 'טרייצפס',
-    legs: 'רגליים',
-    quads: 'ירכיים קדמיות',
-    hamstrings: 'ירכיים אחוריות',
-    calves: 'שוקיים',
-    chest: 'חזה',
-    back: 'גב',
-    lats: 'גב רחב',
-    shoulders: 'כתפיים',
-    forearms: 'אמות',
-    hip_flexors: 'כופפי ירך',
-    full_body: 'גוף מלא',
-  };
-
   resolved = resolved.replace(tagPattern('@מיקוד'), () => {
-    if (context.dominantMuscle && muscleLabelsHe[context.dominantMuscle]) {
-      return muscleLabelsHe[context.dominantMuscle];
-    }
+    const dominant = L.label('focus', context.dominantMuscle);
+    if (dominant !== undefined) return dominant;
     if (context.muscles && context.muscles.length > 0) {
       const primary = context.muscles[0];
-      return muscleLabelsHe[primary] || primary;
+      return L.label('focus', primary) || primary;
     }
-    return 'גוף מלא';
+    return L('focus.fallback');
   });
 
   // @קטגוריה — workout category display name
-  resolved = resolved.replace(tagPattern('@קטגוריה'), () => {
-    if (context.categoryLabel) {
-      return context.categoryLabel;
-    }
+  resolved = resolved.replace(tagPattern('@קטגוריה'), (tag) => {
+    if (L.isHebrew && context.categoryLabel) return context.categoryLabel;
     if (context.category) {
-      const catLabels: Record<string, string> = {
-        strength: 'כוח',
-        volume: 'נפח',
-        endurance: 'סיבולת',
-        skills: 'סקילס',
-        mobility: 'ניידות',
-        hiit: 'HIIT',
-        general: 'כללי',
-        maintenance: 'תחזוקת גוף',
-      };
-      return catLabels[context.category] || context.category;
+      const known = L.label('category', context.category);
+      if (known !== undefined) return known;
     }
-    return 'אימון';
+    if (context.categoryLabel) {
+      // Callers hand the Hebrew display name; map it back to the category key, else leave the tag unresolved.
+      const key = L.keyOfHebrew('category', context.categoryLabel) ?? L.keyOfHebrew('runCategory', context.categoryLabel);
+      if (key !== undefined) return (L.label('category', key) ?? L.label('runCategory', key)) as string;
+      return L.text(context.categoryLabel) ?? tag;
+    }
+    if (context.category) return L.text(context.category) ?? tag;
+    return L('category.fallback');
   });
   
   // ── Level Goal Tags ────────────────────────────────────────────────
 
   // @תרגיל_יעד — target exercise name for current level
-  resolved = resolved.replace(tagPattern('@תרגיל_יעד'), () => {
-    return context.targetExerciseName || 'תרגיל יעד';
+  resolved = resolved.replace(tagPattern('@תרגיל_יעד'), (tag) => {
+    if (!context.targetExerciseName) return L('target.exercise');
+    return L.text(context.targetExerciseName) ?? tag;
   });
 
   // @ערך_יעד — target value with unit (e.g., "10 חזרות")
-  resolved = resolved.replace(tagPattern('@ערך_יעד'), () => {
-    return context.targetValue || '0';
+  resolved = resolved.replace(tagPattern('@ערך_יעד'), (tag) => {
+    if (!context.targetValue) return '0';
+    return L.text(context.targetValue) ?? tag;
   });
 
   // @אחוז_התקדמות_רמה — progress toward next level (0-100%)
@@ -1020,11 +814,22 @@ export function resolveDescription(
 
   // ── Running Tags ─────────────────────────────────────────────────
 
-  const PHASE_LABELS_HE: Record<string, string> = {
-    base: 'בניית בסיס',
-    build: 'בנייה',
-    peak: 'שיא',
-    taper: 'הורדת עומסים',
+  const phaseLabel = (tag: string): string => {
+    if (!context.programPhase) return '';
+    return L.label('phase', context.programPhase) ?? L.text(context.programPhase) ?? tag;
+  };
+  // Callers hand the Hebrew label ('5 ק"מ'); other languages rebuild it from the number.
+  const targetDistance = (tag: string): string => {
+    const raw = context.targetDistanceLabel;
+    if (!raw) return '';
+    const plain = L.text(raw);
+    if (plain !== undefined) return plain;
+    const km = /^(\d+(?:\.\d+)?) ק"מ$/.exec(raw);
+    return km ? L('distance.km', { n: km[1] }) : tag;
+  };
+  const runCategoryLabel = (tag: string): string => {
+    if (!context.runningCategory) return '';
+    return L.label('runCategory', context.runningCategory) ?? L.text(context.runningCategory) ?? tag;
   };
 
   resolved = resolved.replace(tagPattern('@קצב_בסיס'), () => {
@@ -1036,30 +841,18 @@ export function resolveDescription(
     return '';
   });
 
-  resolved = resolved.replace(tagPattern('@מרחק_יעד'), () => {
-    return context.targetDistanceLabel || '';
-  });
+  resolved = resolved.replace(tagPattern('@מרחק_יעד'), (tag) => targetDistance(tag));
 
-  resolved = resolved.replace(tagPattern('@שלב_תוכנית'), () => {
-    if (context.programPhase && PHASE_LABELS_HE[context.programPhase]) {
-      return PHASE_LABELS_HE[context.programPhase];
-    }
-    return context.programPhase || '';
-  });
+  resolved = resolved.replace(tagPattern('@שלב_תוכנית'), (tag) => phaseLabel(tag));
 
-  resolved = resolved.replace(tagPattern('@סוג_ריצה'), () => {
-    if (context.runningCategory) {
-      return RUN_CATEGORY_LABELS_HE[context.runningCategory as keyof typeof RUN_CATEGORY_LABELS_HE] || context.runningCategory;
-    }
-    return '';
-  });
+  resolved = resolved.replace(tagPattern('@סוג_ריצה'), (tag) => runCategoryLabel(tag));
 
   resolved = resolved.replace(tagPattern('@שבוע_מתוך'), () => {
     if (context.weekNumber !== undefined && context.totalWeeks) {
-      return `שבוע ${context.weekNumber} מתוך ${context.totalWeeks}`;
+      return L('week.of', { n: String(context.weekNumber), m: String(context.totalWeeks) });
     }
     if (context.weekNumber !== undefined) {
-      return `שבוע ${context.weekNumber}`;
+      return L('week.only', { n: String(context.weekNumber) });
     }
     return '';
   });
@@ -1078,23 +871,11 @@ export function resolveDescription(
     return '';
   });
 
-  resolved = resolved.replace(tagPattern('@targetDistanceLabel'), () => {
-    return context.targetDistanceLabel || '';
-  });
+  resolved = resolved.replace(tagPattern('@targetDistanceLabel'), (tag) => targetDistance(tag));
 
-  resolved = resolved.replace(tagPattern('@programPhase'), () => {
-    if (context.programPhase && PHASE_LABELS_HE[context.programPhase]) {
-      return PHASE_LABELS_HE[context.programPhase];
-    }
-    return context.programPhase || '';
-  });
+  resolved = resolved.replace(tagPattern('@programPhase'), (tag) => phaseLabel(tag));
 
-  resolved = resolved.replace(tagPattern('@runningCategory'), () => {
-    if (context.runningCategory) {
-      return RUN_CATEGORY_LABELS_HE[context.runningCategory as keyof typeof RUN_CATEGORY_LABELS_HE] || context.runningCategory;
-    }
-    return '';
-  });
+  resolved = resolved.replace(tagPattern('@runningCategory'), (tag) => runCategoryLabel(tag));
 
   resolved = resolved.replace(tagPattern('@weekNumber'), () => {
     return context.weekNumber !== undefined ? String(context.weekNumber) : '';
@@ -1103,12 +884,18 @@ export function resolveDescription(
   // ── Strategic Coaching Tags (הערות מאמן) ─────────────────────────
 
   // @פער_שבועי — domain with lowest weekly quota completion
-  resolved = resolved.replace(tagPattern('@פער_שבועי'), () => {
+  resolved = resolved.replace(tagPattern('@פער_שבועי'), (tag) => {
     if (context.weeklyGapDomain) {
+      // Callers hand the Hebrew domain name (e.g. "דחיפה"); other languages map it back to the program key.
+      const domain = L.isHebrew
+        ? context.weeklyGapDomain
+        : (L.text(context.weeklyGapDomain)
+          ?? ((k) => (k !== undefined ? L.label('program', k) : undefined))(L.keyOfHebrew('program', context.weeklyGapDomain)));
+      if (domain === undefined) return tag;
       const pct = context.weeklyGapPercent !== undefined ? ` (${Math.round(context.weeklyGapPercent)}%)` : '';
-      return `${context.weeklyGapDomain}${pct}`;
+      return `${domain}${pct}`;
     }
-    return 'מאוזן';
+    return L('gap.balanced');
   });
 
   // @סיבת_רצף — streak/inactivity-based coaching cue
@@ -1116,11 +903,11 @@ export function resolveDescription(
     const inactive = context.daysInactive ?? 0;
     const streak = context.streakDays ?? 0;
 
-    if (inactive > 3) return 'חזרה הדרגתית — הגוף צריך זמן להסתגל מחדש';
-    if (streak >= 14) return 'בונוס עקביות — רצף מרשים של אימונים!';
-    if (streak >= 7) return 'שבוע חזק — תנו לגוף את מה שהוא צריך';
-    if (streak >= 3) return 'מומנטום — שלושה ימים רצופים, תמשיך ככה';
-    return 'התחלה טובה';
+    if (inactive > 3) return L('streak.comeback');
+    if (streak >= 14) return L('streak.consistency');
+    if (streak >= 7) return L('streak.strongWeek');
+    if (streak >= 3) return L('streak.momentum');
+    return L('streak.start');
   });
 
   // @רצף — raw streak day count (Daily_Goal / Habit_Maintenance)
@@ -1134,7 +921,7 @@ export function resolveDescription(
   // activityType-agnostic: steps today, could carry a different unit later)
   resolved = resolved.replace(tagPattern('@צעדים_שנותרו'), () => {
     return context.stepsLeft !== undefined && context.stepsLeft !== null
-      ? formatNumber(context.stepsLeft, 'he')
+      ? formatNumber(context.stepsLeft, L.lang)
       : '0';
   });
 
@@ -1155,18 +942,18 @@ export function resolveDescription(
   // instead rejected by hasUnresolvedTagArtifacts and the next-best row (or the
   // generator fallback) is used — see workout-metadata.service.ts.
   resolved = resolved.replace(tagPattern('@סקייל_נוכחי'), (tag) => {
-    return context.currentProgressionStep || tag;
+    return (context.currentProgressionStep ? L.text(context.currentProgressionStep) : undefined) || tag;
   });
 
   // @מיקוד_פיזיולוגי — map rep range to training goal
   resolved = resolved.replace(tagPattern('@מיקוד_פיזיולוגי'), () => {
     const reps = context.avgRepCount;
-    if (reps === undefined || reps === null || reps <= 0) return 'אימון כללי';
-    if (reps <= 5) return 'כוח מקסימלי';
-    if (reps <= 7) return 'כוח-היפרטרופיה';
-    if (reps <= 12) return 'היפרטרופיה';
-    if (reps <= 14) return 'סיבולת-היפרטרופיה';
-    return 'סיבולת שרירית';
+    if (reps === undefined || reps === null || reps <= 0) return L('repFocus.general');
+    if (reps <= 5) return L('repFocus.maxStrength');
+    if (reps <= 7) return L('repFocus.strengthHypertrophy');
+    if (reps <= 12) return L('repFocus.hypertrophy');
+    if (reps <= 14) return L('repFocus.enduranceHypertrophy');
+    return L('repFocus.muscularEndurance');
   });
 
   // @סטטוס_נפח — weekly volume status vs quota
@@ -1178,28 +965,29 @@ export function resolveDescription(
     // "@סטטוס_נפח השבועי שלך מעולה" without a subject.
     if (completed === undefined || quota === undefined || quota <= 0) return tag;
     const pct = Math.round((completed / quota) * 100);
-    if (pct >= 100) return `הושלם (${completed}/${quota} סטים)`;
-    if (pct >= 80) return `כמעט שם — ${completed}/${quota} סטים (${pct}%)`;
-    if (pct >= 50) return `באמצע — ${completed}/${quota} סטים (${pct}%)`;
-    return `בתחילת הדרך — ${completed}/${quota} סטים (${pct}%)`;
+    const v = { completed: String(completed), quota: String(quota), pct: String(pct) };
+    if (pct >= 100) return L('volume.done', v);
+    if (pct >= 80) return L('volume.almost', v);
+    if (pct >= 50) return L('volume.mid', v);
+    return L('volume.start', v);
   });
 
   // ── Logic Cue Tags (Coach's Note) ─────────────────────────────────
 
-  resolved = resolved.replace(tagPattern('@סיבת_עצימות'), () => {
-    return context.intensityReason || '';
+  resolved = resolved.replace(tagPattern('@סיבת_עצימות'), (tag) => {
+    return context.intensityReason ? (L.text(context.intensityReason) ?? tag) : '';
   });
 
-  resolved = resolved.replace(tagPattern('@סוג_אתגר'), () => {
-    return context.challengeType || '';
+  resolved = resolved.replace(tagPattern('@סוג_אתגר'), (tag) => {
+    return context.challengeType ? (L.text(context.challengeType) ?? tag) : '';
   });
 
-  resolved = resolved.replace(tagPattern('@התאמת_ציוד'), () => {
-    return context.equipmentAdaptation || '';
+  resolved = resolved.replace(tagPattern('@התאמת_ציוד'), (tag) => {
+    return context.equipmentAdaptation ? (L.text(context.equipmentAdaptation) ?? tag) : '';
   });
 
   // Also support the notification tags for consistency
-  resolved = resolveNotificationText(resolved, context);
+  resolved = resolveNotificationText(resolved, context, lang);
   
   return resolved;
 }
@@ -1220,16 +1008,18 @@ export function resolveDescription(
  *
  * @param text     Raw text with @tags (e.g., "אימון @קטגוריה ל@פרסונה ב@מיקום")
  * @param context  Tag resolution context
+ * @param lang     Language the tag VALUES resolve in (tag names stay Hebrew). Default 'he'.
  * @returns        Fully resolved text
  */
 export function resolveContentTags(
   text: string,
   context: TagResolverContext,
+  lang: TagLang = 'he',
 ): string {
   if (!text) return '';
   // resolveDescription already chains to resolveNotificationText at the end,
   // giving us full coverage of every @tag in a single call.
-  return resolveDescription(text, context);
+  return resolveDescription(text, context, lang);
 }
 
 /**

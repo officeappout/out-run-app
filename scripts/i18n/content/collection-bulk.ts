@@ -186,11 +186,33 @@ export interface Issue { check: string; docId: string; path: string; message: st
 /** Content tags (`@זמן_אימון`, `@name`) resolve at read time in both languages: they stay byte for byte in the English. */
 export const CONTENT_TAG = /@[\w֐-׿]+/g;
 /**
- * Content tags whose resolved value is a number or a pace (no Hebrew word). A row with ANY other tag (focus, location, intensity,
- * category, level name, streak reason, ...) resolves to Hebrew words, so an English twin would mix languages: it is never written.
+ * Content tags the resolver localizes (src/features/content/branding/core/branding.utils.ts reads their VALUES from the
+ * `brandingTags` catalog in the content language; the tag NAMES stay Hebrew, byte for byte, in the English text).
+ * A tag NOT in this list is unknown to the resolver and would resolve to nothing or leak Hebrew, so a row carrying one
+ * stays Hebrew-only. Kept in step with the resolver by src/features/content/branding/core/__tests__/localized-tags.test.ts.
  */
-export const SAFE_CONTENT_TAGS: readonly string[] = ['@זמן_אימון', '@basePace', '@קצב_בסיס', '@weekNumber', '@שבוע', '@אחוז_התקדמות_רמה', '@אחוז_התקדמות', '@רצף'];
-export const unsafeTags = (he: string): string[] => Array.from(new Set((he.match(CONTENT_TAG) ?? []).filter((t) => !SAFE_CONTENT_TAGS.includes(t))));
+export const LOCALIZED_CONTENT_TAGS: readonly string[] = [
+  // identity, grammar
+  '@שם', '@מטרה', '@את/ה', '@מוכן/ה', '@בוא/י', '@עשית/ה', '@תוכל/י', '@תרצה/י', '@מגדר', '@פרסונה',
+  // body, place, kit
+  '@שריר', '@שרירים', '@מיקום', '@ציוד', '@ספורט', '@רמה', '@שם_תוכנית', '@שם_תרגיל', '@קטגוריה',
+  // progress
+  '@אחוז_התקדמות', '@רמה_הבאה', '@אחוז_התקדמות_רמה', '@תרגיל_יעד', '@ערך_יעד',
+  // proximity, time
+  '@מרחק', '@זמן_הגעה', '@זמן_אימון', '@שעה', '@זמן_יום', '@ימי_אי_פעילות', '@שם_הפארק', '@שם_המתקן',
+  // workout analysis
+  '@עצימות', '@מיקוד', '@מיקוד_פיזיולוגי', '@סטטוס_נפח', '@סיבת_רצף', '@פער_שבועי', '@סקייל_נוכחי', '@רצף', '@צעדים_שנותרו', '@דקות',
+  // coach logic cue
+  '@סיבת_עצימות', '@סוג_אתגר', '@התאמת_ציוד',
+  // running (Hebrew + English aliases)
+  '@קצב_בסיס', '@מרחק_יעד', '@שלב_תוכנית', '@סוג_ריצה', '@שבוע', '@שבוע_מתוך',
+  '@basePace', '@targetDistanceLabel', '@programPhase', '@runningCategory', '@weekNumber',
+  // social
+  '@שם_עוקף', '@מיקום_חדש', '@פער_צעדים', '@שם_קבוצה', '@סוג_קבוצה', '@מיקום_מפגש', '@שעת_מפגש', '@יום_מפגש', '@שם_שותף', '@רמת_שותף', '@שעת_הגעה_שותף',
+];
+/** @deprecated the old numbers-only whitelist; every tag in LOCALIZED_CONTENT_TAGS is allowed now. */
+export const SAFE_CONTENT_TAGS = LOCALIZED_CONTENT_TAGS;
+export const unsafeTags = (he: string): string[] => Array.from(new Set((he.match(CONTENT_TAG) ?? []).filter((t) => !LOCALIZED_CONTENT_TAGS.includes(t))));
 const tokens = (s: string): string[] => (s.match(/\{[^}]+\}|@[\w֐-׿]+|\d+(?:[.,:]\d+)*/g) ?? []).sort();
 
 /** Translation quality gate shared by verify + apply: no Hebrew, no long dash, numbers/placeholders kept, not empty. */
@@ -227,7 +249,7 @@ export function verifyImport(exp: ExportFile, imp: ImportFile): Issue[] {
     if (w.write.en !== w.en) issues.push({ check: 'shape', docId: w.docId, path: w.path, message: 'write.en != en' });
     if (!isReadyPath(imp.collection, w.path) || !isPatchablePath(w.path)) issues.push({ check: 'not-ready-path', docId: w.docId, path: w.path, message: 'the app does not read { he, en } here' });
     for (const m of checkTranslation(w.he, w.en)) issues.push({ check: 'quality', docId: w.docId, path: w.path, message: m });
-    if (isSubcollectionPath(imp.collection) && unsafeTags(w.he).length) issues.push({ check: 'unsafe-tag', docId: w.docId, path: w.path, message: `${unsafeTags(w.he).join(' ')} resolves to Hebrew words: the row stays Hebrew-only` });
+    if (isSubcollectionPath(imp.collection) && unsafeTags(w.he).length) issues.push({ check: 'unsafe-tag', docId: w.docId, path: w.path, message: `${unsafeTags(w.he).join(' ')} is not a tag the resolver localizes: the row stays Hebrew-only` });
   }
   for (const n of imp.needsCode) {
     const f = byKey.get(`${n.docId}\u0000${n.path}`);
