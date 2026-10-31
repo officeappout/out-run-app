@@ -73,13 +73,29 @@ function PartCard({ title, minutes, recommended, children }: { title: string; mi
   );
 }
 
-export function ComboAerobicForm({ kind, onKind }: { kind: ComboAerobicKind; onKind: (k: ComboAerobicKind) => void }) {
+const AEROBIC_MIN_OPTIONS = [15, 30, 45, 60] as const;
+
+export function ComboAerobicForm({ kind, onKind, minutes, onMinutes }: {
+  kind: ComboAerobicKind;
+  onKind: (k: ComboAerobicKind) => void;
+  /** Pilot AH26: the length the recommended options below are built for. */
+  minutes?: number;
+  onMinutes?: (m: number) => void;
+}) {
   const t = useT(home);
   return (
-    <section>
-      <h2 className="mb-2.5 text-[17px] font-black text-v2-ink">{t('comboGen.aerobic.section')}</h2>
+    <section className="space-y-3">
+      <h2 className="text-[17px] font-black text-v2-ink">{t('comboGen.aerobic.section')}</h2>
       <AerobicTiles value={kind} onChange={onKind} />
-      <p className="mt-2.5 text-[12.5px] font-bold text-v2-muted">{t('comboGen.aerobic.goalNote')}</p>
+      {minutes != null && onMinutes && (
+        <Pills
+          options={AEROBIC_MIN_OPTIONS}
+          value={minutes as (typeof AEROBIC_MIN_OPTIONS)[number]}
+          onChange={onMinutes}
+          label={(m) => t('comboGen.minutes', { minutes: String(m) })}
+        />
+      )}
+      <p className="text-[12.5px] font-bold text-v2-muted">{t('comboGen.aerobic.goalNote')}</p>
     </section>
   );
 }

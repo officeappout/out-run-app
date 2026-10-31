@@ -43,3 +43,20 @@ describe('recommendCombos: the engine picks the format and the order', () => {
     expect(recommendCombos(intent({ minutes: 200 }), { levels: beginner })[0].request.timeMin).toBe(90);
   });
 });
+
+describe('pilot AH25: no running questionnaire → never a run', () => {
+  const intent = (category: 'hybrid' | 'aerobic', stars: 1 | 2 | 3, minutes = 30) =>
+    ({ category, minutes, stars, place: 'park' as const, outdoor: true });
+  it('hybrid: walks, and no AMRAP with a run even at level 8+', () => {
+    const opts = recommendCombos(intent('hybrid', 3), { levels: { push: 9, pull: 9 }, canRun: false });
+    expect(opts.every((o) => o.request.aerobic !== 'run')).toBe(true);
+    expect(opts.some((o) => o.reason === 'amrap_run')).toBe(false);
+  });
+  it('aerobic: a walk, no run-then-core', () => {
+    const opts = recommendCombos(intent('aerobic', 3), { levels: {}, canRun: false });
+    expect(opts.map((o) => o.reason)).toEqual(['walk']);
+  });
+  it('absent = allowed (unchanged)', () => {
+    expect(recommendCombos(intent('aerobic', 3), { levels: {} }).map((o) => o.reason)).toEqual(['run', 'run_then_core']);
+  });
+});
