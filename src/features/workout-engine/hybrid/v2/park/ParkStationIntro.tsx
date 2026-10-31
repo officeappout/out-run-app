@@ -17,6 +17,7 @@ import type { StationContext } from '../../station-flow';
 import { STATION_DIFFICULTIES, type StationDifficulty, type StationIntroView, type StationMachine } from '../../park-live-v2';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { ParkAfterRow, ParkWelcomeHeading } from './ParkWelcome';
 interface Props {
   intro: StationIntroView;
   context: StationContext;
@@ -64,6 +65,7 @@ export default function ParkStationIntro({ intro, context, difficulty, onDifficu
     <div className="absolute inset-0 flex flex-col bg-v2-surface" dir={direction}>
       <div className="flex-1 overflow-y-auto" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
         <div className="flex flex-col gap-2 px-[18px]">
+          <ParkWelcomeHeading context={context} />
           <div className="flex items-center gap-2">
             <span className="text-[12.5px] font-black text-v2-deep">
               {t('hybrid.welcome.stationOf', { number: String(context.stationNumber), total: String(context.stationTotal) })}
@@ -122,6 +124,7 @@ export default function ParkStationIntro({ intro, context, difficulty, onDifficu
             })}
           </div>
           <span className="text-[12px] text-v2-muted">{t('parkLive.intro.difficultyNote', { min: String(intro.totalMin) })}</span>
+          <div className="mt-2"><ParkAfterRow context={context} /></div>
         </div>
       </div>
       <div className="px-[18px] pt-2" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 20px))' }}>
