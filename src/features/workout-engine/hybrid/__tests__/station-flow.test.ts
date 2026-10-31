@@ -53,8 +53,16 @@ describe('computeStationContext', () => {
       parkName: 'גינת הדקל', stationNumber: 1, stationTotal: 2, estimatedMin: 10,
       availableEquipment: null, // B3: none on these fixture segments
       locationKey: 'park:p1', // B3: find-the-equipment scope
+      atStart: false, afterSec: 420, // park welcome: a leg came before; 7 min to the next station
     });
     expect(computeStationContext(plan, 3, names)).toMatchObject({ stationNumber: 2, stationTotal: 2, parkName: 'פארק המסילה' });
+  });
+
+  it('park welcome: a first-segment station starts the session; the time after it', () => {
+    expect(computeStationContext(plan, 3, names).atStart).toBe(false);
+    const parkFirst = [plan[1], plan[2], plan[3]];
+    expect(computeStationContext(parkFirst, 0, names)).toMatchObject({ atStart: true, afterSec: 420 });
+    expect(computeStationContext([plan[1]], 0, names).afterSec).toBeNull();
   });
 
   it('the LAST station is final (only a closing leg follows) → no completion screen', () => {
