@@ -59,7 +59,7 @@ const PAGES: Page[] = [
   { num: 'side-stretch', he: 'מתיחת גב צידית', oldId: 267, videos: [{ driveId: '1ixPE2x3NFZjbPLKWmof6SwfINl2SAc72' }], sbm: [1, 1, 4], type: 'time', muscle: 'back' },
   { num: 'butcher', he: 'מתיחת קצבים', oldId: 279, videos: [{ driveId: '1TkbqC_jY1hT9zsFCsCltBDJQFA664aXf' }], sbm: [1, 1, 5], type: 'time', muscle: 'shoulders' },
   { num: 'frog-lifts', he: 'עמידת צפרדע ניתוקי רגליים', oldId: 259, videos: [{ driveId: '1LXpmruiJyZQMyLFRztV6LkeCYdjXQ5_T' }], sbm: [3, 4, 2], type: 'time', muscle: 'shoulders' },
-  { num: 'plank-pike', he: 'פלאנק לעמידת פייק', oldId: 264, videos: [{ driveId: '1EI2BjSEL7T1lEFPrfGU56G54kHqsELxf' }], sbm: [5, 1, 6], type: 'reps', muscle: 'shoulders' },
+  { num: 'plank-pike', he: 'פלאנק לעמידת פייק', oldId: 264, videos: [{ driveId: '1EI2BjSEL7T1lEFPrfGU56G54kHqsELxf' }], sbm: [5, 1, 4], type: 'reps', muscle: 'shoulders' },
   { num: 'rail-opening', he: 'פתיחת כתף בעזרת מעקה', oldId: 257, videos: [{ driveId: '1MhmbusVjKU02u8QYlfIA0ySgBHmmziNS' }], sbm: [1, 1, 3], type: 'time', muscle: 'shoulders' },
   { num: 'cobra', he: 'קוברה תלויה', oldId: 273, videos: [{ driveId: '10jQXmigsIsXz8WvSy0aM4vBvFVzpbeAI' }], sbm: [4, 1, 10], type: 'time', muscle: 'shoulders' },
   { num: 'supinated-hang', he: 'תלייה פסיבית סופינציה', oldId: 269, videos: [{ driveId: '1G5IL1rHbTh3B3O8z_hjS8AHXoiPrQABT' }], sbm: [3, 1, 7], type: 'time', muscle: 'shoulders' },
