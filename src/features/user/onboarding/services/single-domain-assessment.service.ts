@@ -31,6 +31,7 @@
  */
 
 import { syncOnboardingToFirestore } from './onboarding-sync.service';
+import type { AnswerResult } from '@/types/onboarding-questionnaire';
 
 /** The four base assessment categories the visual-assessment slider covers. */
 export const PRIMARY_CATEGORIES = ['push', 'pull', 'legs', 'core'] as const;
@@ -40,6 +41,7 @@ export interface SingleDomainAssignedResult {
   programId: string;
   levelId: string;
   masterProgramSubLevels: Record<string, number>;
+  triad?: AnswerResult['triad'];
 }
 
 /**
@@ -52,6 +54,7 @@ export interface SingleDomainAssignedResult {
 export function buildSingleDomainAssignedResult(
   domain: string,
   level: number,
+  triad?: AnswerResult['triad'],
 ): SingleDomainAssignedResult[] {
   const safeLevel = Math.max(1, Math.round(level));
   const masterProgramSubLevels: Record<string, number> = Object.fromEntries(
@@ -62,6 +65,7 @@ export function buildSingleDomainAssignedResult(
       programId: domain,
       levelId: `${domain}_level_${safeLevel}`,
       masterProgramSubLevels,
+      ...(domain === 'handstand' && triad ? { triad } : {}),
     },
   ];
 }
@@ -78,7 +82,8 @@ export function buildSingleDomainAssignedResult(
 export async function writeSingleDomainAssessment(
   domain: string,
   level: number,
+  triad?: AnswerResult['triad'],
 ): Promise<boolean> {
-  const assignedResults = buildSingleDomainAssignedResult(domain, level);
+  const assignedResults = buildSingleDomainAssignedResult(domain, level, triad);
   return syncOnboardingToFirestore('COMPLETED', { assignedResults });
 }
