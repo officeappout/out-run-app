@@ -94,9 +94,11 @@ export default function StepEquipment({ data, updateData, onNext, onBack, scanTa
     const next = new Set(selectedIds);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    // brandName stays '' — user never picks a brand (resolved on approval).
+    // brandName stays '' for a hand pick (resolved on approval); an item the camera scan
+    // recognized keeps its brand (enable_equipment_scan_v1, owner 31.10).
     // Array.from (not [...set]) to stay tsc-clean under the project's target.
-    updateData({ gymEquipment: Array.from(next).map((equipmentId) => ({ equipmentId, brandName: '' })) });
+    const brandOf = new Map((data.gymEquipment ?? []).map((g) => [g.equipmentId, g.brandName]));
+    updateData({ gymEquipment: Array.from(next).map((equipmentId) => ({ equipmentId, brandName: brandOf.get(equipmentId) ?? '' })) });
 
     // Clear the search + close the keyboard so the next search starts clean
     // — otherwise the stale filter/open keyboard blocks the view of what was
@@ -104,7 +106,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack, scanTa
     // triggered from the unfiltered grid (search is already '').
     setSearch('');
     searchInputRef.current?.blur();
-  }, [selectedIds, updateData]);
+  }, [selectedIds, updateData, data.gymEquipment]);
 
   const term = search.trim().toLowerCase();
   // Scan mapping: detected items still selected sit in their own list above; the grid has the rest.

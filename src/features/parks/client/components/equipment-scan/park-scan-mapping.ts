@@ -17,6 +17,8 @@ export const URBAN_FEATURE_TAG: Record<string, ParkFeatureTag> = {
 
 export interface ParkScanPrefill {
   equipmentIds: string[];
+  /** The recognized brand per equipment id (owner 31.10, brand-aware); absent = unknown. */
+  brands: Record<string, string>;
   unsureIds: string[];
   featureTags: ParkFeatureTag[];
   unknown: Array<{ description: string; shot: number; box?: ScanBox }>;
@@ -28,6 +30,7 @@ export function prefillFromScan(results: readonly ScanPhotoResult[]): ParkScanPr
   return {
     merged,
     equipmentIds: items.filter((i) => i.kind === 'catalog').map((i) => i.candidateId),
+    brands: Object.fromEntries(items.filter((i) => i.kind === 'catalog' && i.brandName).map((i) => [i.candidateId, i.brandName as string])),
     unsureIds: items.filter(isUnsure).map((i) => i.candidateId),
     featureTags: Array.from(new Set(items.map((i) => URBAN_FEATURE_TAG[i.candidateId]).filter((t): t is ParkFeatureTag => !!t))),
     unknown: merged.unknown,
