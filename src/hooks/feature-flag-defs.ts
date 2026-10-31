@@ -575,6 +575,9 @@ export const FLAG_DEFS = [
   // Content in the user's language (exercise names, descriptions...). OFF = Hebrew content exactly as before. Needs enable_i18n
   // and the user on English; an empty English field falls back to Hebrew. Display only (no stored data changes).
   { key: 'enableContentLocale', firestoreKey: 'enable_content_locale', defaultValue: false, superAdminValue: false },
+  // Exercise tutorial video in the user's language (31.10.2026, dubbing pilot). OFF = the Hebrew tutorial exactly as before.
+  // Needs enable_i18n + enable_content_locale and the user on English; an exercise with no `en` upload plays the Hebrew one.
+  { key: 'enableVideoLocale', firestoreKey: 'enable_video_locale', defaultValue: false, superAdminValue: false },
   // i18n wave 5B (docs/i18n/PLAN.md §2.6) — pushes by recipient locale. Needs enable_i18n too. OFF = every push is
   // selected and rendered exactly as before (Hebrew). On: users/{uid}.core.locale → library rows of that locale →
   // translated code defaults → Hebrew. Read server-side from system_config/feature_flags (the super-admin value

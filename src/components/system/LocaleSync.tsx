@@ -43,7 +43,7 @@ export default function LocaleSync() {
   const profileCreatedAt = useUserStore((st) => (st.profile as { createdAt?: unknown } | null)?.createdAt);
   const profileGender = useUserStore((st) => st.profile?.core?.gender);
   const { flags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
-  const { enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, enableContentLocale } = flags;
+  const { enableI18n, enableLocaleEn, enableLocaleRu, enableLocaleDe, enableContentLocale, enableVideoLocale } = flags;
 
   const legacyLanguage = useAppStore((s) => s.language);
   const legacyDirection = useAppStore((s) => s.direction);
@@ -85,6 +85,11 @@ export default function LocaleSync() {
   useEffect(() => {
     setLocaleState({ contentLocaleOn: !!enableI18n && !!enableContentLocale });
   }, [enableI18n, enableContentLocale, setLocaleState]);
+
+  // Exercise tutorial videos follow the content language only with enable_video_locale on too (see video-locale.ts).
+  useEffect(() => {
+    setLocaleState({ videoLocaleOn: !!enableVideoLocale });
+  }, [enableVideoLocale, setLocaleState]);
 
   // Resolve the locale.
   useEffect(() => {

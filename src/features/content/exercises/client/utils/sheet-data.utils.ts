@@ -16,6 +16,7 @@ import {
   findMethodForLocation,
   getLocalizedText,
   type AppLanguage,
+  type ExerciseLang,
   resolveTutorialForLang,
 } from '../../core/exercise.types';
 import { toCueList } from '../../utils/cue-text.utils';
@@ -102,6 +103,7 @@ export function buildSheetData(
   location: string | null,
   preResolvedMethod?: ExecutionMethod | null,
   lang: AppLanguage = 'he',
+  videoLang: ExerciseLang = 'he',
 ): SheetData {
   // When the caller supplies an exact method we use it directly — this is the
   // path taken by the switcher so method[0] and method[1] (both "home") stay
@@ -124,8 +126,8 @@ export function buildSheetData(
   // clip. Intentionally NO cross-method scan (was `?? pickFullTutorial(exercise)`), which
   // pulled PARK's fullTutorial when a home/service method has only a previewVideo.
   const tutorial: ExternalVideo | undefined =
-    resolveTutorialForLang(method?.media as any, 'he') ??
-    resolveTutorialForLang(exercise.media as any, 'he');
+    resolveTutorialForLang(method?.media as any, videoLang) ??
+    resolveTutorialForLang(exercise.media as any, videoLang);
 
   // Legacy mainVideoUrl: prefer the matched method, fall back to full scan.
   const legacy = method?.media?.mainVideoUrl ?? pickLegacyVideoUrl(exercise);

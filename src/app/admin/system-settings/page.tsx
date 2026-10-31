@@ -110,6 +110,7 @@ interface FlagState {
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
   enable_content_locale: boolean;
+  enable_video_locale: boolean;
   push_locale_v1: boolean;
   hide_he_only_onboarding_steps: boolean;
   enable_app_session_signal: boolean;
@@ -909,6 +910,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-indigo-600',
     title: 'תוכן בשפת המשתמש',
     description: 'שמות תרגילים, תיאורים והנחיות מוצגים באנגלית למשתמשים באנגלית. שדה שאין לו תרגום מוצג בעברית. דורש את מתג השפות הראשי. כבוי = תוכן בעברית, בדיוק כמו היום.',
+    parentKey: 'enable_i18n',
+  },
+  {
+    key: 'enable_video_locale',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'סרטוני הסבר בשפת המשתמש',
+    description: 'משתמשים באנגלית רואים את סרטון ההסבר המדובב לאנגלית כשהוא קיים. תרגיל בלי סרטון באנגלית מציג את הסרטון בעברית. דורש את מתג השפות הראשי ואת "תוכן בשפת המשתמש". כבוי = סרטונים בעברית, בדיוק כמו היום.',
     parentKey: 'enable_i18n',
   },
   {
