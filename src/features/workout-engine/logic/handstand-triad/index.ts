@@ -11,3 +11,4 @@ export {
 export { buildTriadPlan } from './triad-session-plan';
 export { fillTriadPlan, type FilledTriadBlock } from './triad-select';
 export { triadPoolGate } from './triad-pool-gate';
+export { addTriadTrackLevels } from './triad-track';

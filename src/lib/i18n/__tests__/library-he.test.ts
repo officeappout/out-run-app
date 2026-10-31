@@ -281,6 +281,10 @@ describe('library (he) — exercises.* byte-identical to the pre-extraction lite
       ['exercises.detail.facts.bodyweight', 'משקל גוף'],
       ['exercises.detail.programs', 'תוכניות'],
       ['exercises.detail.gear', 'ציוד'],
+      ['exercises.detail.triad.title', 'פירוט'],
+      ['exercises.detail.triad.strength', 'כוח'],
+      ['exercises.detail.triad.balance', 'באלנס'],
+      ['exercises.detail.triad.mobility', 'גמישות כתף'],
       ['exercises.detail.bodyweight', 'משקל גוף'],
       ['exercises.detail.chain.title', 'מסלול ההתקדמות'],
       ['exercises.detail.chain.fullMap', 'מפה מלאה'],
@@ -368,6 +372,6 @@ describe('library (he) — exercises.* byte-identical to the pre-extraction lite
 
   it('no exercises.* key is left untested', () => {
     // exercises.equipSheet.* (batch az) is pinned in batch-az-he.test.ts
-    expect(Object.keys(he).filter((k) => k.startsWith('exercises.') && !k.startsWith('exercises.equipSheet.')).length).toBe(95);
+    expect(Object.keys(he).filter((k) => k.startsWith('exercises.') && !k.startsWith('exercises.equipSheet.')).length).toBe(100);
   });
 });

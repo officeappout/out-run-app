@@ -1,15 +1,15 @@
 /**
  * Resolve a user's Handstand Triad levels. Pure.
  *
- * Target data model: a parent program "handstand" (displayed level = average
- * of its children, via the existing `averageMasterChildren`) with three child
- * programs. Until those child programs exist, every axis falls back to the
- * user's handstand (or HSPU) level, then to the base level, so behaviour
- * degrades to "one level for all three" instead of breaking.
+ * The three axis levels are hidden sub-levels on the handstand track
+ * (owner, 31.10: no child programs), copied into userProgramLevels under the
+ * internal keys below by addTriadTrackLevels (triad-track.ts). A missing axis
+ * falls back to the user's handstand (or HSPU) level, then to the base level,
+ * so behaviour degrades to "one level for all three" instead of breaking.
  */
 import { TRIAD_MAX, TRIAD_MIN, type TriadAxis, type TriadValues } from './triad.types';
 
-/** Child-program keys in `userProgramLevels`. */
+/** Internal userProgramLevels keys for the hidden axis levels (not programs). */
 export const TRIAD_CHILD_KEYS: Record<TriadAxis, string> = {
   strength: 'handstand_strength',
   balance: 'handstand_balance',
