@@ -11,6 +11,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { createAiMessage, getAiModel, withPromptCaching } from '@/lib/ai/anthropic.server';
 import { SCAN_TOOL, SCAN_TOOL_NAME, compareUserText, scanSystemPrompt, scanUserText } from './scan-prompt';
 import { needsCompare, parseScanToolInput } from './scan-result';
+import { brandPhoto } from './scan-candidates';
 import type { ScanCandidate, ScanMode, ScanPhotoResult } from './scan-types';
 
 export const SCAN_FEATURE = 'equipment_scan';
@@ -68,7 +69,8 @@ async function compareTopCandidates(
   const shots: Array<{ id: string; brand: string; url: string }> = [];
   for (const c of top) {
     for (const b of c.brands ?? []) {
-      if (b.imageUrl && shots.length < MAX_COMPARE_IMAGES) shots.push({ id: c.id, brand: b.name, url: b.imageUrl });
+      const url = brandPhoto(b);
+      if (url && shots.length < MAX_COMPARE_IMAGES) shots.push({ id: c.id, brand: b.name, url });
     }
   }
   if (shots.length < 2) return first;

@@ -7,7 +7,7 @@
  *   below / bad photo / people  → retake (the edge-state screens)
  * NEEDS_COMPARE_GAP: when the top two are this close, the route runs the photo-vs-catalog compare.
  */
-import { matchBrand } from './scan-candidates';
+import { brandPhoto, matchBrand } from './scan-candidates';
 import type { ScanBox, ScanCandidate, ScanItem, ScanPhotoResult, ScanQuality, ScanUnknown, ScanVerdict } from './scan-types';
 
 export const CONFIRM_AT = 0.8;
@@ -74,7 +74,7 @@ export function needsCompare(result: ScanPhotoResult, candidates: readonly ScanC
   if (b && a.confidence - b.confidence < NEEDS_COMPARE_GAP) return true;
   if (a.brandName || a.confidence < CHOOSE_AT) return false;
   const c = candidates.find((x) => x.id === a.candidateId);
-  return (c?.brands?.filter((x) => x.imageUrl).length ?? 0) > 1;
+  return (c?.brands?.filter((x) => brandPhoto(x)).length ?? 0) > 1;
 }
 
 /** The single-item screen's next step. People always win: the photo is dropped. */

@@ -4,8 +4,9 @@
  */
 import 'server-only';
 import type { Firestore } from 'firebase-admin/firestore';
-import type { RawCatalogDoc, VisualIndex } from './scan-candidates';
 import visualIndex from './equipment-visual-index.json';
+import referencePhotos from './scan-reference-photos.json';
+import type { RawCatalogDoc, ReferencePhoto, VisualIndex } from './scan-candidates';
 
 const CATALOG_TTL_MS = 10 * 60_000;
 let cache: { at: number; docs: RawCatalogDoc[] } | null = null;
@@ -33,4 +34,16 @@ export async function loadParkEquipmentIds(db: Firestore, parkId: string | undef
 /** The (equipment, brand) look lines; {} until scripts/scan/build-visual-index.ts has been run. */
 export function loadVisualIndex(): VisualIndex {
   return visualIndex as VisualIndex;
+}
+
+/**
+ * The owner's reference photos (Drive "מתקנים", Ludus + Urbanix), thumbnails served from
+ * public/scan-reference, as absolute URLs on this deployment's origin so the model can fetch them.
+ */
+export function loadReferencePhotos(origin: string): ReferencePhoto[] {
+  return (referencePhotos as Array<{ equipmentId: string; brand: string; path: string }>).map((r) => ({
+    equipmentId: r.equipmentId,
+    brand: r.brand,
+    url: `${origin}${r.path}`,
+  }));
 }

@@ -7,6 +7,7 @@ import { buildScanCandidates, candidateLines } from '../scan-candidates';
 import { parseScanToolInput, singleVerdict, needsCompare } from '../scan-result';
 import { mergeParkScans, nextParkShot, reviewItems, isUnsure } from '../scan-merge';
 import type { ScanPhotoResult } from '../scan-types';
+import refsJson from '../scan-reference-photos.json';
 import { feedbackRecord, ScanFeedbackSchema } from '../scan-feedback';
 
 const CATALOG = [
@@ -161,5 +162,40 @@ describe('scan feedback log', () => {
     expect(feedbackRecord('u1', miss, now)).toMatchObject({ topHit: false, brandHit: null });
     const park = ScanFeedbackSchema.parse({ mode: 'park', via: 'park_submit', detected: [], kept: [{ equipmentId: 'pull', brandName: 'Urbanix' }], removed: ['dips'], added: ['rings'] });
     expect(feedbackRecord('u1', park, now)).toMatchObject({ topHit: null, removed: ['dips'], added: ['rings'] });
+  });
+});
+
+describe('owner reference photos (Drive "מתקנים")', () => {
+  const cat = [
+    { id: 'dips', name: 'מקבילים', availableInLocations: ['park'], brands: [{ brandName: 'Urbanics', imageUrl: 'https://img/u.jpg' }] },
+  ];
+  const refs = [
+    { equipmentId: 'dips', brand: 'Urbanix', url: 'https://app/scan-reference/urbanix/dips.jpg' },
+    { equipmentId: 'dips', brand: 'Ludus', url: 'https://app/scan-reference/ludus/dips.jpg' },
+    { equipmentId: 'other', brand: 'Ludus', url: 'https://app/x.jpg' },
+  ];
+  const [c] = buildScanCandidates(cat, [], { 'dips::Ludus': 'low steel bars' }, refs);
+
+  it('attaches to the alias-matching brand; a maker missing from the catalog becomes a brand', () => {
+    expect(c.brands).toEqual([
+      { name: 'Urbanics', imageUrl: 'https://img/u.jpg', refImageUrls: ['https://app/scan-reference/urbanix/dips.jpg'] },
+      { name: 'Ludus', look: 'low steel bars', refImageUrls: ['https://app/scan-reference/ludus/dips.jpg'] },
+    ]);
+  });
+  it('the compare photo prefers the reference, and two photos make a brand-unknown result worth comparing', () => {
+    expect(c.imageUrl).toBe('https://app/scan-reference/urbanix/dips.jpg');
+    const r = { quality: 'ok' as const, hasPeople: false, unknown: [], items: [{ candidateId: 'dips', kind: 'catalog' as const, confidence: 0.9 }] };
+    expect(needsCompare(r, [c])).toBe(true);
+  });
+});
+
+
+describe('reference manifest', () => {
+  it('every entry has an id, a known brand and a public path', () => {
+    for (const r of refsJson as Array<{ equipmentId: string; brand: string; path: string }>) {
+      expect(r.equipmentId).toMatch(/^[A-Za-z0-9]{20}$/);
+      expect(['Urbanix', 'Ludus']).toContain(r.brand);
+      expect(r.path).toMatch(/^\/scan-reference\/(urbanix|ludus)\/[A-Za-z0-9-]+\.jpg$/);
+    }
   });
 });
