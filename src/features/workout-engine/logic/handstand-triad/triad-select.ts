@@ -3,8 +3,10 @@
  *
  * - warmup / cooldown: exercises whose `exerciseRole` is 'warmup' / 'cooldown'
  *   (fixed blocks, not leveled by axis).
- * - axis blocks: scored main exercises whose primary axis (highest demand) is
- *   the block's axis, so a stretch never lands in a strength block.
+ * - axis blocks: scored main exercises whose trained axis is the block's axis
+ *   (trainedAxis: highest demand, but the mobility block takes passive work
+ *   only), so a stretch never lands in a strength block and a kick-up never
+ *   in the mobility block.
  *   The line block takes the strength-primary core work (primaryMuscle
  *   core / abs / obliques: hollow body, plank); the strength block takes the
  *   rest of the strength-primary work (shoulders: pike, wall walks, presses).
@@ -14,7 +16,7 @@
  */
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import { checkTriadEligibility, type TriadEligibilityOptions } from './triad-eligibility';
-import { getTriadScores, primaryAxis } from './triad-scores';
+import { getTriadScores, trainedAxis } from './triad-scores';
 import type { TriadBlock, TriadValues } from './triad.types';
 
 const LINE_MUSCLES = new Set(['core', 'abs', 'obliques']);
@@ -29,7 +31,7 @@ function fitsBlock(block: TriadBlock, s: Scored): boolean {
   const role = s.exercise.exerciseRole;
   if (block.kind === 'warmup' || block.kind === 'cooldown') return role === block.kind;
   if (role === 'warmup' || role === 'cooldown') return false;
-  if (primaryAxis(s.scores) !== block.axis) return false;
+  if (trainedAxis(s.scores) !== block.axis) return false;
   const isLineWork = LINE_MUSCLES.has(s.exercise.primaryMuscle ?? '');
   if (block.kind === 'line') return isLineWork;
   if (block.kind === 'strength') return !isLineWork;

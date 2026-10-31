@@ -35,7 +35,7 @@ describe('hidden triad levels on the handstand track', () => {
     expect(viaSlugOnly === undefined || viaSlugOnly.strength === 15).toBe(true);
     const direct = new Map([['handstand', 6]]);
     addTriadTrackLevels(direct, { handstand: { triad: { strength: 40, balance: 2.4, mobility: 9 } } }, true);
-    expect(resolveTriadLevels(direct, 1)).toEqual({ strength: 15, balance: 2, mobility: 9 });
+    expect(resolveTriadLevels(direct, 1)).toEqual({ strength: 15, balance: 4, mobility: 9 }); // balance 2 → entry floor 4
   });
   it('buildUserProgramLevels with the flag off (default): same keys as without a triad', () => {
     const profile = (triad?: Record<string, number>) =>

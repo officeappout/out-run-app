@@ -45,6 +45,20 @@ export function primaryAxis(scores: TriadValues): TriadAxis {
   return order.reduce((best, axis) => (scores[axis] > scores[best] ? axis : best), order[0]);
 }
 
+/**
+ * Mobility block = passive mobility only (owner, 31.10): strength and balance
+ * demand ≤ 4 (stretches, hangs, prone raises, cobra). An exercise whose highest
+ * demand is mobility but that is not passive (kick-ups, wall shrugs) trains its
+ * next axis instead: balance or strength, whichever it demands more (balance on ties).
+ */
+export const PASSIVE_MOBILITY_MAX = 4;
+export function trainedAxis(scores: TriadValues): TriadAxis {
+  const p = primaryAxis(scores);
+  if (p !== 'mobility') return p;
+  if (scores.strength <= PASSIVE_MOBILITY_MAX && scores.balance <= PASSIVE_MOBILITY_MAX) return 'mobility';
+  return scores.balance >= scores.strength ? 'balance' : 'strength';
+}
+
 /** Peak skills (free handstand, presses): opened by every axis strictly, no tolerance. */
 export const PEAK_BALANCE_THRESHOLD = 13;
 export const isPeakExercise = (scores: TriadValues) => scores.balance >= PEAK_BALANCE_THRESHOLD;
