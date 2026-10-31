@@ -20,7 +20,7 @@ describe('TriadBreakdown', () => {
         headingClass=""
       />,
     );
-    expect([...html.matchAll(/aria-valuenow="(\d+)"/g)].map((m) => m[1])).toEqual(['7', '2', '6']);
+    expect(Array.from(html.matchAll(/aria-valuenow="(\d+)"/g)).map((m) => m[1])).toEqual(['7', '2', '6']);
     expect(html).toContain('exercises.detail.triad.title');
     expect(html).toContain('exercises.detail.triad.mostly|strength');
   });

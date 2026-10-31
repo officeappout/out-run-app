@@ -135,7 +135,7 @@ export function buildUserProgramLevels(
   }
 
   // Handstand Triad: hidden strength/balance/mobility sub-levels on the
-  // handstand track (HANDSTAND_TRIAD_ENABLED only; no-op while off).
+  // handstand track, attached to the map (not added as keys), flag only.
   addTriadTrackLevels(levels, userTracks as Record<string, unknown>, HANDSTAND_TRIAD_ENABLED);
 
   for (const ap of profile.progression?.activePrograms ?? []) {

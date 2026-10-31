@@ -285,6 +285,7 @@ describe('library (he) — exercises.* byte-identical to the pre-extraction lite
       ['exercises.detail.triad.strength', 'כוח'],
       ['exercises.detail.triad.balance', 'באלנס'],
       ['exercises.detail.triad.mobility', 'גמישות כתף'],
+      ['exercises.detail.triad.mostly', 'בעיקר {axis, select, strength {כוח} balance {באלנס} other {גמישות כתף}}'],
       ['exercises.detail.bodyweight', 'משקל גוף'],
       ['exercises.detail.chain.title', 'מסלול ההתקדמות'],
       ['exercises.detail.chain.fullMap', 'מפה מלאה'],
