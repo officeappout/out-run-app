@@ -26,9 +26,9 @@ describe('prefillFromScan', () => {
   it('the recognized brand rides along per item (owner 31.10)', () => {
     const r = prefillFromScan([
       { quality: 'ok', hasPeople: false, unknown: [], items: [{ candidateId: 'pull', kind: 'catalog', confidence: 0.6 }] },
-      { quality: 'ok', hasPeople: false, unknown: [], items: [{ candidateId: 'pull', kind: 'catalog', confidence: 0.5, brandName: 'Ornix' }] },
+      { quality: 'ok', hasPeople: false, unknown: [], items: [{ candidateId: 'pull', kind: 'catalog', confidence: 0.5, brandName: 'Urbanix' }] },
     ]);
-    expect(r.brands).toEqual({ pull: 'Ornix' });
+    expect(r.brands).toEqual({ pull: 'Urbanix' });
   });
   it('catalog items ≥ 0.5 pre-selected, unsure tagged, people photo ignored', () => {
     expect(p.equipmentIds).toEqual(['pull', 'rings']);
