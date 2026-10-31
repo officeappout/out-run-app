@@ -13,6 +13,13 @@ import { URBAN_CANDIDATE_IDS, type ScanBrand, type ScanCandidate } from './scan-
  * scripts/scan/build-visual-index.ts from each brands[].imageUrl).
  */
 export type VisualIndex = Record<string, string>;
+
+/** One owner reference photo (src/lib/ai/scan/scan-reference-photos.json), `url` already absolute. */
+export interface ReferencePhoto {
+  equipmentId: string;
+  brand: string;
+  url: string;
+}
 export const visualKey = (equipmentId: string, brandName: string) => `${equipmentId}::${brandName}`;
 
 /** gym_equipment as read by the Admin SDK (raw Firestore data). */
@@ -60,10 +67,35 @@ const URBAN_NAMES: Record<(typeof URBAN_CANDIDATE_IDS)[number], { en: string; hi
   'urban:stairs': { en: 'Outdoor stairs / steps', hint: 'public stairs or raised steps' },
 };
 
+/**
+ * Adds the reference photos to the matching brand (alias-aware); a maker the catalog doc doesn't
+ * list yet becomes a brand of its own, so the model can still name it.
+ */
+function withReferences(equipmentId: string, brands: ScanBrand[], refs: readonly ReferencePhoto[], index: VisualIndex): ScanBrand[] {
+  const out = brands.map((b) => ({ ...b }));
+  for (const r of refs) {
+    if (r.equipmentId !== equipmentId) continue;
+    let b = out.find((x) => brandKey(x.name) === brandKey(r.brand));
+    if (!b) {
+      const look = index[visualKey(equipmentId, r.brand)];
+      b = { name: r.brand, ...(look ? { look } : {}) };
+      out.push(b);
+    }
+    b.refImageUrls = [...(b.refImageUrls ?? []), r.url];
+  }
+  return out;
+}
+
+/** The photo the compare call shows for a brand: the owner's reference first, else the catalog's. */
+export function brandPhoto(b: ScanBrand): string | undefined {
+  return b.refImageUrls?.[0] ?? b.imageUrl;
+}
+
 export function buildScanCandidates(
   catalog: readonly RawCatalogDoc[],
   parkEquipmentIds: readonly string[] = [],
   index: VisualIndex = {},
+  refs: readonly ReferencePhoto[] = [],
 ): ScanCandidate[] {
   const atPark = new Set(parkEquipmentIds);
   const out: ScanCandidate[] = [];
@@ -71,7 +103,7 @@ export function buildScanCandidates(
     if (!doc.id || !isParkInstalled(doc)) continue;
     const name = text(doc.name, 'he') ?? text(doc.nameLocalized, 'he');
     if (!name) continue;
-    const brands = brandsOf(doc.id, doc.brands, index);
+    const brands = withReferences(doc.id, brandsOf(doc.id, doc.brands, index), refs, index);
     out.push({
       id: doc.id,
       kind: 'catalog',
@@ -81,7 +113,7 @@ export function buildScanCandidates(
         .filter(Boolean)
         .join(', ') || undefined,
       ...(brands.length ? { brands } : {}),
-      imageUrl: brands.find((b) => b.imageUrl)?.imageUrl,
+      imageUrl: brands.map(brandPhoto).find(Boolean),
       ...(atPark.has(doc.id) ? { atPark: true } : {}),
     });
   }

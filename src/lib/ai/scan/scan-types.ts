@@ -20,6 +20,8 @@ export type UrbanCandidateId = (typeof URBAN_CANDIDATE_IDS)[number];
 export interface ScanBrand {
   name: string;
   imageUrl?: string;
+  /** The owner's reference photos of this (equipment, brand), absolute URLs (public/scan-reference). */
+  refImageUrls?: string[];
   look?: string;
 }
 
