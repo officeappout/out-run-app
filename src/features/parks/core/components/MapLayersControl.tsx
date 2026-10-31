@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Layers, X, ChevronLeft } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 import { useMapStore, LayerType } from '../store/useMapStore';
 import { PartnerFilterSheet, usePartnerFilters } from '@/features/partners';
 import { useT } from '@/hooks/useT';
@@ -16,6 +18,11 @@ import {
     useMapSurfaceFilterV1,
 } from '../map-surface-filter';
 import type { SurfaceFilter } from '../utils/route-surface';
+
+/** AH27: the open sheet on <body> (above the map's top bar) when on; in place otherwise. */
+function layersPortal(on: boolean, node: React.ReactNode): React.ReactNode {
+    return on && typeof document !== 'undefined' ? createPortal(node, document.body) : node;
+}
 
 const LAYER_OPTIONS = [
     { id: 'water', labelKey: 'layers.option.water', icon: '💧' },
@@ -64,6 +71,9 @@ interface MapLayersControlProps {
 
 export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 0 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    // enable_pilot_ah_v1 (AH27): inside DiscoverLayer's z-50 wrapper the top bar (z-70) caught the taps
+    // on the X / backdrop, so the sheet never closed. Rendered on <body> above it instead.
+    const pilotAh = usePilotAhV1();
     const [filterSheetOpen, setFilterSheetOpen] = useState(false);
     const { visibleLayers, toggleLayer } = useMapStore();
     const liveUsersVisible = useMapStore((s) => s.liveUsersVisible);
@@ -125,13 +135,13 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
         <>
             <MapLayersButton onClick={() => setIsOpen(true)} activeCount={surfaceBadge} />
 
-            {isOpen && (
+            {isOpen && layersPortal(pilotAh, (
                 // z-[48] sits ABOVE the PartnerOverlay (z-[45]) so the sheet
                 // is always visible when both happen to be open, and BELOW
                 // the BottomNavbar (z-50) so the nav stays on top and
                 // remains tappable. This matches the same overlap budget
                 // the partner overlay was tuned for.
-                <div className="fixed inset-0 z-[48] pointer-events-none">
+                <div className={`fixed inset-0 ${pilotAh ? 'z-[80]' : 'z-[48]'} pointer-events-none`}>
                     {/* Tap-to-close backdrop */}
                     <div
                         className="absolute inset-0 pointer-events-auto"
@@ -299,7 +309,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                         </div>
                     </motion.div>
                 </div>
-            )}
+            ))}
 
             {/* Partner filter sheet — shared with PartnerOverlay. We pass
                 `onApply` so tapping "החל" enables `liveUsersVisible` in
