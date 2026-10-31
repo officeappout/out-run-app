@@ -68,6 +68,7 @@ import { useTryRunningNudge } from '@/features/home/hooks/useTryRunningNudge';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { library } from '@/messages/ns/library';
+import TabSwipeArea from '@/features/home/components/TabSwipeArea';
 import { displayProgramTemplateId } from '@/features/home/utils/display-program';
 import { MASTER_PROGRAM_CHILDREN } from '@/features/home/hooks/useProgramProgress';
 import { common } from '@/messages/ns/common';
@@ -3564,6 +3565,8 @@ export default function HomePage() {
               </div>
 
               {/* ── Tab content ──────────────────────────────────────── */}
+              {/* enable_pilot_ah_v1 (AI1): a horizontal swipe on this area switches the tab too. */}
+              <TabSwipeArea enabled={!flagsLoading && featureFlags.enablePilotAhV1 && tabs.length > 1} tabs={tabs} active={effectiveTab} onChange={setHomeTab}>
               {effectiveTab === 'strength' && progressSlotOn ? (
                 /* enable_home_progress_slot_v1 (boards PG-1): same grid, the program slot
                    becomes strength ↔ running/walking with pager dots. */
@@ -3595,6 +3598,7 @@ export default function HomePage() {
                   {progressSlotOn ? <ActivityMinutesRingCard /> : <StepsSummaryCard variant="compact" />}
                 </div>
               )}
+              </TabSwipeArea>
 
               {/* Home v2 only: race prediction from the user's real paceProfile.basePace.
                   The card returns null without v2 / for non-runners.
