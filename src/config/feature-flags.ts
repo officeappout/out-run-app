@@ -1636,6 +1636,17 @@ export const SKILL_REPRESENTATION_GUARANTEE_ENABLED = true;
 // signal that already un-gates entry point 1 automatically).
 export const HANDSTAND_ASSESSMENT_ENABLED = false;
 
+// HANDSTAND_TRIAD_ENABLED (31.10.2026): handstand split into strength /
+// balance / mobility, each 1-15 (logic/handstand-triad/). While FALSE nothing
+// changes. When TRUE and a handstand/HSPU domain is active, a scored exercise
+// (strengthScore/balanceScore/mobilityScore on its targetPrograms row) passes
+// the pool only if its demand ≤ the user's level on every axis, instead of the
+// single averaged-level window. User axis levels come from the child programs
+// handstand_strength / handstand_balance / handstand_mobility, falling back to
+// the handstand level until those exist. Flip only after the owner's scores
+// are written to the exercises (dry-run first) and checked on 3 profiles.
+export const HANDSTAND_TRIAD_ENABLED = false;
+
 // HSPU_GENERATOR_EXCLUDED: temporary freeze pending a proper HSPU (handstand
 // push-up) ruleset, which does not exist yet. Added 2026-10-05 after
 // scripts/audit/generator-validation-harness.ts's full 912-combo sweep found

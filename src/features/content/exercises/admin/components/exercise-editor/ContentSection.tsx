@@ -153,7 +153,7 @@ export default function ContentSection({
 
                 /**
                  * Update one triad score and auto-recalculate level.
-                 * Clamped to [1, 10] — these programs max out at 10 by design.
+                 * Clamped to [1, 15], the handstand program scale.
                  */
                 const handleTriadChange = (
                   field: 'strengthScore' | 'balanceScore' | 'mobilityScore',

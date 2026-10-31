@@ -817,11 +817,12 @@ export interface TargetProgramRef {
   programId: string;
   level: number;
   /**
-   * Handstand Triad diagnostic scores (1–10).
+   * Handstand Triad demand scores (1–15, same scale as the handstand program
+   * levels): how much strength / balance / shoulder mobility the exercise needs.
    * Present only for handstand / hspu program associations.
    * The `level` field for these rows is auto-calculated as
    * Math.round((strengthScore + balanceScore + mobilityScore) / 3),
-   * clamped to [1, 10].
+   * clamped to [1, 15]. See workout-engine/logic/handstand-triad.
    */
   strengthScore?: number;
   balanceScore?: number;
