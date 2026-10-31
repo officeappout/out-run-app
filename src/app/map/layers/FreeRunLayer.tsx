@@ -56,6 +56,7 @@ import {
   ComboShellDriver,
 } from '@/features/workout-engine/hybrid/v2';
 import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
+import { continueCommuteOnRoute, useWalkToStartStore } from '@/features/workout-engine/players/running/store/useWalkToStartStore';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
@@ -408,6 +409,12 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     onSelectParticipant={handleSelectParticipant}
                     activityType={logic.preferences.activity === 'walking' ? 'walking' : 'running'}
                     drawerV1={runDrawerV1}
+                    onContinueRoute={comboFlow ? (activity) => {
+                      // Board PlayerArrive (enable_combo_flow_v1): the same session goes on on the route.
+                      const r = useWalkToStartStore.getState().route;
+                      if (!r) return;
+                      void continueCommuteOnRoute(r, activity).then(() => logic.setFocusedRoute(r));
+                    } : undefined}
                   />
                   {sideRailParticipants.length > 0 && (
                     <div
