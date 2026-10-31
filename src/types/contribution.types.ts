@@ -39,6 +39,18 @@ export interface UserContribution {
    * approval, where this array is passed straight into createPark.
    */
   gymEquipment?: ParkGymEquipment[];
+  /**
+   * Camera scan park mapping (enable_equipment_scan_v1): how the list was made. Photos used (no
+   * people), each kept item's confidence, what the user removed / added, and objects the catalog
+   * doesn't have (description + a crop) for the admin's "new equipment" queue.
+   */
+  scan?: {
+    photos: number;
+    items: Array<{ equipmentId: string; confidence: number }>;
+    removedByUser: string[];
+    addedByUser: string[];
+    unknown: Array<{ description: string; photoUrl?: string }>;
+  };
 
   // ── suggest_edit fields ──
   linkedParkId?: string;
