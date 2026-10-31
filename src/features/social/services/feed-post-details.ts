@@ -46,12 +46,15 @@ export interface FeedPostDetails {
    * post card's walk family (steps, never a running ring). Absent = a run.
    */
   activityType?: 'cycling' | 'walking';
+  /** The author's caption, added or edited after posting (board PostFeed "עריכה"). */
+  caption?: string;
 }
 
 export const MAX_TOP_EXERCISES = 3;
 export const MAX_PACE_SPLITS = 10;
 const MAX_NAME = 40;
 const MAX_TEXT = 80;
+export const MAX_CAPTION = 280;
 
 export const FEED_DETAIL_KEYS: (keyof FeedPostDetails)[] = [
   'programName',
@@ -65,6 +68,7 @@ export const FEED_DETAIL_KEYS: (keyof FeedPostDetails)[] = [
   'photoUrl',
   'photoPath',
   'activityType',
+  'caption',
 ];
 
 // ── Builders (at workout finish) ────────────────────────────────────────────
@@ -231,6 +235,8 @@ export function sanitizePostDetails(data: Record<string, unknown>): FeedPostDeta
   const photoPath = str(data.photoPath, 300);
   if (photoPath) out.photoPath = photoPath;
   if (data.activityType === 'cycling' || data.activityType === 'walking') out.activityType = data.activityType;
+  const caption = str(data.caption, MAX_CAPTION);
+  if (caption) out.caption = caption;
   return out;
 }
 
