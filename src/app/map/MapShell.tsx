@@ -73,6 +73,7 @@ import { hasMapDeepLink } from '@/features/user/onboarding/services/first-run-to
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { consumeEntryV2Landing } from '@/features/user/onboarding/entry-v2-landing';
+import { V2_FAB_BOTTOM_CSS } from '@/components/ui/v2/bottom-chrome';
 
 const UnifiedLocationStep = lazy(
   () => import('@/features/user/onboarding/components/steps/UnifiedLocationStep'),
@@ -459,6 +460,11 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   const parkLiveV2 = useParkLiveV2();
   const hybridRunActive = useHybridRun((s) => s.active);
   const parkTurnRow = parkLiveV2 && hybridRunActive && !flagsLoading && devToolFlags.enableHomeV2;
+  const navClearToast = !flagsLoading && devToolFlags.enablePilotAhV1 && devToolFlags.enableHomeV2;
+  // enable_pilot_ah_v1 (AH23): the run / walk drawer player shows the next turn as one line in its
+  // header (RouteTurnRow); the big turn card stays off. Flag off = byte-identical.
+  const runDrawerTurnRow = !flagsLoading && devToolFlags.enablePilotAhV1 && devToolFlags.enableHomeV2
+    && devToolFlags.enableRunPlayerDrawerV1 && !hybridRunActive;
 
   // True when TurnCarousel is mounted — ParticipantStrip must yield navCardHeight
   // to TurnCarousel in that case (both write to the same store field).
@@ -686,7 +692,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
             }
             routePath={logic.focusedRoute.path}
             currentLocation={effectivePos}
-            publishOnly={parkTurnRow}
+            publishOnly={parkTurnRow || runDrawerTurnRow}
           />
         )
       }
@@ -857,7 +863,9 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="fixed bottom-24 end-4 start-4 z-[95] mx-auto max-w-sm"
+            // enable_pilot_ah_v1 (AH29): above the v2 nav stack (bottom-24 sat under its raised circle).
+            className={`fixed ${navClearToast ? '' : 'bottom-24 '}end-4 start-4 z-[95] mx-auto max-w-sm`}
+            style={navClearToast ? { bottom: V2_FAB_BOTTOM_CSS } : undefined}
           >
             <div className="bg-gray-900/95 backdrop-blur-md rounded-2xl px-5 py-3.5 shadow-2xl flex items-center gap-3">
               <span className="text-xl">🤘</span>

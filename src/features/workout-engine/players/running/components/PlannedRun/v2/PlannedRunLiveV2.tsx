@@ -33,6 +33,8 @@ import PlannedLiveCardV2 from './PlannedLiveCardV2';
 import PlannedSessionListV2 from './PlannedSessionListV2';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
+import { RouteTurnRow } from '@/features/workout-engine/hybrid/v2/park/ParkMessageRow';
 
 interface Props {
   engine: PlannedRunEngine;
@@ -65,6 +67,7 @@ export default function PlannedRunLiveV2({
   onJumpToBlock,
   drawerV1 = false,
 }: Props) {
+  const pilotAh = usePilotAhV1();
   const t = useT(player);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const totalDistance = useSessionStore((s) => s.totalDistance);
@@ -174,6 +177,8 @@ export default function PlannedRunLiveV2({
                       <StoryBars segments={segments} currentIndex={currentBlockIndex} progress={blockProgress} />
                       {chromeNodes.caption && <div className="mt-2 text-center text-[13px] font-extrabold text-slate-600">{chromeNodes.caption}</div>}
                     </div>
+                    {/* enable_pilot_ah_v1 (AH23): the next turn as one line (MapShell keeps the big card off). */}
+                    {pilotAh && <RouteTurnRow />}
                   </div>,
                 )}
                 index={tg.layerIndex}

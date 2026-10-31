@@ -47,4 +47,13 @@ describe('restDaySlots (audit ש4)', () => {
     const planned = { kind: 'planned_run', id: 'planned_run', title: 'r', subtitle: '', bolts: 1, recommended: false, accent: '#000', href: '/x' } as HybridSlot;
     expect(ids(restDaySlots([planned, ...slots], true, 0))).toEqual(['planned_run', 'aerobic_quick']);
   });
+  it('pilot AH30 keepOptions: steps done, park next door → walk + strength (light) and the route stay', () => {
+    const out = restDaySlots(slots, true, 0, { keepOptions: true });
+    expect(ids(out)).toContain('recommended');
+    expect(out.find((s) => s.id === 'recommended')?.bolts).toBe(1);
+    expect(ids(out)).not.toContain('full_park');
+    expect(ids(out)).not.toContain('assessment_prompt');
+    expect(ids(out)).toContain('aerobic_quick');
+    expect(ids(restDaySlots(slots, true, 0, { keepOptions: true })).length).toBeGreaterThan(1);
+  });
 });

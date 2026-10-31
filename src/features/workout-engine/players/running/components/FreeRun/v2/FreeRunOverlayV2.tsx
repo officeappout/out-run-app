@@ -43,6 +43,8 @@ import { useT } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
+import { RouteTurnRow } from '@/features/workout-engine/hybrid/v2/park/ParkMessageRow';
 interface Props {
   dragControls: ReturnType<typeof useDragControls>;
   /** Reveal the laps list behind (TwoLayerShell). */
@@ -127,6 +129,8 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   const headerRef = useRef<HTMLDivElement>(null);
   // Map camera keeps the runner's marker between the header and the card
   // (the legacy framing put it right under the bottom card).
+  // enable_pilot_ah_v1 (AH23): the next turn as one line here; MapShell keeps the big turn card off.
+  const pilotAh = usePilotAhV1();
   const chrome = usePublishedPlayerChrome({ bottomGapPx: drawerV1 ? 0 : 12, headerIncludesSafeTop: true, drawer: drawerV1 });
   const [headerH, setHeaderH] = useState(96);
   const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
@@ -217,6 +221,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
                 {headerProps.strip}
                 <div className="mt-2 text-center text-[13px] font-extrabold text-slate-600">{headerProps.eyebrow}</div>
               </div>
+              {pilotAh && <RouteTurnRow />}
             </div>,
           )}
           index={tg.layerIndex}
