@@ -12,7 +12,7 @@ import type { ScanApiError } from './scan-api';
 export type ScanEdge = 'dark' | 'people' | 'not_found';
 
 export type ScanScreen =
-  | { kind: 'confirm'; equipmentId: string; alternatives: string[]; open: boolean }
+  | { kind: 'confirm'; equipmentId: string; brandName?: string; alternatives: string[]; open: boolean }
   | { kind: 'edge'; edge: ScanEdge }
   | { kind: 'error'; error: ScanApiError };
 
@@ -31,5 +31,11 @@ export function screenFromVerdict(verdict: ScanVerdict | undefined): ScanScreen 
     const [first, ...rest] = alternatives;
     return first ? { kind: 'confirm', equipmentId: first, alternatives: rest, open: true } : { kind: 'edge', edge: 'not_found' };
   }
-  return { kind: 'confirm', equipmentId: verdict.candidateId, alternatives, open: verdict.kind === 'choose' };
+  return {
+    kind: 'confirm',
+    equipmentId: verdict.candidateId,
+    ...(verdict.brandName ? { brandName: verdict.brandName } : {}),
+    alternatives,
+    open: verdict.kind === 'choose',
+  };
 }

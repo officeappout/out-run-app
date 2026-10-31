@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { captureScanShot } from './scan-capture';
 import { isTooDark } from './scan-brightness';
 import { postScan } from './scan-api';
+import type { ScanPhotoResult } from '@/lib/ai/scan/scan-types';
 import { screenFromVerdict, type ScanScreen } from './scan-flow';
 
 export type ScanState =
@@ -20,6 +21,8 @@ export type ScanState =
 export function useEquipmentScan(parkId: string | undefined, onPermissionDenied: () => void) {
   const [state, setState] = useState<ScanState>({ kind: 'idle' });
   const [preview, setPreview] = useState<string | null>(null);
+  /** The last answer, kept for the accuracy log (detected vs what the user confirms). */
+  const [lastResult, setLastResult] = useState<ScanPhotoResult | null>(null);
   const previewRef = useRef<string | null>(null);
   const run = useRef(0);
 
@@ -48,12 +51,14 @@ export function useEquipmentScan(parkId: string | undefined, onPermissionDenied:
       return true;
     }
     setState({ kind: 'analyzing' });
+    setLastResult(null);
     const res = await postScan({ image: shot.base64, mode: 'single', parkId });
     if (id !== run.current) return true;
     if (!res.ok) {
       setState({ kind: 'error', error: res.error });
       return true;
     }
+    setLastResult(res.result);
     const next = screenFromVerdict(res.verdict);
     if (next.kind === 'edge' && next.edge === 'people') setPhoto(null);
     setState(next);
@@ -66,5 +71,5 @@ export function useEquipmentScan(parkId: string | undefined, onPermissionDenied:
     setState({ kind: 'idle' });
   }, [setPhoto]);
 
-  return { state, setState, preview, shoot, reset };
+  return { state, setState, preview, lastResult, shoot, reset };
 }

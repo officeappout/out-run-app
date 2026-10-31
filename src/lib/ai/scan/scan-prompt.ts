@@ -31,6 +31,7 @@ export const SCAN_TOOL: Anthropic.Tool = {
           type: 'object',
           properties: {
             id: { type: 'string', description: 'an id from the list, exactly as written' },
+            brand: { type: 'string', description: "the item's brand from its `brands:` list, exactly as written; omit if you cannot tell" },
             confidence: { type: 'number', description: '0..1, how sure this listed item is the one in the photo' },
             count: { type: 'integer', description: 'how many of this item are visible' },
             box: { ...BOX, description: 'normalized 0..1 box around it' },
@@ -55,13 +56,14 @@ export const SCAN_TOOL: Anthropic.Tool = {
 export function scanSystemPrompt(candidates: readonly ScanCandidate[]): string {
   return [
     'You identify outdoor fitness equipment in a photo taken by a user of a workout app.',
-    'Choose ONLY from the list below (format: id | Hebrew name | English name | hint). Never invent ids.',
+    'Choose ONLY from the list below (format: id | Hebrew name | English name | hint | brands: name (look); …). Never invent ids.',
     'Rules:',
     '- Report each distinct listed item you can see, with an honest confidence. Similar-looking items (high vs low bar, parallel bars vs dip station) deserve lower confidence when the photo cannot tell them apart.',
     '- Visible workout equipment that is not on the list goes to `unknown` with a short neutral description.',
     '- `has_people`: true if any person is visible. Never describe people in any field.',
     '- `quality`: "dark" or "blurry" when you cannot judge, "too_far" when equipment is tiny, "too_close" when it is cut off, "no_equipment" when there is none.',
     '- Benches and stairs are listed as urban:bench and urban:stairs.',
+    '- Most items come in a few brands that look different (frame shape, colors, joints). When you can tell which one it is, set `brand` to that name from the item\'s `brands:` list.',
     '',
     'LIST:',
     candidateLines(candidates),
@@ -80,6 +82,8 @@ export function scanUserText(mode: ScanMode, candidates: readonly ScanCandidate[
   return lines.join('\n');
 }
 
-export function compareUserText(ids: readonly string[]): string {
-  return `The first image is the user's photo. The next images are catalog photos of ${ids.join(', ')}, in that order. Which one is in the user's photo? Answer with the ${SCAN_TOOL_NAME} tool, ids from this set only.`;
+/** One label per catalog photo, in the order the images follow the user's photo. */
+export function compareUserText(labels: ReadonlyArray<{ id: string; brand: string }>): string {
+  const list = labels.map((l, i) => `image ${i + 2}: ${l.id} by ${l.brand}`).join('; ');
+  return `The first image is the user's photo. The next images are catalog photos (${list}). Which item and which brand is in the user's photo? Answer with the ${SCAN_TOOL_NAME} tool: ids and brands from this set only.`;
 }

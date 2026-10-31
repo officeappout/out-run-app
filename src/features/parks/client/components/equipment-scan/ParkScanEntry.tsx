@@ -14,7 +14,7 @@ import EquipmentScanSheet from './EquipmentScanSheet';
 
 export interface ParkScanEntryProps {
   parkId: string;
-  onRecognized: (equipmentId: string) => void;
+  onRecognized: (equipmentId: string, brandName?: string) => void;
 }
 
 export default function ParkScanEntry({ parkId, onRecognized }: ParkScanEntryProps) {
@@ -37,9 +37,9 @@ export default function ParkScanEntry({ parkId, onRecognized }: ParkScanEntryPro
         open={open}
         onClose={() => setOpen(false)}
         parkId={parkId}
-        onRecognized={(id) => {
+        onRecognized={(id, brandName) => {
           setOpen(false);
-          onRecognized(id);
+          onRecognized(id, brandName);
         }}
       />
     </div>
