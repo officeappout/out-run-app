@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Pilot AI1 (enable_pilot_ah_v1): the home tabs' content area — a horizontal swipe switches the
+ * Pilot AI1 (enable_pilot_ah_v1): the home tabs' content area: a horizontal swipe switches the
  * tab (useTabSwipe), and the new tab's content slides in from the swipe's side. Off → a plain
  * wrapper with no handlers and no animation.
  */
