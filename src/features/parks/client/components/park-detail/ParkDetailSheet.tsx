@@ -259,7 +259,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onSta
             {/* enable_equipment_scan_v1: "צלמו מתקן" → the existing equipment drawer. */}
             <ParkScanEntry
               parkId={park.id}
-              onRecognized={(id) => setSelectedEquipment({ id, brand: park.gymEquipment?.find((g) => g.equipmentId === id)?.brandName || park.primaryBrand || null })}
+              onRecognized={(id, scannedBrand) => setSelectedEquipment({ id, brand: scannedBrand || park.gymEquipment?.find((g) => g.equipmentId === id)?.brandName || park.primaryBrand || null })}
             />
 
             {photoGallery.length > 1 && (

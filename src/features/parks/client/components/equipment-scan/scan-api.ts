@@ -8,6 +8,7 @@
 import { auth, appCheck } from '@/lib/firebase';
 import { isNativePlatform } from '@/features/social/services/feed-photo';
 import type { ScanMode, ScanPhotoResult, ScanVerdict } from '@/lib/ai/scan/scan-types';
+import type { ScanFeedback } from '@/lib/ai/scan/scan-feedback';
 
 export const SCAN_CLIENT_TIMEOUT_MS = 30_000;
 
@@ -66,4 +67,27 @@ export async function postScan(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** The accuracy log (detected vs confirmed, never a photo). Fire and forget: never throws. */
+export async function postScanFeedback(body: ScanFeedback, fetchImpl: typeof fetch = fetch): Promise<void> {
+  try {
+    const token = await auth.currentUser?.getIdToken().catch(() => undefined);
+    if (!token) return;
+    await fetchImpl('/api/scan/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    /* a log only */
+  }
+}
+
+/** The detected list for the log: the result's catalog items, best first. */
+export function detectedForLog(result: ScanPhotoResult | null): ScanFeedback['detected'] {
+  return (result?.items ?? [])
+    .filter((i) => i.kind === 'catalog')
+    .slice(0, 20)
+    .map((i) => ({ equipmentId: i.candidateId, confidence: i.confidence, ...(i.brandName ? { brandName: i.brandName } : {}) }));
 }
