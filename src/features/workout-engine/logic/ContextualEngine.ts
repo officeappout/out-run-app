@@ -62,6 +62,8 @@ export {
   type FilterStageCounts,
 } from './contextual-engine.types';
 import { HIDDEN_PROGRAM_SLUGS } from '@/lib/hidden-programs';
+import { HANDSTAND_TRIAD_ENABLED } from '@/config/feature-flags';
+import { triadPoolGate } from './handstand-triad/triad-pool-gate';
 
 /**
  * Maximum straight arm exercises per session (SA limit)
@@ -200,10 +202,22 @@ export class ContextualEngine {
       );
       programLevel = consistent.exerciseLevel;
 
+      // Handstand Triad (HANDSTAND_TRIAD_ENABLED): a scored handstand/HSPU
+      // exercise is judged per axis (strength / balance / mobility) instead of
+      // by its averaged level. null = not applicable → legacy window below.
+      const triadKeep = triadPoolGate({
+        enabled: HANDSTAND_TRIAD_ENABLED,
+        exercise,
+        resolvedDomain: consistent.resolvedDomain,
+        userProgramLevels: context.userProgramLevels,
+        baseUserLevel: context.baseUserLevel,
+        levelTolerance,
+      });
+
       const effectiveLevelForTolerance = consistent.userLevel;
       const minLevel = Math.max(1, effectiveLevelForTolerance - levelTolerance);
       const maxLevel = effectiveLevelForTolerance + levelTolerance;
-      if (programLevel < minLevel || programLevel > maxLevel) {
+      if (triadKeep === false || (triadKeep === null && (programLevel < minLevel || programLevel > maxLevel))) {
         excludedCount++;
         fCounts.excluded_level_tolerance++;
         continue;
