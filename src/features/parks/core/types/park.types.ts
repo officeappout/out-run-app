@@ -328,6 +328,8 @@ export interface Park {
   publishedAt?: Date | null;
   /** UID of the user who created this park — used for attribution in admin inventory */
   createdByUser?: string;
+  /** Camera scan boards (enable_equipment_scan_v1): the user whose contribution mapped this park ("מופה על ידי"). Set on approval. */
+  mappedByUserId?: string;
   /** Origin of the park record — 'authority_admin' = pending review, 'super_admin' = published directly */
   origin?: 'authority_admin' | 'super_admin';
 

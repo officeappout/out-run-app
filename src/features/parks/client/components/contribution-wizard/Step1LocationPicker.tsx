@@ -2,8 +2,9 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Map, { Marker, AttributionControl, MapRef } from 'react-map-gl';
-import { MapPin, AlertTriangle, Dumbbell, Armchair, Dog, Droplet, type LucideIcon } from 'lucide-react';
-import { useWizardV2, V2_LABEL, v2Card, v2Chip, V2PrimaryButton } from './wizard-v2';
+import { Camera, MapPin, AlertTriangle, Dumbbell, Armchair, Dog, Droplet, type LucideIcon } from 'lucide-react';
+import { useWizardV2, V2_LABEL, v2Card, v2Chip, V2BackButton, V2PrimaryButton } from './wizard-v2';
+import ScanPlaceName from '../equipment-scan/ScanPlaceName';
 import { checkDuplicateNearby } from '@/features/parks/core/services/contribution.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type { WizardData } from './index';
@@ -17,6 +18,12 @@ interface Props {
   data: WizardData;
   updateData: (partial: Partial<WizardData>) => void;
   onNext: () => void;
+  /** Camera scan park mapping (enable_equipment_scan_v1): back to the photos. */
+  onBack?: () => void;
+  /** Shown when the scan is on: "מיפוי גינת כושר מצילומים" switches the wizard to scan mode. */
+  onStartScan?: () => void;
+  /** Scan mode: the GPS fix accuracy (null when unknown). Undefined = the classic step. */
+  scanAccuracy?: number | null;
 }
 
 type LocationCategory = 'full_park' | 'poi';
@@ -34,7 +41,8 @@ const POI_V2_ICONS: Record<(typeof POI_OPTIONS)[number]['id'], LucideIcon> = {
   water_fountain: Droplet,
 };
 
-export default function Step1LocationPicker({ data, updateData, onNext }: Props) {
+export default function Step1LocationPicker({ data, updateData, onNext, onBack, onStartScan, scanAccuracy }: Props) {
+  const scanMode = scanAccuracy !== undefined;
   const t = useT(map);
   const v2 = useWizardV2();
   const mapRef = useRef<MapRef>(null);
@@ -56,6 +64,25 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
       updateData({ location: userLocation });
     }
   }, [userLocation, data.location, updateData]);
+
+  const checkAt = useCallback(async (loc: { lat: number; lng: number }) => {
+    setChecking(true);
+    try {
+      setDuplicate(await checkDuplicateNearby(loc.lat, loc.lng, 50));
+    } catch {
+      setDuplicate(null);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  // Scan mode arrives with a GPS location the user never tapped: check it for a nearby park once.
+  const scanChecked = useRef(false);
+  useEffect(() => {
+    if (!scanMode || scanChecked.current || !data.location) return;
+    scanChecked.current = true;
+    void checkAt(data.location);
+  }, [scanMode, data.location, checkAt]);
 
   const handleMapClick = useCallback(async (evt: any) => {
     const loc = { lat: evt.lngLat.lat, lng: evt.lngLat.lng };
@@ -111,6 +138,19 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
           grow inside a scrolling flex column instead of overflowing based
           on its own content size (a well-known flexbox gotcha). */}
       <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
+        {v2 && onStartScan && (
+          <button
+            type="button"
+            onClick={onStartScan}
+            className="mb-3 flex w-full flex-shrink-0 items-center gap-3 rounded-[18px] bg-white px-3 py-2.5 text-start shadow-v2-ring active:scale-[0.99]"
+          >
+            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep"><Camera size={18} strokeWidth={2.4} aria-hidden /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-extrabold text-v2-ink">{t('wizard.scan.entry')}</span>
+              <span className="block text-[12px] font-bold text-v2-muted">{t('wizard.scan.entryHint')}</span>
+            </span>
+          </button>
+        )}
         {/* Map — grows to fill whatever space the sheet's new height (see
             index.tsx) leaves after the fixed-size sections below it, instead
             of sitting at a fixed 240px with dead space underneath (David,
@@ -159,8 +199,17 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
           </div>
         )}
 
+        {scanMode && (
+          <ScanPlaceName
+            location={data.location}
+            accuracy={scanAccuracy}
+            name={data.parkName}
+            onName={(parkName) => updateData({ parkName })}
+          />
+        )}
+
         {/* Category Selection */}
-        {v2 ? (
+        {scanMode ? null : v2 ? (
           <div className="mb-4">
             <p className={V2_LABEL}>{t('wizard.category.label')}</p>
             <div className="flex gap-2.5">
@@ -209,7 +258,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
         )}
 
         {/* POI Sub-options */}
-        {v2 && category === 'poi' && (
+        {v2 && !scanMode && category === 'poi' && (
           <div className="mb-4 flex gap-2">
             {POI_OPTIONS.map((poi) => {
               const Icon = POI_V2_ICONS[poi.id];
@@ -251,8 +300,9 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
       {/* CTA — fixed footer, pinned by flex-shrink-0 on this non-scrolling
           sibling rather than mt-auto inside the scrolling column above. */}
       {v2 ? (
-        <div className="mt-4 flex flex-shrink-0">
-          <V2PrimaryButton onClick={onNext} disabled={!canProceed} arrow={!checking}>
+        <div className={onBack ? 'mt-4 flex flex-shrink-0 items-center gap-3' : 'mt-4 flex flex-shrink-0'}>
+          {onBack && <V2BackButton onClick={onBack} />}
+          <V2PrimaryButton onClick={onNext} disabled={!canProceed || (scanMode && !data.parkName.trim())} arrow={!checking}>
             {checking ? t('wizard.checking') : t('wizard.continue')}
           </V2PrimaryButton>
         </div>

@@ -16,6 +16,8 @@ export interface MergedScanItem {
   candidateId: string;
   kind: ScanCandidateKind;
   confidence: number;
+  /** The brand named in its best photo, else in any photo that named one. */
+  brandName?: string;
   /** Photos it was seen in (at CHOOSE_AT or more). */
   seenIn: number;
   count?: number;
@@ -44,6 +46,7 @@ export function mergeParkScans(results: readonly ScanPhotoResult[]): MergedParkS
           candidateId: it.candidateId,
           kind: it.kind,
           confidence: it.confidence,
+          ...(it.brandName ? { brandName: it.brandName } : {}),
           seenIn: seen,
           ...(it.count ? { count: it.count } : {}),
           best: { shot, ...(it.box ? { box: it.box } : {}) },
@@ -55,6 +58,9 @@ export function mergeParkScans(results: readonly ScanPhotoResult[]): MergedParkS
       if (it.confidence > prev.confidence) {
         prev.confidence = it.confidence;
         prev.best = { shot, ...(it.box ? { box: it.box } : {}) };
+        if (it.brandName) prev.brandName = it.brandName;
+      } else if (!prev.brandName && it.brandName) {
+        prev.brandName = it.brandName;
       }
     }
     for (const u of r.unknown) unknown.push({ ...u, shot });

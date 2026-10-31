@@ -10,21 +10,27 @@
  * type is still open; navigation keeps the real list, so nothing about which
  * screens run or what is submitted changes.
  */
-export type StepId = 'location' | 'details' | 'equipment' | 'photo';
+export type StepId = 'location' | 'details' | 'equipment' | 'photo' | 'scan' | 'send';
 
 interface StepData {
   facilityType: string | null | undefined;
   isPointOfInterest: boolean;
+  /** Camera scan park mapping (enable_equipment_scan_v1): צילום · מיקום · מתקנים · שליחה. */
+  scanMode?: boolean;
 }
+
+export const SCAN_STEP_IDS: StepId[] = ['scan', 'location', 'equipment', 'send'];
 
 /** The steps the wizard actually walks through. */
 export function wizardStepIds(data: StepData): StepId[] {
+  if (data.scanMode) return SCAN_STEP_IDS;
   return ['location', 'details', ...(data.facilityType === 'gym_park' ? (['equipment'] as StepId[]) : []), 'photo'];
 }
 
 /** The steps the indicator shows while the user is on `step` (index into wizardStepIds). */
 export function indicatorStepIds(data: StepData, step: number): StepId[] {
   const real = wizardStepIds(data);
+  if (data.scanMode) return real;
   const typeOpen = !data.facilityType && !data.isPointOfInterest;
   // Only before leaving the details step — after it, the real list is final.
   if (typeOpen && step <= real.indexOf('details')) {
