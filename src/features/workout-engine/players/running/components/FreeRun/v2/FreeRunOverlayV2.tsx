@@ -24,6 +24,8 @@ import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, usePublishedPlayer
 import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome } from '../../../../shared/v2/run-chrome';
 import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
 import { aerobicCells, showLapButton } from '../../../lib/aerobic-player-view';
+import ArriveAtStartCard from './ArriveAtStartCard';
+import { routeKmOf, useWalkToStartStore } from '../../../store/useWalkToStartStore';
 import { useFreeChromeNodes } from './useFreeChromeNodes';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import { useGroupSessionGoal } from '../../../hooks/useGroupSessionGoal';
@@ -54,6 +56,8 @@ interface Props {
    * drawer (compact ⇄ full), camera keeps the marker above it. Off = today's layout.
    */
   drawerV1?: boolean;
+  /** enable_combo_flow_v1 (board PlayerArrive): at the route's start, go on on the route in the same session. */
+  onContinueRoute?: (activity: 'walking' | 'running') => void;
 }
 
 function Toast({ children, tone = 'dark' }: { children: React.ReactNode; tone?: 'dark' | 'good' }) {
@@ -70,7 +74,7 @@ function Toast({ children, tone = 'dark' }: { children: React.ReactNode; tone?: 
   );
 }
 
-export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailParticipants, onSelectParticipant, activityType, drawerV1 = false }: Props) {
+export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailParticipants, onSelectParticipant, activityType, drawerV1 = false, onContinueRoute }: Props) {
   useGroupSessionGoal();
   useEffect(() => {
     const s = useSharedSession.getState();
@@ -146,6 +150,9 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   // in the header instead of the lap line (phone test AA2).
   const commuteContext = useRunningPlayer((s) => (s.sessionMode === 'commute' ? s.commuteContext : null));
   const commuteEta = useCommuteEta();
+  // Board PlayerArrive: arrived at the start of the route this walk leads to → ask how to go on.
+  const walkTarget = useWalkToStartStore((s) => s.route);
+  const arriveRoute = onContinueRoute && commuteContext && commuteEta.hasArrived ? walkTarget : null;
   // enable_combo_flow_v1 (board PlayerMetrics): time + the mode's number + steps / pace / speed.
   const cells = live.combo
     ? aerobicCells({
@@ -270,6 +277,10 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
       )}
 
       {drawerV1 && tg.overlay}
+
+      {arriveRoute && onContinueRoute && (
+        <ArriveAtStartCard routeName={arriveRoute.name} routeKm={routeKmOf(arriveRoute)} walkedKm={live.totals.distanceKm} onContinue={onContinueRoute} />
+      )}
 
       <WorkoutSettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>

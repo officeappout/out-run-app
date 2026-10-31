@@ -1193,5 +1193,10 @@
   "workoutTutorial.input.repsTitle": "מילוי חזרות",
   "workoutTutorial.input.repsText": "כאן מסמנים כמה חזרות עשית. גוללים את הסרגל כדי לשנות",
   "workoutTutorial.input.timeTitle": "מילוי זמן",
-  "workoutTutorial.input.timeText": "כאן מסמנים כמה זמן החזקת. גוללים את הסרגל כדי לתקן"
+  "workoutTutorial.input.timeText": "כאן מסמנים כמה זמן החזקת. גוללים את הסרגל כדי לתקן",
+  "run.arrive.title": "הגעתם להתחלה",
+  "run.arrive.route": "{name} · {km} ק״מ",
+  "run.arrive.keepWalking": "ממשיכים בהליכה",
+  "run.arrive.switchToRun": "עוברים לריצה",
+  "run.arrive.counts": "ההליכה עד כאן ({km} ק״מ, {steps, plural, one {צעד אחד} other {# צעדים}}) נספרת באותו אימון"
 }

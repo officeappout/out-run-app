@@ -47,6 +47,7 @@ import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
 import { HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, IS_STEP_GOAL_SHORT_ROUTE_ENABLED } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useSmartHybridSlots } from '@/features/workout-engine/hybrid/smart-cards/useSmartHybridSlots';
+import { useWalkToStartStore } from '@/features/workout-engine/players/running/store/useWalkToStartStore';
 import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
@@ -1491,6 +1492,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       logic.setFocusedRoute(null);
       setCommuteRouteConfig({ destination: { lat, lng }, label: target.label });
       setMapMode('commute');
+      // enable_combo_flow_v1: any commute starts without a route; the route-start callers set it right after.
+      if (useWalkToStartStore.getState().route) useWalkToStartStore.getState().setRoute(null);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -1907,6 +1910,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     logic.setSelectedRoute(null);
     logic.setFocusedRoute(null);
     startCommute({ coords: [startPoint[0], startPoint[1]], label: r.name });
+    // enable_combo_flow_v1 (board PlayerArrive): remember the route, so arriving continues it in one workout.
+    if (mapFeatureFlags.enableComboFlowV1) useWalkToStartStore.getState().setRoute(r);
   };
   function renderRouteOverviewCard(route: Route) {
     const userPos = devSim?.effectiveLocation(logic.currentUserPos) ?? logic.currentUserPos ?? null;
@@ -2061,6 +2066,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   if (!startPoint) return;
                   setSearchPick(null);
                   startCommute({ coords: [startPoint[0], startPoint[1]], label: r.name });
+                  if (mapFeatureFlags.enableComboFlowV1) useWalkToStartStore.getState().setRoute(r);
                 }}
                 onDetails={() => {
                   // The full RouteDetailSheet (ROUTE_CARD screen).

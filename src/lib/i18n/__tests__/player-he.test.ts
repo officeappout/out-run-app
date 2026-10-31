@@ -435,6 +435,6 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
   it('no key is left untested', () => {
     // Keep in step with the catalog: a new run.* key needs a case above. Counted per prefix
     // (other batches add keys to the same namespace file — e.g. sessionInvite.*, app-pages-he.test.ts).
-    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(336);
+    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(341);
   });
 });
