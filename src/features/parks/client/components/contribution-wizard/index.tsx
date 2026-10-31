@@ -19,6 +19,14 @@ import { XP_REWARDS } from '@/types/contribution.types';
 import type { ParkFacilityCategory, ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import type { ParkGymEquipment } from '@/features/content/equipment/gym';
 import { useT } from '@/hooks/useT';
+import { useToast } from '@/components/ui/Toast';
+import { useEquipmentScanV1 } from '@/hooks/useEquipmentScanV1';
+import { useParkScan } from '../equipment-scan/useParkScan';
+import { prefillFromScan } from '../equipment-scan/park-scan-mapping';
+import { submitScanContribution } from '../equipment-scan/scan-submit';
+import StepScanCapture from '../equipment-scan/StepScanCapture';
+import StepScanSend from '../equipment-scan/StepScanSend';
+import { useParkCatalog } from '../equipment-scan/useParkCatalog';
 import { map } from '@/messages/ns/map';
 
 interface ContributionWizardProps {
@@ -44,6 +52,8 @@ export interface WizardData {
    * Firebase Storage. Always reset to null when `photoUrl` is cleared.
    */
   photoStoragePath: string | null;
+  /** Camera scan park mapping (enable_equipment_scan_v1): צילום · מיקום · מתקנים · שליחה. */
+  scanMode?: boolean;
 }
 
 const STEP_LABEL_KEYS = {
@@ -51,6 +61,8 @@ const STEP_LABEL_KEYS = {
   details: 'wizard.step.details',
   equipment: 'wizard.step.equipment',
   photo: 'wizard.step.photo',
+  scan: 'wizard.step.scan',
+  send: 'wizard.step.send',
 } as const satisfies Record<StepId, string>;
 
 const slideVariants = {
@@ -79,6 +91,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
     gymEquipment: [],
     photoUrl: null,
     photoStoragePath: null,
+    scanMode: false,
   });
 
   const updateData = useCallback((partial: Partial<WizardData>) => {
@@ -89,8 +102,27 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
   const stepIds = useMemo<StepId[]>(
     () => wizardStepIds(data),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data.facilityType],
+    [data.facilityType, data.scanMode],
   );
+
+  // Camera scan park mapping: the photos live here so they survive moving between steps.
+  const scanOn = useEquipmentScanV1() && v2;
+  const { showToast } = useToast();
+  const onCameraDenied = useCallback(() => showToast('error', t('scan.permission')), [showToast, t]);
+  const parkScan = useParkScan(onCameraDenied);
+  const scanPrefill = useMemo(() => prefillFromScan(parkScan.results), [parkScan.results]);
+  const { catalog: scanCatalog } = useParkCatalog((t as { locale?: string }).locale ?? 'he', data.scanMode);
+  const equipmentNames = useMemo(() => Object.fromEntries(scanCatalog.map((e) => [e.id, e.name])) as Record<string, string>, [scanCatalog]);
+  const startScan = useCallback(() => {
+    setDirection(1);
+    setStep(0);
+    updateData({ scanMode: true, facilityType: 'gym_park', isPointOfInterest: false });
+  }, [updateData]);
+  const exitScan = useCallback(() => {
+    setDirection(-1);
+    setStep(0);
+    updateData({ scanMode: false, facilityType: null });
+  }, [updateData]);
   // v2 indicator: counts the equipment step from the start while a park's type
   // is still open, so it doesn't jump 3 → 4 mid-flow (wizard-steps.ts).
   const v2IndicatorIds = indicatorStepIds(data, step);
@@ -116,7 +148,17 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
     if (!data.location || !profile?.id) return;
     setSubmitting(true);
     try {
-      await createContribution({
+      if (data.scanMode) {
+        await submitScanContribution({
+          uid: profile.id,
+          location: data.location,
+          parkName: data.parkName.trim() || t('wizard.scan.place.fallbackName'),
+          gymEquipment: data.gymEquipment,
+          featureTags: data.featureTags,
+          shots: parkScan.shots,
+          prefill: scanPrefill,
+        });
+      } else await createContribution({
         userId: profile.id,
         type: 'new_location',
         status: 'pending',
@@ -145,6 +187,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
           gymEquipment: [],
           photoUrl: null,
           photoStoragePath: null,
+          scanMode: false,
         });
       }, 2200);
     } catch (err) {
@@ -152,7 +195,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
     } finally {
       setSubmitting(false);
     }
-  }, [data, profile?.id, onClose]);
+  }, [data, profile?.id, onClose, parkScan.shots, scanPrefill, t]);
 
   if (!isOpen) return null;
 
@@ -181,6 +224,9 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
             </motion.div>
             <p className={v2 ? 'mb-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-slate-900 text-lg font-bold mb-1'}>{t('wizard.success.title')}</p>
             <p className={v2 ? 'text-[15px] font-extrabold text-v2-deep' : 'text-[#00E5FF] text-sm font-bold'}>+{XP_REWARDS.new_location} XP</p>
+            {data.scanMode && (
+              <p className="mt-4 rounded-full bg-v2-tint px-4 py-2 text-[13.5px] font-extrabold text-v2-deep">{t('wizard.scan.community.title')}</p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -198,11 +244,29 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="absolute inset-0"
           >
+            {currentId === 'scan' && (
+              <StepScanCapture
+                scan={parkScan}
+                onBack={exitScan}
+                onNext={() => {
+                  const fix = parkScan.fix;
+                  updateData({
+                    location: fix ? { lat: fix.lat, lng: fix.lng } : data.location,
+                    gymEquipment: scanPrefill.equipmentIds.map((equipmentId) => ({ equipmentId, brandName: scanPrefill.brands[equipmentId] ?? '' })),
+                    featureTags: Array.from(new Set([...data.featureTags, ...scanPrefill.featureTags])),
+                  });
+                  goNext();
+                }}
+              />
+            )}
             {currentId === 'location' && (
               <Step1LocationPicker
                 data={data}
                 updateData={updateData}
                 onNext={goNext}
+                onBack={data.scanMode ? goBack : undefined}
+                onStartScan={scanOn && !data.scanMode ? startScan : undefined}
+                scanAccuracy={data.scanMode ? parkScan.fix?.accuracy ?? null : undefined}
               />
             )}
             {currentId === 'details' && (
@@ -219,6 +283,19 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
                 updateData={updateData}
                 onNext={goNext}
                 onBack={goBack}
+                scanTags={data.scanMode ? { detected: scanPrefill.equipmentIds, unsure: scanPrefill.unsureIds } : undefined}
+              />
+            )}
+            {currentId === 'send' && (
+              <StepScanSend
+                parkName={data.parkName.trim() || t('wizard.scan.place.fallbackName')}
+                photos={parkScan.shots.filter((s) => s.base64).length}
+                equipmentNames={data.gymEquipment.map((g) => equipmentNames[g.equipmentId]).filter(Boolean)}
+                unknownCount={scanPrefill.unknown.length}
+                mapperName={(profile?.core?.name ?? '').trim().split(/\s+/)[0] ?? ''}
+                submitting={submitting}
+                onBack={goBack}
+                onSubmit={handleSubmit}
               />
             )}
             {currentId === 'photo' && (
@@ -258,7 +335,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
           header={
             <>
               <div className="flex items-center justify-between px-5 pt-3 pb-3">
-                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('wizard.title')}</h2>
+                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{data.scanMode ? t('wizard.scan.title') : t('wizard.title')}</h2>
                 <IconButton aria-label={t('wizard.close')} tone="surface" size={36} onClick={onClose}>
                   <X size={18} strokeWidth={2.4} />
                 </IconButton>
