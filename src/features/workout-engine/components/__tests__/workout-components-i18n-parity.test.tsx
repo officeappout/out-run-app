@@ -31,6 +31,7 @@ vi.mock('@/features/parks/client/components/planned-activity/PlannedActivityComp
 }));
 vi.mock('@/features/workout-engine/shared/utils/gear-mapping.utils', () => ({
   resolveEquipmentLabel: (id: string) => `ציוד-${id}`,
+  resolveEquipmentDisplayLabel: (id: string) => `ציוד-${id}`,
   resolveEquipmentSvgPathList: (id: string) => (id === 'rings' ? ['/icons/rings.svg'] : []),
 }));
 vi.mock('@/features/content/branding/core/branding.utils', () => ({ resolveDescription: (s: string) => s }));

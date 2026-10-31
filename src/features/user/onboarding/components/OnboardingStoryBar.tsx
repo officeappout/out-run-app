@@ -74,7 +74,7 @@ export default function OnboardingStoryBar({
           gapClassName="gap-1 items-center"
           renderOverlay={(_, state) => state === 'done' && (
             <motion.div
-              className="absolute end-1/2 -top-[7px]"
+              className="absolute left-1/2 -top-[7px]"
               style={{ marginLeft: '-10px' }}
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -121,7 +121,7 @@ export default function OnboardingStoryBar({
               </div>
               {isCompleted && (
                 <motion.div
-                  className="absolute end-1/2 -top-[7px]"
+                  className="absolute left-1/2 -top-[7px]"
                   style={{ marginLeft: '-10px' }}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}

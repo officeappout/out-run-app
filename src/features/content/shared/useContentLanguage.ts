@@ -10,3 +10,9 @@ export function useContentLanguage(): AppLanguage {
   const on = useLocaleStore((s) => s.contentLocaleOn);
   return contentLanguage(locale, on);
 }
+
+/** Same, read once outside React (pure display helpers that cannot call a hook). */
+export function getContentLanguage(): AppLanguage {
+  const { locale, contentLocaleOn } = useLocaleStore.getState();
+  return contentLanguage(locale, contentLocaleOn);
+}

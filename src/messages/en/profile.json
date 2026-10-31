@@ -332,6 +332,7 @@
   "editProfile.bio.placeholder": "Tell us a little about yourself…",
   "editProfile.tags.title": "Training tags",
   "editProfile.tags.hint": "These are the tags that appear on your partner card",
+  "editProfile.tags.option": "{id, select, loves_park {Loves the park} morning {Morning} evening {Trains in the evening} beginner {Beginner} intermediate {Intermediate} advanced {Advanced} home {Home} running {Running} front_lever {Front lever} muscle_up {Muscle-up} other {{id}}}",
   "editProfile.settingsNote": "Personal details (city, weight, date of birth) are edited in Settings",
   "editProfile.save": "Save changes",
   "editProfile.saveShort": "Save",

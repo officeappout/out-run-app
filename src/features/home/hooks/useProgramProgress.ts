@@ -21,6 +21,10 @@ import { getProgramByTemplateId } from '@/features/content/programs';
 import { resolveIconKey } from '@/features/content/programs';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
+import { pickProgramText } from '@/features/content/programs/core/localized-fields';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 import { displayProgramTemplateId } from '../utils/display-program';
 
@@ -112,6 +116,10 @@ export function useProgramProgress(): ProgramProgressData | null {
   // of truth for `maxLevels` — we use this whenever the seeded `domain.maxLevel` is missing
   // or stale (e.g. admin updated `programs/full_body.maxLevels` from 25 → 15 after onboarding).
   const [hebrewProgramName, setHebrewProgramName] = useState<string | null>(null);
+  // AI3: the doc's English name (pickProgramText falls back to Hebrew when the doc has none).
+  const [englishProgramName, setEnglishProgramName] = useState<string | null>(null);
+  const contentLang = useContentLanguage();
+  const tHome = useT(home);
   const [cmsMaxLevel, setCmsMaxLevel] = useState<number | null>(null);
   // Becomes true once the Firestore fetch resolves (success or failure).
   const [nameSettled, setNameSettled] = useState(false);
@@ -125,7 +133,10 @@ export function useProgramProgress(): ProgramProgressData | null {
     getProgramByTemplateId(programId)
       .then((prog) => {
         if (cancelled) return;
-        if (prog?.name) setHebrewProgramName(prog.name);
+        if (prog?.name) {
+          setHebrewProgramName(prog.name);
+          setEnglishProgramName(pickProgramText(prog, 'name', 'en') || null);
+        }
         if (prog?.maxLevels != null && prog.maxLevels > 0) {
           setCmsMaxLevel(prog.maxLevels);
         }
@@ -209,8 +220,11 @@ export function useProgramProgress(): ProgramProgressData | null {
 
   if (!hasStrengthSurvey(profile)) return null;
 
-  const staticAlias = primaryDomainId ? PROGRAM_NAME_HE[primaryDomainId.toLowerCase()] : undefined;
-  const programName = hebrewProgramName || staticAlias || 'תוכנית אימון';
+  // AI3: English shows the doc's English name; the Hebrew static alias is skipped there (skeleton until the doc
+  // loads), and the last fallback comes from the catalog. Hebrew: exactly as before.
+  const en = contentLang === 'en';
+  const staticAlias = !en && primaryDomainId ? PROGRAM_NAME_HE[primaryDomainId.toLowerCase()] : undefined;
+  const programName = (en ? englishProgramName : null) || hebrewProgramName || staticAlias || tHome('programProgressRow.placeholderName');
   // Show a skeleton in the card only when the Firestore fetch is still pending
   // AND we have no static Hebrew alias to display — avoids a placeholder-to-name snap.
   const programNameLoading = !nameSettled && !staticAlias;

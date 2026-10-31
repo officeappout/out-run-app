@@ -229,7 +229,7 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
     expect(count('mapSearch.')).toBe(13);
     expect(count('pick.')).toBe(25);
     expect(count('session.')).toBe(1);
-    expect(count('hybrid.')).toBe(46); // batch ax: +9 hybrid.axis.* +2 hybrid.questionnaire.*; +1 hybrid.card.goalReached (pilot O8); extract-3: +18 hybrid.card.* (walkStrength / fullPark / routeStops)
+    expect(count('hybrid.')).toBe(63); // batch ax: +9 hybrid.axis.* +2 hybrid.questionnaire.*; +1 hybrid.card.goalReached (pilot O8); extract-3: +18 hybrid.card.* (walkStrength / fullPark / routeStops); AH1: +3 hybrid.entry.* +14 hybrid.slot.*
     expect(count('overview.shell.')).toBe(1);
     expect(count('overview.axis.')).toBe(7);
     expect(count('overview.roundTrip.')).toBe(2);

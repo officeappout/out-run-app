@@ -71,6 +71,17 @@ type TextKey = 'name' | 'description' | 'levelDescription' | 'assessmentBoldTitl
  * Display text of a program / level / level-settings field in `lang`. Flag off or 'he' -> the Hebrew string the
  * field always held (byte-identical); 'en' -> the English slot when the doc has one, else Hebrew.
  */
+/**
+ * AI3: a loaded program / level doc's English name for display, or '' (Hebrew, no doc, or flag off). Callers
+ * put it first and keep their existing Hebrew chain after `||`, so Hebrew output is byte-identical.
+ */
+export function englishProgramName(
+  item: Partial<Record<TextKey | `${TextKey}Localized`, unknown>> | null | undefined,
+  lang: AppLanguage,
+): string {
+  return lang === 'en' && item ? pickProgramText(item, 'name', 'en') : '';
+}
+
 export function pickProgramText(
   item: Partial<Record<TextKey | `${TextKey}Localized`, unknown>> | null | undefined,
   key: TextKey,

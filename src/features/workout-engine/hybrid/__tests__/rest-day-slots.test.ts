@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveSlots, type HybridSlot, type SlotEnv } from '../hybrid-slots';
-import { isMapRestDay, REST_DAY_WALK_REASON, restDaySlots } from '../rest-day-slots';
+import { isMapRestDay, restDayWalkReason, restDaySlots } from '../rest-day-slots';
 
 const env: SlotEnv = {
   hasGps: true, nearbyParkCount: 2, aerobicKind: 'walking', hasEquippedPark: true, hasStrengthProgram: true,
@@ -34,7 +34,8 @@ describe('restDaySlots (audit ש4)', () => {
     const ws = out.find((s) => s.id === 'recommended');
     expect(ws?.bolts).toBe(1);
     expect(ws?.kind === 'hybrid' && ws.preset.bolts).toBe(1);
-    expect(ws?.reason).toBe(REST_DAY_WALK_REASON);
+    expect(ws?.reason).toBe(restDayWalkReason());
+    expect(restDayWalkReason()).toBe('יום מנוחה — הליכה עם כוח קל להשלמת הצעדים');
     expect(ids(out)).toContain('aerobic_quick');
   });
   it('rest day with the steps done → no walk + strength either, the free walk stays', () => {

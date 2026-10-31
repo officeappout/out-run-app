@@ -123,8 +123,9 @@ export default function GeneratedWorkoutExerciseList({
   );
   const timedMainTitle = timedModel?.main?.title;
   const sections = useMemo(
-    () => groupExercisesIntoSections(generatedWorkout.exercises, timedMainTitle ? { timedMainTitle } : undefined),
-    [generatedWorkout.exercises, timedMainTitle],
+    // AH1: pass t, the default translator is the Hebrew catalog ("סט רגיל" in English).
+    () => groupExercisesIntoSections(generatedWorkout.exercises, timedMainTitle ? { timedMainTitle } : undefined, t),
+    [generatedWorkout.exercises, timedMainTitle, t],
   );
   const firstMainId = sections.find((sec) => sec.id !== 'warmup' && sec.id !== 'cooldown')?.id;
   const equipment = useMemo(

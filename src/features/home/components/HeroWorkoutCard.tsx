@@ -9,7 +9,7 @@ import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGen
 import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/shared/utils/heroMedia.utils';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import {
-  resolveEquipmentLabel,
+  resolveEquipmentDisplayLabel,
   resolveEquipmentSvgPathList,
   resolveEquipmentCategory,
   CATEGORY_PRIORITY,
@@ -458,7 +458,7 @@ export default function HeroWorkoutCard({
         const srcList = resolveEquipmentSvgPathList(norm, workoutLocation);
         // Skip equipment with no known SVG — prevents phantom +N inflation.
         if (srcList.length === 0) continue;
-        const label = resolveEquipmentLabel(norm);
+        const label = resolveEquipmentDisplayLabel(norm);
         icons.push({ srcList, label, norm });
       }
     }

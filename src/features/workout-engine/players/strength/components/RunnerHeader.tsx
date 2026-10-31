@@ -6,7 +6,7 @@ import { hapticTap } from '@/lib/haptics';
 import WorkoutStoryBars from './WorkoutStoryBars';
 import { setCounterLabel } from '../logic/player-controls.utils';
 import {
-  resolveEquipmentLabel,
+  resolveEquipmentDisplayLabel,
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
@@ -341,7 +341,7 @@ export default function RunnerHeader({
                         className={v2 ? 'text-[12px] font-bold text-v2-ink-2 whitespace-nowrap' : 'text-xs font-normal text-slate-700 dark:text-slate-200'}
                         style={{ fontFamily: 'var(--font-simpler)' }}
                       >
-                        {resolveEquipmentLabel(eqId)}
+                        {resolveEquipmentDisplayLabel(eqId)}
                       </span>
                     </div>
                   );

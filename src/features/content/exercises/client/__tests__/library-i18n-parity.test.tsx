@@ -64,6 +64,7 @@ vi.mock('@/features/workout-engine/shared/utils/gear-mapping.utils', () => ({
   ensureEquipmentCachesLoaded: async () => {},
   getMuscleGroupLabel: (m: string) => `שריר-${m}`,
   resolveEquipmentLabel: (id: string) => (id === 'g-unknown' ? 'ציוד לא מזוהה' : `ציוד-${id}`),
+  resolveEquipmentDisplayLabel: (id: string) => (id === 'g-unknown' ? 'ציוד לא מזוהה' : `ציוד-${id}`),
   resolveEquipmentSvgPathList: (id: string) => (id === 'g-bar' ? ['/icons/bar.svg'] : []),
 }));
 vi.mock('@/lib/progression-map-config', () => ({

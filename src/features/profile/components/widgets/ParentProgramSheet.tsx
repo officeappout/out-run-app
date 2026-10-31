@@ -46,6 +46,8 @@ import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
+import { englishProgramName } from '@/features/content/programs/core/localized-fields';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 interface ParentProgramSheetProps {
   /** The parent's raw id or slug; null = closed. */
@@ -68,6 +70,7 @@ interface ChildRow {
 export default function ParentProgramSheet({ parentId, onClose, v2 = false }: ParentProgramSheetProps) {
   const router = useRouter();
   const t = useT(profileNs);
+  const contentLang = useContentLanguage();
   const profile = useUserStore((s) => s.profile);
   const [mounted, setMounted] = useState(false);
   // A child that is itself a parent re-targets the sheet; reset when the caller opens a new one.
@@ -131,7 +134,7 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
     const track = tracksRaw[slug];
     return {
       slug,
-      name: meta?.name ?? resolveProgramLabel(slug),
+      name: englishProgramName(meta, contentLang) || (meta?.name ?? resolveProgramLabel(slug)),
       iconKey: meta?.iconKey ?? slug,
       level: levelsBySlug[slug] ?? null,
       maxLevel: meta?.maxLevels ?? track?.maxLevel ?? null,
@@ -142,7 +145,7 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
   const assessed = rows.filter((r) => r.level != null);
   const unassessed = rows.filter((r) => r.level == null);
   const avg = parentSlug ? averageParentLevel(parentSlug, childSlugs, levelsBySlug) : null;
-  const parentName = parentMeta?.name ?? (parentSlug ? resolveProgramLabel(parentSlug) : '');
+  const parentName = englishProgramName(parentMeta, contentLang) || (parentMeta?.name ?? (parentSlug ? resolveProgramLabel(parentSlug) : ''));
 
   const openChild = (slug: string) => {
     const destination = resolveProgressionMapDestination(slug);

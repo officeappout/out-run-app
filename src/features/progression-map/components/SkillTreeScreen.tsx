@@ -141,6 +141,8 @@ import { startMiniDomainAssessment } from '@/features/user/onboarding/services/m
 import { useT } from '@/hooks/useT';
 import { useProgramText } from '@/features/content/programs/core/useProgramText';
 import { profile as profileNs } from '@/messages/ns/profile';
+import { englishProgramName } from '@/features/content/programs/core/localized-fields';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 export interface SkillTreeScreenProps {
   programId: string;
@@ -150,6 +152,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
   const t = useT(profileNs);
   const programText = useProgramText();
+  const contentLang = useContentLanguage();
   const profile = useUserStore((s) => s.profile);
   // Home v2 (enable_home_v2): the program strip docks in the header.
   const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
@@ -237,7 +240,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
     };
   }, [tree, representativeOverrides]);
 
-  const skillName = programMeta?.name ?? '';
+  const skillName = englishProgramName(programMeta, contentLang) || (programMeta?.name ?? '');
   const targetRung = displayTree?.rungs.find((r) => r.level === displayTree.maxLevel);
   const targetName = targetRung?.representative ? getLocalizedText(targetRung.representative.name, 'he') : '';
 

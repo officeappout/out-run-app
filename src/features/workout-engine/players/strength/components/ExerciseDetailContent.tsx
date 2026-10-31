@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Target, Dumbbell, PersonStanding } from 'lucide-react';
-import { getMuscleGroupLabel, resolveEquipmentLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { getMuscleGroupLabel, resolveEquipmentDisplayLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useT } from '@/hooks/useT';
@@ -258,7 +258,7 @@ export default function ExerciseDetailContent({
                   <h4 className="text-start text-[16px] font-semibold text-gray-900 dark:text-white" style={SECTION_FONT}>{t('strengthPlayer.detail.equipment')}</h4>
                   <div className="flex flex-wrap gap-2">
                     {equipment!.map((eqId) => {
-                      const label = resolveEquipmentLabel(eqId);
+                      const label = resolveEquipmentDisplayLabel(eqId);
                       const svgPaths = resolveEquipmentSvgPathList(eqId, workoutLocation);
                       const iconSrc = svgPaths[0] ?? null;
                       return (

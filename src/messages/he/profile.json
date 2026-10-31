@@ -332,6 +332,7 @@
   "editProfile.bio.placeholder": "ספר/י קצת על עצמך...",
   "editProfile.tags.title": "תגיות אימון",
   "editProfile.tags.hint": "אלה התגיות שיופיעו עליך בכרטיס השותף",
+  "editProfile.tags.option": "{id, select, loves_park {אוהב פארק} morning {בוקר} evening {מתאמן בערב} beginner {מתחיל} intermediate {רמת ביניים} advanced {מתקדם} home {בית} running {ריצה} front_lever {פרונט לבר} muscle_up {מאסל אפ} other {{id}}}",
   "editProfile.settingsNote": "פרטים אישיים (עיר, משקל, תאריך לידה) נערכים בהגדרות",
   "editProfile.save": "שמור שינויים",
   "editProfile.saveShort": "שמירה",

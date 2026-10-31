@@ -16,7 +16,7 @@ import type { AppGender } from '@/lib/utils/gendered-text';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import {
-  resolveEquipmentLabel, resolveEquipmentSvgPathList,
+  resolveEquipmentDisplayLabel, resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { FindScreen, FindItem } from '../logic/find-equipment';
 
@@ -48,7 +48,7 @@ function ItemMedia({ item, size, photo }: { item: FindItem; size: number; photo:
 }
 
 // A park machine (M16) has no gear ids: its own name is the label.
-const labels = (item: FindItem) => (item.equipmentIds.length ? item.equipmentIds.map((id) => resolveEquipmentLabel(id)).join(' + ') : item.exerciseName);
+const labels = (item: FindItem) => (item.equipmentIds.length ? item.equipmentIds.map((id) => resolveEquipmentDisplayLabel(id)).join(' + ') : item.exerciseName);
 
 interface Props {
   screen: FindScreen;
