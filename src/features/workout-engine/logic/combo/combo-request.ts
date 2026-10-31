@@ -31,6 +31,8 @@ export interface ComboRequest {
   /** Total minutes of the (first part of the) workout. */
   timeMin: number;
   secondPart?: ComboSecondPart;
+  /** AMRAP variant (owner 31.10): a run outdoors (order 'inside'), strength only, or cardio moves. */
+  amrapVariant?: 'run' | 'strength' | 'cardio';
 }
 
 export interface ComboLevels {
