@@ -25,6 +25,7 @@ import type { DayFilter } from '@/features/parks/core/hooks/useCommunityEnrichme
 import SuggestEditSheet from '../contribution-wizard/SuggestEditSheet';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import EquipmentDetailDrawer from '../equipment-detail/EquipmentDetailDrawer';
+import ParkScanEntry from '../equipment-scan/ParkScanEntry';
 import { DRAWER_HEIGHT, START_WORKOUT_CTA_LINES, REVIEWS_COLLAPSED_COUNT } from './utils/park-detail-format';
 import { averageReviewRating, buildParkPhotoGallery } from './utils/park-detail-logic';
 import { useParkSheetMotion, useParkScrollProgressSync } from './hooks/useParkSheetMotion';
@@ -255,6 +256,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onSta
               : <ParkEquipmentSection park={park} v2={v2} sections={equipmentSections} onSelect={setSelectedEquipment} />
             )}
 
+            {/* enable_equipment_scan_v1: "צלמו מתקן" → the existing equipment drawer. */}
+            <ParkScanEntry
+              parkId={park.id}
+              onRecognized={(id) => setSelectedEquipment({ id, brand: park.gymEquipment?.find((g) => g.equipmentId === id)?.brandName || park.primaryBrand || null })}
+            />
+
             {photoGallery.length > 1 && (
               <ParkPhotosSection v2={v2} photos={photoGallery} onOpenPhoto={setExpandedPhoto} />
             )}
@@ -320,6 +327,10 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onSta
         equipmentId={selectedEquipment?.id ?? null}
         brandName={selectedEquipment?.brand ?? null}
         pinnedToPark
+        parkWorkout={park && onStartWorkout ? {
+          parkName: pickText(park, 'name', contentLang),
+          onStart: () => { setSelectedEquipment(null); onClose(); onStartWorkout(); },
+        } : undefined}
       />
     </>
   );

@@ -17,7 +17,7 @@ import he from '@/messages/he/map.json';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 
-const flags = { enableHomeV2: true, enablePlaceWorkoutsV1: true };
+const flags = { enableHomeV2: true, enablePlaceWorkoutsV1: true, enableEquipmentScanV1: false };
 const store: { doc: unknown; catalog: unknown[] } = { doc: null, catalog: [] };
 
 vi.mock('@/hooks/useFeatureFlags', () => ({ useFeatureFlags: () => ({ flags }) }));
@@ -30,9 +30,12 @@ vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 vi.mock('@/features/content/equipment/gym/core/gym-equipment.service', () => ({ getGymEquipment: async () => store.doc }));
 vi.mock('@/features/content/programs/core/program.service', () => ({ getAllPrograms: async () => [{ id: 'p1', name: 'פלג גוף עליון' }] }));
 vi.mock('@/features/content/exercises/core/exercise-catalog', () => ({ getExerciseCatalog: async () => store.catalog }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push() {}, replace() {} }) }));
+vi.mock('@/features/workout-engine/services/program-hierarchy.utils', () => ({ getCachedPrograms: async () => [{ id: 'p1', name: 'משיכה' }] }));
 vi.mock('@/lib/bunny/BunnyVideoPlayer', () => ({ default: (p: { videoId: string }) => <div data-bunny={p.videoId} /> }));
 
 import EquipmentDetailDrawer from '../EquipmentDetailDrawer';
+import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { equipmentImageUrl } from '../equipment-media';
 import { equipmentLevelItems } from '../v2/equipment-levels';
 import { equipmentLevelSpan, equipmentProgramChips } from '../v2/equipment-facts';
@@ -136,6 +139,35 @@ describe('EquipmentDetailDrawer — exercise-page design (flag on)', () => {
     const html = await mount(<EquipmentDetailDrawer isOpen onClose={() => {}} equipmentId="eq1" />);
     expect(html).toContain('data-equipment-v2');
     expect(html).not.toContain('data-equipment-levels');
+  });
+
+  it('camera scan flag on: "תרגילים ברמה שלך" open to my level, the rest locked, park workout button', async () => {
+    flags.enableEquipmentScanV1 = true;
+    useProgressionStore.setState({ domainProgress: { p1: { level: 2 } } } as never);
+    store.doc = doc;
+    store.catalog = catalog;
+    let started = 0;
+    const html = await mount(
+      <EquipmentDetailDrawer isOpen onClose={() => {}} equipmentId="eq1" parkWorkout={{ parkName: 'גינת הרצל', onStart: () => { started++; } }} />,
+    );
+    expect(html).toContain('תרגילים ברמה שלך');
+    expect(html).toContain('רמה 2 · שלך');
+    expect(html).toContain('אימון בפארק הזה');
+    expect(html).toContain('בונה מכל המתקנים בגינת הרצל, לא רק ממתח');
+    expect(html).not.toContain('תרגילים לפי רמה');
+    expect(started).toBe(0);
+  });
+
+  it('camera scan flag on, no level and no park: beginner state, quiz row, no workout button', async () => {
+    useProgressionStore.setState({ domainProgress: {} } as never);
+    store.doc = doc;
+    store.catalog = catalog;
+    const html = await mount(<EquipmentDetailDrawer isOpen onClose={() => {}} equipmentId="eq1" />);
+    expect(html).toContain('מתאים להתחלה');
+    expect(html).toContain('מלאו שאלון כוח קצר');
+    expect(html).not.toContain('שלך');
+    expect(html).not.toContain('אימון בפארק הזה');
+    flags.enableEquipmentScanV1 = false;
   });
 
   it('flag off → the drawer as today', async () => {
