@@ -17,7 +17,7 @@
   "quiz.slider.tutorial.checkMin": "Check the minimum: time and reps will show here",
   "quiz.slider.tutorial.notSure": "Not 100% sure, or can’t do it yet? Pick your best guess. We’ll learn and adjust later.",
   "quiz.slider.maxReps": "Max: {reps} {unit, select, seconds {sec} other {reps}}",
-  "quiz.slider.category": "{category, select, push {Push} pull {Pull} legs {Lower body} core {Core} handstand {Handstand} skills {Skills} oap {One-arm pull-up} pull_up_pro {One-arm pull-up} one_arm_pullup {One-arm pull-up} muscle_up {Muscle-up} muscleup {Muscle-up} planche {Planche} front_lever {Front lever} handstand_pushup {Handstand push-up} hspu {Handstand push-up} other {{name}}}",
+  "quiz.slider.category": "{category, select, push {Push} pull {Pull} legs {Lower body} core {Core} handstand {Handstand} skills {Skills} oap {One-arm pull-up} pull_up_pro {One-arm pull-up} one_arm_pullup {One-arm pull-up} muscle_up {Muscle-up} muscleup {Muscle-up} planche {Planche} front_lever {Front lever} handstand_pushup {Handstand push-up} hspu {Handstand push-up} handstand_strength {Handstand: strength} handstand_balance {Handstand: balance} handstand_mobility {Handstand: shoulder mobility} other {{name}}}",
   "quiz.slider.escape": "Can’t do it yet?",
   "quiz.slider.escapeAria": "Still can’t do the exercise?",
   "quiz.slider.easierAria": "Easier exercise",
