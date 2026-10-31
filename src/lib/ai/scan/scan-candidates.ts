@@ -5,7 +5,15 @@
  * same filter as the add-park StepEquipment), plus the two urban candidates. Items listed at the
  * user's park are flagged `atPark` so the prompt can prefer them without hiding the rest.
  */
-import { URBAN_CANDIDATE_IDS, type ScanCandidate } from './scan-types';
+import { URBAN_CANDIDATE_IDS, type ScanBrand, type ScanCandidate } from './scan-types';
+
+/**
+ * The visual index: one short look description per (equipment, brand), keyed
+ * `${equipmentId}::${brandName}` (equipment-visual-index.json, built by
+ * scripts/scan/build-visual-index.ts from each brands[].imageUrl).
+ */
+export type VisualIndex = Record<string, string>;
+export const visualKey = (equipmentId: string, brandName: string) => `${equipmentId}::${brandName}`;
 
 /** gym_equipment as read by the Admin SDK (raw Firestore data). */
 export interface RawCatalogDoc {
@@ -27,13 +35,18 @@ function text(v: unknown, lang: 'he' | 'en'): string | undefined {
   return undefined;
 }
 
-function firstBrandImage(brands: unknown): string | undefined {
-  if (!Array.isArray(brands)) return undefined;
+function brandsOf(equipmentId: string, brands: unknown, index: VisualIndex): ScanBrand[] {
+  if (!Array.isArray(brands)) return [];
+  const out: ScanBrand[] = [];
   for (const b of brands) {
-    const url = (b as { imageUrl?: unknown } | null)?.imageUrl;
-    if (typeof url === 'string' && /^https:\/\//.test(url)) return url;
+    const o = (b ?? {}) as { brandName?: unknown; imageUrl?: unknown };
+    const name = typeof o.brandName === 'string' ? o.brandName.trim() : '';
+    if (!name || out.some((x) => x.name === name)) continue;
+    const imageUrl = typeof o.imageUrl === 'string' && /^https:\/\//.test(o.imageUrl) ? o.imageUrl : undefined;
+    const look = index[visualKey(equipmentId, name)];
+    out.push({ name, ...(imageUrl ? { imageUrl } : {}), ...(look ? { look } : {}) });
   }
-  return undefined;
+  return out;
 }
 
 export function isParkInstalled(doc: RawCatalogDoc): boolean {
@@ -47,13 +60,18 @@ const URBAN_NAMES: Record<(typeof URBAN_CANDIDATE_IDS)[number], { en: string; hi
   'urban:stairs': { en: 'Outdoor stairs / steps', hint: 'public stairs or raised steps' },
 };
 
-export function buildScanCandidates(catalog: readonly RawCatalogDoc[], parkEquipmentIds: readonly string[] = []): ScanCandidate[] {
+export function buildScanCandidates(
+  catalog: readonly RawCatalogDoc[],
+  parkEquipmentIds: readonly string[] = [],
+  index: VisualIndex = {},
+): ScanCandidate[] {
   const atPark = new Set(parkEquipmentIds);
   const out: ScanCandidate[] = [];
   for (const doc of catalog) {
     if (!doc.id || !isParkInstalled(doc)) continue;
     const name = text(doc.name, 'he') ?? text(doc.nameLocalized, 'he');
     if (!name) continue;
+    const brands = brandsOf(doc.id, doc.brands, index);
     out.push({
       id: doc.id,
       kind: 'catalog',
@@ -62,7 +80,8 @@ export function buildScanCandidates(catalog: readonly RawCatalogDoc[], parkEquip
       hint: [typeof doc.movementPattern === 'string' ? doc.movementPattern : null, doc.isCardio === true ? 'cardio machine' : null]
         .filter(Boolean)
         .join(', ') || undefined,
-      imageUrl: firstBrandImage(doc.brands),
+      ...(brands.length ? { brands } : {}),
+      imageUrl: brands.find((b) => b.imageUrl)?.imageUrl,
       ...(atPark.has(doc.id) ? { atPark: true } : {}),
     });
   }
@@ -73,9 +92,22 @@ export function buildScanCandidates(catalog: readonly RawCatalogDoc[], parkEquip
   return out;
 }
 
-/** One line per candidate. Stable for a given catalog, so it sits in the prompt cache. */
+/** One line per candidate, its brands (with their look) at the end. Stable per catalog, so cached. */
 export function candidateLines(candidates: readonly ScanCandidate[]): string {
   return candidates
-    .map((c) => [c.id, c.name, c.nameEn && c.nameEn !== c.name ? c.nameEn : null, c.hint].filter(Boolean).join(' | '))
+    .map((c) => {
+      const brands = c.brands?.length
+        ? `brands: ${c.brands.map((b) => (b.look ? `${b.name} (${b.look})` : b.name)).join('; ')}`
+        : null;
+      return [c.id, c.name, c.nameEn && c.nameEn !== c.name ? c.nameEn : null, c.hint, brands].filter(Boolean).join(' | ');
+    })
     .join('\n');
+}
+
+/** The catalog's spelling of a brand the model named (case / space-insensitive), or undefined. */
+export function matchBrand(candidate: ScanCandidate | undefined, raw: unknown): string | undefined {
+  if (!candidate?.brands?.length || typeof raw !== 'string') return undefined;
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+  const want = norm(raw);
+  return want ? candidate.brands.find((b) => norm(b.name) === want)?.name : undefined;
 }

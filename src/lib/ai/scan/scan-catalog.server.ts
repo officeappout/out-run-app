@@ -4,7 +4,8 @@
  */
 import 'server-only';
 import type { Firestore } from 'firebase-admin/firestore';
-import type { RawCatalogDoc } from './scan-candidates';
+import type { RawCatalogDoc, VisualIndex } from './scan-candidates';
+import visualIndex from './equipment-visual-index.json';
 
 const CATALOG_TTL_MS = 10 * 60_000;
 let cache: { at: number; docs: RawCatalogDoc[] } | null = null;
@@ -27,4 +28,9 @@ export async function loadParkEquipmentIds(db: Firestore, parkId: string | undef
   const eq = snap.exists ? snap.get('gymEquipment') : null;
   if (!Array.isArray(eq)) return [];
   return eq.map((e: { equipmentId?: unknown }) => (typeof e?.equipmentId === 'string' ? e.equipmentId : '')).filter(Boolean);
+}
+
+/** The (equipment, brand) look lines; {} until scripts/scan/build-visual-index.ts has been run. */
+export function loadVisualIndex(): VisualIndex {
+  return visualIndex as VisualIndex;
 }

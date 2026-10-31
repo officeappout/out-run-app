@@ -18,7 +18,7 @@ import { checkRateLimit } from '@/lib/rateLimit';
 import { passesAppCheck } from '@/lib/app-check.server';
 import { aiDenialResponse, verifyAiRequest } from '@/lib/ai/verify-ai-request.server';
 import { buildScanCandidates } from '@/lib/ai/scan/scan-candidates';
-import { loadParkEquipmentIds, loadScanCatalog } from '@/lib/ai/scan/scan-catalog.server';
+import { loadParkEquipmentIds, loadScanCatalog, loadVisualIndex } from '@/lib/ai/scan/scan-catalog.server';
 import { singleVerdict } from '@/lib/ai/scan/scan-result';
 import { identifyEquipment } from '@/lib/ai/scan/scan.server';
 import { SCAN_MODES } from '@/lib/ai/scan/scan-types';
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
     const { image, mediaType, mode, parkId } = parsed.data;
     const [catalog, parkIds] = await Promise.all([loadScanCatalog(db), loadParkEquipmentIds(db, parkId)]);
-    const candidates = buildScanCandidates(catalog, parkIds);
+    const candidates = buildScanCandidates(catalog, parkIds, loadVisualIndex());
     const result = await identifyEquipment(auth.uid, { data: image, mediaType }, candidates, mode);
     return NextResponse.json({ result, ...(mode === 'single' ? { verdict: singleVerdict(result) } : {}) });
   } catch (err) {
