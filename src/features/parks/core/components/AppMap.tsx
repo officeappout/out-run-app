@@ -67,6 +67,7 @@ import {
   PARK_CLUSTERS_GLOW, PARK_CLUSTERS, PARK_PINS, PARK_MINOR_PINS, PARK_CLUSTER_COUNT,
 } from './mapLayersConfig';
 import { HYBRID_AER, HYBRID_STR, buildHybridRouteGradient } from './hybrid/hybrid-colors';
+import { usePilotDecisionsV1 } from '@/hooks/usePilotDecisionsV1';
 if (typeof window !== 'undefined') {
   // Reduce Mapbox worker threads from 2 → 1 on iOS WKWebView.
   // Each worker holds its own copy of the tile-decoding pipeline and
@@ -1478,7 +1479,9 @@ export default function AppMap({
   const trailV1 = useRunPlayerDrawerV1();
   const routeExtrasOff = hasZoneSegments && !trailV1;
   const trailKindV1 = liveTrailKind(hasZoneSegments, !!ghostPathGeoJSON);
-  const trailPaintV1 = useMemo(() => liveTrailPaintV1(trailKindV1, activityType), [trailKindV1, activityType]);
+  // enable_pilot_decisions_v1 (owner M23): the walked trail on a route is green; zones keep their colours.
+  const greenRouteTrail = usePilotDecisionsV1();
+  const trailPaintV1 = useMemo(() => liveTrailPaintV1(trailKindV1, activityType, greenRouteTrail), [trailKindV1, activityType, greenRouteTrail]);
 
   // Passed slice source — mounted (empty) whenever there's a route, so the imperative
   // updates always have a target.
