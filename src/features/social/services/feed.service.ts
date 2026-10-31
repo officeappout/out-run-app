@@ -178,6 +178,8 @@ export async function createWorkoutPost(params: {
         const { uploadFeedPhoto } = await import('./feed-photo');
         const up = await uploadFeedPhoto(params.authorUid, opts.photo);
         params = { ...params, photoUrl: up.url, photoPath: up.path };
+        // Board PostPhotoCompact: the home done slide of this workout shows the photo.
+        (await import('../post-card/post-photo-memory')).rememberPostPhoto(up.url, params.activityCategory);
       } catch (photoErr) {
         console.warn('[FeedService] Photo upload failed — publishing without it:', photoErr);
       }
