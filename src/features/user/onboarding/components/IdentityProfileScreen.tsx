@@ -24,6 +24,7 @@ import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLand
 import { LEGACY_GATEWAY_ROUTE, WELCOME_ROUTE, resolveBackFallback } from '@/lib/landing-fallback/fallback-routes';
 import { contentEntryMotion, headerSafeTop, stepScrollOverscroll } from '@/features/user/onboarding/utils/fit-screen';
 import { useT } from '@/hooks/useT';
+import { useUiDir } from '@/lib/i18n/useUiDir';
 import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 
 /**
@@ -99,7 +100,8 @@ export default function IdentityProfileScreen({
   const { profile, updateProfile, refreshProfile } = useUserStore();
   // enable_landing_real_fallback — the two /gateway exits below go to the real flow instead.
   const { enabled: realFallback } = useLandingRealFallback();
-  const direction = 'rtl';
+  // AH2: was hard-coded 'rtl', which reversed the word-by-word English bubble and put '!' first.
+  const { direction } = useUiDir();
   // enable_home_v2 — styling only. This route is top-padding exempt (the
   // header pads the notch itself) but <main> still pads the bottom inset,
   // so the v2 CTA adds only its own 12px.
@@ -593,13 +595,13 @@ export default function IdentityProfileScreen({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.28, delay: 0.2, ease: 'easeOut' }}
           >
-            {/* Tail — border layer (upward triangle, right-aligned toward lemur) */}
+            {/* Tail — border layer (upward triangle, start-aligned toward lemur) */}
             <span
               aria-hidden="true"
               style={{
                 position: 'absolute',
                 top: '-9px',
-                right: '52px',
+                insetInlineStart: '52px',
                 width: 0,
                 height: 0,
                 borderLeft: '9px solid transparent',
@@ -613,7 +615,7 @@ export default function IdentityProfileScreen({
               style={{
                 position: 'absolute',
                 top: '-7px',
-                right: '53px',
+                insetInlineStart: '53px',
                 width: 0,
                 height: 0,
                 borderLeft: '8px solid transparent',
