@@ -150,7 +150,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                   : 'bg-gray-50 text-gray-600 border-gray-200'
               }`}
             >
-              {tag.label}
+              {t('editProfile.tags.option', { id: tag.id })}
             </button>
           );
         })}

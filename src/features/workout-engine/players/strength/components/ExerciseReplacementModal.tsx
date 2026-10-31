@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Exercise, ExecutionMethod, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { resolveSwapOptionImage } from '../logic/swap-option-media';
 import { getExerciseVariations, getAlternativeExercises, getMachineAlternatives, AlternativeExerciseOption } from '../../../generator/services/exercise-replacement.service';
 import { machineIdOf } from '../logic/machine-swap';
@@ -164,6 +165,8 @@ export default function ExerciseReplacementModal({
 }: ExerciseReplacementModalProps) {
   const { direction } = useUiDir();
   const t = useT(player);
+  // AH1: exercise names in the content language (Hebrew while enable_content_locale is off).
+  const contentLang = useContentLanguage();
   const fixesOn = useSwapFixesV1();
   // Often mounted inside a map layer / drawer (no portal): hide the tab bar so it can't cover the sheet.
   useSuppressBottomNav(isOpen);
@@ -304,7 +307,7 @@ export default function ExerciseReplacementModal({
         rawId: raw,
         normalizedKey: norm,
         label,
-        exerciseName: getLocalizedText(option.exercise.name, 'he'),
+        exerciseName: getLocalizedText(option.exercise.name, contentLang),
       });
 
       if (norm === 'bodyweight' || norm === 'none' || norm === 'unknown_gear' || seen.has(norm)) continue;
@@ -359,7 +362,7 @@ export default function ExerciseReplacementModal({
               <div className="flex items-center gap-5 mb-6">
                 <div className="relative flex-shrink-0">
                   <img
-                    alt={getLocalizedText(currentExercise.name, 'he')}
+                    alt={getLocalizedText(currentExercise.name, contentLang)}
                     className="w-24 h-24 rounded-2xl object-cover border-4 border-slate-50 dark:border-slate-800 shadow-sm"
                     src={getImage(currentExercise)}
                     onError={(e) => { (e.target as HTMLImageElement).src = '/images/park-placeholder.svg'; }}
@@ -368,7 +371,7 @@ export default function ExerciseReplacementModal({
                 <div className="flex-1 text-start">
                   <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">{t('swapModal.header')}</p>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 leading-tight">
-                    {getLocalizedText(currentExercise.name, 'he')}
+                    {getLocalizedText(currentExercise.name, contentLang)}
                   </h2>
                   {primaryMuscleLabel && (
                     <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
@@ -449,12 +452,12 @@ export default function ExerciseReplacementModal({
                       >
                         <LazyExerciseImage
                           src={resolvedImageUrl}
-                          alt={getLocalizedText(option.exercise.name, 'he')}
+                          alt={getLocalizedText(option.exercise.name, contentLang)}
                         />
 
                         <div className="flex-1 flex flex-col gap-1.5 text-start items-start">
                           <h3 className="font-bold text-lg text-slate-900 dark:text-white w-full">
-                            {getLocalizedText(option.exercise.name, 'he')}
+                            {getLocalizedText(option.exercise.name, contentLang)}
                           </h3>
 
                           <div className="flex items-center gap-3 flex-wrap">
