@@ -50,7 +50,7 @@ import { HANDSTAND_TRIAD_ENABLED } from '@/config/feature-flags';
 import {
   ensureEquipmentCachesLoaded,
   getMuscleGroupLabel,
-  resolveEquipmentLabel,
+  resolveEquipmentDisplayLabel,
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import {
@@ -466,7 +466,7 @@ export default function MasterExerciseView({
 
       const gear: MethodOption['gear'] = [];
       for (const id of uniqueGearIds) {
-        const label = resolveEquipmentLabel(id);
+        const label = resolveEquipmentDisplayLabel(id);
         if (!label || label === 'ציוד לא מזוהה') continue; // i18n-allow-hebrew: data — compared with resolveEquipmentLabel's fallback
         gear.push({ id, label, icon: resolveEquipmentSvgPathList(id)[0] ?? null });
       }
@@ -684,7 +684,7 @@ export default function MasterExerciseView({
     if (!sheetData) return [];
     const out: { id: string; label: string; icon: string | null }[] = [];
     for (const id of sheetData.equipmentIds) {
-      const label = resolveEquipmentLabel(id);
+      const label = resolveEquipmentDisplayLabel(id);
       if (!label || label === 'ציוד לא מזוהה') continue; // i18n-allow-hebrew: data — compared with resolveEquipmentLabel's fallback
       out.push({ id, label, icon: resolveEquipmentSvgPathList(id)[0] ?? null });
     }

@@ -58,6 +58,8 @@ import { getProgramIcon } from '@/features/content/programs';
 import { ChevronLeft, Target } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
+import { englishProgramName } from '@/features/content/programs/core/localized-fields';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 // ── Types ──────────────────────────────────────────────────────────
 
 interface ChildCardData {
@@ -117,6 +119,7 @@ function V2Ring({ percent, size, stroke, children }: { percent: number; size: nu
 
 export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {}) {
   const t = useT(profileNs);
+  const contentLang = useContentLanguage();
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const progressData = useProgramProgress();
@@ -244,7 +247,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
     const pct = Math.min(100, Math.round(track?.percent ?? 0));
     return {
       slug,
-      name: meta?.name ?? PROGRAM_NAME_HE[slug] ?? slug,
+      name: englishProgramName(meta, contentLang) || (meta?.name ?? PROGRAM_NAME_HE[slug] ?? slug),
       currentLevel: track?.currentLevel ?? 1,
       maxLevel: meta?.maxLevels ?? track?.maxLevel ?? 25,
       percent: pct,

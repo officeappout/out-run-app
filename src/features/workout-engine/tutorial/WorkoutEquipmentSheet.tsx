@@ -10,7 +10,7 @@ import { PersonStanding } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
-import { resolveEquipmentLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentDisplayLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import TutorialPortal from './TutorialPortal';
 
 interface Props {
@@ -47,7 +47,7 @@ export default function WorkoutEquipmentSheet({ gearIds, location, onClose }: Pr
                 ) : (
                   <PersonStanding size={32} className="text-v2-muted" aria-hidden />
                 )}
-                <span className="text-center text-[12px] font-extrabold leading-tight text-v2-ink-2">{resolveEquipmentLabel(id)}</span>
+                <span className="text-center text-[12px] font-extrabold leading-tight text-v2-ink-2">{resolveEquipmentDisplayLabel(id)}</span>
               </div>
             );
           })}

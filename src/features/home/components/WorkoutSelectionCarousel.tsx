@@ -15,7 +15,7 @@ import {
   getGenderedCtaText,
 } from './HeroWorkoutCard';
 import {
-  resolveEquipmentLabel,
+  resolveEquipmentDisplayLabel,
   resolveEquipmentSvgPathList,
   resolveEquipmentCategory,
   CATEGORY_PRIORITY,
@@ -329,7 +329,7 @@ function TrioCard({
         // Skip equipment that has no icon — it won't be displayed and
         // must not inflate the total count or generate empty badge slots.
         if (srcList.length === 0) continue;
-        const label = resolveEquipmentLabel(norm);
+        const label = resolveEquipmentDisplayLabel(norm);
         icons.push({ srcList, label, norm });
       }
     }

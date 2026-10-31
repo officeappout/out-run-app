@@ -15,7 +15,7 @@ import { WorkoutPlan, WorkoutSegment } from '@/features/parks';
 import { resolveDescription, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { UserFullProfile } from '@/features/user';
 import { useIsMounted } from '@/hooks/useIsMounted';
-import { resolveEquipmentLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentDisplayLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
@@ -187,7 +187,7 @@ export default function StrengthOverviewCard({
             {Array.from(equipmentSet).map((eqId) => {
               const svgPaths = resolveEquipmentSvgPathList(eqId, workoutPlan.workoutLocation);
               const svgPath = svgPaths[0] ?? null;
-              const label = resolveEquipmentLabel(eqId);
+              const label = resolveEquipmentDisplayLabel(eqId);
               return (
                 <div
                   key={eqId}

@@ -7,7 +7,7 @@
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import {
   normalizeGearId,
-  resolveEquipmentLabel,
+  resolveEquipmentDisplayLabel,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { EquipmentEntry } from '../types';
 
@@ -31,7 +31,7 @@ export function collectEquipment(exercises: EngineWorkoutExercise[]): EquipmentE
       if (norm === 'bodyweight' || norm === 'none' || norm === 'unknown_gear') continue;
       if (seenNorms.has(norm)) continue;
       seenNorms.add(norm);
-      const label = resolveEquipmentLabel(norm);
+      const label = resolveEquipmentDisplayLabel(norm);
       if (seenLabels.has(label)) continue;
       seenLabels.add(label);
       result.push({ id: norm, label });

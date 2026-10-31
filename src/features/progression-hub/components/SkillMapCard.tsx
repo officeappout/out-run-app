@@ -32,6 +32,8 @@ import { useSkillTree } from '@/features/progression-map/hooks/useSkillTree';
 import { resolveProgressionMapDestination } from '@/lib/progression-map-config';
 import ParentProgramSheet from '@/features/profile/components/widgets/ParentProgramSheet';
 import { createProgramMetaCache } from '../services/program-meta-cache';
+import { englishProgramName } from '@/features/content/programs/core/localized-fields';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 /** W4: one Program-doc fetch per programId per session, shared by every card. */
 const getProgramMetaCached = createProgramMetaCache(getProgramByTemplateId);
@@ -73,6 +75,7 @@ export interface SkillMapCardProps {
 export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAssessTap }: SkillMapCardProps) {
   const router = useRouter();
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
+  const contentLang = useContentLanguage();
   const { percent } = useUserProgramLevel(programId);
   const { tree, currentLevel } = useSkillTree(programId);
 
@@ -98,7 +101,7 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
   // before/in case the live fetch resolves, instead of the raw id/slug.
   const slug = MASTER_PROGRAM_ID_TO_SLUG[programId] ?? resolveToSlug(programId);
   const fallbackName = nameHe !== programId ? nameHe : resolveProgramLabel(slug);
-  const displayName = programMeta?.name ?? fallbackName;
+  const displayName = englishProgramName(programMeta, contentLang) || (programMeta?.name ?? fallbackName);
 
   // A leaf opens its own map. A parent program has no map of its own, so it
   // opens ParentProgramSheet (its children + their average) — it used to

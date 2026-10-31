@@ -61,6 +61,8 @@ import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { englishProgramName } from '@/features/content/programs/core/localized-fields';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface PartnerFilterBarProps {
@@ -168,6 +170,7 @@ export function usePartnerFilterModel(
   // Cold-start fallback: render every activeProgram with PROGRAM_NAME_HE /
   // .name — the row is never empty while the cache warms.
   const [programsById, setProgramsById] = useState<Map<string, Program> | null>(null);
+  const contentLang = useContentLanguage();
 
   useEffect(() => {
     let cancelled = false;
@@ -205,14 +208,15 @@ export function usePartnerFilterModel(
     return activePrograms.map((up) => {
       const cms = programsById?.get(up.templateId) ?? programsById?.get(up.id);
       const label =
-        cms?.name
+        englishProgramName(cms, contentLang)
+        || (cms?.name
         ?? PROGRAM_NAME_HE[up.templateId]
         ?? PROGRAM_NAME_HE[up.id]
-        ?? up.name;
+        ?? up.name);
       const iconKey = resolveIconKey(cms?.iconKey, up.templateId);
       return { value: up.templateId, label, iconKey };
     });
-  }, [activePrograms, programsById]);
+  }, [activePrograms, programsById, contentLang]);
 
   // ── Level range bounds for Row 4 level slider ─────────────────────────────
   // Source of truth: `Program.maxLevels` from the CMS (loaded into
