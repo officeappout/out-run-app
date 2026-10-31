@@ -22,6 +22,7 @@ import { useWelcomeDrawerSuppressed } from '@/features/user/onboarding/hooks/use
 import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
+import AfterWorkoutToast from '@/features/home/components/AfterWorkoutToast';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { usePendingUnitSelfHeal } from '@/features/arena/hooks/usePendingUnitSelfHeal';
@@ -839,6 +840,7 @@ export default function HomePage() {
   // for why this exists alongside the primary onboarding-completion trigger.
   useKellyWelcomeBotCatchup();
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
+  const closeMotivationBanner = useCallback(() => setShowMotivationBanner(false), []);
   const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();
   const [bannerGroup, setBannerGroup] = useState<CommunityGroup | null>(null);
   const [joinSuccessData, setJoinSuccessData] = useState<{
@@ -3269,6 +3271,16 @@ export default function HomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* enable_home_after_v1 (board HomeAfterMoment): the floating lemur card instead of the banner. */}
+      {homeAfterOn && (
+        <AfterWorkoutToast
+          open={showMotivationBanner && !!postWorkoutMsg}
+          text={postWorkoutMsg?.text ?? ''}
+          subText={postWorkoutMsg?.subText}
+          onClose={closeMotivationBanner}
+        />
+      )}
 
       {/* ── Community Session Banner (single closest session, dismiss persists across refreshes) ── */}
       {communitySessions.length > 0 && (
