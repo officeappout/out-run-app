@@ -860,6 +860,11 @@ export const FLAG_DEFS = [
   // /api/scan/equipment (open to every signed-in user incl. teens; its own rate limit). Fail-closed; super admins
   // preview it. Off = identical to today.
   { key: 'enableEquipmentScanV1', firestoreKey: 'enable_equipment_scan_v1', defaultValue: false, superAdminValue: true },
+  // Schedule pilot notes (31.10.2026, P10 / P12 / P16): always icons in the schedule (no rings view; the planner
+  // uses the programs' own icons); a future day in the big planner opens its workout drawer; the walking signup's
+  // nearby-group card asks "join you?" and adds the group to the schedule in place. Fail-closed; super admins
+  // preview it. Off = identical to today.
+  { key: 'enableSchedulePilotV1', firestoreKey: 'enable_schedule_pilot_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
