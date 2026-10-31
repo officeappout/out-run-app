@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Exercise, ExerciseRole } from '@/features/content/exercises/core/exercise.types';
 import type { GeneratedWorkout, WorkoutExercise } from '../../workout-generator.types';
 import { addTriadTrackLevels } from '../triad-track';
-import { applyTriadSkeleton, type TriadWorkoutOptions } from '../triad-workout';
+import { applyTriadSkeleton, legacyVolume, toLegacyLevel, type TriadWorkoutOptions } from '../triad-workout';
 
 const parkMethod = { location: 'park', locationMapping: ['park'], requiredGearType: 'user_gear', gearIds: [], equipmentIds: [], methodName: { he: 'x' } };
 const ex = (id: string, s: number, b: number, m: number, primaryMuscle = 'shoulders', type: 'time' | 'reps' = 'time', role: ExerciseRole = 'main'): Exercise =>
@@ -91,5 +91,15 @@ describe('applyTriadSkeleton: review fixes', () => {
     applyTriadSkeleton(b, opts({ strength: 8, balance: 8, mobility: 8 }, { pool, avoidIds: new Set(mainIds(a)) }));
     expect(mainIds(b)).toContain('crow_twin');
     expect(mainIds(b)).not.toContain('crow');
+  });
+});
+
+describe('legacy volume (31.10)', () => {
+  it('maps axis level to old level and picks the nearest legacy row', () => {
+    expect(toLegacyLevel(14)).toBe(10);
+    expect(toLegacyLevel(4)).toBe(3);
+    // hollow body BLbgAyNJSZCc4YsoOxtP is in the legacy table; an unknown id is not
+    expect(legacyVolume('BLbgAyNJSZCc4YsoOxtP', 14)).not.toBeNull();
+    expect(legacyVolume('nope', 8)).toBeNull();
   });
 });

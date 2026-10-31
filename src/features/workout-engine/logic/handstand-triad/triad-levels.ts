@@ -13,6 +13,13 @@ import { TRIAD_MAX, TRIAD_MIN, type TriadAxis, type TriadValues } from './triad.
 const clamp = (n: number) => Math.min(TRIAD_MAX, Math.max(TRIAD_MIN, Math.round(n)));
 
 /**
+ * Entry floor (owner, 31.10): the catalog's easiest handstand work sits at 3-5
+ * on each axis (pike stance, frog, hollow body, the first assessment anchors),
+ * so an axis below 4 selects as 4. The stored level is untouched.
+ */
+export const TRIAD_ENTRY_FLOOR = 4;
+
+/**
  * `parentKey` = the program the session resolved the exercise to ('handstand'
  * or 'hspu'), so an HSPU session falls back to the HSPU level, not the base.
  */
@@ -23,7 +30,7 @@ export function resolveTriadLevels(
 ): TriadValues {
   const parent = userProgramLevels?.get(parentKey) ?? baseUserLevel;
   const hidden = getAttachedTriadLevels(userProgramLevels);
-  const read = (axis: TriadAxis) => clamp(hidden?.[axis] ?? parent);
+  const read = (axis: TriadAxis) => Math.max(TRIAD_ENTRY_FLOOR, clamp(hidden?.[axis] ?? parent));
   return { strength: read('strength'), balance: read('balance'), mobility: read('mobility') };
 }
 

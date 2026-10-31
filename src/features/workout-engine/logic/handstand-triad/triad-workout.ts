@@ -17,11 +17,25 @@ import { isTestOrPlaceholderExercise } from '../../shared/utils/test-exercise.ut
 import type { DifficultyLevel, GeneratedWorkout, WorkoutExercise } from '../workout-generator.types';
 import { rederiveVolumeForSwappedExercise } from '../workout-budgeting.utils';
 import { resolveTriadLevels } from './triad-levels';
-import { getTriadScores, primaryAxis } from './triad-scores';
+import { LEGACY_HANDSTAND_VOLUME, type LegacyVolumeRow } from './legacy-volume.data';
+import { getTriadScores, trainedAxis } from './triad-scores';
 import { fillTriadPlan } from './triad-select';
 import { buildTriadPlan } from './triad-session-plan';
 
 export const MIN_TRIAD_MAIN = 2;
+
+/** New 1-15 axis level → old program level 1-10 (old 10 ≈ free handstand ≈ new 14). */
+export const toLegacyLevel = (axisLevel: number) => Math.min(10, Math.max(1, Math.round(axisLevel / 1.4)));
+
+/** Closest old-level row of the legacy table for this exercise, or null. */
+export function legacyVolume(exerciseId: string, axisLevel: number): LegacyVolumeRow | null {
+  const rows = LEGACY_HANDSTAND_VOLUME[exerciseId];
+  if (!rows) return null;
+  const target = toLegacyLevel(axisLevel);
+  const levels = Object.keys(rows).map(Number);
+  const nearest = levels.reduce((b, l) => (Math.abs(l - target) < Math.abs(b - target) || (Math.abs(l - target) === Math.abs(b - target) && l < b) ? l : b), levels[0]);
+  return rows[nearest];
+}
 
 export interface TriadWorkoutOptions {
   enabled: boolean;
@@ -59,16 +73,19 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
     for (const ex of block.exercises) {
       const method = selectMethodForContext(ex, opts.location, opts.availableEquipment)!;
       const demand = getTriadScores(ex)!;
-      const axis = block.axis ?? primaryAxis(demand);
+      const axis = block.axis ?? trainedAxis(demand);
       const delta = demand[axis] - levels[axis];
       const d = rederiveVolumeForSwappedExercise(ex, delta, opts.difficulty, undefined, undefined, opts.progressionPolicy);
+      // Owner, 31.10: volume from the old handstand workouts where the exercise
+      // appears there (reps or seconds by its own type); generic formula otherwise.
+      const legacy = legacyVolume(ex.id, levels[axis]);
       mains.push({
         exercise: ex,
         method,
         mechanicalType: d.mechanicalType,
         sets: block.sets,
-        reps: d.reps,
-        repsRange: d.repsRange,
+        reps: legacy ? Math.round((legacy.min + legacy.max) / 2) : d.reps,
+        repsRange: legacy ? { min: legacy.min, max: legacy.max } : d.repsRange,
         isTimeBased: d.isTimeBased,
         restSeconds: d.restSeconds,
         priority: 'skill',
