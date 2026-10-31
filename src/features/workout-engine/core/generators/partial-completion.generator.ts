@@ -73,6 +73,7 @@ import { summarizeTodayStrengthVolume } from '@/features/home/utils/todayStrengt
 import { useWeeklyVolumeStore } from '../store/useWeeklyVolumeStore';
 import { isSplitDayFocusActive } from '../../services/split-decision/day-focus.switch';
 import { resolvePartialCompletionPlace } from './partial-completion-place';
+import { isTopUpEvening, topUpMinutes } from './partial-completion-plan';
 
 const LOG_PREFIX = '[PartialCompletion]';
 
@@ -157,14 +158,18 @@ async function resolveWorstDomainGap(
 export async function buildPartialCompletionWorkout(
   profile: UserFullProfile,
   domain: MovementPattern,
+  plan: { availableTime?: number; atHome?: boolean } = {},
 ): Promise<GeneratedWorkout | null> {
   // enable_home_v2: built where the user actually trains (home + home gear, or the
   // nearby park's real gear) — before, no location → the service's 'park' default.
-  // Flag off → unchanged.
-  const place = isSplitDayFocusActive() ? await resolvePartialCompletionPlace(profile) : {};
+  // Flag off → unchanged. Evening top-up (board HomeAfterRules): at home, no gear.
+  const place = plan.atHome
+    ? { location: 'home' as const }
+    : isSplitDayFocusActive() ? await resolvePartialCompletionPlace(profile) : {};
   const trio = await generateHomeWorkoutTrio({
     userProfile: profile,
     ...place,
+    ...(plan.availableTime ? { availableTime: plan.availableTime } : {}),
     requiredDomains: [domain],
     strictDomains: true,
     generateSingleOption: true,
@@ -207,7 +212,7 @@ export const partialCompletionGenerator: Generator = {
     return result;
   },
 
-  generate: async (): Promise<Suggestion | null> => {
+  generate: async (context): Promise<Suggestion | null> => {
     const profile = useUserStore.getState().profile;
     if (!profile) {
       console.log(`${LOG_PREFIX} generate(): no profile — returning null`);
@@ -217,7 +222,15 @@ export const partialCompletionGenerator: Generator = {
     const worst = await resolveWorstDomainGap(profile);
     if (!worst) return null; // resolveWorstDomainGap already logged the reason
 
-    const workout = await buildPartialCompletionWorkout(profile, worst.domain);
+    // Board HomeAfterRules: length by the sets still missing; evening → at home.
+    const missingSets = (context?.dailyStrengthTopUpSets ?? 0) > 0 ? context.dailyStrengthTopUpSets! : worst.gap;
+    const evening = isTopUpEvening({
+      hour: new Date().getHours(),
+      preferEvening: context?.preferences?.eveningWorkoutPreferred,
+    });
+    const availableTime = topUpMinutes(missingSets);
+    console.log(`${LOG_PREFIX} plan: missingSets=${missingSets} → ${availableTime} min, evening=${evening}`);
+    const workout = await buildPartialCompletionWorkout(profile, worst.domain, { availableTime, atHome: evening });
     if (!workout) {
       console.log(`${LOG_PREFIX} ${worst.domain}: generateHomeWorkoutTrio needsAssessment=true — returning null`);
       return null;
@@ -242,6 +255,7 @@ export const partialCompletionGenerator: Generator = {
       goalTags: ['strength', worst.domain],
       surfaceEligibility: ['post_workout'],
       requiresLocation: false,
+      topUp: { missingSets, evening },
       score: 0,
       scoreBreakdown: {
         goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0,

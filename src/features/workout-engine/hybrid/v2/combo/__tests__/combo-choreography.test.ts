@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SequencerPhase } from '../../../../engines/hybrid/sequencer.types';
-import { COMBO_TIMING, comboSteps, detectComboTransition, stageAt, startChipMinutes, totalMs } from '../combo-choreography';
+import { COMBO_TIMING, comboSteps, detectComboTransition, finishHoldMs, stageAt, startChipMinutes, totalMs } from '../combo-choreography';
 
 const P = (phase: SequencerPhase, cursor = 0) => ({ phase, cursor });
 
@@ -64,5 +64,12 @@ describe('startChipMinutes', () => {
     expect(startChipMinutes({ kind: 'aerobic', durationSec: 10 })).toBe(null);
     expect(startChipMinutes({ kind: 'strength', durationSec: 600 })).toBe(null);
     expect(startChipMinutes(undefined)).toBe(null);
+  });
+});
+
+describe('finishHoldMs (board PlayerTransitionFinish)', () => {
+  it('the save waits for the finish run: 1.6 s, 0.6 s with reduced motion', () => {
+    expect(finishHoldMs(false)).toBe(1600);
+    expect(finishHoldMs(true)).toBe(600);
   });
 });

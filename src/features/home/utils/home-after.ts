@@ -3,7 +3,7 @@
  *
  * Everything for today lives in ONE carousel under the week strip: what is still left today
  * first (the top-up strength card, today's planned walk / run, then the engine's other cards), and the
- * "done today" slide last. No encouragement banner, no separate done card above the strip and
+ * "done today" slide last; right after a workout (this app session, DONE_FIRST_MS) the done slide leads. No encouragement banner, no separate done card above the strip and
  * no separate run card. Pure: the page passes what it already resolved.
  */
 
@@ -44,13 +44,29 @@ export interface ComposeHomeAfterInput<T> {
   done: readonly T[];
   /** Identity, so a slide already in the engine's list is never placed twice. */
   idOf: (t: T) => string;
+  /** Right after a workout (this app session, a short window): the done slides lead (boards HomeAfterB / Short). */
+  doneFirst?: boolean;
 }
 
-/** Order: top-up, today's planned walk / run, the rest in their ranked order, the short walk, the done slides. */
-export function composeHomeAfterSlides<T>({ remaining, planned, tail = [], isTopUp, done, idOf }: ComposeHomeAfterInput<T>): T[] {
+/**
+ * Order: top-up, today's planned walk / run, the rest in their ranked order, the short walk, the done slides.
+ * `doneFirst`: the done slides lead right after a workout, then fall back to last.
+ */
+export function composeHomeAfterSlides<T>({ remaining, planned, tail = [], isTopUp, done, idOf, doneFirst = false }: ComposeHomeAfterInput<T>): T[] {
   const placed = new Set([...planned, ...tail].map(idOf));
   const rest = remaining.filter((t) => !placed.has(idOf(t)));
   const topUps = rest.filter(isTopUp);
   const others = rest.filter((t) => !isTopUp(t));
-  return [...topUps, ...planned, ...others, ...tail, ...done];
+  const left = [...topUps, ...planned, ...others, ...tail];
+  return doneFirst ? [...done, ...left] : [...left, ...done];
+}
+
+/** How long the done slides lead after a workout before moving to the end (owner, 31.10.2026). */
+export const DONE_FIRST_MS = 10 * 60 * 1000;
+
+/** The done slides lead: a workout finished in this app session, less than DONE_FIRST_MS ago. */
+export function isDoneFirst(completedAtIso: string | null | undefined, nowMs: number): boolean {
+  if (!completedAtIso) return false;
+  const t = new Date(completedAtIso).getTime();
+  return Number.isFinite(t) && nowMs - t >= 0 && nowMs - t < DONE_FIRST_MS;
 }

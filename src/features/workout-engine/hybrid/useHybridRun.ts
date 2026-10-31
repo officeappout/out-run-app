@@ -493,10 +493,13 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       const uid = auth.currentUser?.uid;
       if (uid) {
         const { saveHybridWorkout } = await import('./hybrid-save.service');
+        // The laps BEFORE the runner teardown below clears them (history: lap chart + table).
+        const { useRunningPlayer: runner } = await import('@/features/workout-engine/players/running/store/useRunningPlayer');
         const savedId = await saveHybridWorkout(result, {
           userId: uid,
           aerobicKind: planAerobicKind,
           totalCalories: planCalories,
+          laps: runner.getState().laps ?? [],
         });
 
         // ── dailyActivity / streak / weekly volume / muscle shield — PER PART ──
