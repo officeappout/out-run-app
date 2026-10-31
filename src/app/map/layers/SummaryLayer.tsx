@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
 import ParkRingScreen from '@/features/workout-engine/summary/components/ParkRingScreen';
+import LevelUpScreen from '@/features/workout-engine/components/strength/levelup-v2/LevelUpScreen';
+import { resolveProgramLabel } from '@/features/content/programs/core/program-icon.util';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
 import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
 import { useUserStore } from '@/features/user';
@@ -32,6 +34,8 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   const lastResult = useHybridRun((s) => s.lastResult);
   const lastCalories = useHybridRun((s) => s.lastCalories);
   const lastLaps = useHybridRun((s) => s.lastLaps);
+  const lastLevelUp = useHybridRun((s) => s.lastLevelUp);
+  const sessionLabel = useHybridRun((s) => s.sessionLabel);
   const currentStreak = useProgressionStore((s) => s.currentStreak);
   const router = useRouter();
   // enable_park_live_v2 (boards Park 11-12, pilot N1 / N2 / M7): the weekly-ring screen first, then
@@ -42,6 +46,8 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   const comboFlow = useComboFlowV1();
   const parkSummary = parkLive || comboFlow;
   const [ringSeen, setRingSeen] = useState(false);
+  // Board PlayerSummaryCoverage: ring → the strength level screen only if it moved → summary.
+  const [levelSeen, setLevelSeen] = useState(false);
   const profile = useUserStore((s) => s.profile);
   const needsQuiz = parkSummary && !!profile && !hasAssessedStrengthDomain(profile as never);
 
@@ -83,6 +89,18 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   // notice a hybrid finish used to show (null runner snapshot → wasSaved=false).
   if (logic.showSummary && HYBRID_SUMMARY_ENABLED && finishedHybrid && lastResult) {
     if (parkSummary && !ringSeen) return <ParkRingScreen result={lastResult} onNext={() => setRingSeen(true)} />;
+    if (comboFlow && lastLevelUp && !levelSeen) {
+      return (
+        <LevelUpScreen
+          outcome={lastLevelUp}
+          fallback={lastLevelUp.before}
+          isRecovery={false}
+          programName={sessionLabel ?? resolveProgramLabel(lastLevelUp.programId)}
+          saveState="saved"
+          onContinue={() => setLevelSeen(true)}
+        />
+      );
+    }
     return (
       <>
         <HybridSummary

@@ -8,6 +8,9 @@
  *     rateLimitPerDay:  number   // per user
  *     reviewBudgetUsd:  number   // daily cap for the conversation review agent (0 = review off)
  *     adminAiBudgetUsd: number   // daily cap for the admin-panel assistant's model calls (0 = off)
+ *     scanPerHour:      number   // camera scan photos per user per hour (enable_equipment_scan_v1)
+ *     scanPerDay:       number   // camera scan photos per user per day
+ *     scanAppCheckEnforce: boolean // false = the scan route only logs a missing App Check token
  *   }
  *
  * A missing document or a missing/invalid field falls back to DEFAULT_AI_CONFIG (these are
@@ -34,6 +37,11 @@ export interface AiConfig {
    * never call a model).
    */
   adminAiBudgetUsd: number;
+  /** Camera scan photos per user (owner 31.10.2026: 30 / hour, 100 / day). Its own limit, not Kelly's. */
+  scanPerHour: number;
+  scanPerDay: number;
+  /** Camera scan route: block requests without a valid App Check token. Off = log only. */
+  scanAppCheckEnforce: boolean;
 }
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
@@ -43,6 +51,9 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
   rateLimitPerDay: 40,
   reviewBudgetUsd: 2,
   adminAiBudgetUsd: 0.5,
+  scanPerHour: 30,
+  scanPerDay: 100,
+  scanAppCheckEnforce: false,
 };
 
 function nonNegative(v: unknown, fallback: number): number {
@@ -65,5 +76,8 @@ export function parseAiConfig(data: Record<string, unknown> | undefined | null):
     rateLimitPerDay: positiveInt(d.rateLimitPerDay, DEFAULT_AI_CONFIG.rateLimitPerDay),
     reviewBudgetUsd: nonNegative(d.reviewBudgetUsd, DEFAULT_AI_CONFIG.reviewBudgetUsd),
     adminAiBudgetUsd: nonNegative(d.adminAiBudgetUsd, DEFAULT_AI_CONFIG.adminAiBudgetUsd),
+    scanPerHour: positiveInt(d.scanPerHour, DEFAULT_AI_CONFIG.scanPerHour),
+    scanPerDay: positiveInt(d.scanPerDay, DEFAULT_AI_CONFIG.scanPerDay),
+    scanAppCheckEnforce: d.scanAppCheckEnforce === true,
   };
 }

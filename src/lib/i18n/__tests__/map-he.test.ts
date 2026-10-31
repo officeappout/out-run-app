@@ -93,6 +93,9 @@ describe('map (he) — byte-identical to the pre-extraction literals', () => {
       ['partners.sheet.age.old', 'מבוגר'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
+    expect(t('equipment.v2.levels.mine.note' as Key, { level: '6', program: 'דחיפה' })).toBe('פתוח עד רמה 6 בדחיפה. הרמות הבאות נעולות.');
+    expect(t('equipment.v2.levels.mine.yours' as Key, { level: '6' })).toBe('רמה 6 · שלך');
+    expect(t('equipment.v2.parkWorkout.hint' as Key, { park: 'גינת הרצל', machine: 'מקבילים' })).toBe('בונה מכל המתקנים בגינת הרצל, לא רק ממקבילים');
   });
 
   it('values', () => {
@@ -226,6 +229,13 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       ['equipment.v2.muscles', 'שרירים'],
       ['equipment.v2.musclePrimary', 'ראשי'],
       ['equipment.v2.muscleSecondary', 'משני'],
+      // camera scan boards (enable_equipment_scan_v1)
+      ['equipment.v2.levels.mine.title', 'תרגילים ברמה שלך'],
+      ['equipment.v2.levels.mine.noteNoProgram', 'פתוח עד רמה {level}. הרמות הבאות נעולות.'],
+      ['equipment.v2.levels.start.title', 'מתאים להתחלה'],
+      ['equipment.v2.levels.start.note', 'עוד לא מילאתם שאלון כוח, אז מתחילים מהקלים.'],
+      ['equipment.v2.levels.start.quiz', 'מלאו שאלון כוח קצר כדי לראות מה ברמה שלכם'],
+      ['equipment.v2.parkWorkout.cta', 'אימון בפארק הזה'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
   });
@@ -322,8 +332,8 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
     }
   });
 
-  it('the three prefixes hold 137 keys (add a case above with every new one)', () => {
+  it('the three prefixes hold 146 keys (add a case above with every new one)', () => {
     const mine = Object.keys(he).filter((k) => /^(routePreview|overview\.route|equipment)\./.test(k));
-    expect(mine.length).toBe(137);
+    expect(mine.length).toBe(146);
   });
 });

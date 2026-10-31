@@ -854,6 +854,12 @@ export const FLAG_DEFS = [
   // tabata or core after a run, a top-up sized to the missing sets, a two-part day. Engine first; the UI waits for the
   // owner's canvas boards. Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableComboGeneratorV1', firestoreKey: 'enable_combo_generator_v1', defaultValue: false, superAdminValue: true },
+  // Camera scan (owner-approved boards 31.10.2026, Scan · סריקה במצלמה): phase 1 photographs one piece of park equipment,
+  // recognizes it from the gym_equipment catalog and opens the existing equipment drawer with "exercises at your level";
+  // phase 2 maps a new park from 3-5 guided photos into the existing add-park wizard and approval. Server route
+  // /api/scan/equipment (open to every signed-in user incl. teens; its own rate limit). Fail-closed; super admins
+  // preview it. Off = identical to today.
+  { key: 'enableEquipmentScanV1', firestoreKey: 'enable_equipment_scan_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

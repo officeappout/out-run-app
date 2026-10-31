@@ -80,6 +80,15 @@ describe('verifyAiRequest', () => {
     expect(await verifyAiRequest(req(`good-${UID}`))).toMatchObject({ status: 403, code: 'ai_not_available' });
   });
 
+  it("access 'open' (camera scan): teens and users without Kelly pass; the kill switch still applies", async () => {
+    state.db = createMockDb(seed({ 'system_config/feature_flags': { ai_coach_enabled: false } }));
+    expect(await verifyAiRequest(req(`good-${MINOR}`), { access: 'open' })).toMatchObject({ ok: true, uid: MINOR, team: false });
+    expect(await verifyAiRequest(req(`good-${UID}`), { access: 'open' })).toMatchObject({ ok: true });
+    expect(await verifyAiRequest(req('good-nobody'), { access: 'open' })).toMatchObject({ status: 403, code: 'profile_not_found' });
+    state.db = createMockDb(seed({ 'app_config/ai': { killSwitch: true } }));
+    expect(await verifyAiRequest(req(`good-${MINOR}`), { access: 'open' })).toMatchObject({ status: 503, code: 'kill_switch' });
+  });
+
   it('a flags read failure keeps AI off (fail closed)', async () => {
     state.db = createMockDb(seed(), { failGets: new Set(['system_config/feature_flags']) });
     expect(await verifyAiRequest(req(`good-${UID}`))).toMatchObject({ status: 403, code: 'ai_not_available' });
