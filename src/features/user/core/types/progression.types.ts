@@ -88,6 +88,12 @@ export interface DomainTrackProgress {
   levelSessions?: number;
   monthKey?: string;
   monthSessions?: number;
+  /**
+   * Handstand only: hidden strength / balance / shoulder-mobility levels (1-15),
+   * set by the level assessment and re-tests. The user sees one handstand level;
+   * the engine builds the session from these three (HANDSTAND_TRIAD_ENABLED).
+   */
+  triad?: { strength?: number; balance?: number; mobility?: number };
 }
 
 /**

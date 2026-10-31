@@ -1,20 +1,14 @@
 /**
  * Resolve a user's Handstand Triad levels. Pure.
  *
- * Target data model: a parent program "handstand" (displayed level = average
- * of its children, via the existing `averageMasterChildren`) with three child
- * programs. Until those child programs exist, every axis falls back to the
- * user's handstand (or HSPU) level, then to the base level, so behaviour
- * degrades to "one level for all three" instead of breaking.
+ * The three axis levels are hidden sub-levels on the handstand track
+ * (owner, 31.10: no child programs), attached to the userProgramLevels map by
+ * addTriadTrackLevels (triad-track.ts), never as keys of it. A missing axis
+ * falls back to the user's handstand (or HSPU) level, then to the base level,
+ * so behaviour degrades to "one level for all three" instead of breaking.
  */
+import { getAttachedTriadLevels } from './triad-track';
 import { TRIAD_MAX, TRIAD_MIN, type TriadAxis, type TriadValues } from './triad.types';
-
-/** Child-program keys in `userProgramLevels`. */
-export const TRIAD_CHILD_KEYS: Record<TriadAxis, string> = {
-  strength: 'handstand_strength',
-  balance: 'handstand_balance',
-  mobility: 'handstand_mobility',
-};
 
 const clamp = (n: number) => Math.min(TRIAD_MAX, Math.max(TRIAD_MIN, Math.round(n)));
 
@@ -28,7 +22,8 @@ export function resolveTriadLevels(
   parentKey: string = 'handstand',
 ): TriadValues {
   const parent = userProgramLevels?.get(parentKey) ?? baseUserLevel;
-  const read = (axis: TriadAxis) => clamp(userProgramLevels?.get(TRIAD_CHILD_KEYS[axis]) ?? parent);
+  const hidden = getAttachedTriadLevels(userProgramLevels);
+  const read = (axis: TriadAxis) => clamp(hidden?.[axis] ?? parent);
   return { strength: read('strength'), balance: read('balance'), mobility: read('mobility') };
 }
 
