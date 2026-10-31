@@ -10,9 +10,10 @@ import { localizeGymEquipment } from '@/features/content/equipment/gym/core/gym-
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { AppLanguage } from '@/features/content/shared/localized-text.types';
 
-export function useParkCatalog(lang: string): { catalog: GymEquipment[]; loading: boolean } {
+export function useParkCatalog(lang: string, enabled = true): { catalog: GymEquipment[]; loading: boolean } {
   const [state, setState] = useState<{ lang: string; catalog: GymEquipment[] } | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     getAllGymEquipmentCached()
       .then((all) => {
@@ -22,6 +23,6 @@ export function useParkCatalog(lang: string): { catalog: GymEquipment[]; loading
       })
       .catch(() => { if (alive) setState({ lang, catalog: [] }); });
     return () => { alive = false; };
-  }, [lang]);
+  }, [lang, enabled]);
   return { catalog: state?.lang === lang ? state.catalog : [], loading: state?.lang !== lang };
 }

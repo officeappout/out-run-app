@@ -33,6 +33,7 @@ import { useWizardV2, V2_LABEL, V2_INPUT, v2Chip, V2BackButton, V2PrimaryButton 
 import type { WizardData } from './index';
 import EquipmentCard from '../equipment-detail/EquipmentCard';
 import { EquipmentPillIcon } from './EquipmentPillIcon';
+import ScanDetectedList from '../equipment-scan/ScanDetectedList';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { useT } from '@/hooks/useT';
@@ -43,9 +44,15 @@ interface Props {
   updateData: (partial: Partial<WizardData>) => void;
   onNext: () => void;
   onBack: () => void;
+  /**
+   * Camera scan park mapping (enable_equipment_scan_v1, ScanMap board): what the photos found.
+   * Those items come pre-selected at the top with "זוהה" / "לא בטוח" and ✕; search and the grid
+   * stay as they are for whatever was missed.
+   */
+  scanTags?: { detected: readonly string[]; unsure: readonly string[] };
 }
 
-export default function StepEquipment({ data, updateData, onNext, onBack }: Props) {
+export default function StepEquipment({ data, updateData, onNext, onBack, scanTags }: Props) {
   const t = useT(map);
   const v2 = useWizardV2();
   const [catalog, setCatalog] = useState<GymEquipment[]>([]);
@@ -100,7 +107,10 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
   }, [selectedIds, updateData]);
 
   const term = search.trim().toLowerCase();
-  const visible = term ? catalog.filter((e) => e.name.toLowerCase().includes(term)) : catalog;
+  // Scan mapping: detected items still selected sit in their own list above; the grid has the rest.
+  const detectedShown = scanTags ? catalog.filter((e) => scanTags.detected.includes(e.id) && selectedIds.has(e.id)) : [];
+  const gridSource = detectedShown.length ? catalog.filter((e) => !detectedShown.includes(e)) : catalog;
+  const visible = term ? gridSource.filter((e) => e.name.toLowerCase().includes(term)) : gridSource;
 
   if (v2) {
     // Same three regions as below (fixed header · scrolling grid · pinned
@@ -110,7 +120,16 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
         <div className="mb-3 flex-shrink-0">
           <p className={V2_LABEL}>{t('wizard.equipment.question')}</p>
 
-          {selectedNames.length > 0 && (
+          {scanTags && (
+            <ScanDetectedList
+              items={detectedShown}
+              unsure={scanTags.unsure}
+              found={scanTags.detected.length}
+              onRemove={toggle}
+            />
+          )}
+
+          {selectedNames.length > 0 && !scanTags && (
             <p className="mb-2 text-[12.5px] font-bold leading-relaxed text-v2-muted">
               <span className="font-extrabold text-v2-ink-2">{t('wizard.equipment.selected')}</span>
               {selectedNames.join(', ')}
