@@ -28,12 +28,14 @@ export interface PlannerMonthStripProps {
   selectedIso: string | null;
   stepGoal: number;
   onDayTap: (iso: string) => void;
+  /** enable_schedule_pilot_v1 (pilot P12): strength days show the program's own icon. */
+  programIcons?: boolean;
 }
 
 const ROW_H = 62;
 const STRIP_H = 330;
 
-function DayCell({ cell, view, selected, onTap }: { cell: PlannerDayCell; view: PlannerView; selected: boolean; onTap: () => void }) {
+function DayCell({ cell, view, selected, onTap, programIcons }: { cell: PlannerDayCell; view: PlannerView; selected: boolean; onTap: () => void; programIcons?: boolean }) {
   const t = useT(home);
   return (
     <button
@@ -51,13 +53,13 @@ function DayCell({ cell, view, selected, onTap }: { cell: PlannerDayCell; view: 
         {cell.day}
       </span>
       <span className="grid h-[34px] w-[34px] place-items-center">
-        {view === 'rings' ? <PlannerDayRings rings={cell.rings} faded={!cell.isPast && !cell.isToday} /> : <PlannerDayIcon cell={cell} />}
+        {view === 'rings' ? <PlannerDayRings rings={cell.rings} faded={!cell.isPast && !cell.isToday} /> : <PlannerDayIcon cell={cell} programIcons={programIcons} />}
       </span>
     </button>
   );
 }
 
-export default function PlannerMonthStrip({ sections, view, selectedIso, stepGoal, onDayTap }: PlannerMonthStripProps) {
+export default function PlannerMonthStrip({ sections, view, selectedIso, stepGoal, onDayTap, programIcons }: PlannerMonthStripProps) {
   const t = useT(home);
   const tc = useT(common);
   const locale = useLocaleStore((s) => s.locale);
@@ -106,7 +108,7 @@ export default function PlannerMonthStrip({ sections, view, selectedIso, stepGoa
                       ))}
                     {row.cells.map((cell, i) =>
                       cell ? (
-                        <DayCell key={cell.iso} cell={cell} view={view} selected={cell.iso === selectedIso} onTap={() => onDayTap(cell.iso)} />
+                        <DayCell key={cell.iso} cell={cell} view={view} programIcons={programIcons} selected={cell.iso === selectedIso} onTap={() => onDayTap(cell.iso)} />
                       ) : (
                         <span key={`blank-${i}`} aria-hidden />
                       ),

@@ -23,6 +23,8 @@ export interface PlannedLike {
   status: 'done' | 'missed' | 'today' | 'upcoming';
   /** Run: the plan's run category (easy_run, long_run, short_intervals …) — colours the icon. */
   runCategory?: string | null;
+  /** Strength: the planned program's slug (its own icon, pilot P12). */
+  programSlug?: string | null;
 }
 
 export interface PlannerDayCell {
@@ -34,7 +36,7 @@ export interface PlannerDayCell {
   /** Flame tones earned (done days), sorted. */
   tones: FlameTone[];
   /** Planned sessions not yet done (planned / missed days), in day order. */
-  planned: Array<{ track: TrackKey; runCategory: string | null }>;
+  planned: Array<{ track: TrackKey; runCategory: string | null; programSlug?: string | null }>;
   rings: DayRings;
 }
 
@@ -94,7 +96,11 @@ export function buildDayCell(
     ...workouts.map((w) => TONE_OF_KIND[w.kind]),
     ...planned.filter((p) => p.status === 'done').map((p) => TONE_OF_TRACK[p.kind]),
   ]);
-  const open = planned.filter((p) => p.status !== 'done').map((p) => ({ track: p.kind, runCategory: p.runCategory ?? null }));
+  const open = planned.filter((p) => p.status !== 'done').map((p) => ({
+    track: p.kind,
+    runCategory: p.runCategory ?? null,
+    ...(p.programSlug ? { programSlug: p.programSlug } : {}),
+  }));
   let kind: PlannerCellKind;
   if (tones.length) kind = 'done';
   else if (open.length) kind = isPast ? 'missed' : 'planned';
@@ -152,4 +158,15 @@ export function stripMonths(today: Date, before = 1, after = 1): Array<{ year: n
     out.push({ year: d.getFullYear(), month: d.getMonth() });
   }
   return out;
+}
+
+/** The cell of `iso` in the month sections, or null. */
+export function findDayCell(sections: readonly PlannerMonthSection[], iso: string): PlannerDayCell | null {
+  for (const sec of sections) for (const row of sec.rows) for (const c of row.cells) if (c?.iso === iso) return c;
+  return null;
+}
+
+/** Pilot P16: today / a later day with a planned workout opens that workout directly (a done or past day keeps the day drawer). */
+export function opensWorkoutDirectly(cell: PlannerDayCell | null): boolean {
+  return !!cell && cell.kind === 'planned' && !cell.isPast;
 }
