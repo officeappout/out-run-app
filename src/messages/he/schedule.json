@@ -256,5 +256,12 @@
   "pushReAsk.home.defer": "לא עכשיו",
   "pushReAsk.home.deniedTitle": "ההתראות כבויות",
   "pushReAsk.home.deniedBody": "כדי שנזכיר לך לפני אימון, צריך להפעיל התראות בהגדרות הטלפון",
-  "pushReAsk.home.openSettings": "מעבר להגדרות"
+  "pushReAsk.home.openSettings": "מעבר להגדרות",
+  "notAlone.ask": "רוצה שאצרף אותך?",
+  "notAlone.yes": "כן, לצרף",
+  "notAlone.no": "לא עכשיו",
+  "notAlone.joining": "מצרפים",
+  "notAlone.joined": "צורפת! המפגשים נוספו ללו\"ז",
+  "notAlone.failed": "לא הצלחנו לצרף מכאן",
+  "notAlone.openGroup": "לפתוח את הקבוצה"
 }

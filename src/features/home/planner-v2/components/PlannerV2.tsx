@@ -33,7 +33,8 @@ import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { coach } from '@/messages/ns/coach';
 import { usePlannerMonths } from '../hooks/usePlannerMonths';
-import { stripMonths } from '../lib/monthCells';
+import { findDayCell, opensWorkoutDirectly, stripMonths } from '../lib/monthCells';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { planLineOf, sundayOfKey } from '../lib/weekSummary';
 import KellyStarButton from './KellyStarButton';
 import PlannerMonthStrip, { type PlannerView } from './PlannerMonthStrip';
@@ -72,7 +73,11 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
   const { direction } = useUiDir();
   const t = useT(home);
   const tc = useT(coach);
-  const [view, setView] = useState<PlannerView>('icons');
+  // enable_schedule_pilot_v1 (pilot P12 / P16): always icons (programs' own), a planned future day opens its workout.
+  const isSuperAdmin = useUserStore((s) => !!(s.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const pilot = useFeatureFlags(isSuperAdmin).flags.enableSchedulePilotV1;
+  const [viewPicked, setView] = useState<PlannerView>('icons');
+  const view: PlannerView = pilot ? 'icons' : viewPicked;
   const [todayKey] = useState(todayKeyOf);
   const currentSunday = useMemo(() => sundayOfKey(todayKey), [todayKey]);
   const [weekSunday, setWeekSunday] = useState(currentSunday);
@@ -109,8 +114,12 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
   const openDay = useCallback((iso: string) => {
     setSelectedIso(iso);
     setWeekSunday(sundayOfKey(iso));
+    if (pilot && onStartWorkout && opensWorkoutDirectly(findDayCell(monthsData.sections, iso))) {
+      onStartWorkout(iso, true);
+      return;
+    }
     setDayIso(iso);
-  }, []);
+  }, [pilot, onStartWorkout, monthsData.sections]);
 
   // Done → that workout's summary; planned → its sheet (time / move / open).
   const openSession = useCallback(
@@ -166,14 +175,14 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
           {/* Plan line + view toggle */}
           <div className="flex items-center justify-between gap-2.5 px-5 pb-3">
             <span className="min-w-0 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{planLine}</span>
-            <SegmentedPicker className="!w-[168px] shrink-0" options={viewOptions} value={view} onChange={setView} ariaLabel={t('plannerV2.view.aria')} />
+            {!pilot && <SegmentedPicker className="!w-[168px] shrink-0" options={viewOptions} value={view} onChange={setView} ariaLabel={t('plannerV2.view.aria')} />}
           </div>
 
           {/* Month strip */}
           <div className="px-4">
             <ErrorBoundary fallback={null}>
               {monthsData.sections.length > 0 ? (
-                <PlannerMonthStrip sections={monthsData.sections} view={view} selectedIso={selectedIso} stepGoal={monthsData.stepGoal} onDayTap={openDay} />
+                <PlannerMonthStrip sections={monthsData.sections} view={view} programIcons={pilot} selectedIso={selectedIso} stepGoal={monthsData.stepGoal} onDayTap={openDay} />
               ) : (
                 <p role="status" className="rounded-[24px] bg-white px-4 py-10 text-center text-[14px] font-bold text-v2-muted shadow-v2-card">
                   {monthsData.status === 'error' ? t('plannerV2.error') : t('plannerV2.loading')}
