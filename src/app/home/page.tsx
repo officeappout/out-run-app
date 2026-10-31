@@ -67,6 +67,8 @@ import { useTryRunningNudge } from '@/features/home/hooks/useTryRunningNudge';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { library } from '@/messages/ns/library';
+import { displayProgramTemplateId } from '@/features/home/utils/display-program';
+import { MASTER_PROGRAM_CHILDREN } from '@/features/home/hooks/useProgramProgress';
 import { common } from '@/messages/ns/common';
 import { unitLabel, withUnit } from '@/lib/i18n/units';
 import { isPlainRunDoc, type RunCoverageDoc } from '@/lib/run-coverage';
@@ -2528,8 +2530,12 @@ export default function HomePage() {
     const todayLetter = getHebrewDayLetter(new Date());
     const todayTemplateId =
       profile?.lifestyle?.recurringTemplate?.[todayLetter]?.[0] ?? null;
-    return todayTemplateId ?? profile?.progression?.activePrograms?.[0]?.templateId;
-  }, [profile?.lifestyle?.recurringTemplate, profile?.progression?.activePrograms]);
+    // enable_pilot_ah_v1 (AH18): a full-body signup saved as its children shows the parent's icon.
+    const fallback = pilotAh
+      ? displayProgramTemplateId(profile?.progression?.activePrograms, MASTER_PROGRAM_CHILDREN)
+      : profile?.progression?.activePrograms?.[0]?.templateId;
+    return todayTemplateId ?? fallback;
+  }, [profile?.lifestyle?.recurringTemplate, profile?.progression?.activePrograms, pilotAh]);
 
   // Alerts — the old missed / comeback wiring read useSmartSchedule's mock scenario
   // (mock-schedule-data.ts CURRENT_SCENARIO = 'standard', so both flags were always false)
