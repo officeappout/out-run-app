@@ -101,7 +101,7 @@ import {
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { resolveStrengthBudgetDays } from '@/features/schedule/advisor/budget-divisor';
-import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED, HSPU_GENERATOR_EXCLUDED, WORKOUT_COACH_NOTE_V1 } from '@/config/feature-flags';
+import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED, HSPU_GENERATOR_EXCLUDED, WORKOUT_COACH_NOTE_V1, HANDSTAND_TRIAD_ENABLED } from '@/config/feature-flags';
 import { buildDecisionRecord, computeWeeklyGap, pickSkillFocus, type DecisionContext } from './decision-record';
 import { DOMAIN_NAME_HE } from './coach-note';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
@@ -192,6 +192,7 @@ import { rescueEmptyMainBlock, topUpVarietyReserve } from '../logic/never-empty.
 import { resolveProtocolWeights } from '../logic/protocol-weights';
 import { balanceFocusAreas, stampBodyweightPullGap, widenFocusForPullGap } from '../logic/pull-gap.utils';
 import { topUpFocusDayReserve } from '../logic/focus-floor.utils';
+import { applyTriadSkeleton } from '../logic/handstand-triad/triad-workout';
 
 // -- Re-exports consumed by the barrel (index.ts) and external callers --
 export { mapPersonaIdToLifestylePersona, calculateDaysInactive, extractInjuryShield } from './user-profile.utils';
@@ -1286,6 +1287,31 @@ async function generateHomeWorkoutTrioCore(
     // so the two don't end up rendering two different "degraded workout"
     // treatments in the UI.
     if (!orchResult.usedEmptyPoolFallback) {
+      // Handstand Triad (HANDSTAND_TRIAD_ENABLED): a standalone handstand session's
+      // main block becomes mobility → balance → strength → line, weakest axis
+      // emphasized. Before warm-up/cool-down, which are built from the main block.
+      // Standalone only: one handstand domain and no day-focus/strict areas (a mixed
+      // day or builder chips keep the generator's block).
+      const triadStandalone = !pipeline.baseGeneratorContext.strictDomains
+        && pipeline.resolvedChildDomains.length > 0
+        && pipeline.resolvedChildDomains.every(d => resolveToSlug(d) === 'handstand');
+      const triadNote = applyTriadSkeleton(workout, {
+        enabled: HANDSTAND_TRIAD_ENABLED && triadStandalone,
+        activeProgramId: pipeline.baseGeneratorContext.activeProgramId,
+        avoidIds: sessionBlacklist,
+        baseUserLevel: pipeline.filterContext.baseUserLevel,
+        pool: pipeline.baseGeneratorContext.globalExercisePool ?? optionPool.map(s => s.exercise),
+        location: pipeline.effectiveFilterLocation,
+        availableEquipment: pipeline.baseGeneratorContext.availableEquipment ?? [],
+        userProgramLevels: pipeline.userProgramLevels,
+        difficulty: workout.difficulty,
+        progressionPolicy: pipeline.baseGeneratorContext.progressionPolicy,
+      });
+      if (triadNote) {
+        (workout.pipelineLog ??= []).push(triadNote);
+        console.log(`[HandstandTriad] ${triadNote}`);
+      }
+
       // Warmup — use the FULL allExercises pool (not scoredExercises) so that
       // exercises with exerciseRole === 'warmup' are always available for Stage 1.
       // scoredExercises is filtered by ContextualEngine for the *main* workout and
@@ -1319,7 +1345,11 @@ async function generateHomeWorkoutTrioCore(
       );
 
       // Post-processing (Option 2 & 3 modifiers) — delegated to trio-modifiers.service.ts
-      if (cfg.postProcess === 'intense' && !weatherCapped) {
+      // The triad block already sets volume per axis; the swap modifiers would
+      // replace its exercises without regard to strength/balance/mobility.
+      if (triadNote) {
+        // keep the triad block as built
+      } else if (cfg.postProcess === 'intense' && !weatherCapped) {
         applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises, pipeline.effectiveFilterLocation, {
           candidatePool: pipeline.baseGeneratorContext.globalExercisePool,
           availableEquipment: pipeline.baseGeneratorContext.availableEquipment,
