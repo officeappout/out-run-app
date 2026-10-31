@@ -842,5 +842,8 @@
   "workoutTitle.focusWorkout.pull": "Pull workout",
   "workoutTitle.focusShort.pull": "Pull",
   "workoutTitle.focusWorkout.legs": "Legs workout",
-  "workoutTitle.focusShort.legs": "Legs"
+  "workoutTitle.focusShort.legs": "Legs",
+  "topUp.schedule": "Schedule for {time}",
+  "topUp.scheduled": "Scheduled for {time}",
+  "topUp.scheduleEntryTitle": "Top-up workout"
 }

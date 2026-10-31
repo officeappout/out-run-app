@@ -128,6 +128,8 @@ import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { useWorkoutSession } from '@/features/workouts/components/workout-preview-drawer/hooks/useWorkoutSession';
 import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
+import { scheduleTopUpTonight } from '@/features/home/services/schedule-top-up';
+import { TOP_UP_SCHEDULE_TIME } from '@/features/workout-engine/core/generators/partial-completion-plan';
 import type { UserContext } from '@/features/workout-engine/core/types/user-context.types';
 import { runSuggestionEngine, runSuggestionEngineStreaming } from '@/features/workout-engine/core/engine/suggestion-engine';
 import { buildHomeUserContext } from '@/features/workout-engine/core/context/build-home-user-context';
@@ -1893,6 +1895,19 @@ export default function HomePage() {
     ...(flameTiers ? { minDoneSets: strengthDoneThreshold(dailyStrengthTarget.targetSets) } : {}),
   });
   strengthTopUpSetsRef.current = strengthTopUp.mode === 'top-up' ? strengthTopUp.remainingSets : 0;
+  // Board HomeAfterTopUp: the evening top-up (at home) offers "schedule for 20:00".
+  const [topUpScheduled, setTopUpScheduled] = useState(false);
+  const topUpScheduleAction = (sg: Suggestion) => {
+    const uid = profile?.id;
+    if (sg.generatorId !== TOP_UP_GENERATOR_ID || !sg.topUp?.evening || !uid) return undefined;
+    return {
+      label: tHome(topUpScheduled ? 'topUp.scheduled' : 'topUp.schedule', { time: TOP_UP_SCHEDULE_TIME }),
+      done: topUpScheduled,
+      onPress: () => {
+        void scheduleTopUpTonight(uid, tHome('topUp.scheduleEntryTitle')).then((ok) => { if (ok) setTopUpScheduled(true); });
+      },
+    };
+  };
   const weekRunsV2 = useWeeklyRunCount(
     featureFlags.enableHomeV2 && homeRun.hasRunningPlan,
     `${todaysWorkouts?.length ?? 0}`,
@@ -4086,6 +4101,7 @@ export default function HomePage() {
               <PostWorkoutCardRenderer
                 suggestion={s}
                 titleOverride={strengthTopUp.mode === 'top-up' && s.generatorId === 'partial-completion' ? topUpTitleHe(strengthTopUp.remainingSets, tHome) : undefined}
+                scheduleAction={topUpScheduleAction(s)}
                 onStart={() => handlePostWorkoutSuggestionStart(s)}
                 isStarting={startingSuggestionId === s.id}
                 userGender={profile?.core?.gender}
@@ -4213,6 +4229,7 @@ export default function HomePage() {
               <PostWorkoutCardRenderer
                 suggestion={topUpSuggestion}
                 titleOverride={topUpTitleHe(strengthTopUp.remainingSets, tHome)}
+                scheduleAction={topUpScheduleAction(topUpSuggestion)}
                 onStart={() => handlePostWorkoutSuggestionStart(topUpSuggestion)}
                 isStarting={startingSuggestionId === topUpSuggestion.id}
                 userGender={profile?.core?.gender}
