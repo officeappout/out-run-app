@@ -7,6 +7,7 @@ import {
   fillTriadPlan,
   getTriadScores,
   primaryAxis,
+  trainedAxis,
   rankAxes,
   resolveTriadLevels,
   triadPoolGate,
@@ -83,7 +84,7 @@ describe('levels', () => {
     const m = new Map([['handstand', 6]]);
     addTriadTrackLevels(m, { handstand: { triad: { mobility: 11 } } }, true);
     expect(resolveTriadLevels(m, 2)).toEqual({ strength: 6, balance: 6, mobility: 11 });
-    expect(resolveTriadLevels(undefined, 3)).toEqual({ strength: 3, balance: 3, mobility: 3 });
+    expect(resolveTriadLevels(undefined, 3)).toEqual({ strength: 4, balance: 4, mobility: 4 }); // entry floor 4
     expect(resolveTriadLevels(new Map([['hspu', 9]]), 3, 'hspu')).toEqual({ strength: 9, balance: 9, mobility: 9 });
   });
   it('ranks the weakest / strongest axis; all equal → no emphasis', () => {
@@ -208,5 +209,20 @@ describe('pool gate (ContextualEngine hook)', () => {
   });
   it('warmup/cooldown rows skip the too-easy floor', () => {
     expect(triadPoolGate({ ...base, exercise: find('wrist_warmup') })).toBe(true);
+  });
+});
+
+describe('tuning from the legacy comparison (31.10)', () => {
+  it('kick-ups and wall shrugs never land in the mobility block; passive mobility does', () => {
+    expect(trainedAxis({ strength: 6, balance: 7, mobility: 8 })).toBe('balance');
+    expect(trainedAxis({ strength: 12, balance: 3, mobility: 14 })).toBe('strength');
+    expect(trainedAxis({ strength: 4, balance: 1, mobility: 10 })).toBe('mobility');
+    expect(trainedAxis({ strength: 1, balance: 1, mobility: 2 })).toBe('mobility');
+  });
+  it('entry floor: a level-1 user still gets the entry exercises', () => {
+    const lv = resolveTriadLevels(new Map([['handstand', 1]]), 1);
+    expect(lv).toEqual({ strength: 4, balance: 4, mobility: 4 });
+    const ids = fillTriadPlan(buildTriadPlan(lv), CATALOG, lv).flatMap((b) => b.exercises.map((e) => e.id));
+    expect(ids).toEqual(expect.arrayContaining(['frog', 'pike_stance', 'hollow_body']));
   });
 });
