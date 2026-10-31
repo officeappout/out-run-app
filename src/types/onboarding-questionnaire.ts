@@ -81,6 +81,11 @@ export interface AnswerResult {
   // Questionnaire chaining: ID of the next questionnaire to load after this result.
   // Enables flows like: Push Quiz → Pull Quiz → Master Result.
   nextQuestionnaireId?: string;
+  /**
+   * Handstand only (HANDSTAND_TRIAD_ENABLED): the three hidden axis levels from
+   * the handstand assessment, saved at progression.tracks.handstand.triad.
+   */
+  triad?: { strength?: number; balance?: number; mobility?: number };
 }
 
 export interface OnboardingAnswer {

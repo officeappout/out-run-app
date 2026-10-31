@@ -43,6 +43,7 @@ import { buildAttributionPayload } from '@/lib/marketingAttribution';
 import { triggerKellyWelcomeBot } from '@/features/social/services/kelly-welcome-bot.service';
 import { updateUserAuthority } from '@/lib/firestore.service';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
+import { mergeTriadNoRegression } from '@/features/workout-engine/logic/handstand-triad/triad-assessment';
 
 // ── Canonical program slug allow-list ──────────────────────────────
 //
@@ -1159,6 +1160,8 @@ export async function syncOnboardingToFirestore(
         programId: string;
         levelId: string;
         masterProgramSubLevels?: Record<string, number>;
+        /** Handstand Triad axis levels (handstand result only). */
+        triad?: { strength?: number; balance?: number; mobility?: number };
       }> | undefined;
 
       // Also try sessionStorage as backup (cross-page persistence)
@@ -1342,7 +1345,7 @@ export async function syncOnboardingToFirestore(
         updateData.fitnessLevel = fitnessLevel;
 
         // Build tracks from ALL assigned results (accumulative — multi-widget support)
-        const quizTracks: Record<string, { currentLevel: number; percent: number }> = {};
+        const quizTracks: Record<string, { currentLevel: number; percent: number; triad?: { strength?: number; balance?: number; mobility?: number } }> = {};
         const activeProgramEntries: any[] = [];
         
         // Accumulate: keep existing programs, add new ones from quiz
@@ -1365,7 +1368,12 @@ export async function syncOnboardingToFirestore(
 
           // Set track for the program itself (only when a real level resolved)
           if (rLevel > 0) {
-            quizTracks[result.programId] = { currentLevel: rLevel, percent: 0 };
+            quizTracks[result.programId] = {
+              currentLevel: rLevel,
+              percent: 0,
+              // Handstand Triad: hidden axis levels ride on the handstand track.
+              ...(result.programId === 'handstand' && result.triad ? { triad: result.triad } : {}),
+            };
           }
 
           // ── Path C: Strict Skill → Foundation derivation ─────────────────
@@ -1504,6 +1512,15 @@ export async function syncOnboardingToFirestore(
               `existing currentLevel=${existingLevel}, incoming=${incomingTrack.currentLevel}. Keeping existing.`,
             );
           }
+        }
+        // Handstand Triad: axis levels never regress (a lower re-test keeps
+        // each axis's best) and survive a blocked track-level regression.
+        const incomingTriad = quizTracks.handstand?.triad;
+        if (incomingTriad && mergedTracks.handstand) {
+          mergedTracks.handstand = {
+            ...mergedTracks.handstand,
+            triad: mergeTriadNoRegression(existingTracksForMerge.handstand?.triad, incomingTriad),
+          };
         }
         console.log(
           '[OnboardingSync] Writing progression.tracks (Path B/C assessment levels):',
