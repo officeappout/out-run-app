@@ -47,7 +47,7 @@ export async function identifyEquipment(
     messages: [{ role: 'user', content: [imageBlock(image), { type: 'text', text: scanUserText(mode, candidates) }] }],
   });
   const result = parseScanToolInput(toolInput(message), candidates);
-  if (mode !== 'single' || result.hasPeople || !needsCompare(result, candidates)) return result;
+  if (mode !== 'single' || !needsCompare(result, candidates)) return result;
   return compareTopCandidates(uid, image, candidates, result);
 }
 

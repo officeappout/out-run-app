@@ -3,7 +3,6 @@ import type { HybridFinalizeResult } from '../hybrid-orchestrator';
 import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
 import type { LevelUpOutcome } from '@/features/user/progression/services/levelup-preview';
 import { activeStrengthProgramId, levelMoved, stationExerciseResults, stationProgramLookup } from '../hybrid-level';
-import type { LevelUpOutcome } from '@/features/user/progression/services/levelup-preview';
 
 const plan = [
   { index: 0, kind: 'aerobic', estCalories: 0 },

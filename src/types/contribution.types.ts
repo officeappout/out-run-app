@@ -50,6 +50,8 @@ export interface UserContribution {
     removedByUser: string[];
     addedByUser: string[];
     unknown: Array<{ description: string; photoUrl?: string }>;
+    /** Photos that had people in them: used for recognition only, never uploaded (owner 31.10). */
+    withPeople?: number;
   };
 
   // ── suggest_edit fields ──
