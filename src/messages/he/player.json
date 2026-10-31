@@ -1198,5 +1198,18 @@
   "run.arrive.route": "{name} · {km} ק״מ",
   "run.arrive.keepWalking": "ממשיכים בהליכה",
   "run.arrive.switchToRun": "עוברים לריצה",
-  "run.arrive.counts": "ההליכה עד כאן ({km} ק״מ, {steps, plural, one {צעד אחד} other {# צעדים}}) נספרת באותו אימון"
+  "run.arrive.counts": "ההליכה עד כאן ({km} ק״מ, {steps, plural, one {צעד אחד} other {# צעדים}}) נספרת באותו אימון",
+  "hybrid.complete.freeWalk": "להמשיך ללכת חופשי",
+  "hybrid.complete.finish": "לסיים",
+  "parkLive.welcome.title": "ברוכים הבאים ל{park}",
+  "parkLive.welcome.titleNoName": "ברוכים הבאים לגינה",
+  "parkLive.welcome.sub": "אתם כבר בגינה, אז מתחילים מהכוח",
+  "parkLive.after.walking": "אחר כך: הליכה, {min} דק׳",
+  "parkLive.after.running": "אחר כך: ריצה, {min} דק׳",
+  "parkLive.bw.title.park": "תחנת משקל גוף",
+  "parkLive.bw.title.street": "תחנה ברחוב",
+  "parkLive.bw.streetNote": "אין גינה בדרך, עובדים עם מה שיש ברחוב",
+  "parkLive.bw.how": "{n, plural, =1 {תרגיל אחד} other {# תרגילים}}, {sets, plural, =1 {סט אחד בכל תרגיל} other {# סטים בכל תרגיל}}. סרטון לפני כל תרגיל.",
+  "parkLive.bw.howMixed": "{n, plural, =1 {תרגיל אחד} other {# תרגילים}}. סרטון לפני כל תרגיל.",
+  "parkLive.bw.start": "לסרטון הראשון"
 }

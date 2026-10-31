@@ -34,6 +34,20 @@ export interface StationContext {
    *  the same park are one location), else the stop, else the station's position. The
    *  find-the-equipment screen is shown once per exercise per location. */
   locationKey: string;
+  /** The session starts at this station (nothing before it): the intro greets "you're already at the park". */
+  atStart?: boolean;
+  /** Planned aerobic seconds right after this station (to the next station or the end), or null when none. */
+  afterSec?: number | null;
+}
+
+function aerobicSecAfter(plan: readonly HybridPlannedSegment[], cursor: number): number | null {
+  let sec = 0;
+  let any = false;
+  for (let i = cursor + 1; i < plan.length && plan[i].kind !== 'strength'; i++) {
+    any = true;
+    sec += plan[i].durationSec ?? 0;
+  }
+  return any && sec > 0 ? sec : null;
 }
 
 /** Context for the station at `cursor` (the one currently running). */
@@ -53,6 +67,8 @@ export function computeStationContext(
     estimatedMin: current?.durationSec ? Math.max(1, Math.round(current.durationSec / 60)) : null,
     availableEquipment: current?.availableEquipment ?? null,
     locationKey: parkId ? `park:${parkId}` : current?.stopId ? `stop:${current.stopId}` : `station:${cursor}`,
+    atStart: cursor === 0,
+    afterSec: aerobicSecAfter(plan, cursor),
   };
   const nextLeg = plan.slice(cursor + 1).find((seg) => seg.kind === 'aerobic');
   const nextLegKind: 'walking' | 'running' = nextLeg?.aerobicType === 'running' ? 'running' : 'walking';

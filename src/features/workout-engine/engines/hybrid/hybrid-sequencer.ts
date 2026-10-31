@@ -252,6 +252,12 @@ export function reduceSequencer(s: SequencerState, ev: SequencerEvent): Sequence
       return ignored(s, ev.type);
     }
 
+    case 'APPEND_LEG': {
+      if (s.phase !== 'station') return ignored(s, ev.type);
+      const inner = hybridReduce(s.inner, { type: 'APPEND_LEG', segment: ev.segment });
+      return inner === s.inner || inner.plan.length === s.inner.plan.length ? ignored(s, ev.type) : withLog({ ...s, inner }, 'APPEND_LEG (free leg after the last station)');
+    }
+
     default:
       return s;
   }

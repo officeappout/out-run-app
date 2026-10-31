@@ -52,6 +52,8 @@ import { useUserStore } from '@/features/user';
 import type { Park } from '@/features/parks/core/types/park.types';
 import StationWelcomeScreen from './StationWelcomeScreen';
 import ParkStationIntro from './v2/park/ParkStationIntro';
+import BodyweightStationIntro from './v2/park/BodyweightStationIntro';
+import { bodyweightIntroView } from './v2/park/bodyweight-intro';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
 import { useComboFlowV1 } from './v2/combo/useComboFlowV1';
 import { stationIntroDifficulty, stationIntroView, stationRunPlan, type StationDifficulty } from './park-live-v2';
@@ -94,6 +96,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   const arrive = useHybridRun((s) => s.arrive);
   const finishStationWork = useHybridRun((s) => s.finishStationWork);
   const continueAfterStation = useHybridRun((s) => s.continueAfterStation);
+  const continueFreeWalk = useHybridRun((s) => s.continueFreeWalk);
   const pendingStationComplete = useHybridRun((s) => s.pendingStationComplete);
   const stationContext = useHybridRun((s) => s.stationContext);
   const swapStationExercise = useHybridRun((s) => s.swapStationExercise);
@@ -144,6 +147,11 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
     [parkLive, stationPlan, stationDifficulty],
   );
   const parkIntro = useMemo(() => (parkLive ? stationIntroView(stationPlan) : null), [parkLive, stationPlan]);
+  // Board PlayerStationIntro "park" / "street": a station with no machine tabata gets the v2 intro too.
+  const bodyweightIntro = useMemo(
+    () => (parkLive && !parkIntro ? bodyweightIntroView(stationPlan, stationContext?.parkId ?? null) : null),
+    [parkLive, parkIntro, stationPlan, stationContext?.parkId],
+  );
 
   const handleStationWorkDone = (exerciseLog: ReturnType<typeof toSegmentExerciseDetail>) => {
     // Count only COMPLETED guided stations (≥1 logged set) — never skipped / empty exits.
@@ -158,8 +166,10 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
         setFastPromptFor(stationContext.stationNumber);
       }
     }
-    if (v2) completeStation(exerciseLog);
-    else finishStationWork(exerciseLog);
+    // enable_combo_flow_v1 (board ParkStationDone, M25): v2 shows the station-done sheet too (it used to
+    // close the station straight away, so the sheet never appeared); the last station asks walk-on / finish.
+    if (v2 && !comboSheet) completeStation(exerciseLog);
+    else finishStationWork(exerciseLog, { askFinal: comboSheet });
   };
 
   // Station-approach moment (David, 25.09.2026): real GPS distance to the
@@ -253,6 +263,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
             summary={pendingStationComplete}
             context={stationContext}
             onContinue={continueAfterStation}
+            onFreeWalk={continueFreeWalk}
             sheet={comboSheet}
             fastPrompt={
               stationContext && fastPromptFor === stationContext.stationNumber
@@ -266,6 +277,12 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
             context={stationContext}
             difficulty={stationIntroDifficulty(stationPlan, stationDifficulty)}
             onDifficulty={setStationDifficulty}
+            onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
+          />
+        ) : bodyweightIntro && guided && stationContext && welcomeDoneFor !== stationContext.stationNumber ? (
+          <BodyweightStationIntro
+            intro={bodyweightIntro}
+            context={stationContext}
             onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
           />
         ) : guided && stationContext && welcomeDoneFor !== stationContext.stationNumber ? (

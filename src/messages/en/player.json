@@ -1188,5 +1188,18 @@
   "run.arrive.route": "{name} · {km} km",
   "run.arrive.keepWalking": "Keep walking",
   "run.arrive.switchToRun": "Switch to running",
-  "run.arrive.counts": "The walk so far ({km} km, {steps, plural, one {# step} other {# steps}}) counts in the same workout"
+  "run.arrive.counts": "The walk so far ({km} km, {steps, plural, one {# step} other {# steps}}) counts in the same workout",
+  "hybrid.complete.freeWalk": "Keep walking freely",
+  "hybrid.complete.finish": "Finish",
+  "parkLive.welcome.title": "Welcome to {park}",
+  "parkLive.welcome.titleNoName": "Welcome to the park",
+  "parkLive.welcome.sub": "You’re already at the park, so strength comes first",
+  "parkLive.after.walking": "Then: a walk, {min} min",
+  "parkLive.after.running": "Then: a run, {min} min",
+  "parkLive.bw.title.park": "Bodyweight station",
+  "parkLive.bw.title.street": "Street station",
+  "parkLive.bw.streetNote": "No park on the way, so we use what the street has",
+  "parkLive.bw.how": "{n, plural, one {One exercise} other {# exercises}}, {sets, plural, one {one set each} other {# sets each}}. A video before each exercise.",
+  "parkLive.bw.howMixed": "{n, plural, one {One exercise} other {# exercises}}. A video before each exercise.",
+  "parkLive.bw.start": "To the first video"
 }

@@ -53,6 +53,8 @@ function normalize(docId: string, data: any): UserContribution {
     facilityType: data.facilityType ?? undefined,
     featureTags: Array.isArray(data.featureTags) ? data.featureTags : undefined,
     isPointOfInterest: data.isPointOfInterest ?? false,
+    gymEquipment: Array.isArray(data.gymEquipment) ? data.gymEquipment : undefined,
+    scan: data.scan && typeof data.scan === 'object' ? data.scan : undefined,
     linkedParkId: data.linkedParkId ?? undefined,
     editDiff: data.editDiff ?? undefined,
     editSummary: data.editSummary ?? undefined,

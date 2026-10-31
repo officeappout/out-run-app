@@ -83,7 +83,9 @@ export type HybridEvent =
    */
   | { type: 'STATION_SKIPPED'; atMs?: number }
   /** Final aerobic leg finished → session complete. */
-  | { type: 'FINISH'; cumulativeKm: number; elapsedSec: number; atMs?: number };
+  | { type: 'FINISH'; cumulativeKm: number; elapsedSec: number; atMs?: number }
+  /** M25: at the LAST station, add an open aerobic leg after it (keep walking freely). */
+  | { type: 'APPEND_LEG'; segment: HybridPlannedSegment };
 
 // ============================================================================
 // INIT
@@ -326,9 +328,26 @@ export function hybridReduce(state: HybridRunState, event: HybridEvent): HybridR
       return { ...state, actuals, phase: 'done', log: [...state.log, `FINISH → done (segment ${state.cursor})`] };
     }
 
+    case 'APPEND_LEG': {
+      if (state.phase !== 'station' || state.cursor !== state.plan.length - 1 || event.segment.kind !== 'aerobic') {
+        return ignore(state, event);
+      }
+      return {
+        ...state,
+        plan: [...state.plan, event.segment],
+        actuals: [...state.actuals, undefined],
+        log: [...state.log, `APPEND_LEG → segment ${state.plan.length}`],
+      };
+    }
+
     default:
       return state;
   }
+}
+
+/** M25: the open walk / run added after the last station (no distance or time target). */
+export function freeLegSegment(index: number, aerobicType: 'walking' | 'running'): HybridPlannedSegment {
+  return { index, kind: 'aerobic', aerobicType, estCalories: 0, freeLeg: true };
 }
 
 /** Convenience for tests / batch replay: fold a list of events left-to-right. */
