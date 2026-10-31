@@ -9,7 +9,7 @@
 import type { ScanVerdict } from '@/lib/ai/scan/scan-types';
 import type { ScanApiError } from './scan-api';
 
-export type ScanEdge = 'dark' | 'people' | 'not_found';
+export type ScanEdge = 'dark' | 'not_found';
 
 export type ScanScreen =
   | { kind: 'confirm'; equipmentId: string; brandName?: string; alternatives: string[]; open: boolean }
@@ -22,7 +22,6 @@ const isCatalogId = (id: string) => !id.startsWith('urban:');
 export function screenFromVerdict(verdict: ScanVerdict | undefined): ScanScreen {
   if (!verdict || verdict.kind === 'retake') {
     const reason = verdict?.kind === 'retake' ? verdict.reason : 'no_equipment';
-    if (reason === 'people') return { kind: 'edge', edge: 'people' };
     if (reason === 'dark') return { kind: 'edge', edge: 'dark' };
     return { kind: 'edge', edge: 'not_found' };
   }

@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * Camera scan, park mapping: what is uploaded on submit, and only then. The cover photo is the
- * first usable shot (no people, the wide angle); each unknown object gets a crop of its box from
+ * Camera scan, park mapping: what is uploaded on submit, and only then. A photo with people in it
+ * is never uploaded (owner 31.10: recognize from it, never save it): the cover is the first
+ * people-free shot, or none; each unknown object gets a crop of its box from
  * its shot, for the admin's "מתקן חדש להוסיף לקטלוג" queue. Same owner-scoped folder and rule as
  * the wizard's photo step (contribution-photos/{uid}/…).
  */
@@ -42,9 +43,14 @@ async function cropBase64(base64: string, box: ScanBox): Promise<string | null> 
   }
 }
 
+/** The shot used as the cover: the first without people, or none. */
+export function coverShot(shots: readonly ParkShot[]): ParkShot | null {
+  return shots.find((s) => !s.result.hasPeople) ?? null;
+}
+
 export async function uploadCover(uid: string, shots: readonly ParkShot[]): Promise<{ url: string; path: string } | null> {
-  const first = shots.find((s) => s.base64);
-  if (!first?.base64) return null;
+  const first = coverShot(shots);
+  if (!first) return null;
   try {
     return await uploadJpeg(uid, first.base64, 'scan');
   } catch (err) {
@@ -61,7 +67,9 @@ export async function uploadUnknownCrops(
 ): Promise<Array<{ description: string; photoUrl?: string }>> {
   const out: Array<{ description: string; photoUrl?: string }> = [];
   for (const u of unknown) {
-    const src = shots[u.shot]?.base64;
+    const shot = shots[u.shot];
+    // A photo with people is never uploaded, so its unknown object goes without a crop.
+    const src = shot && !shot.result.hasPeople ? shot.base64 : undefined;
     let photoUrl: string | undefined;
     if (src) {
       const crop = u.box ? await cropBase64(src, u.box) : src;

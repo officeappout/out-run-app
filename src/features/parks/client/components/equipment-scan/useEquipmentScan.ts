@@ -60,7 +60,6 @@ export function useEquipmentScan(parkId: string | undefined, onPermissionDenied:
     }
     setLastResult(res.result);
     const next = screenFromVerdict(res.verdict);
-    if (next.kind === 'edge' && next.edge === 'people') setPhoto(null);
     setState(next);
     return true;
   }, [parkId, onPermissionDenied, setPhoto]);

@@ -77,9 +77,11 @@ export function needsCompare(result: ScanPhotoResult, candidates: readonly ScanC
   return (c?.brands?.filter((x) => brandPhoto(x)).length ?? 0) > 1;
 }
 
-/** The single-item screen's next step. People always win: the photo is dropped. */
+/**
+ * The single-item screen's next step. People in the photo don't stop it (owner 31.10: a busy
+ * park shouldn't make scanning hard); `hasPeople` stays on the result for the saving rules.
+ */
 export function singleVerdict(result: ScanPhotoResult): ScanVerdict {
-  if (result.hasPeople) return { kind: 'retake', reason: 'people' };
   const [top, ...rest] = result.items;
   if (!top) return { kind: 'retake', reason: result.quality === 'ok' ? 'no_equipment' : result.quality };
   const alternatives = rest.slice(0, 3).map((i) => i.candidateId);
