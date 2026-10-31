@@ -27,7 +27,10 @@ export async function submitScanContribution(args: {
 }): Promise<string> {
   const { uid, shots, prefill } = args;
   const [cover, unknown] = await Promise.all([uploadCover(uid, shots), uploadUnknownCrops(uid, shots, prefill.unknown)]);
-  const scan = scanMetaFor(prefill.merged, args.gymEquipment.map((g) => g.equipmentId), unknown);
+  const scan = {
+    ...scanMetaFor(prefill.merged, args.gymEquipment.map((g) => g.equipmentId), unknown),
+    withPeople: shots.filter((s) => s.result.hasPeople).length,
+  };
   const id = await createContribution({
     userId: uid,
     type: 'new_location',

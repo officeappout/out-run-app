@@ -127,7 +127,6 @@ export default function EquipmentScanSheet({ open, onClose, parkId, onRecognized
               error={state.kind === 'error' ? state.error : undefined}
               onRetake={retake}
               onPick={() => setState({ kind: 'pick' })}
-              onCancel={close}
             />
           )}
           {state.kind === 'pick' && <ScanPickPanel catalog={catalog} loading={loading} onPick={(id) => finish('search', id)} />}

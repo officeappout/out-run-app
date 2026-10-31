@@ -32,8 +32,7 @@ export default function StepScanCapture({ scan, onNext, onBack }: StepScanCaptur
   const hint = guide.kind === 'angle'
     ? t(`wizard.scan.angle.${guide.angle}.hint` as 'wizard.scan.angle.wide.hint')
     : guide.kind === 'closer' ? t('wizard.scan.closer.hint') : t('wizard.scan.done.hint');
-  const noticeText = notice === 'people' ? t('wizard.scan.notice.people')
-    : notice === 'dark' ? t('wizard.scan.notice.dark')
+  const noticeText = notice === 'dark' ? t('wizard.scan.notice.dark')
       : notice === 'rate_limited' ? t('wizard.scan.notice.limit')
         : notice ? t('wizard.scan.notice.error') : null;
 
