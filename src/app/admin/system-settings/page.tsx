@@ -143,6 +143,7 @@ interface FlagState {
   enable_home_after_v1: boolean;
   enable_share_router_v1: boolean;
   enable_workout_post_v1: boolean;
+  enable_combo_generator_v1: boolean;
   enable_home_progress_slot_v1: boolean;
   enable_where_to_train_v1: boolean;
   enable_place_workouts_v1: boolean;
@@ -1209,7 +1210,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'כרטיס אימון אחד: בבית, בפיד ובשיתוף',
     description: 'כרטיס אחד לכל אימון שהסתיים, לפי הסוג (כוח, ריצה, הליכה, משולב): ריבוע עם מפת לילה או תמונה, שם האימון ו־3 טבעות בצבעי הווידג׳ט. בבית זה הכרטיס הקטן של "בוצע היום" בקרוסלה, ובפיד זה הפוסט. הליכה מקבלת טבעת צעדים ולא טבעת ריצה. בהמשך: תמונות השיתוף והסטיקרים. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },  // Combo generator (31.10.2026), vision stage 2.
+  {
+    key: 'enable_combo_generator_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'מחולל שילובים: אימון משולב מבקשה אחת',
+    description: 'בקשה אחת (אירובי, כוח, סדר, מקום אחד, זמן) הופכת לאימון שרץ בנגנים הקיימים: AMRAP או EMOM עם ריצה בכל סבב (רק מרמה 8 במשיכה ובדחיפה), טבטה או בטן אחרי ריצה, השלמה לפי סטים חסרים ויום בשני חלקים. קודם המנוע, המסך יגיע אחרי אישור הקנבס. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
+
   // Home progress slot (23.10.2026) — owner-approved progress hub boards PG-1.
   {
     key: 'enable_home_progress_slot_v1',
