@@ -11,6 +11,7 @@ import {
   Save, CheckCircle2, Loader2, Shield
 } from 'lucide-react';
 import ExecutionMethodCard from './ExecutionMethodCard';
+import { duplicateMethodName, methodNameLabel, toLocalizedMethodName } from './shared/method-text.utils';
 import { useMethodsAutosave } from '../../hooks/useMethodsAutosave';
 
 /**
@@ -178,7 +179,14 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
 
   const handleRestoreDraft = () => {
     if (draftToRestore) {
-      setExecutionMethods(draftToRestore);
+      // Older drafts hold methodName as a Hebrew string. Re-attach the loaded
+      // English name when the Hebrew matches, so the save doesn't write en: ''.
+      setExecutionMethods(draftToRestore.map((m, idx) => {
+        const name = toLocalizedMethodName(m.methodName);
+        const loaded = toLocalizedMethodName(executionMethods[idx]?.methodName);
+        if (!name.en && loaded.en && name.he === loaded.he) name.en = loaded.en;
+        return { ...m, methodName: name };
+      }));
       setShowDraftPrompt(false);
       setDraftToRestore(null);
       
@@ -260,8 +268,7 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
   const duplicateMethod = (index: number) => {
     const originalMethod = executionMethods[index];
     const clonedMethod = deepClone(originalMethod);
-    const originalName = clonedMethod.methodName || `Method ${index + 1}`;
-    clonedMethod.methodName = `${originalName} (עותק)`;
+    clonedMethod.methodName = duplicateMethodName(clonedMethod.methodName, `Method ${index + 1}`);
 
     // Sync the scalar `location` from locationMapping[0] at clone time so the
     // duplicate displays the correct location in the CMS UI immediately,
@@ -449,17 +456,10 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
 
       <div className="space-y-3">
         {executionMethods.map((method, index) => {
-          // Sanitize methodName
+          // Keep methodName as { he, en } so the card's EN tab can show/edit it
           const sanitizedMethod: ExecutionMethod = {
             ...method,
-            methodName: (() => {
-              const name = method.methodName;
-              if (typeof name === 'string') return name;
-              if (typeof name === 'object' && name !== null) {
-                return (name as any).he || (name as any).en || '';
-              }
-              return '';
-            })()
+            methodName: toLocalizedMethodName(method.methodName),
           };
           
           const isJustDuplicated = justDuplicatedIndex === index;
@@ -473,7 +473,7 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
             : (sanitizedMethod.location || 'home');
           const locationLabel = LOCATION_LABELS[primaryLocation] || LOCATION_LABELS.home;
           const hasMultipleLocations = locationMappingArr.length > 1;
-          const methodDisplayName = sanitizedMethod.methodName || `שיטת ביצוע ${index + 1}`;
+          const methodDisplayName = methodNameLabel(sanitizedMethod.methodName) || `שיטת ביצוע ${index + 1}`;
           const equipmentNames = getEquipmentNames(sanitizedMethod);
           const status = getMethodStatus(sanitizedMethod);
           
@@ -656,14 +656,7 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
                     onUpdate={(updated) => {
                       const sanitizedUpdate: ExecutionMethod = {
                         ...updated,
-                        methodName: (() => {
-                          const name = updated.methodName;
-                          if (typeof name === 'string') return name;
-                          if (typeof name === 'object' && name !== null) {
-                                  return (name as any).he || (name as any).en || '';
-                          }
-                          return '';
-                        })()
+                        methodName: toLocalizedMethodName(updated.methodName),
                       };
                       const newMethods = [...executionMethods];
                       newMethods[index] = sanitizedUpdate;

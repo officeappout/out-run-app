@@ -15,6 +15,7 @@ import ExerciseEditorForm from '@/features/content/exercises/admin/ExerciseEdito
 import MobileFrame from '@/features/admin/components/shared/MobileFrame';
 import ExerciseDetailView from '@/features/app/exercises/components/ExerciseDetailView';
 import { useIsMounted } from '@/hooks/useIsMounted';
+import { toLocalizedMethodName } from '@/features/content/exercises/admin/components/exercise-editor/shared/method-text.utils';
 
 export default function EditExercisePage() {
   const router = useRouter();
@@ -37,13 +38,8 @@ export default function EditExercisePage() {
     if (!Array.isArray(methods)) return [];
     return methods.map((method) => {
       const sanitized = { ...method };
-      // Ensure methodName is always a string
-      if (typeof sanitized.methodName === 'object' && sanitized.methodName !== null) {
-        sanitized.methodName = sanitized.methodName.he || sanitized.methodName.en || '';
-        console.warn('[EditExercisePage] Sanitized methodName from object:', sanitized.methodName);
-      } else if (typeof sanitized.methodName !== 'string') {
-        sanitized.methodName = String(sanitized.methodName || '');
-      }
+      // Keep methodName as { he, en } — flattening it here wiped `en` on save
+      sanitized.methodName = toLocalizedMethodName(sanitized.methodName);
       return sanitized;
     });
   };
