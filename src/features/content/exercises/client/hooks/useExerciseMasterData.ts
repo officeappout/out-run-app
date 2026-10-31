@@ -22,6 +22,7 @@
  */
 
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { useVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { useEffect, useMemo, useState } from 'react';
 import { auth } from '@/lib/firebase';
 import {
@@ -167,6 +168,7 @@ export function useExerciseMasterData(
   activeProgramId?: string | null,
 ): ExerciseMasterData {
   const contentLang = useContentLanguage();
+  const videoLang = useVideoLanguage();
   // ── Synchronous view-model ─────────────────────────────────────────────
   const sheetData = useMemo<SheetData | null>(() => {
     if (!exercise) return null;
@@ -183,10 +185,10 @@ export function useExerciseMasterData(
       `preResolved.location="${preResolved?.location ?? 'none'}"`,
       `preResolved.mainVideoUrl="${preResolved?.media?.mainVideoUrl ?? '–'}"`,
     );
-    return buildSheetData(exercise, location, preResolved, contentLang);
+    return buildSheetData(exercise, location, preResolved, contentLang, videoLang);
   // `methodIdx` is a primitive number — guaranteed stable dep, no ref churn.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exercise, location, methodIdx, contentLang]);
+  }, [exercise, location, methodIdx, contentLang, videoLang]);
 
   // ── Personal history trend (async) ─────────────────────────────────────
   const [trend, setTrend] = useState<ExerciseSessionEntry[] | null>(null);

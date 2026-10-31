@@ -19,6 +19,7 @@ import type { GeneratedWorkout } from '../logic/workout-generator.types';
 import { getLocalizedText as glt } from '@/features/content/shared/localized-text.types';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { resolveExerciseMedia } from '../shared/utils/media-resolution.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from '../logic/protocols/tabata.block';
 import { withTimedMainBlock } from '../logic/protocols/timed.block';
@@ -58,7 +59,7 @@ export function buildWorkoutPlanFromGenerated(
     const actuallyTimeBased = ex.exercise.type === 'time' || ex.isTimeBased;
 
     const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl, fullTutorial: resolvedFullTutorial } =
-      resolveExerciseMedia(ex.exercise as any, ex.method as any);
+      resolveExerciseMedia(ex.exercise as any, ex.method as any, getVideoLanguage());
 
     if (!resolvedImageUrl && !resolvedVideoUrl) {
       const allMethods = ex.exercise.execution_methods || ex.exercise.executionMethods || [];

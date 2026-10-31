@@ -43,6 +43,7 @@ import { auth, db } from '@/lib/firebase';
 import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
@@ -2587,7 +2588,7 @@ export default function HomePage() {
         const actuallyTimeBased = ex.exercise.type === 'time' || ex.isTimeBased;
 
         const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl, fullTutorial: resolvedFullTutorial, bunnyVideoId: resolvedBunnyVideoId } =
-          resolveExerciseMedia(ex.exercise as any, ex.method as any);
+          resolveExerciseMedia(ex.exercise as any, ex.method as any, getVideoLanguage());
 
         if (!resolvedImageUrl && !resolvedVideoUrl) {
           const allMethods = ex.exercise.execution_methods || ex.exercise.executionMethods || [];
