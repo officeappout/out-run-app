@@ -55,6 +55,8 @@ const SCORES: [string, string, Prog, number, number, number][] = [
   ['77', 'kb1MB9It40iDOrR1aacW', 'hspu', 11, 5, 10],
   ['78', 'W61ECyiZmD9APomgxAfz', 'hspu', 14, 4, 10],
   ['85', 'd7WlTqEJVeze9NNQS3fh', 'hspu', 15, 15, 15],
+  // 31.10 (owner OK): existing prayer stretch page, mobility ladder M2.
+  ['prayer', 'gWHaGzObmixb1vr66l5I', 'handstand', 1, 1, 2],
 ];
 
 const BALANCE_GATE = 10;
