@@ -10,6 +10,7 @@
  *        park_submit  a mapped park was sent: kept / removed / added items
  */
 import { z } from 'zod';
+import { brandKey } from './scan-candidates';
 
 const ID = z.string().min(1).max(128).regex(/^[A-Za-z0-9_:-]+$/);
 const BRAND = z.string().trim().min(1).max(80);
@@ -32,7 +33,7 @@ export type ScanFeedback = z.infer<typeof ScanFeedbackSchema>;
 export function feedbackRecord(uid: string, body: ScanFeedback, now: Date) {
   const top = body.detected[0];
   const hit = !!top && !!body.confirmed && top.equipmentId === body.confirmed.equipmentId;
-  const brandHit = hit && !!top.brandName && top.brandName === body.confirmed?.brandName;
+  const brandHit = hit && !!top.brandName && !!body.confirmed?.brandName && brandKey(top.brandName) === brandKey(body.confirmed.brandName);
   return {
     ...body,
     uid,
