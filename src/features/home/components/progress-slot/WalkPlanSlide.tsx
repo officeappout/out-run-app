@@ -16,7 +16,11 @@ import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import PlanProgressCard from './PlanProgressCard';
 
-export default function WalkPlanSlide({ targetWeeklyMinutes }: { targetWeeklyMinutes: number }) {
+export default function WalkPlanSlide({ targetWeeklyMinutes, onOpen }: {
+  targetWeeklyMinutes: number;
+  /** enable_schedule_pilot_v1 (pilot P13, owner 31.10): today's walk overview, where the walk starts. */
+  onOpen?: () => void;
+}) {
   const t = useT(home);
   const router = useRouter();
   const { current } = useWeekActivitySummary();
@@ -35,7 +39,7 @@ export default function WalkPlanSlide({ targetWeeklyMinutes }: { targetWeeklyMin
       kicker={t('progressSlot.walk.kicker')}
       value={t('progressSlot.walk.minutes', { minutes: formatNumber(minutes, t.locale) })}
       line={t('progressSlot.walk.ofTarget', { target: formatNumber(targetWeeklyMinutes, t.locale) })}
-      onClick={() => router.push(PROGRESS_RUN_HREF)}
+      onClick={onOpen ?? (() => router.push(PROGRESS_RUN_HREF))}
     />
   );
 }

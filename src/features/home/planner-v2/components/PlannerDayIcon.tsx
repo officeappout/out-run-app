@@ -12,10 +12,11 @@ import { FLAME_TONES } from '@/components/ui/v2/streak';
 import { TRACK_COLORS } from '@/components/ui/v2/track-colors';
 import { getRunCategoryColor, getRunCategoryIcon } from '@/features/home/utils/run-category-icon';
 import type { PlannerDayCell } from '../lib/monthCells';
+import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 
 const SIZE = 32;
 
-function PlannedGlyph({ cell }: { cell: PlannerDayCell }) {
+function PlannedGlyph({ cell, programIcons }: { cell: PlannerDayCell; programIcons: boolean }) {
   const first = cell.planned[0];
   const today = cell.isToday;
   if (first.track === 'run') {
@@ -23,10 +24,14 @@ function PlannedGlyph({ cell }: { cell: PlannerDayCell }) {
     return <span style={{ color: today ? color : `${color}99` }}>{getRunCategoryIcon(first.runCategory, 'h-4 w-4')}</span>;
   }
   if (first.track === 'walk') return <Footprints className="h-4 w-4" style={{ color: today ? TRACK_COLORS.walk : `${TRACK_COLORS.walk}99` }} aria-hidden />;
+  // enable_schedule_pilot_v1 (pilot P12): the program's own icon, like the home strip.
+  if (programIcons && first.programSlug) {
+    return <span className="grid h-4 w-4 place-items-center" style={{ color: today ? '#0284c7' : 'rgba(2,132,199,0.6)' }}>{getProgramIcon(resolveIconKey(null, first.programSlug), 'h-4 w-4')}</span>;
+  }
   return <Dumbbell className="h-4 w-4" style={{ color: today ? '#0284c7' : 'rgba(2,132,199,0.6)' }} aria-hidden />;
 }
 
-export default function PlannerDayIcon({ cell }: { cell: PlannerDayCell }) {
+export default function PlannerDayIcon({ cell, programIcons = false }: { cell: PlannerDayCell; programIcons?: boolean }) {
   if (cell.kind === 'done') {
     return (
       <span className="relative grid place-items-center" style={{ width: SIZE + 2, height: SIZE + 2 }}>
@@ -52,7 +57,7 @@ export default function PlannerDayIcon({ cell }: { cell: PlannerDayCell }) {
           boxShadow: cell.isToday ? '0 0 0 2px #00baf7' : undefined,
         }}
       >
-        <PlannedGlyph cell={cell} />
+        <PlannedGlyph cell={cell} programIcons={programIcons} />
       </span>
     );
   }

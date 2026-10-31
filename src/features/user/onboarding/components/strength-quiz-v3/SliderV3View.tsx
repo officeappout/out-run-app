@@ -83,22 +83,29 @@ export default function SliderV3View(props: SliderV3ViewProps) {
   const nudging = hintVisible && !reduce;
   const skillName = t('quiz.slider.category', { category: category.toLowerCase(), name: category });
 
-  const move = (dir: -1 | 1) => {
+  /** true when the selection actually changed. */
+  const move = (dir: -1 | 1): boolean => {
     setHintVisible(false);
     const next = moveSelection(steps.length, selected, dir, hasNotYet);
-    if (next === selected) return;
-    if (next < 0) { setNotYet(true); return; }
+    if (next === selected) return false;
+    if (next < 0) { setNotYet(true); return true; }
     setNotYet(false);
     if (next !== selectedIndex) onSelectIndex(next);
+    return true;
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
     const start = swipeStart.current;
     swipeStart.current = null;
     if (!start) return;
-    drag.settle();
-    const dir = swipeDirection(e.clientX - start.x, e.clientY - start.y, rtl);
-    if (dir !== 0) { justSwiped.current = true; move(dir); }
+    const dx = e.clientX - start.x;
+    const dir = swipeDirection(dx, e.clientY - start.y, rtl);
+    if (dir === 0) { drag.settle(); return; }
+    justSwiped.current = true;
+    // AH9: measure before the swap, then slide the pulled-in card to the centre.
+    const canMove = moveSelection(steps.length, selected, dir, hasNotYet) !== selected;
+    if (canMove) drag.commit(dx); else drag.settle();
+    move(dir);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -221,7 +228,8 @@ export default function SliderV3View(props: SliderV3ViewProps) {
       )}
 
       <div className="flex flex-shrink-0 flex-col gap-1 px-5 pb-3 pt-3">
-        <Button variant="cta" size="lg" block onClick={notYet && onNotYet ? onNotYet : onConfirm}>
+        {/* AH10: the one action on this screen, a size up so it reads first. */}
+        <Button variant="cta" size="lg" block className="!h-[60px] !text-[18px] !font-black" onClick={notYet && onNotYet ? onNotYet : onConfirm}>
           {hasNotYet ? t('quizV3.skill.cta') : t('quiz.slider.cta.myLevel')}
         </Button>
         <button
