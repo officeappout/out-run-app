@@ -34,6 +34,7 @@ import { X, Check, Loader2 } from 'lucide-react';
 import ProfilePhotoUploader from '@/components/ui/ProfilePhotoUploader';
 import { useUserStore } from '@/features/user';
 import { usePersonalInfoEditor, TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
+import { trainingTagLabel } from '@/features/profile/hooks/training-tag-label';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
@@ -150,7 +151,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                   : 'bg-gray-50 text-gray-600 border-gray-200'
               }`}
             >
-              {t('editProfile.tags.option', { id: tag.id })}
+              {trainingTagLabel(tag, t)}
             </button>
           );
         })}

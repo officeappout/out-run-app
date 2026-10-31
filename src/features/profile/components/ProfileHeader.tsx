@@ -21,6 +21,7 @@
 import React from 'react';
 import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
+import { trainingTagLabel } from '@/features/profile/hooks/training-tag-label';
 import { avatarBackground, firstGrapheme } from '@/features/profile/utils/avatar';
 import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
@@ -110,7 +111,7 @@ export default function ProfileHeader({
                     key={tagId}
                     className="whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12px] font-extrabold text-v2-ink-2 shadow-v2-ring"
                   >
-                    {tag ? t('editProfile.tags.option', { id: tag.id }) : tagId}
+                    {tag ? trainingTagLabel(tag, t) : tagId}
                   </span>
                 );
               })}
@@ -216,7 +217,7 @@ export default function ProfileHeader({
                   key={tagId}
                   className="text-[11px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1"
                 >
-                  {tag ? t('editProfile.tags.option', { id: tag.id }) : tagId}
+                  {tag ? trainingTagLabel(tag, t) : tagId}
                 </span>
               );
             })}
