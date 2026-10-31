@@ -17,7 +17,8 @@ import type { HybridSlot, SlotEnv } from '../hybrid-slots';
 import type { HybridStartIntent } from '../build-hybrid-input';
 import { useHybridSituation } from './useHybridSituation';
 import type { SmartProfileLite } from './situation.types';
-import { rankHybridCards } from './rank-hybrid-cards';
+import { goalReachedToday, rankHybridCards } from './rank-hybrid-cards';
+import { goalReachedReason } from './hybrid-card-copy';
 import { resolveSmartSlots } from './resolve-smart-slots';
 import { smartParkRadiusM } from './smart-sizing';
 import { drawerIntentToSmart } from './drawer-smart-intent';
@@ -56,7 +57,11 @@ export function useSmartHybridSlots(a: {
   });
 
   const slots = useMemo(
-    () => (on ? resolveSmartSlots(a.env, situation ? rankHybridCards(situation) : []) : null),
+    () => (on
+      ? resolveSmartSlots(a.env, situation ? rankHybridCards(situation) : [], {
+          goalReachedReason: situation && goalReachedToday(situation) ? goalReachedReason(situation.gender) : null,
+        })
+      : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [on, situation, a.env.hasGps, a.env.aerobicKind, a.env.hasEquippedPark, a.env.hasStrengthProgram,
       a.env.enableFullParkWorkout, a.env.enableRouteStops, a.env.enableRecommendedHybrid],

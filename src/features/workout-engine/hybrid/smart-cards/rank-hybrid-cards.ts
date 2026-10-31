@@ -132,6 +132,15 @@ export function rankRouteStops(s: HybridSituation): RankedHybridCard | null {
   return { id: 'route_stops', score, route, reason: routeStopsReason(route, s.gender) };
 }
 
+/**
+ * Pilot O8: today's step goal is met AND the weekly strength sets are spent, independent of any
+ * park (with no equipped park near, no card ranks and only the free walk is left).
+ */
+export function goalReachedToday(s: HybridSituation): boolean {
+  const sizing = sizeSmartSession({ steps: s.steps, strength: s.strength, kind: s.aerobicKind, parkDistanceM: 0, basePaceSecPerKm: s.basePaceSecPerKm });
+  return sizing.stepsSource === 'goal_met' && sizing.setsSource === 'spent';
+}
+
 export function rankHybridCards(s: HybridSituation): RankedHybridCard[] {
   const cards = [rankWalkStrength(s), rankFullPark(s), rankRouteStops(s)]
     .filter((c): c is RankedHybridCard => c != null);
