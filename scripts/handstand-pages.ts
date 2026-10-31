@@ -31,7 +31,7 @@ if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(
 const db = admin.firestore();
 
 type Muscle = 'core' | 'shoulders' | 'back';
-interface Page { num: string; he: string; oldId: number; videos: { label?: string; driveId: string }[]; sbm: [number, number, number]; type: 'time' | 'reps'; muscle: Muscle }
+interface Page { num: string; he: string; oldId: number; videos: { label?: string; driveId: string }[]; sbm: [number, number, number]; type: 'time' | 'reps'; muscle: Muscle; existingId?: string }
 
 const PAGES: Page[] = [
   { num: '8', he: 'החזקת גוף חלול בטאק', oldId: 268, videos: [{ driveId: '1OassRVDHNQkNz-f3taras7TL9gcFDcr4' }], sbm: [6, 1, 1], type: 'time', muscle: 'core' },
@@ -52,7 +52,24 @@ const PAGES: Page[] = [
   { num: '62', he: 'עמידת עורב', oldId: 272, videos: [{ driveId: '1RBryXrTQv3g7g8xFjxRewO-yuKYaTOuz' }], sbm: [4, 7, 2], type: 'time', muscle: 'shoulders' },
   { num: 'taps-plank', he: 'נגיעות כתפיים בפלאנק גבוה', oldId: 258, videos: [{ driveId: '1clofk0Q9pKlkpA8KiXNAoS3gA6bs6o_8' }], sbm: [5, 3, 2], type: 'reps', muscle: 'shoulders' },
   { num: 'taps-pike', he: 'נגיעות כתפיים בפייק', oldId: 260, videos: [{ driveId: '1kcym4LMQ51eOyQkNvLw4uGPpWIjBMybd' }], sbm: [5, 3, 6], type: 'reps', muscle: 'shoulders' },
+  // Wave 2 (owner, 31.10): the rest of the ready-folder videos.
+  { num: 'pike-shrugs', he: 'הרמת שכמות בעמידת פייק', oldId: 256, videos: [{ driveId: '1R2sIhmIOHa4BFymiOC-9W8TGX6RqDPfY' }], sbm: [4, 1, 6], type: 'reps', muscle: 'shoulders' },
+  { num: 'half-kickup', he: 'חצי קיק אפ', oldId: 277, videos: [{ driveId: '1Jt4_RDoIB3pLwJFrM5En-Pq7-dZv7jWw' }], sbm: [5, 6, 7], type: 'reps', muscle: 'shoulders' },
+  { num: 'seiza-pike', he: 'ישיבת סייזה לעמידת פייק', oldId: 270, videos: [{ driveId: '1s_QYx_jsWYzKIFtUZASmfgNDDh4JOAyQ' }], sbm: [5, 2, 7], type: 'reps', muscle: 'shoulders' },
+  { num: 'side-stretch', he: 'מתיחת גב צידית', oldId: 267, videos: [{ driveId: '1ixPE2x3NFZjbPLKWmof6SwfINl2SAc72' }], sbm: [1, 1, 4], type: 'time', muscle: 'back' },
+  { num: 'butcher', he: 'מתיחת קצבים', oldId: 279, videos: [{ driveId: '1TkbqC_jY1hT9zsFCsCltBDJQFA664aXf' }], sbm: [1, 1, 5], type: 'time', muscle: 'shoulders' },
+  { num: 'frog-lifts', he: 'עמידת צפרדע ניתוקי רגליים', oldId: 259, videos: [{ driveId: '1LXpmruiJyZQMyLFRztV6LkeCYdjXQ5_T' }], sbm: [3, 4, 2], type: 'time', muscle: 'shoulders' },
+  { num: 'plank-pike', he: 'פלאנק לעמידת פייק', oldId: 264, videos: [{ driveId: '1EI2BjSEL7T1lEFPrfGU56G54kHqsELxf' }], sbm: [5, 1, 6], type: 'reps', muscle: 'shoulders' },
+  { num: 'rail-opening', he: 'פתיחת כתף בעזרת מעקה', oldId: 257, videos: [{ driveId: '1MhmbusVjKU02u8QYlfIA0ySgBHmmziNS' }], sbm: [1, 1, 3], type: 'time', muscle: 'shoulders' },
+  { num: 'cobra', he: 'קוברה תלויה', oldId: 273, videos: [{ driveId: '10jQXmigsIsXz8WvSy0aM4vBvFVzpbeAI' }], sbm: [4, 1, 10], type: 'time', muscle: 'shoulders' },
+  { num: 'supinated-hang', he: 'תלייה פסיבית סופינציה', oldId: 269, videos: [{ driveId: '1G5IL1rHbTh3B3O8z_hjS8AHXoiPrQABT' }], sbm: [3, 1, 7], type: 'time', muscle: 'shoulders' },
+  // Existing page (park method has no video): add the narrated video to its park method only.
+  { num: 'prayer', he: 'מתיחת מתפלל', oldId: 262, videos: [{ driveId: '145WJ5VCsJSUeIkbm-8Mc_9aZZ8jo7nV6' }], sbm: [1, 1, 2], type: 'time', muscle: 'shoulders', existingId: 'gWHaGzObmixb1vr66l5I' },
 ];
+
+/** Park method name, the app's convention: "<name> בפארק" / "<name> at the Park". */
+const parkName = (base: string) => (base.endsWith('בפארק') ? base : `${base} בפארק`);
+const parkNameEn = (base: string) => (base.endsWith('at the Park') ? base : `${base} at the Park`);
 
 type PanelRow = { id: number; goal?: string; notes?: string[]; tips?: string[] };
 const panel = new Map<number, PanelRow>(
@@ -83,6 +100,13 @@ async function driveDownload(driveId: string): Promise<string> {
   return p;
 }
 
+const tutorial = (guid: string, d: Record<string, any>) => ({
+  provider: 'bunny',
+  videoId: guid,
+  thumbnailUrl: `https://${CDN}/${guid}/${d.thumbnailFileName || 'thumbnail.jpg'}`,
+  ...(d.length ? { durationSeconds: d.length } : {}),
+});
+
 const tips = (p: Page) => (panel.get(p.oldId)?.tips ?? []).map((t) => t.trim()).filter((t) => t.length > 2);
 
 function buildDoc(p: Page, media: Record<string, Record<string, unknown>>) {
@@ -112,10 +136,10 @@ function buildDoc(p: Page, media: Record<string, Record<string, unknown>>) {
     execution_methods: p.videos.map((v) => ({
       requiredGearType: 'user_gear',
       location: 'park',
-      locationMapping: ['park', 'home'],
+      locationMapping: ['park'],
       gearIds: [],
       equipmentIds: [],
-      methodName: he(v.label ? `${p.he} ${v.label}` : p.he),
+      methodName: he(parkName(v.label ? `${p.he} ${v.label}` : p.he)),
       specificCues: tips(p).map(he),
       highlights: [],
       media: media[v.driveId],
@@ -137,6 +161,7 @@ async function english() {
   for (const p of selected) {
     const id = log[p.num]?.exerciseId;
     const e = en[p.num];
+    if (p.existingId) continue; // existing page keeps its own English
     if (!id || !e) { console.log(`#${p.num}: ${!id ? 'not created' : 'no English'}, skipped`); continue; }
     const ref = db.collection('exercises').doc(id);
     const d = (await ref.get()).data()!;
@@ -146,7 +171,7 @@ async function english() {
       if (cues.length !== e.cues.length) throw new Error(`#${p.num}: ${cues.length} he cues vs ${e.cues.length} en`);
       return {
         ...m,
-        methodName: { ...m.methodName, en: label ? `${e.name} (${e.methods?.[label] ?? label})` : e.name },
+        methodName: { ...m.methodName, en: parkNameEn(label ? `${e.name} (${e.methods?.[label] ?? label})` : e.name) },
         specificCues: cues.map((c, j) => ({ ...c, en: e.cues[j] })),
       };
     });
@@ -161,8 +186,36 @@ async function english() {
   }
 }
 
+/**
+ * --fix-park [--apply]: wave-1 pages (created before 31.10 evening) → park-only
+ * method named "… בפארק" holding the narrated video as fullTutorial.he too
+ * (owner: other locations get their own methods/videos later). Keeps main/loop.
+ */
+async function fixPark() {
+  const apply = process.argv.includes('--apply');
+  console.log(`Park fix: ${apply ? 'APPLY' : 'dry-run'}`);
+  for (const p of selected) {
+    const id = log[p.num]?.exerciseId;
+    if (!id || p.existingId) continue;
+    const ref = db.collection('exercises').doc(id);
+    const d = (await ref.get()).data()!;
+    let changed = false;
+    const methods = [];
+    for (const m of d.execution_methods as any[]) {
+      const guid = m.media?.bunnyVideoId_mainVideoUrl;
+      const next = { ...m, location: 'park', locationMapping: ['park'], methodName: { he: parkName(m.methodName?.he ?? p.he), en: m.methodName?.en ? parkNameEn(m.methodName.en) : '' } };
+      if (guid && !m.media?.fullTutorial?.he) next.media = { ...m.media, fullTutorial: { ...(m.media.fullTutorial ?? {}), he: tutorial(guid, { length: m.media.videoDurationSeconds }) } };
+      if (JSON.stringify(next) !== JSON.stringify(m)) changed = true;
+      methods.push(next);
+    }
+    console.log(`#${p.num} ${p.he} (${id}): ${changed ? methods.map((m) => m.methodName.he).join(' | ') : 'already ok'}`);
+    if (changed && apply) await ref.update({ execution_methods: methods, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  }
+}
+
 async function main() {
   if (process.argv.includes('--en')) return english();
+  if (process.argv.includes('--fix-park')) return fixPark();
   console.log(`mode: ${mode}${only ? ` only=${only.join(',')}` : ''} (${selected.length} pages)`);
   for (const p of selected) {
     const entry = (log[p.num] ??= {});
@@ -200,9 +253,22 @@ async function main() {
         mainVideoUrl: `https://${CDN}/${guid}/play_360p.mp4`,
         videoDurationSeconds: d.length,
         imageUrl: `https://${CDN}/${guid}/${d.thumbnailFileName || 'thumbnail.jpg'}`,
+        // Owner, 31.10: the narrated video is the park method's full tutorial.
+        fullTutorial: { he: tutorial(guid, d) },
       };
     }
     if (!ready) { console.log(`#${p.num}: video not uploaded/encoded yet, skipped (no page without video)`); continue; }
+    if (p.existingId) {
+      const ref = db.collection('exercises').doc(p.existingId);
+      const d = (await ref.get()).data()!;
+      const methods = (d.execution_methods as any[]).map((m) =>
+        m.location === 'park' ? { ...m, media: { ...m.media, ...media[p.videos[0].driveId] } } : m);
+      await ref.update({ execution_methods: methods, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      entry.exerciseId = p.existingId;
+      saveLog();
+      console.log(`#${p.num} ${p.he}: park video added to ${p.existingId}`);
+      continue;
+    }
     const ref = await db.collection('exercises').add(buildDoc(p, media));
     entry.exerciseId = ref.id;
     saveLog();
