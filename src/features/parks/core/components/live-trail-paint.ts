@@ -14,6 +14,7 @@
  */
 
 import { zoneTrailColorExpression } from './mapLayersConfig';
+import { HYBRID_AER } from './hybrid/hybrid-colors';
 
 export type LiveTrailKind = 'free' | 'route' | 'zones';
 
@@ -43,13 +44,17 @@ export interface LiveTrailPaint {
   line: Record<string, unknown>;
 }
 
-export function liveTrailPaintV1(kind: LiveTrailKind, activityType?: string | null): LiveTrailPaint {
+/** Pilot M23 (enable_pilot_decisions_v1): the route's own green, for the walked trail on a route. */
+export const TRAIL_ROUTE_GREEN = HYBRID_AER;
+
+export function liveTrailPaintV1(kind: LiveTrailKind, activityType?: string | null, greenRoute = false): LiveTrailPaint {
   const walking = activityType === 'walking';
   const brand = walking ? TRAIL_V1_WALK : TRAIL_V1_RUN;
   if (kind === 'route') {
+    const color = greenRoute ? TRAIL_ROUTE_GREEN : walking ? TRAIL_V1_WALK_ROUTE : TRAIL_V1_RUN_ROUTE;
     return {
       casing: { 'line-color': '#ffffff', 'line-width': 8, 'line-opacity': 0.8 },
-      line: { 'line-color': walking ? TRAIL_V1_WALK_ROUTE : TRAIL_V1_RUN_ROUTE, 'line-width': 5, 'line-opacity': 0.9 },
+      line: { 'line-color': color, 'line-width': 5, 'line-opacity': 0.9 },
     };
   }
   if (kind === 'zones') {

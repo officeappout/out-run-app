@@ -9,6 +9,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import StoryBars, { type StoryBarSegment } from '@/components/ui/v2/StoryBars';
+import { usePilotDecisionsV1 } from '@/hooks/usePilotDecisionsV1';
+import { useHybridPlayerV2 } from '@/features/workout-engine/hybrid/v2/HybridPlayerV2Context';
+import { sessionStoryBars } from '../logic/session-story-bars';
 
 interface ProgressBar {
   isActive: boolean;
@@ -47,6 +50,10 @@ export default function WorkoutStoryBars({
   const rafRef = useRef<number | null>(null);
 
   const currentBarIndex = progressBars.findIndex((b) => b.isCurrent);
+  // enable_pilot_decisions_v1 (owner M21): in a combined workout's station, the whole session.
+  const pilot = usePilotDecisionsV1();
+  const hybrid = useHybridPlayerV2();
+  const sessionCursor = pilot && hybrid?.enabled && hybrid.strip && hybrid.state?.phase === 'station' ? hybrid.state.inner.cursor : null;
 
   // Reset fill when the active bar changes (new exercise)
   useEffect(() => {
@@ -93,16 +100,18 @@ export default function WorkoutStoryBars({
     // enable_home_v2: the shared v2 StoryBars (one implementation app-wide);
     // the props reproduce this header's v2 look exactly (single accent, no
     // glow, no 1 % floor, Tailwind transition-all 300 ms on each bar).
-    const segments: StoryBarSegment[] = progressBars.map((bar, index) => ({
+    const inner: StoryBarSegment[] = progressBars.map((bar, index) => ({
       key: String(index),
       color: accentColor,
       ...(bar.weight ? { weight: bar.weight } : {}),
       state: bar.isCurrent ? 'current' : bar.isActive ? 'done' : 'upcoming',
     }));
+    const session = sessionCursor != null && hybrid?.strip ? sessionStoryBars(inner, hybrid.strip, sessionCursor) : null;
+    const segments = session ? session.segments : inner;
     return (
       <StoryBars
         segments={segments}
-        currentIndex={currentBarIndex}
+        currentIndex={session && currentBarIndex >= 0 ? session.offset + currentBarIndex : currentBarIndex}
         progress={isResting ? 1 : fillProgress}
         minFillPercent={0}
         trackColor={trackColor}
