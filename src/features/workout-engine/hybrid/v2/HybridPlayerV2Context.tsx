@@ -22,7 +22,7 @@ import { sequencerStrip } from '../../engines/hybrid/sequencer.strip';
 import type { SequencerState } from '../../engines/hybrid/sequencer.types';
 import type { StripModel } from '../../engines/strip-item';
 import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
-import { hybridRunSnapshot, setHybridFinalizeOverride, useHybridRun } from '../useHybridRun';
+import { setHybridLevelProgression, hybridRunSnapshot, setHybridFinalizeOverride, useHybridRun } from '../useHybridRun';
 import { needsLegacyArrive, needsSequencerStart, runLegSkipEvents, stationCloseEvents } from './hybrid-v2-sync';
 import { useStartAtPark } from '../useStartAtPark';
 import { ComboFlowProvider } from './combo/ComboFlowContext';
@@ -136,6 +136,11 @@ export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean
   // every block reads "done"), then the save raises the ring / summary.
   const comboOn = useComboFlowV1() && enabled;
   const reduceMotion = !!useReducedMotion();
+  // Board PlayerSummaryCoverage: with the combo flow the stations feed the strength level at finish.
+  useEffect(() => {
+    setHybridLevelProgression(comboOn);
+    return () => setHybridLevelProgression(false);
+  }, [comboOn]);
   useEffect(() => {
     if (!enabled || phase !== 'done' || !useHybridRun.getState().active) return;
     if (!comboOn) {
