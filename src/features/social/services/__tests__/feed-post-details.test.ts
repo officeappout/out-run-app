@@ -8,6 +8,7 @@ import {
   personalBestFrom,
   postDetailsForWrite,
   sanitizePostDetails,
+  MAX_CAPTION,
   streakFor,
   topExerciseFrom,
   withoutPostDetails,
@@ -164,5 +165,14 @@ describe('display helpers', () => {
     expect(exerciseLine({ name: 'מתח', sets: 3, setsDone: 3, value: 8, unit: 'reps' })).toBe('3 × 8');
     expect(exerciseLine({ name: 'פלאנק', sets: 2, setsDone: 2, value: 30, unit: 'seconds' })).toBe('2 × 30 שנ׳');
     expect(exerciseLine({ name: 'x', sets: 2, setsDone: 1, unit: 'reps' })).toBe('2 סטים');
+  });
+});
+
+describe('caption (board PostFeed "עריכה")', () => {
+  it('kept trimmed and capped; empty dropped', () => {
+    expect(sanitizePostDetails({ caption: '  ערב טוב  ' }).caption).toBe('ערב טוב');
+    expect(sanitizePostDetails({ caption: 'x'.repeat(400) }).caption).toHaveLength(MAX_CAPTION);
+    expect(sanitizePostDetails({ caption: '   ' }).caption).toBeUndefined();
+    expect(sanitizePostDetails({ caption: 7 }).caption).toBeUndefined();
   });
 });
