@@ -20,6 +20,7 @@ import {
   findMethodForLocation,
 } from '@/features/content/exercises';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { WorkoutData } from '../types';
 
@@ -105,7 +106,7 @@ export async function convertExercisesToWorkoutPlan(
         videoUrl: mainVideoUrl,
         imageUrl,
         bunnyVideoId,
-        fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
+        fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any, getVideoLanguage()).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '🔥',
         equipment: mergeEquipment(ex),
@@ -161,7 +162,7 @@ export async function convertExercisesToWorkoutPlan(
         videoUrl: mainVideoUrl,
         imageUrl,
         bunnyVideoId,
-        fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
+        fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any, getVideoLanguage()).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '💪',
         equipment: mergeEquipment(ex),
@@ -196,7 +197,7 @@ export async function convertExercisesToWorkoutPlan(
         videoUrl: mainVideoUrl,
         imageUrl,
         bunnyVideoId,
-        fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
+        fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any, getVideoLanguage()).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '🧘',
         equipment: mergeEquipment(ex),

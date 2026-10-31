@@ -19,17 +19,20 @@ interface LocaleState {
   i18nEnabled: boolean;
   /** enable_content_locale as last seen by LocaleSync: user-facing content may resolve in English. */
   contentLocaleOn: boolean;
+  /** enable_video_locale as last seen by LocaleSync: exercise tutorials may play the English upload. */
+  videoLocaleOn: boolean;
   /** The signed-in user's gender, injected into t() as the ICU `gender` value. */
   gender: Gender;
   /** Bumped whenever a lazy catalog lands, so useT() re-renders with it. */
   catalogVersion: number;
-  setLocaleState: (next: Partial<Pick<LocaleState, 'locale' | 'i18nEnabled' | 'gender' | 'contentLocaleOn'>>) => void;
+  setLocaleState: (next: Partial<Pick<LocaleState, 'locale' | 'i18nEnabled' | 'gender' | 'contentLocaleOn' | 'videoLocaleOn'>>) => void;
 }
 
 export const useLocaleStore = create<LocaleState>()((set) => ({
   locale: SOURCE_LOCALE,
   i18nEnabled: false,
   contentLocaleOn: false,
+  videoLocaleOn: false,
   gender: 'other',
   catalogVersion: 0,
   setLocaleState: (next) => set(next),
