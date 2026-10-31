@@ -3,7 +3,7 @@
  * Thursday; today = Tue 27.10.
  */
 import { describe, expect, it } from 'vitest';
-import { buildDayCell, buildMonthSections, rowCapsules, stripMonths, type PlannedLike } from '../lib/monthCells';
+import { buildDayCell, buildMonthSections, findDayCell, opensWorkoutDirectly, rowCapsules, stripMonths, type PlannedLike } from '../lib/monthCells';
 
 const TODAY = '2026-10-27';
 
@@ -75,5 +75,32 @@ describe('stripMonths', () => {
       { year: 2026, month: 11 },
       { year: 2027, month: 0 },
     ]);
+  });
+});
+
+describe('schedule pilot (P12 / P16)', () => {
+  it('a planned strength day keeps its program slug for the icon', () => {
+    const p: PlannedLike[] = [{ date: '2026-10-28', kind: 'strength', status: 'upcoming', programSlug: 'pull' }];
+    expect(buildDayCell('2026-10-28', TODAY, p, [], undefined, 8000).planned).toEqual([{ track: 'strength', runCategory: null, programSlug: 'pull' }]);
+  });
+  it('a planned today / later day opens the workout; done, missed, rest and unknown do not', () => {
+    const sections = buildMonthSections({
+      months: stripMonths(new Date('2026-10-27T00:00:00')).slice(0, 3),
+      todayKey: TODAY,
+      planned: [
+        { date: '2026-10-28', kind: 'strength', status: 'upcoming' },
+        { date: TODAY, kind: 'run', status: 'today' },
+        { date: '2026-10-26', kind: 'strength', status: 'missed' },
+      ],
+      workoutsByDate: { '2026-10-25': [{ kind: 'run', minutes: 30 }] },
+      daysByDate: {},
+      stepGoal: 8000,
+    });
+    expect(opensWorkoutDirectly(findDayCell(sections, '2026-10-28'))).toBe(true);
+    expect(opensWorkoutDirectly(findDayCell(sections, TODAY))).toBe(true);
+    expect(opensWorkoutDirectly(findDayCell(sections, '2026-10-26'))).toBe(false);
+    expect(opensWorkoutDirectly(findDayCell(sections, '2026-10-25'))).toBe(false);
+    expect(opensWorkoutDirectly(findDayCell(sections, '2026-10-29'))).toBe(false);
+    expect(opensWorkoutDirectly(findDayCell(sections, '2030-01-01'))).toBe(false);
   });
 });

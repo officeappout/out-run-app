@@ -31,7 +31,8 @@ export function stepScrollOverscroll(v2: boolean): 'overscroll-none' | 'overscro
  */
 export function headerSafeTop(v2: boolean, hostPadsTop: boolean): string {
   if (!v2) return 'env(safe-area-inset-top, 0px)';
-  return hostPadsTop ? '4px' : 'calc(env(safe-area-inset-top, 0px) + 4px)';
+  // 12px (AH8): at 4px the story bars sat against the iPhone status bar.
+  return hostPadsTop ? '12px' : 'calc(env(safe-area-inset-top, 0px) + 12px)';
 }
 
 /** framer-motion props for a screen's content entry. v2: fade only (no layout-growing translate). */

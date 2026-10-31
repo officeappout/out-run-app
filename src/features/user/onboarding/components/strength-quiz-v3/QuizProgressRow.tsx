@@ -27,15 +27,16 @@ function CheckBadge() {
 export default function QuizProgressRow({ items, size = 'lg', single }: QuizProgressRowProps) {
   const t = useT(onboarding);
   const lg = size === 'lg';
-  const circle = lg ? 'h-12 w-12' : 'h-[38px] w-[38px]';
-  const img = lg ? 'w-7' : 'w-[22px]';
+  // AH10: the slider's row (sm) was too big next to the cards.
+  const circle = lg ? 'h-12 w-12' : 'h-8 w-8';
+  const img = lg ? 'w-7' : 'w-[18px]';
 
   if (single) {
     return (
       <div className="flex justify-center" role="img" aria-label={t('quizV3.progress.item', { name: single.label, state: 'current' })}>
-        <span className={clsx('grid place-items-center rounded-full bg-white shadow-[0_0_0_2.5px_#00baf7]', circle)}>
+        <span className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-[0_0_0_2.5px_#00baf7]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={single.icon} alt="" className="w-[26px]" />
+          <img src={single.icon} alt="" className="w-[22px]" />
         </span>
       </div>
     );
