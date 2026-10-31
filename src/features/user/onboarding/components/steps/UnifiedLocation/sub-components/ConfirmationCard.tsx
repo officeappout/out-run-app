@@ -10,6 +10,8 @@ import { resolveParkImage } from '@/lib/park-image';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { displayLocationName } from '@/lib/data/location-name-en';
 
 // v2 renders no emoji — strip pictographs (surrogate-pair emoji, dingbats,
 // VS16/ZWJ joiners) from copy that comes from the shared copy matrix.
@@ -83,6 +85,13 @@ export function ConfirmationCard({
   const locationText = detectedCity 
     ? `${detectedCity}${detectedNeighborhood ? ', ' + detectedNeighborhood : ''}`
     : displayName;
+  // English place names for display only (the Hebrew above stays the data for hooks / badges).
+  const placeLang = useContentLanguage();
+  const shownNeighborhood = displayLocationName(detectedNeighborhood, placeLang, detectedCity);
+  const shownCity = displayLocationName(detectedCity, placeLang);
+  const shownLocationText = detectedCity
+    ? `${shownCity}${detectedNeighborhood ? ', ' + shownNeighborhood : ''}`
+    : displayLocationName(displayName, placeLang);
 
   // Human-Centric Copy Matrix: Pain→Solution with City anchor + activity verb
   const identityHook = getIdentityHook(primaryPersonaId || '', detectedCity || userNeighborhood, gender, selectedSportId);
@@ -208,7 +217,7 @@ export function ConfirmationCard({
           {isExplorer && !isUpdatingLocation && (
             <>
               <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-start mb-1.5">
-                {t('location.confirm.explorer.title', { place: detectedNeighborhood || detectedCity || locationText })}
+                {t('location.confirm.explorer.title', { place: (detectedNeighborhood ? shownNeighborhood : '') || (detectedCity ? shownCity : '') || shownLocationText })}
               </h2>
               <p className="text-[14px] leading-relaxed text-v2-ink-2 text-start mb-3">
                 {t('location.confirm.explorer.body')}
@@ -219,7 +228,7 @@ export function ConfirmationCard({
           {!isExplorer && !isUpdatingLocation && !userName && (
             <>
               <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-start mb-1.5">
-                {t('location.confirm.nearest.title', { place: locationText })}
+                {t('location.confirm.nearest.title', { place: shownLocationText })}
               </h2>
               <p className="text-[14px] leading-relaxed text-v2-ink-2 text-start mb-3">
                 {t('location.confirm.nearest.body')}

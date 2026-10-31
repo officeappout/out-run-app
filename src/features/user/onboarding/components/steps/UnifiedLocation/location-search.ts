@@ -4,10 +4,12 @@
  * The list has Hebrew names only. AH4 (owner, English mode): a Latin query found nothing. Every entry's
  * `id` is a transliterated slug (`tel-aviv`, `jr-pisgat-zeev`, later ones a consonant skeleton such as
  * `kryyt-bylyk`), so a Latin query also matches the entry's own slug and its parent's slug, first as
- * written, then by consonant skeleton (vowels and the vowel letters y / v / w dropped, kh / ch -> h).
+ * written, then by consonant skeleton (vowels and the vowel letters y / v / w dropped, kh / ch -> h). The
+ * entry's English display name (israel-locations-en.ts) is matched the same way.
  * A query with no Latin letter is matched exactly as before (Hebrew byte-identical).
  */
 import type { CityData } from './location-types';
+import { locationNameEnById } from '@/lib/data/location-name-en';
 
 const LATIN = /[a-z]/i;
 
@@ -41,7 +43,9 @@ export function latinSkeleton(word: string): string {
 }
 
 function latinHaystack(city: CityData): { text: string; compact: string; skeleton: string } {
-  const text = `${slugWords(city.id)} ${slugWords(city.parentId)} ${normalizeLatin(city.name)} ${normalizeLatin(city.parentName ?? '')}`;
+  // English display names (israel-locations-en.ts) first: real spellings beat the vowel-less slugs.
+  const en = `${normalizeLatin(locationNameEnById(city.id) ?? '')} ${normalizeLatin(locationNameEnById(city.parentId) ?? '')}`;
+  const text = `${en} ${slugWords(city.id)} ${slugWords(city.parentId)} ${normalizeLatin(city.name)} ${normalizeLatin(city.parentName ?? '')}`;
   return {
     text,
     compact: text.replace(/\s+/g, ''),
