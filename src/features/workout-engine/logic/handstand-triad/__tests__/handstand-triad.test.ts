@@ -62,6 +62,12 @@ describe('scores', () => {
     expect(getTriadScores(two)).toEqual({ strength: 7, balance: 3, mobility: 8 });
     expect(getTriadScores({ targetPrograms: [{ programId: 'push', level: 5 }] } as unknown as Exercise)).toBeNull();
   });
+  it('ignores non-handstand rows (stale scores after a program change) and half-rated rows', () => {
+    const stale = { targetPrograms: [{ programId: 'push', level: 5, strengthScore: 3, balanceScore: 9, mobilityScore: 3 }] } as unknown as Exercise;
+    expect(getTriadScores(stale)).toBeNull();
+    const half = { targetPrograms: [{ programId: 'handstand', level: 5, balanceScore: 12 }] } as unknown as Exercise;
+    expect(getTriadScores(half)).toBeNull();
+  });
   it('primary axis = highest demand; a stretch is mobility, a free handstand is balance', () => {
     expect(primaryAxis({ strength: 1, balance: 1, mobility: 8 })).toBe('mobility');
     expect(primaryAxis({ strength: 8, balance: 14, mobility: 11 })).toBe('balance');
@@ -73,6 +79,7 @@ describe('levels', () => {
     const m = new Map([['handstand', 6], ['handstand_mobility', 11]]);
     expect(resolveTriadLevels(m, 2)).toEqual({ strength: 6, balance: 6, mobility: 11 });
     expect(resolveTriadLevels(undefined, 3)).toEqual({ strength: 3, balance: 3, mobility: 3 });
+    expect(resolveTriadLevels(new Map([['hspu', 9]]), 3, 'hspu')).toEqual({ strength: 9, balance: 9, mobility: 9 });
   });
   it('ranks the weakest / strongest axis; all equal → no emphasis', () => {
     expect(rankAxes(STRONG_STIFF)).toEqual({ weakest: 'mobility', strongest: 'strength' });
@@ -169,15 +176,16 @@ describe('3 profiles get different, safe sessions', () => {
 describe('pool gate (ContextualEngine hook)', () => {
   const base = {
     enabled: true,
-    activeDomains: ['handstand'],
+    resolvedDomain: 'handstand',
     userProgramLevels: new Map([['handstand', 8]]),
     baseUserLevel: 1,
     levelTolerance: 3,
   };
   const find = (id: string) => CATALOG.find((e) => e.id === id)!;
-  it('flag off, no handstand domain, or unscored exercise → not applicable (legacy path)', () => {
+  it('flag off, exercise resolved to another domain, or unscored → not applicable (legacy path)', () => {
     expect(triadPoolGate({ ...base, enabled: false, exercise: find('crow') })).toBeNull();
-    expect(triadPoolGate({ ...base, activeDomains: ['push'], exercise: find('crow') })).toBeNull();
+    expect(triadPoolGate({ ...base, resolvedDomain: 'push', exercise: find('crow') })).toBeNull();
+    expect(triadPoolGate({ ...base, resolvedDomain: null, exercise: find('crow') })).toBeNull();
     expect(triadPoolGate({ ...base, exercise: { id: 'x', targetPrograms: [] } as unknown as Exercise })).toBeNull();
   });
   it('drops above-level on any axis, keeps in-window, drops too easy on the primary axis', () => {
@@ -189,6 +197,10 @@ describe('pool gate (ContextualEngine hook)', () => {
   });
   it('too easy on the primary axis is dropped', () => {
     expect(triadPoolGate({ ...base, userProgramLevels: new Map([['handstand', 10]]), exercise: find('pike_stance') })).toBe(false); // M5 < 10−3
+  });
+  it('HSPU session uses the HSPU level, not the base level', () => {
+    const hspuRow = { id: 'c2w', exerciseRole: 'main', targetPrograms: [{ programId: 'hspu', level: 7, strengthScore: 9, balanceScore: 3, mobilityScore: 8 }] } as unknown as Exercise;
+    expect(triadPoolGate({ ...base, resolvedDomain: 'hspu', userProgramLevels: new Map([['hspu', 9]]), baseUserLevel: 3, exercise: hspuRow })).toBe(true);
   });
   it('warmup/cooldown rows skip the too-easy floor', () => {
     expect(triadPoolGate({ ...base, exercise: find('wrist_warmup') })).toBe(true);

@@ -208,7 +208,7 @@ export class ContextualEngine {
       const triadKeep = triadPoolGate({
         enabled: HANDSTAND_TRIAD_ENABLED,
         exercise,
-        activeDomains,
+        resolvedDomain: consistent.resolvedDomain,
         userProgramLevels: context.userProgramLevels,
         baseUserLevel: context.baseUserLevel,
         levelTolerance,

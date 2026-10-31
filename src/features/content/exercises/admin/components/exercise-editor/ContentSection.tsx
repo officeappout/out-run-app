@@ -166,9 +166,13 @@ export default function ContentSection({
                   const newLevel = Math.min(15, Math.max(1, Math.round((s + b + m) / 3)));
                   setTargetPrograms((prev) => {
                     const next = [...prev];
+                    // Save all three (not only the moved slider): the engine
+                    // ignores a half-rated row, and the untouched ones show 8 here.
                     next[index] = {
                       ...next[index],
-                      [field]: value,
+                      strengthScore: s,
+                      balanceScore: b,
+                      mobilityScore: m,
                       level: newLevel,
                     };
                     return next;

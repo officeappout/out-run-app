@@ -4,8 +4,8 @@
  * Target data model: a parent program "handstand" (displayed level = average
  * of its children, via the existing `averageMasterChildren`) with three child
  * programs. Until those child programs exist, every axis falls back to the
- * user's handstand level, then to the base level, so behaviour degrades to
- * "one level for all three" instead of breaking.
+ * user's handstand (or HSPU) level, then to the base level, so behaviour
+ * degrades to "one level for all three" instead of breaking.
  */
 import { TRIAD_MAX, TRIAD_MIN, type TriadAxis, type TriadValues } from './triad.types';
 
@@ -16,15 +16,18 @@ export const TRIAD_CHILD_KEYS: Record<TriadAxis, string> = {
   mobility: 'handstand_mobility',
 };
 
-const PARENT_KEY = 'handstand';
-
 const clamp = (n: number) => Math.min(TRIAD_MAX, Math.max(TRIAD_MIN, Math.round(n)));
 
+/**
+ * `parentKey` = the program the session resolved the exercise to ('handstand'
+ * or 'hspu'), so an HSPU session falls back to the HSPU level, not the base.
+ */
 export function resolveTriadLevels(
   userProgramLevels: Map<string, number> | undefined,
   baseUserLevel = 1,
+  parentKey: string = 'handstand',
 ): TriadValues {
-  const parent = userProgramLevels?.get(PARENT_KEY) ?? baseUserLevel;
+  const parent = userProgramLevels?.get(parentKey) ?? baseUserLevel;
   const read = (axis: TriadAxis) => clamp(userProgramLevels?.get(TRIAD_CHILD_KEYS[axis]) ?? parent);
   return { strength: read('strength'), balance: read('balance'), mobility: read('mobility') };
 }

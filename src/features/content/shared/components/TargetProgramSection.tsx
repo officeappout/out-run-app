@@ -122,7 +122,8 @@ export default function TargetProgramSection({
                     const newLevel = Math.min(15, Math.max(1, Math.round((s + b + m) / 3)));
                     setTargetPrograms((prev) => {
                       const next = [...prev];
-                      next[index] = { ...next[index], [field]: value, level: newLevel };
+                      // Save all three: the engine ignores a half-rated row (see handstand-triad).
+                      next[index] = { ...next[index], strengthScore: s, balanceScore: b, mobilityScore: m, level: newLevel };
                       return next;
                     });
                   };
