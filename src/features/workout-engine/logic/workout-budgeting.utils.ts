@@ -433,8 +433,13 @@ export function isTimeBasedExercise(exercise: Exercise): boolean {
   // If the CMS has it marked as time-based, trust it unconditionally — before any
   // movement-group guard, mechanical-type check, or name heuristic.
   if (exercise.type === 'time') return true;
-  // If explicitly 'reps' and NOT straight_arm / hold-named, trust that too.
-  // We only fall through to heuristics when type is absent/defaulted.
+  // Explicit 'reps' is trusted the same way (owner, 31.10: the panel marking is
+  // the truth). Wall walks, skin the cat, front-lever raises are straight-arm
+  // or "פלאנק"-named yet rep-based. Note: normalizeExercise defaults a missing
+  // type to 'reps' (exercise-mapping.utils), so the fallbacks below only run for
+  // raw, un-normalized objects. Since 31.10 every catalog exercise has an
+  // explicit type, so new exercises must be marked in the panel.
+  if (exercise.type === 'reps') return false;
 
   // ── FALLBACK 1: straight_arm mechanics (must run BEFORE movement-group guard) ─
   // A parallettes or front-lever hold may carry movementGroup='horizontal_push'
@@ -443,12 +448,10 @@ export function isTimeBasedExercise(exercise: Exercise): boolean {
   // NOTE: bent-arm holds (dead hang, L-sit) should be marked type='time' in the
   // CMS — this fallback does NOT cover them.
   if (exercise.mechanicalType === 'straight_arm') {
-    if (exercise.type !== 'reps') {
-      console.warn(
-        `[isTimeBasedExercise] "${typeof exercise.name === 'string' ? exercise.name : (exercise.name as any)?.he ?? exercise.id}" `+
-        `has mechanicalType=straight_arm but type="${exercise.type}". Fix in CMS → set type to "זמן".`,
-      );
-    }
+    console.warn(
+      `[isTimeBasedExercise] "${typeof exercise.name === 'string' ? exercise.name : (exercise.name as any)?.he ?? exercise.id}" `+
+      `has mechanicalType=straight_arm but type="${exercise.type}". Fix in CMS → set type to "זמן".`,
+    );
     return true;
   }
 

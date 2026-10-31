@@ -40,8 +40,15 @@ describe('isTimeBasedExercise — the single source of truth', () => {
     expect(isTimeBasedExercise(ex({ type: 'reps' as any, name: { he: 'שכיבות סמיכה ברכיים', en: '' } }))).toBe(false);
   });
 
-  it('mechanicalType="straight_arm" => true, regardless of type', () => {
-    expect(isTimeBasedExercise(ex({ mechanicalType: 'straight_arm' as any, type: 'reps' as any }))).toBe(true);
+  it('type="reps" wins unconditionally, even over straight_arm or a hold-keyword name (owner, 31.10)', () => {
+    expect(isTimeBasedExercise(ex({ mechanicalType: 'straight_arm' as any, type: 'reps' as any, name: { he: 'הליכות קיר', en: '' } }))).toBe(false);
+    expect(isTimeBasedExercise(ex({ type: 'reps' as any, name: { he: 'נגיעות כתפיים בפלאנק גבוה', en: '' } }))).toBe(false);
+  });
+
+  it('mechanicalType="straight_arm" with no type => true', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(isTimeBasedExercise(ex({ mechanicalType: 'straight_arm' as any }))).toBe(true);
+    warn.mockRestore();
   });
 
   it('mechanicalType="straight_arm" with type not "reps" logs a CMS-fix warning but still returns true', () => {
