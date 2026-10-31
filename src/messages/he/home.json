@@ -842,5 +842,8 @@
   "workoutTitle.focusWorkout.pull": "אימון משיכה",
   "workoutTitle.focusShort.pull": "משיכה",
   "workoutTitle.focusWorkout.legs": "אימון רגליים",
-  "workoutTitle.focusShort.legs": "רגליים"
+  "workoutTitle.focusShort.legs": "רגליים",
+  "topUp.schedule": "לשבץ ל־{time}",
+  "topUp.scheduled": "שובץ ל־{time}",
+  "topUp.scheduleEntryTitle": "אימון משלים"
 }

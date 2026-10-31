@@ -848,6 +848,12 @@ export const FLAG_DEFS = [
   // the start of a workout that needs gear (like the park station intro, "don't show again"); and one bubble on the
   // first reps / time input ever. Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableWorkoutTutorialV1', firestoreKey: 'enable_workout_tutorial_v1', defaultValue: false, superAdminValue: true },
+  // Combo generator (vision stage 2, owner-approved 30.10.2026): ONE composition request (aerobic, strength, order,
+  // one place, time, an optional second part later in the day) composed into a workout the EXISTING players run and
+  // the stage-1 screens summarize: AMRAP / EMOM with a run inside each round (only from level 8 in BOTH pull and push),
+  // tabata or core after a run, a top-up sized to the missing sets, a two-part day. Engine first; the UI waits for the
+  // owner's canvas boards. Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableComboGeneratorV1', firestoreKey: 'enable_combo_generator_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
