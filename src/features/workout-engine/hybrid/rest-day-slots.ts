@@ -40,14 +40,25 @@ export const restDayWalkReason = (): string => tMap('hybrid.slot.restDay.reason'
 /**
  * @param stepsRemaining today's missing steps; null = unknown (kept, light).
  */
-export function restDaySlots(slots: readonly HybridSlot[], isRestDay: boolean, stepsRemaining: number | null): HybridSlot[] {
+/**
+ * @param opts.keepOptions pilot AH30 (enable_pilot_ah_v1, owner 31.10): a rest day with a park next
+ *   door left ONLY the free walk (strength cards dropped, the walk + strength card gone once the
+ *   steps were met). Kept instead: the walk + strength card (light) whatever the steps, and the
+ *   route + stops walk. Only the full park workout / its prompt still drop.
+ */
+export function restDaySlots(
+  slots: readonly HybridSlot[],
+  isRestDay: boolean,
+  stepsRemaining: number | null,
+  opts: { keepOptions?: boolean } = {},
+): HybridSlot[] {
   if (!isRestDay) return [...slots];
   const stepsMissing = stepsRemaining == null || stepsRemaining >= MIN_STEPS_GAP;
   const out: HybridSlot[] = [];
   for (const s of slots) {
-    if (REST_DAY_DROPPED.has(s.id)) continue;
+    if (REST_DAY_DROPPED.has(s.id) && !(opts.keepOptions && s.id === 'route_stops')) continue;
     if (WALK_STRENGTH_IDS.has(s.id) && s.kind === 'hybrid') {
-      if (!stepsMissing) continue;
+      if (!stepsMissing && !opts.keepOptions) continue;
       out.push({
         ...s,
         bolts: 1,

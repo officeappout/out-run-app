@@ -21,6 +21,7 @@
 
 import { useShowHeOnlySurfaces } from '@/features/arena/hooks/useShowHeOnlySurfaces';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { useVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import {
@@ -34,8 +35,6 @@ import {
   getLocalizedText,
   resolvePreviewForLang,
   resolveTutorialForLang,
-  resolveVideoAcross,
-  videoLangOf,
 } from '../../core/exercise.types';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import ExerciseHeroV2 from './ExerciseHeroV2';
@@ -409,6 +408,7 @@ export default function MasterExerciseView({
 }: MasterExerciseViewProps) {
   const { direction } = useUiDir();
   const t = useT(library);
+  const videoLang = useVideoLanguage();
   // Equipment caches power the gear/equipment labels + icons.
   useEffect(() => {
     void ensureEquipmentCachesLoaded();
@@ -714,21 +714,19 @@ export default function MasterExerciseView({
     legacy: string | null;
     posterUrl: string | null;
   }
-  const heroLang = useContentLanguage();
   const heroAssets = useMemo<HeroAssets>(() => {
     const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];
     const m = selectedMethodIdx !== null ? methods[selectedMethodIdx] : null;
     if (!m) return { full: undefined, preview: undefined, legacy: null, posterUrl: null };
     // Method-LOCKED to the selected method's OWN media only (never root, never another method).
-    // AH5: the English upload of this method when the content language is English, else Hebrew as before.
-    const full = resolveVideoAcross('fullTutorial', [m.media as any], videoLangOf(heroLang)) ?? undefined;
-    const preview = resolveVideoAcross('previewVideo', [m.media as any], videoLangOf(heroLang)) ?? undefined;
+    const full = resolveTutorialForLang(m.media as any, videoLang) ?? undefined;
+    const preview = resolvePreviewForLang(m.media as any, 'he') ?? undefined;
     // mainVideoUrl is the CDN string stored by the bulk-upload script.
     const legacy = m.media?.mainVideoUrl ?? null;
     // Poster: method-level image first, then exercise-level.
     const posterUrl = m.media?.imageUrl ?? exercise.media?.imageUrl ?? null;
     return { full, preview, legacy, posterUrl };
-  }, [exercise, selectedMethodIdx, heroLang]);
+  }, [exercise, selectedMethodIdx, videoLang]);
 
   if (!sheetData) return null;
 

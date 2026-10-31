@@ -57,6 +57,8 @@ import {
 } from '@/features/workout-engine/hybrid/v2';
 import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
 import { continueCommuteOnRoute, useWalkToStartStore } from '@/features/workout-engine/players/running/store/useWalkToStartStore';
+import { V2_FAB_BOTTOM_CSS } from '@/components/ui/v2/bottom-chrome';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
@@ -112,6 +114,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const { flags: adminAwareFlags, loading: adminAwareFlagsLoading } = useFeatureFlags(isSuperAdmin);
   const homeV2 = adminAwareFlags.enableHomeV2;
+  const pilotAhNav = usePilotAhV1() && homeV2;
   // Entry flow v2 (enable_entry_whatnow_v1): the one-time long-press tip on the player controls.
   const entryPlayerTipOn = !adminAwareFlagsLoading && adminAwareFlags.enableEntryWhatnowV1;
   // Run / walk "map first" pass (enable_run_player_drawer_v1): metrics drawer + attached header.
@@ -478,7 +481,11 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               </div>
 
               {/* Start Free Run button */}
-              <div className="absolute bottom-[max(6rem,env(safe-area-inset-bottom))] end-4 start-4 z-20 flex justify-center pointer-events-auto">
+              {/* enable_pilot_ah_v1 (AH29): above the v2 nav stack (6rem sat under its raised circle). */}
+              <div
+                className={`absolute ${pilotAhNav ? '' : 'bottom-[max(6rem,env(safe-area-inset-bottom))] '}end-4 start-4 z-20 flex justify-center pointer-events-auto`}
+                style={pilotAhNav ? { bottom: V2_FAB_BOTTOM_CSS } : undefined}
+              >
                 <button
                   onClick={handleStartFreeRun}
                   className="px-10 py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00BAF7] text-white font-black text-lg shadow-2xl active:scale-[0.97] transition-all flex items-center gap-3"

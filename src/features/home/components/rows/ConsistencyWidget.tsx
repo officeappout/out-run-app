@@ -29,6 +29,7 @@ import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onb
 import { useAerobicProgramsOpen } from '@/features/user/onboarding/hooks/useAerobicProgramsOpen';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 
 interface MiniBarsProps {
   /** Short Hebrew caption, e.g. "כוח" or "ריצה". */
@@ -52,6 +53,26 @@ function MiniBars({ caption, done, target, fillColor = '#00C9F2', icon }: MiniBa
   const { isRtl } = useUiDir();
   const safeTarget = Math.max(1, target);
   const v2 = useHomeV2();
+  // enable_pilot_ah_v1 (AH15): the 111px column truncated the caption ("St... 0/3"); stacked instead.
+  const pilotAh = usePilotAhV1();
+  if (v2 && pilotAh) {
+    return (
+      <div>
+        <span className="flex items-center gap-1 text-[12.5px] font-extrabold leading-tight text-v2-muted">
+          {icon}
+          <span className="min-w-0 break-words">{caption}</span>
+        </span>
+        <span className="mt-1 block text-[18px] font-black leading-none tabular-nums text-v2-ink" dir="ltr">
+          {done}/{safeTarget}
+        </span>
+        <div className="mt-2 flex gap-1">
+          {Array.from({ length: safeTarget }).map((_, i) => (
+            <span key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < done ? fillColor : '#e6f4fa' }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (v2) {
     return (
       <div>
@@ -153,6 +174,7 @@ function RunGlyph() {
 
 export function ConsistencyWidget() {
   const t = useT(home);
+  const pilotAh = usePilotAhV1();
   const router = useRouter();
   const { profile } = useUserStore();
   const { summary } = useWeeklyProgress();
@@ -195,7 +217,7 @@ export function ConsistencyWidget() {
 
   return (
     <div
-      className={v2 ? 'flex h-full w-full flex-col justify-center gap-4 overflow-hidden rounded-v2-card bg-white p-3.5 shadow-v2-card' : 'bg-white dark:bg-slate-800 w-full h-full flex flex-col justify-center gap-3 overflow-hidden'}
+      className={v2 ? `flex h-full w-full flex-col ${pilotAh ? 'justify-start' : 'justify-center'} gap-4 overflow-hidden rounded-v2-card bg-white p-3.5 shadow-v2-card` : 'bg-white dark:bg-slate-800 w-full h-full flex flex-col justify-center gap-3 overflow-hidden'}
       style={v2 ? undefined : { ...WIDGET_CARD_STYLE, padding: 10 }}
     >
       {strengthDone ? (

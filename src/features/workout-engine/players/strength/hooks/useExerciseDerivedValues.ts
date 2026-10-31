@@ -11,6 +11,7 @@ import type { BlockProtocolInfo } from '../protocols/block-protocol';
 import { toCueList, resolveGenderedText } from '@/features/content/exercises/utils/cue-text.utils';
 import { tabataIntervalInfo, tabataMemberCosts, tabataRoundsPerMember } from '../protocols/tabata.advance';
 import { useT } from '@/hooks/useT';
+import { useVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { player } from '@/messages/ns/player';
 
 /**
@@ -141,6 +142,7 @@ export function useExerciseDerivedValues({
   userGender,
 }: ExerciseDerivedValuesInput): ExerciseDerivedValuesResult {
   const t = useT(player);
+  const videoLang = useVideoLanguage();
 
   // ── Total sets for the currently active exercise ────────────────────────
   const setsForCurrentExercise = useMemo(() => {
@@ -397,8 +399,8 @@ export function useExerciseDerivedValues({
   /**
    * Long-form instructional video ("full tutorial") for the active exercise.
    * Searched per execution method first (Lego-block: video binds to the method),
-   * then falls back to the exercise-root media slot. Resolves the HE track (with
-   * the built-in HE fallback in resolveTutorialForLang). Null when none uploaded —
+   * then falls back to the exercise-root media slot. Resolves the `videoLang` track
+   * (useVideoLanguage: HE unless enable_video_locale + English; HE fallback built in). Null when none uploaded —
    * the "צפה בהסבר המלא" CTA is hidden in that case.
    */
   const exerciseFullTutorial = useMemo((): ExternalVideo | null => {
@@ -410,12 +412,12 @@ export function useExerciseDerivedValues({
     // Fallback for any entry path that passes a full Firestore exercise.
     const methods = raw?.execution_methods || raw?.executionMethods || raw?.methods || [];
     for (const m of methods) {
-      const tutorial = resolveTutorialForLang(m?.media, 'he');
+      const tutorial = resolveTutorialForLang(m?.media, videoLang);
       if (tutorial?.videoId) return tutorial;
     }
-    const rootTutorial = resolveTutorialForLang(raw?.media, 'he');
+    const rootTutorial = resolveTutorialForLang(raw?.media, videoLang);
     return rootTutorial?.videoId ? rootTutorial : null;
-  }, [activeExercise]);
+  }, [activeExercise, videoLang]);
 
   /**
    * nextExercise — look-ahead for the rest-screen preview.

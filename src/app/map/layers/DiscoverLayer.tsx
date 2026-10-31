@@ -1028,13 +1028,14 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       runToday: homeRun.slot?.kind === 'today',
       walkToday: !!mapWalkWeek.today,
     });
-    return withTodayPlanSlots(restDaySlots(slots, restDay, mapStepsRemaining), {
+    // enable_pilot_ah_v1 (AH30): a rest day keeps the walk + strength and route options, not only a free walk.
+    return withTodayPlanSlots(restDaySlots(slots, restDay, mapStepsRemaining, { keepOptions: mapFeatureFlags.enablePilotAhV1 }), {
       walk,
       run,
       runIsQuality: !!homeRun.slot && isQualityRunEntry(homeRun.slot.entry),
       strengthToday,
     });
-  }, [slots, mapFeatureFlags.enableHomeV2, homeRun.slot, homeRun.hasRunningPlan, mapWalkWeek, hasStrengthProgram, profile?.lifestyle?.scheduleDays, profile?.lifestyle?.recurringTemplate, mapStepsRemaining]);
+  }, [slots, mapFeatureFlags.enableHomeV2, mapFeatureFlags.enablePilotAhV1, homeRun.slot, homeRun.hasRunningPlan, mapWalkWeek, hasStrengthProgram, profile?.lifestyle?.scheduleDays, profile?.lifestyle?.recurringTemplate, mapStepsRemaining]);
 
   // ── Entry flow v2, step 2 (enable_entry_whatnow_v1) ──────────────────────────
   // Flag off → entryWhatNowOn is false: the host renders nothing, the carousels get no

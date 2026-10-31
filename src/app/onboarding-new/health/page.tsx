@@ -15,6 +15,7 @@ import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { isHealthDeclarationSatisfied } from '@/lib/health-declaration';
 import { isMiniAssessmentActive, consumeMiniAssessmentState } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { createSkipAttemptGuard } from '@/features/user/onboarding/utils/skip-attempt-guard';
+import { createStepTimer } from '@/lib/signupTiming';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
@@ -148,6 +149,8 @@ export default function HealthDeclarationPage() {
 
     // Fire-and-forget — see comment above for why this must not block navigation.
     (async () => {
+      // AH7: per-step timing of this background sync, logged only.
+      const timer = createStepTimer();
       try {
         // Build payload with running schedule data from the onboarding store.
         // The sync service reads running answers from sessionStorage directly
@@ -204,6 +207,7 @@ export default function HealthDeclarationPage() {
           }
         }
 
+        timer.mark('read');
         console.log('[Health] Calling syncOnboardingToFirestore(COMPLETED) — full running bridge + activeProgram generation (background, non-blocking)');
 
         // Bounded retry (David, 24.09.2026): unlike the navigation this no
@@ -239,11 +243,14 @@ export default function HealthDeclarationPage() {
             if (attempt === 1) await new Promise((resolve) => setTimeout(resolve, 2000));
           }
         }
+        timer.mark('sync');
         if (syncError) throw syncError;
 
         console.log('[Health] Background sync complete. Refreshing profile...');
 
         await refreshProfile();
+        timer.mark('ref');
+        timer.report('HEALTH_SYNC_TIMING');
       } catch (error) {
         // Non-fatal — the user already moved on. Logged so this is
         // discoverable, never surfaced as a stuck screen.

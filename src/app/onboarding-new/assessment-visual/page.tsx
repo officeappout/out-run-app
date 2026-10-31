@@ -31,6 +31,7 @@ import {
   prefetchCategoryVideos,
 } from '@/features/user/onboarding/services/visual-content-resolver.service';
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
+import { createStepTimer } from '@/lib/signupTiming';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import {
   computeAssessmentContext,
@@ -1056,12 +1057,15 @@ export default function VisualAssessmentPage() {
       // Build & persist the AssessmentContext for the branching logic engine.
       // This allows any future questionnaire to reference assessment levels,
       // tier, and rule-driven skip/inject overrides.
+      // AH7: per-step timing of this save, logged only.
+      const timer = createStepTimer();
       try {
         const ctx = await computeAssessmentContext(result.levels, selectedTier);
         saveAssessmentContext(ctx);
       } catch (ctxErr) {
         console.warn('[Assessment] Could not compute branching context:', ctxErr);
       }
+      timer.mark('ctx');
 
       // Save assessment-specific metadata directly to user doc
       await setDoc(
@@ -1085,6 +1089,7 @@ export default function VisualAssessmentPage() {
         },
         { merge: true },
       );
+      timer.mark('doc');
 
       // Call the full sync service with 'COMPLETED' —
       // this sets up progression tracks, activePrograms, domains,
@@ -1092,6 +1097,7 @@ export default function VisualAssessmentPage() {
       const synced = await syncOnboardingToFirestore('COMPLETED', {
         assignedResults,
       });
+      timer.mark('sync');
 
       if (!synced) {
         console.warn('[Assessment] Sync returned false — data may be incomplete');
@@ -1108,6 +1114,8 @@ export default function VisualAssessmentPage() {
       } catch (refreshErr) {
         console.warn('[Assessment] Profile refresh after onboarding failed (non-fatal):', refreshErr);
       }
+      timer.mark('ref');
+      timer.report('ASSESSMENT_SAVE_TIMING');
 
       logOnboardingFunnelStep('ASSESSMENT'); // enable_onboarding_step_funnel (off = no-op)
       firePhaseConfetti();

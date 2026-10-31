@@ -35,7 +35,10 @@ export type SignupFailureStage =
   | 'COMPLETE_PROFILE_SERVER'
   | 'ASSESSMENT_SAVE'
   | 'RUNNING_DYNAMIC_SYNC'
-  | 'HEALTH_SYNC';
+  | 'HEALTH_SYNC'
+  /** AH7: not failures. Per-step durations of the two slow saves (signupTiming.ts). */
+  | 'ASSESSMENT_SAVE_TIMING'
+  | 'HEALTH_SYNC_TIMING';
 
 /** The closed list — every real catch site this stage covers, matched
  *  1:1 to the actual call sites wired up (see docs/audit-2026-09/00-
@@ -53,6 +56,8 @@ export const SIGNUP_FAILURE_STAGES: readonly SignupFailureStage[] = [
   'ASSESSMENT_SAVE',
   'RUNNING_DYNAMIC_SYNC',
   'HEALTH_SYNC',
+  'ASSESSMENT_SAVE_TIMING',
+  'HEALTH_SYNC_TIMING',
 ];
 
 const REASON_MAX_LENGTH = 100;

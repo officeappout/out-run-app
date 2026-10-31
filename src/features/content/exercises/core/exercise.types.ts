@@ -374,35 +374,6 @@ export function resolveTutorialForLang(
   return media.fullTutorial[lang] ?? media.fullTutorial['he'];
 }
 
-/** Content language -> video track language. Anything but 'en' is 'he' (the only two upload slots). */
-export function videoLangOf(lang: string | null | undefined): ExerciseLang {
-  return lang === 'en' ? 'en' : 'he';
-}
-
-/**
- * AH5: the video for `lang` across several media slots in priority order (method, then exercise root).
- * A real upload in `lang` in ANY slot wins over a Hebrew one in an earlier slot; with none, this is the old
- * Hebrew chain exactly (first slot that resolves). `lang` 'he' = the old behaviour, byte for byte.
- */
-export function resolveVideoAcross(
-  kind: 'previewVideo' | 'fullTutorial',
-  slots: ReadonlyArray<ExerciseMedia | null | undefined>,
-  lang: ExerciseLang = 'he',
-): ExternalVideo | undefined {
-  if (lang !== 'he') {
-    for (const media of slots) {
-      const own = media?.[kind]?.[lang];
-      if (own?.videoId) return own;
-    }
-  }
-  const resolve = kind === 'previewVideo' ? resolvePreviewForLang : resolveTutorialForLang;
-  for (const media of slots) {
-    const found = resolve(media ?? undefined, 'he');
-    if (found) return found;
-  }
-  return undefined;
-}
-
 /**
  * Complete-media gate for the swap-all VARIANT-AVAILABILITY check: a dimension-value
  * / method variant is OFFERED (and accepted for an in-place method swap) only when it

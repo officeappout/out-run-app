@@ -13,8 +13,6 @@ import {
   MUSCLE_GROUP_LABELS,
   resolvePreviewForLang,
   resolveTutorialForLang,
-  resolveVideoAcross,
-  videoLangOf,
 } from '../../core/exercise.types';
 import { buildBunnyThumbnailUrl, extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 
@@ -24,7 +22,7 @@ export function pickPrimaryMuscle(ex: Exercise): { he: string } | null {
   return MUSCLE_GROUP_LABELS[m] ?? null;
 }
 
-export function pickPreviewVideo(ex: Exercise, location: string | null, lang: string = 'he') {
+export function pickPreviewVideo(ex: Exercise, location: string | null) {
   // Apply the product fallback rule: when no location is active default to 'park'.
   const activeLocation = location ?? 'park';
   const methods = ex.execution_methods ?? ex.executionMethods ?? [];
@@ -32,13 +30,15 @@ export function pickPreviewVideo(ex: Exercise, location: string | null, lang: st
     (m) => m.location === activeLocation || m.locationMapping?.includes(activeLocation as ExecutionLocation),
   ) ?? methods[0];
 
-  // The location-specific method's previewVideo first (deterministic), then the exercise-level one
-  // (shared / legacy media). AH5: an English upload in either slot wins in English.
-  return resolveVideoAcross(
-    'previewVideo',
-    [method?.media as Parameters<typeof resolvePreviewForLang>[0], ex.media as Parameters<typeof resolvePreviewForLang>[0]],
-    videoLangOf(lang),
-  );
+  // Try the location-specific method's previewVideo first (deterministic).
+  const methodPreview = resolvePreviewForLang(method?.media as Parameters<typeof resolvePreviewForLang>[0], 'he');
+  if (methodPreview) return methodPreview;
+
+  // Fall back to exercise-level previewVideo (shared / legacy media).
+  const topPreview = resolvePreviewForLang(ex.media as Parameters<typeof resolvePreviewForLang>[0], 'he');
+  if (topPreview) return topPreview;
+
+  return undefined;
 }
 
 /** Bunny video ID from ONE method's own media fields — structured first, then a raw URL. */

@@ -22,6 +22,7 @@ import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
 import { getAllExercisesCached, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
 import type { AdaptiveChange } from '@/features/workout-engine/logic/adaptive/adaptive-change';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
@@ -157,7 +158,7 @@ function enrichExercise(
   // from ALL slots (previewVideo → bunnyVideoId_mainVideoUrl → mainVideoUrl) before root,
   // returns the bare id (carried for network-aware ADAPTIVE playback) + a same-method Bunny
   // thumbnail. Legacy-only exercises fall through the resolver's untouched legacy chain.
-  const resolvedMedia = resolveExerciseMedia(ex as any, method as any);
+  const resolvedMedia = resolveExerciseMedia(ex as any, method as any, getVideoLanguage());
   const bunnyVideoId = resolvedMedia.bunnyVideoId;
   const videoUrl = resolvedMedia.videoUrl;
   const imageUrl = resolvedMedia.imageUrl;
