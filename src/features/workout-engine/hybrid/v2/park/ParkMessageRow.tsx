@@ -68,3 +68,13 @@ export default function ParkMessageRow({ api }: { api: HybridPlayerV2Api }) {
   if (!turn || !kind) return null;
   return <Row icon={TURN_ICON[turn.icon]} text={turn.headline} sub={turn.actionLine} distanceM={turn.distanceM} wide={kind === 'turnWide'} />;
 }
+
+/**
+ * Pilot AH23 (enable_pilot_ah_v1): the live walk / run on a route shows its next turn as this one
+ * compact line in the player header (TurnCarousel publishes it, draws no big card). Nothing → null.
+ */
+export function RouteTurnRow() {
+  const turn = useMapStore((s) => s.parkTurn);
+  if (!turn) return null;
+  return <Row icon={TURN_ICON[turn.icon]} text={turn.headline} sub={turn.actionLine} distanceM={turn.distanceM} />;
+}

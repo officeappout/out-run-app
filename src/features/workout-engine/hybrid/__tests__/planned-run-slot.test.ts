@@ -55,7 +55,8 @@ describe('DiscoverLayer wiring (source-level)', () => {
     expect(src).toContain('if (!mapFeatureFlags.enableHomeV2) return slots;');
     expect(src).toContain('const run = buildPlannedRunSlot(homeRun.slot);');
     // enable_home_v2 rest day (audit ש4): the strength cards drop before the plan cards are placed.
-    expect(src).toContain('return withTodayPlanSlots(restDaySlots(slots, restDay, mapStepsRemaining), {');
+    // Pilot AH30 (enable_pilot_ah_v1): a rest day keeps the walk + strength / route options.
+    expect(src).toContain('return withTodayPlanSlots(restDaySlots(slots, restDay, mapStepsRemaining, { keepOptions: mapFeatureFlags.enablePilotAhV1 }), {');
     expect(src).toContain('slots={carouselSlots}');
   });
   it('selecting it navigates to the planned run link (no compose)', () => {
