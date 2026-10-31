@@ -384,3 +384,78 @@ export function bucketWorkoutsByDay<W extends { date: Date }>(
   }
   return points;
 }
+
+// ── Detail page header / tabs (I1 tabs refactor, 31.10.2026) ────────────
+
+export interface UserAuthorityInfo {
+  name: string;
+  type?: string;
+  id?: string;
+}
+
+export type ChurnRiskLevel = 'high' | 'medium' | 'low' | 'unknown';
+
+/** Churn risk = the same formatLastActivity bucketing, reframed as risk. */
+export function churnRiskLevel(lastWorkoutDate: Date | undefined): ChurnRiskLevel {
+  const recency = formatLastActivity(lastWorkoutDate);
+  return recency.dotColor === 'bg-red-500' ? 'high'
+    : recency.dotColor === 'bg-amber-500' ? 'medium'
+    : recency.dotColor === 'bg-gray-300' ? 'unknown'
+    : 'low';
+}
+
+export const CHURN_RISK_STYLE: Record<ChurnRiskLevel, { bg: string; text: string; label: string }> = {
+  high: { bg: 'bg-red-50 border-red-200', text: 'text-red-700', label: 'גבוה' },
+  medium: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', label: 'בינוני' },
+  low: { bg: 'bg-green-50 border-green-200', text: 'text-green-700', label: 'נמוך' },
+  unknown: { bg: 'bg-gray-50 border-gray-200', text: 'text-gray-500', label: 'לא ידוע' },
+};
+
+/** Hebrew labels for `personas[].id` (was inline in the old header badges). */
+export const PERSONA_LABELS: Record<string, string> = {
+  parent: 'הורה', student: 'סטודנט/ית', pupil: 'תלמיד/ה',
+  office_worker: 'עובד/ת משרד', military: 'צה"ל',
+  vatikim: 'גיל הזהב', pro_athlete: 'ספורטאי/ת קצה',
+};
+
+/** Hebrew labels for `onboardingAnswers.primaryGoal` when no label is stored. */
+export const PRIMARY_GOAL_LABELS: Record<string, string> = {
+  routine: 'שגרה קבועה', aesthetics: 'חיטוב ואסתטיקה',
+  fitness: 'כושר ובריאות', performance: 'שיפור ביצועים',
+  skills: 'מיומנות מתקדמת', community: 'קהילה',
+};
+
+/** Handles Date objects, Firestore Timestamps, {seconds} and ISO strings. */
+export function parseBirthDate(raw: unknown): Date | null {
+  if (!raw) return null;
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
+  const r = raw as { toDate?: () => Date; seconds?: number };
+  if (typeof r.toDate === 'function') return r.toDate();
+  if (typeof raw === 'string') {
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof r.seconds === 'number') return new Date(r.seconds * 1000);
+  return null;
+}
+
+export function ageFromBirthDate(birth: Date, now: Date = new Date()): number {
+  let age = now.getFullYear() - birth.getFullYear();
+  const m = now.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+/** City (authority name first) + neighborhood, as the identity section shows it. */
+export function getUserLocation(
+  fullProfile: UserFullProfile | null,
+  authority: UserAuthorityInfo | null,
+): { city?: string; neighborhood?: string } {
+  const p = fullProfile as unknown as { city?: unknown; onboarding?: { city?: unknown }; neighborhood?: unknown } | null;
+  const raw = authority?.name || p?.city || p?.onboarding?.city;
+  const city = typeof raw === 'string' ? raw
+    : (raw && typeof raw === 'object' && 'name' in raw) ? String((raw as { name: unknown }).name)
+    : undefined;
+  const neighborhood = typeof p?.neighborhood === 'string' ? p.neighborhood : undefined;
+  return { city, neighborhood };
+}
