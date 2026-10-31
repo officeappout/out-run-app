@@ -256,5 +256,12 @@
   "pushReAsk.home.defer": "Not now",
   "pushReAsk.home.deniedTitle": "Notifications are off",
   "pushReAsk.home.deniedBody": "To get workout reminders, turn on notifications in your phone settings",
-  "pushReAsk.home.openSettings": "Open settings"
+  "pushReAsk.home.openSettings": "Open settings",
+  "notAlone.ask": "Want me to add you?",
+  "notAlone.yes": "Yes, add me",
+  "notAlone.no": "Not now",
+  "notAlone.joining": "Adding you",
+  "notAlone.joined": "You’re in! The sessions are in your schedule",
+  "notAlone.failed": "We couldn’t add you from here",
+  "notAlone.openGroup": "Open the group"
 }

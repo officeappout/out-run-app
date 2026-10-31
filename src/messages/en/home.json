@@ -646,6 +646,7 @@
   "settings.tools.unitName": "{unit, select, km {kilometers} other {miles}}",
   "settings.tools.calendar": "Calendar sync",
   "settings.tools.calendarSub": "Your workouts in your phone’s calendar",
+  "settings.tools.calendarUnavailable": "Not available right now, try again later",
   "settings.tools.equipment": "My equipment",
   "settings.tools.equipmentSub": "Update the equipment you have available",
   "settings.tools.camera": "Camera and photo library access",

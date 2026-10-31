@@ -14,8 +14,8 @@ describe('fit-screen (onboarding v2 — no jumping on swipe)', () => {
   });
 
   it('header top inset is added once: not again when the host (<main>) pads it', () => {
-    expect(headerSafeTop(true, true)).toBe('4px');
-    expect(headerSafeTop(true, false)).toBe('calc(env(safe-area-inset-top, 0px) + 4px)');
+    expect(headerSafeTop(true, true)).toBe('12px');
+    expect(headerSafeTop(true, false)).toBe('calc(env(safe-area-inset-top, 0px) + 12px)');
     // legacy unchanged, whatever the host does
     expect(headerSafeTop(false, true)).toBe('env(safe-area-inset-top, 0px)');
     expect(headerSafeTop(false, false)).toBe('env(safe-area-inset-top, 0px)');

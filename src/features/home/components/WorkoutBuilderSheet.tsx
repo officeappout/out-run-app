@@ -41,7 +41,7 @@ import { V2_PILL_ON, V2_PILL_OFF } from './combo-generator/builder-pill-styles';
 import { ComboGeneratorPanel, ComboCategoryRow } from './combo-generator/ComboGenerator';
 import { ComboAerobicForm, ComboHybridParts } from './combo-generator/ComboForms';
 import {
-  aerobicHrefOf, comboIntentOf, comboLaunchOf, comboLevelsOf, hybridFormDefaults, hybridIntentOfForm,
+  aerobicHrefOf, comboCanRunOf, comboIntentOf, comboLaunchOf, comboLevelsOf, hybridFormDefaults, hybridIntentOfForm,
   type ComboAerobicKind, type ComboCategory, type HybridFormState,
 } from './combo-generator/combo-generator-model';
 import { recommendCombos, type ComboContext, type ComboOption } from '@/features/workout-engine/logic/combo/combo-recommend';
@@ -772,14 +772,18 @@ export default function WorkoutBuilderSheet({
   }, [difficulty, handleGenerate, onClose, router]);
 
   // Aerobic / hybrid tabs (generator boards 1 aerobic, 2): presets from the engine.
-  const [aerobicKind, setAerobicKind] = useState<ComboAerobicKind>('running');
+  // Pilot AH25: no running questionnaire → the aerobic tab starts on walking.
+  const [aerobicKind, setAerobicKind] = useState<ComboAerobicKind>(() => (comboCanRunOf(profile as never) ? 'running' : 'walking'));
   const [hybridForm, setHybridForm] = useState<HybridFormState | null>(null);
   const [hybridTouched, setHybridTouched] = useState({ aerobic: false, strength: false });
   const handleComboCategory = useCallback((c: ComboCategory) => {
     setComboCategory(c);
     if (c === 'hybrid' && !hybridForm) {
       const intent = comboIntentOf({ category: 'hybrid', minutes: availableTime, stars: difficulty, location });
-      const top = recommendCombos(intent, { levels: profile ? comboLevelsOf(buildUserProgramLevels(profile, new Set(), '[ComboGenerator]').levels, resolveToSlug) : {} })[0];
+      const top = recommendCombos(intent, {
+        levels: profile ? comboLevelsOf(buildUserProgramLevels(profile, new Set(), '[ComboGenerator]').levels, resolveToSlug) : {},
+        canRun: comboCanRunOf(profile as never),
+      })[0];
       setHybridForm(hybridFormDefaults(top, intent.stars));
     }
   }, [hybridForm, availableTime, difficulty, location, profile]);
@@ -889,7 +893,19 @@ export default function WorkoutBuilderSheet({
       <div className={v2 ? 'relative flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-6 pt-4' : 'flex-1 overflow-y-auto px-4 py-6 space-y-7'}>
 
         {comboGenOn && <ComboCategoryRow value={comboCategory} onChange={handleComboCategory} />}
-        {comboView === 'aerobic' && <ComboAerobicForm kind={aerobicKind} onKind={setAerobicKind} />}
+        {comboView === 'aerobic' && <ComboAerobicForm kind={aerobicKind} onKind={setAerobicKind} minutes={availableTime} onMinutes={setAvailableTime} />}
+        {/* Pilot AH26: the aerobic tab also lists the engine's aerobic options (walk / run, + core finisher). */}
+        {comboView === 'aerobic' && (
+          <ComboGeneratorPanel
+            category="aerobic"
+            minutes={availableTime}
+            stars={difficulty}
+            location={location}
+            today={comboToday}
+            busy={isLoading}
+            onPick={handleComboPick}
+          />
+        )}
         {comboView === 'hybrid' && hybridForm && (
           <ComboHybridParts
             form={hybridForm}

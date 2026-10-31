@@ -121,7 +121,8 @@ import { useRunCatchUp } from '@/features/home/hooks/useRunCatchUp';
 import RunReturnDrawer from '@/features/home/components/run-return/RunReturnDrawer';
 import RunCatchUpNotice from '@/features/home/components/run-return/RunCatchUpNotice';
 import { calmCopy } from '@/lib/calm-return/surface';
-import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { startMiniDomainAssessment, startFullStrengthQuestionnaire } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { parkNeedsQuizFirst } from '@/features/parks/core/utils/park-quiz-gate';
 import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useHasStreakCard } from '@/features/home/components/streak/useStreakCard';
 import StreakCelebrationHost from '@/features/streak-celebration/components/StreakCelebrationHost';
@@ -2185,13 +2186,26 @@ export default function HomePage() {
   }, [profile, handleWorkoutGenerated, featureFlags.enableHomeV2, tHome, backgroundHold.begin]);
 
   const pendingParkWorkoutStart = useMapStore((s) => s.pendingParkWorkoutStart);
+  // M12: leaving for the questionnaire keeps the park pending for the return; never compose it on the way out.
+  const parkQuizRedirectRef = useRef(false);
   useEffect(() => {
     // Wait for the profile: consuming before it loads dropped the start silently (compose returns on !profile).
-    if (!pendingParkWorkoutStart || !profile) return;
+    if (!pendingParkWorkoutStart || !profile || parkQuizRedirectRef.current) return;
     const park = useMapStore.getState().consumePendingParkWorkoutStart();
     // enable_place_workouts_v1: a park-page card may carry its difficulty / length; none → as before.
     const opts = useMapStore.getState().consumePendingParkWorkoutOptions();
     if (!park) return;
+    // enable_pilot_decisions_v1 (owner M12): a park with < 3 different equipment types → the strength
+    // questionnaire first (users without one), once per park per session; back here the park starts.
+    const askedKey = `park_quiz_asked:${park.id}`;
+    const asked = typeof window !== 'undefined' && !!sessionStorage.getItem(askedKey);
+    if (featureFlags.enablePilotDecisionsV1 && parkNeedsQuizFirst(park, hasAssessedStrengthDomain(profile as never), asked)) {
+      sessionStorage.setItem(askedKey, '1');
+      parkQuizRedirectRef.current = true;
+      useMapStore.getState().setPendingParkWorkoutStart(park, opts);
+      startFullStrengthQuestionnaire(router, profile, '/home');
+      return;
+    }
     void composeAndOpenParkWorkout(park, opts?.difficulty ?? 'medium', opts?.minutes ?? 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingParkWorkoutStart, profile?.id]);
@@ -3424,7 +3438,8 @@ export default function HomePage() {
               runningBasePace={profile?.running?.paceProfile?.basePace}
               runningProgramId={profile?.running?.activeProgram?.programId}
               scheduleVersion={scheduleVersion}
-              activityView={(homeTabPicked ?? (featureFlags.enableHomeV2 && walkWeek.isWalker && hasProgram ? 'health' : 'strength')) === 'health'}
+              // enable_schedule_pilot_v1 (pilot P12): always the icons, never the rings.
+              activityView={!featureFlags.enableSchedulePilotV1 && (homeTabPicked ?? (featureFlags.enableHomeV2 && walkWeek.isWalker && hasProgram ? 'health' : 'strength')) === 'health'}
             />
           </motion.div>
         )}
@@ -3541,7 +3556,11 @@ export default function HomePage() {
               {effectiveTab === 'strength' && progressSlotOn ? (
                 /* enable_home_progress_slot_v1 (boards PG-1): same grid, the program slot
                    becomes strength ↔ running/walking with pager dots. */
-                <HomeProgressSlotRow aside={<ConsistencyWidget />} />
+                <HomeProgressSlotRow
+                  aside={<ConsistencyWidget />}
+                  // enable_schedule_pilot_v1 (pilot P13, owner 31.10): the walking plan card → today's walk.
+                  onWalkOpen={featureFlags.enableSchedulePilotV1 && walkSlot ? startWalkFromHome : undefined}
+                />
               ) : effectiveTab === 'strength' ? (
                 /* התקדמות שבועית — program ring (minmax(0,1fr)) + consistency bars (111px).
                    Grid (not flex) so each cell has an explicit physical boundary —

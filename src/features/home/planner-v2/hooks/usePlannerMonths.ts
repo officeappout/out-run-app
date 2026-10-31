@@ -91,7 +91,7 @@ export function usePlannerMonths(
           materializePlanned(profile as unknown as AdvisorProfile, keys, scheduleDays, resolveToSlug, { runsByType }),
           advisorWorkouts,
           todayKey,
-        ).map((p) => ({ date: p.date, kind: p.kind, status: p.status, runCategory: p.runDay?.category ?? null }));
+        ).map((p) => ({ date: p.date, kind: p.kind, status: p.status, runCategory: p.runDay?.category ?? null, programSlug: p.strengthSlugs?.[0] ?? null }));
         const sections = buildMonthSections({ months, todayKey, planned, workoutsByDate, daysByDate, stepGoal });
         setState({ status: 'ready', sections, workoutsByDate, daysByDate, stepGoal, todayKey });
       })

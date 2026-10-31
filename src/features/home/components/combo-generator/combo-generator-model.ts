@@ -40,6 +40,14 @@ export function comboLevelsOf(levels: ReadonlyMap<string, number>, toSlug: (id: 
   return out;
 }
 
+/** Pilot AH25: the running questionnaire is filled (a run plan or a pace profile) → runs may be offered. */
+export function comboCanRunOf(profile: {
+  running?: { activeProgram?: { schedule?: unknown[] } | null; paceProfile?: { basePace?: unknown } | null } | null;
+} | null | undefined): boolean {
+  const r = profile?.running;
+  return (Array.isArray(r?.activeProgram?.schedule) && r!.activeProgram!.schedule!.length > 0) || !!r?.paceProfile?.basePace;
+}
+
 export function comboIntentOf(i: { category: ComboCategory; minutes: number; stars: number; location: string }): ComboIntent {
   const place: ComboPlace = i.location === 'home' ? 'home' : 'park';
   const stars = (i.stars === 1 || i.stars === 3 ? i.stars : 2) as ComboStars;

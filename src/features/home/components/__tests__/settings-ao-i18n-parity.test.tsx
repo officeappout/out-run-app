@@ -41,6 +41,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push() {}, replace() {} 
 vi.mock('@/lib/calendar-subscription', () => ({
   openCalendarSubscription: () => {},
   useCalendarFeedPath: (uid: string | null) => (uid ? '/cal/feed' : null),
+  useCalendarFeed: (uid: string | null) => ({ path: uid ? '/cal/feed' : null, failed: false }),
 }));
 
 const ui = vi.hoisted(() => ({

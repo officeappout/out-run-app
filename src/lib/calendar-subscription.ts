@@ -16,42 +16,55 @@ import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { auth } from '@/lib/firebase';
 
 export function useCalendarFeedPath(userId: string | null | undefined): string | null {
+  return useCalendarFeed(userId).path;
+}
+
+/**
+ * The same fetch with its outcome (AH31): `failed` once every attempt is over without a path, so
+ * a screen can stop showing "loading" forever (no token, 4xx / 503, or the retries ran out).
+ */
+export function useCalendarFeed(userId: string | null | undefined): { path: string | null; failed: boolean } {
   const [path, setPath] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     setPath(null);
+    setFailed(false);
     if (!userId) return;
     let cancelled = false;
     const RETRY_DELAYS_MS = [1000, 3000]; // 3 attempts total
     (async () => {
+      const fail = () => { if (!cancelled) setFailed(true); };
       try {
         await auth.authStateReady();
       } catch {
-        return;
+        return fail();
       }
       for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
         if (cancelled) return;
         try {
           const idToken = await auth.currentUser?.getIdToken();
-          if (!idToken) return;
+          if (!idToken) return fail();
           const res = await fetch('/api/calendar/token', { method: 'POST', headers: { Authorization: `Bearer ${idToken}` } });
           if (res.ok) {
             const data = (await res.json()) as { path?: unknown };
             if (!cancelled && typeof data.path === 'string' && data.path.startsWith('/api/calendar/t/')) setPath(data.path);
+            else fail();
             return;
           }
           // 4xx and 503 are final; only transient 500/502/504 is retried.
-          if (![500, 502, 504].includes(res.status)) return;
+          if (![500, 502, 504].includes(res.status)) return fail();
         } catch {
           // network failure — retry
         }
         if (attempt < RETRY_DELAYS_MS.length) await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
       }
+      fail();
     })();
     return () => {
       cancelled = true;
     };
   }, [userId]);
-  return path;
+  return { path, failed };
 }
 
 export type CalendarPlatform = 'ios' | 'android' | 'web';

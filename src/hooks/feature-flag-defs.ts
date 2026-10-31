@@ -860,6 +860,21 @@ export const FLAG_DEFS = [
   // /api/scan/equipment (open to every signed-in user incl. teens; its own rate limit). Fail-closed; super admins
   // preview it. Off = identical to today.
   { key: 'enableEquipmentScanV1', firestoreKey: 'enable_equipment_scan_v1', defaultValue: false, superAdminValue: true },
+  // Pilot owner decisions (31.10.2026): M21 story bars across the whole combined workout (walk / run legs too, the
+  // station's exercises in focus); M23 the walked trail on a route is green (zones keep their own colours); M12 a park
+  // with fewer than 3 different equipment types asks for the strength questionnaire first (users without one).
+  // Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enablePilotDecisionsV1', firestoreKey: 'enable_pilot_decisions_v1', defaultValue: false, superAdminValue: true },
+  // Schedule pilot notes (31.10.2026, P10 / P12 / P16): always icons in the schedule (no rings view; the planner
+  // uses the programs' own icons); a future day in the big planner opens its workout drawer; the walking signup's
+  // nearby-group card asks "join you?" and adds the group to the schedule in place; P13 the walking-plan card
+  // opens today's walk. Fail-closed; super admins preview it. Off = identical to today.
+  { key: 'enableSchedulePilotV1', firestoreKey: 'enable_schedule_pilot_v1', defaultValue: false, superAdminValue: true },
+  // Owner's iPhone notes (31.10.2026, pilot section AH): the suppressed bottom nav leaves no sliver (AH24); the map
+  // layers sheet sits above the map's top bar so it closes (AH27); the partners chip only with partners nearby
+  // (AH28); the schedule tutorial / home schedule / progress card fixes (AH14-AH17, AH19). Fail-closed; super admins
+  // preview it. Off = identical to today.
+  { key: 'enablePilotAhV1', firestoreKey: 'enable_pilot_ah_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

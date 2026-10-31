@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { FeedPrivacySheet } from '@/features/social/components/FeedPublishSheets';
-import { openCalendarSubscription, useCalendarFeedPath } from '@/lib/calendar-subscription';
+import { openCalendarSubscription, useCalendarFeed } from '@/lib/calendar-subscription';
 import { feedPrefsFrom, saveFeedPrefs, type FeedPrefs } from '@/features/social/services/feed-prefs';
 
 /** Home v2 (enable_home_v2) for the row primitives below — set once by the modal. */
@@ -412,7 +412,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const v2Flags = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags;
   const v2 = v2Flags.enableHomeV2;
   // Calendar sync — moved here from the home schedule in v2.
-  const calendarFeedPath = useCalendarFeedPath(v2 ? profile?.id : null);
+  const { path: calendarFeedPath, failed: calendarFeedFailed } = useCalendarFeed(v2 ? profile?.id : null);
   // "מי רואה את הפוסטים שלי" — the feed's opt-in publishing prefs, here too.
   const [feedPrivacyOpen, setFeedPrivacyOpen] = useState(false);
   const [feedPrivacyBusy, setFeedPrivacyBusy] = useState(false);
@@ -2275,7 +2275,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <SettingsRow
                       icon={<CalendarDays size={20} className="text-gray-700" />}
                       label={t('settings.tools.calendar')}
-                      sublabel={calendarFeedPath ? t('settings.tools.calendarSub') : t('settings.loading')}
+                      sublabel={calendarFeedPath ? t('settings.tools.calendarSub') : calendarFeedFailed ? t('settings.tools.calendarUnavailable') : t('settings.loading')}
                       onClick={calendarFeedPath ? () => openCalendarSubscription(calendarFeedPath) : undefined}
                       disabled={!calendarFeedPath}
                     />
@@ -2351,9 +2351,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     label={t('settings.training.stepGoal')}
                     sublabel={
                       stepGoalMode === 'manual'
-                        ? t('settings.training.stepGoalManual', { steps: (resolvedStepGoal ?? 0).toLocaleString('en-US') })
+                        ? t('settings.training.stepGoalManual', { steps: resolvedStepGoal ?? 0 })
                         : resolvedStepGoal
-                          ? t('settings.training.stepGoalAuto', { steps: resolvedStepGoal.toLocaleString('en-US') })
+                          ? t('settings.training.stepGoalAuto', { steps: resolvedStepGoal })
                           : t('settings.training.stepGoalAutoNone')
                     }
                     right={

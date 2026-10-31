@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { recommendCombos } from '@/features/workout-engine/logic/combo/combo-recommend';
 import {
-  aerobicHrefOf, comboCardModel, comboIntentOf, comboLaunchOf, comboLevelsOf, comboTodayOf, hybridFormDefaults, hybridIntentOfForm,
+  aerobicHrefOf, comboCanRunOf, comboCardModel, comboIntentOf, comboLaunchOf, comboLevelsOf, comboTodayOf, hybridFormDefaults, hybridIntentOfForm,
 } from '../combo-generator-model';
 
 describe('comboTodayOf', () => {
@@ -89,5 +89,15 @@ describe('hybrid form', () => {
   });
   it('the aerobic tab opens the free run drawer', () => {
     expect(aerobicHrefOf('cycling')).toBe('/map?openRun=cycling');
+  });
+});
+
+describe('comboCanRunOf (AH25)', () => {
+  it('a run plan or a pace profile = filled the running questionnaire', () => {
+    expect(comboCanRunOf({ running: { activeProgram: { schedule: [{}] } } })).toBe(true);
+    expect(comboCanRunOf({ running: { paceProfile: { basePace: 360 } } })).toBe(true);
+    expect(comboCanRunOf({ running: { activeProgram: { schedule: [] } } })).toBe(false);
+    expect(comboCanRunOf({})).toBe(false);
+    expect(comboCanRunOf(null)).toBe(false);
   });
 });
