@@ -3,8 +3,8 @@
 /**
  * Camera scan, park mapping (phase 2) state: guided shots (nextParkShot), each sent in 'park'
  * mode, plus one high-accuracy GPS fix taken with the first photo. A dark photo never leaves the
- * phone. Every other shot, people in it or not (owner 31.10), keeps its base64 in memory only, for
- * the cover photo and the unknown-item crops uploaded on submit (scan-upload.ts).
+ * phone. Every other shot counts for recognition, people in it or not (owner 31.10), and keeps its
+ * base64 in memory only; on submit only people-free shots are uploaded (scan-upload.ts).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nextParkShot } from '@/lib/ai/scan/scan-merge';

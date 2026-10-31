@@ -3,7 +3,7 @@
  *
  * Guided capture: 3 fixed angles first (wide from the entrance, from the side, from the other
  * side), then up to 2 "closer" shots aimed at whatever is still unsure, 5 photos at most. A photo
- * with people counts like any other (owner 31.10); only the cover-photo choice avoids it.
+ * with people counts for recognition (owner 31.10); it is never uploaded (scan-upload.ts).
  */
 import { CONFIRM_AT, CHOOSE_AT } from './scan-result';
 import type { ScanBox, ScanCandidateKind, ScanPhotoResult, ScanUnknown } from './scan-types';

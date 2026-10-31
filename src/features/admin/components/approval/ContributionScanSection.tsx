@@ -50,9 +50,6 @@ export default function ContributionScanSection({ contribution }: ContributionSc
             <Camera size={12} /> צולם · {s.photos}
           </span>
         )}
-        {contribution.scan?.coverHasPeople && (
-          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">יש אנשים בתמונת השער</span>
-        )}
       </div>
       {contribution.scan && (
         <p className="text-xs font-bold text-gray-500">

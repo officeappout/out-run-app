@@ -12,7 +12,7 @@ import type { ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import type { ParkGymEquipment } from '@/features/content/equipment/gym';
 import { scanMetaFor, type ParkScanPrefill } from './park-scan-mapping';
 import type { MergedParkScan } from '@/lib/ai/scan/scan-merge';
-import { coverShot, uploadCover, uploadUnknownCrops } from './scan-upload';
+import { uploadCover, uploadUnknownCrops } from './scan-upload';
 import type { ParkShot } from './useParkScan';
 import { postScanFeedback } from './scan-api';
 
@@ -30,7 +30,6 @@ export async function submitScanContribution(args: {
   const scan = {
     ...scanMetaFor(prefill.merged, args.gymEquipment.map((g) => g.equipmentId), unknown),
     withPeople: shots.filter((s) => s.result.hasPeople).length,
-    ...(cover ? { coverHasPeople: coverShot(shots)?.result.hasPeople === true } : {}),
   };
   const id = await createContribution({
     userId: uid,

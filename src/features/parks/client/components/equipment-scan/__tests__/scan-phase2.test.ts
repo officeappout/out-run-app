@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { prefillFromScan, scanMetaFor, streetForName } from '../park-scan-mapping';
+import { coverShot } from '../scan-upload';
 import { indicatorStepIds, wizardStepIds } from '../../contribution-wizard/wizard-steps';
 import type { ScanPhotoResult } from '@/lib/ai/scan/scan-types';
 import { scanSummary } from '@/features/admin/components/approval/ContributionScanSection';
@@ -77,5 +78,13 @@ describe('admin scan summary', () => {
     const scan = { photos: 5, items: [{ equipmentId: 'a', confidence: 0.9 }, { equipmentId: 'b', confidence: 0.6 }], removedByUser: [], addedByUser: [], unknown: [{ description: 'rower' }] };
     expect(scanSummary(scan, 4)).toEqual({ photos: 5, equipmentCount: 4, unsure: 1, unknown: [{ description: 'rower' }] });
     expect(scanSummary(undefined, 0)).toEqual({ photos: 0, equipmentCount: 0, unsure: 0, unknown: [] });
+  });
+});
+
+describe('photos with people are never uploaded (owner 31.10)', () => {
+  const shot = (hasPeople: boolean, tag: string) => ({ result: photo([], { hasPeople }), base64: tag, previewUrl: '' });
+  it('the cover is the first people-free shot, or none', () => {
+    expect(coverShot([shot(true, 'a'), shot(false, 'b')])?.base64).toBe('b');
+    expect(coverShot([shot(true, 'a')])).toBeNull();
   });
 });
