@@ -38,5 +38,5 @@ export function bodyweightIntroView(plan: WorkoutPlan | null | undefined, parkId
     }
   }
   if (rows.length === 0) return null;
-  return { kind: parkId ? 'park' : 'street', rows, muscles, setsEach: sets.size === 1 ? [...sets][0] : null };
+  return { kind: parkId ? 'park' : 'street', rows, muscles, setsEach: sets.size === 1 ? Array.from(sets)[0] : null };
 }
