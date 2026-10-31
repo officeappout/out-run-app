@@ -88,9 +88,9 @@ describe('brand-aware (owner 31.10)', () => {
   });
   it('the accuracy log takes catalog items only, with their brand, no photo', () => {
     const r = { quality: 'ok' as const, hasPeople: false, unknown: [], items: [
-      { candidateId: 'dips', kind: 'catalog' as const, confidence: 0.9, brandName: 'Ornix' },
+      { candidateId: 'dips', kind: 'catalog' as const, confidence: 0.9, brandName: 'Urbanix' },
       { candidateId: 'urban:bench', kind: 'urban' as const, confidence: 0.8 }] };
-    expect(detectedForLog(r)).toEqual([{ equipmentId: 'dips', confidence: 0.9, brandName: 'Ornix' }]);
+    expect(detectedForLog(r)).toEqual([{ equipmentId: 'dips', confidence: 0.9, brandName: 'Urbanix' }]);
     expect(detectedForLog(null)).toEqual([]);
   });
 });
