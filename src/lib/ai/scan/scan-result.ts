@@ -7,6 +7,7 @@
  *   below / bad photo / people  → retake (the edge-state screens)
  * NEEDS_COMPARE_GAP: when the top two are this close, the route runs the photo-vs-catalog compare.
  */
+import { matchBrand } from './scan-candidates';
 import type { ScanBox, ScanCandidate, ScanItem, ScanPhotoResult, ScanQuality, ScanUnknown, ScanVerdict } from './scan-types';
 
 export const CONFIRM_AT = 0.8;
@@ -41,6 +42,7 @@ export function parseScanToolInput(raw: unknown, candidates: readonly ScanCandid
       candidateId: c.id,
       kind: c.kind,
       confidence: clamp01(o.confidence),
+      ...(matchBrand(c, o.brand) ? { brandName: matchBrand(c, o.brand) } : {}),
       ...(typeof o.count === 'number' && Number.isInteger(o.count) && o.count > 0 ? { count: Math.min(o.count, 20) } : {}),
       ...(box(o.box) ? { box: box(o.box) } : {}),
     };
@@ -62,10 +64,17 @@ export function parseScanToolInput(raw: unknown, candidates: readonly ScanCandid
   };
 }
 
-/** Top two are near-tied: worth one compare call with the catalog photos. */
-export function needsCompare(result: ScanPhotoResult): boolean {
+/**
+ * Worth one compare call with the catalog photos: the top two are near-tied, or the top item is
+ * likely but its brand is unknown while it has more than one brand photo to choose from.
+ */
+export function needsCompare(result: ScanPhotoResult, candidates: readonly ScanCandidate[] = []): boolean {
   const [a, b] = result.items;
-  return !!a && !!b && a.confidence >= 0.3 && a.confidence - b.confidence < NEEDS_COMPARE_GAP;
+  if (!a || a.confidence < 0.3) return false;
+  if (b && a.confidence - b.confidence < NEEDS_COMPARE_GAP) return true;
+  if (a.brandName || a.confidence < CHOOSE_AT) return false;
+  const c = candidates.find((x) => x.id === a.candidateId);
+  return (c?.brands?.filter((x) => x.imageUrl).length ?? 0) > 1;
 }
 
 /** The single-item screen's next step. People always win: the photo is dropped. */
@@ -74,7 +83,8 @@ export function singleVerdict(result: ScanPhotoResult): ScanVerdict {
   const [top, ...rest] = result.items;
   if (!top) return { kind: 'retake', reason: result.quality === 'ok' ? 'no_equipment' : result.quality };
   const alternatives = rest.slice(0, 3).map((i) => i.candidateId);
-  if (top.confidence >= CONFIRM_AT) return { kind: 'confirm', candidateId: top.candidateId, alternatives };
-  if (top.confidence >= CHOOSE_AT) return { kind: 'choose', candidateId: top.candidateId, alternatives };
+  const brand = top.brandName ? { brandName: top.brandName } : {};
+  if (top.confidence >= CONFIRM_AT) return { kind: 'confirm', candidateId: top.candidateId, ...brand, alternatives };
+  if (top.confidence >= CHOOSE_AT) return { kind: 'choose', candidateId: top.candidateId, ...brand, alternatives };
   return { kind: 'retake', reason: result.quality === 'ok' ? 'unsure' : result.quality };
 }

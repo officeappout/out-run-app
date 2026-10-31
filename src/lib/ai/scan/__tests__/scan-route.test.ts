@@ -37,6 +37,7 @@ vi.mock('@/lib/rateLimit', () => ({
 vi.mock('@/lib/ai/scan/scan-catalog.server', () => ({
   loadScanCatalog: async () => [{ id: 'pull', name: 'מתח', availableInLocations: ['park'] }],
   loadParkEquipmentIds: async (_db: any, parkId?: string) => (parkId ? ['pull'] : []),
+  loadVisualIndex: () => ({}),
 }));
 vi.mock('@/lib/ai/scan/scan.server', () => ({
   identifyEquipment: (...a: any[]) => st.identify(...a),

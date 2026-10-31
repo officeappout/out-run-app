@@ -3,8 +3,8 @@
  * written to Storage, Firestore or a log (tech plan §5).
  *
  *   1. identify  fast tier (Haiku), photo + the candidate list (cached), forced tool.
- *   2. compare   only when the top two are near-tied (needsCompare): smart tier, the photo next
- *                to the catalog photos of the tied candidates.
+ *   2. compare   only when the top two are near-tied or the brand is unknown (needsCompare): smart
+ *                tier, the photo next to each top item's brand photos (owner 31.10: brand-aware).
  */
 import 'server-only';
 import type Anthropic from '@anthropic-ai/sdk';
@@ -46,11 +46,17 @@ export async function identifyEquipment(
     messages: [{ role: 'user', content: [imageBlock(image), { type: 'text', text: scanUserText(mode, candidates) }] }],
   });
   const result = parseScanToolInput(toolInput(message), candidates);
-  if (mode !== 'single' || result.hasPeople || !needsCompare(result)) return result;
+  if (mode !== 'single' || result.hasPeople || !needsCompare(result, candidates)) return result;
   return compareTopCandidates(uid, image, candidates, result);
 }
 
-/** Re-ranks the near-tied top items against their catalog photos. Falls back to the first answer. */
+/** Max catalog photos in one compare call (each costs image tokens). */
+const MAX_COMPARE_IMAGES = 6;
+
+/**
+ * Re-ranks the top items against their brands' catalog photos (one image per (item, brand)), so
+ * the answer carries the brand too. Falls back to the first answer.
+ */
 async function compareTopCandidates(
   uid: string,
   image: ScanImage,
@@ -58,11 +64,14 @@ async function compareTopCandidates(
   first: ScanPhotoResult,
 ): Promise<ScanPhotoResult> {
   const byId = new Map(candidates.map((c) => [c.id, c]));
-  const tied = first.items
-    .slice(0, 3)
-    .map((i) => byId.get(i.candidateId))
-    .filter((c): c is ScanCandidate => !!c?.imageUrl);
-  if (tied.length < 2) return first;
+  const top = first.items.slice(0, 3).map((i) => byId.get(i.candidateId)).filter((c): c is ScanCandidate => !!c);
+  const shots: Array<{ id: string; brand: string; url: string }> = [];
+  for (const c of top) {
+    for (const b of c.brands ?? []) {
+      if (b.imageUrl && shots.length < MAX_COMPARE_IMAGES) shots.push({ id: c.id, brand: b.name, url: b.imageUrl });
+    }
+  }
+  if (shots.length < 2) return first;
   try {
     const message = await createAiMessage(uid, SCAN_FEATURE, {
       model: getAiModel('smart'),
@@ -74,16 +83,16 @@ async function compareTopCandidates(
           role: 'user',
           content: [
             imageBlock(image),
-            ...tied.map((c): Anthropic.ImageBlockParam => ({ type: 'image', source: { type: 'url', url: c.imageUrl! } })),
-            { type: 'text', text: compareUserText(tied.map((c) => c.id)) },
+            ...shots.map((s): Anthropic.ImageBlockParam => ({ type: 'image', source: { type: 'url', url: s.url } })),
+            { type: 'text', text: compareUserText(shots) },
           ],
         },
       ],
     });
-    const second = parseScanToolInput(toolInput(message), tied);
+    const second = parseScanToolInput(toolInput(message), top);
     if (second.items.length === 0) return first;
     // Keep the first pass's photo verdicts (people / quality / unknown); take the re-ranked items.
-    const rest = first.items.filter((i) => !tied.some((c) => c.id === i.candidateId));
+    const rest = first.items.filter((i) => !top.some((c) => c.id === i.candidateId));
     return { ...first, items: [...second.items, ...rest].sort((a, b) => b.confidence - a.confidence) };
   } catch (err) {
     console.warn('[scan] compare call failed, keeping the first answer', err);
