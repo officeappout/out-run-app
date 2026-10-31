@@ -76,7 +76,7 @@ export interface ScanPhotoResult {
 export type ScanVerdict =
   | { kind: 'confirm'; candidateId: string; brandName?: string; alternatives: string[] }
   | { kind: 'choose'; candidateId: string; brandName?: string; alternatives: string[] }
-  | { kind: 'retake'; reason: ScanQuality | 'people' | 'unsure' };
+  | { kind: 'retake'; reason: ScanQuality | 'unsure' };
 
 export const SCAN_MODES = ['single', 'park'] as const;
 export type ScanMode = (typeof SCAN_MODES)[number];
