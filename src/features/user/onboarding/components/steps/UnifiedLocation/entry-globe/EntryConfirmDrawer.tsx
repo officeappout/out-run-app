@@ -11,6 +11,8 @@ import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import { map } from '@/messages/ns/map';
 import { confirmPlaceName, nearestParkMetaParts, pickNearestPark } from './entry-confirm';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { displayLocationName } from '@/lib/data/location-name-en';
 
 // Same emoji strip as ConfirmationCard's v2 branch (pioneer copy comes from the shared matrix).
 const EMOJI_RE = /(?:[\uD83C-\uD83E][\uDC00-\uDFFF]|[\u2600-\u27BF]|\u2B50|\uFE0F|\u200D)/g;
@@ -55,6 +57,13 @@ export function EntryConfirmDrawer({
   // drag line moves to the chip above the lemur. Off = today's drawer.
   const v1 = useMapTutorialV1();
   const place = confirmPlaceName(detectedNeighborhood, detectedCity, displayName);
+  // English place name for display (the Hebrew stays the data; a neighbourhood is resolved under its city).
+  const contentLang = useContentLanguage();
+  const placeShown = displayLocationName(
+    place,
+    contentLang,
+    detectedNeighborhood && place === detectedNeighborhood.trim() ? detectedCity : null,
+  );
   const park = pickNearestPark(nearbyFacilities);
   // Explorer rule (same as ConfirmationCard): the pioneer box only when the area has zero parks.
   const showPioneer = !isLoadingParks && nearbyFacilities.length === 0;
@@ -81,7 +90,7 @@ export function EntryConfirmDrawer({
       {/* AD1: the step bar comes from EntryDrawer itself (it was rendered twice under v1). */}
       <span className="text-[13px] font-bold text-v2-deep">{t('location.entry.confirm.eyebrow')}</span>
       <h2 className="-mt-1 text-[22px] font-black leading-7 !tracking-[-0.02em] text-v2-ink">
-        {place ? t('location.entry.confirm.title', { place }) : ' '}
+        {place ? t('location.entry.confirm.title', { place: placeShown }) : ' '}
       </h2>
       {v1 ? (
         <div className="flex items-center gap-2.5 rounded-2xl bg-v2-tint px-3 py-2.5">

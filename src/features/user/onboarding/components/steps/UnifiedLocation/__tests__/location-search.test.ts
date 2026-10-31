@@ -62,4 +62,10 @@ describe('filterLocations (AH4)', () => {
     expect(ids('qwxzpt')).toEqual([]);
     expect(ids('oxo')).toEqual([]);
   });
+
+  it('English display names are searchable (vowel-less slugs no longer needed)', () => {
+    expect(ids('Kiryat Bialik')).toContain('kryyt-bylyk');
+    expect(ids('Petah Tikva')[0]).toBe('petah-tikva');
+    expect(ids('ramot jerusalem')).toContain('jr-ramot');
+  });
 });

@@ -7,6 +7,8 @@ import type { SearchOverlayProps } from '../location-types';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { locationNameEnById } from '@/lib/data/location-name-en';
 
 export function SearchOverlay({
   searchQuery,
@@ -18,6 +20,8 @@ export function SearchOverlay({
 }: SearchOverlayProps) {
   const { direction: uiDir } = useUiDir();
   const t = useT(onboarding);
+  // English place names (display only; the Hebrew stays the data).
+  const contentLang = useContentLanguage();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -92,11 +96,11 @@ export function SearchOverlay({
                   </span>
                   <span className="flex-1 min-w-0 text-start">
                     <span className="block truncate text-[15px] font-extrabold text-v2-ink">
-                      {city.name}
+                      {(contentLang === 'en' && locationNameEnById(city.id)) || city.name}
                     </span>
                     {city.parentName && (
                       <span className="block truncate text-[12.5px] font-bold text-v2-muted mt-0.5">
-                        {city.parentName}
+                        {(contentLang === 'en' && locationNameEnById(city.parentId)) || city.parentName}
                       </span>
                     )}
                   </span>
@@ -194,14 +198,14 @@ export function SearchOverlay({
                       className="font-bold text-gray-900 text-base text-start"
                       style={{ fontFamily: 'var(--font-simpler)' }}
                     >
-                      {city.name}
+                      {(contentLang === 'en' && locationNameEnById(city.id)) || city.name}
                     </p>
                     {city.parentName && (
                       <p 
                         className="text-sm text-gray-500 mt-0.5 text-start"
                         style={{ fontFamily: 'var(--font-simpler)' }}
                       >
-                        {city.parentName}
+                        {(contentLang === 'en' && locationNameEnById(city.parentId)) || city.parentName}
                       </p>
                     )}
                   </div>

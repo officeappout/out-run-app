@@ -6,6 +6,8 @@ import { Search, X } from 'lucide-react';
 import type { CityData } from '../location-types';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { locationNameEnById } from '@/lib/data/location-name-en';
 import {
   groupSearchResults,
   highlightSegments,
@@ -53,6 +55,8 @@ function ResultSection({
   subtitle: (row: CityData) => string;
   onSelect: (row: CityData) => void;
 }) {
+  // English place names (display only; the row's Hebrew name stays the data).
+  const lang = useContentLanguage();
   if (rows.length === 0) return null;
   return (
     <section className="flex flex-col gap-1">
@@ -66,7 +70,7 @@ function ResultSection({
             className="block w-full px-3.5 py-3 text-start active:bg-v2-tint transition-colors"
           >
             <span className="block truncate text-[15px] font-semibold text-[#334155]">
-              <Highlighted text={row.name} query={query} />
+              <Highlighted text={(lang === 'en' && locationNameEnById(row.id)) || row.name} query={query} />
             </span>
             <span className="block truncate text-[12px] font-bold text-v2-muted">{subtitle(row)}</span>
           </button>
@@ -92,6 +96,7 @@ export function EntrySearchOverlay({
   notice,
 }: EntrySearchOverlayProps) {
   const t = useT(onboarding);
+  const contentLang = useContentLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<SearchFilter>('all');
 
@@ -187,7 +192,7 @@ export function EntrySearchOverlay({
                 title={t('location.entry.search.section.neighborhoods')}
                 rows={grouped.neighborhoods}
                 query={searchQuery}
-                subtitle={(r) => r.parentName ?? ''}
+                subtitle={(r) => (contentLang === 'en' && locationNameEnById(r.parentId)) || (r.parentName ?? '')}
                 onSelect={onCitySelect}
               />
             )}
