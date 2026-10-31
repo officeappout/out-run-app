@@ -193,9 +193,9 @@ describe('settings (values and branches)', () => {
   it('interpolated lines', () => {
     expect(t('settings.subscription.activeSub', { name: 'תל אביב' })).toBe(`פעיל — ${'תל אביב'}`);
     expect(t('settings.reminders.count', { count: String(1234) })).toBe(`${1234} תזכורות מוגדרות`);
-    const steps = (9000).toLocaleString('en-US');
-    expect(t('settings.training.stepGoalManual', { steps })).toBe(`${steps} צעדים ביום, לפי הבחירה שלך`);
-    expect(t('settings.training.stepGoalAuto', { steps })).toBe(`${steps} צעדים · מתעדכן פעם בשבוע לפי ההליכה שלך`);
+    // A number (AH31: a pre-formatted string made the English plural print "NaN steps").
+    expect(t('settings.training.stepGoalManual', { steps: 9000 })).toBe('9,000 צעדים ביום, לפי הבחירה שלך');
+    expect(t('settings.training.stepGoalAuto', { steps: 9000 })).toBe('9,000 צעדים · מתעדכן פעם בשבוע לפי ההליכה שלך');
   });
 
   it('units select: km → קילומטרים, anything else → מיילים', () => {

@@ -804,7 +804,8 @@ export default function MasterExerciseView({
 
   return (
     <MevV2.Provider value={v2}>
-    <div dir={direction} className={v2 ? 'bg-v2-surface' : undefined}>
+    {/* overflow-x-clip (AH20): an inner side-scrolling row (-mx-4 chips) must never let the whole page drag sideways. */}
+    <div dir={direction} className={v2 ? 'overflow-x-clip bg-v2-surface' : 'overflow-x-clip'}>
       {notice && (
         <div
           className={
