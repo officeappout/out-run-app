@@ -4,8 +4,10 @@
  * Camera scan, phase 1 (enable_equipment_scan_v1, ScanEquip + ScanEdges boards). Opening it starts
  * the camera; the photo stays behind a dark layer with the brand scan line while we recognize it,
  * and a white panel at the bottom carries the result: "זה נכון?", an edge state, or the list.
- * A confirmed / picked item hands its gym_equipment id to `onRecognized` (the host opens the
- * existing equipment drawer). Cancelling the camera closes the screen.
+ * A confirmed / picked item hands its gym_equipment id and, when recognized, its brand to
+ * `onRecognized` (the host opens the existing equipment drawer on that brand's photo and video).
+ * Every answer is logged for accuracy (detected vs confirmed, never the photo). Cancelling the
+ * camera closes the screen.
  */
 import { useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -17,6 +19,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { useEquipmentScan } from './useEquipmentScan';
+import { detectedForLog, postScanFeedback } from './scan-api';
 import { useParkCatalog } from './useParkCatalog';
 import ScanConfirmPanel from './ScanConfirmPanel';
 import ScanEdgePanel from './ScanEdgePanel';
@@ -27,7 +30,7 @@ export interface EquipmentScanSheetProps {
   onClose: () => void;
   /** The park the user is standing in, when known: its items are preferred. */
   parkId?: string;
-  onRecognized: (equipmentId: string) => void;
+  onRecognized: (equipmentId: string, brandName?: string) => void;
 }
 
 export default function EquipmentScanSheet({ open, onClose, parkId, onRecognized }: EquipmentScanSheetProps) {
@@ -36,14 +39,20 @@ export default function EquipmentScanSheet({ open, onClose, parkId, onRecognized
   const reduceMotion = useReducedMotion();
   const { showToast } = useToast();
   const onDenied = useCallback(() => showToast('error', t('scan.permission')), [showToast, t]);
-  const { state, setState, preview, shoot, reset } = useEquipmentScan(parkId, onDenied);
+  const { state, setState, preview, lastResult, shoot, reset } = useEquipmentScan(parkId, onDenied);
   const { catalog, loading } = useParkCatalog(locale);
   const byId = useMemo(() => new Map(catalog.map((e) => [e.id, e])), [catalog]);
 
+  const log = useCallback((via: 'confirm' | 'alternative' | 'search' | 'cancel', confirmed: { equipmentId: string; brandName?: string } | null) => {
+    if (!lastResult) return;
+    void postScanFeedback({ mode: 'single', via, detected: detectedForLog(lastResult), confirmed, ...(parkId ? { parkId } : {}) });
+  }, [lastResult, parkId]);
+
   const close = useCallback(() => {
+    log('cancel', null);
     reset();
     onClose();
-  }, [reset, onClose]);
+  }, [log, reset, onClose]);
 
   const retake = useCallback(async () => {
     if (!(await shoot())) close();
@@ -55,10 +64,13 @@ export default function EquipmentScanSheet({ open, onClose, parkId, onRecognized
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const pick = useCallback((id: string) => {
+  const finish = useCallback((via: 'confirm' | 'alternative' | 'search', id: string) => {
+    // The brand the model saw for this item, if it named one (an alternative keeps its own).
+    const brandName = via === 'search' ? undefined : lastResult?.items.find((i) => i.candidateId === id)?.brandName;
+    log(via, { equipmentId: id, ...(brandName ? { brandName } : {}) });
     reset();
-    onRecognized(id);
-  }, [reset, onRecognized]);
+    onRecognized(id, brandName);
+  }, [lastResult, log, reset, onRecognized]);
 
   if (!open || typeof document === 'undefined' || state.kind === 'idle') return null;
 
@@ -100,11 +112,12 @@ export default function EquipmentScanSheet({ open, onClose, parkId, onRecognized
             <ScanConfirmPanel
               photoUrl={preview}
               equipment={byId.get(state.equipmentId) ?? null}
+              brandName={state.brandName}
               alternatives={state.alternatives.map((id) => byId.get(id)).filter((e): e is NonNullable<typeof e> => !!e)}
               open={state.open}
-              onYes={() => pick(state.equipmentId)}
+              onYes={() => finish('confirm', state.equipmentId)}
               onNo={() => setState({ ...state, open: !state.open })}
-              onPick={pick}
+              onPick={(id) => finish('alternative', id)}
               onSearch={() => setState({ kind: 'pick' })}
             />
           )}
@@ -117,7 +130,7 @@ export default function EquipmentScanSheet({ open, onClose, parkId, onRecognized
               onCancel={close}
             />
           )}
-          {state.kind === 'pick' && <ScanPickPanel catalog={catalog} loading={loading} onPick={pick} />}
+          {state.kind === 'pick' && <ScanPickPanel catalog={catalog} loading={loading} onPick={(id) => finish('search', id)} />}
         </div>
       </div>
     </div>,

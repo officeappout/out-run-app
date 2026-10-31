@@ -15,6 +15,8 @@ import ScanEquipmentPill from './ScanEquipmentPill';
 export interface ScanConfirmPanelProps {
   photoUrl: string | null;
   equipment: GymEquipment | null;
+  /** The brand the model recognized: its catalog photo is shown (owner 31.10, brand-aware). */
+  brandName?: string;
   alternatives: readonly GymEquipment[];
   open: boolean;
   onYes: () => void;
@@ -26,9 +28,10 @@ export interface ScanConfirmPanelProps {
 const PRIMARY = 'flex h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-br from-v2-accent to-[#0cf2e3] font-extrabold text-[#04222b] shadow-v2-cta active:scale-[0.98]';
 const SECONDARY = 'flex h-12 items-center justify-center rounded-full bg-white px-[18px] font-extrabold text-v2-ink shadow-v2-ring active:scale-[0.98]';
 
-export default function ScanConfirmPanel({ photoUrl, equipment, alternatives, open, onYes, onNo, onPick, onSearch }: ScanConfirmPanelProps) {
+export default function ScanConfirmPanel({ photoUrl, equipment, brandName, alternatives, open, onYes, onNo, onPick, onSearch }: ScanConfirmPanelProps) {
   const t = useT(map);
-  const catalogPhoto = equipment?.brands?.find((b) => !!b.imageUrl)?.imageUrl;
+  const brands = equipment?.brands ?? [];
+  const catalogPhoto = brands.find((b) => b.brandName === brandName && !!b.imageUrl)?.imageUrl ?? brands.find((b) => !!b.imageUrl)?.imageUrl;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-2">

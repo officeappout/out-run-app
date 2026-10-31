@@ -8,7 +8,7 @@ vi.mock('@/lib/firebase', () => ({ auth: { currentUser: null }, appCheck: null }
 
 import { screenFromVerdict } from '../scan-flow';
 import { isTooDark, meanLuma } from '../scan-brightness';
-import { errorFromStatus, postScan } from '../scan-api';
+import { detectedForLog, errorFromStatus, postScan } from '../scan-api';
 import { mainProgramOf, personalLevelItems, quizDomainFor } from '../../equipment-detail/v2/equipment-levels';
 import { equipmentPillSources } from '../../contribution-wizard/EquipmentPillIcon';
 
@@ -79,5 +79,18 @@ describe('pill sources', () => {
   it('scan screens put the real photo first', () => {
     expect(equipmentPillSources(eq).map((s) => s.kind)).toEqual(['icon', 'photo']);
     expect(equipmentPillSources(eq, true).map((s) => s.kind)).toEqual(['photo', 'icon']);
+  });
+});
+
+describe('brand-aware (owner 31.10)', () => {
+  it('the confirm screen keeps the recognized brand', () => {
+    expect(screenFromVerdict({ kind: 'confirm', candidateId: 'a', brandName: 'Ludus', alternatives: [] })).toEqual({ kind: 'confirm', equipmentId: 'a', brandName: 'Ludus', alternatives: [], open: false });
+  });
+  it('the accuracy log takes catalog items only, with their brand, no photo', () => {
+    const r = { quality: 'ok' as const, hasPeople: false, unknown: [], items: [
+      { candidateId: 'dips', kind: 'catalog' as const, confidence: 0.9, brandName: 'Ornix' },
+      { candidateId: 'urban:bench', kind: 'urban' as const, confidence: 0.8 }] };
+    expect(detectedForLog(r)).toEqual([{ equipmentId: 'dips', confidence: 0.9, brandName: 'Ornix' }]);
+    expect(detectedForLog(null)).toEqual([]);
   });
 });

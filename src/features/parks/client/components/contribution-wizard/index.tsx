@@ -252,7 +252,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
                   const fix = parkScan.fix;
                   updateData({
                     location: fix ? { lat: fix.lat, lng: fix.lng } : data.location,
-                    gymEquipment: scanPrefill.equipmentIds.map((equipmentId) => ({ equipmentId, brandName: '' })),
+                    gymEquipment: scanPrefill.equipmentIds.map((equipmentId) => ({ equipmentId, brandName: scanPrefill.brands[equipmentId] ?? '' })),
                     featureTags: Array.from(new Set([...data.featureTags, ...scanPrefill.featureTags])),
                   });
                   goNext();
