@@ -95,3 +95,47 @@ export function comboLaunchOf(r: ComboRequest, stars: ComboStars): ComboLaunch {
   const emphasis = aerobicShare >= 0.6 ? 'aerobic' : aerobicShare <= 0.4 ? 'strength' : 'balanced';
   return { kind: 'hybrid', intent: { timeBudgetMin: r.timeMin, aerobicShare, emphasis, aerobicKind, difficulty: stars } };
 }
+
+// ── Aerobic / hybrid forms (generator boards 1 aerobic, 2) ────────────────
+
+export type ComboAerobicKind = 'walking' | 'running' | 'cycling';
+export const COMBO_AEROBIC_KINDS: readonly ComboAerobicKind[] = ['running', 'walking', 'cycling'];
+export const HYBRID_AEROBIC_MIN_OPTIONS = [15, 20, 25, 30, 45] as const;
+export const HYBRID_STRENGTH_MIN_OPTIONS = [10, 15, 20, 30] as const;
+
+/** The aerobic tab: the map's free run drawer holds the goal and the route. */
+export function aerobicHrefOf(kind: ComboAerobicKind): string {
+  return `/map?openRun=${kind}`;
+}
+
+export interface HybridFormState {
+  aerobicKind: ComboAerobicKind;
+  aerobicMin: number;
+  strengthMin: number;
+  stars: ComboStars;
+}
+
+function nearest(options: readonly number[], v: number): number {
+  return options.reduce((best, o) => (Math.abs(o - v) < Math.abs(best - v) ? o : best), options[0]);
+}
+
+/** Preset settings of the hybrid form = the engine's top hybrid option, snapped to the pills. */
+export function hybridFormDefaults(top: ComboOption | undefined, stars: ComboStars): HybridFormState {
+  const r = top?.request;
+  const split = r ? comboTimeSplit(r) : { aerobicMin: 25, strengthMin: 15 };
+  const inside = r?.order === 'inside';
+  return {
+    aerobicKind: r?.aerobic === 'walk' ? 'walking' : r ? 'running' : 'walking',
+    aerobicMin: nearest(HYBRID_AEROBIC_MIN_OPTIONS, inside ? r.timeMin / 2 : split.aerobicMin),
+    strengthMin: nearest(HYBRID_STRENGTH_MIN_OPTIONS, inside ? r.timeMin / 2 : split.strengthMin),
+    stars,
+  };
+}
+
+export function hybridIntentOfForm(f: HybridFormState): HybridStartIntent {
+  const total = f.aerobicMin + f.strengthMin;
+  const raw = f.aerobicMin / Math.max(1, total);
+  const aerobicShare = Math.round(Math.max(AEROBIC_SHARE_MIN, Math.min(AEROBIC_SHARE_MAX, raw)) * 100) / 100;
+  const emphasis = aerobicShare >= 0.6 ? 'aerobic' : aerobicShare <= 0.4 ? 'strength' : 'balanced';
+  return { timeBudgetMin: total, aerobicShare, emphasis, aerobicKind: f.aerobicKind, difficulty: f.stars };
+}

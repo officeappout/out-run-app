@@ -39,8 +39,13 @@ import { isHiddenProgram } from '@/lib/hidden-programs';
 import { useUiDir } from '@/lib/i18n/useUiDir';
 import { V2_PILL_ON, V2_PILL_OFF } from './combo-generator/builder-pill-styles';
 import { ComboGeneratorPanel, ComboCategoryRow } from './combo-generator/ComboGenerator';
-import { comboLaunchOf, type ComboCategory } from './combo-generator/combo-generator-model';
-import type { ComboContext, ComboOption } from '@/features/workout-engine/logic/combo/combo-recommend';
+import { ComboAerobicForm, ComboHybridParts } from './combo-generator/ComboForms';
+import {
+  aerobicHrefOf, comboIntentOf, comboLaunchOf, comboLevelsOf, hybridFormDefaults, hybridIntentOfForm,
+  type ComboAerobicKind, type ComboCategory, type HybridFormState,
+} from './combo-generator/combo-generator-model';
+import { recommendCombos, type ComboContext, type ComboOption } from '@/features/workout-engine/logic/combo/combo-recommend';
+import { buildUserProgramLevels } from '@/features/workout-engine/services/level-resolution.utils';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
@@ -288,6 +293,7 @@ export default function WorkoutBuilderSheet({
   const comboGenOn = v2 && builderFlags.enableComboGeneratorV1 && !isScheduleMode;
   const [comboCategory, setComboCategory] = useState<ComboCategory>('recommended');
   const showBuilderForm = !comboGenOn || comboCategory === 'strength';
+  const comboView = showBuilderForm ? 'form' : comboCategory === 'recommended' ? 'cards' : comboCategory;
 
   // Initialised once from props — stable refs so useState picks them up
   const initLocation = useRef<LocationId>(
@@ -765,6 +771,29 @@ export default function WorkoutBuilderSheet({
     router.push(launch.kind === 'aerobic' ? launch.href : '/map');
   }, [difficulty, handleGenerate, onClose, router]);
 
+  // Aerobic / hybrid tabs (generator boards 1 aerobic, 2): presets from the engine.
+  const [aerobicKind, setAerobicKind] = useState<ComboAerobicKind>('running');
+  const [hybridForm, setHybridForm] = useState<HybridFormState | null>(null);
+  const [hybridTouched, setHybridTouched] = useState({ aerobic: false, strength: false });
+  const handleComboCategory = useCallback((c: ComboCategory) => {
+    setComboCategory(c);
+    if (c === 'hybrid' && !hybridForm) {
+      const intent = comboIntentOf({ category: 'hybrid', minutes: availableTime, stars: difficulty, location });
+      const top = recommendCombos(intent, { levels: profile ? comboLevelsOf(buildUserProgramLevels(profile, new Set(), '[ComboGenerator]').levels, resolveToSlug) : {} })[0];
+      setHybridForm(hybridFormDefaults(top, intent.stars));
+    }
+  }, [hybridForm, availableTime, difficulty, location, profile]);
+  const handleComboCta = useCallback(() => {
+    if (comboView === 'aerobic') {
+      onClose();
+      router.push(aerobicHrefOf(aerobicKind));
+    } else if (comboView === 'hybrid' && hybridForm) {
+      useMapStore.getState().setPendingHybridIntent(hybridIntentOfForm(hybridForm));
+      onClose();
+      router.push('/map');
+    }
+  }, [comboView, aerobicKind, hybridForm, onClose, router]);
+
   // ── Schedule save (schedule mode) ─────────────────────────────────────
   const [isSaving, setIsSaving] = useState(false);
   const handleScheduleSave = useCallback(async () => {
@@ -859,8 +888,19 @@ export default function WorkoutBuilderSheet({
       {/* ── Scrollable form ── */}
       <div className={v2 ? 'relative flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-6 pt-4' : 'flex-1 overflow-y-auto px-4 py-6 space-y-7'}>
 
-        {comboGenOn && <ComboCategoryRow value={comboCategory} onChange={setComboCategory} />}
-        {!showBuilderForm ? (
+        {comboGenOn && <ComboCategoryRow value={comboCategory} onChange={handleComboCategory} />}
+        {comboView === 'aerobic' && <ComboAerobicForm kind={aerobicKind} onKind={setAerobicKind} />}
+        {comboView === 'hybrid' && hybridForm && (
+          <ComboHybridParts
+            form={hybridForm}
+            touched={hybridTouched}
+            onChange={(patch, part) => {
+              setHybridForm((f) => (f ? { ...f, ...patch } : f));
+              setHybridTouched((x) => ({ ...x, [part]: true }));
+            }}
+          />
+        )}
+        {comboView === 'cards' && (
           <ComboGeneratorPanel
             category={comboCategory}
             minutes={availableTime}
@@ -870,7 +910,8 @@ export default function WorkoutBuilderSheet({
             busy={isLoading}
             onPick={handleComboPick}
           />
-        ) : (<>
+        )}
+        {comboView === 'form' && (<>
 
         {/* ── Gear nudge banner ─────────────────────────────────────────────
             Shown only when the user has no equipment configured in their
@@ -969,7 +1010,11 @@ export default function WorkoutBuilderSheet({
           </>
         )}
 
+        </>)}
+
         {/* 1. מיקום וציוד — merged section */}
+        {/* Also the hybrid tab's one place for the whole workout. */}
+        {(comboView === 'form' || comboView === 'hybrid') && (
         <Section v2={v2} title={t('builder.location.section')}>
           {/* Location grid — 2 options since חדר כושר was removed */}
           <div className={`grid grid-cols-2 mb-3 ${v2 ? 'gap-2.5' : 'gap-2'}`}>
@@ -1067,7 +1112,9 @@ export default function WorkoutBuilderSheet({
             </button>
           </div>
         </Section>
+        )}
 
+        {comboView === 'form' && (<>
         {/* 2. זמן (hidden in schedule mode) */}
         {!isScheduleMode && (
           <Section v2={v2} title={t('builder.duration.section')}>
@@ -1421,6 +1468,18 @@ export default function WorkoutBuilderSheet({
       {error && (
         <div className="px-4 pb-2">
           <p className="text-sm text-red-500 text-center bg-red-50 rounded-xl py-2 px-3">{t(error)}</p>
+        </div>
+      )}
+
+      {/* ── Combo generator CTA (aerobic / hybrid tabs) ── */}
+      {(comboView === 'aerobic' || comboView === 'hybrid') && (
+        <div className="v2-glass-bar relative z-[2] px-4 pt-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
+          <Button variant="primary" size="lg" block onClick={handleComboCta} disabled={comboView === 'hybrid' && !hybridForm} className="!h-12 !text-[16px]">
+            <Sparkles size={18} strokeWidth={2.6} aria-hidden />
+            {comboView === 'aerobic'
+              ? t(`comboGen.aerobic.cta.${aerobicKind}` as HomeKey)
+              : t('comboGen.hybrid.cta', { minutes: String((hybridForm?.aerobicMin ?? 0) + (hybridForm?.strengthMin ?? 0)) })}
+          </Button>
         </div>
       )}
 

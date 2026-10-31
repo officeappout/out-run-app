@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { recommendCombos } from '@/features/workout-engine/logic/combo/combo-recommend';
 import {
-  comboCardModel, comboIntentOf, comboLaunchOf, comboLevelsOf, comboTodayOf,
+  aerobicHrefOf, comboCardModel, comboIntentOf, comboLaunchOf, comboLevelsOf, comboTodayOf, hybridFormDefaults, hybridIntentOfForm,
 } from '../combo-generator-model';
 
 describe('comboTodayOf', () => {
@@ -69,5 +69,25 @@ describe('comboLaunchOf', () => {
     const s = comboLaunchOf({ ...base, aerobic: 'walk', strength: 'sets', order: 'aerobic_first' }, 2);
     expect(s.kind === 'hybrid' && s.intent.aerobicShare).toBeCloseTo(0.53, 2);
     expect(s.kind === 'hybrid' && s.intent.emphasis).toBe('balanced');
+  });
+});
+
+describe('hybrid form', () => {
+  it('presets from the engine, snapped to the pills', () => {
+    const [top] = recommendCombos(comboIntentOf({ category: 'hybrid', minutes: 40, stars: 2, location: 'park' }), { levels: {} });
+    expect(hybridFormDefaults(top, 2)).toEqual({ aerobicKind: 'running', aerobicMin: 20, strengthMin: 20, stars: 2 });
+  });
+  it('a walk preset at 1 star; no engine option → a balanced walk', () => {
+    const [top] = recommendCombos(comboIntentOf({ category: 'hybrid', minutes: 15, stars: 1, location: 'park' }), { levels: {} });
+    expect(hybridFormDefaults(top, 1).aerobicKind).toBe('walking');
+    expect(hybridFormDefaults(undefined, 2)).toEqual({ aerobicKind: 'walking', aerobicMin: 25, strengthMin: 15, stars: 2 });
+  });
+  it('the form → a hybrid intent', () => {
+    expect(hybridIntentOfForm({ aerobicKind: 'cycling', aerobicMin: 25, strengthMin: 15, stars: 3 }))
+      .toEqual({ timeBudgetMin: 40, aerobicShare: 0.63, emphasis: 'aerobic', aerobicKind: 'cycling', difficulty: 3 });
+    expect(hybridIntentOfForm({ aerobicKind: 'walking', aerobicMin: 15, strengthMin: 30, stars: 1 }).aerobicShare).toBe(0.33);
+  });
+  it('the aerobic tab opens the free run drawer', () => {
+    expect(aerobicHrefOf('cycling')).toBe('/map?openRun=cycling');
   });
 });

@@ -877,5 +877,17 @@
   "comboGen.reason.amrap_cardio": "AMRAP עם תנועות קרדיו",
   "comboGen.reason.walk": "הליכה נינוחה לקראת היעד היומי",
   "comboGen.reason.run": "ריצה בקצב נוח",
-  "comboGen.reason.run_then_core": "ריצה, ואז בטן לסיום"
+  "comboGen.reason.run_then_core": "ריצה, ואז בטן לסיום",
+  "comboGen.aerobic.section": "סוג הפעילות",
+  "comboGen.aerobic.kind.running": "ריצה",
+  "comboGen.aerobic.kind.walking": "הליכה",
+  "comboGen.aerobic.kind.cycling": "רכיבה",
+  "comboGen.aerobic.goalNote": "המטרה והמסלול נבחרים במגירת האירובי במפה.",
+  "comboGen.aerobic.cta.running": "יוצאים לריצה",
+  "comboGen.aerobic.cta.walking": "יוצאים להליכה",
+  "comboGen.aerobic.cta.cycling": "יוצאים לרכיבה",
+  "comboGen.hybrid.aerobicPart": "חלק אירובי",
+  "comboGen.hybrid.strengthPart": "חלק כוח",
+  "comboGen.hybrid.recommended": "מומלץ",
+  "comboGen.hybrid.cta": "צור אימון היברידי · {minutes} דק׳"
 }

@@ -877,5 +877,17 @@
   "comboGen.reason.amrap_cardio": "AMRAP with cardio moves",
   "comboGen.reason.walk": "An easy walk toward your daily goal",
   "comboGen.reason.run": "A run at a comfortable pace",
-  "comboGen.reason.run_then_core": "A run, then core to finish"
+  "comboGen.reason.run_then_core": "A run, then core to finish",
+  "comboGen.aerobic.section": "Activity",
+  "comboGen.aerobic.kind.running": "Run",
+  "comboGen.aerobic.kind.walking": "Walk",
+  "comboGen.aerobic.kind.cycling": "Ride",
+  "comboGen.aerobic.goalNote": "You pick the goal and the route in the map’s aerobic drawer.",
+  "comboGen.aerobic.cta.running": "Let’s run",
+  "comboGen.aerobic.cta.walking": "Let’s walk",
+  "comboGen.aerobic.cta.cycling": "Let’s ride",
+  "comboGen.hybrid.aerobicPart": "Aerobic part",
+  "comboGen.hybrid.strengthPart": "Strength part",
+  "comboGen.hybrid.recommended": "Recommended",
+  "comboGen.hybrid.cta": "Create hybrid workout · {minutes} min"
 }
