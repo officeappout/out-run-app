@@ -162,6 +162,7 @@ import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
 import { placeProgramSlides, programStartSlideId, programStartTrackOf, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { PICK_PROGRAM_STRIP_HINT_KEY } from '@/features/home/components/start-cards/program-start-copy';
 import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
+import { useDoneFirst } from '@/features/home/hooks/useDoneFirst';
 import { composeHomeAfterSlides, isHomeAfterActive, runTodayStillDue, homeAfterDoneSlideId, isHomeAfterDoneSlideId } from '@/features/home/utils/home-after';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
@@ -1099,6 +1100,8 @@ export default function HomePage() {
   // !!postWorkoutData and strengthStartedNotDone is false — identical to today.
   const flameTiers = !!featureFlags.enableFlameTiersV1;
   const postWorkoutDone = !!postWorkoutData && !(flameTiers && postWorkoutData.strengthGoalMet === false);
+  // enable_home_after_v1 (boards HomeAfterB / Short): right after a workout the done slide leads.
+  const homeAfterDoneFirst = useDoneFirst(postWorkoutData?.completedAt);
   const strengthStartedNotDone = flameTiers && isSelectedDateToday && !todayWorkoutDone && !postWorkoutDone
     && doneKindsOf(todaysWorkouts).includes('strength');
   const isTodayWorkoutDone = postWorkoutDone || todayWorkoutDone;
@@ -4108,6 +4111,7 @@ export default function HomePage() {
               isTopUp: (s) => 'generatorId' in s && s.generatorId === TOP_UP_GENERATOR_ID,
               done: homeAfterDoneCards.map((card) => ({ id: homeAfterDoneSlideId(card.key), doneCard: card })),
               idOf: (s) => s.id,
+              doneFirst: homeAfterDoneFirst,
             })
             : null;
 
