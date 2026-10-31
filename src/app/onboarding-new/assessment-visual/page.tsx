@@ -614,7 +614,12 @@ export default function VisualAssessmentPage() {
   ) => {
     // Handstand Triad: the three axis answers collapse into handstand = avg,
     // and ride along as `triad` (no-op when there are no triad answers).
-    const { levels: skillLevels, triad } = splitTriadLevels(answeredLevels);
+    // Only axes still on the path count: seeded slider defaults for categories
+    // no longer asked must never become a permanent triad floor.
+    const onPath = Object.fromEntries(
+      Object.entries(answeredLevels).filter(([cat]) => !isTriadAssessmentCategory(cat) || categories.includes(cat)),
+    );
+    const { levels: skillLevels, triad } = splitTriadLevels(onPath);
     const firstCategory = isTriadAssessmentCategory(categories[0] ?? '') ? 'handstand' : categories[0];
     try {
       const programs = await getAllPrograms();
@@ -1269,7 +1274,10 @@ export default function VisualAssessmentPage() {
                 }
                 demographics={demographics}
                 onLevelConfirm={handleSliderConfirm}
-                onEscape={handleSliderEscape}
+                // Handstand Triad axis sliders have no "not yet" escape: the
+                // floor IS an answer (a user who can't balance yet still has a
+                // strength level), and escaping would drop all three slots.
+                onEscape={isTriadAssessmentCategory(categories[categoryIndex] ?? '') ? undefined : handleSliderEscape}
                 onBack={() => { handleStepBack(); }}
                 stepIndex={categoryIndex}
                 totalSteps={categories.length}

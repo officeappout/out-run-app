@@ -380,7 +380,8 @@ export async function loadPathConfigAsync(): Promise<AssessmentPathConfig> {
 
   for (const cat of baseConfig.categories) {
     // Triad axes are not programs: the handstand scale (1-15).
-    if (isTriadAssessmentCategory(cat)) { skillMaxLevels[cat] = TRIAD_MAX; continue; }
+    // The result screen shows the collapsed 'handstand' level: same scale.
+    if (isTriadAssessmentCategory(cat)) { skillMaxLevels[cat] = TRIAD_MAX; skillMaxLevels.handstand = TRIAD_MAX; continue; }
     const program = findProgramForAssessmentKey(programs, cat);
     let max = program?.maxLevels && program.maxLevels > 0 ? program.maxLevels : undefined;
     // Skill IDs with no program maxLevels fall back to the program's own
