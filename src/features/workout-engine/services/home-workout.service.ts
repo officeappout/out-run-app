@@ -1290,9 +1290,16 @@ async function generateHomeWorkoutTrioCore(
       // Handstand Triad (HANDSTAND_TRIAD_ENABLED): a standalone handstand session's
       // main block becomes mobility → balance → strength → line, weakest axis
       // emphasized. Before warm-up/cool-down, which are built from the main block.
+      // Standalone only: one handstand domain and no day-focus/strict areas (a mixed
+      // day or builder chips keep the generator's block).
+      const triadStandalone = !pipeline.baseGeneratorContext.strictDomains
+        && pipeline.resolvedChildDomains.length > 0
+        && pipeline.resolvedChildDomains.every(d => resolveToSlug(d) === 'handstand');
       const triadNote = applyTriadSkeleton(workout, {
-        enabled: HANDSTAND_TRIAD_ENABLED,
+        enabled: HANDSTAND_TRIAD_ENABLED && triadStandalone,
         activeProgramId: pipeline.baseGeneratorContext.activeProgramId,
+        avoidIds: sessionBlacklist,
+        baseUserLevel: pipeline.filterContext.baseUserLevel,
         pool: pipeline.baseGeneratorContext.globalExercisePool ?? optionPool.map(s => s.exercise),
         location: pipeline.effectiveFilterLocation,
         availableEquipment: pipeline.baseGeneratorContext.availableEquipment ?? [],
@@ -1338,7 +1345,11 @@ async function generateHomeWorkoutTrioCore(
       );
 
       // Post-processing (Option 2 & 3 modifiers) — delegated to trio-modifiers.service.ts
-      if (cfg.postProcess === 'intense' && !weatherCapped) {
+      // The triad block already sets volume per axis; the swap modifiers would
+      // replace its exercises without regard to strength/balance/mobility.
+      if (triadNote) {
+        // keep the triad block as built
+      } else if (cfg.postProcess === 'intense' && !weatherCapped) {
         applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises, pipeline.effectiveFilterLocation, {
           candidatePool: pipeline.baseGeneratorContext.globalExercisePool,
           availableEquipment: pipeline.baseGeneratorContext.availableEquipment,

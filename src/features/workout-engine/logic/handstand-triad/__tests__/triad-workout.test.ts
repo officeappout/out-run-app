@@ -75,3 +75,21 @@ describe('applyTriadSkeleton', () => {
     expect(mainIds(w)).toEqual(['generic_push']);
   });
 });
+
+describe('applyTriadSkeleton: review fixes', () => {
+  it('Firestore program id resolves like the slug; reserve cleared; triad scores high', () => {
+    const w = { ...generated(), reserveExercises: [{ exercise: ex('generic_reserve', 1, 1, 1) }] } as unknown as GeneratedWorkout;
+    expect(applyTriadSkeleton(w, opts({ strength: 8, balance: 8, mobility: 8 }, { activeProgramId: 'handstand' }))).not.toBeNull();
+    expect(w.reserveExercises).toEqual([]);
+    expect(w.exercises.filter((e) => e.exerciseRole === 'main').every((e) => e.score > 100)).toBe(true);
+  });
+  it('avoidIds lose ties, so a second trio option differs', () => {
+    const pool = [...POOL, ex('crow_twin', 4, 7, 2)];
+    const a = generated();
+    applyTriadSkeleton(a, opts({ strength: 8, balance: 8, mobility: 8 }, { pool }));
+    const b = generated();
+    applyTriadSkeleton(b, opts({ strength: 8, balance: 8, mobility: 8 }, { pool, avoidIds: new Set(mainIds(a)) }));
+    expect(mainIds(b)).toContain('crow_twin');
+    expect(mainIds(b)).not.toContain('crow');
+  });
+});

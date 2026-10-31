@@ -12,6 +12,7 @@
 import type { Exercise, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { resolveToSlug } from '../../services/program-hierarchy.utils';
 import { selectMethodForContext } from '../../shared/utils/method-selection.utils';
+import { methodFits } from '../never-empty.utils';
 import { isTestOrPlaceholderExercise } from '../../shared/utils/test-exercise.utils';
 import type { DifficultyLevel, GeneratedWorkout, WorkoutExercise } from '../workout-generator.types';
 import { rederiveVolumeForSwappedExercise } from '../workout-budgeting.utils';
@@ -32,7 +33,10 @@ export interface TriadWorkoutOptions {
   baseUserLevel?: number;
   difficulty: DifficultyLevel;
   progressionPolicy?: import('../adaptive/policy').ProgressionPolicy;
+  /** Undefined = unknown → the fall-practice gate is not applied. */
   fallPracticeDone?: boolean;
+  /** Earlier trio options / recent ids: demoted on ties so the 3 options differ. */
+  avoidIds?: ReadonlySet<string>;
 }
 
 const isMain = (e: WorkoutExercise) => e.exerciseRole !== 'warmup' && e.exerciseRole !== 'cooldown';
@@ -45,9 +49,10 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
   const levels = resolveTriadLevels(opts.userProgramLevels, opts.baseUserLevel ?? 1, 'handstand');
   const plan = buildTriadPlan(levels, 'session').filter((b) => b.kind !== 'warmup' && b.kind !== 'cooldown');
   const candidates = opts.pool.filter(
-    (ex) => !isTestOrPlaceholderExercise(ex) && selectMethodForContext(ex, opts.location, opts.availableEquipment) !== null,
+    (ex) => !isTestOrPlaceholderExercise(ex)
+      && methodFits(selectMethodForContext(ex, opts.location, opts.availableEquipment), opts.location, opts.availableEquipment),
   );
-  const filled = fillTriadPlan(plan, candidates, levels, { fallPracticeDone: opts.fallPracticeDone });
+  const filled = fillTriadPlan(plan, candidates, levels, { fallPracticeDone: opts.fallPracticeDone, avoidIds: opts.avoidIds });
 
   const mains: WorkoutExercise[] = [];
   for (const block of filled) {
@@ -67,7 +72,9 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
         isTimeBased: d.isTimeBased,
         restSeconds: d.restSeconds,
         priority: 'skill',
-        score: 0,
+        // High score: the volume cap's Phase C trims the lowest score first,
+        // and the triad block is the session's purpose.
+        score: 100 + demand[axis],
         reasoning: [`handstand_triad:${block.kind}${block.emphasis ? `(${block.emphasis})` : ''} S${demand.strength}/B${demand.balance}/M${demand.mobility} vs ${levels.strength}/${levels.balance}/${levels.mobility}`],
         exerciseRole: 'main',
         tier: d.tier,
@@ -83,5 +90,8 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
   const firstCooldown = rest.findIndex((e) => e.exerciseRole === 'cooldown');
   const at = firstCooldown >= 0 ? firstCooldown : rest.length;
   workout.exercises = [...rest.slice(0, at), ...mains, ...rest.slice(at)];
+  // No generic add-backs from the generator's reserve (Phase V): time left over
+  // goes to more sets (Phase D) on the triad exercises instead.
+  workout.reserveExercises = [];
   return `handstand_triad: ${filled.map((b) => `${b.kind}=${b.exercises.length}x${b.sets}`).join(' ')} levels S${levels.strength}/B${levels.balance}/M${levels.mobility}`;
 }
