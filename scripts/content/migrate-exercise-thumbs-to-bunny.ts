@@ -111,7 +111,8 @@ async function rollback() {
       const orig = m?.media?.imageUrlOriginal;
       if (!isFirebase(orig)) return m;
       changed = true;
-      const { imageUrlOriginal: _o, ...media } = m.media!;
+      const media = { ...m.media! };
+      delete media.imageUrlOriginal;
       return { ...m, media: { ...media, imageUrl: orig } };
     });
     if (changed) { await doc.ref.update({ execution_methods: next }); n++; }
