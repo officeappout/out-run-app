@@ -65,8 +65,8 @@ const photo = (items: Array<[string, number]>, over: Partial<ScanPhotoResult> = 
 });
 
 describe('singleVerdict', () => {
-  it('people always → retake people', () => {
-    expect(singleVerdict(photo([['pull', 0.95]], { hasPeople: true }))).toEqual({ kind: 'retake', reason: 'people' });
+  it('people in the photo do not stop the scan (owner 31.10)', () => {
+    expect(singleVerdict(photo([['pull', 0.95]], { hasPeople: true }))).toMatchObject({ kind: 'confirm', candidateId: 'pull' });
   });
   it('confirm / choose / unsure / quality', () => {
     expect(singleVerdict(photo([['pull', 0.9], ['dips', 0.3]]))).toEqual({ kind: 'confirm', candidateId: 'pull', alternatives: ['dips'] });
@@ -83,22 +83,22 @@ describe('singleVerdict', () => {
 });
 
 describe('park mapping', () => {
-  it('merges, ignores people photos, bonuses items seen twice', () => {
+  it('merges (people photos count too), bonuses items seen twice', () => {
     const m = mergeParkScans([
       photo([['pull', 0.7], ['urban:bench', 0.9]]),
-      photo([['pull', 0.95]], { hasPeople: true }),
-      photo([['pull', 0.6], ['dips', 0.4]]),
+      photo([['pull', 0.6]], { hasPeople: true }),
+      photo([['dips', 0.4]]),
     ]);
-    expect(m.usableShots).toBe(2);
+    expect(m.usableShots).toBe(3);
     expect(m.items.find((i) => i.candidateId === 'pull')).toMatchObject({ confidence: 0.8, seenIn: 2 });
     expect(reviewItems(m).map((i) => i.candidateId)).toEqual(['urban:bench', 'pull']);
     expect(isUnsure(m.items.find((i) => i.candidateId === 'urban:bench')!)).toBe(false);
   });
 
-  it('guides 3 angles, re-asks a lost angle, then closer for unsure, stops at 5', () => {
+  it('guides 3 angles, then closer for unsure, stops at 5', () => {
     expect(nextParkShot([])).toEqual({ kind: 'angle', angle: 'wide' });
     expect(nextParkShot([photo([])])).toEqual({ kind: 'angle', angle: 'side' });
-    expect(nextParkShot([photo([]), photo([], { hasPeople: true })])).toEqual({ kind: 'angle', angle: 'side' });
+    expect(nextParkShot([photo([]), photo([], { hasPeople: true })])).toEqual({ kind: 'angle', angle: 'other_side' });
     const unsure = [photo([['pull', 0.9]]), photo([['rings', 0]]), photo([['dips', 0.6]])];
     expect(nextParkShot(unsure)).toMatchObject({ kind: 'closer', shot: 2 });
     expect(nextParkShot([photo([['pull', 0.9]]), photo([]), photo([])])).toEqual({ kind: 'done' });
