@@ -2,27 +2,18 @@
 
 import React from 'react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
-import { FreeRunView } from './FreeRunView';
 import PlannedRun from './PlannedRun';
-import GuidedRouteView from './GuidedRouteView';
 
 interface ActiveDashboardProps {
   nextStation?: string;
 }
 
-export const ActiveDashboard: React.FC<ActiveDashboardProps> = ({ nextStation }) => {
+/**
+ * The map's "active" layer: a planned run. Free runs, walks and routes play in FreeRunLayer
+ * (MapShell routes runMode 'free' there), so the old free / guided-route views were removed
+ * (31.10.2026, archived at tag archive/old-players-2026-10-31).
+ */
+export const ActiveDashboard: React.FC<ActiveDashboardProps> = () => {
   const { runMode } = useRunningPlayer();
-
-  switch (runMode) {
-    case 'free':
-      return <FreeRunView nextStation={nextStation} />;
-    case 'plan':
-      return <PlannedRun />;
-    case 'my_routes':
-      // Guided official route → free-run player + route name / progress overlay.
-      // Turn-by-turn instructions come from the TurnCarousel mounted by MapShell.
-      return <GuidedRouteView />;
-    default:
-      return <FreeRunView nextStation={nextStation} />;
-  }
+  return runMode === 'plan' ? <PlannedRun /> : null;
 };
