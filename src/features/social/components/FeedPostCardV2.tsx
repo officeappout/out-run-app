@@ -16,9 +16,10 @@
  * enable_workout_post_v1 (boards PostFeed / PostTypes): the same header and actions around the one
  * workout post card (WorkoutPostCard, surface "feed").
  */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Flame, Globe, Lock, MapPin, Share2, Trophy, TrendingUp, Users } from 'lucide-react';
+import { Flame, Globe, Lock, MapPin, Pencil, Share2, Trophy, TrendingUp, Users } from 'lucide-react';
+import EditPostSheet from './post-edit/EditPostSheet';
 import type { FeedPost } from '../services/feed.service';
 import { exerciseLine, formatSecPerKm, paceBarHeights, type FeedTopExercise } from '../services/feed-post-details';
 import { shareInputFromPost } from '../services/share-image';
@@ -159,6 +160,10 @@ export default function FeedPostCardV2({
   const t = useT(community);
   const [shareOpen, setShareOpen] = useState(false);
   const postV1 = useWorkoutPostV1();
+  // Board PostFeed "עריכה": the author's edits show at once (the list refetches later).
+  const [editOpen, setEditOpen] = useState(false);
+  const [view, setView] = useState(post);
+  useEffect(() => setView(post), [post]);
   // The id whose colours (and label) the card uses — unknown categories look like strength.
   const actId = V2_ACTIVITY[post.activityCategory] ? post.activityCategory : 'strength';
   const act = V2_ACTIVITY[actId];
@@ -207,10 +212,22 @@ export default function FeedPostCardV2({
         }`}
       >
         <Flame size={17} strokeWidth={2.4} fill={reacted ? 'currentColor' : 'none'} aria-hidden />
-        {reacted ? t('social.post.cheered') : t('social.post.cheer')}
+        {reacted
+          ? t('social.post.cheered')
+          : postV1 && count === 0 && !isAuthor ? t('social.post.cheerFirst') : t('social.post.cheer')}
         {count > 0 && <span className="tabular-nums"> · {count}</span>}
       </button>
       <span className="flex-1" />
+      {postV1 && isAuthor && (
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className="flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3.5 text-[13.5px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+        >
+          <Pencil size={15} strokeWidth={2.6} aria-hidden />
+          {t('social.post.edit.open')}
+        </button>
+      )}
       {isAuthor && (
         <button
           type="button"
@@ -235,7 +252,24 @@ export default function FeedPostCardV2({
   if (postV1) {
     return (
       <>
-        <WorkoutPostCard model={postFromFeed(post)} surface="feed" header={header} footer={actions || <div className="h-1" />} />
+        <WorkoutPostCard model={postFromFeed(view)} surface="feed" header={header} caption={view.caption} footer={actions || <div className="h-1" />} />
+        {isAuthor && editOpen && (
+          <EditPostSheet
+            open
+            postId={post.id}
+            uid={post.authorUid}
+            caption={view.caption}
+            photoUrl={view.photoUrl}
+            photoPath={view.photoPath}
+            onClose={() => setEditOpen(false)}
+            onSaved={(r) => setView((v) => ({
+              ...v,
+              caption: r.caption,
+              photoUrl: r.photoRemoved ? undefined : r.photoUrl ?? v.photoUrl,
+              photoPath: r.photoRemoved ? undefined : r.photoPath ?? v.photoPath,
+            }))}
+          />
+        )}
         {report}
         {shareSheet}
       </>
