@@ -1124,5 +1124,22 @@
   "wizard.scan.community.title": "Together we map every city",
   "wizard.scan.community.body": "Once approved, the park goes on the map and its page shows “Mapped by {name}”.",
   "wizard.scan.community.bodyNoName": "Once approved, the park goes on the map and its page credits you as the one who mapped it.",
-  "parkDetail.mappedBy": "Mapped by {name}"
+  "parkDetail.mappedBy": "Mapped by {name}",
+  "hybrid.entry.phrase.0": "What’s the plan today? ✨",
+  "hybrid.entry.phrase.1": "Feel like moving? I’ve got an idea ✨",
+  "hybrid.entry.phrase.2": "Movement + strength, your way ✨",
+  "hybrid.slot.recommended.title": "{kind, select, running {Run + strength} other {Walk + strength}}",
+  "hybrid.slot.recommended.subtitle": "{station, select, bodyweight {Balanced mix · bodyweight station on the way} other {Balanced mix · strength station on the way}}",
+  "hybrid.slot.assessment.title": "Strength quiz not done yet",
+  "hybrid.slot.assessment.subtitle": "A short quiz tailors your park strength workout to you",
+  "hybrid.slot.fullPark.title": "Full park workout",
+  "hybrid.slot.fullPark.subtitle": "{kind, select, running {Run to the park · full strength workout · back} other {Walk to the park · full strength workout · back}}",
+  "hybrid.slot.routeStops.title": "Route + stops",
+  "hybrid.slot.routeStops.subtitle": "{kind, select, running {Run the route · stops on the way} other {Walk the route · stops on the way}}",
+  "hybrid.slot.quick.title": "{kind, select, running {Free run} other {Free walk}}",
+  "hybrid.slot.quick.subtitle": "Head out now · no targets",
+  "hybrid.slot.plannedWalk.title": "Today’s walk",
+  "hybrid.slot.plannedWalk.fallback": "Walk",
+  "hybrid.slot.plannedWalk.reason": "On your plan for today. We’ll find a route that fits",
+  "hybrid.slot.restDay.reason": "Rest day: a walk with light strength to finish your steps"
 }

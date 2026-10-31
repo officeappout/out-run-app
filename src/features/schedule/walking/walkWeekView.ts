@@ -91,10 +91,10 @@ export function plannedWalkSteps(plannedRun: unknown, stepsPerMinute = 110, kmPe
 }
 
 /** "30 דק׳" / "2.5 ק״מ" from a saved plannedRun goal. */
-export function plannedWalkTargetHe(plannedRun: unknown): string | null {
+export function plannedWalkTargetHe(plannedRun: unknown, t?: Parameters<typeof withUnit>[2]): string | null {
   const goal = (plannedRun as { goal?: { type?: unknown; value?: unknown } } | null)?.goal;
   if (typeof goal?.value !== 'number') return null;
-  return goal.type === 'time' ? withUnit('min', goal.value) : goal.type === 'distance' ? withUnit('km', goal.value) : null;
+  return goal.type === 'time' ? withUnit('min', goal.value, t) : goal.type === 'distance' ? withUnit('km', goal.value, t) : null;
 }
 
 /** The step ring line under today's walk (WR-4). */

@@ -36,16 +36,16 @@ import { getUserFromFirestore } from '@/lib/firestore.service';
 /** Fixed vocabulary for the training-tags chip picker — first pass, easy to
  * adjust (plain string literals, no migration needed to add/remove one). */
 export const TRAINING_TAG_OPTIONS: readonly { id: string; label: string }[] = [
-  { id: 'loves_park', label: 'אוהב פארק' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'morning', label: 'בוקר' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'evening', label: 'מתאמן בערב' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'beginner', label: 'מתחיל' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'intermediate', label: 'רמת ביניים' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'advanced', label: 'מתקדם' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'home', label: 'בית' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'running', label: 'ריצה' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'front_lever', label: 'פרונט לבר' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
-  { id: 'muscle_up', label: 'מאסל אפ' }, // i18n-allow-hebrew: chip label read by ProfileHeader + SettingsModal (keyed later)
+  { id: 'loves_park', label: 'אוהב פארק' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'morning', label: 'בוקר' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'evening', label: 'מתאמן בערב' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'beginner', label: 'מתחיל' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'intermediate', label: 'רמת ביניים' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'advanced', label: 'מתקדם' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'home', label: 'בית' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'running', label: 'ריצה' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'front_lever', label: 'פרונט לבר' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
+  { id: 'muscle_up', label: 'מאסל אפ' }, // i18n-allow-hebrew: id-keyed list; display text is profile editProfile.tags.option
 ];
 
 export function usePersonalInfoEditor() {

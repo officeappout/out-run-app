@@ -16,7 +16,7 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 import { resolveToSlug } from '../../services/program-hierarchy.utils';
 import { checkTriadEligibility } from './triad-eligibility';
 import { resolveTriadLevels } from './triad-levels';
-import { getTriadScores, primaryAxis, TRIAD_PROGRAM_SLUGS } from './triad-scores';
+import { getTriadScores, trainedAxis, TRIAD_PROGRAM_SLUGS } from './triad-scores';
 
 const TRIAD_DOMAINS = new Set<string>(TRIAD_PROGRAM_SLUGS);
 
@@ -45,6 +45,6 @@ export function triadPoolGate(input: TriadPoolGateInput): boolean | null {
 
   const role = input.exercise.exerciseRole;
   if (role === 'warmup' || role === 'cooldown') return true;
-  const axis = primaryAxis(demand);
+  const axis = trainedAxis(demand);
   return demand[axis] >= levels[axis] - input.levelTolerance;
 }

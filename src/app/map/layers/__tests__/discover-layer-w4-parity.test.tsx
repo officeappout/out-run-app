@@ -75,7 +75,7 @@ vi.mock('@/features/workout-engine/adaptation/exercise-log-stamp', () => ({ adap
 vi.mock('@/features/content/shared/localized-text.types', () => ({ getLocalizedText: noop }));
 vi.mock('@/features/workouts/components/workout-preview-drawer/hooks/useProgramMap', () => ({ useProgramMap: () => ({ programMap: {} }) }));
 vi.mock('@/lib/scheduleIdle', () => ({ scheduleIdle: noop }));
-vi.mock('@/features/parks/core/components/hybrid/HybridSlotCarousel', () => ({ default: Stub('HybridSlotCarousel'), ENTRY_PHRASES: [] }));
+vi.mock('@/features/parks/core/components/hybrid/HybridSlotCarousel', () => ({ default: Stub('HybridSlotCarousel'), HybridEntryButton: Stub('ShimmerPhraseButton') }));
 vi.mock('@/features/workout-engine/hybrid/round-trip', () => ({ composedWorkoutMin: noop, composedCardStats: noop, cardTotalFor: noop, readRoundTripPref: () => null }));
 vi.mock('@/components/ui/ShimmerPhraseButton', () => ({ default: Stub('ShimmerPhraseButton') }));
 vi.mock('@/features/workout-engine/hybrid/hybrid-slots', () => ({ resolveSlots: () => [], presetToIntent: noop }));

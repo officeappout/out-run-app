@@ -102,6 +102,8 @@ function getContextLabel(
   runSegment: RunSegment,
   strengthProgram: Program | null,
   t: LeagueT,
+  /** AI3: the program's display name in the UI language (falls back to the stored Hebrew name). */
+  programName?: string,
 ): string {
   switch (mode) {
     case 'general': return t('leagues.individual.context.general');
@@ -111,7 +113,7 @@ function getContextLabel(
       return t('leagues.individual.context.running', { segment: runSegment });
     case 'strength':
       return strengthProgram
-        ? t('leagues.individual.context.strengthProgram', { program: strengthProgram.name })
+        ? t('leagues.individual.context.strengthProgram', { program: programName || strengthProgram.name })
         : t('leagues.individual.context.strength');
   }
 }
@@ -492,7 +494,7 @@ export function NeighborhoodLeaderboardView({
   // drive useLeaderboard as before; only the trigger to open this dropdown
   // is hidden. Flip this back to the original condition to re-show it.
   const showSubFilter      = false && (localMode === 'running' || localMode === 'strength');
-  const contextLabel       = getContextLabel(localMode, runSegment, activeStrengthProg, t);
+  const contextLabel       = getContextLabel(localMode, runSegment, activeStrengthProg, t, activeStrengthProg ? programText(activeStrengthProg, 'name') : '');
 
   const catActive    = localMode !== 'general';
 

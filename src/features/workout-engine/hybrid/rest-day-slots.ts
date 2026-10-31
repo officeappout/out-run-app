@@ -13,6 +13,8 @@
  */
 import type { HybridSlot } from './hybrid-slots';
 import { MIN_STEPS_GAP } from '@/features/home/utils/next-recommendation';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { map } from '@/messages/ns/map';
 
 export interface MapRestDayInput {
   hasStrengthProgram: boolean;
@@ -31,7 +33,9 @@ const REST_DAY_DROPPED = new Set(['full_park', 'assessment_prompt', 'route_stops
 /** The walk + strength cards (smart and legacy) — kept light while steps are missing. */
 const WALK_STRENGTH_IDS = new Set(['walk_strength', 'recommended']);
 
-export const REST_DAY_WALK_REASON = 'יום מנוחה — הליכה עם כוח קל להשלמת הצעדים';
+/** AH1: the rest-day line in the app locale at call time (Hebrew byte-identical). */
+const tMap = makeLiveT(map);
+export const restDayWalkReason = (): string => tMap('hybrid.slot.restDay.reason');
 
 /**
  * @param stepsRemaining today's missing steps; null = unknown (kept, light).
@@ -59,7 +63,7 @@ export function restDaySlots(
         ...s,
         bolts: 1,
         preset: { ...s.preset, bolts: 1 },
-        reason: REST_DAY_WALK_REASON,
+        reason: restDayWalkReason(),
         cacheKeySuffix: `${s.cacheKeySuffix ?? ''}|rest`,
       });
       continue;

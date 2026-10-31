@@ -215,7 +215,7 @@ export default function OnboardingLayout({
                 {/* Checkmark bubble — absolutely positioned above the track, outside overflow-hidden */}
                 {isCompleted && (
                   <motion.div
-                    className="absolute end-1/2 -top-[7px]"
+                    className="absolute left-1/2 -top-[7px]"
                     style={{ marginLeft: '-10px' }}
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}

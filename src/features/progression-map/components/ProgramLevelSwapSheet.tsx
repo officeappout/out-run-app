@@ -28,7 +28,7 @@ import { getLocalizedText, ExecutionLocation, type Exercise } from '@/features/c
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { useExerciseLibraryStore } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
-import { resolveEquipmentLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentDisplayLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import {
   getSameProgramLevelExercises,
   type SameLevelExerciseOption,
@@ -76,7 +76,7 @@ function SwapCard({
     ...(method.equipmentIds ?? []),
     ...(method.gearId ? [method.gearId] : []),
   ].filter(Boolean);
-  const gearLabels = Array.from(new Set(rawGearIds.map((id) => resolveEquipmentLabel(id))));
+  const gearLabels = Array.from(new Set(rawGearIds.map((id) => resolveEquipmentDisplayLabel(id))));
 
   return (
     <button

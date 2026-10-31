@@ -12,6 +12,9 @@ import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-eq
 import { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 import { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { makeLiveT } from '@/lib/i18n/live-t';
+import { pickGymText } from '@/features/content/equipment/gym/core/gym-equipment-localized';
+import { getContentLanguage } from '@/features/content/shared/useContentLanguage';
+import type { AppLanguage } from '@/features/content/shared/localized-text.types';
 import { common } from '@/messages/ns/common';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 
@@ -383,6 +386,36 @@ export function resolveEquipmentLabel(id: string): string {
     console.warn(`[resolveEquipmentLabel] No Hebrew label for: "${id}"`);
   }
   return 'ציוד לא מזוהה';
+}
+
+/**
+ * AI3: the label to SHOW for an equipment id, in the content language. Hebrew (every Hebrew user, and English
+ * while enable_content_locale is off) = resolveEquipmentLabel exactly. English: the English name of the same
+ * gear / park-station doc resolveEquipmentLabel picked (matched on its Hebrew name), else that Hebrew label.
+ * Display only: logic that compares or keys on the label (the unknown-gear sentinel, LABEL_TO_ICON_KEY)
+ * keeps using resolveEquipmentLabel; an unknown id still returns the Hebrew sentinel here.
+ */
+export function resolveEquipmentDisplayLabel(id: string, lang: AppLanguage = getContentLanguage()): string {
+  const he = resolveEquipmentLabel(id);
+  if (lang !== 'en') return he;
+  return englishEquipmentName(id, he) ?? he;
+}
+
+function englishEquipmentName(id: string, he: string): string | null {
+  const key = id.toLowerCase().replace(/-/g, '_');
+  const gearCandidates = (gearDefinitionsCache ?? []).filter(
+    (g) => g.id === id || g.iconKey === id || g.iconKey === key || g.name?.he === he,
+  );
+  const gear = gearCandidates.find((g) => (g.name?.he || g.name?.en) === he && g.name?.en);
+  if (gear?.name?.en) return gear.name.en;
+  const gym = (gymEquipmentCache ?? []).find(
+    (g) => (g.id === id || g.iconKey === id || g.iconKey === key || g.name === he) && g.name === he,
+  );
+  if (gym) {
+    const en = pickGymText(gym, 'name', 'en');
+    if (en && en !== he) return en;
+  }
+  return null;
 }
 
 /**

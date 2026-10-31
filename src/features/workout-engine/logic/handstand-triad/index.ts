@@ -1,5 +1,5 @@
 export * from './triad.types';
-export { getTriadScores, primaryAxis, isPeakExercise, PEAK_BALANCE_THRESHOLD } from './triad-scores';
+export { getTriadScores, primaryAxis, trainedAxis, isPeakExercise, PEAK_BALANCE_THRESHOLD } from './triad-scores';
 export { resolveTriadLevels, rankAxes } from './triad-levels';
 export {
   checkTriadEligibility,

@@ -16,7 +16,7 @@ import LocationVariantSwitcher, {
   type LocationSwitcherOption,
 } from '@/features/content/exercises/client/components/LocationVariantSwitcher';
 import {
-  resolveEquipmentLabel,
+  resolveEquipmentDisplayLabel,
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useUserStore } from '@/features/user';
@@ -40,7 +40,7 @@ const REPRESENTATIVE_GEAR: Record<string, string[]> = {
 function gearChips(location: string): LocationSwitcherOption['gear'] {
   return (REPRESENTATIVE_GEAR[location] ?? [])
     .map((id) => {
-      const label = resolveEquipmentLabel(id);
+      const label = resolveEquipmentDisplayLabel(id);
       if (!label || label === 'ציוד לא מזוהה') return null; // i18n-allow-hebrew: data — compared with resolveEquipmentLabel's unknown-gear label
       return { id, label, icon: resolveEquipmentSvgPathList(id)[0] ?? null };
     })

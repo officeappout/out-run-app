@@ -23,6 +23,7 @@ import { findActiveMuscleChips, toggleMuscleChip } from '../utils/muscle-bar.uti
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 import { useT } from '@/hooks/useT';
 import { library } from '@/messages/ns/library';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 interface Props {
   gear: GearDefinition[];
@@ -30,6 +31,7 @@ interface Props {
 
 export default function ActiveFilterChipsRow({ gear }: Props) {
   const t = useT(library);
+  const contentLang = useContentLanguage();
   const filters = useExerciseLibraryStore((s) => s.filters);
   const programs = useExerciseLibraryStore((s) => s.allPrograms);
   const setLevelsByProgram = useExerciseLibraryStore((s) => s.setLevelsByProgram);
@@ -85,7 +87,11 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
   for (const id of filters.equipmentIds) {
     const label = id === BODYWEIGHT_SENTINEL
       ? t('exercises.chips.bodyweight')
-      : gear.find((g) => g.id === id)?.name?.he ?? gear.find((g) => g.id === id)?.name?.en ?? id;
+      : (() => {
+          const name = gear.find((g) => g.id === id)?.name;
+          // AI3: English name in English (Hebrew when the gear has none); Hebrew unchanged.
+          return (contentLang === 'en' ? name?.en || name?.he : name?.he ?? name?.en) ?? id;
+        })();
     chips.push({
       id: `eq-${id}`,
       label,

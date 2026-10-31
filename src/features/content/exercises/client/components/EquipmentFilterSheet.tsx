@@ -55,6 +55,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useT } from '@/hooks/useT';
 import { common } from '@/messages/ns/common';
 import { library } from '@/messages/ns/library';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 /** Home v2 (enable_home_v2) styling switch for the sub-components below.
  *  Provided by the sheet; false = today's UI, byte-for-byte. */
@@ -606,6 +607,7 @@ function Section({
   large?: boolean;
 }) {
   const v2 = useContext(EquipV2);
+  const lang = useContentLanguage();
   if (items.length === 0) return null;
   return (
     <section className={v2 ? 'mb-6' : 'mb-5'}>
@@ -617,7 +619,8 @@ function Section({
       </div>
       <div className={`flex flex-wrap ${v2 ? 'gap-2' : large ? 'gap-2' : 'gap-1.5'}`}>
         {items.map((g) => {
-          const label = g.name?.he || g.name?.en || g.id;
+          // AH1: English name in English (Hebrew when the gear has none); Hebrew unchanged.
+          const label = (lang === 'en' ? g.name?.en || g.name?.he : g.name?.he || g.name?.en) || g.id;
           const svgPaths = resolveEquipmentSvgPathList(g.id);
           const iconSrc = svgPaths[0] ?? null;
           return (

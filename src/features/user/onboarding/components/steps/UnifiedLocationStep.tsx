@@ -59,6 +59,7 @@ import {
   prewarmLocationLookups,
   resolveNeighborhoodIdForGps,
 } from './UnifiedLocation/location-utils';
+import { filterLocations } from './UnifiedLocation/location-search';
 import {
   getFirstFix,
   shouldApplyRefinedFix,
@@ -300,11 +301,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     if (!searchQuery.trim()) {
       setFilteredCities(cities.slice(0, 15));
     } else {
-      const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(word => word.length > 0);
-      const filtered = cities.filter(city => {
-        const cityFullName = `${city.name} ${city.displayName} ${city.parentName || ''}`.toLowerCase();
-        return queryWords.every(word => cityFullName.includes(word));
-      });
+      // AH4: a Latin query also matches the transliterated slugs (location-search.ts); Hebrew as before.
+      const filtered = filterLocations(cities, searchQuery);
 
       // City-aware cap — every neighborhood/settlement inherits its parent's
       // population as sort key, so searching a city name (e.g. "תל אביב")

@@ -25,9 +25,8 @@ import { useProgramMap } from '@/features/workouts/components/workout-preview-dr
 import type { ExecutionLocation } from '@/features/content/exercises';
 import type { ComposedHybridSession, HybridRoutePreview } from '@/features/workout-engine/hybrid/start-hybrid-session';
 import { scheduleIdle } from '@/lib/scheduleIdle';
-import HybridSlotCarousel, { ENTRY_PHRASES } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
+import HybridSlotCarousel, { HybridEntryButton } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
 import { composedWorkoutMin, composedCardStats, cardTotalFor, readRoundTripPref, type RoundTripLegs } from '@/features/workout-engine/hybrid/round-trip';
-import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
@@ -2275,8 +2274,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 className="absolute end-0 start-0 z-[100] pointer-events-none"
                 style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
               >
-                <ShimmerPhraseButton
-                  messages={ENTRY_PHRASES}
+                <HybridEntryButton
                   onTap={() => {
                     // Passive entry: open the slot carousel only. resetHybridFlow
                     // sets freeRunStep='slots' explicitly (no effect race, no

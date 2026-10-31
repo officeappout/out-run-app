@@ -43,7 +43,9 @@ export function IntroCanvas({ children }: { children: React.ReactNode }) {
     >
       <div
         data-intro-canvas=""
-        className="absolute end-1/2 top-0"
+        // AH3: centering is physical (left 50% + margin-left -W/2). `end-1/2` was right:50% in LTR, which
+        // ignored the margin and pushed the whole canvas off the left edge in English.
+        className="absolute left-1/2 top-0"
         style={{
           width: CANVAS_W,
           height: CANVAS_H,
