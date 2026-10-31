@@ -52,6 +52,8 @@ import { useUserStore } from '@/features/user';
 import type { Park } from '@/features/parks/core/types/park.types';
 import StationWelcomeScreen from './StationWelcomeScreen';
 import ParkStationIntro from './v2/park/ParkStationIntro';
+import BodyweightStationIntro from './v2/park/BodyweightStationIntro';
+import { bodyweightIntroView } from './v2/park/bodyweight-intro';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
 import { useComboFlowV1 } from './v2/combo/useComboFlowV1';
 import { stationIntroDifficulty, stationIntroView, stationRunPlan, type StationDifficulty } from './park-live-v2';
@@ -144,6 +146,11 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
     [parkLive, stationPlan, stationDifficulty],
   );
   const parkIntro = useMemo(() => (parkLive ? stationIntroView(stationPlan) : null), [parkLive, stationPlan]);
+  // Board PlayerStationIntro "park" / "street": a station with no machine tabata gets the v2 intro too.
+  const bodyweightIntro = useMemo(
+    () => (parkLive && !parkIntro ? bodyweightIntroView(stationPlan, stationContext?.parkId ?? null) : null),
+    [parkLive, parkIntro, stationPlan, stationContext?.parkId],
+  );
 
   const handleStationWorkDone = (exerciseLog: ReturnType<typeof toSegmentExerciseDetail>) => {
     // Count only COMPLETED guided stations (≥1 logged set) — never skipped / empty exits.
@@ -266,6 +273,12 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
             context={stationContext}
             difficulty={stationIntroDifficulty(stationPlan, stationDifficulty)}
             onDifficulty={setStationDifficulty}
+            onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
+          />
+        ) : bodyweightIntro && guided && stationContext && welcomeDoneFor !== stationContext.stationNumber ? (
+          <BodyweightStationIntro
+            intro={bodyweightIntro}
+            context={stationContext}
             onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
           />
         ) : guided && stationContext && welcomeDoneFor !== stationContext.stationNumber ? (
