@@ -24,8 +24,8 @@ function slugWords(id: string | undefined): string {
 export function normalizeLatin(text: string): string {
   return text
     .toLowerCase()
-    .replace(/['’`"׳״]/g, '')
-    .replace(/[^a-z0-9֐-׿]+/g, ' ')
+    .replace(/['\u2019`"\u05f3\u05f4]/g, '')
+    .replace(/[^a-z0-9\u0590-\u05ff]+/g, ' ')
     .trim();
 }
 
