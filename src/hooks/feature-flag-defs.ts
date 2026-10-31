@@ -870,6 +870,11 @@ export const FLAG_DEFS = [
   // nearby-group card asks "join you?" and adds the group to the schedule in place; P13 the walking-plan card
   // opens today's walk. Fail-closed; super admins preview it. Off = identical to today.
   { key: 'enableSchedulePilotV1', firestoreKey: 'enable_schedule_pilot_v1', defaultValue: false, superAdminValue: true },
+  // Owner's iPhone notes (31.10.2026, pilot section AH): the suppressed bottom nav leaves no sliver (AH24); the map
+  // layers sheet sits above the map's top bar so it closes (AH27); the partners chip only with partners nearby
+  // (AH28); the schedule tutorial / home schedule / progress card fixes (AH14-AH17, AH19). Fail-closed; super admins
+  // preview it. Off = identical to today.
+  { key: 'enablePilotAhV1', firestoreKey: 'enable_pilot_ah_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
