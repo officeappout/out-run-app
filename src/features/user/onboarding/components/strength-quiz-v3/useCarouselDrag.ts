@@ -62,6 +62,32 @@ export function useCarouselDrag(
     for (const el of [p.row, p.center, p.easier, p.harder]) apply(el, '', '', SETTLE);
   }, [reduce, parts]);
 
+  /**
+   * A swipe switched cards (AH9: it used to jump). Called right before the selection changes: it
+   * measures how far the incoming side card sits from the centre, then, once React has swapped the
+   * cards, starts the row from where that card visually was and slides it to rest, so the card the
+   * finger pulled in keeps moving instead of popping into the middle.
+   */
+  const commit = useCallback((dx: number) => {
+    if (reduce) return;
+    if (frame.current !== null) { cancelAnimationFrame(frame.current); frame.current = null; }
+    const before = parts();
+    const towardEnd = rtl ? dx < 0 : dx > 0;
+    const incoming = towardEnd ? before.easier : before.harder;
+    const c = before.center?.getBoundingClientRect();
+    const s = incoming?.getBoundingClientRect();
+    if (!c || !s) { settle(); return; }
+    const offset = (s.left + s.width / 2) - (c.left + c.width / 2) + dragLook(dx, rtl).rowX;
+    const grownFrom = lookStyle(dragLook(dx, rtl)[towardEnd ? 'easier' : 'harder']);
+    requestAnimationFrame(() => {
+      const p = parts();
+      apply(p.row, `translateX(${offset}px)`, '', 'none');
+      apply(p.center, grownFrom.transform, grownFrom.opacity, 'none');
+      for (const el of [p.easier, p.harder]) apply(el, '', '', 'none');
+      requestAnimationFrame(() => { for (const el of [p.row, p.center]) apply(el, '', '', SETTLE); });
+    });
+  }, [reduce, rtl, parts, settle]);
+
   /** A tap switched cards: the new centre card grows in from the side-card size. */
   const pulse = useCallback(() => {
     if (reduce) return;
@@ -72,5 +98,5 @@ export function useCarouselDrag(
     requestAnimationFrame(() => apply(center, '', '', SETTLE));
   }, [reduce, rtl, parts]);
 
-  return { track, settle, pulse };
+  return { track, settle, pulse, commit };
 }
