@@ -44,6 +44,8 @@ import LocationVariantSwitcher, {
 } from './LocationVariantSwitcher';
 import { isHiddenProgram } from '@/lib/hidden-programs';
 import ProgramPathSwitcher, { type ProgramPathOption } from './ProgramPathSwitcher';
+import TriadBreakdown from './TriadBreakdown';
+import { HANDSTAND_TRIAD_ENABLED } from '@/config/feature-flags';
 import {
   ensureEquipmentCachesLoaded,
   getMuscleGroupLabel,
@@ -998,6 +1000,17 @@ export default function MasterExerciseView({
             </div>
           );
         })()}
+
+        {/* Handstand Triad "פירוט": strength / balance / mobility of this
+            exercise (HANDSTAND_TRIAD_ENABLED; nothing for unscored ones). */}
+        {HANDSTAND_TRIAD_ENABLED && (
+          <TriadBreakdown
+            exercise={exercise}
+            t={t}
+            headingClass={v2 ? `${v2H3} mb-2 leading-[30px]` : 'text-start text-[16px] font-semibold text-slate-800 mb-2 leading-[30px]'}
+            headingStyle={SECTION_FONT}
+          />
+        )}
 
         {/* ── Section 3: Progression chain ──────────────────────────────── */}
         <ProgressionChainRow
