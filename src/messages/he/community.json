@@ -994,5 +994,12 @@
   "social.post.edit.replacePhoto": "החלפה",
   "social.post.edit.removePhoto": "הסרה",
   "social.post.edit.save": "שמירה",
-  "social.post.edit.failed": "השמירה לא הצליחה. אפשר לנסות שוב."
+  "social.post.edit.failed": "השמירה לא הצליחה. אפשר לנסות שוב.",
+  "social.share.to.title": "שיתוף אל",
+  "social.share.to.story": "סטורי אינסטגרם",
+  "social.share.to.download": "הורדה",
+  "social.share.to.copy": "העתקה",
+  "social.share.to.more": "עוד",
+  "social.share.toast.copied": "התמונה הועתקה",
+  "social.share.toast.copyFailed": "אי אפשר להעתיק כאן. אפשר להוריד במקום."
 }
