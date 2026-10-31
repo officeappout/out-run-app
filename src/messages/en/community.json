@@ -975,5 +975,12 @@
   "post.card.hiddenEnds": "Start and end hidden",
   "post.card.level": "Level",
   "post.card.openAria": "{title}: open the summary",
-  "social.share.placeTag": "Place tag"
+  "social.share.placeTag": "Place tag",
+  "social.share.to.title": "Share to",
+  "social.share.to.story": "Instagram story",
+  "social.share.to.download": "Download",
+  "social.share.to.copy": "Copy",
+  "social.share.to.more": "More",
+  "social.share.toast.copied": "Image copied",
+  "social.share.toast.copyFailed": "Can’t copy here. You can download it instead."
 }

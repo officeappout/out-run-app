@@ -18,7 +18,7 @@ type Key = keyof typeof he;
 
 describe('community (he) social.* — byte-identical to the pre-extraction literals', () => {
   it('owns exactly the social.* keys this test pins (count per prefix, not the namespace total)', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('social.')).length).toBe(125);
+    expect(Object.keys(he).filter((k) => k.startsWith('social.')).length).toBe(132);
   });
 
   it('plain strings', () => {

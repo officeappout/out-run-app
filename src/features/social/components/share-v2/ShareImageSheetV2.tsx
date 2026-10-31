@@ -23,6 +23,8 @@ import ShareBackgroundTiles from './ShareBackgroundTiles';
 import ShareFormatControl from './ShareFormatControl';
 import ShareStickerInkTiles from './ShareStickerInkTiles';
 import ShareTemplateCarousel from './ShareTemplateCarousel';
+import ShareToRow, { type ShareTarget } from './ShareToRow';
+import { copyImageToClipboard } from '../../services/copy-image';
 import { useSharePhoto, useSharePreviews } from './useSharePreviews';
 import { useT } from '@/hooks/useT';
 import { community } from '@/messages/ns/community';
@@ -148,6 +150,31 @@ export default function ShareImageSheetV2({
     }
   };
 
+  // "שיתוף אל" (enable_workout_post_v1): Instagram story = the story image through the share sheet.
+  const [storyPending, setStoryPending] = useState(false);
+  useEffect(() => {
+    if (!storyPending || format !== 'story') return;
+    setStoryPending(false);
+    void handleShare();
+  }, [storyPending, format]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleCopy = async () => {
+    if (!input || busy) return;
+    setBusy('save');
+    try {
+      const ok = await copyImageToClipboard(await fullImage());
+      showToast(ok ? 'success' : 'error', t(ok ? 'social.share.toast.copied' : 'social.share.toast.copyFailed'));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const handleTarget = (target: ShareTarget) => {
+    if (target === 'download') void handleSave();
+    else if (target === 'copy') void handleCopy();
+    else if (target === 'more') void handleShare();
+    else if (format === 'story') void handleShare();
+    else { setFormat('story'); setStoryPending(true); }
+  };
+
   const tpl = templateById(kind, tid);
   return (
     <Sheet open={open && !!input} title={t('social.share.title')} onClose={onClose}>
@@ -198,7 +225,10 @@ export default function ShareImageSheetV2({
         <Share2 size={18} strokeWidth={2.6} aria-hidden />
         {t('social.share.share')}
       </Button>
-      <button
+{postV1 ? (
+        <ShareToRow disabled={!model || !!busy} onPick={handleTarget} />
+      ) : (
+            <button
         type="button"
         disabled={!model || !!busy}
         onClick={() => void handleSave()}
@@ -207,6 +237,7 @@ export default function ShareImageSheetV2({
         <Download size={17} strokeWidth={2.4} className="text-v2-ink-2" aria-hidden />
         {t('social.share.saveToGallery')}
       </button>
+      )}
     </Sheet>
   );
 }

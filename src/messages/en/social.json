@@ -161,5 +161,11 @@
   "shareV2.combined.name": "Walk + strength",
   "shareV2.unit.steps": "steps",
   "shareV2.template.exerciseTable": "Exercise table",
-  "shareV2.template.splits": "Splits"
+  "shareV2.template.splits": "Splits",
+  "shareV2.template.combined": "Combined",
+  "shareV2.template.list": "List",
+  "shareV2.template.chips": "Chips",
+  "shareV2.template.day": "Day card",
+  "shareV2.template.side": "Side text",
+  "shareV2.splits.title": "Pace per km"
 }

@@ -68,6 +68,8 @@ export interface ShareSplits {
   heights: number[];
   fastestIndex: number;
   fastestLabel: string;
+  /** Each split's pace, "6:21" (the "מקטעים" table). */
+  labels?: string[];
 }
 
 /** Everything a template may draw — derived once, pure (model.ts). */
