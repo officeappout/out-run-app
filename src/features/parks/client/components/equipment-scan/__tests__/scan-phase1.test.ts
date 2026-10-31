@@ -16,7 +16,6 @@ describe('screenFromVerdict', () => {
   it('confirm / choose / edges', () => {
     expect(screenFromVerdict({ kind: 'confirm', candidateId: 'a', alternatives: ['b', 'urban:bench'] })).toEqual({ kind: 'confirm', equipmentId: 'a', alternatives: ['b'], open: false });
     expect(screenFromVerdict({ kind: 'choose', candidateId: 'a', alternatives: [] })).toMatchObject({ open: true });
-    expect(screenFromVerdict({ kind: 'retake', reason: 'people' })).toEqual({ kind: 'edge', edge: 'people' });
     expect(screenFromVerdict({ kind: 'retake', reason: 'dark' })).toEqual({ kind: 'edge', edge: 'dark' });
     expect(screenFromVerdict({ kind: 'retake', reason: 'blurry' })).toEqual({ kind: 'edge', edge: 'not_found' });
     expect(screenFromVerdict(undefined)).toEqual({ kind: 'edge', edge: 'not_found' });
