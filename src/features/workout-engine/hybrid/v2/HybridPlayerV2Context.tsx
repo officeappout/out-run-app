@@ -26,6 +26,9 @@ import { hybridRunSnapshot, setHybridFinalizeOverride, useHybridRun } from '../u
 import { needsLegacyArrive, needsSequencerStart, runLegSkipEvents, stationCloseEvents } from './hybrid-v2-sync';
 import { useStartAtPark } from '../useStartAtPark';
 import { ComboFlowProvider } from './combo/ComboFlowContext';
+import { useComboFlowV1 } from './combo/useComboFlowV1';
+import { finishHoldMs } from './combo/combo-choreography';
+import { useReducedMotion } from 'framer-motion';
 
 export interface HybridPlayerV2Api {
   enabled: boolean;
@@ -129,9 +132,21 @@ export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean
   }, [enabled, legacyPhase, dispatch]);
 
   // ── Plan ran out (it ended on a station) → save, like the final "סיום" ──
+  // enable_combo_flow_v1 (board PlayerTransitionFinish): the finish run plays first (the list drops,
+  // every block reads "done"), then the save raises the ring / summary.
+  const comboOn = useComboFlowV1() && enabled;
+  const reduceMotion = !!useReducedMotion();
   useEffect(() => {
-    if (enabled && phase === 'done' && useHybridRun.getState().active) void useHybridRun.getState().finishHybrid();
-  }, [enabled, phase]);
+    if (!enabled || phase !== 'done' || !useHybridRun.getState().active) return;
+    if (!comboOn) {
+      void useHybridRun.getState().finishHybrid();
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (useHybridRun.getState().active) void useHybridRun.getState().finishHybrid();
+    }, finishHoldMs(reduceMotion));
+    return () => clearTimeout(timer);
+  }, [enabled, phase, comboOn, reduceMotion]);
 
   const arriveNow = useCallback(() => dispatch({ type: 'ARRIVE_MANUAL' }), [dispatch]);
   // Pilot M5: already at the first park → straight to the station.
@@ -147,7 +162,19 @@ export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean
   const startStationNow = useCallback(() => dispatch({ type: 'START_STATION' }), [dispatch]);
   const extendTransition = useCallback(() => dispatch({ type: 'EXTEND_TRANSITION' }), [dispatch]);
   const toggleTransitionPause = useCallback(() => dispatch({ type: stateRef.current?.paused ? 'RESUME' : 'PAUSE' }), [dispatch]);
-  const finish = useCallback(() => void useHybridRun.getState().finishHybrid(), []);
+  // "סיום": with the combo flow the sequencer closes first (→ done → the finish run → save).
+  const finish = useCallback(() => {
+    if (!comboOn) {
+      void useHybridRun.getState().finishHybrid();
+      return;
+    }
+    const sess = useSessionStore.getState();
+    dispatch({
+      type: 'FINISH',
+      cumulativeKm: Number.isFinite(sess.totalDistance) ? sess.totalDistance : 0,
+      elapsedSec: Number.isFinite(sess.totalDuration) ? sess.totalDuration : 0,
+    });
+  }, [comboOn, dispatch]);
 
   const strip = useMemo(() => (state && enabled ? sequencerStrip(state) : null), [state, enabled]);
   const legs = useMemo(() => (state && enabled ? legResults(state) : []), [state, enabled]);

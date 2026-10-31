@@ -90,6 +90,9 @@ export function stageAt(steps: readonly ComboStep[], elapsedMs: number): ComboSt
 
 export const totalMs = (steps: readonly ComboStep[]) => steps.reduce((a, s) => a + s.ms, 0);
 
+/** How long the save / summary waits for the finish run (board PlayerTransitionFinish). */
+export const finishHoldMs = (reducedMotion: boolean) => totalMs(comboSteps('finish', { withLayer: true, reducedMotion }));
+
 /** Minutes of the first leg for the start chip ("off we go · 6 min to the station"), or null. */
 export function startChipMinutes(firstLeg: { kind: string; durationSec?: number } | undefined): number | null {
   if (!firstLeg || firstLeg.kind !== 'aerobic') return null;

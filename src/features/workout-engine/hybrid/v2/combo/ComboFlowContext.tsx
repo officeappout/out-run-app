@@ -15,10 +15,10 @@ import { useHybridPlayerV2 } from '../HybridPlayerV2Context';
 import { comboSteps, detectComboTransition, type ComboPoint, type ComboStage, type ComboStep, type ComboTransitionKind } from './combo-choreography';
 import { useComboFlowV1 } from './useComboFlowV1';
 
-/** The session list drops and the dot moves (ComboShellDriver + HybridSessionListV2). The finish run
- *  lands with the combined finish / summary stage, so it stays untimed for now. */
+/** The session list drops and the dot moves (ComboShellDriver + HybridSessionListV2), the finish
+ *  too (board PlayerTransitionFinish): the list drops, every block reads "done", then the ring. */
 export const COMBO_LAYER_WIRED = true;
-const layerFor = (kind: ComboTransitionKind) => COMBO_LAYER_WIRED && kind !== 'finish';
+const layerFor = (_kind: ComboTransitionKind) => COMBO_LAYER_WIRED;
 
 export interface ComboFlowApi {
   on: boolean;
