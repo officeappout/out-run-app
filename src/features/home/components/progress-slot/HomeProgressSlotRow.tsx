@@ -21,9 +21,11 @@ import { useUiDir } from '@/lib/i18n/useUiDir';
 export interface HomeProgressSlotRowProps {
   /** The weekly bars card (ConsistencyWidget), passed in boundary-wrapped by the page. */
   aside: ReactNode;
+  /** enable_schedule_pilot_v1 (pilot P13): the walking plan card opens today's walk. Omitted → as today. */
+  onWalkOpen?: () => void;
 }
 
-export default function HomeProgressSlotRow({ aside }: HomeProgressSlotRowProps) {
+export default function HomeProgressSlotRow({ aside, onWalkOpen }: HomeProgressSlotRowProps) {
   const { direction: uiDir } = useUiDir();
   const t = useT(home);
   const running = useUserStore((s) => s.profile?.running);
@@ -42,7 +44,7 @@ export default function HomeProgressSlotRow({ aside }: HomeProgressSlotRowProps)
       >
         <StrengthSlide key="strength" />
         {slide?.kind === 'run' && <RunPlanSlide key="run" plan={slide.plan} pct={slide.pct} />}
-        {slide?.kind === 'walk' && <WalkPlanSlide key="walk" targetWeeklyMinutes={slide.targetWeeklyMinutes} />}
+        {slide?.kind === 'walk' && <WalkPlanSlide key="walk" targetWeeklyMinutes={slide.targetWeeklyMinutes} onOpen={onWalkOpen} />}
       </PagedCarousel>
       {aside}
     </div>

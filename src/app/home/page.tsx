@@ -3542,7 +3542,11 @@ export default function HomePage() {
               {effectiveTab === 'strength' && progressSlotOn ? (
                 /* enable_home_progress_slot_v1 (boards PG-1): same grid, the program slot
                    becomes strength ↔ running/walking with pager dots. */
-                <HomeProgressSlotRow aside={<ConsistencyWidget />} />
+                <HomeProgressSlotRow
+                  aside={<ConsistencyWidget />}
+                  // enable_schedule_pilot_v1 (pilot P13, owner 31.10): the walking plan card → today's walk.
+                  onWalkOpen={featureFlags.enableSchedulePilotV1 && walkSlot ? startWalkFromHome : undefined}
+                />
               ) : effectiveTab === 'strength' ? (
                 /* התקדמות שבועית — program ring (minmax(0,1fr)) + consistency bars (111px).
                    Grid (not flex) so each cell has an explicit physical boundary —
