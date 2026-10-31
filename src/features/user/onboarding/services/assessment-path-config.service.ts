@@ -27,6 +27,9 @@ import {
   getEffectiveAssessmentMax,
 } from '../utils/assessment-level-caps';
 import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
+import { HANDSTAND_TRIAD_ENABLED } from '@/config/feature-flags';
+import { expandTriadCategories, isTriadAssessmentCategory } from '@/features/workout-engine/logic/handstand-triad/triad-assessment';
+import { TRIAD_MAX } from '@/features/workout-engine/logic/handstand-triad/triad.types';
 
 // Mirrors mini-domain-assessment.ts's MINI_ASSESSMENT_ACTIVE_KEY. Not imported
 // from that module directly — this is a lean, dependency-free utility file,
@@ -314,7 +317,8 @@ function resolveUnionCategories(
     ...literalCategories,
     ...(skillIds.length > 0 && addAutoCore ? ['core'] : []),
   ];
-  const deduped = Array.from(new Set(unioned));
+  // Handstand Triad: 'handstand' becomes three sliders (strength / balance / mobility).
+  const deduped = expandTriadCategories(Array.from(new Set(unioned)), HANDSTAND_TRIAD_ENABLED);
   return deduped.length > 0 ? deduped : [...PRIMARY_CATEGORIES];
 }
 
@@ -375,6 +379,9 @@ export async function loadPathConfigAsync(): Promise<AssessmentPathConfig> {
   const skillMaxLevels: Record<string, number> = {};
 
   for (const cat of baseConfig.categories) {
+    // Triad axes are not programs: the handstand scale (1-15).
+    // The result screen shows the collapsed 'handstand' level: same scale.
+    if (isTriadAssessmentCategory(cat)) { skillMaxLevels[cat] = TRIAD_MAX; skillMaxLevels.handstand = TRIAD_MAX; continue; }
     const program = findProgramForAssessmentKey(programs, cat);
     let max = program?.maxLevels && program.maxLevels > 0 ? program.maxLevels : undefined;
     // Skill IDs with no program maxLevels fall back to the program's own

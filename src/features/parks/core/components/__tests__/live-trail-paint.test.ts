@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hexToRgba, liveTrailKind, liveTrailPaintV1, TRAIL_V1_RUN, TRAIL_V1_WALK } from '../live-trail-paint';
+import { hexToRgba, liveTrailKind, liveTrailPaintV1, TRAIL_ROUTE_GREEN, TRAIL_V1_RUN, TRAIL_V1_WALK } from '../live-trail-paint';
 import { getLivePathPaint, ZONE_TRAIL_COLORS } from '../mapLayersConfig';
 
 describe('live trail paint (enable_run_player_drawer_v1)', () => {
@@ -50,5 +50,15 @@ describe('live trail paint (enable_run_player_drawer_v1)', () => {
   it('hexToRgba', () => {
     expect(hexToRgba('#00baf7', 0.5)).toBe('rgba(0, 186, 247, 0.5)');
     expect(hexToRgba('#fff', 2)).toBe('rgba(255, 255, 255, 1)');
+  });
+});
+
+describe('pilot M23: the walked trail on a route is green', () => {
+  it('green for walk and run on a route when on; zones and free unchanged', () => {
+    expect(liveTrailPaintV1('route', 'walking', true).line['line-color']).toBe(TRAIL_ROUTE_GREEN);
+    expect(liveTrailPaintV1('route', 'running', true).line['line-color']).toBe(TRAIL_ROUTE_GREEN);
+    expect(liveTrailPaintV1('route', 'walking').line['line-color']).not.toBe(TRAIL_ROUTE_GREEN);
+    expect(liveTrailPaintV1('zones', 'running', true)).toEqual(liveTrailPaintV1('zones', 'running'));
+    expect(liveTrailPaintV1('free', 'walking', true)).toEqual(liveTrailPaintV1('free', 'walking'));
   });
 });

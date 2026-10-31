@@ -48,6 +48,10 @@ const CATEGORY_META: Record<string, { he: string; en: string; emoji: string; col
   front_lever:       { he: 'פרונט ליבר',     en: 'Front Lever',       emoji: '🏋️', color: '#10b981' },
   handstand_pushup:  { he: 'שכיבות סמיכה בעמידת ידיים', en: 'Handstand Push-up', emoji: '🤸‍♂️', color: '#ec4899' },
   hspu:              { he: 'שכיבות סמיכה בעמידת ידיים', en: 'Handstand Push-up', emoji: '🤸‍♂️', color: '#ec4899' },
+  // Handstand Triad sliders (HANDSTAND_TRIAD_ENABLED): one per axis.
+  handstand_strength: { he: 'עמידת ידיים: כוח',        en: 'Handstand: Strength', emoji: '💪', color: '#6366f1' }, // i18n-allow-hebrew: fallback only; the label renders from quiz.slider.category
+  handstand_balance:  { he: 'עמידת ידיים: באלנס',      en: 'Handstand: Balance',  emoji: '🤸‍♂️', color: '#a855f7' }, // i18n-allow-hebrew: fallback only; the label renders from quiz.slider.category
+  handstand_mobility: { he: 'עמידת ידיים: גמישות כתף', en: 'Handstand: Shoulder mobility', emoji: '🙆', color: '#10b981' }, // i18n-allow-hebrew: fallback only; the label renders from quiz.slider.category
 };
 
 // ── Hardcoded fallback steps ─────────────────────────────────────

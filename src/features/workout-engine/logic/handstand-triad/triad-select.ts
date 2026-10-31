@@ -9,7 +9,8 @@
  *   core / abs / obliques: hollow body, plank); the strength block takes the
  *   rest of the strength-primary work (shoulders: pike, wall walks, presses).
  * - Each block picks the hardest eligible exercise first on its axis (closest
- *   to the user's level), no exercise twice in a session.
+ *   to the user's level), no exercise twice in a session; `avoidIds` (earlier
+ *   trio options, recent sessions) lose ties so the options differ.
  */
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import { checkTriadEligibility, type TriadEligibilityOptions } from './triad-eligibility';
@@ -39,7 +40,7 @@ export function fillTriadPlan(
   plan: TriadBlock[],
   candidates: Exercise[],
   levels: TriadValues,
-  opts: Pick<TriadEligibilityOptions, 'fallPracticeDone'> = {},
+  opts: Pick<TriadEligibilityOptions, 'fallPracticeDone'> & { avoidIds?: ReadonlySet<string> } = {},
 ): FilledTriadBlock[] {
   const scored: Scored[] = [];
   for (const exercise of candidates) {
@@ -51,7 +52,9 @@ export function fillTriadPlan(
     const pool = scored
       .filter((s) => !used.has(s.exercise.id) && fitsBlock(block, s))
       .filter((s) => checkTriadEligibility(s.scores, levels, { ...opts, blockAxis: block.axis }).eligible)
-      .sort((a, b) => (block.axis ? b.scores[block.axis] - a.scores[block.axis] : 0));
+      .sort((a, b) =>
+        (block.axis ? b.scores[block.axis] - a.scores[block.axis] : 0)
+        || Number(!!opts.avoidIds?.has(a.exercise.id)) - Number(!!opts.avoidIds?.has(b.exercise.id)));
     const picked = pool.slice(0, block.slots).map((s) => s.exercise);
     picked.forEach((e) => used.add(e.id));
     return { ...block, exercises: picked };
