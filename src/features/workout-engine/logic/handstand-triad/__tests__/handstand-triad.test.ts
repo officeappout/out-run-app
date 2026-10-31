@@ -12,7 +12,7 @@ import {
   type TriadValues,
 } from '..';
 
-// Owner's ratings (Drive, "עמידות ידיים" tab), S/B/M.
+// Owner's ratings (Drive, "עמידות ידיים" tab) + the approved mobility ladder (31.10), S/B/M.
 const ex = (id: string, s: number, b: number, m: number, role: ExerciseRole = 'main', primaryMuscle = 'shoulders'): Exercise =>
   ({
     id,
@@ -24,9 +24,12 @@ const ex = (id: string, s: number, b: number, m: number, role: ExerciseRole = 'm
 const CATALOG: Exercise[] = [
   ex('wrist_warmup', 1, 1, 4, 'warmup'),
   ex('upper_stretch', 1, 1, 5, 'cooldown'),
-  ex('passive_hang', 2, 1, 9),
-  ex('prone_ytl', 2, 1, 10),
-  ex('butcher_block', 1, 1, 8),
+  ex('prayer_stretch', 1, 1, 2),
+  ex('rail_opening', 1, 1, 3),
+  ex('butcher_block', 1, 1, 5),
+  ex('passive_hang', 2, 1, 6),
+  ex('prone_ytl', 2, 1, 8),
+  ex('hanging_cobra', 4, 1, 10),
   ex('frog', 4, 5, 2),
   ex('crow', 4, 7, 2),
   ex('fall_practice_knees', 5, 6, 7),
@@ -34,7 +37,7 @@ const CATALOG: Exercise[] = [
   ex('heel_pulls', 9, 12, 11),
   ex('free_handstand', 8, 14, 11),
   ex('perfect_line', 10, 15, 15),
-  ex('pike_stance', 3, 1, 5),
+  ex('pike_stance', 4, 1, 3),
   ex('wall_walk', 7, 2, 4),
   ex('chest_to_wall', 9, 3, 11),
   ex('shoulder_shrugs_wall', 12, 3, 14),
@@ -139,18 +142,17 @@ describe('3 profiles get different, safe sessions', () => {
     const ids = idsOf(blocks);
     expect(ids.warmup).toEqual(['wrist_warmup']);
     expect(ids.cooldown).toEqual(['upper_stretch']);
-    expect(ids.mobility[0]).toBe('prone_ytl');
-    expect(ids.strength).toEqual(['scap_pushups']);
+    expect(ids.mobility[0]).toBe('hanging_cobra'); // M10 + S4: open to flexible-weak
+    expect(ids.strength).toEqual(['pike_stance', 'scap_pushups']); // weakest axis → 2 exercises
     expect(blocks.find((b) => b.kind === 'strength')?.emphasis).toBe('weakest');
     const all = blocks.flatMap((b) => b.exercises);
     expect(all.every((e) => getTriadScores(e)!.strength <= FLEXIBLE_WEAK.strength + 1)).toBe(true);
   });
-  it('strong-stiff: mobility block (2 slots) only at M ≤ 4+1, no wall/free handstand work', () => {
+  it('strong-stiff: mobility doubled with the easy stretches (M ≤ 4+1), no wall/free handstand work', () => {
     const blocks = fillTriadPlan(buildTriadPlan(STRONG_STIFF), CATALOG, STRONG_STIFF);
     const ids = idsOf(blocks);
-    // Only pike stance (M5) fits; the rated stretches all need M ≥ 8, so the
-    // second slot stays empty: a real content gap for stiff users.
-    expect(ids.mobility).toEqual(['pike_stance']);
+    expect(ids.mobility).toEqual(['butcher_block', 'rail_opening']);
+    expect(ids.mobility).not.toContain('hanging_cobra');
     expect(ids.strength).toEqual(['wall_walk']);
     expect(ids.line).toEqual(['hollow_body']);
     const all = blocks.flatMap((b) => b.exercises.map((e) => e.id));
@@ -161,7 +163,7 @@ describe('3 profiles get different, safe sessions', () => {
     const blocks = fillTriadPlan(buildTriadPlan(BALANCED), CATALOG, BALANCED);
     const ids = idsOf(blocks);
     expect(ids.balance).toEqual(['crow']);
-    expect(ids.mobility).toEqual(['passive_hang']); // M9 = 8+1, hardest first
+    expect(ids.mobility).toEqual(['prone_ytl']); // M8, hardest within 8+1; cobra (M10) not yet
     expect(ids.strength).toEqual(['wall_walk']);
     expect(ids.line).toEqual(['hollow_body']);
   });
@@ -192,11 +194,11 @@ describe('pool gate (ContextualEngine hook)', () => {
     expect(triadPoolGate({ ...base, exercise: find('chest_to_wall') })).toBe(false); // S9 > 8
     expect(triadPoolGate({ ...base, exercise: find('crow') })).toBe(true); // B7 within 8−3..8
     expect(triadPoolGate({ ...base, exercise: find('frog') })).toBe(true); // B5 = 8−3
-    expect(triadPoolGate({ ...base, exercise: find('pike_stance') })).toBe(true); // primary M5 = 8−3 → keep
+    expect(triadPoolGate({ ...base, exercise: find('wall_walk') })).toBe(true); // primary S7 within 8−3..8 → keep
     expect(triadPoolGate({ ...base, exercise: find('hollow_body') })).toBe(true); // primary S5 = 8−3
   });
   it('too easy on the primary axis is dropped', () => {
-    expect(triadPoolGate({ ...base, userProgramLevels: new Map([['handstand', 10]]), exercise: find('pike_stance') })).toBe(false); // M5 < 10−3
+    expect(triadPoolGate({ ...base, userProgramLevels: new Map([['handstand', 10]]), exercise: find('pike_stance') })).toBe(false); // primary S4 < 10−3
   });
   it('HSPU session uses the HSPU level, not the base level', () => {
     const hspuRow = { id: 'c2w', exerciseRole: 'main', targetPrograms: [{ programId: 'hspu', level: 7, strengthScore: 9, balanceScore: 3, mobilityScore: 8 }] } as unknown as Exercise;
