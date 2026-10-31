@@ -33,6 +33,16 @@ import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { coach } from '@/messages/ns/coach';
 import { usePlannerMonths } from '../hooks/usePlannerMonths';
+import WeekInfoButton from '@/features/info-sheets/week/WeekInfoButton';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
+import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
+import { HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
+import type { PlannerDayCell, PlannerMonthSection } from '../lib/monthCells';
+
+function cellOf(sections: readonly PlannerMonthSection[], iso: string): PlannerDayCell | null {
+  for (const sec of sections) for (const row of sec.rows) for (const c of row.cells) if (c?.iso === iso) return c;
+  return null;
+}
 import { stripMonths } from '../lib/monthCells';
 import { planLineOf, sundayOfKey } from '../lib/weekSummary';
 import KellyStarButton from './KellyStarButton';
@@ -54,6 +64,8 @@ export interface PlannerV2Props {
   onSaved: () => void;
   /** Done workout → its summary (home's handleHeroPress → tryOpenCompletedWorkout). */
   onStartWorkout?: (date: string, skipCompletedLookup?: boolean) => void;
+  /** enable_pilot_ah_v1 (AH17): the header starts the overlay's drag-down-to-close. */
+  onHeaderPointerDown?: (e: React.PointerEvent) => void;
 }
 
 interface SheetRequest {
@@ -68,11 +80,15 @@ const todayKeyOf = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStartWorkout }: PlannerV2Props) {
+export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStartWorkout, onHeaderPointerDown }: PlannerV2Props) {
   const { direction } = useUiDir();
   const t = useT(home);
   const tc = useT(coach);
   const [view, setView] = useState<PlannerView>('icons');
+  // enable_pilot_ah_v1 (AH17): the week "i" lives here now (moved from the home title).
+  const pilotAh = usePilotAhV1();
+  const activeProgramId = useUserStore((s) => (s.profile?.progression as { activePrograms?: Array<{ id?: string }> } | undefined)?.activePrograms?.[0]?.id ?? null);
+  const programIconKey = resolveIconKey(null, activeProgramId);
   const [todayKey] = useState(todayKeyOf);
   const currentSunday = useMemo(() => sundayOfKey(todayKey), [todayKey]);
   const [weekSunday, setWeekSunday] = useState(currentSunday);
@@ -121,6 +137,22 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
     [onStartWorkout],
   );
 
+  // AH17: the "i" sheet's week (this week's cells: planned / done / before today).
+  const weekInfoDays = useMemo(() => {
+    if (weekState.keys.length !== 7) return null;
+    return weekState.keys.map((iso, dow) => {
+      const cell = cellOf(monthsData.sections, iso);
+      return {
+        dow,
+        letter: HEBREW_DAYS[dow],
+        date: Number(iso.slice(8, 10)),
+        planned: !!cell && cell.kind !== 'rest',
+        done: cell?.kind === 'done',
+        past: iso < todayKey,
+      };
+    });
+  }, [weekState.keys, monthsData.sections, todayKey]);
+
   const daySessions = useMemo(() => {
     if (!dayIso || !model) return [];
     const dow = weekState.keys.indexOf(dayIso);
@@ -140,8 +172,19 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
       <div className="flex-1 overflow-y-auto pb-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 24px))' }}>
         <div className="mx-auto w-full max-w-md">
           {/* Header */}
-          <div className="flex items-center gap-2.5 px-5 pb-1 pt-2.5">
+          {pilotAh && onHeaderPointerDown && (
+            <div className="flex justify-center pb-1 touch-none" onPointerDown={onHeaderPointerDown} aria-hidden>
+              <span className="h-[5px] w-10 rounded-full bg-v2-hairline" />
+            </div>
+          )}
+          <div
+            className={`flex items-center gap-2.5 px-5 pb-1 pt-2.5 ${pilotAh && onHeaderPointerDown ? 'touch-none' : ''}`}
+            onPointerDown={pilotAh && onHeaderPointerDown ? (e) => { if (!(e.target as HTMLElement).closest('button')) onHeaderPointerDown(e); } : undefined}
+          >
             <h2 className="whitespace-nowrap text-[26px] font-black leading-8 !tracking-[-0.02em] text-v2-ink">{t('plannerV2.title')}</h2>
+            {pilotAh && weekInfoDays && (
+              <WeekInfoButton editLabel={t('weekStrip.edit')} programIconKey={programIconKey} days={weekInfoDays} />
+            )}
             <ErrorBoundary fallback={null}>
               <KellyWeekLauncher
                 weekLineHe={model ? weekContextLineHe(model.week) : ''}
