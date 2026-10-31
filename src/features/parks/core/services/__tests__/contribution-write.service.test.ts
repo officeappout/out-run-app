@@ -47,6 +47,7 @@ function makeFakeDb(seed: {
   parks?: FakePark[];
   users?: FakeUser[];
   contributions?: FakeContribution[];
+  flags?: Record<string, boolean>;
 }) {
   const authorities = new Map((seed.authorities ?? []).map((a) => [a.id, a]));
   const parks = new Map((seed.parks ?? []).map((p) => [p.id, p]));
@@ -56,7 +57,8 @@ function makeFakeDb(seed: {
   const created: Array<{ collection: string; id: string; data: Record<string, unknown> }> = [];
   let nextId = 1;
 
-  const STORES: Record<string, Map<string, any>> = { authorities, parks, users, user_contributions: contributions };
+  const systemConfig = new Map(seed.flags ? [['feature_flags', { id: 'feature_flags', ...seed.flags }]] : []);
+  const STORES: Record<string, Map<string, any>> = { authorities, parks, users, user_contributions: contributions, system_config: systemConfig };
 
   function docSnap<T extends { id: string }>(store: Map<string, T>, id: string) {
     const d = store.get(id);
@@ -251,6 +253,20 @@ describe('computeContributionApprove', () => {
       const contribUpdate = db.updates.find((u) => u.collection === 'user_contributions' && u.id === 'c1');
       expect(contribUpdate?.data.approvedParkId).toBe(result.body.approvedParkId);
       expect(contribUpdate?.data.status).toBe('approved');
+    });
+
+    it('camera scan flag on: the new park keeps who mapped it (mappedByUserId); flag off: nothing extra', async () => {
+      const seed = {
+        authorities: [{ id: 'city-haifa', managerIds: ['am-uid'], type: 'city', boundaryGeoJSON: HAIFA_BOUNDARY }],
+        contributions: [{ id: 'c1', type: 'new_location', status: 'pending', userId: 'citizen-1', location: INSIDE_HAIFA, parkName: 'New Spot' }],
+      };
+      const on = makeFakeDb({ ...seed, flags: { enable_equipment_scan_v1: true } });
+      const r = await computeContributionApprove(on, AM_CALLER, 'c1', {}, CTX);
+      if (r.status !== 200) throw new Error('approve failed');
+      expect(on.updates.find((u) => u.collection === 'parks' && u.id === r.body.approvedParkId)?.data).toEqual({ mappedByUserId: 'citizen-1' });
+      const off = makeFakeDb(seed);
+      await computeContributionApprove(off, AM_CALLER, 'c1', {}, CTX);
+      expect(off.updates.find((u) => u.collection === 'parks')).toBeUndefined();
     });
 
     it('report type, authority_manager\'s own authority resolves → 200, contribution approved, NO park created (report never creates an entity)', async () => {

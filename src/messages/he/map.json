@@ -1127,5 +1127,6 @@
   "wizard.scan.send.submit": "שלח לאישור",
   "wizard.scan.community.title": "יחד ממפים כל עיר",
   "wizard.scan.community.body": "אחרי האישור הגינה תעלה למפה, ובדף שלה יופיע \"מופה על ידי {name}\".",
-  "wizard.scan.community.bodyNoName": "אחרי האישור הגינה תעלה למפה, ובדף שלה יופיע שמך כמי שמיפה אותה."
+  "wizard.scan.community.bodyNoName": "אחרי האישור הגינה תעלה למפה, ובדף שלה יופיע שמך כמי שמיפה אותה.",
+  "parkDetail.mappedBy": "מופה על ידי {name}"
 }

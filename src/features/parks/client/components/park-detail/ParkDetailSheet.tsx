@@ -26,6 +26,7 @@ import SuggestEditSheet from '../contribution-wizard/SuggestEditSheet';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import EquipmentDetailDrawer from '../equipment-detail/EquipmentDetailDrawer';
 import ParkScanEntry from '../equipment-scan/ParkScanEntry';
+import ParkMappedBy from '../equipment-scan/ParkMappedBy';
 import { DRAWER_HEIGHT, START_WORKOUT_CTA_LINES, REVIEWS_COLLAPSED_COUNT } from './utils/park-detail-format';
 import { averageReviewRating, buildParkPhotoGallery } from './utils/park-detail-logic';
 import { useParkSheetMotion, useParkScrollProgressSync } from './hooks/useParkSheetMotion';
@@ -243,6 +244,9 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onSta
             />
 
             <ParkAmenitiesSection park={park} v2={v2} />
+
+            {/* enable_equipment_scan_v1: "מופה על ידי" for parks mapped by a user. */}
+            <ParkMappedBy userId={park.mappedByUserId} />
 
             {/* DESCRIPTION — free-text paragraph */}
             {park.description && (

@@ -28,6 +28,7 @@ import {
 } from './approval-labels';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import ContributionScanSection from './ContributionScanSection';
 import EquipmentCard from '@/features/parks/client/components/equipment-detail/EquipmentCard';
 import RouteShapeReviewSection from '@/features/admin/components/routes/RouteShapeReviewSection';
 
@@ -392,6 +393,9 @@ export default function ApprovalDetailModal({
                 ))
               )}
             </div>
+
+            {/* Camera scan boards: who mapped it, "צולם · N", unsure count, new-catalog items. */}
+            {item.entityType === 'contribution' && data && <ContributionScanSection contribution={data} />}
 
             {/* G4: read-only preview of user-proposed equipment (contribution only). */}
             {equip.length > 0 && (

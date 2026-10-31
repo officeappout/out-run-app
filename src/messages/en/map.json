@@ -1127,5 +1127,6 @@
   "wizard.scan.send.submit": "Send for approval",
   "wizard.scan.community.title": "Together we map every city",
   "wizard.scan.community.body": "Once approved, the park goes on the map and its page shows “Mapped by {name}”.",
-  "wizard.scan.community.bodyNoName": "Once approved, the park goes on the map and its page credits you as the one who mapped it."
+  "wizard.scan.community.bodyNoName": "Once approved, the park goes on the map and its page credits you as the one who mapped it.",
+  "parkDetail.mappedBy": "Mapped by {name}"
 }

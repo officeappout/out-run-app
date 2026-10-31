@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { prefillFromScan, scanMetaFor, streetForName } from '../park-scan-mapping';
 import { indicatorStepIds, wizardStepIds } from '../../contribution-wizard/wizard-steps';
 import type { ScanPhotoResult } from '@/lib/ai/scan/scan-types';
+import { scanSummary } from '@/features/admin/components/approval/ContributionScanSection';
 
 const photo = (items: Array<[string, number]>, over: Partial<ScanPhotoResult> = {}): ScanPhotoResult => ({
   quality: 'ok',
@@ -60,5 +61,14 @@ describe('wizard steps, scan mode', () => {
   });
   it('classic mode unchanged', () => {
     expect(wizardStepIds({ facilityType: 'gym_park', isPointOfInterest: false })).toEqual(['location', 'details', 'equipment', 'photo']);
+  });
+});
+
+
+describe('admin scan summary', () => {
+  it('photos, equipment count, unsure under 0.8, unknown items', () => {
+    const scan = { photos: 5, items: [{ equipmentId: 'a', confidence: 0.9 }, { equipmentId: 'b', confidence: 0.6 }], removedByUser: [], addedByUser: [], unknown: [{ description: 'rower' }] };
+    expect(scanSummary(scan, 4)).toEqual({ photos: 5, equipmentCount: 4, unsure: 1, unknown: [{ description: 'rower' }] });
+    expect(scanSummary(undefined, 0)).toEqual({ photos: 0, equipmentCount: 0, unsure: 0, unknown: [] });
   });
 });

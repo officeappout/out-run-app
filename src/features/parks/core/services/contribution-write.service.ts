@@ -274,6 +274,16 @@ export interface ContributionWriteContext {
 
 // ── Approve ──────────────────────────────────────────────────────────────
 
+/** enable_equipment_scan_v1 as stored (no super-admin override; a failed read = off). */
+async function scanFlagOn(db: Firestore): Promise<boolean> {
+  try {
+    const snap = await db.collection('system_config').doc('feature_flags').get();
+    return snap.exists && snap.data()?.enable_equipment_scan_v1 === true;
+  } catch {
+    return false;
+  }
+}
+
 export type ContributionApproveResult =
   | { status: 200; body: { approvedParkId?: string } }
   | { status: 400 | 403 | 404; body: { error: string } };
@@ -340,6 +350,11 @@ export async function computeContributionApprove(
     }
     approvedParkId = createResult.body.parkId;
     contributionUpdate.approvedParkId = approvedParkId;
+    // "מופה על ידי" (camera scan boards, enable_equipment_scan_v1): the park keeps who mapped it,
+    // not only the admin who approved it. The park page shows their public name.
+    if (approvedParkId && typeof contribution.userId === 'string' && contribution.userId && (await scanFlagOn(db))) {
+      await db.collection('parks').doc(approvedParkId).update({ mappedByUserId: contribution.userId });
+    }
   } else if (type === 'suggest_edit') {
     const linkedParkId = contribution.linkedParkId;
     const editDiff = contribution.editDiff;
