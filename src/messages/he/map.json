@@ -1124,5 +1124,22 @@
   "wizard.scan.community.title": "יחד ממפים כל עיר",
   "wizard.scan.community.body": "אחרי האישור הגינה תעלה למפה, ובדף שלה יופיע \"מופה על ידי {name}\".",
   "wizard.scan.community.bodyNoName": "אחרי האישור הגינה תעלה למפה, ובדף שלה יופיע שמך כמי שמיפה אותה.",
-  "parkDetail.mappedBy": "מופה על ידי {name}"
+  "parkDetail.mappedBy": "מופה על ידי {name}",
+  "hybrid.entry.phrase.0": "מה עושים היום? ✨",
+  "hybrid.entry.phrase.1": "בא לך לזוז? יש לי רעיון ✨",
+  "hybrid.entry.phrase.2": "תנועה + כוח, בדרך שלך ✨",
+  "hybrid.slot.recommended.title": "{kind, select, running {ריצה + כוח} other {הליכה + כוח}}",
+  "hybrid.slot.recommended.subtitle": "{station, select, bodyweight {משולב מאוזן · תחנת משקל-גוף בדרך} other {משולב מאוזן · תחנת כוח בדרך}}",
+  "hybrid.slot.assessment.title": "עוד לא מילאת שאלון כוח",
+  "hybrid.slot.assessment.subtitle": "שאלון קצר יתאים לך אישית את אימון הכוח בפארק",
+  "hybrid.slot.fullPark.title": "אימון מלא בפארק",
+  "hybrid.slot.fullPark.subtitle": "{kind, select, running {ריצה לפארק · אימון כוח מלא · חזרה} other {הליכה לפארק · אימון כוח מלא · חזרה}}",
+  "hybrid.slot.routeStops.title": "מסלול + עצירות",
+  "hybrid.slot.routeStops.subtitle": "{kind, select, running {ריצה במסלול · עצירות בדרך} other {הליכה במסלול · עצירות בדרך}}",
+  "hybrid.slot.quick.title": "{kind, select, running {ריצה חופשית} other {הליכה חופשית}}",
+  "hybrid.slot.quick.subtitle": "יוצאים מיד · בלי יעדים",
+  "hybrid.slot.plannedWalk.title": "ההליכה של היום",
+  "hybrid.slot.plannedWalk.fallback": "הליכה",
+  "hybrid.slot.plannedWalk.reason": "בתוכנית שלך להיום — נמצא לה מסלול שמתאים",
+  "hybrid.slot.restDay.reason": "יום מנוחה — הליכה עם כוח קל להשלמת הצעדים"
 }

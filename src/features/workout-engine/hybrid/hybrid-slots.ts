@@ -38,6 +38,11 @@ import {
   MAP_OVERVIEW_CHROME_V1,
   STRENGTH_ASSESSMENT_PROMPT_CARD_V1,
 } from '@/config/feature-flags';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { map } from '@/messages/ns/map';
+
+/** Card copy in the app locale at call time (Hebrew byte-identical, see live-t.ts). AH1. */
+const tMap = makeLiveT(map);
 
 export type SlotKind = 'hybrid' | 'aerobic_quick' | 'assessment_prompt';
 
@@ -287,10 +292,8 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
       timeBudgetMin: preset.defaultTimeBudgetMin,
       // Title = workout description; the "מומלץ" badge (recommended) carries the
       // recommendation — no duplicate "מומלץ לך" title.
-      title: env.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח',
-      subtitle: a3
-        ? 'משולב מאוזן · תחנת משקל-גוף בדרך'
-        : 'משולב מאוזן · תחנת כוח בדרך',
+      title: tMap('hybrid.slot.recommended.title', { kind: env.aerobicKind }),
+      subtitle: tMap('hybrid.slot.recommended.subtitle', { station: a3 ? 'bodyweight' : 'strength' }),
       bolts: preset.bolts,
       recommended: true,
       accent: BRAND,
@@ -328,8 +331,8 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
       slots.push({
         kind: 'assessment_prompt',
         id: 'assessment_prompt',
-        title: 'עוד לא מילאת שאלון כוח',
-        subtitle: 'שאלון קצר יתאים לך אישית את אימון הכוח בפארק',
+        title: tMap('hybrid.slot.assessment.title'),
+        subtitle: tMap('hybrid.slot.assessment.subtitle'),
         bolts: 2,
         recommended: false,
         accent: BRAND,
@@ -341,10 +344,8 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
         id: 'full_park',
         preset: fpPreset,
         timeBudgetMin: fpPreset.defaultTimeBudgetMin,
-        title: 'אימון מלא בפארק',
-        subtitle: env.aerobicKind === 'running'
-          ? 'ריצה לפארק · אימון כוח מלא · חזרה'
-          : 'הליכה לפארק · אימון כוח מלא · חזרה',
+        title: tMap('hybrid.slot.fullPark.title'),
+        subtitle: tMap('hybrid.slot.fullPark.subtitle', { kind: env.aerobicKind }),
         bolts: fpPreset.bolts,
         recommended: false,
         accent: BRAND,
@@ -367,10 +368,8 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
       id: 'route_stops',
       preset: rsPreset,
       timeBudgetMin: rsPreset.defaultTimeBudgetMin,
-      title: 'מסלול + עצירות',
-      subtitle: env.aerobicKind === 'running'
-        ? 'ריצה במסלול · עצירות בדרך'
-        : 'הליכה במסלול · עצירות בדרך',
+      title: tMap('hybrid.slot.routeStops.title'),
+      subtitle: tMap('hybrid.slot.routeStops.subtitle', { kind: env.aerobicKind }),
       bolts: rsPreset.bolts,
       recommended: false,
       accent: BRAND,
@@ -384,8 +383,8 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
     kind: 'aerobic_quick',
     id: 'aerobic_quick',
     aerobicKind: env.aerobicKind,
-    title: env.aerobicKind === 'running' ? 'ריצה חופשית' : 'הליכה חופשית',
-    subtitle: 'יוצאים מיד · בלי יעדים',
+    title: tMap('hybrid.slot.quick.title', { kind: env.aerobicKind }),
+    subtitle: tMap('hybrid.slot.quick.subtitle'),
     bolts: 1,
     recommended: false,
     accent: AER_GREEN,

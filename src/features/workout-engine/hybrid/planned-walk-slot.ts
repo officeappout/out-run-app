@@ -12,6 +12,9 @@
  * strength day goes after the first card (home: after the first strength card).
  */
 import { withUnit } from '@/lib/i18n/units';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { map } from '@/messages/ns/map';
+import { common } from '@/messages/ns/common';
 import type { HomeWalkSlot } from '@/features/home/utils/home-walk-slot';
 import { leadPlanKinds } from '@/features/home/utils/day-plan';
 import { plannedWalkSteps, plannedWalkTargetHe } from '@/features/schedule/walking/walkWeekView';
@@ -24,20 +27,24 @@ const WALK_ACCENT = '#f59e0b';
 
 const fmt = (n: number) => n.toLocaleString('he-IL');
 
+/** AH1: card copy and units in the app locale at call time (Hebrew byte-identical). */
+const tMap = makeLiveT(map);
+const tCommon = makeLiveT(common);
+
 export function buildPlannedWalkSlot(walkSlot: HomeWalkSlot | null | undefined): PlannedWalkSlot | null {
   if (!walkSlot || walkSlot.kind !== 'today') return null;
   const { entry } = walkSlot;
-  const target = plannedWalkTargetHe(entry.plannedRun);
+  const target = plannedWalkTargetHe(entry.plannedRun, tCommon);
   const steps = plannedWalkSteps(entry.plannedRun);
   return {
     kind: 'planned_walk',
     id: PLANNED_WALK_SLOT_ID,
-    title: 'ההליכה של היום',
-    subtitle: [target, steps ? `~${withUnit('steps', fmt(steps))}` : null].filter(Boolean).join(' · ') || 'הליכה',
+    title: tMap('hybrid.slot.plannedWalk.title'),
+    subtitle: [target, steps ? `~${withUnit('steps', fmt(steps), tCommon)}` : null].filter(Boolean).join(' · ') || tMap('hybrid.slot.plannedWalk.fallback'),
     bolts: 1,
     recommended: false,
     accent: WALK_ACCENT,
-    reason: 'בתוכנית שלך להיום — נמצא לה מסלול שמתאים',
+    reason: tMap('hybrid.slot.plannedWalk.reason'),
     entry: { date: entry.date, entryId: entry.entryId, plannedRun: entry.plannedRun },
   };
 }

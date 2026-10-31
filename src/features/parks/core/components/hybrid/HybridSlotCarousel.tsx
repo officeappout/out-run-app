@@ -17,7 +17,7 @@
  * HybridOverviewScreen (mutually exclusive freeRunStep — no new z-index value).
  */
 
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type ComponentProps, type ReactNode } from 'react';
 import { motion, type PanInfo } from 'framer-motion';
 import { ArrowRight, Play } from 'lucide-react';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -73,12 +73,8 @@ const SWIPE_HINT_SEEN_KEY = 'hybrid_slot_carousel_swipe_hint_seen';
 // G1.1 v2 (flag on): its own seen-key, so users who got #207's quick nudge get the clearer one once.
 const SWIPE_HINT_V2_SEEN_KEY = 'hybrid_slot_carousel_swipe_hint_v2_seen';
 
-// i18n-allow-hebrew: exported array read by DiscoverLayer (outside this change; follow-up: phrase keys + t at the call site)
-const ENTRY_PHRASES = [
-  'מה עושים היום? ✨', // i18n-allow-hebrew: see above
-  'בא לך לזוז? יש לי רעיון ✨', // i18n-allow-hebrew: see above
-  'תנועה + כוח, בדרך שלך ✨', // i18n-allow-hebrew: see above
-];
+// AH1: the on-map entry button's rotating phrases (map catalog), rendered by HybridEntryButton below.
+const ENTRY_PHRASE_KEYS = ['hybrid.entry.phrase.0', 'hybrid.entry.phrase.1', 'hybrid.entry.phrase.2'] as const;
 
 type CarouselActivity = AerobicKind | 'cycling';
 /** The slot layer's activity toggle: walk / run (ride is a "soon" item here). */
@@ -703,5 +699,9 @@ export default function HybridSlotCarousel({
   );
 }
 
-/** Rotating phrases for the on-map entry button (consumed by DiscoverLayer). */
-export { ENTRY_PHRASES };
+/** The on-map entry button (DiscoverLayer): ShimmerPhraseButton with the entry phrases in the UI language. */
+export function HybridEntryButton(props: Omit<ComponentProps<typeof ShimmerPhraseButton>, 'messages'>) {
+  const t = useT(map);
+  const messages = useMemo(() => ENTRY_PHRASE_KEYS.map((k) => t(k)), [t]);
+  return <ShimmerPhraseButton {...props} messages={messages} />;
+}
