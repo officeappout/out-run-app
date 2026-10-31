@@ -36,7 +36,7 @@ const AXIS_BLOCKS: { kind: TriadBlockKind; axis: TriadAxis }[] = [
 ];
 
 function axisBlock(kind: TriadBlockKind, axis: TriadAxis, levels: TriadValues, mode: TriadPlanMode): TriadBlock {
-  const { weakest, strongest } = rankAxes(levels);
+  const { weakest, strongest } = rankAxes(levels); // rank levels (unfloored)
   // The line block is accessory work; emphasis goes to the main strength block only.
   const emphasisApplies = kind !== 'line';
   if (emphasisApplies && axis === weakest) {
@@ -48,6 +48,7 @@ function axisBlock(kind: TriadBlockKind, axis: TriadAxis, levels: TriadValues, m
   return { kind, axis, slots: 1, sets: BASE_SETS };
 }
 
+/** `levels` here are for RANKING the axes: pass the real (unfloored) levels. */
 export function buildTriadPlan(levels: TriadValues, mode: TriadPlanMode = 'session'): TriadBlock[] {
   const warmup: TriadBlock = { kind: 'warmup', slots: 1, sets: 1 };
   if (mode === 'session') {

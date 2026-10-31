@@ -103,3 +103,21 @@ describe('legacy volume (31.10)', () => {
     expect(legacyVolume('nope', 8)).toBeNull();
   });
 });
+
+describe('legacy volume review fixes', () => {
+  it('nearest old level (ties → lower), seconds capped at 90, unit mismatch → null', () => {
+    // hollow body: seconds; rows at old 4,5,7,8,10 → axis 14 = old 10
+    const hollow = legacyVolume('BLbgAyNJSZCc4YsoOxtP', 14, 'time')!;
+    expect(hollow.max).toBeLessThanOrEqual(90);
+    expect(legacyVolume('BLbgAyNJSZCc4YsoOxtP', 14, 'reps')).toBeNull();
+    // wall walks: reps
+    expect(legacyVolume('ANvq7ORET7uhLRK4XP6X', 10, 'reps')).toEqual(expect.objectContaining({ min: expect.any(Number) }));
+  });
+  it('a real level-1 user ranks axes on the real levels, not the floor', () => {
+    const w = generated();
+    applyTriadSkeleton(w, opts({ strength: 1, balance: 4, mobility: 9 }));
+    const strength = w.exercises.filter((e) => e.reasoning?.[0]?.startsWith('handstand_triad:strength'));
+    expect(strength.length).toBe(2); // strength (1) is the real weakest → 2 exercises
+    expect(strength[0].reasoning[0]).toContain('vs 1/4/9 (select 4/4/9)');
+  });
+});

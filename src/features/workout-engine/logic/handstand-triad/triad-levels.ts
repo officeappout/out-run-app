@@ -27,10 +27,12 @@ export function resolveTriadLevels(
   userProgramLevels: Map<string, number> | undefined,
   baseUserLevel = 1,
   parentKey: string = 'handstand',
+  /** false = the real levels (to rank the weakest axis); true = with the entry floor (to select). */
+  floor = true,
 ): TriadValues {
   const parent = userProgramLevels?.get(parentKey) ?? baseUserLevel;
   const hidden = getAttachedTriadLevels(userProgramLevels);
-  const read = (axis: TriadAxis) => Math.max(TRIAD_ENTRY_FLOOR, clamp(hidden?.[axis] ?? parent));
+  const read = (axis: TriadAxis) => Math.max(floor ? TRIAD_ENTRY_FLOOR : TRIAD_MIN, clamp(hidden?.[axis] ?? parent));
   return { strength: read('strength'), balance: read('balance'), mobility: read('mobility') };
 }
 

@@ -18,6 +18,7 @@ import type { DifficultyLevel, GeneratedWorkout, WorkoutExercise } from '../work
 import { rederiveVolumeForSwappedExercise } from '../workout-budgeting.utils';
 import { resolveTriadLevels } from './triad-levels';
 import { LEGACY_HANDSTAND_VOLUME, type LegacyVolumeRow } from './legacy-volume.data';
+import { BASE_SETS } from './triad-session-plan';
 import { getTriadScores, trainedAxis } from './triad-scores';
 import { fillTriadPlan } from './triad-select';
 import { buildTriadPlan } from './triad-session-plan';
@@ -27,14 +28,26 @@ export const MIN_TRIAD_MAIN = 2;
 /** New 1-15 axis level → old program level 1-10 (old 10 ≈ free handstand ≈ new 14). */
 export const toLegacyLevel = (axisLevel: number) => Math.min(10, Math.max(1, Math.round(axisLevel / 1.4)));
 
-/** Closest old-level row of the legacy table for this exercise, or null. */
-export function legacyVolume(exerciseId: string, axisLevel: number): LegacyVolumeRow | null {
-  const rows = LEGACY_HANDSTAND_VOLUME[exerciseId];
-  if (!rows) return null;
+/** Longest legacy hold used as-is; longer rows are capped (wall/free holds stay ≤ 90 s). */
+export const LEGACY_HOLD_CAP_SECONDS = 90;
+
+/**
+ * Closest old-level row of the legacy table for this exercise, or null (not in
+ * the table, or its type changed since the table was generated). Seconds are
+ * capped at LEGACY_HOLD_CAP_SECONDS.
+ */
+export function legacyVolume(exerciseId: string, axisLevel: number, exerciseType?: string): LegacyVolumeRow | null {
+  const entry = LEGACY_HANDSTAND_VOLUME[exerciseId];
+  if (!entry) return null;
+  if (exerciseType && (exerciseType === 'time' ? 'seconds' : 'reps') !== entry.unit) return null;
+  const rows = entry.rows;
+  if (Object.keys(rows).length === 0) return null;
   const target = toLegacyLevel(axisLevel);
   const levels = Object.keys(rows).map(Number);
   const nearest = levels.reduce((b, l) => (Math.abs(l - target) < Math.abs(b - target) || (Math.abs(l - target) === Math.abs(b - target) && l < b) ? l : b), levels[0]);
-  return rows[nearest];
+  const row = rows[nearest];
+  if (entry.unit !== 'seconds') return row;
+  return { ...row, min: Math.min(row.min, LEGACY_HOLD_CAP_SECONDS), max: Math.min(row.max, LEGACY_HOLD_CAP_SECONDS) };
 }
 
 export interface TriadWorkoutOptions {
@@ -61,7 +74,9 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
   if (resolveToSlug(opts.activeProgramId) !== 'handstand') return null;
 
   const levels = resolveTriadLevels(opts.userProgramLevels, opts.baseUserLevel ?? 1, 'handstand');
-  const plan = buildTriadPlan(levels, 'session').filter((b) => b.kind !== 'warmup' && b.kind !== 'cooldown');
+  const rawLevels = resolveTriadLevels(opts.userProgramLevels, opts.baseUserLevel ?? 1, 'handstand', false);
+  // Rank the weakest/strongest axis on the real levels; select with the entry floor.
+  const plan = buildTriadPlan(rawLevels, 'session').filter((b) => b.kind !== 'warmup' && b.kind !== 'cooldown');
   const candidates = opts.pool.filter(
     (ex) => !isTestOrPlaceholderExercise(ex)
       && methodFits(selectMethodForContext(ex, opts.location, opts.availableEquipment), opts.location, opts.availableEquipment),
@@ -78,12 +93,14 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
       const d = rederiveVolumeForSwappedExercise(ex, delta, opts.difficulty, undefined, undefined, opts.progressionPolicy);
       // Owner, 31.10: volume from the old handstand workouts where the exercise
       // appears there (reps or seconds by its own type); generic formula otherwise.
-      const legacy = legacyVolume(ex.id, levels[axis]);
+      const legacy = legacyVolume(ex.id, levels[axis], ex.type);
+      // Legacy sets, shifted by the block's emphasis (+1 weakest, -1 strongest).
+      const sets = legacy ? Math.max(1, legacy.sets + (block.sets - BASE_SETS)) : block.sets;
       mains.push({
         exercise: ex,
         method,
         mechanicalType: d.mechanicalType,
-        sets: block.sets,
+        sets,
         reps: legacy ? Math.round((legacy.min + legacy.max) / 2) : d.reps,
         repsRange: legacy ? { min: legacy.min, max: legacy.max } : d.repsRange,
         isTimeBased: d.isTimeBased,
@@ -92,7 +109,7 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
         // High score: the volume cap's Phase C trims the lowest score first,
         // and the triad block is the session's purpose.
         score: 100 + demand[axis],
-        reasoning: [`handstand_triad:${block.kind}${block.emphasis ? `(${block.emphasis})` : ''} S${demand.strength}/B${demand.balance}/M${demand.mobility} vs ${levels.strength}/${levels.balance}/${levels.mobility}`],
+        reasoning: [`handstand_triad:${block.kind}${block.emphasis ? `(${block.emphasis})` : ''} S${demand.strength}/B${demand.balance}/M${demand.mobility} vs ${rawLevels.strength}/${rawLevels.balance}/${rawLevels.mobility} (select ${levels.strength}/${levels.balance}/${levels.mobility})${legacy ? ' legacy' : ''}`],
         exerciseRole: 'main',
         tier: d.tier,
         programLevel: demand[axis],
@@ -110,5 +127,5 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
   // No generic add-backs from the generator's reserve (Phase V): time left over
   // goes to more sets (Phase D) on the triad exercises instead.
   workout.reserveExercises = [];
-  return `handstand_triad: ${filled.map((b) => `${b.kind}=${b.exercises.length}x${b.sets}`).join(' ')} levels S${levels.strength}/B${levels.balance}/M${levels.mobility}`;
+  return `handstand_triad: ${filled.map((b) => `${b.kind}=${b.exercises.length}x${b.sets}`).join(' ')} levels S${rawLevels.strength}/B${rawLevels.balance}/M${rawLevels.mobility}`;
 }
