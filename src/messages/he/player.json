@@ -1198,5 +1198,7 @@
   "run.arrive.route": "{name} · {km} ק״מ",
   "run.arrive.keepWalking": "ממשיכים בהליכה",
   "run.arrive.switchToRun": "עוברים לריצה",
-  "run.arrive.counts": "ההליכה עד כאן ({km} ק״מ, {steps, plural, one {צעד אחד} other {# צעדים}}) נספרת באותו אימון"
+  "run.arrive.counts": "ההליכה עד כאן ({km} ק״מ, {steps, plural, one {צעד אחד} other {# צעדים}}) נספרת באותו אימון",
+  "hybrid.complete.freeWalk": "להמשיך ללכת חופשי",
+  "hybrid.complete.finish": "לסיים"
 }

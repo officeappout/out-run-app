@@ -1188,5 +1188,7 @@
   "run.arrive.route": "{name} · {km} km",
   "run.arrive.keepWalking": "Keep walking",
   "run.arrive.switchToRun": "Switch to running",
-  "run.arrive.counts": "The walk so far ({km} km, {steps, plural, one {# step} other {# steps}}) counts in the same workout"
+  "run.arrive.counts": "The walk so far ({km} km, {steps, plural, one {# step} other {# steps}}) counts in the same workout",
+  "hybrid.complete.freeWalk": "Keep walking freely",
+  "hybrid.complete.finish": "Finish"
 }

@@ -18,6 +18,7 @@ import type { Lap } from '@/features/workout-engine/core/types/session.types';
 import type { HybridPlan, HybridPlannedSegment } from './compose-hybrid-session.service';
 import type { HybridControllerHandle } from './hybrid-session-controller';
 import type { HybridPhase, HybridRunState, HybridFinalizeResult } from './hybrid-orchestrator';
+import { freeLegSegment } from './hybrid-orchestrator';
 import { createHybridSessionController } from './hybrid-session-controller';
 import { reverseHybridSegments } from './reverse-plan';
 import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
@@ -111,6 +112,8 @@ export interface PendingStationComplete {
   completedAtMs: number;
   exercises: number;
   minutes: number;
+  /** M25: the LAST station of the plan → the sheet offers "keep walking freely" or "finish". */
+  final?: boolean;
 }
 
 /** True on an aerobic leg with NO station still ahead (the final leg → finish). */
@@ -221,9 +224,11 @@ export interface HybridRunStore {
    * finish/summary path, unchanged). Otherwise hold the result for the completion screen; the
    * run clock stays paused until continueAfterStation().
    */
-  finishStationWork: (exerciseLog?: SegmentExerciseDetail[]) => void;
+  finishStationWork: (exerciseLog?: SegmentExerciseDetail[], opts?: { askFinal?: boolean }) => void;
   /** G2.4 — "המשך במסלול": close the held station and resume walking (run clock starts NOW). */
   continueAfterStation: () => void;
+  /** M25: at the last station, add an open walk after it and close the station (one workout; the finish button ends it). */
+  continueFreeWalk: () => void;
   /** G2.4 — in-station swap: write the replacement into the live station plan. False = unmapped. */
   swapStationExercise: (segIdx: number, exIdx: number, newExercise: unknown, method: unknown, toLevel?: number) => boolean;
   /** G2.4 — the content exercise (full Exercise doc) + level behind a plan position, for the swap modal. */
@@ -356,9 +361,25 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     });
   },
 
-  finishStationWork: (exerciseLog) => {
+  finishStationWork: (exerciseLog, opts) => {
     if (!controllerRef || controllerRef.getPhase() !== 'station') return;
     const ctx = get().stationContext;
+    const st = controllerRef.getState();
+    // M25 (enable_combo_flow_v1 sheet): the station is the plan's last segment → ask first.
+    if (opts?.askFinal && ctx?.isFinalStation && st.cursor === st.plan.length - 1) {
+      const completedAtMs = Date.now();
+      const log = exerciseLog ?? [];
+      set({
+        pendingStationComplete: {
+          exerciseLog: log,
+          completedAtMs,
+          exercises: countStationExercises(log),
+          minutes: stationMinutes(stationStartedAtMs, completedAtMs),
+          final: true,
+        },
+      });
+      return;
+    }
     if (!ctx || ctx.isFinalStation) {
       // Final station (or unknown context): the existing path, byte-identical.
       get().completeStation(exerciseLog);
@@ -379,6 +400,15 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   continueAfterStation: () => {
     const pending = get().pendingStationComplete;
     if (!pending) return;
+    get().completeStation(pending.exerciseLog, pending.completedAtMs);
+  },
+
+  continueFreeWalk: () => {
+    const pending = get().pendingStationComplete;
+    if (!pending?.final || !controllerRef) return;
+    controllerRef.appendLeg(freeLegSegment(controllerRef.getState().plan.length, 'walking'));
+    // Same segment objects + one more: the v2 sequencer extends its plan instead of restarting.
+    set({ plan: controllerRef.getState().plan });
     get().completeStation(pending.exerciseLog, pending.completedAtMs);
   },
 

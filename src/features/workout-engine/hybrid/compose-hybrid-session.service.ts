@@ -277,6 +277,8 @@ export interface HybridComposeInput {
 export interface HybridPlannedSegment {
   index: number;
   kind: 'aerobic' | 'strength';
+  /** M25: an open walk the user added after the last station (no target; ends on the finish button). */
+  freeLeg?: boolean;
   // aerobic
   aerobicType?: AerobicKind;
   zone?: RunZoneType;

@@ -10,6 +10,7 @@
  */
 import type { SegmentExerciseDetail } from '../../core/services/storage.service';
 import type { HybridRunState } from '../../hybrid/hybrid-orchestrator';
+import type { HybridPlannedSegment } from '../../hybrid/compose-hybrid-session.service';
 import type { ArrivalConfig, ArrivalState, GeoFix } from './arrival-detector';
 import type { StationSetInput } from './station-log';
 
@@ -76,4 +77,6 @@ export type SequencerEvent =
   /** "דלג" — from the transition or the station. */
   | { type: 'SKIP_STATION'; atMs: number }
   /** End the session (final leg done, or ended early). */
-  | { type: 'FINISH'; atMs: number; cumulativeKm?: number; elapsedSec?: number };
+  | { type: 'FINISH'; atMs: number; cumulativeKm?: number; elapsedSec?: number }
+  /** M25: the store added an open leg after the last station (same segment object). */
+  | { type: 'APPEND_LEG'; atMs: number; segment: HybridPlannedSegment };
