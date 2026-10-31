@@ -118,7 +118,7 @@ describe('parseAiConfig', () => {
   it('reads valid fields and ignores invalid ones', () => {
     expect(
       parseAiConfig({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 'lots' }),
-    ).toEqual({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 40, reviewBudgetUsd: 2, adminAiBudgetUsd: 0.5 });
+    ).toEqual({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 40, reviewBudgetUsd: 2, adminAiBudgetUsd: 0.5, scanPerHour: 30, scanPerDay: 100, scanAppCheckEnforce: false });
     expect(parseAiConfig({ dailyBudgetUsd: -1, rateLimitPerHour: 0 }).dailyBudgetUsd).toBe(DEFAULT_AI_CONFIG.dailyBudgetUsd);
     expect(parseAiConfig({ dailyBudgetUsd: 0 }).dailyBudgetUsd).toBe(0);
     // review agent budget: default $2, 0 = off, invalid → default
