@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { HybridFinalizeResult } from '../hybrid-orchestrator';
 import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
+import type { LevelUpOutcome } from '@/features/user/progression/services/levelup-preview';
 import { activeStrengthProgramId, levelMoved, stationExerciseResults, stationProgramLookup } from '../hybrid-level';
 
 const plan = [
@@ -43,7 +44,7 @@ describe('hybrid level (board PlayerSummaryCoverage)', () => {
     expect(activeStrengthProgramId(null)).toBe('full_body');
   });
   it('moved = a new level or a real percent gain', () => {
-    const o = (b: [number, number], a: [number, number]) =>
+    const o = (b: [number, number], a: [number, number]): LevelUpOutcome =>
       ({ kind: 'leaf', programId: 'p', before: { level: b[0], percent: b[1] }, after: { level: a[0], percent: a[1] }, leveledUp: a[0] > b[0], totalGain: 0, chips: [], isFirstWorkout: false });
     expect(levelMoved(o([3, 40], [3, 44]))).toBe(true);
     expect(levelMoved(o([3, 95], [4, 2]))).toBe(true);
