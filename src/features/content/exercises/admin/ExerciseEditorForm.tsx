@@ -26,6 +26,7 @@ import {
   MuscleGroup
 } from '../core/exercise.types';
 import type { MethodsSectionRef } from './components/exercise-editor/MethodsSection';
+import { toLocalizedMethodName } from './components/exercise-editor/shared/method-text.utils';
 
 interface ExerciseEditorFormProps {
   programs: Program[];
@@ -72,12 +73,8 @@ function sanitizeAndCloneExecutionMethods(methods: any[] | undefined): Execution
     // DEEP CLONE to preserve all nested objects
     const sanitized = deepClone(method);
     
-    // Ensure methodName is always a string
-    if (typeof sanitized.methodName === 'object' && sanitized.methodName !== null) {
-      sanitized.methodName = sanitized.methodName.he || sanitized.methodName.en || '';
-    } else if (typeof sanitized.methodName !== 'string') {
-      sanitized.methodName = String(sanitized.methodName || '');
-    }
+    // Keep methodName as { he, en } — flattening it here wiped `en` on save
+    sanitized.methodName = toLocalizedMethodName(sanitized.methodName);
     
     // Ensure workflow object is preserved with defaults
     if (!sanitized.workflow) {

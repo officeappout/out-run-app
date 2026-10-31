@@ -46,6 +46,7 @@ import BunnyVideoUploader from './BunnyVideoUploader';
 import MediaLibraryModal from '@/features/admin/components/MediaLibraryModal';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
 import GenderedTextInput, { GenderedTextListInput } from './shared/GenderedTextInput';
+import { isGenderSplitNotification, notificationEn, withNotificationEn } from './shared/method-text.utils';
 import { GenderedText, isGenderedText, getGenderedText } from '../../../core/exercise.types';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import {
@@ -525,7 +526,7 @@ export default function ExecutionMethodCard({
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <label className="text-xs font-bold text-gray-500">
-            טקסט להתראה (Notification Text)
+            טקסט להתראה (Notification Text){activeLang === 'en' ? ' (English)' : ''}
           </label>
           <div className="group relative">
             <HelpCircle size={12} className="text-gray-400 cursor-help" />
@@ -542,14 +543,32 @@ export default function ExecutionMethodCard({
           </div>
           <span className="text-gray-400 font-normal text-xs">(עד 100 תווים)</span>
         </div>
-        <GenderedTextInput
-          value={method.notificationText}
-          onChange={(value) => safeUpdate({ ...method, notificationText: value })}
-          placeholder="למשל: הגב תפוס מהישיבה? בוא נתמתח על הכיסא..."
-          multiline
-          rows={2}
-          maxLength={100}
-        />
+        {activeLang === 'he' ? (
+          <GenderedTextInput
+            value={method.notificationText}
+            onChange={(value) => safeUpdate({ ...method, notificationText: value })}
+            placeholder="למשל: הגב תפוס מהישיבה? בוא נתמתח על הכיסא..."
+            multiline
+            rows={2}
+            maxLength={100}
+          />
+        ) : isGenderSplitNotification(method.notificationText) ? (
+          <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+            הטקסט מפוצל לפי מגדר. כדי להוסיף אנגלית, אחדו אותו קודם בלשונית HE.
+          </p>
+        ) : (
+          <textarea
+            dir="ltr"
+            value={notificationEn(method.notificationText)}
+            onChange={(e) =>
+              safeUpdate({ ...method, notificationText: withNotificationEn(method.notificationText, e.target.value) })
+            }
+            placeholder="e.g. Head over to the parallel bars"
+            rows={2}
+            maxLength={100}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
+          />
+        )}
         <p className="text-[10px] text-gray-500 mt-1">
           טקסט זה יוצג בהתראה לפני תחילת התרגיל. ניתן לפצל לפי מגדר עם כפתור "פיצול מגדרי".
         </p>
