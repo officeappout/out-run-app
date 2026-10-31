@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { composeHomeAfterSlides, isHomeAfterActive, runTodayStillDue, homeAfterDoneSlideId, isHomeAfterDoneSlideId, HOME_AFTER_DONE_ID } from '../home-after';
+import { composeHomeAfterSlides, isDoneFirst, DONE_FIRST_MS, isHomeAfterActive, runTodayStillDue, homeAfterDoneSlideId, isHomeAfterDoneSlideId, HOME_AFTER_DONE_ID } from '../home-after';
 
 type S = { id: string; topUp?: boolean };
 const compose = (remaining: S[], runToday: S | null, done: S | null, tail: S[] = []) =>
@@ -63,5 +63,23 @@ describe('done slides (stage 3)', () => {
     expect(ids).toEqual(['steps', 'home-after-done:w1', 'home-after-done:w2']);
     expect(ids.filter(isHomeAfterDoneSlideId)).toHaveLength(2);
     expect(isHomeAfterDoneSlideId('steps')).toBe(false);
+  });
+});
+
+describe('done first right after a workout (boards HomeAfterB / Short, owner 31.10.2026)', () => {
+  const run = (doneFirst: boolean) => composeHomeAfterSlides<S>({
+    remaining: [{ id: 'top', topUp: true }, { id: 'steps' }], planned: [{ id: 'run' }], done: [done], isTopUp: (s) => !!s.topUp, idOf: (s) => s.id, doneFirst,
+  }).map((s) => s.id);
+  it('leads while doneFirst, what is left follows in the usual order', () => {
+    expect(run(true)).toEqual([HOME_AFTER_DONE_ID, 'top', 'run', 'steps']);
+    expect(run(false)).toEqual(['top', 'run', 'steps', HOME_AFTER_DONE_ID]);
+  });
+  it('the window: a workout finished less than DONE_FIRST_MS ago', () => {
+    const t0 = Date.parse('2026-10-31T10:00:00Z');
+    const at = new Date(t0).toISOString();
+    expect(isDoneFirst(at, t0 + 60_000)).toBe(true);
+    expect(isDoneFirst(at, t0 + DONE_FIRST_MS)).toBe(false);
+    expect(isDoneFirst(null, t0)).toBe(false);
+    expect(isDoneFirst('garbage', t0)).toBe(false);
   });
 });
