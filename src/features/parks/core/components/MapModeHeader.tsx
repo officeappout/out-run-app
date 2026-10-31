@@ -5,6 +5,7 @@ import React from 'react';
 import { Map, Zap, Users } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 
 /**
  * Map UI top-level modes.
@@ -37,11 +38,18 @@ const MODES = [
 ] as const satisfies ReadonlyArray<{ id: MapMode; labelKey: string; icon: React.ElementType; alwaysShow: boolean }>;
 
 const BRAND_CYAN = '#00E5FF';
+/** AH28: fewer live partners nearby than this → no partners chip. */
+export const MIN_PARTNERS_FOR_CHIP = 2;
 
 export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoutes, partnerCount }: MapModeHeaderProps) {
   const t = useT(map);
   const { isRtl } = useUiDir();
-  const visibleModes = MODES.filter(m => m.alwaysShow || (m.id === 'discover' && hasNearbyRoutes));
+  // enable_pilot_ah_v1 (AH28): the partners chip only with enough partners nearby (or while it is the active mode).
+  const pilotAh = usePilotAhV1();
+  const visibleModes = MODES.filter((m) => {
+    if (m.id === 'partners' && pilotAh) return (partnerCount ?? 0) >= MIN_PARTNERS_FOR_CHIP || activeMode === 'partners';
+    return m.alwaysShow || (m.id === 'discover' && hasNearbyRoutes);
+  });
 
   return (
     <div className="flex gap-2 overflow-x-auto scrollbar-hide">

@@ -35,6 +35,7 @@ import type { WorkoutPlan } from '@/features/parks';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from './protocols/tabata.block';
 import { withTimedMainBlock } from './protocols/timed.block';
@@ -95,7 +96,7 @@ export function buildRunnerWorkoutPlanFromGenerated(
       imageUrl: resolvedImageUrl,
       fullTutorial: resolvedFullTutorial,
       bunnyVideoId: resolvedBunnyVideoId,
-    } = resolveExerciseMedia(ex.exercise as any, ex.method as any);
+    } = resolveExerciseMedia(ex.exercise as any, ex.method as any, getVideoLanguage());
 
     if (!resolvedImageUrl && !resolvedVideoUrl) {
       const allMethods = (ex.exercise as any).execution_methods || (ex.exercise as any).executionMethods || [];

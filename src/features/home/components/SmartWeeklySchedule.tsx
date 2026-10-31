@@ -14,7 +14,8 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, ChevronDown, CalendarDays, Footprints } from 'lucide-react';
+import { Bed, Check, ChevronDown, CalendarDays, Footprints, Pencil } from 'lucide-react';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import { useFlameDays } from '@/features/activity/hooks/useFlameDays';
 import type { FlameLevel } from '@/features/activity/lib/flame-level';
@@ -945,6 +946,9 @@ export default function SmartWeeklySchedule({
   // only where the week builder is that way (enable_week_builder_v1).
   const featureInfoOn = useFeatureInfoSheetsV1();
   const weekBuilderOn = useWeekBuilderV1();
+  // enable_pilot_ah_v1 (AH16 / AH17): a subtle edit icon beside the title replaces the black pill and its
+  // own row (the gap); the week "i" moves into the big planner.
+  const pilotAh = usePilotAhV1();
   
   const { 
     summary: weeklySummary,
@@ -1694,7 +1698,19 @@ export default function SmartWeeklySchedule({
     <div className="mb-0 relative z-10 w-full max-w-[358px] mx-auto">
       {/* ── Header — OUTSIDE the card ─────────────────────────── */}
       {!hideHeader && <div className="flex items-center justify-between mb-1 px-1">
-        {featureInfoOn && weekBuilderOn && onOpenPlanner && !showOverlay ? (
+        {pilotAh && v2 && !showOverlay ? (
+          <div className="flex items-center gap-1">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('weekStrip.title')}</h2>
+            <button
+              type="button"
+              onClick={onOpenPlanner ?? toggleCalendarMode}
+              aria-label={t('weekStrip.edit')}
+              className="grid h-8 w-8 place-items-center rounded-full text-v2-muted transition-transform duration-150 ease-v2 active:scale-[0.94]"
+            >
+              <Pencil size={16} strokeWidth={2.2} aria-hidden />
+            </button>
+          </div>
+        ) : featureInfoOn && weekBuilderOn && onOpenPlanner && !showOverlay ? (
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('weekStrip.title')}</h2>
             <WeekInfoButton
@@ -1737,7 +1753,7 @@ export default function SmartWeeklySchedule({
       </div>}
 
       {/* ── Sub-header row — sync chip & edit link (hidden while schedule is unset) */}
-      {!showOverlay && !hideHeader && <div className="flex items-center justify-between mb-2 px-1">
+      {!showOverlay && !hideHeader && !(pilotAh && v2) && <div className="flex items-center justify-between mb-2 px-1">
         {/* Calendar subscription:
             - iOS: webcal:// via window.open(_system) → UIApplication.open → Apple Calendar
             - Android: Google Calendar subscribe URL via window.open(_system) → ACTION_VIEW intent

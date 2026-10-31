@@ -110,6 +110,7 @@ interface FlagState {
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
   enable_content_locale: boolean;
+  enable_video_locale: boolean;
   push_locale_v1: boolean;
   hide_he_only_onboarding_steps: boolean;
   enable_app_session_signal: boolean;
@@ -150,6 +151,9 @@ interface FlagState {
   enable_flame_tiers_v1: boolean;
   enable_workout_tutorial_v1: boolean;
   enable_equipment_scan_v1: boolean;
+  enable_pilot_decisions_v1: boolean;
+  enable_schedule_pilot_v1: boolean;
+  enable_pilot_ah_v1: boolean;
 }
 
 // ============================================================================
@@ -914,6 +918,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     parentKey: 'enable_i18n',
   },
   {
+    key: 'enable_video_locale',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'סרטוני הסבר בשפת המשתמש',
+    description: 'משתמשים באנגלית רואים את סרטון ההסבר המדובב לאנגלית כשהוא קיים. תרגיל בלי סרטון באנגלית מציג את הסרטון בעברית. דורש את מתג השפות הראשי ואת "תוכן בשפת המשתמש". כבוי = סרטונים בעברית, בדיוק כמו היום.',
+    parentKey: 'enable_i18n',
+  },
+  {
     key: 'push_locale_v1',
     icon: Languages,
     iconBg: 'bg-indigo-50',
@@ -1275,6 +1288,33 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'סריקת מתקנים במצלמה',
     description: 'בדף הפארק: כפתור "צלמו מתקן". מצלמים מתקן, המערכת מזהה אותו מקטלוג המתקנים, ופותחת את מגירת המתקן עם "תרגילים ברמה שלך". בהוספת מיקום: מיפוי גינה מ-3 עד 5 תמונות מונחות, מיקום מה-GPS ושם מהרחוב הקרוב, והמתקנים שזוהו מסומנים מראש לאישור. מתקן שלא בקטלוג מגיע לפאנל עם התמונה. פתוח לכל המשתמשים כולל בני נוער, עד 30 תמונות בשעה ו-100 ביום למשתמש. תמונה עם אנשים לא נשמרת. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Pilot owner decisions (31.10.2026): M21 / M23 / M12.
+  {
+    key: 'enable_pilot_decisions_v1',
+    icon: Flame,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'החלטות פיילוט: פסי סטורי, צבע מסלול, שאלון בפארק דל',
+    description: 'פסי הסטורי בתחנת כוח באימון משולב מראים את כל האימון (גם קטעי ההליכה והריצה), והתחנה בפוקוס. הקו שהלכתם על מסלול ירוק (אימון עם מקטעים נשאר בצבעי המקטעים). פארק עם פחות מ-3 סוגי מתקנים שונים: מי שעוד לא מילא שאלון כוח עונה עליו לפני האימון. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Schedule pilot notes (31.10.2026): P10 / P12 / P16.
+  {
+    key: 'enable_schedule_pilot_v1',
+    icon: Flame,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'לו"ז: הערות הפיילוט',
+    description: 'בלו"ז תמיד אייקונים (בלי מעבר לעיגולים במדדי בריאות), ובלו"ז הגדול אייקוני התוכניות עצמן. יום עתידי בלו"ז הגדול פותח ישר את מגירת האימון. בהרשמה להליכה, כרטיס "קבוצת הליכה באזור" שואל "רוצה שאצרף אותך?" ומוסיף את הקבוצה ללו"ז בלי לצאת מהשאלון. כרטיס "תוכנית הליכה" בבית פותח את ההליכה של היום. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Owner's iPhone notes (31.10.2026, section AH).
+  {
+    key: 'enable_pilot_ah_v1',
+    icon: Flame,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'תיקוני פיילוט (אייפון, 31.10)',
+    description: 'הסרגל התחתון לא משאיר חצי עיגול כשהוא מוסתר; מגירת השכבות במפה נסגרת; התג "שותפים לאימון" רק כשיש שותפים באזור; בלו"ז: חזרה אחורה במילוי, אייקון עריכה עדין, ה-i והסגירה בגרירה בלו"ז הגדול; כרטיס הכוח הקטן בבית מיושר; החלפת מיקום בבית מסבירה כשאין מספיק תרגילים. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
   },
 ];
 

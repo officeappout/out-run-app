@@ -21,6 +21,8 @@ import { getProgramByTemplateId } from '@/features/content/programs';
 import { resolveIconKey } from '@/features/content/programs';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
+import { displayProgramTemplateId } from '../utils/display-program';
 
 /**
  * Emergency fallback only — used if both the user's seeded `progression.domains.{id}.maxLevel`
@@ -92,13 +94,19 @@ export function useProgramProgress(): ProgramProgressData | null {
   const activeProgram = profile?.progression?.activePrograms?.[0];
   const programCount = profile?.progression?.activePrograms?.length ?? 1;
 
+  // enable_pilot_ah_v1 (AH18): a full-body signup saved as its children shows the parent.
+  const pilotAh = usePilotAhV1();
   const primaryDomainId = useMemo(() => {
+    if (pilotAh) {
+      const shown = displayProgramTemplateId(profile?.progression?.activePrograms, MASTER_PROGRAM_CHILDREN);
+      if (shown) return shown;
+    }
     if (activeProgram?.templateId) return activeProgram.templateId;
     const domainsKeys = profile?.progression?.domains ? Object.keys(profile.progression.domains) : [];
     if (domainsKeys.length > 0) return domainsKeys[0];
     const tracksKeys = profile?.progression?.tracks ? Object.keys(profile.progression.tracks) : [];
     return tracksKeys.length > 0 ? tracksKeys[0] : null;
-  }, [activeProgram?.templateId, profile?.progression?.domains, profile?.progression?.tracks]);
+  }, [activeProgram?.templateId, profile?.progression?.domains, profile?.progression?.tracks, profile?.progression?.activePrograms, pilotAh]);
 
   // Live CMS fetch for program metadata (Hebrew name + maxLevels). The CMS is the source
   // of truth for `maxLevels` — we use this whenever the seeded `domain.maxLevel` is missing

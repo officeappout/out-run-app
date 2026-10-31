@@ -33,7 +33,12 @@ import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { coach } from '@/messages/ns/coach';
 import { usePlannerMonths } from '../hooks/usePlannerMonths';
-import { stripMonths } from '../lib/monthCells';
+import { findDayCell, opensWorkoutDirectly, stripMonths } from '../lib/monthCells';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import WeekInfoButton from '@/features/info-sheets/week/WeekInfoButton';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
+import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
+import { HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
 import { planLineOf, sundayOfKey } from '../lib/weekSummary';
 import KellyStarButton from './KellyStarButton';
 import PlannerMonthStrip, { type PlannerView } from './PlannerMonthStrip';
@@ -54,6 +59,8 @@ export interface PlannerV2Props {
   onSaved: () => void;
   /** Done workout → its summary (home's handleHeroPress → tryOpenCompletedWorkout). */
   onStartWorkout?: (date: string, skipCompletedLookup?: boolean) => void;
+  /** enable_pilot_ah_v1 (AH17): the header starts the overlay's drag-down-to-close. */
+  onHeaderPointerDown?: (e: React.PointerEvent) => void;
 }
 
 interface SheetRequest {
@@ -68,11 +75,19 @@ const todayKeyOf = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStartWorkout }: PlannerV2Props) {
+export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStartWorkout, onHeaderPointerDown }: PlannerV2Props) {
   const { direction } = useUiDir();
   const t = useT(home);
   const tc = useT(coach);
-  const [view, setView] = useState<PlannerView>('icons');
+  // enable_schedule_pilot_v1 (pilot P12 / P16): always icons (programs' own), a planned future day opens its workout.
+  const isSuperAdmin = useUserStore((s) => !!(s.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const pilot = useFeatureFlags(isSuperAdmin).flags.enableSchedulePilotV1;
+  const [viewPicked, setView] = useState<PlannerView>('icons');
+  const view: PlannerView = pilot ? 'icons' : viewPicked;
+  // enable_pilot_ah_v1 (AH17): the week "i" lives here now (moved from the home title).
+  const pilotAh = usePilotAhV1();
+  const activeProgramId = useUserStore((s) => (s.profile?.progression as { activePrograms?: Array<{ id?: string }> } | undefined)?.activePrograms?.[0]?.id ?? null);
+  const programIconKey = resolveIconKey(null, activeProgramId);
   const [todayKey] = useState(todayKeyOf);
   const currentSunday = useMemo(() => sundayOfKey(todayKey), [todayKey]);
   const [weekSunday, setWeekSunday] = useState(currentSunday);
@@ -109,8 +124,12 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
   const openDay = useCallback((iso: string) => {
     setSelectedIso(iso);
     setWeekSunday(sundayOfKey(iso));
+    if (pilot && onStartWorkout && opensWorkoutDirectly(findDayCell(monthsData.sections, iso))) {
+      onStartWorkout(iso, true);
+      return;
+    }
     setDayIso(iso);
-  }, []);
+  }, [pilot, onStartWorkout, monthsData.sections]);
 
   // Done → that workout's summary; planned → its sheet (time / move / open).
   const openSession = useCallback(
@@ -120,6 +139,22 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
     },
     [onStartWorkout],
   );
+
+  // AH17: the "i" sheet's week (this week's cells: planned / done / before today).
+  const weekInfoDays = useMemo(() => {
+    if (weekState.keys.length !== 7) return null;
+    return weekState.keys.map((iso, dow) => {
+      const cell = findDayCell(monthsData.sections, iso);
+      return {
+        dow,
+        letter: HEBREW_DAYS[dow],
+        date: Number(iso.slice(8, 10)),
+        planned: !!cell && cell.kind !== 'rest',
+        done: cell?.kind === 'done',
+        past: iso < todayKey,
+      };
+    });
+  }, [weekState.keys, monthsData.sections, todayKey]);
 
   const daySessions = useMemo(() => {
     if (!dayIso || !model) return [];
@@ -140,8 +175,19 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
       <div className="flex-1 overflow-y-auto pb-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 24px))' }}>
         <div className="mx-auto w-full max-w-md">
           {/* Header */}
-          <div className="flex items-center gap-2.5 px-5 pb-1 pt-2.5">
+          {pilotAh && onHeaderPointerDown && (
+            <div className="flex justify-center pb-1 touch-none" onPointerDown={onHeaderPointerDown} aria-hidden>
+              <span className="h-[5px] w-10 rounded-full bg-v2-hairline" />
+            </div>
+          )}
+          <div
+            className={`flex items-center gap-2.5 px-5 pb-1 pt-2.5 ${pilotAh && onHeaderPointerDown ? 'touch-none' : ''}`}
+            onPointerDown={pilotAh && onHeaderPointerDown ? (e) => { if (!(e.target as HTMLElement).closest('button')) onHeaderPointerDown(e); } : undefined}
+          >
             <h2 className="whitespace-nowrap text-[26px] font-black leading-8 !tracking-[-0.02em] text-v2-ink">{t('plannerV2.title')}</h2>
+            {pilotAh && weekInfoDays && (
+              <WeekInfoButton editLabel={t('weekStrip.edit')} programIconKey={programIconKey} days={weekInfoDays} />
+            )}
             <ErrorBoundary fallback={null}>
               <KellyWeekLauncher
                 weekLineHe={model ? weekContextLineHe(model.week) : ''}
@@ -166,14 +212,14 @@ export default function PlannerV2({ userId, onClose, refreshKey, onSaved, onStar
           {/* Plan line + view toggle */}
           <div className="flex items-center justify-between gap-2.5 px-5 pb-3">
             <span className="min-w-0 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{planLine}</span>
-            <SegmentedPicker className="!w-[168px] shrink-0" options={viewOptions} value={view} onChange={setView} ariaLabel={t('plannerV2.view.aria')} />
+            {!pilot && <SegmentedPicker className="!w-[168px] shrink-0" options={viewOptions} value={view} onChange={setView} ariaLabel={t('plannerV2.view.aria')} />}
           </div>
 
           {/* Month strip */}
           <div className="px-4">
             <ErrorBoundary fallback={null}>
               {monthsData.sections.length > 0 ? (
-                <PlannerMonthStrip sections={monthsData.sections} view={view} selectedIso={selectedIso} stepGoal={monthsData.stepGoal} onDayTap={openDay} />
+                <PlannerMonthStrip sections={monthsData.sections} view={view} programIcons={pilot} selectedIso={selectedIso} stepGoal={monthsData.stepGoal} onDayTap={openDay} />
               ) : (
                 <p role="status" className="rounded-[24px] bg-white px-4 py-10 text-center text-[14px] font-bold text-v2-muted shadow-v2-card">
                   {monthsData.status === 'error' ? t('plannerV2.error') : t('plannerV2.loading')}

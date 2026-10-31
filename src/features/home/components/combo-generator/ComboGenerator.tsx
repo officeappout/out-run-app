@@ -17,7 +17,7 @@ import { recommendCombos, type ComboContext, type ComboOption } from '@/features
 import { ActivityGlyph } from '@/features/parks/core/components/hybrid/activity-icons';
 import { V2_PILL_OFF, V2_PILL_ON } from './builder-pill-styles';
 import {
-  COMBO_CATEGORIES, comboCardModel, comboIntentOf, comboLevelsOf,
+  COMBO_CATEGORIES, comboCanRunOf, comboCardModel, comboIntentOf, comboLevelsOf,
   type ComboCardPart, type ComboCategory,
 } from './combo-generator-model';
 
@@ -110,7 +110,7 @@ export function ComboGeneratorPanel({ category, minutes, stars, location, today,
     const levels = profile
       ? comboLevelsOf(buildUserProgramLevels(profile, new Set(), '[ComboGenerator]').levels, resolveToSlug)
       : {};
-    return recommendCombos(comboIntentOf({ category, minutes, stars, location }), { levels, today });
+    return recommendCombos(comboIntentOf({ category, minutes, stars, location }), { levels, today, canRun: comboCanRunOf(profile as never) });
   }, [profile, category, minutes, stars, location, today]);
 
   return (

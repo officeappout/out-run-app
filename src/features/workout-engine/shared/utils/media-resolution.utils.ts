@@ -30,7 +30,7 @@
  *      degrades to "no image" instead of a guaranteed-broken render.
  *
  * Search priority (fullTutorial — long-form instructional video):
- *   1. Selected method's media.fullTutorial (HE, with HE fallback)
+ *   1. Selected method's media.fullTutorial (in `videoLang`, default HE, with HE fallback)
  *   2. Any OTHER method's media.fullTutorial — park-tagged methods first,
  *      then the rest in original order (see byParkFirst)
  *   3. Exercise-level media.fullTutorial
@@ -39,7 +39,7 @@
  */
 
 import { resolveTutorialForLang, resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
-import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import type { ExerciseLang, ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { buildBunnyStreamUrl, buildBunnyThumbnailUrl, extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 
 /**
@@ -133,11 +133,13 @@ export function methodBunnyId(media: Record<string, any> | undefined): string | 
  *
  * @param exercise  - The exercise object (any shape — tolerant of legacy schemas)
  * @param method    - The selected execution method (optional)
+ * @param videoLang - Tutorial language (getVideoLanguage(); 'he' = exactly as before)
  * @returns `{ videoUrl, imageUrl }` — either may be undefined if truly absent
  */
 export function resolveExerciseMedia(
   exercise: Record<string, any>,
   method?: Record<string, any> | null,
+  videoLang: ExerciseLang = 'he',
 ): ResolvedMedia {
   const methodMedia = method?.media as Record<string, any> | undefined;
   const allMethods: any[] =
@@ -203,12 +205,12 @@ export function resolveExerciseMedia(
 
   // ── Full tutorial resolution (deep search, mirrors video priority) ──
   const fullTutorial: ExternalVideo | null =
-    resolveTutorialForLang(methodMedia as any) ??
+    resolveTutorialForLang(methodMedia as any, videoLang) ??
     allMethodsParkFirst.reduce<ExternalVideo | undefined>(
-      (found, m: any) => found || resolveTutorialForLang(m?.media),
+      (found, m: any) => found || resolveTutorialForLang(m?.media, videoLang),
       undefined,
     ) ??
-    resolveTutorialForLang(exercise.media as any) ??
+    resolveTutorialForLang(exercise.media as any, videoLang) ??
     null;
 
   return { videoUrl, imageUrl, fullTutorial, bunnyVideoId };

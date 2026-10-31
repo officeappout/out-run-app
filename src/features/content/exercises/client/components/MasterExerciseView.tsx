@@ -21,6 +21,7 @@
 
 import { useShowHeOnlySurfaces } from '@/features/arena/hooks/useShowHeOnlySurfaces';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { useVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import {
@@ -407,6 +408,7 @@ export default function MasterExerciseView({
 }: MasterExerciseViewProps) {
   const { direction } = useUiDir();
   const t = useT(library);
+  const videoLang = useVideoLanguage();
   // Equipment caches power the gear/equipment labels + icons.
   useEffect(() => {
     void ensureEquipmentCachesLoaded();
@@ -717,14 +719,14 @@ export default function MasterExerciseView({
     const m = selectedMethodIdx !== null ? methods[selectedMethodIdx] : null;
     if (!m) return { full: undefined, preview: undefined, legacy: null, posterUrl: null };
     // Method-LOCKED to the selected method's OWN media only (never root, never another method).
-    const full = resolveTutorialForLang(m.media as any, 'he') ?? undefined;
+    const full = resolveTutorialForLang(m.media as any, videoLang) ?? undefined;
     const preview = resolvePreviewForLang(m.media as any, 'he') ?? undefined;
     // mainVideoUrl is the CDN string stored by the bulk-upload script.
     const legacy = m.media?.mainVideoUrl ?? null;
     // Poster: method-level image first, then exercise-level.
     const posterUrl = m.media?.imageUrl ?? exercise.media?.imageUrl ?? null;
     return { full, preview, legacy, posterUrl };
-  }, [exercise, selectedMethodIdx]);
+  }, [exercise, selectedMethodIdx, videoLang]);
 
   if (!sheetData) return null;
 
@@ -804,7 +806,8 @@ export default function MasterExerciseView({
 
   return (
     <MevV2.Provider value={v2}>
-    <div dir={direction} className={v2 ? 'bg-v2-surface' : undefined}>
+    {/* overflow-x-clip (AH20): an inner side-scrolling row (-mx-4 chips) must never let the whole page drag sideways. */}
+    <div dir={direction} className={v2 ? 'overflow-x-clip bg-v2-surface' : 'overflow-x-clip'}>
       {notice && (
         <div
           className={

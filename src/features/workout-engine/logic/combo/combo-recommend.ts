@@ -33,6 +33,11 @@ export interface ComboContext {
   levels: ComboLevels;
   /** Today's schedule (drives "recommended"). */
   today?: 'strength' | 'run' | 'walk' | 'rest' | 'none';
+  /**
+   * Pilot AH25: the user filled the running questionnaire (a run plan or a pace profile). False →
+   * never a run: walks instead, and no AMRAP with a run inside. Absent = allowed (engine default).
+   */
+  canRun?: boolean;
 }
 
 export type ComboReason =
@@ -56,9 +61,10 @@ export function resolveCategory(i: ComboIntent, ctx: ComboContext): Exclude<Comb
 
 function hybridOptions(i: ComboIntent, ctx: ComboContext): ComboOption[] {
   const base = { place: i.place, timeMin: i.minutes };
-  const aer = i.stars === 1 ? 'walk' : 'run';
+  const runOk = ctx.canRun !== false;
+  const aer = i.stars === 1 || !runOk ? 'walk' : 'run';
   const out: ComboOption[] = [];
-  if (i.outdoor && i.stars >= 2 && amrapWithRunAllowed(ctx.levels)) {
+  if (runOk && i.outdoor && i.stars >= 2 && amrapWithRunAllowed(ctx.levels)) {
     out.push({ reason: 'amrap_run', request: { ...base, aerobic: 'run', strength: 'amrap', order: 'inside', amrapVariant: 'run' } });
   }
   if (i.minutes <= 20) {
@@ -90,17 +96,18 @@ function strengthOptions(i: ComboIntent): ComboOption[] {
   return out;
 }
 
-function aerobicOptions(i: ComboIntent): ComboOption[] {
+function aerobicOptions(i: ComboIntent, ctx: ComboContext): ComboOption[] {
   const base = { place: i.place, timeMin: i.minutes, order: 'aerobic_first' as const };
-  const out: ComboOption[] = [{ reason: i.stars === 1 ? 'walk' : 'run', request: { ...base, aerobic: i.stars === 1 ? 'walk' : 'run', strength: 'none' } }];
-  if (i.stars === 3) out.push({ reason: 'run_then_core', request: { ...base, aerobic: 'run', strength: 'core' } });
+  const run = i.stars !== 1 && ctx.canRun !== false;
+  const out: ComboOption[] = [{ reason: run ? 'run' : 'walk', request: { ...base, aerobic: run ? 'run' : 'walk', strength: 'none' } }];
+  if (run && i.stars === 3) out.push({ reason: 'run_then_core', request: { ...base, aerobic: 'run', strength: 'core' } });
   return out;
 }
 
 /** 1-3 ranked options; every request already normalized (the owner gate, time clamp). */
 export function recommendCombos(i: ComboIntent, ctx: ComboContext): ComboOption[] {
   const cat = resolveCategory(i, ctx);
-  const raw = cat === 'hybrid' ? hybridOptions(i, ctx) : cat === 'strength' ? strengthOptions(i) : aerobicOptions(i);
+  const raw = cat === 'hybrid' ? hybridOptions(i, ctx) : cat === 'strength' ? strengthOptions(i) : aerobicOptions(i, ctx);
   const seen = new Set<string>();
   const out: ComboOption[] = [];
   for (const o of raw) {

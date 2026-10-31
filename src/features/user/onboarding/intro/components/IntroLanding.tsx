@@ -35,7 +35,6 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
 
   return (
     <div className="fixed inset-0 overflow-hidden overscroll-none bg-white text-v2-ink">
-      <LanguageSwitchButton />
       <motion.div
         className="absolute inset-0"
         initial={reduce ? false : { opacity: 0 }}
@@ -74,6 +73,8 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
         <p className="m-0 max-w-[16rem] text-[clamp(15px,2.2dvh,17px)] font-semibold leading-[1.45] text-slate-700">
           {copy.sub}
         </p>
+        {/* AH13: under the subtitle, not in the top corner where it collided with the title. */}
+        <LanguageSwitchButton inline />
       </motion.div>
 
       <motion.div

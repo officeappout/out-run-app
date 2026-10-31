@@ -43,6 +43,7 @@ import { auth, db } from '@/lib/firebase';
 import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
@@ -66,6 +67,9 @@ import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
 import { useTryRunningNudge } from '@/features/home/hooks/useTryRunningNudge';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { library } from '@/messages/ns/library';
+import { displayProgramTemplateId } from '@/features/home/utils/display-program';
+import { MASTER_PROGRAM_CHILDREN } from '@/features/home/hooks/useProgramProgress';
 import { common } from '@/messages/ns/common';
 import { unitLabel, withUnit } from '@/lib/i18n/units';
 import { isPlainRunDoc, type RunCoverageDoc } from '@/lib/run-coverage';
@@ -121,7 +125,8 @@ import { useRunCatchUp } from '@/features/home/hooks/useRunCatchUp';
 import RunReturnDrawer from '@/features/home/components/run-return/RunReturnDrawer';
 import RunCatchUpNotice from '@/features/home/components/run-return/RunCatchUpNotice';
 import { calmCopy } from '@/lib/calm-return/surface';
-import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { startMiniDomainAssessment, startFullStrengthQuestionnaire } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { parkNeedsQuizFirst } from '@/features/parks/core/utils/park-quiz-gate';
 import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useHasStreakCard } from '@/features/home/components/streak/useStreakCard';
 import StreakCelebrationHost from '@/features/streak-celebration/components/StreakCelebrationHost';
@@ -432,6 +437,8 @@ export default function HomePage() {
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, rawFlags: liveFlags, loading: flagsLoading, ready: flagsReady } = useFeatureFlags(isSuperAdmin);
+  // enable_pilot_ah_v1 (owner iPhone notes 31.10, AH19).
+  const pilotAh = !flagsLoading && featureFlags.enablePilotAhV1;
   const { canUseAi } = useAiCoachAccess();
   // enable_home_v2 day focus: the recommended split decides each strength day (upper / lower …)
   // for every generation home triggers. Set during render (idempotent) so it is in place
@@ -541,6 +548,7 @@ export default function HomePage() {
   // tap-time GPS soft-ask or route resolve comes back empty, instead of a silent no-op.
   const { showToast } = useToast();
   const tHome = useT(home);
+  const tLibrary = useT(library);
 
   // Handle "pencil" tap from WorkoutPreviewDrawer — close drawer and open edit modal
   const handleEditFromDrawer = useCallback(() => {
@@ -1573,7 +1581,7 @@ export default function HomePage() {
   }, [activePreWorkoutSuggestion]);
 
   const carouselLocationGateOn = useLocationGateV1(); // enable_location_gate_v1
-  const { swapAll: carouselSwapAll } = useSwapAll({
+  const { swapAll: carouselSwapAll, lastResult: carouselSwapResult, isSwapping: carouselSwapping } = useSwapAll({
     generatedWorkout: activeCarouselWorkout,
     onGeneratedWorkoutUpdate: writeSwappedCarouselOption,
     userProfile: profile,
@@ -2185,13 +2193,26 @@ export default function HomePage() {
   }, [profile, handleWorkoutGenerated, featureFlags.enableHomeV2, tHome, backgroundHold.begin]);
 
   const pendingParkWorkoutStart = useMapStore((s) => s.pendingParkWorkoutStart);
+  // M12: leaving for the questionnaire keeps the park pending for the return; never compose it on the way out.
+  const parkQuizRedirectRef = useRef(false);
   useEffect(() => {
     // Wait for the profile: consuming before it loads dropped the start silently (compose returns on !profile).
-    if (!pendingParkWorkoutStart || !profile) return;
+    if (!pendingParkWorkoutStart || !profile || parkQuizRedirectRef.current) return;
     const park = useMapStore.getState().consumePendingParkWorkoutStart();
     // enable_place_workouts_v1: a park-page card may carry its difficulty / length; none → as before.
     const opts = useMapStore.getState().consumePendingParkWorkoutOptions();
     if (!park) return;
+    // enable_pilot_decisions_v1 (owner M12): a park with < 3 different equipment types → the strength
+    // questionnaire first (users without one), once per park per session; back here the park starts.
+    const askedKey = `park_quiz_asked:${park.id}`;
+    const asked = typeof window !== 'undefined' && !!sessionStorage.getItem(askedKey);
+    if (featureFlags.enablePilotDecisionsV1 && parkNeedsQuizFirst(park, hasAssessedStrengthDomain(profile as never), asked)) {
+      sessionStorage.setItem(askedKey, '1');
+      parkQuizRedirectRef.current = true;
+      useMapStore.getState().setPendingParkWorkoutStart(park, opts);
+      startFullStrengthQuestionnaire(router, profile, '/home');
+      return;
+    }
     void composeAndOpenParkWorkout(park, opts?.difficulty ?? 'medium', opts?.minutes ?? 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingParkWorkoutStart, profile?.id]);
@@ -2510,8 +2531,12 @@ export default function HomePage() {
     const todayLetter = getHebrewDayLetter(new Date());
     const todayTemplateId =
       profile?.lifestyle?.recurringTemplate?.[todayLetter]?.[0] ?? null;
-    return todayTemplateId ?? profile?.progression?.activePrograms?.[0]?.templateId;
-  }, [profile?.lifestyle?.recurringTemplate, profile?.progression?.activePrograms]);
+    // enable_pilot_ah_v1 (AH18): a full-body signup saved as its children shows the parent's icon.
+    const fallback = pilotAh
+      ? displayProgramTemplateId(profile?.progression?.activePrograms, MASTER_PROGRAM_CHILDREN)
+      : profile?.progression?.activePrograms?.[0]?.templateId;
+    return todayTemplateId ?? fallback;
+  }, [profile?.lifestyle?.recurringTemplate, profile?.progression?.activePrograms, pilotAh]);
 
   // Alerts — the old missed / comeback wiring read useSmartSchedule's mock scenario
   // (mock-schedule-data.ts CURRENT_SCENARIO = 'standard', so both flags were always false)
@@ -2563,7 +2588,7 @@ export default function HomePage() {
         const actuallyTimeBased = ex.exercise.type === 'time' || ex.isTimeBased;
 
         const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl, fullTutorial: resolvedFullTutorial, bunnyVideoId: resolvedBunnyVideoId } =
-          resolveExerciseMedia(ex.exercise as any, ex.method as any);
+          resolveExerciseMedia(ex.exercise as any, ex.method as any, getVideoLanguage());
 
         if (!resolvedImageUrl && !resolvedVideoUrl) {
           const allMethods = ex.exercise.execution_methods || ex.exercise.executionMethods || [];
@@ -3424,7 +3449,8 @@ export default function HomePage() {
               runningBasePace={profile?.running?.paceProfile?.basePace}
               runningProgramId={profile?.running?.activeProgram?.programId}
               scheduleVersion={scheduleVersion}
-              activityView={(homeTabPicked ?? (featureFlags.enableHomeV2 && walkWeek.isWalker && hasProgram ? 'health' : 'strength')) === 'health'}
+              // enable_schedule_pilot_v1 (pilot P12): always the icons, never the rings.
+              activityView={!featureFlags.enableSchedulePilotV1 && (homeTabPicked ?? (featureFlags.enableHomeV2 && walkWeek.isWalker && hasProgram ? 'health' : 'strength')) === 'health'}
             />
           </motion.div>
         )}
@@ -3541,7 +3567,11 @@ export default function HomePage() {
               {effectiveTab === 'strength' && progressSlotOn ? (
                 /* enable_home_progress_slot_v1 (boards PG-1): same grid, the program slot
                    becomes strength ↔ running/walking with pager dots. */
-                <HomeProgressSlotRow aside={<ConsistencyWidget />} />
+                <HomeProgressSlotRow
+                  aside={<ConsistencyWidget />}
+                  // enable_schedule_pilot_v1 (pilot P13, owner 31.10): the walking plan card → today's walk.
+                  onWalkOpen={featureFlags.enableSchedulePilotV1 && walkSlot ? startWalkFromHome : undefined}
+                />
               ) : effectiveTab === 'strength' ? (
                 /* התקדמות שבועית — program ring (minmax(0,1fr)) + consistency bars (111px).
                    Grid (not flex) so each cell has an explicit physical boundary —
@@ -3763,7 +3793,7 @@ export default function HomePage() {
                         safety-net/route have no swappable content, so there's nothing for
                         it to control. */}
                     <div className="px-5">
-                      <div className="relative mb-1 flex items-center justify-between gap-2">
+                      <div className={`relative mb-1 flex ${pilotAh ? 'flex-wrap' : ''} items-center justify-between gap-2`}>
                         <h3
                           className={
                             featureFlags.enableHomeV2
@@ -3778,10 +3808,18 @@ export default function HomePage() {
                             value={
                               activeCarouselLocation === 'park' || activeCarouselLocation === 'home'
                                 ? activeCarouselLocation
-                                : 'park'
+                                // enable_pilot_ah_v1 (AH19): a forced 'park' made the outdoors pick a no-op
+                                // (the chip ignores the current value) while the workout was elsewhere.
+                                : pilotAh ? (activeCarouselLocation as LocationId) : 'park'
                             }
                             onSelect={handleCarouselLocationChange}
                           />
+                        )}
+                        {/* AH19: a refused swap (enable_location_gate_v1) said nothing; now it explains, like the drawer. */}
+                        {isActiveSuggestionHeroTreated && pilotAh && !carouselSwapping && carouselSwapResult?.blockedLocation && (
+                          <p className="mt-1 w-full text-[12.5px] font-bold text-v2-muted">
+                            {tLibrary('preview.location.unavailable.explained', { location: carouselSwapResult.blockedLocation, reason: carouselSwapResult.blocked ?? 'notEnoughContent' })}
+                          </p>
                         )}
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-start">

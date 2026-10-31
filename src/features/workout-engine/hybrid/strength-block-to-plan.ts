@@ -19,6 +19,7 @@ import type {
   Exercise as PlanExercise,
 } from '@/features/parks/core/types/route.types';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
@@ -37,7 +38,7 @@ function exMedia(we: GeneratedExercise): { videoUrl?: string; imageUrl?: string;
   // #3: also carry fullTutorial — resolveExerciseMedia already resolves it (identical to
   // buildRunnerWorkoutPlanFromGenerated:141). Dropping it here is why the "צפה בהסבר המלא"
   // CTA was missing on hybrid-station main + warmup exercises. Purely additive.
-  const { videoUrl, imageUrl, bunnyVideoId, fullTutorial } = resolveExerciseMedia(we.exercise as any, we.method as any);
+  const { videoUrl, imageUrl, bunnyVideoId, fullTutorial } = resolveExerciseMedia(we.exercise as any, we.method as any, getVideoLanguage());
   return {
     ...(videoUrl ? { videoUrl } : {}),
     ...(imageUrl ? { imageUrl } : {}),

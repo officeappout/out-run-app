@@ -14,7 +14,8 @@
  */
 
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls, type PanInfo } from 'framer-motion';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 import { X, CalendarDays } from 'lucide-react';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import RollingAgenda from './agenda/RollingAgenda';
@@ -137,6 +138,8 @@ export default function TrainingPlannerOverlay({
   const weekBuilder = useWeekBuilderV1();
   // Planner v2 (boards "לו״ז גדול · סבב 2") — the week builder flag already requires enable_home_v2.
   const plannerV2 = weekBuilder && v2;
+  const pilotAh = usePilotAhV1();
+  const plannerDrag = useDragControls();
   const [arrangeSunday, setArrangeSunday] = useState<string | null>(null);
   // The month grid is 5 or 6 rows (+ month and weekday headers), and v2's
   // flame cells sit taller — a fixed 310px cut the last row. Measure it.
@@ -351,6 +354,15 @@ export default function TrainingPlannerOverlay({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={SLIDE_SPRING}
+            // enable_pilot_ah_v1 (AH17): drag down from the planner header (not the scrolling body) closes it.
+            {...(plannerV2 && pilotAh ? {
+              drag: 'y' as const,
+              dragListener: false,
+              dragControls: plannerDrag,
+              dragConstraints: { top: 0, bottom: 0 },
+              dragElastic: { top: 0, bottom: 0.6 },
+              onDragEnd: (_: unknown, info: PanInfo) => { if (info.offset.y > 120 || info.velocity.y > 600) onClose(); },
+            } : {})}
             className={`fixed inset-0 z-50 flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : 'bg-[#F8FAFC]'}`}
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
@@ -359,7 +371,7 @@ export default function TrainingPlannerOverlay({
               // (no ScheduleBuilderDrawer button: the drawer stays for the home add-track card),
               // month strip, week section. Off = everything below, unchanged.
               <ErrorBoundary fallback={null}>
-                <PlannerV2 userId={userId} onClose={onClose} refreshKey={refreshKey} onSaved={handleSaved} onStartWorkout={onStartWorkout} />
+                <PlannerV2 userId={userId} onClose={onClose} refreshKey={refreshKey} onSaved={handleSaved} onStartWorkout={onStartWorkout} onHeaderPointerDown={pilotAh ? (e) => plannerDrag.start(e) : undefined} />
               </ErrorBoundary>
             ) : (
             <>

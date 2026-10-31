@@ -10,6 +10,7 @@ import { useIsBottomNavSuppressed } from '@/lib/bottom-nav-suppression';
 import { V2_NAV_BOTTOM_CSS } from '@/components/ui/v2/bottom-chrome';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 
 export default function BottomNavigation() {
   const t = useT(map);
@@ -166,6 +167,7 @@ function BottomNavV2({
   showSocial: boolean;
 }) {
   const t = useT(map);
+  const pilotAh = usePilotAhV1();
   const on = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const left: V2Item[] = [
     { name: t('bottomNav.home'), href: '/home', icon: Home, active: on('/home') },
@@ -198,7 +200,8 @@ function BottomNavV2({
     <motion.nav
       aria-label={t('bottomNav.aria')}
       initial={false}
-      animate={{ y: isSuppressed ? '140%' : '0%' }}
+      // enable_pilot_ah_v1 (AH24): 140% of the pill left the raised map circle peeking in; slide fully out.
+      animate={{ y: isSuppressed ? (pilotAh ? '260%' : '140%') : '0%' }}
       transition={{ type: 'tween', duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       // bottom: the same rule bottom-chrome.ts uses for the FAB / scroll padding above it.
       style={{ bottom: V2_NAV_BOTTOM_CSS, pointerEvents: isSuppressed ? 'none' : 'auto', willChange: 'transform' }}
