@@ -50,6 +50,10 @@ export interface UserContribution {
     removedByUser: string[];
     addedByUser: string[];
     unknown: Array<{ description: string; photoUrl?: string }>;
+    /** Photos with people in them (owner 31.10: kept; the admin sees it before approving). */
+    withPeople?: number;
+    /** The cover photo itself shows people (no people-free shot existed). */
+    coverHasPeople?: boolean;
   };
 
   // ── suggest_edit fields ──

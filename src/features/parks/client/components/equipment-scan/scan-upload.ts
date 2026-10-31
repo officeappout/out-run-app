@@ -2,7 +2,8 @@
 
 /**
  * Camera scan, park mapping: what is uploaded on submit, and only then. The cover photo is the
- * first usable shot (no people, the wide angle); each unknown object gets a crop of its box from
+ * first shot without people (the wide angle when it qualifies), else the first shot (owner 31.10:
+ * photos with people are kept; the admin card flags them before approval); each unknown object gets a crop of its box from
  * its shot, for the admin's "מתקן חדש להוסיף לקטלוג" queue. Same owner-scoped folder and rule as
  * the wizard's photo step (contribution-photos/{uid}/…).
  */
@@ -42,9 +43,14 @@ async function cropBase64(base64: string, box: ScanBox): Promise<string | null> 
   }
 }
 
+/** The shot used as the cover: the first without people, else the first. */
+export function coverShot(shots: readonly ParkShot[]): ParkShot | null {
+  return shots.find((s) => !s.result.hasPeople) ?? shots[0] ?? null;
+}
+
 export async function uploadCover(uid: string, shots: readonly ParkShot[]): Promise<{ url: string; path: string } | null> {
-  const first = shots.find((s) => s.base64);
-  if (!first?.base64) return null;
+  const first = coverShot(shots);
+  if (!first) return null;
   try {
     return await uploadJpeg(uid, first.base64, 'scan');
   } catch (err) {

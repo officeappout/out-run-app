@@ -31,8 +31,8 @@ describe('prefillFromScan', () => {
     ]);
     expect(r.brands).toEqual({ pull: 'Urbanix' });
   });
-  it('catalog items ≥ 0.5 pre-selected, unsure tagged, people photo ignored', () => {
-    expect(p.equipmentIds).toEqual(['pull', 'rings']);
+  it('catalog items ≥ 0.5 pre-selected (a photo with people counts too), unsure tagged', () => {
+    expect(p.equipmentIds).toEqual(['dips', 'pull', 'rings']);
     expect(p.unsureIds).toEqual(['rings']);
   });
   it('bench / stairs become feature tags, unknown objects kept with their shot', () => {
@@ -42,9 +42,9 @@ describe('prefillFromScan', () => {
   it('scan record: kept items with confidence, removed and added by the user, unknown with photos', () => {
     const meta = scanMetaFor(p.merged, ['pull', 'slide'], [{ description: 'rower', photoUrl: 'https://x/r.jpg' }]);
     expect(meta).toEqual({
-      photos: 2,
+      photos: 3,
       items: [{ equipmentId: 'pull', confidence: 0.9 }],
-      removedByUser: ['rings'],
+      removedByUser: ['dips', 'rings'],
       addedByUser: ['slide'],
       unknown: [{ description: 'rower', photoUrl: 'https://x/r.jpg' }],
     });

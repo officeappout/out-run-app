@@ -3,7 +3,7 @@
  *
  * Guided capture: 3 fixed angles first (wide from the entrance, from the side, from the other
  * side), then up to 2 "closer" shots aimed at whatever is still unsure, 5 photos at most. A photo
- * with people counts for nothing: the screen tells the user it was dropped (ScanEdges board).
+ * with people counts like any other (owner 31.10); only the cover-photo choice avoids it.
  */
 import { CONFIRM_AT, CHOOSE_AT } from './scan-result';
 import type { ScanBox, ScanCandidateKind, ScanPhotoResult, ScanUnknown } from './scan-types';
@@ -36,7 +36,6 @@ export function mergeParkScans(results: readonly ScanPhotoResult[]): MergedParkS
   const unknown: MergedParkScan['unknown'] = [];
   let usableShots = 0;
   results.forEach((r, shot) => {
-    if (r.hasPeople) return;
     usableShots++;
     for (const it of r.items) {
       const prev = items.get(it.candidateId);
@@ -100,10 +99,7 @@ export type ParkShotGuide =
 
 const ANGLES = ['wide', 'side', 'other_side'] as const;
 
-/**
- * The next shot after `results.length` photos. A people photo still uses up a shot (5 at most),
- * but the fixed angles count usable photos, so the user is asked again for the angle it lost.
- */
+/** The next shot after `results.length` photos (5 at most). */
 export function nextParkShot(results: readonly ScanPhotoResult[]): ParkShotGuide {
   if (results.length >= PARK_MAX_SHOTS) return { kind: 'done' };
   const merged = mergeParkScans(results);
@@ -123,7 +119,7 @@ export function nextParkShot(results: readonly ScanPhotoResult[]): ParkShotGuide
 function anglesDoneAt(results: readonly ScanPhotoResult[]): number {
   let usable = 0;
   for (let i = 0; i < results.length; i++) {
-    if (!results[i].hasPeople) usable++;
+    usable++;
     if (usable === PARK_MIN_SHOTS) return i + 1;
   }
   return results.length;

@@ -2,10 +2,9 @@
 
 /**
  * Camera scan, park mapping (phase 2) state: guided shots (nextParkShot), each sent in 'park'
- * mode, plus one high-accuracy GPS fix taken with the first photo. A photo with people is
- * dropped at once (its preview revoked, its pixels never kept); a dark one never leaves the phone.
- * Usable shots keep their base64 in memory only, for the cover photo and the unknown-item crops
- * uploaded on submit (scan-upload.ts).
+ * mode, plus one high-accuracy GPS fix taken with the first photo. A dark photo never leaves the
+ * phone. Every other shot, people in it or not (owner 31.10), keeps its base64 in memory only, for
+ * the cover photo and the unknown-item crops uploaded on submit (scan-upload.ts).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nextParkShot } from '@/lib/ai/scan/scan-merge';
@@ -17,12 +16,11 @@ import { postScan, type ScanApiError } from './scan-api';
 
 export interface ParkShot {
   result: ScanPhotoResult;
-  /** null for a dropped (people) photo. */
-  base64: string | null;
-  previewUrl: string | null;
+  base64: string;
+  previewUrl: string;
 }
 
-export type ParkScanNotice = 'people' | 'dark' | ScanApiError | null;
+export type ParkScanNotice = 'dark' | ScanApiError | null;
 
 export function useParkScan(onPermissionDenied: () => void) {
   const [shots, setShots] = useState<ParkShot[]>([]);
@@ -61,12 +59,6 @@ export function useParkScan(onPermissionDenied: () => void) {
     if (!res.ok) {
       URL.revokeObjectURL(shot.previewUrl);
       setNotice(res.error);
-      return;
-    }
-    if (res.result.hasPeople) {
-      URL.revokeObjectURL(shot.previewUrl);
-      setNotice('people');
-      setShots((prev) => [...prev, { result: res.result, base64: null, previewUrl: null }]);
       return;
     }
     urls.current.push(shot.previewUrl);
