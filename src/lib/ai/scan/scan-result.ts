@@ -57,7 +57,7 @@ export function parseScanToolInput(raw: unknown, candidates: readonly ScanCandid
   return {
     quality,
     hasPeople: r.has_people === true,
-    items: [...items.values()].sort((a, b) => b.confidence - a.confidence).slice(0, MAX_ITEMS),
+    items: Array.from(items.values()).sort((a, b) => b.confidence - a.confidence).slice(0, MAX_ITEMS),
     unknown,
   };
 }

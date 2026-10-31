@@ -59,7 +59,7 @@ export function mergeParkScans(results: readonly ScanPhotoResult[]): MergedParkS
     }
     for (const u of r.unknown) unknown.push({ ...u, shot });
   });
-  const merged = [...items.values()].map((i) =>
+  const merged = Array.from(items.values()).map((i) =>
     i.seenIn >= 2 ? { ...i, confidence: Math.min(1, Math.round((i.confidence + SEEN_TWICE_BONUS) * 100) / 100) } : i,
   );
   merged.sort((a, b) => b.confidence - a.confidence);
