@@ -35,6 +35,7 @@
 
 import { useRef, useState, useLayoutEffect } from 'react';
 import HeroWorkoutCard from './HeroWorkoutCard';
+import { CalendarPlus } from 'lucide-react';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import { SuggestionCard } from '@/features/workout-engine/core/components/SuggestionCard';
 import { getCachedRecoveryWorkout } from '@/features/workout-engine/core/generators/recovery-follow-up.generator';
@@ -61,6 +62,8 @@ interface PostWorkoutCardRendererProps {
    * the "אימון משלים" card reads "השלמת סטים · נשארו X סטים להיום". Absent → unchanged.
    */
   titleOverride?: string;
+  /** Evening top-up (board HomeAfterTopUp): "schedule for 20:00" over the card. */
+  scheduleAction?: { label: string; done: boolean; onPress: () => void };
 }
 
 function ScaledHeroRecoveryCard({
@@ -119,6 +122,7 @@ export function PostWorkoutCardRenderer({
   healthConnected,
   onConnectSteps,
   titleOverride,
+  scheduleAction,
 }: PostWorkoutCardRendererProps) {
   if (suggestion.generatorId === 'recovery-follow-up') {
     const workout = getCachedRecoveryWorkout(suggestion.id);
@@ -132,7 +136,22 @@ export function PostWorkoutCardRenderer({
   if (suggestion.generatorId === 'partial-completion') {
     const workout = getCachedPartialCompletionWorkout(suggestion.id);
     if (workout) {
-      return <ScaledHeroRecoveryCard onStart={onStart} userGender={userGender} workout={workout} titleOverride={titleOverride} />;
+      const card = <ScaledHeroRecoveryCard onStart={onStart} userGender={userGender} workout={workout} titleOverride={titleOverride} />;
+      if (!scheduleAction) return card;
+      return (
+        <div className="relative h-full w-full">
+          {card}
+          <button
+            type="button"
+            onClick={scheduleAction.onPress}
+            disabled={scheduleAction.done}
+            className="absolute top-3 start-3 z-10 inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-[13px] font-extrabold text-v2-deep shadow-v2-ring disabled:text-v2-muted"
+          >
+            <CalendarPlus size={15} strokeWidth={2.4} aria-hidden />
+            {scheduleAction.label}
+          </button>
+        </div>
+      );
     }
     // Defensive: cache miss — degrade to the generic card rather than render nothing.
   }
