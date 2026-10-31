@@ -31,6 +31,8 @@ export interface WalkWeekStepProps {
   dates: number[];
   notAlone: WalkingGroupSuggestion | null;
   onOpenGroup: (groupId: string) => void;
+  /** enable_schedule_pilot_v1 (pilot P10): join in place instead of leaving the flow. */
+  onJoinGroup?: (groupId: string) => Promise<void>;
   error: string | null;
   onConfirm: () => void | Promise<void>;
 }
@@ -86,7 +88,7 @@ export default function WalkWeekStep(p: WalkWeekStepProps) {
           <span className="min-w-0">{t('signup.walk.week.info')}</span>
         </div>
 
-        <NotAloneCard className="mt-3" suggestion={p.notAlone} onOpenGroup={p.onOpenGroup} />
+        <NotAloneCard className="mt-3" suggestion={p.notAlone} onOpenGroup={p.onOpenGroup} onJoin={p.onJoinGroup} />
 
         {p.error && <p className="mt-3 text-center text-[13px] font-bold text-red-600">{p.error}</p>}
       </div>

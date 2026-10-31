@@ -3424,7 +3424,8 @@ export default function HomePage() {
               runningBasePace={profile?.running?.paceProfile?.basePace}
               runningProgramId={profile?.running?.activeProgram?.programId}
               scheduleVersion={scheduleVersion}
-              activityView={(homeTabPicked ?? (featureFlags.enableHomeV2 && walkWeek.isWalker && hasProgram ? 'health' : 'strength')) === 'health'}
+              // enable_schedule_pilot_v1 (pilot P12): always the icons, never the rings.
+              activityView={!featureFlags.enableSchedulePilotV1 && (homeTabPicked ?? (featureFlags.enableHomeV2 && walkWeek.isWalker && hasProgram ? 'health' : 'strength')) === 'health'}
             />
           </motion.div>
         )}
