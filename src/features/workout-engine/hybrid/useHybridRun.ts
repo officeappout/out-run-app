@@ -23,6 +23,8 @@ import { reverseHybridSegments } from './reverse-plan';
 import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { isNegligibleHybridSession } from './hybrid-finish-policy';
+import { activeStrengthProgramId, levelMoved, stationExerciseResults } from './hybrid-level';
+import type { LevelUpOutcome } from '@/features/user/progression/services/levelup-preview';
 import { stationCompletedSets, hybridPartMinutes } from './hybrid-counting';
 import type { SegmentExerciseDetail } from '../core/services/storage.service';
 import type { StrengthBlockResult } from '../core/pipeline/strength-block.service';
@@ -98,6 +100,47 @@ function buildStationPlan(content: StrengthBlockResult): WorkoutPlan {
  */
 export function setHybridFinalizeOverride(fn: FinalizeOverride | null): void {
   finalizeOverride = fn;
+}
+
+// enable_combo_flow_v1 (board PlayerSummaryCoverage): the stations feed the strength progression
+// engine at finish, for the level screen. Off (default) → no progression call, as before.
+let levelProgressionOn = false;
+
+/** Home v2 hybrid player with the combo flow: turn the post-finish level computation on / off. */
+export function setHybridLevelProgression(on: boolean): void {
+  levelProgressionOn = on;
+}
+
+/** Background: the stations' sets → processWorkoutCompletion (track level / % only, no XP) → the
+ *  outcome, kept only when the level moved. Never blocks or fails the finish. */
+async function computeHybridLevelUp(
+  uid: string,
+  result: HybridFinalizeResult,
+  plan: HybridPlannedSegment[] | null,
+  set: (p: { lastLevelUp: LevelUpOutcome }) => void,
+): Promise<void> {
+  try {
+    const exercises = stationExerciseResults(result, plan);
+    if (exercises.length === 0) return;
+    const { useUserStore } = await import('@/features/user');
+    const programId = activeStrengthProgramId(useUserStore.getState().profile as never);
+    const { loadLevelUpInputs } = await import('@/features/user/progression/services/levelup-inputs.service');
+    const inputs = await loadLevelUpInputs(uid, programId, exercises.map((e) => e.exerciseId));
+    const { processWorkoutCompletion } = await import('@/features/user/progression/services/progression.service');
+    const strengthSec = result.segments.reduce((acc, r) => acc + (r.kind === 'strength' ? r.actual?.durationSec ?? 0 : 0), 0);
+    const stored = await processWorkoutCompletion({
+      userId: uid,
+      activeProgramId: programId,
+      exercises,
+      totalDuration: Math.max(1, Math.round(strengthSec / 60)),
+      completedAt: new Date(),
+    });
+    const { outcomeFromStored } = await import('@/features/user/progression/services/levelup-preview');
+    const outcome = outcomeFromStored(inputs, stored, { level: 1, percent: 0 });
+    if (levelMoved(outcome)) set({ lastLevelUp: outcome });
+  } catch (e) {
+    console.warn('[useHybridRun] level computation failed (summary goes on without the level screen)', e);
+  }
 }
 
 /** Read-only snapshot of the controller's orchestrator state (home v2 player mirrors station results). */
@@ -192,6 +235,8 @@ export interface HybridRunStore {
   finishedHybrid: boolean;
   lastResult: HybridFinalizeResult | null;
   lastCalories: number;
+  /** enable_combo_flow_v1: the strength level change, set (in the background) only when it moved. */
+  lastLevelUp: LevelUpOutcome | null;
   /** The aerobic legs' laps (the running player's, at finish), for the summary's lap chart / table.
    *  In memory only; the saved doc is unchanged. */
   lastLaps: Lap[];
@@ -257,6 +302,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   nextStationNumber: null,
   finishedHybrid: false,
   lastResult: null,
+  lastLevelUp: null,
   lastCalories: 0,
   lastLaps: [],
   stationContext: null,
@@ -295,6 +341,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       // Clear any stale HybridSummary stash from a prior session.
       finishedHybrid: false,
       lastResult: null,
+      lastLevelUp: null,
       lastCalories: 0,
       lastLaps: [],
       stationContext: null,
@@ -519,6 +566,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
         // after the workout doc was saved. Same writer + privacy prefs as
         // every other workout; counted per part (hybrid-feed-post.ts).
         // Background: never blocks the finish.
+        if (savedId && levelProgressionOn && HYBRID_SUMMARY_ENABLED) void computeHybridLevelUp(uid, result, get().plan, set);
         if (savedId) {
           const { publishHybridFeedPost } = await import('./hybrid-feed-post');
           void publishHybridFeedPost(uid, hybridPartMinutes(parts), get().plan, stationNames);
@@ -588,6 +636,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       nextStationNumber: null,
       finishedHybrid: false,
       lastResult: null,
+      lastLevelUp: null,
       lastCalories: 0,
       lastLaps: [],
       stationContext: null,
