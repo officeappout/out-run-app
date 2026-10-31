@@ -145,3 +145,4 @@ export { demoSimulatorTick } from './demoSimulatorTick';
 // stopped", 20:00 milestone. Flag system_config/feature_flags.enable_streak_pushes, default
 // off. New function: needs its own deploy.
 export { streakRescueScheduler } from './streakRescueScheduler';
+export { workoutPraiseScheduler } from './workoutPraiseScheduler';

@@ -23,6 +23,7 @@
  * the whole tab is ProgressScreenV2 (../v2/components).
  */
 import AppHeader from '@/components/ui/AppHeader';
+import { usePraiseSeenStamp } from '@/features/progression-hub/hooks/usePraiseSeenStamp';
 import { IdentityHeroCard } from '@/features/user/progression/components/IdentityHeroCard';
 import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { useProgressHubBuckets } from '@/features/progression-map/hooks/useProgressHubBuckets';
@@ -39,6 +40,8 @@ import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
 
 export function ProgressionScreen() {
+  // Pilot N5: this visit counts as "saw the progress" for the 20:00 praise push.
+  usePraiseSeenStamp();
   // enable_home_v2: the tab holds everything about what you did (P-1…P-4).
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const { flags, ready } = useFeatureFlags(isSuperAdmin);

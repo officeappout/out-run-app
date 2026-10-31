@@ -1840,6 +1840,52 @@
       }
     ]
   },
+  "workout_praise": {
+    "outcomes": 72,
+    "hash": "ff2f4839543c3ff89411e33a3e923519fadf4bdd5cc3ff6e23fbf0321e60be51",
+    "unique": [
+      {
+        "pushType": "workout_praise",
+        "title": "האימון של היום עשה את שלו",
+        "body": "הרמות, הדקות והרצף התעדכנו. בואו לראות.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:workout_praise:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "workout_praise",
+        "title": "כל הכבוד, איתי",
+        "body": "עשית היום אימון. בואו נראה מה זה הזיז בהתקדמות שלך.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:workout_praise:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "workout_praise",
+        "title": "כל הכבוד, דנה",
+        "body": "עשית היום אימון. בואו נראה מה זה הזיז בהתקדמות שלך.",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:workout_praise:0",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "workout_praise",
+        "title": "עוד יום שנספר",
+        "body": "האימון של היום כבר בפנים. הצצה קצרה בהתקדמות?",
+        "deepLink": "/progression",
+        "deepLinkId": "progression",
+        "rowId": "default:workout_praise:1",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
   "partner_plan": {
     "outcomes": 288,
     "hash": "9f22a9d19271d1db88d848e15ed84ecdf717659fba2a517fd744b8635aff4f62",
