@@ -115,7 +115,7 @@ function ExerciseDetailDrawerImpl({
         >
           <SheetGrabber className="flex justify-center pt-3 pb-2" />
         </div>
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           {exercise && (
             <MasterExerciseView
               exercise={exercise}
@@ -172,7 +172,7 @@ function ExerciseDetailDrawerImpl({
             </div>
 
             {/* ── SINGLE conduit scroll — scroll-chain intercepts down-swipe at top ── */}
-            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
               <MasterExerciseView
                 exercise={exercise}
                 filterLocation={filterLocation}

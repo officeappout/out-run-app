@@ -222,7 +222,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
         <IconButton aria-label={t('exercises.detail.close')} tone="surface" size={36} className="absolute end-3 top-3 z-30" onClick={close}>
           <X size={17} strokeWidth={2.5} />
         </IconButton>
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{master}</div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">{master}</div>
       </Sheet>
     );
   }
@@ -282,7 +282,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             </button>
 
             {/* ── SINGLE conduit scroll ── */}
-            <div ref={scrollRef} className="flex-auto min-h-0 overflow-y-auto overscroll-contain">
+            <div ref={scrollRef} className="flex-auto min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
               {master}
             </div>
           </motion.div>

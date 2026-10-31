@@ -352,8 +352,8 @@ export default function ExerciseReplacementModal({
             {/* Handle */}
             <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-4 flex-shrink-0" />
 
-            {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto px-6 pb-64">
+            {/* Scrollable content. min-h-0 (AH21): without it a flex child grows to its content and never scrolls. */}
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-6 pb-64">
 
               {/* ── Header ── */}
               <div className="flex items-center gap-5 mb-6">
