@@ -13,6 +13,7 @@
  * `sub` lives in the page so its header back button can step back here.
  */
 import { useMemo, useState, useEffect } from 'react';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { useT } from '@/hooks/useT';
@@ -88,6 +89,18 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
   const router = useRouter();
   const { data } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
+  // enable_schedule_pilot_v1 (pilot P10): "want me to add you?" joins in place; joinGroup adds the
+  // group's sessions to the schedule, and the user stays in the signup.
+  const schedulePilot = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableSchedulePilotV1;
+  const joinInPlace = useMemo(
+    () => (schedulePilot && profile?.id
+      ? async (groupId: string) => {
+          const { joinGroup } = await import('@/features/arena/services/group.service');
+          await joinGroup(groupId, profile.id, profile.core?.name ?? '');
+        }
+      : undefined),
+    [schedulePilot, profile?.id, profile?.core?.name],
+  );
   const resolvedStepGoal = useActivityStore((s) => s.resolvedStepGoal);
   const stepGoal = resolvedStepGoal ?? (profile as { goals?: { dailySteps?: number } } | null)?.goals?.dailySteps ?? null;
 
@@ -226,7 +239,7 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
         dates={dates}
         onDays={setPickedDays}
         onWindow={(dow, w) => setWindows((cur) => ({ ...cur, [dow]: w }))}
-        extra={<NotAloneCard className="mt-3" suggestion={notAlone} onOpenGroup={(id) => router.push(walkingGroupHref(id))} />}
+        extra={<NotAloneCard className="mt-3" suggestion={notAlone} onOpenGroup={(id) => router.push(walkingGroupHref(id))} onJoin={joinInPlace} />}
         error={error ? t(error) : null}
         onConfirm={confirmWeek}
       />
@@ -241,6 +254,7 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
         dates={dates}
         notAlone={notAlone}
         onOpenGroup={(id) => router.push(walkingGroupHref(id))}
+        onJoinGroup={joinInPlace}
         error={error ? t(error) : null}
         onConfirm={confirmWeek}
       />
