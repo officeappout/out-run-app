@@ -22,6 +22,7 @@ import { useUiDir } from '@/lib/i18n/useUiDir';
 import WorkoutPostCard from '@/features/social/post-card/WorkoutPostCard';
 import { postFromDone } from '@/features/social/post-card/post-model';
 import { useWorkoutPostV1 } from '@/features/social/post-card/useWorkoutPostV1';
+import { recallPostPhoto } from '@/features/social/post-card/post-photo-memory';
 
 export interface HomeDonePostProps {
   card: TodayActivityCardData;
@@ -48,7 +49,19 @@ export default function HomeDonePost({ card, workout, note, onOpen }: HomeDonePo
   const open = card.category !== 'steps' && onOpen ? () => onOpen(card) : undefined;
   const postV1 = useWorkoutPostV1();
   if (postV1) {
-    const model = postFromDone({ ...card, ...workout, note: note ?? null });
+    const photoUrl = card.category === 'steps' ? null : recallPostPhoto(card.category);
+    const model = { ...postFromDone({ ...card, ...workout, note: note ?? null }), photoUrl };
+    // Board PostPhotoCompact: with a photo the slide is the share square under "done today".
+    if (photoUrl) {
+      const square = <WorkoutPostCard model={model} surface="home" meta={time} />;
+      return (
+        <div className="flex h-full w-full items-start" data-home-after-post={card.key}>
+          {open ? (
+            <button type="button" onClick={open} className="w-full text-start transition-transform duration-150 ease-v2 active:scale-[0.99]">{square}</button>
+          ) : square}
+        </div>
+      );
+    }
     return (
       <div className="flex h-full w-full items-start" data-home-after-post={card.key}>
         <WorkoutPostCard model={model} surface="compact" meta={time} onOpen={open} />

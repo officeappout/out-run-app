@@ -83,4 +83,6 @@ export interface Suggestion {
    * cheap preview worth building (e.g. safety-net's suggestion IS its own full content already).
    */
   preview?: GeneratedWorkout;
+  /** partial-completion only (board HomeAfterRules): the sets it covers and whether it is an evening (home) top-up. */
+  topUp?: { missingSets: number; evening: boolean };
 }

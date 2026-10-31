@@ -60,6 +60,7 @@ import {
 } from '@/features/workout-engine/components/strength/strength-history-adapter';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useComboFlowV1 } from '@/features/workout-engine/hybrid/v2/combo/useComboFlowV1';
 import AerobicSummaryShell from '@/features/workout-engine/summary/components/aerobic/AerobicSummaryShell';
 import AerobicSummary from '@/features/workout-engine/summary/pages/AerobicSummary';
 import {
@@ -105,6 +106,7 @@ export default function WorkoutHistoryPage() {
   const profile = useUserStore((s) => s.profile);
   const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
   const { flags } = useFeatureFlags(isSuperAdmin);
+  const comboFlow = useComboFlowV1();
   const historyParity = flags.enableHomeV2 && flags.enableHistorySummaryParity === true;
 
   useEffect(() => {
@@ -210,6 +212,8 @@ export default function WorkoutHistoryPage() {
           onFinish={handleClose}
           onDelete={WORKOUT_DELETE_EXPANDED_ENABLED ? () => setShowDeleteConfirm(true) : undefined}
           isReadOnly
+          // enable_combo_flow_v1 (board PlayerSummaryCoverage): the saved laps → chart + table.
+          laps={comboFlow && Array.isArray(workout.laps) && workout.laps.length > 0 ? workout.laps : undefined}
           // No live Mapbox mounted behind this route (unlike /map) — skip the
           // transparent peek gap that would otherwise show empty space.
           peekHeight={0}
