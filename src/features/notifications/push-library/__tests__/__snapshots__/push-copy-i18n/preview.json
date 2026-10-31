@@ -1113,6 +1113,32 @@
       }
     }
   ],
+  "workout_praise": [
+    {
+      "id": "default:workout_praise:0",
+      "preview": {
+        "title": "כל הכבוד, דנה",
+        "body": "עשית היום אימון. בואו נראה מה זה הזיז בהתקדמות שלך.",
+        "deepLink": "/progression"
+      }
+    },
+    {
+      "id": "default:workout_praise:1",
+      "preview": {
+        "title": "עוד יום שנספר",
+        "body": "האימון של היום כבר בפנים. הצצה קצרה בהתקדמות?",
+        "deepLink": "/progression"
+      }
+    },
+    {
+      "id": "default:workout_praise:2",
+      "preview": {
+        "title": "האימון של היום עשה את שלו",
+        "body": "הרמות, הדקות והרצף התעדכנו. בואו לראות.",
+        "deepLink": "/progression"
+      }
+    }
+  ],
   "partner_plan": [
     {
       "id": "default:partner_plan:0",

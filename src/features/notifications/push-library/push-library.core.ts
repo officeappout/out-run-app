@@ -947,6 +947,24 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     ],
   },
   {
+    pushType: 'workout_praise',
+    label: 'כל הכבוד על האימון',
+    lever: 'progress',
+    channel: 'progression',
+    sender: 'workoutPraiseScheduler',
+    description: 'ערב של יום שבו המשתמש סיים אימון. מחזק את מה שעשה ופותח את מסך ההתקדמות.',
+    whenSent:
+      'ב-20:00, פעם אחת ביום, רק אם המשתמש לא פתח את מסך ההתקדמות אחרי האימון. לא כשקלי כבר שלח הודעה יזומה היום. נספר בתקרה היומית. רק כשהדגל enable_workout_praise_push דולק.',
+    vars: ['@שם'],
+    conditions: [],
+    deepLinks: ['progression'],
+    defaults: [
+      { title: T('workout_praise.0.title'), body: T('workout_praise.0.body') },
+      { title: T('workout_praise.1.title'), body: T('workout_praise.1.body') },
+      { title: T('workout_praise.2.title'), body: T('workout_praise.2.body') },
+    ],
+  },
+  {
     pushType: 'partner_plan',
     label: 'מתאמנים לידך',
     lever: 'social',

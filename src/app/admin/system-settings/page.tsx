@@ -151,6 +151,7 @@ interface FlagState {
   enable_flame_tiers_v1: boolean;
   enable_workout_tutorial_v1: boolean;
   enable_equipment_scan_v1: boolean;
+  enable_workout_praise_push: boolean;
   enable_pilot_decisions_v1: boolean;
   enable_schedule_pilot_v1: boolean;
   enable_pilot_ah_v1: boolean;
@@ -1279,6 +1280,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'הדרכה באימון כוח',
     description: 'בדף המבט על, בפעם הראשונה: שתי בועות "עכשיו חימום" ו"עכשיו החלק העיקרי". בנגן: כרטיס מעבר קצר בתחילת החימום ובתחילת החלק העיקרי. בתחילת אימון שיש בו ציוד: חלון "מה צריך לאימון הזה" עם הציוד בתמונות, אפשר לבטל ולבחור "לא להציג שוב". בסט הראשון שממלאים אי פעם: בועה שמסבירה איך ממלאים חזרות או זמן. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Evening "well done" push (31.10.2026, pilot N5).
+  {
+    key: 'enable_workout_praise_push',
+    icon: Flame,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'פוש "כל הכבוד" בערב של יום אימון',
+    description: 'ב-20:00 של יום שבו המשתמש סיים אימון: פוש "כל הכבוד" שפותח את מסך ההתקדמות. לא נשלח למי שכבר פתח את מסך ההתקדמות אחרי האימון, ולא כשקלי כבר שלח הודעה יזומה היום. הנוסח מספריית הפושים (workout_praise). צריך גם deploy של הפונקציה workoutPraiseScheduler. כבוי = אין פוש.',
   },
   // Camera scan (31.10.2026, owner-approved boards).
   {

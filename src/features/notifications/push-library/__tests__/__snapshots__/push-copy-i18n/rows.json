@@ -2493,6 +2493,50 @@
       "active": true
     }
   ],
+  "workout_praise": [
+    {
+      "id": "default:workout_praise:0",
+      "pushType": "workout_praise",
+      "title": "כל הכבוד, @שם",
+      "body": "עשית היום אימון. בואו נראה מה זה הזיז בהתקדמות שלך.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:workout_praise:1",
+      "pushType": "workout_praise",
+      "title": "עוד יום שנספר",
+      "body": "האימון של היום כבר בפנים. הצצה קצרה בהתקדמות?",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:workout_praise:2",
+      "pushType": "workout_praise",
+      "title": "האימון של היום עשה את שלו",
+      "body": "הרמות, הדקות והרצף התעדכנו. בואו לראות.",
+      "deepLink": "progression",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
   "partner_plan": [
     {
       "id": "default:partner_plan:0",
