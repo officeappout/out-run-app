@@ -65,6 +65,13 @@ export interface AiDenial {
 export interface VerifyAiRequestOptions {
   /** false: skip the per-user rate limit (the turn was already counted). Default true. */
   rateLimit?: boolean;
+  /**
+   * 'kelly' (default): adults with AI access only (steps 2-3).
+   * 'open': a narrow, non-conversational feature open to every signed-in user, teens included
+   * (the camera scan, owner 31.10.2026). Skips steps 2-3 and the Kelly rate limit; the caller
+   * gates its own flag and applies its own limit. The kill switch and the daily budget still apply.
+   */
+  access?: 'kelly' | 'open';
 }
 
 /** The OUT team is exempt from the per-user rate limit (not from the kill switch / budget). */
@@ -81,6 +88,8 @@ export interface AiGrant {
   config: AiConfig;
   /** system_config/feature_flags as read for this request (real values, no super-admin override). */
   flags?: ServerFeatureFlags;
+  /** Root admin / super admin (isAiRateLimitExempt): lets a route preview a flag that is still off. */
+  team?: boolean;
 }
 
 const deny = (
@@ -124,9 +133,10 @@ export async function verifyAiRequest(request: Request, opts: VerifyAiRequestOpt
     if (!userSnap.exists) return deny(403, 'profile_not_found', undefined, { uid, flags });
     const profile = (userSnap.data() ?? {}) as AiProfileDoc;
     const ctx = { uid, profile, flags };
-    if (profile.core?.ageGroup !== 'adult') return deny(403, 'not_adult', undefined, ctx);
+    const open = opts.access === 'open';
+    if (!open && profile.core?.ageGroup !== 'adult') return deny(403, 'not_adult', undefined, ctx);
 
-    if (!canUseAi({ flags: aiFlagsFrom(flags), entitlement })) return deny(403, 'ai_not_available', undefined, ctx);
+    if (!open && !canUseAi({ flags: aiFlagsFrom(flags), entitlement })) return deny(403, 'ai_not_available', undefined, ctx);
 
     let config: AiConfig;
     try {
@@ -140,12 +150,13 @@ export async function verifyAiRequest(request: Request, opts: VerifyAiRequestOpt
       return deny(503, 'unavailable', undefined, ctx);
     }
 
-    if (opts.rateLimit !== false && !isAiRateLimitExempt(email, profile)) {
+    const team = isAiRateLimitExempt(email, profile);
+    if (!open && opts.rateLimit !== false && !team) {
       const rl = await checkAiRateLimit(uid, config, db);
       if (rl.limited) return deny(429, 'rate_limited', rl.retryAfterSec, ctx);
     }
 
-    return { ok: true, uid, profile, entitlement, config, flags };
+    return { ok: true, uid, profile, entitlement, config, flags, team };
   } catch (err) {
     console.error('[ai] verifyAiRequest failed — denying', err);
     return deny(503, 'unavailable', undefined, { uid });
