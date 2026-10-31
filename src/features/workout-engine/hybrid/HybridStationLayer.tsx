@@ -96,6 +96,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   const arrive = useHybridRun((s) => s.arrive);
   const finishStationWork = useHybridRun((s) => s.finishStationWork);
   const continueAfterStation = useHybridRun((s) => s.continueAfterStation);
+  const continueFreeWalk = useHybridRun((s) => s.continueFreeWalk);
   const pendingStationComplete = useHybridRun((s) => s.pendingStationComplete);
   const stationContext = useHybridRun((s) => s.stationContext);
   const swapStationExercise = useHybridRun((s) => s.swapStationExercise);
@@ -165,8 +166,10 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
         setFastPromptFor(stationContext.stationNumber);
       }
     }
-    if (v2) completeStation(exerciseLog);
-    else finishStationWork(exerciseLog);
+    // enable_combo_flow_v1 (board ParkStationDone, M25): v2 shows the station-done sheet too (it used to
+    // close the station straight away, so the sheet never appeared); the last station asks walk-on / finish.
+    if (v2 && !comboSheet) completeStation(exerciseLog);
+    else finishStationWork(exerciseLog, { askFinal: comboSheet });
   };
 
   // Station-approach moment (David, 25.09.2026): real GPS distance to the
@@ -260,6 +263,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
             summary={pendingStationComplete}
             context={stationContext}
             onContinue={continueAfterStation}
+            onFreeWalk={continueFreeWalk}
             sheet={comboSheet}
             fastPrompt={
               stationContext && fastPromptFor === stationContext.stationNumber

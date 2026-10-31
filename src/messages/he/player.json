@@ -1199,6 +1199,8 @@
   "run.arrive.keepWalking": "ממשיכים בהליכה",
   "run.arrive.switchToRun": "עוברים לריצה",
   "run.arrive.counts": "ההליכה עד כאן ({km} ק״מ, {steps, plural, one {צעד אחד} other {# צעדים}}) נספרת באותו אימון",
+  "hybrid.complete.freeWalk": "להמשיך ללכת חופשי",
+  "hybrid.complete.finish": "לסיים",
   "parkLive.welcome.title": "ברוכים הבאים ל{park}",
   "parkLive.welcome.titleNoName": "ברוכים הבאים לגינה",
   "parkLive.welcome.sub": "אתם כבר בגינה, אז מתחילים מהכוח",

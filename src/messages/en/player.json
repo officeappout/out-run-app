@@ -1189,6 +1189,8 @@
   "run.arrive.keepWalking": "Keep walking",
   "run.arrive.switchToRun": "Switch to running",
   "run.arrive.counts": "The walk so far ({km} km, {steps, plural, one {# step} other {# steps}}) counts in the same workout",
+  "hybrid.complete.freeWalk": "Keep walking freely",
+  "hybrid.complete.finish": "Finish",
   "parkLive.welcome.title": "Welcome to {park}",
   "parkLive.welcome.titleNoName": "Welcome to the park",
   "parkLive.welcome.sub": "You’re already at the park, so strength comes first",

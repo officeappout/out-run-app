@@ -34,6 +34,16 @@ export interface UseHybridSequencer {
   dispatch: (event: SequencerEventInput) => void;
 }
 
+/** The segments `next` adds after `prev` when it keeps every segment of `prev` (same objects), else null. */
+export function appendedTail(
+  prev: readonly HybridPlannedSegment[] | null,
+  next: readonly HybridPlannedSegment[],
+): HybridPlannedSegment[] | null {
+  if (!prev || next.length <= prev.length) return null;
+  for (let i = 0; i < prev.length; i++) if (prev[i] !== next[i]) return null;
+  return next.slice(prev.length);
+}
+
 export function useHybridSequencer(
   plan: HybridPlannedSegment[] | null,
   opts: UseHybridSequencerOptions,
@@ -45,8 +55,17 @@ export function useHybridSequencer(
   const onPhase = useRef(opts.onPhase);
   onPhase.current = opts.onPhase;
   const lastPhase = useRef<SequencerState['phase'] | null>(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   useEffect(() => {
+    // M25: the store appended an open leg after the last station → extend, never restart the session.
+    const tail = plan ? appendedTail(stateRef.current?.inner.plan ?? null, plan) : null;
+    if (tail) {
+      const atMs = now();
+      setState((s) => (s ? tail.reduce((acc, segment) => reduceSequencer(acc, { type: 'APPEND_LEG', atMs, segment }), s) : s));
+      return;
+    }
     setState(plan ? initSequencer(plan, options) : null);
     lastPhase.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps

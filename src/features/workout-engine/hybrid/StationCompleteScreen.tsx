@@ -22,7 +22,7 @@ import { useT } from '@/hooks/useT';
 import { withUnit } from '@/lib/i18n/units';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BicepsFlexed, Check } from 'lucide-react';
+import { BicepsFlexed, Check, Flag } from 'lucide-react';
 import { ActivityGlyph } from '@/features/parks/core/components/hybrid/activity-icons';
 import { formatApproxWalkMinutes } from './hybrid-intro-format';
 import type { PendingStationComplete } from './useHybridRun';
@@ -41,9 +41,11 @@ interface Props {
   fastPrompt?: { onAccept: () => void };
   /** enable_combo_flow_v1: the bottom-sheet look over the map. */
   sheet?: boolean;
+  /** M25: the last station (summary.final) → "keep walking freely" next to "finish" (onContinue). */
+  onFreeWalk?: () => void;
 }
 
-export default function StationCompleteScreen({ summary, context, onContinue, fastPrompt, sheet = false }: Props) {
+export default function StationCompleteScreen({ summary, context, onContinue, fastPrompt, sheet = false, onFreeWalk }: Props) {
   const { direction } = useUiDir();
   const tc = useT(common);
   const t = useT(player);
@@ -136,14 +138,36 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
             </div>
           )}
           {fastPromptCard}
-          <button
-            type="button"
-            onClick={onContinue}
-            className="h-[52px] w-full rounded-full text-[16px] font-black text-[#04222b] active:scale-[0.98] transition-transform"
-            style={{ background: CTA_GRADIENT }}
-          >
-            {t('hybrid.complete.continueLeg', { kind })}
-          </button>
+          {summary.final && onFreeWalk ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onFreeWalk}
+                className="flex h-[52px] flex-1 items-center justify-center gap-2 rounded-full text-[15px] font-black text-[#04222b] active:scale-[0.98] transition-transform"
+                style={{ background: CTA_GRADIENT }}
+              >
+                <ActivityGlyph kind="aerobic" subtype="walking" className="h-[18px] w-[18px]" />
+                {t('hybrid.complete.freeWalk')}
+              </button>
+              <button
+                type="button"
+                onClick={onContinue}
+                className="flex h-[52px] items-center justify-center gap-1.5 rounded-full bg-white px-5 text-[15px] font-black text-v2-ink ring-1 ring-inset ring-v2-hairline active:scale-[0.98] transition-transform"
+              >
+                <Flag size={16} strokeWidth={2.4} aria-hidden />
+                {t('hybrid.complete.finish')}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onContinue}
+              className="h-[52px] w-full rounded-full text-[16px] font-black text-[#04222b] active:scale-[0.98] transition-transform"
+              style={{ background: CTA_GRADIENT }}
+            >
+              {t('hybrid.complete.continueLeg', { kind })}
+            </button>
+          )}
         </motion.div>
       </motion.div>
     );
