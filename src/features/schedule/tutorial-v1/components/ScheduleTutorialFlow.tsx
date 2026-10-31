@@ -26,11 +26,19 @@ import SchedPersonaStep from './SchedPersonaStep';
 import SchedDaysStep from './SchedDaysStep';
 import WeekPlanStep from './WeekPlanStep';
 import ExplainFlamesStep from './ExplainFlamesStep';
+import { ArrowRight } from 'lucide-react';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 
 type Step = 'persona' | 'days' | 'week' | 'flames';
 const QUESTION_STEPS = 3;
 
-export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWorkout: boolean }) => void }) {
+export default function ScheduleTutorialFlow({ onDone, onExit }: {
+  onDone: (r: { startWorkout: boolean }) => void;
+  /** enable_pilot_ah_v1 (AH14): back from the first step leaves the flow. */
+  onExit?: () => void;
+}) {
+  // enable_pilot_ah_v1 (AH14): a back button on the steps that had none (routine → leave, week → days).
+  const pilotAh = usePilotAhV1();
   useSuppressBottomNav();
   const t = useT(schedule);
   const tc = useT(common);
@@ -93,6 +101,18 @@ export default function ScheduleTutorialFlow({ onDone }: { onDone: (r: { startWo
       className="fixed inset-0 z-[120] flex flex-col bg-v2-surface text-v2-ink"
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
+      {pilotAh && (step === 'persona' || step === 'week') && (
+        <div className="flex justify-start px-4 pt-2">
+          <button
+            type="button"
+            onClick={() => (step === 'week' ? setStep('days') : onExit?.())}
+            aria-label={t('tutorial.back')}
+            className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          >
+            <ArrowRight size={17} strokeWidth={2.4} className="ltr:-scale-x-100" aria-hidden />
+          </button>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-none">
         {step === 'persona' && <SchedPersonaStep step={1} total={QUESTION_STEPS} onNext={() => setStep('days')} />}
         {step === 'days' && (

@@ -47,6 +47,7 @@ vi.mock('@/features/home/hooks/useTrackRingColors', () => ({ useTrackRingColors:
 // enable_feature_info_sheets_v1 / enable_week_builder_v1 read Firestore flags; off here (the "i" is not part of this parity).
 vi.mock('@/features/info-sheets/useFeatureInfoSheetsV1', () => ({ useFeatureInfoSheetsV1: () => false }));
 vi.mock('@/features/schedule/week-builder/useWeekBuilderV1', () => ({ useWeekBuilderV1: () => false }));
+vi.mock('@/hooks/usePilotAhV1', () => ({ usePilotAhV1: () => false }));
 vi.mock('@/features/user/scheduling/services/userSchedule.service', () => ({ getWeekEntries: async () => [] }));
 vi.mock('../calendar/MonthlyCalendarGrid', () => ({ default: () => <div data-month-grid="" /> }));
 vi.mock('@lottiefiles/dotlottie-react', async () => {

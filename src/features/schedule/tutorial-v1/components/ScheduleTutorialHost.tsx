@@ -67,6 +67,7 @@ export default function ScheduleTutorialHost({ uid, hasStrengthProgram, hasSched
   if (phase.show === 'flow') {
     return (
       <ScheduleTutorialFlow
+        onExit={() => setStage('idle')}
         onDone={(r) => {
           markScheduleTutorialSeen(uid);
           armHomeTourAfterScheduleTutorial(uid);
