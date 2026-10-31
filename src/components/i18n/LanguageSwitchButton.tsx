@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Small language pill for the very first screen (top-end corner). Renders nothing
+ * Small language pill for the very first screen. `inline` (AH13) places it in the host's flow, under
+ * the title, instead of the fixed top-end corner where it collided with the title. Renders nothing
  * unless enable_i18n is on and at least one non-Hebrew locale is allowed
  * (useLanguageSetting: same options and same setUserLocale as the Settings row),
  * so with the flags off the host screen is unchanged.
@@ -21,7 +22,7 @@ export function singleTarget(options: LanguageOption[], locale: Locale): Locale 
   return others.length === 1 ? others[0].value : null;
 }
 
-export function LanguageSwitchButton() {
+export function LanguageSwitchButton({ inline = false }: { inline?: boolean } = {}) {
   const t = useT(common);
   const { options, locale, choose } = useLanguageSetting();
   const [open, setOpen] = useState(false);
@@ -34,8 +35,8 @@ export function LanguageSwitchButton() {
 
   return (
     <div
-      className="fixed end-3 z-30"
-      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
+      className={inline ? 'relative z-30' : 'fixed end-3 z-30'}
+      style={inline ? undefined : { top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
     >
       <button
         type="button"

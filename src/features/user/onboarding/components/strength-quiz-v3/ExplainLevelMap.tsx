@@ -80,7 +80,9 @@ export interface ExplainLevelMapProps {
 
 export default function ExplainLevelMap({ group, level, gender, demographics }: ExplainLevelMapProps) {
   const t = useT(onboarding);
-  const tree = useGroupSkillTree(group);
+  // AH11: a tree with no rungs drew an empty bar; it only counts once it has levels.
+  const loadedTree = useGroupSkillTree(group);
+  const tree = loadedTree && loadedTree.rungs.length > 0 ? loadedTree : null;
   const ladder = useQuizV3Ladder(tree ? null : group, level, demographics);
   const bubble = t('quizV3.explain1.bubble', { level, group });
   const body = t('quizV3.explain1.body', { group });
@@ -104,9 +106,17 @@ export default function ExplainLevelMap({ group, level, gender, demographics }: 
         ) : (
           <ol className="relative m-0 flex list-none flex-col rounded-[28px] bg-white p-4 shadow-v2-card" aria-busy={ladder.loading}>
             <span className="absolute bottom-[34px] top-[34px] w-1 rounded-full bg-v2-pill-border start-[34px]" aria-hidden />
-            {ladder.nodes.map((n) => (
-              <Node key={n.level} node={n} name={ladder.names[n.level] ?? null} gender={gender} />
-            ))}
+            {ladder.nodes.length === 0
+              // AH11: while the ladder loads, placeholder rows instead of a bare line.
+              ? [0, 1, 2].map((i) => (
+                <li key={i} className="relative flex items-center gap-3 py-2.5" aria-hidden>
+                  <span className="h-[52px] w-[52px] flex-shrink-0 animate-pulse rounded-2xl bg-v2-tint" />
+                  <span className="h-4 w-32 animate-pulse rounded-full bg-v2-tint" />
+                </li>
+              ))
+              : ladder.nodes.map((n) => (
+                <Node key={n.level} node={n} name={ladder.names[n.level] ?? null} gender={gender} />
+              ))}
           </ol>
         )}
       </RevealBlock>
