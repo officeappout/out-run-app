@@ -161,5 +161,11 @@
   "shareV2.combined.name": "הליכה + כוח",
   "shareV2.unit.steps": "צעדים",
   "shareV2.template.exerciseTable": "טבלת תרגילים",
-  "shareV2.template.splits": "מקטעים"
+  "shareV2.template.splits": "מקטעים",
+  "shareV2.template.combined": "משולב",
+  "shareV2.template.list": "רשימה",
+  "shareV2.template.chips": "צ׳יפים",
+  "shareV2.template.day": "כרטיס יום",
+  "shareV2.template.side": "טקסט בצד",
+  "shareV2.splits.title": "קצב לכל ק״מ"
 }

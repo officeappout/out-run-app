@@ -164,7 +164,9 @@ function combinedModel(base: ShareModel, input: ShareImageInput): ShareModel {
 export function buildShareModel(input: ShareImageInput, opts: ShareModelOptions = {}): ShareModel {
   const base = input.kind === 'cardio' ? runModel(input) : strengthModel(input);
   if (!opts.postV1) return base;
-  const post = { ...base, postV1: true };
+  const post: ShareModel = { ...base, postV1: true };
+  // The "מקטעים" template's table: each split's pace (post family only, so the flag-off model is unchanged).
+  if (post.splits && Array.isArray(input.paceSplits)) post.splits = { ...post.splits, labels: input.paceSplits.map(formatSecPerKm) };
   if (input.hybrid) return combinedModel(post, input);
   if (input.kind === 'cardio' && input.activity === 'walking') return walkModel(post, input);
   return post;

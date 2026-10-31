@@ -1672,6 +1672,11 @@
   ],
   [
     "label",
+    "strength-combined-card",
+    "משולב"
+  ],
+  [
+    "label",
     "strength-sticker",
     "נתונים מרכזיים"
   ],
@@ -1931,6 +1936,26 @@
     "label",
     "strength-sticker-table",
     "טבלת תרגילים"
+  ],
+  [
+    "label",
+    "strength-sticker-list",
+    "רשימה"
+  ],
+  [
+    "label",
+    "strength-sticker-chips",
+    "צ׳יפים"
+  ],
+  [
+    "label",
+    "strength-sticker-day",
+    "כרטיס יום"
+  ],
+  [
+    "label",
+    "strength-sticker-combined",
+    "משולב"
   ],
   [
     "label",
@@ -3986,6 +4011,16 @@
   ],
   [
     "label",
+    "run-splits",
+    "מקטעים"
+  ],
+  [
+    "label",
+    "cardio-combined-card",
+    "משולב"
+  ],
+  [
+    "label",
     "run-sticker",
     "מסלול + נתונים"
   ],
@@ -4534,5 +4569,30 @@
     "label",
     "run-sticker-splits",
     "מקטעים"
+  ],
+  [
+    "label",
+    "cardio-sticker-list",
+    "רשימה"
+  ],
+  [
+    "label",
+    "cardio-sticker-chips",
+    "צ׳יפים"
+  ],
+  [
+    "label",
+    "cardio-sticker-day",
+    "כרטיס יום"
+  ],
+  [
+    "label",
+    "cardio-sticker-side",
+    "טקסט בצד"
+  ],
+  [
+    "label",
+    "cardio-sticker-combined",
+    "משולב"
   ]
 ]

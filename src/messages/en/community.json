@@ -985,5 +985,12 @@
   "social.post.edit.replacePhoto": "Replace",
   "social.post.edit.removePhoto": "Remove",
   "social.post.edit.save": "Save",
-  "social.post.edit.failed": "Couldn’t save. You can try again."
+  "social.post.edit.failed": "Couldn’t save. You can try again.",
+  "social.share.to.title": "Share to",
+  "social.share.to.story": "Instagram story",
+  "social.share.to.download": "Download",
+  "social.share.to.copy": "Copy",
+  "social.share.to.more": "More",
+  "social.share.toast.copied": "Image copied",
+  "social.share.toast.copyFailed": "Can’t copy here. You can download it instead."
 }
