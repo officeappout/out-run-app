@@ -11,7 +11,7 @@ import { feedbackRecord, ScanFeedbackSchema } from '../scan-feedback';
 
 const CATALOG = [
   { id: 'pull', name: 'מתח', nameLocalized: { he: 'מתח', en: 'Pull-up bar' }, movementPattern: 'vertical_pull', availableInLocations: ['park'], brands: [{ brandName: 'Ludus', imageUrl: 'https://img/pull.jpg' }] },
-  { id: 'dips', name: { he: 'מקבילים', en: 'Parallel bars' }, availableInLocations: ['park', 'gym'], brands: [{ brandName: 'Ornix', imageUrl: 'http://insecure' }] },
+  { id: 'dips', name: { he: 'מקבילים', en: 'Parallel bars' }, availableInLocations: ['park', 'gym'], brands: [{ brandName: 'Urbanix', imageUrl: 'http://insecure' }] },
   { id: 'press', name: 'מכונת לחיצה', availableInLocations: ['gym'] },
   { id: 'noname', name: '' },
 ];
@@ -114,23 +114,25 @@ describe('park mapping', () => {
 describe('brand-aware recognition (owner 31.10)', () => {
   const cat = [
     { id: 'dips', name: 'מקבילים', availableInLocations: ['park'], brands: [
-      { brandName: 'Ludus', imageUrl: 'https://img/l.jpg' }, { brandName: 'Ornix', imageUrl: 'https://img/o.jpg' }, { brandName: 'Ludus' }] },
-    { id: 'pull', name: 'מתח', availableInLocations: ['park'], brands: [{ brandName: 'Ornix' }] },
+      { brandName: 'Ludus', imageUrl: 'https://img/l.jpg' }, { brandName: 'Urbanix', imageUrl: 'https://img/o.jpg' }, { brandName: 'Ludus' }] },
+    { id: 'pull', name: 'מתח', availableInLocations: ['park'], brands: [{ brandName: 'Urbanix' }] },
   ];
   const cands = buildScanCandidates(cat, [], { 'dips::Ludus': 'yellow round tubes, curved ends' });
 
   it('one brand entry per (equipment, brand), with its look line, listed in the prompt', () => {
     expect(cands[0].brands).toEqual([
       { name: 'Ludus', imageUrl: 'https://img/l.jpg', look: 'yellow round tubes, curved ends' },
-      { name: 'Ornix', imageUrl: 'https://img/o.jpg' },
+      { name: 'Urbanix', imageUrl: 'https://img/o.jpg' },
     ]);
-    expect(candidateLines(cands)).toContain('brands: Ludus (yellow round tubes, curved ends); Ornix');
+    expect(candidateLines(cands)).toContain('brands: Ludus (yellow round tubes, curved ends); Urbanix');
   });
 
   it('the model brand is matched to the catalog spelling, unknown brands dropped', () => {
     const r = parseScanToolInput({ quality: 'ok', has_people: false, unknown: [], items: [
       { id: 'dips', brand: 'ludus ', confidence: 0.9 }, { id: 'pull', brand: 'Acme', confidence: 0.4 }] }, cands);
     expect(r.items[0].brandName).toBe('Ludus');
+    const alias = parseScanToolInput({ quality: 'ok', has_people: false, unknown: [], items: [{ id: 'dips', brand: 'Urbanics', confidence: 0.9 }] }, cands);
+    expect(alias.items[0].brandName).toBe('Urbanix');
     expect(r.items[1].brandName).toBeUndefined();
     expect(singleVerdict(r)).toEqual({ kind: 'confirm', candidateId: 'dips', brandName: 'Ludus', alternatives: ['pull'] });
   });
@@ -139,7 +141,7 @@ describe('brand-aware recognition (owner 31.10)', () => {
     const one = (brandName?: string) => ({ quality: 'ok' as const, hasPeople: false, unknown: [],
       items: [{ candidateId: 'dips', kind: 'catalog' as const, confidence: 0.9, ...(brandName ? { brandName } : {}) }] });
     expect(needsCompare(one(), cands)).toBe(true);
-    expect(needsCompare(one('Ornix'), cands)).toBe(false);
+    expect(needsCompare(one('Urbanix'), cands)).toBe(false);
     expect(needsCompare(one(), [])).toBe(false);
   });
 });
@@ -149,7 +151,7 @@ describe('scan feedback log', () => {
   const now = new Date(0);
   it('top hit + brand hit for single scans, no photo field accepted', () => {
     const body = ScanFeedbackSchema.parse({ mode: 'single', via: 'confirm',
-      detected: [{ equipmentId: 'dips', brandName: 'Ludus', confidence: 0.9 }], confirmed: { equipmentId: 'dips', brandName: 'Ornix' } });
+      detected: [{ equipmentId: 'dips', brandName: 'Ludus', confidence: 0.9 }], confirmed: { equipmentId: 'dips', brandName: 'Urbanix' } });
     expect(feedbackRecord('u1', body, now)).toMatchObject({ uid: 'u1', topHit: true, brandHit: false });
     expect(ScanFeedbackSchema.safeParse({ ...body, image: 'AAAA' }).success).toBe(true);
     expect('image' in ScanFeedbackSchema.parse({ ...body, image: 'AAAA' })).toBe(false);
@@ -157,7 +159,7 @@ describe('scan feedback log', () => {
   it('a correction is a miss; park submits carry kept / removed / added', () => {
     const miss = ScanFeedbackSchema.parse({ mode: 'single', via: 'search', detected: [{ equipmentId: 'dips', confidence: 0.6 }], confirmed: { equipmentId: 'pull' } });
     expect(feedbackRecord('u1', miss, now)).toMatchObject({ topHit: false, brandHit: null });
-    const park = ScanFeedbackSchema.parse({ mode: 'park', via: 'park_submit', detected: [], kept: [{ equipmentId: 'pull', brandName: 'Ornix' }], removed: ['dips'], added: ['rings'] });
+    const park = ScanFeedbackSchema.parse({ mode: 'park', via: 'park_submit', detected: [], kept: [{ equipmentId: 'pull', brandName: 'Urbanix' }], removed: ['dips'], added: ['rings'] });
     expect(feedbackRecord('u1', park, now)).toMatchObject({ topHit: null, removed: ['dips'], added: ['rings'] });
   });
 });

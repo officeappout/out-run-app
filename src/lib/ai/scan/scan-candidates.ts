@@ -104,10 +104,24 @@ export function candidateLines(candidates: readonly ScanCandidate[]): string {
     .join('\n');
 }
 
-/** The catalog's spelling of a brand the model named (case / space-insensitive), or undefined. */
+/**
+ * Spellings of the same maker (owner 31.10: the catalog, the Drive folders and the model don't
+ * agree): Ludus / Ludos / Hebrew, Urbanix / Urbanics / Hebrew. Lower-case, no spaces.
+ */
+const BRAND_ALIASES: ReadonlyArray<readonly string[]> = [
+  ['ludus', 'ludos', '\u05dc\u05d5\u05d3\u05d5\u05e1'],
+  ['urbanix', 'urbanics', 'urbanex', '\u05d0\u05d5\u05e8\u05d1\u05e0\u05d9\u05e7\u05e1'],
+];
+
+/** One key per maker, so two spellings compare equal. */
+export function brandKey(name: string): string {
+  const n = name.toLowerCase().replace(/\s+/g, '');
+  return BRAND_ALIASES.find((group) => group.includes(n))?.[0] ?? n;
+}
+
+/** The catalog's spelling of a brand the model named (case / space / alias-insensitive), or undefined. */
 export function matchBrand(candidate: ScanCandidate | undefined, raw: unknown): string | undefined {
-  if (!candidate?.brands?.length || typeof raw !== 'string') return undefined;
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
-  const want = norm(raw);
-  return want ? candidate.brands.find((b) => norm(b.name) === want)?.name : undefined;
+  if (!candidate?.brands?.length || typeof raw !== 'string' || !raw.trim()) return undefined;
+  const want = brandKey(raw);
+  return candidate.brands.find((b) => brandKey(b.name) === want)?.name;
 }

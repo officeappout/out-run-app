@@ -2,7 +2,7 @@
  * Camera scan visual index (owner 31.10, brand-aware recognition): one short look line per
  * (equipment, brand), written from each gym_equipment brands[].imageUrl by the fast model, into
  * src/lib/ai/scan/equipment-visual-index.json (keyed `${equipmentId}::${brandName}`). The scan
- * prompt shows those lines next to each brand, so Ludus and Ornix versions read apart.
+ * prompt shows those lines next to each brand, so Ludus and Urbanix versions read apart.
  *
  * READ-ONLY on PRODUCTION Firestore (gym_equipment). Costs one Haiku call per (equipment, brand)
  * with a photo, roughly $0.0005 each. Writes only the local JSON, and only with --write.
