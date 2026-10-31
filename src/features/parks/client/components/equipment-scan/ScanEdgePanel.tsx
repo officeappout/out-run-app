@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * The scan's dead ends (ScanEdges board), each with a way on: too dark, people in the photo (it
- * was already dropped), nothing recognized, or the request failed (limit / network).
+ * The scan's dead ends (ScanEdges board), each with a way on: too dark, nothing recognized, or
+ * the request failed (limit / network). People in the photo are not a dead end (owner 31.10).
  */
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
@@ -15,16 +15,13 @@ export interface ScanEdgePanelProps {
   error?: ScanApiError;
   onRetake: () => void;
   onPick: () => void;
-  onCancel: () => void;
 }
 
-export default function ScanEdgePanel({ edge, error, onRetake, onPick, onCancel }: ScanEdgePanelProps) {
+export default function ScanEdgePanel({ edge, error, onRetake, onPick }: ScanEdgePanelProps) {
   const t = useT(map);
   const copy = edge === 'dark'
     ? { title: t('scan.edge.dark.title'), body: t('scan.edge.dark.body'), retake: t('scan.action.retake') }
-    : edge === 'people'
-      ? { title: t('scan.edge.people.title'), body: t('scan.edge.people.body'), retake: t('scan.action.retake') }
-      : edge === 'not_found'
+    : edge === 'not_found'
         ? { title: t('scan.edge.notFound.title'), body: t('scan.edge.notFound.body'), retake: t('scan.action.closer') }
         : error === 'rate_limited'
           ? { title: t('scan.error.limit.title'), body: t('scan.error.limit.body'), retake: null }
@@ -36,11 +33,7 @@ export default function ScanEdgePanel({ edge, error, onRetake, onPick, onCancel 
       {copy.retake && (
         <button type="button" onClick={onRetake} className={`${SCAN_PRIMARY_BUTTON} text-[15.5px]`}>{copy.retake}</button>
       )}
-      {edge === 'people' ? (
-        <button type="button" onClick={onCancel} className={`${SCAN_SECONDARY_BUTTON} text-[14.5px]`}>{t('scan.action.cancel')}</button>
-      ) : (
-        <button type="button" onClick={onPick} className={`${SCAN_SECONDARY_BUTTON} text-[14.5px]`}>{t('scan.action.pick')}</button>
-      )}
+      <button type="button" onClick={onPick} className={`${SCAN_SECONDARY_BUTTON} text-[14.5px]`}>{t('scan.action.pick')}</button>
     </div>
   );
 }
