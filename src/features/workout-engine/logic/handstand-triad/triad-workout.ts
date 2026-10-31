@@ -103,7 +103,9 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
         sets,
         reps: legacy ? Math.round((legacy.min + legacy.max) / 2) : d.reps,
         repsRange: legacy ? { min: legacy.min, max: legacy.max } : d.repsRange,
-        isTimeBased: d.isTimeBased,
+        // Legacy rows carry their own unit; the generic heuristic reads some rep
+        // exercises (straight-arm, "פלאנק" in the name) as holds.
+        isTimeBased: legacy ? LEGACY_HANDSTAND_VOLUME[ex.id].unit === 'seconds' : d.isTimeBased,
         restSeconds: d.restSeconds,
         priority: 'skill',
         // High score: the volume cap's Phase C trims the lowest score first,

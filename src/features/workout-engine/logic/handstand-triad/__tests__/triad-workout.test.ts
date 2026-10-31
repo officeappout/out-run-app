@@ -120,4 +120,12 @@ describe('legacy volume review fixes', () => {
     expect(strength.length).toBe(2); // strength (1) is the real weakest → 2 exercises
     expect(strength[0].reasoning[0]).toContain('vs 1/4/9 (select 4/4/9)');
   });
+  it('a legacy reps row stays reps even when the generic heuristic says hold', () => {
+    // wall walks (real id, legacy unit reps), straight-arm and "פלאנק" in the name
+    const wallWalk = { ...ex('ANvq7ORET7uhLRK4XP6X', 7, 2, 4, 'shoulders', 'reps'), mechanicalType: 'straight_arm', name: { he: 'פלאנק הליכות קיר' } } as unknown as Exercise;
+    const w = generated();
+    applyTriadSkeleton(w, opts({ strength: 8, balance: 8, mobility: 8 }, { pool: [...POOL.filter((e) => e.id !== 'wall_walk'), wallWalk] }));
+    const row = w.exercises.find((e) => e.exercise.id === 'ANvq7ORET7uhLRK4XP6X')!;
+    expect(row.isTimeBased).toBe(false);
+  });
 });
