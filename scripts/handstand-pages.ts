@@ -64,6 +64,7 @@ const PAGES: Page[] = [
   { num: 'cobra', he: 'קוברה תלויה', oldId: 273, videos: [{ driveId: '10jQXmigsIsXz8WvSy0aM4vBvFVzpbeAI' }], sbm: [4, 1, 10], type: 'time', muscle: 'shoulders' },
   { num: 'supinated-hang', he: 'תלייה פסיבית סופינציה', oldId: 269, videos: [{ driveId: '1G5IL1rHbTh3B3O8z_hjS8AHXoiPrQABT' }], sbm: [3, 1, 7], type: 'time', muscle: 'shoulders' },
   // Existing page (park method has no video): add the narrated video to its park method only.
+  { num: 'scap-pushup', he: 'שכיבות סמיכה לשכמות', oldId: 255, videos: [{ driveId: '1HbEPXw4TKAGZXu8Z3LatmzwfK2la1jLz' }], sbm: [3, 1, 2], type: 'reps', muscle: 'shoulders', existingId: 'EnS9ade12iVKtUEDuiGW' },
   { num: 'prayer', he: 'מתיחת מתפלל', oldId: 262, videos: [{ driveId: '145WJ5VCsJSUeIkbm-8Mc_9aZZ8jo7nV6' }], sbm: [1, 1, 2], type: 'time', muscle: 'shoulders', existingId: 'gWHaGzObmixb1vr66l5I' },
 ];
 
