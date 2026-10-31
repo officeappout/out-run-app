@@ -13,9 +13,9 @@ const messages = path.resolve(__dirname, '../../../messages');
 describe('en catalogs (pilot: common, pages; batch 3: player, summary; batch 4: home (all), profile; batch 5: map)', () => {
   const { issues, reports } = validateAll(messages);
 
-  it('has the expected key counts per catalog (pilot 370 + onboarding 1069 + player 929 + summary 178 + home rest 581 + profile 576 + map 919 + library 448 + coach 349 + wide 155)', () => {
+  it('has the expected key counts per catalog (pilot 370 + onboarding 1069 + player 929 + summary 178 + home rest 581 + profile 576 + map 919 + library 453 + coach 349 + wide 155)', () => {
     const by = Object.fromEntries(reports.map((r) => [r.ns, r.enKeys]));
-    expect(by).toEqual({ common: 221, pages: 17, home: 847, onboarding: 1141, player: 1190, summary: 181, profile: 597, social: 169, together: 132, community: 994, map: 1088, library: 489, coach: 349, wide: 155, push: 471, schedule: 258, legal: 359 });
+    expect(by).toEqual({ common: 221, pages: 17, home: 891, onboarding: 1141, player: 1190, summary: 181, profile: 597, social: 169, together: 132, community: 994, map: 1088, library: 494, coach: 349, wide: 155, push: 471, schedule: 258, legal: 359 });
   });
 
   it('passes every blocking check (V1-V10, V13-error, V14)', () => {

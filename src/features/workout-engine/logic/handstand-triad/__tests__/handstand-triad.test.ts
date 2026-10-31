@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Exercise, ExerciseRole } from '@/features/content/exercises/core/exercise.types';
 import {
+  addTriadTrackLevels,
   buildTriadPlan,
   checkTriadEligibility,
   fillTriadPlan,
@@ -78,8 +79,9 @@ describe('scores', () => {
 });
 
 describe('levels', () => {
-  it('reads the three child programs, falls back to the handstand level, then base', () => {
-    const m = new Map([['handstand', 6], ['handstand_mobility', 11]]);
+  it('reads the hidden track levels, falls back to the handstand level, then base', () => {
+    const m = new Map([['handstand', 6]]);
+    addTriadTrackLevels(m, { handstand: { triad: { mobility: 11 } } }, true);
     expect(resolveTriadLevels(m, 2)).toEqual({ strength: 6, balance: 6, mobility: 11 });
     expect(resolveTriadLevels(undefined, 3)).toEqual({ strength: 3, balance: 3, mobility: 3 });
     expect(resolveTriadLevels(new Map([['hspu', 9]]), 3, 'hspu')).toEqual({ strength: 9, balance: 9, mobility: 9 });
