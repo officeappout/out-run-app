@@ -73,6 +73,7 @@ import { useUserStore } from '@/features/user';
 import EquipmentDetailSheetV2 from './EquipmentDetailSheetV2';
 import { parseVideoEmbed } from './v2/video-embed';
 import EquipmentDetailBodyV2 from './v2/EquipmentDetailBodyV2';
+import type { ParkWorkoutAction } from './v2/EquipmentMyLevels';
 import { usePlaceWorkoutsFlag } from '../place-workouts/hooks/usePlaceWorkoutsFlag';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
@@ -158,6 +159,8 @@ export interface EquipmentDetailDrawerProps {
    * sees only the brand installed in their park, not all catalogue brands.
    */
   pinnedToPark?: boolean;
+  /** Camera scan boards (enable_equipment_scan_v1): "אימון בפארק הזה" when the park is known. */
+  parkWorkout?: ParkWorkoutAction;
 }
 
 // ── Component ─────────────────────────────────────────────────────
@@ -168,6 +171,7 @@ export default function EquipmentDetailDrawer({
   equipmentId,
   brandName,
   pinnedToPark = false,
+  parkWorkout,
 }: EquipmentDetailDrawerProps) {
   const t = useT(map);
   // Portal mount guard so the drawer never renders during SSR.
@@ -688,6 +692,7 @@ export default function EquipmentDetailDrawer({
         cuesSource={cuesSource}
         tips={tips}
         programs={programs}
+        parkWorkout={parkWorkout}
       />
     ) : body;
     return (

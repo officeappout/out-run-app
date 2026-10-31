@@ -21,7 +21,7 @@ import {
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import EquipmentHeroV2 from './EquipmentHeroV2';
-import EquipmentLevelsSection from './EquipmentLevelsSection';
+import EquipmentMyLevels, { type ParkWorkoutAction } from './EquipmentMyLevels';
 import { equipmentLevelSpan, equipmentProgramChips } from './equipment-facts';
 import { useEquipmentLevels } from './useEquipmentLevels';
 
@@ -38,6 +38,8 @@ export interface EquipmentDetailBodyV2Props {
   cuesSource: string;
   tips: readonly string[];
   programs: readonly { id: string; name?: unknown }[];
+  /** Camera scan boards: "אימון בפארק הזה" when the park is known. */
+  parkWorkout?: ParkWorkoutAction;
 }
 
 const PILL = 'flex h-[30px] flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-white px-3 text-[12.5px] font-bold text-v2-ink-2 shadow-v2-ring';
@@ -52,7 +54,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function EquipmentDetailBodyV2({
-  equipment, name, activeBrand, activeBrandIndex, onBrandChange, pinnedToPark, videoUrl, imageUrl, cues, cuesSource, tips, programs,
+  equipment, name, activeBrand, activeBrandIndex, onBrandChange, pinnedToPark, videoUrl, imageUrl, cues, cuesSource, tips, programs, parkWorkout,
 }: EquipmentDetailBodyV2Props) {
   const t = useT(map);
   const locale = (t as { locale?: string }).locale ?? 'he';
@@ -118,11 +120,7 @@ export default function EquipmentDetailBodyV2({
           </Section>
         )}
 
-        <EquipmentLevelsSection
-          title={t('equipment.v2.levels.title')}
-          items={levels}
-          levelLabel={(level) => t('equipment.v2.facts.levelValue', { level: String(level) })}
-        />
+        <EquipmentMyLevels equipmentName={name} movementPattern={equipment.movementPattern} levels={levels} parkWorkout={parkWorkout} />
 
         {(primary || secondary.length > 0) && (
           <Section title={t('equipment.v2.muscles')}>

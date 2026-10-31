@@ -17,16 +17,18 @@ import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equ
 
 type Source = { kind: 'icon' | 'photo'; src: string };
 
-export function equipmentPillSources(eq: Pick<GymEquipment, 'iconKey' | 'brands'>): Source[] {
+/** `preferPhoto`: the camera-scan screens show the real catalog photo first (owner 31.10: no line icons there). */
+export function equipmentPillSources(eq: Pick<GymEquipment, 'iconKey' | 'brands'>, preferPhoto = false): Source[] {
   const out: Source[] = [];
-  if (eq.iconKey) out.push({ kind: 'icon', src: `/assets/icons/equipment/${eq.iconKey}.svg` });
-  const photo = eq.brands?.find((b) => !!b.imageUrl)?.imageUrl;
-  if (photo) out.push({ kind: 'photo', src: bunnyImg(photo, 96) });
+  const icon: Source | null = eq.iconKey ? { kind: 'icon', src: `/assets/icons/equipment/${eq.iconKey}.svg` } : null;
+  const photoUrl = eq.brands?.find((b) => !!b.imageUrl)?.imageUrl;
+  const photo: Source | null = photoUrl ? { kind: 'photo', src: bunnyImg(photoUrl, 96) } : null;
+  for (const s of preferPhoto ? [photo, icon] : [icon, photo]) if (s) out.push(s);
   return out;
 }
 
-export function EquipmentPillIcon({ equipment, selected }: { equipment: GymEquipment; selected: boolean }) {
-  const sources = equipmentPillSources(equipment);
+export function EquipmentPillIcon({ equipment, selected, preferPhoto = false }: { equipment: GymEquipment; selected: boolean; preferPhoto?: boolean }) {
+  const sources = equipmentPillSources(equipment, preferPhoto);
   const [failed, setFailed] = useState(0);
   const current = sources[failed];
 
