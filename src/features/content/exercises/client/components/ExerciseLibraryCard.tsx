@@ -36,7 +36,7 @@ export default function ExerciseLibraryCard({
   const lang = useContentLanguage();
   const name = getLocalizedText(exercise.name, lang);
   const muscle = pickPrimaryMuscle(exercise);
-  const previewVideo = pickPreviewVideo(exercise, filterLocation);
+  const previewVideo = pickPreviewVideo(exercise, filterLocation, lang);
   const thumbnailUrl = pickThumbnailUrl(exercise, filterLocation);
 
   return (

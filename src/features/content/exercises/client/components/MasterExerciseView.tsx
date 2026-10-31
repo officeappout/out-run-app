@@ -34,6 +34,8 @@ import {
   getLocalizedText,
   resolvePreviewForLang,
   resolveTutorialForLang,
+  resolveVideoAcross,
+  videoLangOf,
 } from '../../core/exercise.types';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import ExerciseHeroV2 from './ExerciseHeroV2';
@@ -712,19 +714,21 @@ export default function MasterExerciseView({
     legacy: string | null;
     posterUrl: string | null;
   }
+  const heroLang = useContentLanguage();
   const heroAssets = useMemo<HeroAssets>(() => {
     const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];
     const m = selectedMethodIdx !== null ? methods[selectedMethodIdx] : null;
     if (!m) return { full: undefined, preview: undefined, legacy: null, posterUrl: null };
     // Method-LOCKED to the selected method's OWN media only (never root, never another method).
-    const full = resolveTutorialForLang(m.media as any, 'he') ?? undefined;
-    const preview = resolvePreviewForLang(m.media as any, 'he') ?? undefined;
+    // AH5: the English upload of this method when the content language is English, else Hebrew as before.
+    const full = resolveVideoAcross('fullTutorial', [m.media as any], videoLangOf(heroLang)) ?? undefined;
+    const preview = resolveVideoAcross('previewVideo', [m.media as any], videoLangOf(heroLang)) ?? undefined;
     // mainVideoUrl is the CDN string stored by the bulk-upload script.
     const legacy = m.media?.mainVideoUrl ?? null;
     // Poster: method-level image first, then exercise-level.
     const posterUrl = m.media?.imageUrl ?? exercise.media?.imageUrl ?? null;
     return { full, preview, legacy, posterUrl };
-  }, [exercise, selectedMethodIdx]);
+  }, [exercise, selectedMethodIdx, heroLang]);
 
   if (!sheetData) return null;
 

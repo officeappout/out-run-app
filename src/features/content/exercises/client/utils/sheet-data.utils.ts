@@ -16,7 +16,8 @@ import {
   findMethodForLocation,
   getLocalizedText,
   type AppLanguage,
-  resolveTutorialForLang,
+  resolveVideoAcross,
+  videoLangOf,
 } from '../../core/exercise.types';
 import { toCueList } from '../../utils/cue-text.utils';
 
@@ -123,9 +124,12 @@ export function buildSheetData(
   // C-Fix1: method-locked tutorial — the SELECTED method, then the exercise-root shared
   // clip. Intentionally NO cross-method scan (was `?? pickFullTutorial(exercise)`), which
   // pulled PARK's fullTutorial when a home/service method has only a previewVideo.
-  const tutorial: ExternalVideo | undefined =
-    resolveTutorialForLang(method?.media as any, 'he') ??
-    resolveTutorialForLang(exercise.media as any, 'he');
+  // AH5: an English upload (either slot) plays in English; otherwise the Hebrew chain as before.
+  const tutorial: ExternalVideo | undefined = resolveVideoAcross(
+    'fullTutorial',
+    [method?.media as any, exercise.media as any],
+    videoLangOf(lang),
+  );
 
   // Legacy mainVideoUrl: prefer the matched method, fall back to full scan.
   const legacy = method?.media?.mainVideoUrl ?? pickLegacyVideoUrl(exercise);
