@@ -80,6 +80,8 @@ import { useQuizV3Assessment } from '@/features/user/onboarding/components/stren
 import GroupTransition from '@/features/user/onboarding/components/strength-quiz-v3/GroupTransition';
 import QuizV3ResultStep from '@/features/user/onboarding/components/strength-quiz-v3/QuizV3ResultStep';
 import { withChosenSkills, type ChosenSkill } from '@/features/user/onboarding/components/strength-quiz-v3/skill-unlock';
+import { isTriadAssessmentCategory, splitTriadLevels } from '@/features/workout-engine/logic/handstand-triad/triad-assessment';
+import type { AnswerResult } from '@/types/onboarding-questionnaire';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -105,6 +107,8 @@ interface ResultData {
   average: number;
   /** Path 3: skill program ID → level for activePrograms */
   skillLevels?: Record<string, number>;
+  /** Handstand Triad axis levels (HANDSTAND_TRIAD_ENABLED). */
+  triad?: AnswerResult['triad'];
 }
 
 // ── Auth helper ────────────────────────────────────────────────────
@@ -136,7 +140,9 @@ function resolveUid(authUser: User | null): string | null {
 // select and reach a coverflow floor on has a real SKILL_TO_FOUNDATION_DOMAIN
 // entry; calisthenics_upper, the one roster id without one, has no ladder of
 // its own and can never be "on" a skill slider to escape from).
-function runSkillEscapeCleanup(escapedId: string): 'push' | 'pull' | null {
+function runSkillEscapeCleanup(rawEscapedId: string): 'push' | 'pull' | null {
+  // A Handstand Triad axis slider belongs to the 'handstand' skill.
+  const escapedId = isTriadAssessmentCategory(rawEscapedId) ? 'handstand' : rawEscapedId;
   const foundationDomain = SKILL_TO_FOUNDATION_DOMAIN[escapedId];
   if (!foundationDomain) return null;
 
@@ -604,8 +610,12 @@ export default function VisualAssessmentPage() {
   // ── Path 3: Build result from skill levels ────────────────────
 
   const buildSkillResult = async (
-    skillLevels: Record<string, number>,
+    answeredLevels: Record<string, number>,
   ) => {
+    // Handstand Triad: the three axis answers collapse into handstand = avg,
+    // and ride along as `triad` (no-op when there are no triad answers).
+    const { levels: skillLevels, triad } = splitTriadLevels(answeredLevels);
+    const firstCategory = isTriadAssessmentCategory(categories[0] ?? '') ? 'handstand' : categories[0];
     try {
       const programs = await getAllPrograms();
       // ── Path C: zero-baseline for unassessed foundational domains ──
@@ -665,8 +675,8 @@ export default function VisualAssessmentPage() {
         }
       }
 
-      const primaryProgramId = categories[0] ?? 'full_body';
-      const primaryLevel = skillLevels[categories[0]] ?? 1;
+      const primaryProgramId = firstCategory ?? 'full_body';
+      const primaryLevel = skillLevels[firstCategory] ?? 1;
       const avg = Math.round(
         Object.values(skillLevels).reduce((a, b) => a + b, 0) /
           Math.max(1, Object.keys(skillLevels).length),
@@ -685,12 +695,13 @@ export default function VisualAssessmentPage() {
         },
         average: avg,
         skillLevels,
+        ...(triad ? { triad } : {}),
       });
       setStep('resultLoading');
     } catch (err) {
       console.error('[Assessment] buildSkillResult error:', err);
-      const primaryProgramId = categories[0] ?? 'full_body';
-      const primaryLevel = skillLevels[categories[0]] ?? 1;
+      const primaryProgramId = firstCategory ?? 'full_body';
+      const primaryLevel = skillLevels[firstCategory] ?? 1;
       // Error path: same zero-baseline rule — no ghost L5 defaults.
       // The onboarding-sync SKILL_TO_FOUNDATION_OFFSET formula will derive
       // the correct push/pull level from the skill level on completion.
@@ -706,6 +717,7 @@ export default function VisualAssessmentPage() {
         levels: fallbackLevels,
         average: primaryLevel,
         skillLevels,
+        ...(triad ? { triad } : {}),
       });
       setStep('resultLoading');
     }
@@ -912,7 +924,7 @@ export default function VisualAssessmentPage() {
       try {
         const targetDomain = sessionStorage.getItem(MINI_ASSESSMENT_DOMAIN_KEY) ?? categories[0];
         const assessedLevel = (result.levels as Record<string, number>)[targetDomain] ?? result.average;
-        const ok = await writeSingleDomainAssessment(targetDomain, assessedLevel);
+        const ok = await writeSingleDomainAssessment(targetDomain, assessedLevel, result.triad);
         if (!ok) {
           console.warn('[Assessment] Mini-domain write returned false — data may be incomplete');
         }
@@ -1005,6 +1017,7 @@ export default function VisualAssessmentPage() {
               levelMode: 'manual' as LevelMode,
               levelId: `${skillId}_level_${level}`,
               masterProgramSubLevels: masterSubLevels,
+              ...(skillId === 'handstand' && result.triad ? { triad: result.triad } : {}),
             }))
           : [
               {
