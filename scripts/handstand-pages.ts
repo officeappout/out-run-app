@@ -125,7 +125,44 @@ function buildDoc(p: Page, media: Record<string, Record<string, unknown>>) {
   };
 }
 
+/**
+ * --en [--apply]: English text for created pages from handstand-research/pages-en.json
+ * (name, description, method names, cues by index). Dry-run unless --apply.
+ */
+async function english() {
+  type En = { name: string; goal: string; cues: string[]; methods?: Record<string, string> };
+  const en: Record<string, En> = JSON.parse(readFileSync(join(RESEARCH, 'pages-en.json'), 'utf8'));
+  const apply = process.argv.includes('--apply');
+  console.log(`English text: ${apply ? 'APPLY' : 'dry-run'}`);
+  for (const p of selected) {
+    const id = log[p.num]?.exerciseId;
+    const e = en[p.num];
+    if (!id || !e) { console.log(`#${p.num}: ${!id ? 'not created' : 'no English'}, skipped`); continue; }
+    const ref = db.collection('exercises').doc(id);
+    const d = (await ref.get()).data()!;
+    const methods = (d.execution_methods as any[]).map((m, i) => {
+      const label = p.videos[i]?.label;
+      const cues = (m.specificCues as { he: string; en: string }[]) ?? [];
+      if (cues.length !== e.cues.length) throw new Error(`#${p.num}: ${cues.length} he cues vs ${e.cues.length} en`);
+      return {
+        ...m,
+        methodName: { ...m.methodName, en: label ? `${e.name} (${e.methods?.[label] ?? label})` : e.name },
+        specificCues: cues.map((c, j) => ({ ...c, en: e.cues[j] })),
+      };
+    });
+    console.log(`#${p.num} ${p.he} → ${e.name} | cues ${e.cues.length}`);
+    if (!apply) continue;
+    await ref.update({
+      'name.en': e.name,
+      'content.description.en': e.goal,
+      execution_methods: methods,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+}
+
 async function main() {
+  if (process.argv.includes('--en')) return english();
   console.log(`mode: ${mode}${only ? ` only=${only.join(',')}` : ''} (${selected.length} pages)`);
   for (const p of selected) {
     const entry = (log[p.num] ??= {});
