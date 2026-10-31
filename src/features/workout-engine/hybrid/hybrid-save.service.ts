@@ -18,6 +18,7 @@
  */
 
 import type { WorkoutHistoryEntry } from '../core/services/storage.service';
+import type { Lap } from '../core/types/session.types';
 import type { HybridFinalizeResult } from './hybrid-orchestrator';
 
 export interface HybridSaveMeta {
@@ -30,6 +31,22 @@ export interface HybridSaveMeta {
   parkName?: string;
   /** Display-only XP (design §8 — coins/awardWorkoutXP deferred). */
   displayXp?: number;
+  /** The aerobic legs' laps (board PlayerSummaryCoverage): the same `laps` field run docs carry. */
+  laps?: readonly Lap[];
+}
+
+/** Finished laps as plain Firestore-safe records (no aliases, no undefined, never the live lap). */
+export function savedLaps(laps: readonly Lap[] | undefined): Lap[] {
+  return (laps ?? [])
+    .filter((l) => !l.isActive && Number.isFinite(l.distanceMeters) && l.distanceMeters > 0 && Number.isFinite(l.durationSeconds) && l.durationSeconds > 0)
+    .map((l) => ({
+      id: String(l.id),
+      lapNumber: l.lapNumber,
+      distanceMeters: Math.round(l.distanceMeters),
+      durationSeconds: Math.round(l.durationSeconds),
+      splitPace: Number.isFinite(l.splitPace) ? l.splitPace : 0,
+      isActive: false,
+    }));
 }
 
 export type HybridWorkoutDoc = Omit<
@@ -68,6 +85,8 @@ export function buildHybridWorkoutEntry(
   if (meta.routePath) entry.routePath = meta.routePath;
   if (meta.parkId) entry.parkId = meta.parkId;
   if (meta.parkName) entry.parkName = meta.parkName;
+  const laps = savedLaps(meta.laps);
+  if (laps.length > 0) entry.laps = laps;
   return entry;
 }
 
