@@ -37,6 +37,16 @@ import { useT, type ReactTFunction } from '@/hooks/useT';
 import { home, type HomeKey } from '@/messages/ns/home';
 import { isHiddenProgram } from '@/lib/hidden-programs';
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import { V2_PILL_ON, V2_PILL_OFF } from './combo-generator/builder-pill-styles';
+import { ComboGeneratorPanel, ComboCategoryRow } from './combo-generator/ComboGenerator';
+import { ComboAerobicForm, ComboHybridParts } from './combo-generator/ComboForms';
+import {
+  aerobicHrefOf, comboIntentOf, comboLaunchOf, comboLevelsOf, hybridFormDefaults, hybridIntentOfForm,
+  type ComboAerobicKind, type ComboCategory, type HybridFormState,
+} from './combo-generator/combo-generator-model';
+import { recommendCombos, type ComboContext, type ComboOption } from '@/features/workout-engine/logic/combo/combo-recommend';
+import { buildUserProgramLevels } from '@/features/workout-engine/services/level-resolution.utils';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
@@ -65,6 +75,8 @@ export interface WorkoutBuilderSheetProps {
   defaultDuration?: string;
   defaultLocation?: string;
   defaultIntensity?: string;
+  /** enable_combo_generator_v1: today's plan, drives the "recommended" category. */
+  comboToday?: ComboContext['today'];
   onClose: () => void;
 }
 
@@ -109,10 +121,8 @@ const BOLT_FILTER_EMPTY_ACTIVE   = 'brightness(0) invert(1) opacity(0.35)';
 
 // Shared pill styles (exact match to UserWorkoutAdjuster)
 const ACTIVE_PILL   = 'bg-[#00BAF7] border-[#00BAF7] text-on-brand shadow-md shadow-cyan-400/30';
-// Home v2 (enable_home_v2): the brand gradient only on a selected pill and the
-// CTA; cards/tiles select with a brand ring instead (design-language rule 9).
-const V2_PILL_ON = 'border-transparent bg-v2-cta text-v2-on-cta shadow-v2-cta';
-const V2_PILL_OFF = 'border-transparent bg-white/80 text-v2-ink-2 shadow-v2-ring';
+// Home v2 (enable_home_v2): pills come from builder-pill-styles; cards/tiles
+// select with a brand ring instead (design-language rule 9).
 const V2_CARD_ON = 'border-transparent bg-white shadow-v2-card ring-2 ring-v2-accent';
 const V2_CARD_OFF = 'border-transparent bg-white/70 shadow-v2-ring';
 const INACTIVE_PILL = 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300';
@@ -265,6 +275,7 @@ export default function WorkoutBuilderSheet({
   defaultDuration: defaultDurationParam,
   defaultLocation: defaultLocationParam,
   defaultIntensity: defaultIntensityParam,
+  comboToday,
   onClose,
 }: WorkoutBuilderSheetProps) {
   const { direction: uiDir } = useUiDir();
@@ -277,6 +288,12 @@ export default function WorkoutBuilderSheet({
   const router = useRouter();
 
   const isScheduleMode = mode === 'schedule' && !!scheduleDateParam;
+  // enable_combo_generator_v1 (generator board 1): a category row on top; strength = this form, the
+  // other categories = the engine's recommended cards. Off = today's sheet, untouched.
+  const comboGenOn = v2 && builderFlags.enableComboGeneratorV1 && !isScheduleMode;
+  const [comboCategory, setComboCategory] = useState<ComboCategory>('recommended');
+  const showBuilderForm = !comboGenOn || comboCategory === 'strength';
+  const comboView = showBuilderForm ? 'form' : comboCategory === 'recommended' ? 'cards' : comboCategory;
 
   // Initialised once from props — stable refs so useState picks them up
   const initLocation = useRef<LocationId>(
@@ -674,7 +691,7 @@ export default function WorkoutBuilderSheet({
   }, [equipmentOverride, profile, gearDefs, location]);
 
   // ── Generate (normal mode) ─────────────────────────────────────────────
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = useCallback(async (override?: { minutes: number; intentMode?: 'blast' }) => {
     if (!profile) return;
     setIsLoading(true);
     setError(null);
@@ -682,7 +699,8 @@ export default function WorkoutBuilderSheet({
       const store = useWeeklyVolumeStore.getState();
       const remaining = (store as any).getRemainingBudget?.() ?? undefined;
       const usagePct  = (store as any).getBudgetUsagePercent?.() ?? undefined;
-      const autoBlast = difficulty === 3 && availableTime <= 20;
+      const minutes   = override?.minutes ?? availableTime;
+      const autoBlast = override ? override.intentMode === 'blast' : difficulty === 3 && availableTime <= 20;
 
       // Explicit location choice: keep it (allowHomeOverride:false), but resolve
       // the nearest EQUIPPED park's real gear via GPS (Phase 3a/3b) instead of the
@@ -709,7 +727,7 @@ export default function WorkoutBuilderSheet({
       const result = await generateHomeWorkout({
         userProfile:              profile,
         testLocation:             location as ExecutionLocation,
-        availableTime,
+        availableTime:            minutes,
         difficulty,
         targetDifficulty:         difficulty,
         intentMode:               autoBlast ? 'blast' : undefined,
@@ -740,6 +758,41 @@ export default function WorkoutBuilderSheet({
       setIsLoading(false);
     }
   }, [profile, location, availableTime, difficulty, resolvedScheduledProgramIds, autoAppliedProgram, derivedRequiredDomains, equipmentOverride, displayPrograms]);
+
+  // ── Combo generator: a picked card opens the matching existing screen ──
+  const handleComboPick = useCallback((o: ComboOption) => {
+    const launch = comboLaunchOf(o.request, difficulty);
+    if (launch.kind === 'strength') {
+      void handleGenerate({ minutes: launch.minutes, intentMode: launch.intentMode });
+      return;
+    }
+    if (launch.kind === 'hybrid') useMapStore.getState().setPendingHybridIntent(launch.intent);
+    onClose();
+    router.push(launch.kind === 'aerobic' ? launch.href : '/map');
+  }, [difficulty, handleGenerate, onClose, router]);
+
+  // Aerobic / hybrid tabs (generator boards 1 aerobic, 2): presets from the engine.
+  const [aerobicKind, setAerobicKind] = useState<ComboAerobicKind>('running');
+  const [hybridForm, setHybridForm] = useState<HybridFormState | null>(null);
+  const [hybridTouched, setHybridTouched] = useState({ aerobic: false, strength: false });
+  const handleComboCategory = useCallback((c: ComboCategory) => {
+    setComboCategory(c);
+    if (c === 'hybrid' && !hybridForm) {
+      const intent = comboIntentOf({ category: 'hybrid', minutes: availableTime, stars: difficulty, location });
+      const top = recommendCombos(intent, { levels: profile ? comboLevelsOf(buildUserProgramLevels(profile, new Set(), '[ComboGenerator]').levels, resolveToSlug) : {} })[0];
+      setHybridForm(hybridFormDefaults(top, intent.stars));
+    }
+  }, [hybridForm, availableTime, difficulty, location, profile]);
+  const handleComboCta = useCallback(() => {
+    if (comboView === 'aerobic') {
+      onClose();
+      router.push(aerobicHrefOf(aerobicKind));
+    } else if (comboView === 'hybrid' && hybridForm) {
+      useMapStore.getState().setPendingHybridIntent(hybridIntentOfForm(hybridForm));
+      onClose();
+      router.push('/map');
+    }
+  }, [comboView, aerobicKind, hybridForm, onClose, router]);
 
   // ── Schedule save (schedule mode) ─────────────────────────────────────
   const [isSaving, setIsSaving] = useState(false);
@@ -834,6 +887,31 @@ export default function WorkoutBuilderSheet({
 
       {/* ── Scrollable form ── */}
       <div className={v2 ? 'relative flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-6 pt-4' : 'flex-1 overflow-y-auto px-4 py-6 space-y-7'}>
+
+        {comboGenOn && <ComboCategoryRow value={comboCategory} onChange={handleComboCategory} />}
+        {comboView === 'aerobic' && <ComboAerobicForm kind={aerobicKind} onKind={setAerobicKind} />}
+        {comboView === 'hybrid' && hybridForm && (
+          <ComboHybridParts
+            form={hybridForm}
+            touched={hybridTouched}
+            onChange={(patch, part) => {
+              setHybridForm((f) => (f ? { ...f, ...patch } : f));
+              setHybridTouched((x) => ({ ...x, [part]: true }));
+            }}
+          />
+        )}
+        {comboView === 'cards' && (
+          <ComboGeneratorPanel
+            category={comboCategory}
+            minutes={availableTime}
+            stars={difficulty}
+            location={location}
+            today={comboToday}
+            busy={isLoading}
+            onPick={handleComboPick}
+          />
+        )}
+        {comboView === 'form' && (<>
 
         {/* ── Gear nudge banner ─────────────────────────────────────────────
             Shown only when the user has no equipment configured in their
@@ -932,7 +1010,11 @@ export default function WorkoutBuilderSheet({
           </>
         )}
 
+        </>)}
+
         {/* 1. מיקום וציוד — merged section */}
+        {/* Also the hybrid tab's one place for the whole workout. */}
+        {(comboView === 'form' || comboView === 'hybrid') && (
         <Section v2={v2} title={t('builder.location.section')}>
           {/* Location grid — 2 options since חדר כושר was removed */}
           <div className={`grid grid-cols-2 mb-3 ${v2 ? 'gap-2.5' : 'gap-2'}`}>
@@ -1030,7 +1112,9 @@ export default function WorkoutBuilderSheet({
             </button>
           </div>
         </Section>
+        )}
 
+        {comboView === 'form' && (<>
         {/* 2. זמן (hidden in schedule mode) */}
         {!isScheduleMode && (
           <Section v2={v2} title={t('builder.duration.section')}>
@@ -1377,6 +1461,7 @@ export default function WorkoutBuilderSheet({
           )}
         </Section>
 
+        </>)}
       </div>
 
       {/* ── Error ── */}
@@ -1386,7 +1471,20 @@ export default function WorkoutBuilderSheet({
         </div>
       )}
 
+      {/* ── Combo generator CTA (aerobic / hybrid tabs) ── */}
+      {(comboView === 'aerobic' || comboView === 'hybrid') && (
+        <div className="v2-glass-bar relative z-[2] px-4 pt-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
+          <Button variant="primary" size="lg" block onClick={handleComboCta} disabled={comboView === 'hybrid' && !hybridForm} className="!h-12 !text-[16px]">
+            <Sparkles size={18} strokeWidth={2.6} aria-hidden />
+            {comboView === 'aerobic'
+              ? t(`comboGen.aerobic.cta.${aerobicKind}` as HomeKey)
+              : t('comboGen.hybrid.cta', { minutes: String((hybridForm?.aerobicMin ?? 0) + (hybridForm?.strengthMin ?? 0)) })}
+          </Button>
+        </div>
+      )}
+
       {/* ── CTA ── */}
+      {showBuilderForm && (
       <div
         className={v2 ? 'v2-glass-bar relative z-[2] px-4 pt-3' : 'px-4 pt-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800'}
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
@@ -1396,7 +1494,7 @@ export default function WorkoutBuilderSheet({
             variant="primary"
             size="lg"
             block
-            onClick={isScheduleMode ? handleScheduleSave : handleGenerate}
+            onClick={isScheduleMode ? handleScheduleSave : () => void handleGenerate()}
             disabled={(isScheduleMode ? isSaving : isLoading) || !profile}
             className="!h-12 !text-[16px]"
           >
@@ -1427,7 +1525,7 @@ export default function WorkoutBuilderSheet({
           </button>
         ) : (
           <button
-            onClick={handleGenerate}
+            onClick={() => void handleGenerate()}
             disabled={isLoading || !profile}
             className="w-full h-14 rounded-2xl font-bold text-base text-black flex items-center justify-center gap-2 shadow-lg shadow-cyan-400/20 disabled:opacity-50 transition-all active:scale-[0.98]"
             style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
@@ -1441,6 +1539,7 @@ export default function WorkoutBuilderSheet({
           </button>
         )}
       </div>
+      )}
 
       {/* ── Unlock modal (unenrolled program discovery) ── */}
       {showUnlockModal && (

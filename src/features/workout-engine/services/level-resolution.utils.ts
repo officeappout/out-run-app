@@ -14,6 +14,8 @@
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { resolveToSlug } from './program-hierarchy.utils';
 import { resolveExerciseDomain } from '../logic/workout-selection.utils';
+import { HANDSTAND_TRIAD_ENABLED } from '@/config/feature-flags';
+import { addTriadTrackLevels } from '../logic/handstand-triad/triad-track';
 
 // ============================================================================
 // CONSTANTS
@@ -131,6 +133,10 @@ export function buildUserProgramLevels(
       console.log(`${logPrefix} Domain '${domainId}' resolved to L${effectiveLevel} (Source: ${source})`);
     }
   }
+
+  // Handstand Triad: hidden strength/balance/mobility sub-levels on the
+  // handstand track, attached to the map (not added as keys), flag only.
+  addTriadTrackLevels(levels, userTracks as Record<string, unknown>, HANDSTAND_TRIAD_ENABLED);
 
   for (const ap of profile.progression?.activePrograms ?? []) {
     if (!ap.templateId || masterProgramIds.has(ap.templateId) || levels.has(ap.templateId)) continue;

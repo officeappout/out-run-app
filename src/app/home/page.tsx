@@ -82,6 +82,7 @@ import { todayWorkoutDoneUnderGate } from '@/features/activity/lib/today-done-ga
 import { useWeeklyRunCount } from '@/features/activity';
 import { resolveNewUserHome } from '@/features/home/utils/new-user-home';
 import { dayTimingOf, type PlanKind } from '@/features/home/utils/day-plan';
+import { comboTodayOf } from '@/features/home/components/combo-generator/combo-generator-model';
 import { doneKindsOf, dropStepsDuplicate, nextHeaderHe, nextRunCardDue, orderByNext, placeNextRunCard, suggestionKindOf } from '@/features/home/utils/next-recommendation';
 import { useWalkTopUp } from '@/features/home/hooks/useWalkTopUp';
 import { readStoredWalkingGoal } from '@/features/schedule/walking/walkingGoal';
@@ -4577,6 +4578,7 @@ export default function HomePage() {
       {builderOpen && (
         <WorkoutBuilderSheet
           {...builderProps}
+          comboToday={comboTodayOf(plannedTodayKinds)}
           onClose={() => setBuilderOpen(false)}
         />
       )}
