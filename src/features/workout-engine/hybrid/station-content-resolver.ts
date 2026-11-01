@@ -27,7 +27,9 @@
  * own follow-up — not a bug in this resolver.
  */
 
-import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import type { GymEquipment, EquipmentBrand } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import { brandVideoUrlForLang } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import type { Exercise, ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
 import type { WorkoutExercise } from '../logic/workout-generator.types';
 import type { StrengthBlockResult } from '../core/pipeline/strength-block.service';
@@ -39,7 +41,7 @@ export type StationContentMode = 'hydraulic-content-if-available';
 const SECONDS_PER_REP = 3; // mirrors workout-timing's engine constant
 
 /** Richest brand entry for a machine — prefers one with BOTH video and image. */
-function bestBrand(eq: GymEquipment): { videoUrl?: string; imageUrl?: string } | undefined {
+function bestBrand(eq: GymEquipment): EquipmentBrand | undefined {
   const brands = eq.brands ?? [];
   if (brands.length === 0) return undefined;
   return (
@@ -76,7 +78,8 @@ function buildHydraulicExercise(eq: GymEquipment): WorkoutExercise | null {
   const brand = bestBrand(eq);
   // §4: normalize a Bunny iframe-embed url to a real playable stream url; falls back
   // to the raw brand url unchanged for every other format (YouTube, direct mp4, etc).
-  const videoUrl = resolveBunnyStreamUrl(brand?.videoUrl) ?? brand?.videoUrl;
+  const rawVideoUrl = brandVideoUrlForLang(brand, getVideoLanguage());
+  const videoUrl = resolveBunnyStreamUrl(rawVideoUrl) ?? rawVideoUrl;
   const description = eq.description ?? undefined;
   if (!videoUrl && !description) return null; // no real content → caller falls back
 

@@ -11,6 +11,21 @@
  * workout-engine composer can import it.
  */
 import type { EquipmentBrand } from './gym-equipment.types';
+import type { VideoLanguage } from '../../../shared/video-locale';
+
+/**
+ * A single brand's video in the given language: `videoUrlEn` when the video
+ * language is 'en' and it is non-empty, else `videoUrl`. With 'he' (the
+ * default) this is exactly `brand.videoUrl`, so Hebrew is unchanged.
+ */
+export function brandVideoUrlForLang(
+  brand: Pick<EquipmentBrand, 'videoUrl' | 'videoUrlEn'> | null | undefined,
+  lang: VideoLanguage = 'he',
+): string | undefined {
+  if (!brand) return undefined;
+  if (lang === 'en' && brand.videoUrlEn?.trim()) return brand.videoUrlEn.trim();
+  return brand.videoUrl;
+}
 
 /**
  * Index of the brand matching `brandName` (case/whitespace-insensitive), or
@@ -43,14 +58,18 @@ export function selectBrandByName(
  * (mixed-brand-park fallback) any OTHER brand's video on the same equipment
  * doc — so the user sees the machine's demo regardless of which brand was
  * actually tagged, matching the detail page's existing behavior. `undefined`
- * only when no brand on the doc has a video at all.
+ * only when no brand on the doc has a video at all. `lang` (getVideoLanguage /
+ * useVideoLanguage) picks `videoUrlEn` per brand; 'he' (default) = as before.
  */
 export function resolveBrandVideoUrl(
   brands: EquipmentBrand[],
   brand: EquipmentBrand | null,
+  lang: VideoLanguage = 'he',
 ): string | undefined {
-  if (brand?.videoUrl) return brand.videoUrl;
-  return brands.find((b) => b !== brand && !!b.videoUrl)?.videoUrl ?? undefined;
+  const own = brandVideoUrlForLang(brand, lang);
+  if (own) return own;
+  const other = brands.find((b) => b !== brand && !!brandVideoUrlForLang(b, lang));
+  return brandVideoUrlForLang(other, lang) || undefined;
 }
 
 /**

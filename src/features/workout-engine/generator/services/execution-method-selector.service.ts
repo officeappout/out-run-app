@@ -8,6 +8,8 @@ import { Park } from '@/features/parks';
 import { UserFullProfile } from '@/types/user-profile';
 import { getAllGymEquipment } from '@/features/content/equipment/gym';
 import { GymEquipment } from '@/features/content/equipment/gym';
+import { brandVideoUrlForLang } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { normalizeGearId, isEquipmentFamilyMatch } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 let gymEquipmentCache: GymEquipment[] | null = null;
@@ -133,10 +135,11 @@ export async function selectExecutionMethodWithBrand(
               const brandMatch = equipmentDef.brands.find(
                 (brand) => brand.brandName === exactMatch.brandName
               );
-              if (brandMatch?.videoUrl) {
+              const brandVideoUrl = brandVideoUrlForLang(brandMatch, getVideoLanguage());
+              if (brandVideoUrl) {
                 enrichedMethod = {
                   ...method,
-                  media: { ...method.media, mainVideoUrl: brandMatch.videoUrl },
+                  media: { ...method.media, mainVideoUrl: brandVideoUrl },
                 };
               }
             }
@@ -161,10 +164,11 @@ export async function selectExecutionMethodWithBrand(
               const brandMatch = equipmentDef.brands.find(
                 (brand) => brand.brandName === familyMatch.brandName
               );
-              if (brandMatch?.videoUrl) {
+              const brandVideoUrl = brandVideoUrlForLang(brandMatch, getVideoLanguage());
+              if (brandVideoUrl) {
                 enrichedMethod = {
                   ...method,
-                  media: { ...method.media, mainVideoUrl: brandMatch.videoUrl },
+                  media: { ...method.media, mainVideoUrl: brandVideoUrl },
                 };
               }
             }
