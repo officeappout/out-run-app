@@ -154,5 +154,6 @@
   "chrome.arrive.title": "הגעת ליעד",
   "chrome.arrive.sub": "{place} · {km} ק״מ ב־{time}",
   "chrome.arrive.startHere": "להתחיל אימון כאן",
-  "chrome.arrive.finish": "לסיים ולשמור"
+  "chrome.arrive.finish": "לסיים ולשמור",
+  "chrome.page.nextStation": "התחנה הבאה"
 }

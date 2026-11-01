@@ -154,5 +154,6 @@
   "chrome.arrive.title": "You’ve arrived",
   "chrome.arrive.sub": "{place} · {km} km in {time}",
   "chrome.arrive.startHere": "Start a workout here",
-  "chrome.arrive.finish": "Finish and save"
+  "chrome.arrive.finish": "Finish and save",
+  "chrome.page.nextStation": "Next station"
 }

@@ -32,6 +32,10 @@ import { isWalkingLeg } from '../park-live-v2';
 import ParkWalkDrawer from './park/ParkWalkDrawer';
 import ParkMessageRow from './park/ParkMessageRow';
 import ComboStartChip from './combo/ComboStartChip';
+import ParkWalkSheet from './park/ParkWalkSheet';
+import { RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer } from '../../players/shared/v2/run-chrome';
+import { useUnifiedPlayerV1 } from '../../players/shared/v2/useUnifiedPlayerV1';
+import { useUnifiedGps } from '../../players/running/hooks/useUnifiedGps';
 import { useComboFlow } from './combo/ComboFlowContext';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
@@ -55,6 +59,10 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   const parkLive = useParkLiveV2();
   // enable_combo_flow_v1: the start chip under the header (board PlayerTransitionStart).
   const combo = useComboFlow();
+  // enable_unified_player_v1: the run players' frame (top fade with name / bars / data, attached
+  // drawer with pages, the new buttons). Pull the header down for the session list (no cart icon).
+  const unified = useUnifiedPlayerV1();
+  const gps = useUnifiedGps(unified);
   if (!api?.enabled || !api.view || !api.strip) return null;
 
   const view = api.view;
@@ -64,14 +72,39 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   const parkWalk = parkLive && walkLeg && isWalkingLeg(view);
   // enable_combo_flow_v1: the arrival card is the attached bottom sheet too.
   const arrival = combo.on && view.phase === 'transition';
+  const unifiedWalk = unified && walkLeg && isWalkingLeg(view);
 
   // The tour anchors wrap the cart and the bars only under the flag, so the flag-off DOM is unchanged.
   const cartIcon = (
     <CartProgressIcon items={cart} onClick={onMinimize} size={48} ariaLabel={t('hybrid.v2.overlay.cartAria', { count: String(api.strip.doneCount) })} />
   );
   const storyBars = <StoryBars segments={toStorySegments(api.strip)} currentIndex={api.strip.currentIndex} progress={api.strip.progress} />;
+  const startDrag = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    dragControls.start(e);
+  };
   return (
     <>
+      {unified ? (
+        <RunHeaderChrome
+          outerRef={chrome.headerRef}
+          innerRef={header.ref}
+          onPointerDown={startDrag}
+          layers={[
+            <UnifiedHeaderLayer
+              key="blocks"
+              title={h.eyebrow}
+              bars={<div data-coach="park-live-bars">{storyBars}</div>}
+              label={h.title}
+              hint={parkLive ? <ParkMessageRow api={api} /> : undefined}
+            />,
+          ]}
+          index={0}
+          onIndexChange={() => {}}
+          strip={[]}
+          trailing={<UnifiedGpsMark state={gps} />}
+        />
+      ) : (
       <div ref={chrome.headerRef} className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div ref={header.ref} className="px-3 pt-2">
           <PlayerHeaderCard
@@ -93,14 +126,21 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
           {parkLive && <ParkMessageRow api={api} />}
         </div>
       </div>
+      )}
 
       {combo.on && <ComboStartChip top={`calc(env(safe-area-inset-top, 0px) + ${header.height + 12}px)`} />}
 
+      {!unified && (
       <div className="pointer-events-none absolute left-4 z-10" style={{ top: `calc(env(safe-area-inset-top, 0px) + ${header.height + 16}px)` }}>
         <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
       </div>
+      )}
 
-      {parkWalk || arrival ? (
+      {unifiedWalk && !arrival ? (
+        <div className="pointer-events-none absolute inset-0 z-10" dir={direction}>
+          <ParkWalkSheet api={api} onOpenList={onMinimize} cardRef={chrome.cardRef} />
+        </div>
+      ) : parkWalk || arrival ? (
         <div ref={chrome.cardRef} className="absolute inset-x-0 bottom-0 z-10" dir={direction}>
           {arrival ? <HybridTransitionCardV2 api={api} arrival /> : <ParkWalkDrawer api={api} onOpenList={onMinimize} />}
         </div>

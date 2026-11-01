@@ -55,6 +55,7 @@ import ParkStationIntro from './v2/park/ParkStationIntro';
 import BodyweightStationIntro from './v2/park/BodyweightStationIntro';
 import { bodyweightIntroView } from './v2/park/bodyweight-intro';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { useUnifiedPlayerV1 } from '../players/shared/v2/useUnifiedPlayerV1';
 import { useComboFlowV1 } from './v2/combo/useComboFlowV1';
 import { stationIntroDifficulty, stationIntroView, stationRunPlan, type StationDifficulty } from './park-live-v2';
 import { firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
@@ -138,19 +139,24 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
   // station difficulty (default easy, kept for the session's later stations) applied to the plan the
   // player runs. Flag off → the composed plan, unchanged.
   const parkLive = useParkLiveV2();
+  // enable_unified_player_v1: the blue station intro (ParkStationIntro / BodyweightStationIntro, with its
+  // difficulty) is the one station opening, mid-route and at the park alike. Only the intro + plan follow
+  // it; what StrengthRunner gets (parkLive below) stays on its own flag.
+  const unifiedPlayer = useUnifiedPlayerV1();
+  const parkIntroFlow = parkLive || unifiedPlayer;
   // enable_combo_flow_v1 (v2 player only): the station-done screen is a bottom sheet over the map.
   const comboSheet = useComboFlowV1() && !!v2;
   // null until the user picks a level on the station intro; until then the composed level runs.
   const [stationDifficulty, setStationDifficulty] = useState<StationDifficulty | null>(null);
   const runPlan = useMemo(
-    () => (parkLive ? stationRunPlan(stationPlan, stationDifficulty) : stationPlan),
-    [parkLive, stationPlan, stationDifficulty],
+    () => (parkIntroFlow ? stationRunPlan(stationPlan, stationDifficulty) : stationPlan),
+    [parkIntroFlow, stationPlan, stationDifficulty],
   );
-  const parkIntro = useMemo(() => (parkLive ? stationIntroView(stationPlan) : null), [parkLive, stationPlan]);
+  const parkIntro = useMemo(() => (parkIntroFlow ? stationIntroView(stationPlan) : null), [parkIntroFlow, stationPlan]);
   // Board PlayerStationIntro "park" / "street": a station with no machine tabata gets the v2 intro too.
   const bodyweightIntro = useMemo(
-    () => (parkLive && !parkIntro ? bodyweightIntroView(stationPlan, stationContext?.parkId ?? null) : null),
-    [parkLive, parkIntro, stationPlan, stationContext?.parkId],
+    () => (parkIntroFlow && !parkIntro ? bodyweightIntroView(stationPlan, stationContext?.parkId ?? null) : null),
+    [parkIntroFlow, parkIntro, stationPlan, stationContext?.parkId],
   );
 
   const handleStationWorkDone = (exerciseLog: ReturnType<typeof toSegmentExerciseDetail>) => {
