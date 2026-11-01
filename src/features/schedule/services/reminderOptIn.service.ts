@@ -26,6 +26,7 @@ import type { PushPermissionState } from '../utils/reminderOptIn';
 import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs';
 import {
   PUSH_SOFTASK_DEFERRED_KEY,
+  PUSH_OS_PROMPT_AT_KEY,
   parsePrefTimestamp,
   pushReAskShownKey,
   PUSH_REASK_HOME_COUNT_KEY,
@@ -60,6 +61,7 @@ export async function requestReminderPermission(uid: string): Promise<boolean> {
     if (isIOSDevice() && !isStandalonePWA()) return false;
     const permission: NotificationPermission =
       'Notification' in window ? await Notification.requestPermission() : 'denied';
+    setOnboardingPref(PUSH_OS_PROMPT_AT_KEY, String(Date.now()));
     if (permission === 'granted') await requestWebPush(uid, permission);
     return permission === 'granted';
   } catch (err) {
@@ -103,6 +105,17 @@ export function recordReminderDeferral(now: number = Date.now()): void {
 
 export async function readReAskShownAt(moment: PushReAskMoment): Promise<number | null> {
   return parsePrefTimestamp(await getOnboardingPrefAsync(pushReAskShownKey(moment)));
+}
+
+/** The latest push ask on this device outside the home card (signup soft-ask, deferral, OS dialog). */
+export async function readLastOtherPushAskAt(): Promise<number | null> {
+  const raw = await Promise.all([
+    getOnboardingPrefAsync(pushReAskShownKey('signup_start')),
+    getOnboardingPrefAsync(PUSH_SOFTASK_DEFERRED_KEY),
+    getOnboardingPrefAsync(PUSH_OS_PROMPT_AT_KEY),
+  ]);
+  const times = raw.map(parsePrefTimestamp).filter((t): t is number => t != null);
+  return times.length > 0 ? Math.max(...times) : null;
 }
 
 /** How many times the home re-ask was shown on this device. */

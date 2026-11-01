@@ -152,6 +152,7 @@ interface FlagState {
   enable_workout_tutorial_v1: boolean;
   enable_equipment_scan_v1: boolean;
   enable_workout_praise_push: boolean;
+  enable_strength_quiz_reminder_push: boolean;
   enable_pilot_decisions_v1: boolean;
   enable_schedule_pilot_v1: boolean;
   enable_pilot_ah_v1: boolean;
@@ -1289,6 +1290,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'פוש "כל הכבוד" בערב של יום אימון',
     description: 'ב-20:00 של יום שבו המשתמש סיים אימון: פוש "כל הכבוד" שפותח את מסך ההתקדמות. לא נשלח למי שכבר פתח את מסך ההתקדמות אחרי האימון, ולא כשקלי כבר שלח הודעה יזומה היום. הנוסח מספריית הפושים (workout_praise). צריך גם deploy של הפונקציה workoutPraiseScheduler. כבוי = אין פוש.',
+  },
+  // Strength questionnaire reminder push (01.11.2026, pilot AJ16).
+  {
+    key: 'enable_strength_quiz_reminder_push',
+    icon: Flame,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'פוש "השלימו את שאלון הכוח"',
+    description: 'למי שנרשם ועוד לא מילא את שאלון הכוח: פוש כ-24 שעות אחרי ההרשמה ופעם נוספת ביום השלישי, ואז מפסיק. פותח את השאלון. לא למי שבמסלול ריצה או הליכה, ולא בשעות השקט ובשבת. הנוסח מספריית הפושים (strength_quiz_reminder). צריך גם deploy של הפונקציה strengthQuizReminderScheduler. כבוי = אין פוש.',
   },
   // Camera scan (31.10.2026, owner-approved boards).
   {

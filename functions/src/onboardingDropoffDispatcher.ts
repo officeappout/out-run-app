@@ -524,7 +524,7 @@ export const onboardingDropoffDispatcher = onSchedule(
           },
           apns: {
             payload: {
-              aps: { sound: 'default', badge: 1 },
+              aps: { sound: 'default', badge: 0 }, // AJ15: no fixed badge
             },
           },
           android: {

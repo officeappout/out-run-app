@@ -22,7 +22,7 @@ export type PushTrack = 'strength' | 'run' | 'walk';
 type Levels = Record<string, { currentLevel?: number; level?: number } | null | undefined> | null | undefined;
 
 /** Same rule as src/lib/track-ownership.ts hasStrengthTrack (assessed non-running domain). */
-function hasStrength(progression: { domains?: Levels; tracks?: Levels } | undefined): boolean {
+export function hasStrength(progression: { domains?: Levels; tracks?: Levels } | undefined): boolean {
   const NON_STRENGTH = new Set(['running', 'flexibility']);
   const any = (obj: Levels) =>
     !!obj && Object.entries(obj).some(([k, v]) => !NON_STRENGTH.has(k) && ((v?.currentLevel ?? v?.level ?? 0) > 0));

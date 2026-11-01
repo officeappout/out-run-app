@@ -25,6 +25,7 @@ import {
   enableRemindersFromReAsk,
   markHomeReAskShown,
   readHomeReAskCount,
+  readLastOtherPushAskAt,
   readReAskShownAt,
 } from '../../services/reminderOptIn.service';
 import { homeReAskAction, type HomeReAskAction } from '../../utils/pushReAsk';
@@ -49,7 +50,7 @@ export default function PushReAskHomeCard({ className = '' }: { className?: stri
   useEffect(() => {
     if (permission == null || action !== 'pending') return;
     let alive = true;
-    void Promise.all([readReAskShownAt('home'), readHomeReAskCount()]).then(([shownAt, shownCount]) => {
+    void Promise.all([readReAskShownAt('home'), readHomeReAskCount(), readLastOtherPushAskAt()]).then(([shownAt, shownCount, lastOtherAskAt]) => {
       if (!alive) return;
       const isNative = isNativePlatform();
       const next = auth.currentUser?.uid
@@ -60,6 +61,7 @@ export default function PushReAskHomeCard({ className = '' }: { className?: stri
             now: Date.now(),
             isNative,
             iosWebBlocked: !isNative && isIOSDevice() && !isStandalonePWA(),
+            lastOtherAskAt,
           })
         : null;
       if (next && !stamped.current) {

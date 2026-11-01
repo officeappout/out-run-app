@@ -146,3 +146,4 @@ export { demoSimulatorTick } from './demoSimulatorTick';
 // off. New function: needs its own deploy.
 export { streakRescueScheduler } from './streakRescueScheduler';
 export { workoutPraiseScheduler } from './workoutPraiseScheduler';
+export { strengthQuizReminderScheduler } from './strengthQuizReminderScheduler';

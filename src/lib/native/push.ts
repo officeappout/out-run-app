@@ -480,6 +480,10 @@ export async function initPushNotifications(
         'requestPermissions',
       );
       granted = requested.receive === 'granted';
+      // AJ12: the home re-ask card waits its cooldown after this dialog.
+      void Promise.all([import('@/lib/onboardingPrefs'), import('@/features/schedule/utils/pushReAsk')])
+        .then(([prefs, reAsk]) => prefs.setOnboardingPref(reAsk.PUSH_OS_PROMPT_AT_KEY, String(Date.now())))
+        .catch(() => {});
     }
 
     if (!granted) {

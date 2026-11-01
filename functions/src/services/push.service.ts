@@ -694,7 +694,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
       ...(extraData ?? {}),
     },
     apns: {
-      payload: { aps: { sound: 'default', badge: 1 } },
+      payload: { aps: { sound: 'default', badge: 0 } }, // AJ15: never a fixed badge (it stuck at 1); 0 also clears an old one
     },
     android: {
       priority: 'high',

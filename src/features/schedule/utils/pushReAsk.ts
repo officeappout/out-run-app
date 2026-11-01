@@ -36,6 +36,9 @@ import type { PushPermissionState } from './reminderOptIn';
 /** Device pref: epoch ms of the last v2 soft-ask "לא עכשיו". */
 export const PUSH_SOFTASK_DEFERRED_KEY = 'push_softask_deferred_at';
 
+/** Device pref: epoch ms the OS notification dialog was last shown (lib/native/push.ts). */
+export const PUSH_OS_PROMPT_AT_KEY = 'push_os_prompt_at';
+
 export type PushReAskMoment = 'settings' | 'first_workout' | 'streak_3' | 'signup_start' | 'home';
 
 /** Device pref: epoch ms the re-ask for this moment was shown. */
@@ -89,10 +92,17 @@ export function homeReAskAction(input: {
   isNative: boolean;
   /** iOS Safari outside an installed PWA — the OS cannot prompt at all. */
   iosWebBlocked?: boolean;
+  /**
+   * Latest ask anywhere else on this device (the signup soft-ask, a "לא עכשיו",
+   * the OS dialog itself). AJ12 (pilot 01.11): home asked again right after
+   * signup had asked; any earlier ask now starts the same cooldown.
+   */
+  lastOtherAskAt?: number | null;
 }): HomeReAskAction {
   const { permission, shownAt, shownCount, now } = input;
   if (shownCount >= HOME_REASK_MAX_SHOWS) return null;
-  if (shownAt != null && now - shownAt < HOME_REASK_COOLDOWN_DAYS * DAY_MS) return null;
+  const lastAsk = Math.max(shownAt ?? 0, input.lastOtherAskAt ?? 0);
+  if (lastAsk > 0 && now - lastAsk < HOME_REASK_COOLDOWN_DAYS * DAY_MS) return null;
   if (permission === 'prompt') return input.iosWebBlocked ? null : 'prompt';
   if (permission === 'denied' && input.isNative) return 'open_settings';
   return null;
