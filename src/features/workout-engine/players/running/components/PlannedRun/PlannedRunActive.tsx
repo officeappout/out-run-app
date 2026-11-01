@@ -336,6 +336,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
           /* ──────────────────────────────────────────────────────────────────
              MINI-PLAYER BAR (72px)
              ────────────────────────────────────────────────────────────── */
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- legacy v1 mini bar (enable_home_v2 off)
           <div
             className="flex items-center bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-4 gap-3 cursor-pointer relative"
             style={{

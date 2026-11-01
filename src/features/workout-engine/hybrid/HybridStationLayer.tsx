@@ -349,15 +349,18 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
           <ExerciseReplacementModal
             isOpen
             onClose={() => setSwapTarget(null)}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             currentExercise={swapTarget.exercise as any}
             currentLevel={swapTarget.level}
             location="park"
             park={swapTarget.park}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             userProfile={profile as any}
             // PR-B3 (guided only): limit alternatives to this park's equipment + bodyweight.
             // Fast mode / every other caller: unchanged (null = no filter).
             allowedEquipmentIds={guided ? stationContext?.availableEquipment ?? null : null}
             // enable_swap_fixes_v1 (ignored while off): never offer an exercise already in this station.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             excludeExerciseIds={collectWorkoutExerciseIds((stationPlan?.segments ?? []).flatMap((sg) => sg.exercises ?? []) as any)}
             onReplace={(newExercise, executionMethod, levelComparison, meta) => {
               // Soft-adaptation Phase 0: record the swap (data only, fire-and-forget).

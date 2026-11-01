@@ -1455,7 +1455,7 @@ function FlagCard({
                 {enabled ? '● פעיל' : '○ כבוי'}
               </span>
               {parentDisabled && (
-                <span className="text-[10px] text-slate-400">לא פעיל — תלוי ב"מה עושים היום?"</span>
+                <span className="text-[10px] text-slate-400">לא פעיל — תלוי ב&quot;מה עושים היום?&quot;</span>
               )}
             </div>
           </div>

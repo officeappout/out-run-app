@@ -20,7 +20,7 @@ import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
-import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, usePublishedPlayerChrome } from '../../../../shared/v2';
+import { HeaderProgressBar, PlayerHeaderCard, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { ArrivalPanel, RouteEndPanel, RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
 import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
 import { PAGE_CAPTION_KEY, arrivalDue, currentLapView, drawerPagesFor, routeEndDue, type CurrentLapView, type UnifiedSituation } from '../../../../shared/v2/run-chrome/unified-chrome-logic';

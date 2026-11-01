@@ -16,7 +16,8 @@ describe('together namespace', () => {
     expect(Object.keys(he).length).toBe(157);
   });
   it('every key resolves to its Hebrew text in the he catalog', () => {
-    for (const [k, v] of Object.entries(he)) expect((t as any)(k, new Proxy({}, { get: () => 1 })).length).toBeGreaterThan(0);
+    const anyKey = t as unknown as (key: string, params: object) => string;
+    for (const k of Object.keys(he)) expect(anyKey(k, new Proxy({}, { get: () => 1 })).length).toBeGreaterThan(0);
     expect(t('lobby.start')).toBe('מתחילים יחד');
     expect(t('rail.status.run', { km: '2.5', pace: '5:30' })).toBe('2.5 ק״מ · 5:30');
   });
