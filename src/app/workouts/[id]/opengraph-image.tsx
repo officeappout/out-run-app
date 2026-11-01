@@ -4,7 +4,8 @@ import { makeT } from '@/lib/i18n/t';
 import { SOURCE_LOCALE } from '@/lib/i18n/locales';
 import { library } from '@/messages/ns/library';
 
-export const runtime = 'edge';
+// nodejs, not edge: the loader reads through the Admin SDK (firebase-admin needs Node).
+export const runtime = 'nodejs';
 export const alt = 'Out — Workout Preview';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
