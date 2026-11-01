@@ -280,6 +280,9 @@ interface RunningPlayerState {
   // Gates distance accumulation for poor-accuracy samples (avoids phantom distance
   // while still allowing warm-up phase to measure before first good lock).
   hasHadGoodFix: boolean;
+  /** Wall-clock ms of the last GPS sample (any accuracy); null until the first one. Read by the unified
+   *  frame (enable_unified_player_v1) to tell "GPS lost" from "weak". Reset with the GPS tracking. */
+  lastFixAt: number | null;
   /** Last GPS filter decision — populated on every sample; read by GpsDebugHud (?debug=gps). */
   lastFilterAction: string | null;
   // When true, real watchPosition is completely bypassed; sim positions drive the workout
@@ -541,6 +544,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   gpsAccuracy: null,
   gpsStatus: 'searching',
   hasHadGoodFix: false,
+  lastFixAt: null,
   lastFilterAction: null,
   isSimulationActive: false,
 
@@ -980,7 +984,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // on iOS Capacitor. Subscribing here instead of opening a second
     // navigator.geolocation watcher eliminates the dual-pipeline split
     // that caused distance to stay at 0 on native builds.
-    set({ gpsStatus: 'searching', gpsAccuracy: null });
+    set({ gpsStatus: 'searching', gpsAccuracy: null, lastFixAt: null });
 
     let lastPos: { lat: number; lng: number } | null = null;
     let lastTimestamp: number | null = null;
@@ -1050,6 +1054,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       set({
         gpsAccuracy: accuracy < 999 ? accuracy : null,
         gpsStatus,
+        lastFixAt: Date.now(),
         ...(isGoodNow && !wasGoodBefore ? { hasHadGoodFix: true } : {}),
       });
       if (accuracy <= WARMUP_MAX_ACCURACY_M) {
@@ -1368,6 +1373,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       gpsAccuracy: null,
       gpsStatus: 'searching',
       hasHadGoodFix: false,
+      lastFixAt: null,
     });
   },
   

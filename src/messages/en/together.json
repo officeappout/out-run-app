@@ -136,5 +136,19 @@
   "chrome.page.rep": "This rep",
   "chrome.page.aria": "Page {n} of {total}: {name}",
   "chrome.page.lapN": "Lap {n}",
-  "chrome.page.rest": "Recovery"
+  "chrome.page.rest": "Recovery",
+  "chrome.page.lapClosed": "Lap {n} closed",
+  "chrome.page.vs": "Me vs partner",
+  "chrome.gps.ok": "GPS",
+  "chrome.gps.searching": "Finding GPS…",
+  "chrome.gps.weak": "Weak signal",
+  "chrome.gps.lost": "GPS lost",
+  "chrome.gps.lostHint": "Time runs on, distance waits until the signal returns",
+  "chrome.hint.lapClosed": "Lap {n} · {km} km in {time}",
+  "chrome.hint.goal": "Goal reached: {target} · keep going if you like",
+  "chrome.routeEnd.title": "Route complete!",
+  "chrome.routeEnd.sub": "{name} · {km} km · {time}",
+  "chrome.routeEnd.finish": "Finish and save",
+  "chrome.routeEnd.again": "One more loop",
+  "chrome.routeEnd.free": "Keep going free"
 }

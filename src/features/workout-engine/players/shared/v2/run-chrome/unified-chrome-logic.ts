@@ -68,6 +68,37 @@ export function comparesPace(mode: string, unified: boolean): boolean {
   return mode === 'pace' || (unified && mode === 'recovery');
 }
 
+// ── GPS (canvas 9ב: one mark in the header, three states, no floating toasts) ──
+
+export type UnifiedGps = 'ok' | 'searching' | 'weak' | 'lost';
+
+/** No sample for this long after a good fix = lost (time runs on, distance waits for the signal). */
+export const GPS_LOST_AFTER_MS = 20_000;
+
+export function unifiedGps(input: {
+  status: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
+  hasHadGoodFix: boolean;
+  lastFixAt: number | null;
+  now: number;
+}): UnifiedGps {
+  if (input.status === 'simulated') return 'ok';
+  if (input.hasHadGoodFix && (input.lastFixAt == null || input.now - input.lastFixAt > GPS_LOST_AFTER_MS)) return 'lost';
+  if (!input.hasHadGoodFix && input.status === 'searching') return 'searching';
+  if (input.status === 'poor') return 'weak';
+  return 'ok';
+}
+
+// ── Route end (canvas 9ב: finish, one more loop, or go on free) ──
+
+/**
+ * True once the distance covers the route `loops` times (50 m slack, GPS is never exact).
+ * `loops` starts at 1; "one more loop" raises it; "go on free" stops asking (caller keeps a flag).
+ */
+export function routeEndDue(distanceKm: number, routeKm: number | null | undefined, loops: number): boolean {
+  if (!routeKm || routeKm <= 0 || loops < 1) return false;
+  return distanceKm >= routeKm * loops - 0.05;
+}
+
 export interface LapLike {
   lapNumber: number;
   distanceMeters: number;

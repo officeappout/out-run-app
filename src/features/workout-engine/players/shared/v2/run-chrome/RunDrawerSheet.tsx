@@ -44,15 +44,30 @@ export interface RunDrawerSheetProps {
   pages?: RunDrawerPage[];
   /** enable_unified_player_v1: small icons in the sheet's top corner (settings, partner). */
   corner?: React.ReactNode;
+  /** enable_unified_player_v1: jump to a page for a while (a closed lap → the lap page), then back. New nonce = new jump. */
+  pageRequest?: { id: string; nonce: number; holdMs: number } | null;
+  /** enable_unified_player_v1: caption over the override (e.g. "me vs partner"). */
+  overrideCaption?: string;
 }
 
-export default function RunDrawerSheet({ compact, large, override, buttons, onOpenList, cardRef, onHeight, className = '', pages, corner }: RunDrawerSheetProps) {
+export default function RunDrawerSheet({ compact, large, override, buttons, onOpenList, cardRef, onHeight, className = '', pages, corner, pageRequest, overrideCaption }: RunDrawerSheetProps) {
   const t = useT(together);
   const { isRtl } = useTogetherLocale();
   const [pageRaw, setPage] = useState(0);
   const pageCount = pages?.length ?? 0;
   const page = clampPage(pageRaw, pageCount);
   const downAt = useRef<{ x: number; y: number } | null>(null);
+
+  // A page jump: show the asked page, then return to where the user was.
+  const reqIndex = pageRequest && pages ? pages.findIndex((pg) => pg.id === pageRequest.id) : -1;
+  useEffect(() => {
+    if (!pageRequest || reqIndex < 0) return;
+    let before = 0;
+    setPage((p) => { before = p; return reqIndex; });
+    const id = setTimeout(() => setPage(before), pageRequest.holdMs);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageRequest?.nonce]);
   const reduce = useReducedMotion();
   const controls = useDragControls();
   const [snap, setSnapState] = useState<RunDrawerSnap>(getRememberedDrawerSnap);
@@ -143,6 +158,9 @@ export default function RunDrawerSheet({ compact, large, override, buttons, onOp
             </div>
             <span className="text-[11.5px] font-extrabold text-slate-500">{current?.caption}</span>
           </div>
+        )}
+        {override && overrideCaption && (
+          <div className="mb-2 text-center text-[11.5px] font-extrabold text-slate-500">{overrideCaption}</div>
         )}
         <motion.div key={override ? 'override' : `${current?.id ?? ''}-${snap}`} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
           {override ?? body}

@@ -136,5 +136,19 @@
   "chrome.page.rep": "החזרה הזו",
   "chrome.page.aria": "דף {n} מתוך {total}: {name}",
   "chrome.page.lapN": "הקפה {n}",
-  "chrome.page.rest": "המנוחה"
+  "chrome.page.rest": "המנוחה",
+  "chrome.page.lapClosed": "הקפה {n} נסגרה",
+  "chrome.page.vs": "אני מול שותף",
+  "chrome.gps.ok": "GPS",
+  "chrome.gps.searching": "מחפש GPS…",
+  "chrome.gps.weak": "קליטה חלשה",
+  "chrome.gps.lost": "GPS אבד",
+  "chrome.gps.lostHint": "הזמן ממשיך, המרחק מושהה עד שהקליטה תחזור",
+  "chrome.hint.lapClosed": "הקפה {n} · {km} ק״מ ב־{time}",
+  "chrome.hint.goal": "הגעת ליעד: {target} · אפשר להמשיך",
+  "chrome.routeEnd.title": "סיימת את המסלול!",
+  "chrome.routeEnd.sub": "{name} · {km} ק״מ · {time}",
+  "chrome.routeEnd.finish": "לסיים ולשמור",
+  "chrome.routeEnd.again": "עוד סיבוב",
+  "chrome.routeEnd.free": "להמשיך חופשי"
 }

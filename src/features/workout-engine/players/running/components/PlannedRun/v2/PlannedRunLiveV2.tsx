@@ -26,7 +26,8 @@ import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
 import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, isRestBlock, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
-import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedHeaderLayer, useMeasuredHeight, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
+import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer, useMeasuredHeight, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
+import { useUnifiedGps } from '../../../hooks/useUnifiedGps';
 import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
 import { PAGE_CAPTION_KEY, drawerPagesFor } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
 import { useUnifiedPlayerV1 } from '../../../../shared/v2/useUnifiedPlayerV1';
@@ -107,6 +108,7 @@ export default function PlannedRunLiveV2({
   // enable_unified_player_v1: name / bars / data on top, drawer pages, new buttons, pace colour on recovery too.
   const unified = useUnifiedPlayerV1() && drawerV1;
   const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused, unified });
+  const gps = useUnifiedGps(unified);
   const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: chromeHeaderH + 56, enabled: drawerV1 });
   const currentRemaining = !currentBlock
     ? '--'
@@ -200,6 +202,7 @@ export default function PlannedRunLiveV2({
                       bars={<StoryBars segments={segments} currentIndex={currentBlockIndex} progress={blockProgress} />}
                       label={chromeNodes.caption || undefined}
                       hint={pilotAh ? <RouteTurnRow /> : undefined}
+                      flash={gps === 'lost' ? { text: tt('chrome.gps.lostHint'), tone: 'warn' } : null}
                     />
                   ) : (
                   <div className="px-5">
@@ -215,7 +218,7 @@ export default function PlannedRunLiveV2({
                 index={tg.layerIndex}
                 onIndexChange={tg.setLayerIndex}
                 strip={chromeNodes.strip}
-                trailing={<GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />}
+                trailing={unified ? <UnifiedGpsMark state={gps} /> : <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />}
               />
             ) : (
             <header
@@ -271,6 +274,7 @@ export default function PlannedRunLiveV2({
                 large={chromeNodes.large}
                 pages={drawerPages}
                 override={tg.vsPanel}
+                overrideCaption={unified && tg.vsPanel ? tt('chrome.page.vs') : undefined}
                 buttons={<RunFloatingButtons unified={unified} isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
               />
             ) : (

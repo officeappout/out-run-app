@@ -1,5 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import { UNIFIED_BUTTONS, UNIFIED_PACE_TONE, clampPage, comparesPace, currentLapView, drawerPagesFor, pageAfterSwipe, unifiedPaceTone } from '../run-chrome/unified-chrome-logic';
+import {
+  GPS_LOST_AFTER_MS, UNIFIED_BUTTONS, UNIFIED_PACE_TONE, clampPage, comparesPace, currentLapView, drawerPagesFor, pageAfterSwipe,
+  routeEndDue, unifiedGps, unifiedPaceTone,
+} from '../run-chrome/unified-chrome-logic';
+
+describe('gps mark', () => {
+  const now = 1_000_000;
+  it('searching before the first good fix', () => {
+    expect(unifiedGps({ status: 'searching', hasHadGoodFix: false, lastFixAt: null, now })).toBe('searching');
+  });
+  it('weak on poor accuracy', () => {
+    expect(unifiedGps({ status: 'poor', hasHadGoodFix: true, lastFixAt: now - 1000, now })).toBe('weak');
+  });
+  it('lost when samples stop after a good fix', () => {
+    expect(unifiedGps({ status: 'good', hasHadGoodFix: true, lastFixAt: now - GPS_LOST_AFTER_MS - 1, now })).toBe('lost');
+  });
+  it('ok on a fresh good fix and in simulation', () => {
+    expect(unifiedGps({ status: 'good', hasHadGoodFix: true, lastFixAt: now - 2000, now })).toBe('ok');
+    expect(unifiedGps({ status: 'simulated', hasHadGoodFix: false, lastFixAt: null, now })).toBe('ok');
+  });
+});
+
+describe('route end', () => {
+  it('fires at the route length, then again after one more loop', () => {
+    expect(routeEndDue(4.1, 4.2, 1)).toBe(false);
+    expect(routeEndDue(4.16, 4.2, 1)).toBe(true);
+    expect(routeEndDue(5.0, 4.2, 2)).toBe(false);
+    expect(routeEndDue(8.4, 4.2, 2)).toBe(true);
+  });
+  it('never without a route length', () => {
+    expect(routeEndDue(10, null, 1)).toBe(false);
+    expect(routeEndDue(10, 0, 1)).toBe(false);
+  });
+});
 
 describe('pace colour', () => {
   it('green in range, orange on both sides', () => {

@@ -21,9 +21,10 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, usePublishedPlayerChrome } from '../../../../shared/v2';
-import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedHeaderLayer, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
+import { RouteEndPanel, RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
 import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
-import { PAGE_CAPTION_KEY, currentLapView, drawerPagesFor, type UnifiedSituation } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
+import { PAGE_CAPTION_KEY, currentLapView, drawerPagesFor, routeEndDue, type CurrentLapView, type UnifiedSituation } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
+import { useUnifiedGps } from '../../../hooks/useUnifiedGps';
 import { useUnifiedPlayerV1 } from '../../../../shared/v2/useUnifiedPlayerV1';
 import { together } from '@/messages/ns/together';
 import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
@@ -137,6 +138,30 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
     return () => clearTimeout(timer);
   }, [gpsToast]);
 
+  // ── enable_unified_player_v1 (canvas 9ב): GPS mark, passing lines, lap page jump, route end ──
+  const gps = useUnifiedGps(unified);
+  const [closedLap, setClosedLap] = useState<CurrentLapView | null>(null);
+  const [pageRequest, setPageRequest] = useState<{ id: string; nonce: number; holdMs: number } | null>(null);
+  const prevLapCount = useRef(live.laps.length);
+  useEffect(() => {
+    const count = live.laps.length;
+    const grew = count > prevLapCount.current;
+    prevLapCount.current = count;
+    if (!unified || !grew || count < 2) return;
+    const done = currentLapView([{ ...live.laps[count - 2], isActive: true }]);
+    if (!done || done.distanceKm <= 0) return;
+    setClosedLap(done);
+    setPageRequest({ id: 'lap', nonce: Date.now(), holdMs: 5000 });
+  }, [unified, live.laps]);
+  // Its own timer: the laps array changes every second (the active lap is live).
+  useEffect(() => {
+    if (!closedLap) return;
+    const timer = setTimeout(() => setClosedLap(null), 5000);
+    return () => clearTimeout(timer);
+  }, [closedLap]);
+  const [routeLoops, setRouteLoops] = useState(1);
+  const [routeFree, setRouteFree] = useState(false);
+
   // ── Header height → map camera padding, turn card, recenter pill ─────
   const headerRef = useRef<HTMLDivElement>(null);
   // Map camera keeps the runner's marker between the header and the card
@@ -184,7 +209,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   const chromeNodes = useFreeChromeNodes({ totals: live.totals, currentPaceSec: live.currentPaceSec, metric: live.metric, isPaused: live.isPaused, cells });
   const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: headerH + 56, metric: live.metric === 'speed' ? 'speed' : 'pace', enabled: drawerV1 });
   const situation: UnifiedSituation = commuteContext ? 'nav' : live.combo?.mode === 'route' ? 'route' : activityType === 'walking' ? 'free_walk' : 'free_run';
-  const lapView = currentLapView(live.laps);
+  const lapView = closedLap ?? currentLapView(live.laps);
   const drawerPages: RunDrawerPage[] | undefined = unified
     ? drawerPagesFor(situation, { lapOn }).map((id) => {
         if (id !== 'lap') return { id, caption: tt(PAGE_CAPTION_KEY[id]), compact: chromeNodes.compact, large: chromeNodes.large };
@@ -195,9 +220,33 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
             <Cell label={tt('chrome.label.pace')} value={lapView && lapView.paceSec > 0 ? fmtPace(lapView.paceSec) : '--:--'} size={size} />
           </Cells>
         );
-        return { id, caption: lapView ? tt('chrome.page.lapN', { n: lapView.n }) : tt(PAGE_CAPTION_KEY.lap), compact: lapCells(26), large: lapCells(30) };
+        const lapCaption = closedLap ? tt('chrome.page.lapClosed', { n: closedLap.n }) : lapView ? tt('chrome.page.lapN', { n: lapView.n }) : tt(PAGE_CAPTION_KEY.lap);
+        return { id, caption: lapCaption, compact: lapCells(26), large: lapCells(30) };
       })
     : undefined;
+  // One passing line under the bars: GPS lost > lap closed > goal reached.
+  const flash = !unified
+    ? null
+    : gps === 'lost'
+      ? { text: tt('chrome.gps.lostHint'), tone: 'warn' as const }
+      : closedLap
+        ? { text: tt('chrome.hint.lapClosed', { n: closedLap.n, km: closedLap.distanceKm.toFixed(2), time: fmtClock(closedLap.durationSec) }), tone: 'info' as const }
+        : goalToast && gv
+          ? { text: tt('chrome.hint.goal', { target: gv.targetText }), tone: 'good' as const }
+          : null;
+  const routeKm = live.combo?.routeKm ?? null;
+  const routeEnd = unified && situation === 'route' && !routeFree && routeEndDue(live.totals.distanceKm, routeKm, routeLoops)
+    ? (
+      <RouteEndPanel
+        name={live.title}
+        km={(routeKm ?? 0).toFixed(1)}
+        time={fmtClock(live.totals.durationSec)}
+        onFinish={live.stop}
+        onAgain={() => setRouteLoops((n) => n + 1)}
+        onFree={() => setRouteFree(true)}
+      />
+    )
+    : null;
 
   const startShellDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
@@ -248,6 +297,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
                 bars={!commute && gv ? headerProps.strip : undefined}
                 label={headerProps.title}
                 hint={pilotAh ? <RouteTurnRow /> : undefined}
+                flash={flash}
               />
             ) : (
             <div className="px-5">
@@ -262,6 +312,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           index={tg.layerIndex}
           onIndexChange={tg.setLayerIndex}
           strip={tidy ? [] : chromeNodes.strip}
+          trailing={unified ? <UnifiedGpsMark state={gps} /> : undefined}
         />
       ) : (
       <div ref={chrome.headerRef} className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -287,13 +338,15 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         </button>
         )}
         <InviteRunButton activityType={activityType} inline />
+        {!unified && (
         <div className="pointer-events-none">
           <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
         </div>
+        )}
       </div>
 
-      {gpsToast && <Toast>{t(gpsToast)}</Toast>}
-      {goalToast && (
+      {gpsToast && !unified && <Toast>{t(gpsToast)}</Toast>}
+      {goalToast && !unified && (
         <Toast tone="good">
           <Check size={15} strokeWidth={2.8} aria-hidden />
           {t('run.free.v2.goalReached')}
@@ -310,7 +363,9 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           compact={chromeNodes.compact}
           large={chromeNodes.large}
           pages={drawerPages}
-          override={tg.vsPanel}
+          pageRequest={pageRequest}
+          override={routeEnd ?? tg.vsPanel}
+          overrideCaption={unified && !routeEnd && tg.vsPanel ? tt('chrome.page.vs') : undefined}
           buttons={(
             <RunFloatingButtons
               unified={unified}
