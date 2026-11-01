@@ -41,7 +41,16 @@ let db: Firestore;
 const get = async (handler: (r: NextRequest) => Promise<Response>, path: string, uid: string) =>
   (await handler(new NextRequest(`http://localhost${path}`, { headers: { authorization: `Bearer ${uid}` } }))).json() as Promise<any>;
 
+// Deterministic "now" (01.11.2026): the seed writes 10 days of history ending "now",
+// and the boards / MAU assertions read THIS calendar month. On the 1st of a month real
+// time left almost nothing in the current month and the monthly cases failed. A
+// mid-month day keeps the whole seeded history inside one month. Only Date is faked;
+// timers stay real for the emulator round-trips.
+const FROZEN_NOW = new Date(2026, 9, 15, 12, 0, 0);
+
 beforeAll(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(FROZEN_NOW);
   process.env.FIRESTORE_EMULATOR_HOST = EMULATOR_HOST;
   app = initializeApp({ projectId: PROJECT_ID }, `demo-viewer-sync-${Date.now()}`);
   db = getFirestore(app);
@@ -57,6 +66,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteApp(app);
+  vi.useRealTimers();
 });
 
 /** The seeded residents of the demo city, straight from users/ (the app's own docs). */
