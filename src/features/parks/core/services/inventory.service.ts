@@ -19,6 +19,7 @@ import { geohashQueryBounds } from 'geofire-common';
 import { Route, type RouteFeatureTag } from '../types/route.types';
 import { MapFacility } from '../types/facility.types';
 import { normalizeStoredRoutePath } from '../utils/routePath';
+import { fetchOfficialRoutesCatalog } from './routes-catalog.client';
 import { getParksByAuthority } from './parks.service';
 import {
     broadcastRouteToStreetSegments,
@@ -33,10 +34,7 @@ import { readLiveFlag } from '@/lib/feature-flag-live';
 import { cyclingMetersPerMin } from '@/lib/cycling-pace';
 import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 import {
-    chunkIds,
     resolveOfficialRoutesScope,
-    SCOPED_FALLBACK_CAP,
-    SCOPED_PER_QUERY_CAP,
     type ScopeProfileCore,
 } from './official-routes-scope';
 
@@ -131,7 +129,9 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export async function getCachedOfficialRoutesIncludingConnectors(): Promise<Route[]> {
     // Panel flag enable_scoped_official_routes (default OFF). Off = the exact legacy path below.
     if (readLiveFlag('enableScopedOfficialRoutes')) return getScopedCachedOfficialRoutes();
-    if (!_officialCache) _officialCache = await InventoryService.fetchOfficialRoutes(undefined, true);
+    // Data-exposure plan 1.3: the edge-cached catalog (same set as fetchOfficialRoutes(undefined, true)),
+    // not a direct browser read of official_routes.
+    if (!_officialCache) _officialCache = await fetchOfficialRoutesCatalog(null);
     return _officialCache;
 }
 
@@ -162,7 +162,7 @@ async function getScopedCachedOfficialRoutes(): Promise<Route[]> {
     const scope = resolveOfficialRoutesScope(useUserStore.getState().profile?.core as ScopeProfileCore | undefined);
     if (_scopedCache && _scopedCache.key === scope.key) return _scopedCache.routes;
     if (_scopedInflight && _scopedInflight.key === scope.key) return _scopedInflight.promise;
-    const promise = InventoryService.fetchOfficialRoutesScoped(scope.authorityIds)
+    const promise = fetchOfficialRoutesCatalog(scope.authorityIds)
         .then((routes) => {
             _scopedCache = { key: scope.key, routes };
             return routes;
@@ -791,58 +791,6 @@ export const InventoryService = {
             }
         } catch (error) {
             console.error('❌ Error fetching official routes:', error);
-            return [];
-        }
-    },
-
-    /**
-     * Scoped app read (panel flag enable_scoped_official_routes) — replaces the whole-collection
-     * `limit(200)` read for the app's consumers. See official-routes-scope.ts for the full why.
-     *   authorityIds non-empty → `authorityId in [chunk ≤30]` + limit(SCOPED_PER_QUERY_CAP) per
-     *     chunk (automatic single-field index, no composite index); `published === false` dropped
-     *     client-side exactly like fetchOfficialRoutes(_, true), so docs with NO published field
-     *     stay visible (axiom §33).
-     *   empty, or the scoped read found nothing → `published == true` + limit(SCOPED_FALLBACK_CAP).
-     * official_routes rule is `allow read: if true` — every shape here is admitted (axiom §25).
-     * Never throws: a failed read resolves to [] (same contract as fetchOfficialRoutes).
-     */
-    fetchOfficialRoutesScoped: async (authorityIds: string[]): Promise<Route[]> => {
-        const normalise = (docSnap: any): Route | null => {
-            const data = docSnap.data();
-            if (data.published === false) return null;
-            const path = normalizeStoredRoutePath(data.path);
-            if (path.length < 2) return null;
-            return { ...data, id: docSnap.id, path } as Route;
-        };
-        try {
-            if (authorityIds.length > 0) {
-                const snapshots = await Promise.all(
-                    chunkIds(authorityIds).map((batch) =>
-                        getDocs(
-                            query(
-                                collection(db, 'official_routes'),
-                                where('authorityId', 'in', batch),
-                                limit(SCOPED_PER_QUERY_CAP),
-                            ),
-                        ),
-                    ),
-                );
-                // Dedupe across `in` chunks (a doc can only match one authorityId, so this is
-                // belt-and-braces). Plain record, not a Map: keeps this file's diff free of `.set(`
-                // (safety-check's route-collection write-verb scan).
-                const byId: Record<string, any> = {};
-                for (const d of snapshots.flatMap((snap) => snap.docs)) byId[d.id] ??= d;
-                const routes = Object.values(byId)
-                    .map(normalise)
-                    .filter((r): r is Route => r !== null);
-                if (routes.length > 0) return routes;
-            }
-            const snap = await getDocs(
-                query(collection(db, 'official_routes'), where('published', '==', true), limit(SCOPED_FALLBACK_CAP)),
-            );
-            return snap.docs.map(normalise).filter((r): r is Route => r !== null);
-        } catch (error) {
-            console.error('❌ Error fetching scoped official routes:', error);
             return [];
         }
     },

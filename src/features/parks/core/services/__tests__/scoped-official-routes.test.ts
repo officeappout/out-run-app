@@ -4,10 +4,13 @@
  *   ON  → `authorityId in [user's authorities]` + limit(300), published===false dropped
  *         client-side (absent `published` stays visible, axiom §33); else / empty →
  *         `published == true` + limit(200). One shared read for concurrent callers.
+ * Since data-exposure plan 1.3 the queries run server-side (GET /api/catalog/routes); `fetch`
+ * here runs the real server builder on a fake Admin DB, so the recorded queries are the same.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FLAG_DEFS } from '@/hooks/feature-flag-defs';
 import { LIVE_FLAGS_CACHE_KEY } from '@/lib/feature-flag-live';
+import { catalogFetch } from './route-catalog-harness';
 import { resolveOfficialRoutesScope, chunkIds } from '../official-routes-scope';
 
 type Doc = { id: string; data: Record<string, unknown> };
@@ -18,27 +21,10 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: {} }));
-vi.mock('firebase/firestore', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    collection: vi.fn((_db: unknown, name: string) => ({ __col: name })),
-    query: vi.fn((col: { __col: string }, ...constraints: Array<Record<string, unknown>>) => ({ __col: col.__col, constraints })),
-    where: vi.fn((field: string, op: string, value: unknown) => ({ type: 'where', field, op, value })),
-    limit: vi.fn((n: number) => ({ type: 'limit', value: n })),
-    getDocs: vi.fn(async (q: { __col: string; constraints: Array<Record<string, unknown>> }) => {
-      h.queries.push({ col: q.__col, constraints: q.constraints });
-      let rows = h.docs;
-      let lim = Infinity;
-      for (const c of q.constraints) {
-        if (c.type === 'limit') lim = c.value as number;
-        if (c.type === 'where' && c.op === 'in') rows = rows.filter((d) => (c.value as unknown[]).includes(d.data[c.field as string]));
-        if (c.type === 'where' && c.op === '==') rows = rows.filter((d) => d.data[c.field as string] === c.value);
-      }
-      const docs = rows.slice(0, lim).map((d) => ({ id: d.id, data: () => d.data }));
-      return { docs, size: docs.length, empty: docs.length === 0 };
-    }),
-  };
+vi.mock('server-only', () => ({}));
+vi.mock('@/lib/firebase-admin', async () => {
+  const { fakeAdminDb } = await import('./route-catalog-harness');
+  return { getAdminDb: () => fakeAdminDb(h) };
 });
 vi.mock('@/features/user/identity/store/useUserStore', () => ({
   useUserStore: { getState: () => ({ profile: h.profile }) },
@@ -55,6 +41,7 @@ function setFlag(on: boolean | null) {
 
 let svc: typeof import('../inventory.service');
 beforeEach(async () => {
+  vi.stubGlobal('fetch', catalogFetch);
   h.queries = [];
   h.profile = null;
   h.docs = [
@@ -69,6 +56,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   delete (globalThis as any).window;
+  vi.unstubAllGlobals();
 });
 
 const ids = (rs: Array<{ id: string }>) => rs.map((r) => r.id).sort();
