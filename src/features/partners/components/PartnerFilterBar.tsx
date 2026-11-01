@@ -63,6 +63,7 @@ import { map } from '@/messages/ns/map';
 import { useUiDir } from '@/lib/i18n/useUiDir';
 import { englishProgramName } from '@/features/content/programs/core/localized-fields';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { programLabelEn } from '@/lib/i18n/static-labels';
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface PartnerFilterBarProps {
@@ -210,6 +211,7 @@ export function usePartnerFilterModel(
       const label =
         englishProgramName(cms, contentLang)
         || (cms?.name
+        ?? programLabelEn(up.templateId, contentLang)
         ?? PROGRAM_NAME_HE[up.templateId]
         ?? PROGRAM_NAME_HE[up.id]
         ?? up.name);

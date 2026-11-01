@@ -40,6 +40,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { partitionByTabataBlock } from './protocols/tabata.block';
 import { withTimedMainBlock } from './protocols/timed.block';
 import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
+import { planTabataFinisherTitle, planExerciseNames, planRepsRangeText, planRepsText, planSecsRangeText, planSecsText } from '@/features/workout-engine/shared/utils/plan-text';
 
 interface BuildOpts {
   /** The plan id the runner will key on (route param + sessionStorage id). */
@@ -103,9 +104,9 @@ export function buildRunnerWorkoutPlanFromGenerated(
       console.error(`[Media FAIL] No media found for exercise: ${glt(ex.exercise.name)} (${ex.exercise.id}), method: ${(ex.method as any)?.methodName || 'none'}, allMethods: ${allMethods.length}`);
     }
 
-    // Hebrew grammar: '1 חזרה' not '1 חזרות'
-    const fmtReps = (n: number) => (n === 1 ? 'חזרה אחת' : `${n} חזרות`);
-    const fmtSecs = (n: number) => (n === 1 ? 'שנייה אחת' : `${n} שניות`);
+    // Hebrew grammar: '1 חזרה' not '1 חזרות' (player catalog planVolume.*, plan-text.ts).
+    const fmtReps = planRepsText;
+    const fmtSecs = planSecsText;
     // Follow-along VIDEO items carry their real length on the execution method
     // (media.videoDurationSeconds). Their `reps` is a placeholder — the recovery
     // trio builder hardcodes reps:1 — so deriving the duration text from reps
@@ -117,17 +118,17 @@ export function buildRunnerWorkoutPlanFromGenerated(
 
     return {
       id: ex.exercise.id,
-      name: glt(ex.exercise.name),
+      ...planExerciseNames(ex.exercise.name),
       reps: actuallyTimeBased ? undefined : (
         ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-          ? `${ex.repsRange.min}-${ex.repsRange.max} חזרות`
+          ? planRepsRangeText(ex.repsRange.min, ex.repsRange.max)
           : fmtReps(ex.reps)
       ),
       duration: actuallyTimeBased ? (
         useClipDuration
           ? fmtClip(clipSeconds)
           : ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-            ? `${ex.repsRange.min}-${ex.repsRange.max} שניות`
+            ? planSecsRangeText(ex.repsRange.min, ex.repsRange.max)
             : fmtSecs(ex.reps)
       ) : undefined,
       videoUrl: resolvedVideoUrl,
@@ -238,7 +239,7 @@ export function buildRunnerWorkoutPlanFromGenerated(
     segments.push({
       id: 'seg-tabata',
       type: 'station' as const,
-      title: 'טבטה — פיניש',
+      title: planTabataFinisherTitle(),
       icon: '🔥',
       target: { type: 'time' as const, value: (tabataCfg.workSec + tabataCfg.restSec) * tabataCfg.rounds },
       exercises: tabataExercises,

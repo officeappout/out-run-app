@@ -7,6 +7,8 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import { FACILITY_TYPE_IDS } from '../utils/park-detail-format';
 import { useT } from '@/hooks/useT';
 import { map as mapNs } from '@/messages/ns/map';
+import { parkDisplayName } from '@/features/parks/core/utils/park-display-name';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 interface ParkHeroProps {
   park: Park;
@@ -21,6 +23,7 @@ interface ParkHeroProps {
 /** Scroll-collapsing hero image + close control, then the title block. */
 export default function ParkHero({ park, v2, onClose, heroHeight, imageOpacity, imageScale, heroControlsPointerEvents }: ParkHeroProps) {
   const t = useT(mapNs);
+  const parkLang = useContentLanguage();
   return (
     <>
       {/* Hero image — overflow-hidden prevents bleed on overscroll */}
@@ -79,7 +82,7 @@ export default function ParkHero({ park, v2, onClose, heroHeight, imageOpacity, 
           </span>
         )}
         <h1 className={v2 ? 'whitespace-normal text-[26px] font-black leading-[1.08] !tracking-[-0.02em] text-v2-ink' : 'text-[22px] font-black text-gray-900 dark:text-white leading-tight whitespace-normal'}>
-          {park.name}
+          {parkDisplayName(park, parkLang)}
         </h1>
       </div>
     </>

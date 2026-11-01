@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { englishProgramName } from '@/features/content/programs/core/localized-fields';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { programLabelEn } from '@/lib/i18n/static-labels';
 
 /**
  * Hardcoded slug → Hebrew label map.  Lives here (not in the cached
@@ -57,9 +58,12 @@ export function useProgramMap(): UseProgramMapReturn {
     let cancelled = false;
     getCachedPrograms().then((programs) => {
       if (cancelled) return;
-      const map: Record<string, string> = { ...SLUG_TO_HE };
+      // English mode: catalog labels for the static slugs (Hebrew: SLUG_TO_HE as before).
+      const map: Record<string, string> = Object.fromEntries(
+        Object.entries(SLUG_TO_HE).map(([slug, he]) => [slug, programLabelEn(slug, contentLang) ?? he]),
+      );
       for (const p of programs) {
-        map[p.id] = englishProgramName(p, contentLang) || SLUG_TO_HE[p.id] || p.name;
+        map[p.id] = englishProgramName(p, contentLang) || programLabelEn(p.id, contentLang) || SLUG_TO_HE[p.id] || p.name;
       }
       setProgramMap(map);
     });

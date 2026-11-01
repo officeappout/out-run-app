@@ -45,6 +45,8 @@ export type CommuteVariant = 'fastest' | 'alternative' | 'quiet';
 export interface Exercise {
   id: string;
   name: string;
+  /** English mode only: the Hebrew name, kept for the save paths while `name` shows English (plan-text.ts). */
+  nameHe?: string;
   reps?: string;
   duration?: string;
   videoUrl?: string;

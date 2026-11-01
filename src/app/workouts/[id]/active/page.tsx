@@ -91,6 +91,7 @@ import { makeLiveT } from '@/lib/i18n/live-t';
 import { library } from '@/messages/ns/library';
 import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
 import { coreSetsOfCompletedPlan } from '@/features/workout-engine/logic/protocols/core-weekly-count';
+import { planExerciseNames, savedExerciseName } from '@/features/workout-engine/shared/utils/plan-text';
 
 // ============================================================================
 // TYPES
@@ -279,7 +280,7 @@ function enrichExercise(
 
   return {
     id: ex.id,
-    name: getLocalizedText(ex.name),
+    ...planExerciseNames(ex.name),
     reps,
     duration,
     videoUrl,
@@ -1779,7 +1780,7 @@ export default function ActiveWorkoutPage() {
       logExerciseSwap({
         sessionClientId: workoutPlan.id,
         fromExerciseId: oldExercise?.id ?? swapTarget.exerciseId,
-        fromName: oldExercise?.name,
+        fromName: oldExercise ? savedExerciseName(oldExercise) : undefined,
         toExerciseId: newExercise.id,
         toName: getLocalizedText(newExercise.name),
         domain: oldExercise?.domain ?? domainOfMovementGroup(newExercise.movementGroup),

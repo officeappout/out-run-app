@@ -225,7 +225,9 @@ export const FUNCTIONS_CATALOGS = {
       "difficulty.label.2": "בינוני",
       "difficulty.label.3": "קשה",
       "infoSheet.askKelly": "יש שאלה? קלי עונה",
-      "infoSheet.kellyAvatar": "ק"
+      "infoSheet.kellyAvatar": "ק",
+      "equipment.label": "{key, select, dumbbells {משקולות} dumbbell {משקולת} kettlebell {קטלבל} barbell {מוט} bar {מוט} resistance_band {גומיות התנגדות} resistance_bands {גומיות התנגדות} bands {גומיות התנגדות} long_resistance_band {גומיות התנגדות} pull_up_bar {מתח} pullup_bar {מתח} pullupbar {מתח} pullupbar_park {מתח} pullup_bar_park {מתח} pull_up_bar_park {מתח} rings {טבעות} gymnastic_rings {טבעות} dip_station {מקבילים} parallel_bars {מקבילים} trx {TRX} jump_rope {חבל קפיצה} skipping_rope {חבל קפיצה} yoga_mat {מזרן} mat {מזרן} bench {ספסל} street_bench {ספסל רחוב} ab_bench {ספסל בטן} low_bar {מוט נמוך} high_bar {מוט גבוה} ab_wheel {גלגל בטן} abdominal_wheel {גלגל בטן} parallettes {מקבילונים} foam_roller {רולר} medicine_ball {כדור כוח} step {מדרגה} stairs {מדרגות} wall {קיר} chair {כיסא} door {דלת} table {שולחן} monkey_bars {סולם קופים} balance_beam {קורת שיווי משקל} sofa {ספה} back_pack {תיק גב} backpack {תיק גב} weight_belt {חגורת משקולות} yoga_block {בלוק יוגה} stool {שרפרף} pants {מכנסיים} climbing_rope {חבל טיפוס} none {ללא ציוד} bodyweight {משקל גוף} unknown_gear {לא מזוהה} other {}}",
+      "program.label": "{slug, select, full_body {כל הגוף} upper_body {פלג גוף עליון} lower_body {פלג גוף תחתון} push {דחיפה} pull {משיכה} legs {רגליים} core {ליבה} mobility {מוביליטי} calisthenics {קליסטניקס} calisthenics_upper {קליסטניקס עליון} running {ריצה} walking {הליכה} cardio {קרדיו} pilates {פילאטיס} yoga {יוגה} health {בריאות} healthy_lifestyle {אורח חיים בריא} pull_up {מתח} pull_up_pro {מתח מקצועי} planche {פלאנץ׳} front_lever {פרונט לבר} back_lever {באק לבר} handstand {עמידת ידיים} handstand_pushup {שכיבות סמיכה בעמידת ידיים} one_arm_pullup {מתח ביד אחת} muscle_up {עליית כוח} human_flag {דגל אנושי} strength {אימון כוח} muscle {שריר} other {}}"
     },
     "en": {
       "actions.continue": "Continue",
@@ -448,7 +450,9 @@ export const FUNCTIONS_CATALOGS = {
       "difficulty.label.2": "Medium",
       "difficulty.label.3": "Hard",
       "infoSheet.askKelly": "Got a question? Kelly answers",
-      "infoSheet.kellyAvatar": "K"
+      "infoSheet.kellyAvatar": "K",
+      "equipment.label": "{key, select, dumbbells {Dumbbells} dumbbell {Dumbbell} kettlebell {Kettlebell} barbell {Barbell} bar {Bar} resistance_band {Resistance bands} resistance_bands {Resistance bands} bands {Resistance bands} long_resistance_band {Resistance bands} pull_up_bar {Pull-up bar} pullup_bar {Pull-up bar} pullupbar {Pull-up bar} pullupbar_park {Pull-up bar} pullup_bar_park {Pull-up bar} pull_up_bar_park {Pull-up bar} rings {Rings} gymnastic_rings {Rings} dip_station {Parallel bars} parallel_bars {Parallel bars} trx {TRX} jump_rope {Jump rope} skipping_rope {Jump rope} yoga_mat {Mat} mat {Mat} bench {Bench} street_bench {Street bench} ab_bench {Ab bench} low_bar {Low bar} high_bar {High bar} ab_wheel {Ab wheel} abdominal_wheel {Ab wheel} parallettes {Parallettes} foam_roller {Foam roller} medicine_ball {Medicine ball} step {Step} stairs {Stairs} wall {Wall} chair {Chair} door {Door} table {Table} monkey_bars {Monkey bars} balance_beam {Balance beam} sofa {Sofa} back_pack {Backpack} backpack {Backpack} weight_belt {Weight belt} yoga_block {Yoga block} stool {Stool} pants {Pants} climbing_rope {Climbing rope} none {No equipment} bodyweight {Bodyweight} unknown_gear {Unknown} other {}}",
+      "program.label": "{slug, select, full_body {Full body} upper_body {Upper body} lower_body {Lower body} push {Push} pull {Pull} legs {Legs} core {Core} mobility {Mobility} calisthenics {Calisthenics} calisthenics_upper {Upper-body calisthenics} running {Running} walking {Walking} cardio {Cardio} pilates {Pilates} yoga {Yoga} health {Health} healthy_lifestyle {Healthy lifestyle} pull_up {Pull-up} pull_up_pro {Pull-up pro} planche {Planche} front_lever {Front lever} back_lever {Back lever} handstand {Handstand} handstand_pushup {Handstand push-up} one_arm_pullup {One-arm pull-up} muscle_up {Muscle-up} human_flag {Human flag} strength {Strength workout} muscle {Strength} other {}}"
     },
     "ru": {},
     "de": {},

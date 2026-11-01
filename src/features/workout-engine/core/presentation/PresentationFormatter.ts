@@ -47,28 +47,14 @@ import { minMainExercisesFor, shortSessionRestFloor } from '../../logic/session-
 import { applyDynamicRepFloor, restCompressionFloor } from '../../logic/rest-reps-rules';
 import { isTrueSkillExercise } from '../../logic/adaptive/true-skill';
 import { classifyPyramidShape } from '../../logic/protocols/pyramid.processor';
+import { planPeakSetText, planRepsRangeText, planRepsText, planSecsRangeText, planSecsText } from '@/features/workout-engine/shared/utils/plan-text';
 
 // ============================================================================
 // REP RANGE FORMATTER
 // ============================================================================
 
-/**
- * Hebrew unit labels — kept inline as constants so the formatter stays a pure
- * function with no i18n indirection (the engine is Hebrew-only by contract;
- * future English variants belong in a separate adapter, not here).
- */
-const HE_UNIT_REPS_PLURAL  = 'חזרות';
-const HE_UNIT_REPS_SINGULAR = 'חזרה אחת';
-const HE_UNIT_SECONDS_PLURAL  = 'שניות';
-const HE_UNIT_SECONDS_SINGULAR = 'שנייה אחת';
+/** Unit words come from the player catalog via plan-text.ts (Hebrew byte-identical, English in English mode). */
 
-/**
- * Peak-Set neurological tag — appended to the formatted rep string when a
- * pyramid's terminal step is a single-rep (D3 peak overload).  Communicates
- * the maximal-effort intent so the user reads "1-2 חזרות (סט שיא)" instead
- * of a literal "חזרה אחת" that looks like an error in calisthenics cards.
- */
-const HE_TAG_PEAK_SET = 'סט שיא';
 
 // ============================================================================
 // STATIC-SKILL HOLD CAP — Presentation safety net
@@ -255,9 +241,7 @@ export function formatRepRange(ex: WorkoutExercise): string {
   // range from the static reps value so we can route through one code path.
   const range = ex.repsRange;
   if (range && range.min !== range.max) {
-    return `${range.min}-${range.max} ${
-      isTimeBased ? HE_UNIT_SECONDS_PLURAL : HE_UNIT_REPS_PLURAL
-    }`;
+    return isTimeBased ? planSecsRangeText(range.min, range.max) : planRepsRangeText(range.min, range.max);
   }
 
   // ── Peak-Set 1-Rep Visual Window ────────────────────────────────────────
@@ -268,17 +252,15 @@ export function formatRepRange(ex: WorkoutExercise): string {
   // parents whose terminal step is a 1-rep peak (see helper rules).
   const value = range?.min ?? ex.reps;
   if (!isTimeBased && value === 1 && isPeakPyramidWithSingleRepTerminal(ex)) {
-    return `1-2 ${HE_UNIT_REPS_PLURAL} (${HE_TAG_PEAK_SET})`;
+    return planPeakSetText();
   }
 
   // Single value path — applies Hebrew singular grammar for n === 1
   // (`חזרה אחת` instead of `1 חזרות`).
   if (isTimeBased) {
-    if (value === 1) return HE_UNIT_SECONDS_SINGULAR;
-    return `${value} ${HE_UNIT_SECONDS_PLURAL}`;
+    return planSecsText(value);
   }
-  if (value === 1) return HE_UNIT_REPS_SINGULAR;
-  return `${value} ${HE_UNIT_REPS_PLURAL}`;
+  return planRepsText(value);
 }
 
 /**

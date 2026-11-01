@@ -5,6 +5,7 @@ import type { MutableRefObject } from 'react';
 import { resolveSetTarget } from '../logic/set-target.utils';
 import type { ExerciseResultLog } from './useWorkoutStateMachine';
 import { logStampFromPlanExercise, recordSetMeta } from '@/features/workout-engine/adaptation/exercise-log-stamp';
+import { savedExerciseName } from '@/features/workout-engine/shared/utils/plan-text';
 
 /**
  * useExerciseLog — SM-4
@@ -164,7 +165,7 @@ export function useExerciseLog({
       } else {
         entry = {
           exerciseId: exercise.id,
-          exerciseName: exercise.name,
+          exerciseName: savedExerciseName(exercise),
           segmentId: segId,
           confirmedReps: [reps],
           targetReps: reps,

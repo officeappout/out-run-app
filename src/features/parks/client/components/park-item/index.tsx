@@ -6,12 +6,15 @@ import ParkWithDistance from '../../types/park-with-distance.type';
 import getDistanceStr from '@/features/parks/lib/distance-str';
 import useCardPage from '@/@core/hooks/useCardPage';
 import { bunnyImg } from '@/lib/bunny-image';
+import { parkDisplayName } from '@/features/parks/core/utils/park-display-name';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 type ParkItemProps = {
   park: ParkWithDistance;
 };
 
 function ParkItem({ park }: ParkItemProps) {
+  const parkLang = useContentLanguage();
   const router = useRouter();
   const { href } = useCardPage('park', park.id);
   
@@ -36,7 +39,7 @@ function ParkItem({ park }: ParkItemProps) {
 
       {/* תוכן הטקסט */}
       <div className="flex-1 flex flex-col items-start text-start">
-        <h4 className="font-bold text-gray-900 dark:text-white text-base mb-1">{park.name}</h4>
+        <h4 className="font-bold text-gray-900 dark:text-white text-base mb-1">{parkDisplayName(park, parkLang)}</h4>
         
         <div className="flex items-center gap-2 mb-2">
           <div className="flex items-center gap-1">

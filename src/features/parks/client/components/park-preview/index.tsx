@@ -18,6 +18,8 @@ import { parkTarget, useMapPolishV1, useNavigateTo } from '@/features/parks/core
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import ParkCardCompact from './ParkCardCompact';
+import { parkDisplayName } from '@/features/parks/core/utils/park-display-name';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 interface ParkPreviewProps {
   userLocation: { lat: number; lng: number } | null;
@@ -33,6 +35,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   const polish = useMapPolishV1();
   const navigateTo = useNavigateTo();
   const t = useT(map);
+  const parkLang = useContentLanguage();
 
   // SPEC-07 redesign (17.09.2026): this preview card owns its own data
   // completeness — same principle as ParkDetailSheet, same reason (a map
@@ -109,7 +112,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
     <>
       {polish ? (
         <ParkCardCompact
-          name={park.name}
+          name={parkDisplayName(park, parkLang)}
           heroSrc={heroSrc}
           objectPosition={objectPosition}
           rating={hasRating ? { avg: park.ratingAvg as number, count: park.reviewCount ?? 0 } : null}
@@ -171,7 +174,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
           {/* ── Body ─────────────────────────────────────── */}
           <div className="px-3 -mt-4 pb-2 relative">
             <h3 className="text-[16px] font-semibold text-gray-900 dark:text-white leading-snug">
-              {park.name}
+              {parkDisplayName(park, parkLang)}
             </h3>
 
             {/* Info line: rating · city · distance · machine count — modest,

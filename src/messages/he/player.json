@@ -1211,5 +1211,15 @@
   "parkLive.bw.streetNote": "אין גינה בדרך, עובדים עם מה שיש ברחוב",
   "parkLive.bw.how": "{n, plural, =1 {תרגיל אחד} other {# תרגילים}}, {sets, plural, =1 {סט אחד בכל תרגיל} other {# סטים בכל תרגיל}}. סרטון לפני כל תרגיל.",
   "parkLive.bw.howMixed": "{n, plural, =1 {תרגיל אחד} other {# תרגילים}}. סרטון לפני כל תרגיל.",
-  "parkLive.bw.start": "לסרטון הראשון"
+  "parkLive.bw.start": "לסרטון הראשון",
+  "planVolume.reps": "{n, plural, =1 {חזרה אחת} other {{n} חזרות}}",
+  "planVolume.repsRange": "{max, plural, one {{min}-{max} חזרות} other {{min}-{max} חזרות}}",
+  "planVolume.secs": "{n, plural, =1 {שנייה אחת} other {{n} שניות}}",
+  "planVolume.secsRange": "{max, plural, one {{min}-{max} שניות} other {{min}-{max} שניות}}",
+  "planVolume.perSide": " (לכל צד)",
+  "planVolume.repsUnit": "{n, plural, one {{v} חזרות} other {{v} חזרות}}",
+  "planVolume.secsUnit": "{n, plural, one {{v} שניות} other {{v} שניות}}",
+  "planVolume.peakSet": "1-2 חזרות (סט שיא)",
+  "planVolume.pyramid": "{shape, select, wave {פירמידה עולה-יורדת} other {סט שיא}}",
+  "planSection.tabataFinisher": "טבטה — פיניש"
 }

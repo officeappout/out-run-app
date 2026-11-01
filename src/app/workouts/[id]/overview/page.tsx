@@ -18,6 +18,7 @@ import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 import { useT } from '@/hooks/useT';
 import { library, type LibraryT } from '@/messages/ns/library';
+import { planExerciseNames } from '@/features/workout-engine/shared/utils/plan-text';
 
 /**
  * Fetch workout from Firestore and convert to WorkoutPlan format
@@ -88,7 +89,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, t: LibraryT): Promis
         target: { type: 'time', value: warmupExercises.length * 60 },
         exercises: warmupExercises.slice(0, 3).map((ex) => ({
           id: ex.id,
-          name: getLocalizedText(ex.name),
+          ...planExerciseNames(ex.name),
           duration: t('workoutOverview.seconds', { n: '60' }),
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
@@ -108,7 +109,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, t: LibraryT): Promis
         target: { type: 'reps', value: 12 },
         exercises: mainExercises.slice(0, 6).map((ex) => ({
           id: ex.id,
-          name: getLocalizedText(ex.name),
+          ...planExerciseNames(ex.name),
           reps: ex.type === 'reps' ? t('workoutOverview.reps', { n: '12' }) : undefined,
           duration: ex.type === 'time' ? t('workoutOverview.seconds', { n: '45' }) : undefined,
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
@@ -129,7 +130,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, t: LibraryT): Promis
         target: { type: 'time', value: cooldownExercises.length * 60 },
         exercises: cooldownExercises.slice(0, 2).map((ex) => ({
           id: ex.id,
-          name: getLocalizedText(ex.name),
+          ...planExerciseNames(ex.name),
           duration: t('workoutOverview.seconds', { n: '60' }),
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
@@ -149,7 +150,7 @@ async function fetchWorkoutFromFirestore(workoutId: string, t: LibraryT): Promis
         target: { type: 'reps', value: 12 },
         exercises: exercises.slice(0, 5).map((ex) => ({
           id: ex.id,
-          name: getLocalizedText(ex.name),
+          ...planExerciseNames(ex.name),
           reps: t('workoutOverview.reps', { n: '12' }),
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
