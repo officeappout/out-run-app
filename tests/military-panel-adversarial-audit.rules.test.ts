@@ -129,7 +129,7 @@ async function testAdminFieldSelfGrantSweep() {
   // else's doc. Proves the sweep above is testing the self-grant hole,
   // not accidentally proving the whole field is unwritable by anyone.
   await it('SG-CONTROL — root admin sets core.isSuperAdmin on another user\'s doc → ALLOW', async () => {
-    const ctx = env.authenticatedContext('root_user', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_user', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(updateDoc(doc(ctx.firestore(), 'users', 'plain_user'), {
       'core.isSuperAdmin': true,
     }));
@@ -183,7 +183,7 @@ async function testReadinessThresholdsCatchAllInteraction() {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'readiness_thresholds', 'global'), { id: 'global', version: 1 });
     });
-    const ctx = env.authenticatedContext('root_user', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_user', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'readiness_thresholds', 'global')));
   });
 

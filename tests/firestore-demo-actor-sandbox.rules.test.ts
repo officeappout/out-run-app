@@ -96,6 +96,11 @@ async function testChats() {
     await assertFails(setDoc(doc(tester(), 'chats', 'group_other-real'), { type: 'group', groupId: 'other-real', participants: [TESTER] }));
   });
   await it('[ALLOW] tester creates a group chat for a demo group', async () => {
+    // 01.11.2026 security audit: creating a group chat now requires real membership
+    // (createGroup writes the member doc first), so seed it like the real flow does.
+    await env.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'community_groups', 'demo-grp-new', 'members', TESTER), { uid: TESTER, role: 'admin' });
+    });
     await assertSucceeds(setDoc(doc(tester(), 'chats', 'group_demo-grp-new'), { type: 'group', groupId: 'demo-grp-new', participants: [TESTER] }));
   });
   await it('[DENY] tester sends a message in a real group chat it is already in', async () => {

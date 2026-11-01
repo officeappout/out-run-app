@@ -55,7 +55,7 @@ async function requireAdmin(auth: { uid: string; token?: Record<string, any> } |
   if (token?.admin === true) return uid;
 
   const email: string | undefined = token?.email;
-  if (email && ROOT_ADMIN_EMAIL_REGEX.test(email)) return uid;
+  if (token?.email_verified === true && email && ROOT_ADMIN_EMAIL_REGEX.test(email)) return uid;
 
   try {
     const userSnap = await db.collection('users').doc(uid).get();

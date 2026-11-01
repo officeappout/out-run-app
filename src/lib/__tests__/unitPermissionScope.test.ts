@@ -24,6 +24,8 @@ const state = vi.hoisted(() => ({
   /** 06.10.2026 ("chief fitness officer") — every authority's type, for the new vertical branch's `authorities.select('type').get()` read. */
   allAuthorityTypes: [] as Array<{ id: string; type: string }>,
   throwOn: null as null | 'user' | 'authorities' | 'units' | 'downward',
+  /** 01.11.2026 security audit — root is read from the Auth record (verified email), not core.email. */
+  authUser: null as { email?: string; emailVerified: boolean } | null,
 }));
 
 function maybeThrow(tag: typeof state.throwOn) {
@@ -31,6 +33,12 @@ function maybeThrow(tag: typeof state.throwOn) {
 }
 
 vi.mock('@/lib/firebase-admin', () => ({
+  getAdminAuth: () => ({
+    getUser: async () => {
+      if (!state.authUser) throw new Error('auth/user-not-found');
+      return state.authUser;
+    },
+  }),
   getAdminDb: () => ({
     collection: (name: string) => {
       if (name === 'users') {
@@ -108,6 +116,7 @@ import { resolveUnitPermissionScope, isMemberWithinScope } from '@/lib/unitPermi
 
 describe('resolveUnitPermissionScope — denied vs unknown split (P1-3 item 1)', () => {
   beforeEach(() => {
+    state.authUser = null;
     state.userDoc = { core: { email: 'someone@example.com' } };
     state.ownedTenantDocs = [];
     state.managedUnitDocs = [];
@@ -118,8 +127,23 @@ describe('resolveUnitPermissionScope — denied vs unknown split (P1-3 item 1)',
 
   it('resolves root for a known root-admin email', async () => {
     state.userDoc = { core: { email: 'office@appout.co.il' } };
+    state.authUser = { email: 'office@appout.co.il', emailVerified: true };
     const scope = await resolveUnitPermissionScope('root-uid');
     expect(scope).toEqual({ kind: 'root' });
+  });
+
+  it('never resolves root from the client-writable core.email alone', async () => {
+    state.userDoc = { core: { email: 'office@appout.co.il' } };
+    state.authUser = { email: 'attacker@example.com', emailVerified: true };
+    const scope = await resolveUnitPermissionScope('spoof-uid');
+    expect(scope).not.toEqual({ kind: 'root' });
+  });
+
+  it('never resolves root for an unverified root-admin email', async () => {
+    state.userDoc = { core: { email: 'office@appout.co.il' } };
+    state.authUser = { email: 'office@appout.co.il', emailVerified: false };
+    const scope = await resolveUnitPermissionScope('unverified-uid');
+    expect(scope).not.toEqual({ kind: 'root' });
   });
 
   it('resolves tenantOwner when the authorities query matches', async () => {
@@ -172,6 +196,7 @@ describe('resolveUnitPermissionScope — denied vs unknown split (P1-3 item 1)',
 
 describe('resolveUnitPermissionScope — "chief fitness officer" vertical branch (06.10.2026)', () => {
   beforeEach(() => {
+    state.authUser = null;
     state.userDoc = { core: { email: 'someone@example.com' } };
     state.ownedTenantDocs = [];
     state.managedUnitDocs = [];

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
-      email = decoded.email;
+      email = decoded.email_verified === true ? decoded.email : undefined;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }

@@ -117,7 +117,7 @@ export async function verifyAiRequest(request: Request, opts: VerifyAiRequestOpt
   try {
     const decoded = await getAdminAuth().verifyIdToken(token, true);
     uid = decoded.uid;
-    email = typeof decoded.email === 'string' ? decoded.email : null;
+    email = decoded.email_verified === true && typeof decoded.email === 'string' ? decoded.email : null;
   } catch {
     return deny(401, 'invalid_token');
   }

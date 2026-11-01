@@ -125,7 +125,7 @@ async function testSuggestions() {
 async function testRootFallbackReach() {
   console.log('\ncontent — ROOT still passes via the ROOT ADMIN FALLBACK (documents its reach)');
   await it('[ROOT] root (david@) GETs a draft → ALLOWED by the fallback', async () => {
-    const ctx = env.authenticatedContext('root_uid', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_uid', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(getDoc(doc(ctx.firestore(), ...DRAFT)));
   });
 }

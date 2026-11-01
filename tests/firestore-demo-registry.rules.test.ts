@@ -90,7 +90,7 @@ async function testRegistryDenied() {
     });
   }
   await it('[ROOT] root (david@) GETs demo_registry/viewers → ALLOWED by the fallback, not by the block', async () => {
-    const ctx = env.authenticatedContext('root_uid', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_uid', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(getDoc(doc(ctx.firestore(), ...VIEWERS)));
   });
 }

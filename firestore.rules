@@ -85,7 +85,11 @@ service cloud.firestore {
     }
 
     function isRootAdmin() {
+      // 01.11.2026 security audit — the address must be VERIFIED. Without
+      // this, anyone could sign up with email/password using one of these
+      // addresses (if it has no password account) and become root admin.
       return isAuthenticated() &&
+        request.auth.token.get('email_verified', false) == true &&
         request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$');
     }
 
@@ -2673,10 +2677,20 @@ service cloud.firestore {
                          .data.get('core', {}).get('ageGroup', '') == 'adult'
                     // B1 demo sandbox: a demo actor opens DMs only with demo peers.
                     && (!isDemoActor() || isDemoChat(request.resource.data));
-      // Group chat create: requesting user in participants, type == 'group'
+      // Group chat create (createGroupChat): 01.11.2026 security audit — this
+      // used to check only "caller in participants", so an adult could open a
+      // 'group' chat with any minor and bypass the adults-only DM rule above.
+      // Now: the creator is the ONLY participant, the id is the deterministic
+      // "group_" + groupId, and the creator is a real member of that group
+      // (or registered to that event). Everyone else joins via the JOIN rule.
       allow create: if isAuthenticated()
-                    && request.auth.uid in request.resource.data.participants
                     && request.resource.data.type == 'group'
+                    && request.resource.data.participants == [request.auth.uid]
+                    && chatId == 'group_' + request.resource.data.groupId
+                    && (
+                      exists(/databases/$(database)/documents/community_groups/$(request.resource.data.groupId)/members/$(request.auth.uid)) ||
+                      exists(/databases/$(database)/documents/community_events/$(request.resource.data.groupId)/registrations/$(request.auth.uid))
+                    )
                     && (!isDemoActor() || isDemoChat(request.resource.data));
 
       // Existing participants can update (send message metadata, mark read, etc.)
@@ -2688,6 +2702,12 @@ service cloud.firestore {
                     && resource.data.get('moderationState', '') != 'removed'
                     && !request.resource.data.diff(resource.data).affectedKeys()
                          .hasAny(['moderationState', 'removedBy', 'removedAt'])
+                    // 01.11.2026 security audit — membership/identity fields are
+                    // never changed by this generic rule (it let any DM or group
+                    // participant rewrite `participants` and pull in anyone,
+                    // minors included). Join/leave have their own rules below.
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['participants', 'type', 'groupId'])
                     && (!isDemoActor() || isDemoChat(resource.data));
       // Group chat JOIN: SPEC-02 SEC-03 (part 2) — this used to let ANY
       // authenticated user self-add to a group chat's `participants` via
@@ -2711,17 +2731,43 @@ service cloud.firestore {
       //      community_events/{eventId}/registrations/{uid} doc.
       // Either way, this check never blocks the legitimate flow, only an
       // attacker who skipped both.
+      // 01.11.2026 security audit — the joiner may add ONLY themselves
+      // (addMemberToGroupChat: arrayUnion(uid) + participantNames.uid); before,
+      // a real member could arrayUnion any other uid in the same write.
       allow update: if isAuthenticated()
                     && resource.data.type == 'group'
                     && resource.data.get('moderationState', '') != 'removed'
-                    && !request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['moderationState', 'removedBy', 'removedAt'])
-                    && request.auth.uid in request.resource.data.participants
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['participants', 'participantNames'])
+                    && request.resource.data.participants.toSet()
+                         .difference(resource.data.participants.toSet()) == [request.auth.uid].toSet()
+                    && resource.data.participants.toSet()
+                         .difference(request.resource.data.participants.toSet()).size() == 0
                     && (!isDemoActor() || isDemoChat(resource.data))
                     && (
                       exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid)) ||
                       exists(/databases/$(database)/documents/community_events/$(resource.data.groupId)/registrations/$(request.auth.uid))
                     );
+      // Group chat LEAVE / REMOVE (removeMemberFromGroupChat, from leaveGroup
+      // and removeGroupMember): exactly one uid leaves, nobody is added. It is
+      // either the caller themselves, or the caller is an admin of the group.
+      allow update: if isAuthenticated()
+                    && resource.data.type == 'group'
+                    && resource.data.get('moderationState', '') != 'removed'
+                    && request.auth.uid in resource.data.participants
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['participants', 'participantNames'])
+                    && request.resource.data.participants.toSet()
+                         .difference(resource.data.participants.toSet()).size() == 0
+                    && resource.data.participants.toSet()
+                         .difference(request.resource.data.participants.toSet()).size() == 1
+                    && (
+                      resource.data.participants.toSet()
+                        .difference(request.resource.data.participants.toSet()) == [request.auth.uid].toSet() ||
+                      get(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid))
+                        .data.get('role', '') == 'admin'
+                    )
+                    && (!isDemoActor() || isDemoChat(resource.data));
 
       match /messages/{messageId} {
         // Read: participant of the parent chat

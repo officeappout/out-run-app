@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
       uid = decoded.uid;
-      tokenEmail = decoded.email;
+      tokenEmail = decoded.email_verified === true ? decoded.email : undefined;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }

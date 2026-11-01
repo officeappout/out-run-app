@@ -163,6 +163,8 @@ export default defineConfig({
       'tests/firestore-fix-membercount-streaks-clamp.rules.test.ts',
       'tests/firestore-fix-connections-selffollow.rules.test.ts',
       'tests/firestore-fix-chats-messages-fieldguard.rules.test.ts',
+      // 01.11.2026 security audit: verified root-admin email + group chat membership — emulator :8089.
+      'tests/firestore-fix-security-audit-2026-11.rules.test.ts',
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       // admin_costs / admin_cost_items server-only lockdown (/admin/costs) — emulator :8089.
       'tests/firestore-admin-costs.rules.test.ts',
