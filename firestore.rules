@@ -1748,9 +1748,22 @@ service cloud.firestore {
     // CRM / AUTHORITIES — public read for city lookups, admin write
     // Pillar 7: pressureCount is incrementable by authenticated users
     // ============================================================
+    //
+    // 01.11.2026 (security audit) — the main doc is world-readable, so OUT's
+    // sales CRM (staff contacts, meeting notes, tasks, quotes, Drive links)
+    // moved to authorities/{id}/crm_private/main (admin-only, below). Even an
+    // admin's client write may no longer put those 5 keys on the public doc:
+    // create must not carry them, update must not touch them (affectedKeys,
+    // not keys(), so pre-migration docs that still hold legacy copies stay
+    // editable for every other field). The migration script removes the
+    // legacy copies via the Admin SDK, which bypasses these rules.
     match /authorities/{docId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAdmin()
+                    && !request.resource.data.keys().hasAny(authorityCrmFields());
+      allow update: if isAdmin()
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(authorityCrmFields());
+      allow delete: if isAdmin();
       // Users can increment pressureCount only (validated client-side with 24h dedup)
       allow update: if isAuthenticated()
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pressureCount']);
@@ -1760,6 +1773,22 @@ service cloud.firestore {
         allow read: if isAdmin();
         allow create: if isAuthenticated();
       }
+
+      // Sales CRM (contacts, activityLog, tasks, financials, documents) — admin only.
+      match /crm_private/{crmDocId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    function authorityCrmFields() {
+      return ['contacts', 'activityLog', 'tasks', 'financials', 'documents'];
+    }
+
+    // Collection-group reads of crm_private (the admin CRM list loads every
+    // authority's CRM in one query) — admin only. Read-only: writes always go
+    // through the per-document path above.
+    match /{path=**}/crm_private/{crmDocId} {
+      allow read: if isAdmin();
     }
 
     // ============================================================

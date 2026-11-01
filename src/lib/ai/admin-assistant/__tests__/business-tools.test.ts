@@ -57,17 +57,38 @@ function fakeDb(raw: Store, opts: { failCounts?: string[]; failGets?: string[] }
       return { docs, size: docs.length };
     },
   });
+  // Sub-collections are stored under 'parentColl/parentId/sub' keys (e.g. authorities/x/crm_private).
+  const docRef = (coll: string, id: string): any => ({
+    id,
+    path: `${coll}/${id}`,
+    collection: (sub: string) => ({ doc: (subId: string) => docRef(`${coll}/${id}/${sub}`, subId) }),
+    get: async () => {
+      reads.docs += 1;
+      const d = store[coll]?.[id];
+      return { id, exists: d !== undefined, data: () => d };
+    },
+  });
   const db: any = {
     collection: (coll: string) => ({
       ...query(coll, []),
-      doc: (id: string) => ({
-        get: async () => {
-          reads.docs += 1;
-          const d = store[coll]?.[id];
-          return { id, exists: d !== undefined, data: () => d };
-        },
-      }),
+      doc: (id: string) => docRef(coll, id),
     }),
+    collectionGroup: (name: string) => ({
+      get: async () => {
+        reads.scans += 1;
+        const docs = Object.entries(store)
+          .filter(([key]) => key.split('/').length === 3 && key.endsWith(`/${name}`))
+          .flatMap(([key, docsOf]) => {
+            const [parentColl, parentId] = key.split('/');
+            return Object.entries(docsOf).map(([id, d]) => ({
+              id, exists: true, data: () => d,
+              ref: { parent: { id: name, parent: { id: parentId, parent: { id: parentColl } } } },
+            }));
+          });
+        return { docs, size: docs.length };
+      },
+    }),
+    getAll: async (...refs: any[]) => Promise.all(refs.map((r) => r.get())),
   };
   return { db, reads };
 }
@@ -384,5 +405,43 @@ describe('strict inputs, dictionary and prompt', () => {
     expect(out.isError).toBe(false);
     expect(out.evidence).toBeUndefined();
     expect(out.content).toContain('כפר סבא');
+  });
+});
+
+describe('CRM fields in authorities/{id}/crm_private/main (security split, 01.11.2026)', () => {
+  const CRM = ['contacts', 'activityLog', 'tasks', 'financials', 'documents'];
+  const strip = (d: any) => Object.fromEntries(Object.entries(d).filter(([k]) => !CRM.includes(k)));
+  const pick = (d: any) => Object.fromEntries(Object.entries(d).filter(([k]) => CRM.includes(k)));
+  // Post-migration shape: public docs carry no CRM keys; ofakim's financials are private only.
+  const MIGRATED: Store = {
+    ...DATA,
+    authorities: Object.fromEntries(Object.entries(DATA.authorities).map(([id, d]) => [id, strip(d)])),
+    'authorities/sderot/crm_private': { main: pick(DATA.authorities.sderot) },
+    'authorities/ofakim/crm_private': { main: pick(DATA.authorities.ofakim) },
+  };
+
+  it('timeline reads the private doc — same result as the legacy shape', async () => {
+    const { db } = fakeDb(MIGRATED);
+    const v = (await computeCrmTimeline(db, 'sderot', NOW))!.value!;
+    expect(v.activity.total).toBe(5);
+    expect(v.tasks).toMatchObject({ open: 2, done: 1 });
+    expect(v.contactsCount).toBe(1);
+  });
+
+  it('timeline: private wins per field, legacy main-doc copy fills the rest', async () => {
+    const { db } = fakeDb({
+      ...DATA,
+      'authorities/sderot/crm_private': { main: { tasks: [{ title: 'רק פרטי', status: 'open' }] } },
+    });
+    const v = (await computeCrmTimeline(db, 'sderot', NOW))!.value!;
+    expect(v.tasks).toMatchObject({ open: 1, done: 0 });
+    expect(v.activity.total).toBe(5); // legacy activityLog still visible
+  });
+
+  it('finance receivables come from crm_private (names from the public doc)', async () => {
+    const { db } = fakeDb(MIGRATED);
+    const v = (await getFinanceOverview(db, 12, { now: NOW })).value!;
+    expect(v.receivables).toMatchObject({ authoritiesWithQuote: 2, totalQuoted: 30000, paid: 4000, scheduledPending: 6000 });
+    expect(v.receivables.rows[0]).toMatchObject({ id: 'ofakim', name: 'אופקים', quoted: 20000 });
   });
 });

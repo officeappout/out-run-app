@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { requireAdminApi } from '@/lib/api-auth';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { splitCrmFields } from '@/features/admin/services/authority-crm';
+import { readAuthorityWithCrm, writeAuthorityCrm } from '@/features/admin/services/authority-crm.server';
 import type { PipelineStatus, ContactRole, TaskStatus } from '@/types/admin-types';
-
-const COLLECTION = 'authorities';
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
@@ -36,11 +36,11 @@ const AGENT_NAME = 'Cali Agent';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Main doc merged with authorities/{id}/crm_private/main (CRM fields live there).
 async function getDoc(id: string) {
-  const db = getAdminDb();
-  const snap = await db.collection(COLLECTION).doc(id).get();
-  if (!snap.exists) return null;
-  return { id: snap.id, ...snap.data() } as Record<string, unknown>;
+  const data = await readAuthorityWithCrm(getAdminDb(), id);
+  if (!data) return null;
+  return { id, ...data } as Record<string, unknown>;
 }
 
 // ─── GET /api/admin/authorities/[id] ─────────────────────────────────────────
@@ -102,11 +102,10 @@ export async function PATCH(
   }
 
   const db = getAdminDb();
-  const docRef = db.collection(COLLECTION).doc(params.id);
-  const existing = await docRef.get();
-  if (!existing.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const existing = await getDoc(params.id);
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const data = existing.data() as Record<string, unknown>;
+  const data = existing;
   const applied: string[] = [];
   const updates: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
 
@@ -272,7 +271,9 @@ export async function PATCH(
     applied.push(`updateTask id:${t.id}`);
   }
 
-  await docRef.update(updates);
+  // contacts / activityLog / tasks → crm_private/main; the rest → main doc.
+  const { publicData, crmData } = splitCrmFields(updates);
+  await writeAuthorityCrm(db, params.id, crmData, publicData);
 
   const updated = await getDoc(params.id);
   return NextResponse.json({ applied, authority: updated });

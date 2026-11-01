@@ -1,7 +1,8 @@
 import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { appendAuthorityCrmArray } from './authority-crm.server';
 import { getDriveClient, PRIMARY_MAILBOX } from '@/lib/google-service-account';
 import { createInsight } from './insights.service';
 import type { InsightSource } from '@/types/admin-types';
@@ -177,18 +178,16 @@ export async function appendToActivityLog(
   date: Date,
 ): Promise<void> {
   const db = getAdminDb();
-  await db.collection('authorities').doc(authorityId).update({
-    activityLog: FieldValue.arrayUnion({
-      id: crypto.randomUUID(),
-      type: 'meeting',
-      content: summary,
-      gmailUrl: transcriptUrl,
-      date: Timestamp.fromDate(date),
-      createdAt: Timestamp.now(),
-      createdBy: 'transcript-agent',
-    }),
-    updatedAt: FieldValue.serverTimestamp(),
-  });
+  // CRM fields live in authorities/{id}/crm_private/main.
+  await appendAuthorityCrmArray(db, authorityId, 'activityLog', [{
+    id: crypto.randomUUID(),
+    type: 'meeting',
+    content: summary,
+    gmailUrl: transcriptUrl,
+    date: Timestamp.fromDate(date),
+    createdAt: Timestamp.now(),
+    createdBy: 'transcript-agent',
+  }]);
 }
 
 // ─── Firestore: convert action items to authority tasks ───────────────────────
@@ -210,10 +209,7 @@ export async function appendTasksFromActionItems(
     createdBy: 'transcript-agent',
   }));
 
-  await db.collection('authorities').doc(authorityId).update({
-    tasks: FieldValue.arrayUnion(...tasks),
-    updatedAt: FieldValue.serverTimestamp(),
-  });
+  await appendAuthorityCrmArray(db, authorityId, 'tasks', tasks);
 }
 
 // ─── Full pipeline for one transcript ────────────────────────────────────────

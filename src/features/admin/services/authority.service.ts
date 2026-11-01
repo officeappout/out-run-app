@@ -7,9 +7,7 @@ import {
   doc, 
   getDoc, 
   getDocs, 
-  addDoc, 
   updateDoc, 
-  deleteDoc, 
   query, 
   orderBy,
   where,
@@ -40,6 +38,8 @@ import { logAction } from './audit.service';
 import { parseBoundaryGeoJSON } from '@/lib/route-collections/authority-resolution';
 import { isDemoResident, isExcludedResident } from '@/lib/testAccountFilter';
 import { isDemoTenantClient } from './demo-tenant.client';
+import { mergeCrmFields, splitCrmFields } from './authority-crm';
+import { crmPrivateRef, readAllCrmPrivate, readCrmPrivate, setCrmFieldsInBatch } from './authority-crm.client';
 
 /**
  * Convert Date to Firestore-safe format (ISO string for nested objects)
@@ -304,8 +304,16 @@ function normalizeAuthority(docId: string, data: any): Authority {
 /**
  * Public wrapper for normalizeAuthority (used by real-time listener in useAuthorities)
  */
-export function normalizeAuthorityFromSnapshot(docId: string, data: any): Authority {
-  return normalizeAuthority(docId, data);
+export function normalizeAuthorityFromSnapshot(docId: string, data: any, crmPrivate?: Record<string, unknown> | null): Authority {
+  return normalizeAuthority(docId, mergeCrmFields(data ?? {}, crmPrivate));
+}
+
+/** Main-doc snapshots + (admin-only) private CRM docs → normalized authorities. */
+function normalizeWithCrm(
+  docs: Array<{ id: string; data: () => any }>,
+  crmById: Map<string, Record<string, unknown>>,
+): Authority[] {
+  return docs.map(d => normalizeAuthority(d.id, mergeCrmFields(d.data() ?? {}, crmById.get(d.id))));
 }
 
 /**
@@ -375,12 +383,15 @@ export async function getAllAuthorities(type?: AuthorityType, topLevelOnly: bool
     
     q = query(collection(db, AUTHORITIES_COLLECTION), ...constraints);
     
-    const snapshot = await getDocs(q);
+    // CRM fields live in crm_private (admin-only): one collection-group read,
+    // empty for non-admins.
+    const [snapshot, crmById] = await Promise.all([getDocs(q), readAllCrmPrivate(db)]);
     
     // Filter out internal technical records
-    const authorities = snapshot.docs
-      .filter(doc => !doc.id.includes('__SCHEMA_INIT__') && doc.data()?.name !== '__SCHEMA_INIT__')
-      .map(doc => normalizeAuthority(doc.id, doc.data()));
+    const authorities = normalizeWithCrm(
+      snapshot.docs.filter(doc => !doc.id.includes('__SCHEMA_INIT__') && doc.data()?.name !== '__SCHEMA_INIT__'),
+      crmById,
+    );
     
     // Return sorted by urgency
     const sorted = sortAuthoritiesByUrgency(authorities);
@@ -410,11 +421,12 @@ export async function getChildrenByParent(parentAuthorityId: string): Promise<Au
       where('parentAuthorityId', '==', parentAuthorityId),
       orderBy('name', 'asc')
     );
-    const snapshot = await getDocs(q);
+    const [snapshot, crmById] = await Promise.all([getDocs(q), readAllCrmPrivate(db)]);
     
-    return snapshot.docs
-      .filter(doc => !doc.id.includes('__SCHEMA_INIT__') && doc.data()?.name !== '__SCHEMA_INIT__')
-      .map(doc => normalizeAuthority(doc.id, doc.data()));
+    return normalizeWithCrm(
+      snapshot.docs.filter(doc => !doc.id.includes('__SCHEMA_INIT__') && doc.data()?.name !== '__SCHEMA_INIT__'),
+      crmById,
+    );
   } catch (error) {
     console.error('Error fetching children authorities:', error);
     throw error;
@@ -485,6 +497,18 @@ export async function getAuthoritiesGrouped(): Promise<{
  * Get a single authority by ID
  */
 export async function getAuthority(authorityId: string): Promise<Authority | null> {
+  return loadAuthority(authorityId, false);
+}
+
+/**
+ * Read for a read-modify-write of CRM fields: the private CRM read must
+ * succeed, otherwise a stale legacy copy could overwrite newer private data.
+ */
+async function getAuthorityForCrmWrite(authorityId: string): Promise<Authority | null> {
+  return loadAuthority(authorityId, true);
+}
+
+async function loadAuthority(authorityId: string, strictCrm: boolean): Promise<Authority | null> {
   try {
     // Null/undefined check for authorityId before using it
     if (!authorityId || typeof authorityId !== 'string' || authorityId.trim() === '') {
@@ -493,14 +517,20 @@ export async function getAuthority(authorityId: string): Promise<Authority | nul
     }
     
     const docRef = doc(db, AUTHORITIES_COLLECTION, authorityId);
-    const docSnap = await getDoc(docRef);
+    // Private CRM read never throws in the lenient mode (non-admin → null).
+    const [docSnap, crmPrivate] = await Promise.all([
+      getDoc(docRef),
+      strictCrm
+        ? getDoc(crmPrivateRef(db, authorityId)).then(s => (s.exists() ? s.data() : null))
+        : readCrmPrivate(db, authorityId),
+    ]);
     
     if (!docSnap.exists()) return null;
     
     const data = docSnap.data();
     if (!data) return null; // Null-check before processing
     
-    return normalizeAuthority(docSnap.id, data);
+    return normalizeAuthority(docSnap.id, mergeCrmFields(data, crmPrivate));
   } catch (error) {
     console.error('Error fetching authority:', error);
     throw error;
@@ -512,7 +542,14 @@ export async function getAuthority(authorityId: string): Promise<Authority | nul
  */
 export async function createAuthority(data: Omit<Authority, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db, AUTHORITIES_COLLECTION), {
+    const docRef = doc(collection(db, AUTHORITIES_COLLECTION));
+    const crmFields = {
+      contacts: data.contacts || [],
+      activityLog: data.activityLog || [],
+      tasks: data.tasks || [],
+    };
+    const batch = writeBatch(db);
+    batch.set(docRef, {
       name: data.name ?? '',
       type: data.type || 'city', // Default to 'city' if not specified
       parentAuthorityId: data.parentAuthorityId || null,
@@ -526,11 +563,8 @@ export async function createAuthority(data: Omit<Authority, 'id' | 'createdAt' |
         typeof data.coordinates.lat === 'number' && typeof data.coordinates.lng === 'number'
         ? { lat: data.coordinates.lat, lng: data.coordinates.lng }
         : null,
-      // CRM Fields
-      contacts: data.contacts || [],
+      // CRM Fields (contacts / activityLog / tasks go to crm_private below)
       pipelineStatus: data.pipelineStatus || 'lead',
-      activityLog: data.activityLog || [],
-      tasks: data.tasks || [],
       // League contact fields
       contactType: data.contactType || null,
       contactValue: data.contactValue || null,
@@ -539,6 +573,10 @@ export async function createAuthority(data: Omit<Authority, 'id' | 'createdAt' |
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    if (Object.values(crmFields).some(v => v.length > 0)) {
+      setCrmFieldsInBatch(batch, db, docRef.id, crmFields);
+    }
+    await batch.commit();
     return docRef.id;
   } catch (error) {
     console.error('Error creating authority:', error);
@@ -642,8 +680,17 @@ export async function updateAuthority(
       details += `: contactPersonName changed to "${data.contactPersonName}"`;
     }
     
-    console.log('[Authority] Saving to Firestore:', updateData);
-    await updateDoc(docRef, updateData);
+    // CRM fields → crm_private/main; everything else stays on the public doc.
+    const { publicData, crmData } = splitCrmFields(updateData);
+    console.log('[Authority] Saving to Firestore:', { fields: Object.keys(updateData) });
+    if (Object.keys(crmData).length > 0) {
+      const batch = writeBatch(db);
+      batch.update(docRef, publicData);
+      setCrmFieldsInBatch(batch, db, authorityId, crmData);
+      await batch.commit();
+    } else {
+      await updateDoc(docRef, publicData);
+    }
     console.log('[Authority] Update successful');
     
     // Log audit action
@@ -682,7 +729,7 @@ export async function addContact(
   contact: Omit<AuthorityContact, 'id' | 'createdAt'>,
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<string> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const newContact: AuthorityContact = {
@@ -711,7 +758,7 @@ export async function updateContact(
   updates: Partial<Omit<AuthorityContact, 'id' | 'createdAt'>>,
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<void> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const updatedContacts = (authority.contacts || []).map(c => {
@@ -740,7 +787,7 @@ export async function deleteContact(
   contactId: string,
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<void> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const updatedContacts = (authority.contacts || []).filter(c => c.id !== contactId);
@@ -755,7 +802,7 @@ export async function addActivityLogEntry(
   content: string,
   adminInfo: { adminId: string; adminName: string }
 ): Promise<string> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const newEntry: ActivityLogEntry = {
@@ -779,7 +826,7 @@ export async function addTask(
   task: Omit<AuthorityTask, 'id' | 'createdAt' | 'completedAt'>,
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<string> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const newTask: AuthorityTask = {
@@ -802,7 +849,7 @@ export async function updateTask(
   updates: Partial<Omit<AuthorityTask, 'id' | 'createdAt'>>,
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<void> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const updatedTasks = (authority.tasks || []).map(t => {
@@ -828,7 +875,7 @@ export async function deleteTask(
   taskId: string,
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<void> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const updatedTasks = (authority.tasks || []).filter(t => t.id !== taskId);
@@ -909,7 +956,10 @@ export async function syncAllUserCounts(): Promise<Map<string, number>> {
 export async function deleteAuthority(authorityId: string): Promise<void> {
   try {
     const docRef = doc(db, AUTHORITIES_COLLECTION, authorityId);
-    await deleteDoc(docRef);
+    const batch = writeBatch(db);
+    batch.delete(crmPrivateRef(db, authorityId)); // no-op when it does not exist
+    batch.delete(docRef);
+    await batch.commit();
   } catch (error) {
     console.error('Error deleting authority:', error);
     throw error;
@@ -962,9 +1012,9 @@ export async function getAuthoritiesByManager(managerId: string): Promise<Author
       collection(db, AUTHORITIES_COLLECTION),
       where('managerIds', 'array-contains', managerId)
     );
-    const snapshot = await getDocs(q);
+    const [snapshot, crmById] = await Promise.all([getDocs(q), readAllCrmPrivate(db)]);
     
-    const authorities = snapshot.docs.map(doc => normalizeAuthority(doc.id, doc.data()));
+    const authorities = normalizeWithCrm(snapshot.docs, crmById);
     return sortAuthoritiesByUrgency(authorities);
   } catch (error) {
     console.error('Error fetching authorities by manager:', error);
@@ -1043,7 +1093,7 @@ export async function addInstallment(
 ): Promise<string> {
   console.log('[Authority] addInstallment called:', { authorityId, installment, adminInfo });
   
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const newInstallment: Installment = {
@@ -1072,7 +1122,7 @@ export async function updateInstallment(
   updates: Partial<Omit<Installment, 'id'>>,
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<void> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const currentFinancials = authority.financials || { totalQuoteAmount: 0, installments: [] };
@@ -1096,7 +1146,7 @@ export async function deleteInstallment(
   installmentId: string,
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<void> {
-  const authority = await getAuthority(authorityId);
+  const authority = await getAuthorityForCrmWrite(authorityId);
   if (!authority) throw new Error('Authority not found');
   
   const currentFinancials = authority.financials || { totalQuoteAmount: 0, installments: [] };
@@ -1123,10 +1173,12 @@ export async function unlinkDocument(
   adminInfo?: { adminId: string; adminName: string }
 ): Promise<void> {
   const docRef = doc(db, AUTHORITIES_COLLECTION, authorityId);
-  const snap = await getDoc(docRef);
+  const [snap, crmSnap] = await Promise.all([getDoc(docRef), getDoc(crmPrivateRef(db, authorityId))]);
   if (!snap.exists()) throw new Error('Authority not found');
 
-  const current: any[] = snap.data()?.documents ?? [];
+  // Private copy wins; legacy main-doc array only before the migration.
+  const merged = mergeCrmFields(snap.data() ?? {}, crmSnap.exists() ? crmSnap.data() : null);
+  const current: any[] = (merged.documents as any[] | undefined) ?? [];
   // Filter by `id` field; fall back to `driveFileId` in case id is missing
   const updated = current.filter(
     d => d.id !== documentId && d.driveFileId !== documentId
@@ -1136,10 +1188,10 @@ export async function unlinkDocument(
     throw new Error(`Document ${documentId} not found in authority's documents array`);
   }
 
-  await updateDoc(docRef, {
-    documents: updated,
-    updatedAt: serverTimestamp(),
-  });
+  const batch = writeBatch(db);
+  setCrmFieldsInBatch(batch, db, authorityId, { documents: updated });
+  batch.update(docRef, { updatedAt: serverTimestamp() });
+  await batch.commit();
 
   if (adminInfo) {
     await logAction({
