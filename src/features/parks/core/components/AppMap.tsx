@@ -47,6 +47,8 @@ import {
 } from '../services/route-progress';
 import RouteRunMapLayersV2 from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteRunMapLayersV2';
 import { useRunPlayerDrawerV1 } from '@/features/workout-engine/players/shared/v2/useRunPlayerDrawerV1';
+import { useUnifiedPlayerV1 } from '@/features/workout-engine/players/shared/v2/useUnifiedPlayerV1';
+import { WORKOUT_ZONE_TRAIL_COLORS } from '@/features/workout-engine/players/running/lib/workout-palette';
 import { LIVE_TRAIL_LAYOUT, liveTrailKind, liveTrailPaintV1 } from './live-trail-paint';
 import {
   isFiniteNum,
@@ -1481,7 +1483,12 @@ export default function AppMap({
   const trailKindV1 = liveTrailKind(hasZoneSegments, !!ghostPathGeoJSON);
   // enable_pilot_decisions_v1 (owner M23): the walked trail on a route is green; zones keep their colours.
   const greenRouteTrail = usePilotDecisionsV1();
-  const trailPaintV1 = useMemo(() => liveTrailPaintV1(trailKindV1, activityType, greenRouteTrail), [trailKindV1, activityType, greenRouteTrail]);
+  // enable_unified_player_v1: the zone trail in the workout's own palette (matches the story bars).
+  const unifiedPalette = useUnifiedPlayerV1();
+  const trailPaintV1 = useMemo(
+    () => liveTrailPaintV1(trailKindV1, activityType, greenRouteTrail, unifiedPalette ? WORKOUT_ZONE_TRAIL_COLORS : undefined),
+    [trailKindV1, activityType, greenRouteTrail, unifiedPalette],
+  );
 
   // Passed slice source — mounted (empty) whenever there's a route, so the imperative
   // updates always have a target.
