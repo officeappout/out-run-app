@@ -14,6 +14,7 @@ import SummaryOrchestrator, {
 } from './components/SummaryOrchestrator';
 import AerobicSummaryShell from './components/aerobic/AerobicSummaryShell';
 import AerobicSummary from './pages/AerobicSummary';
+import { summaryActivity, summaryWorkout } from './unsaved-aerobic-summary';
 import { useT } from '@/hooks/useT';
 import { summary } from '@/messages/ns/summary';
 import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
@@ -212,16 +213,15 @@ export default function WorkoutSummaryPage({
   // Flip to true only after verifying on device. SummaryOrchestrator (below) stays as fallback.
   if (AEROBIC_SOLO_ENABLED) {
     const currentUser = auth.currentUser;
-    const effectiveActivityType =
-      snap?.activityType === 'walking' || snap?.activityType === 'running'
-        ? snap.activityType
-        : 'running';
+    // AK5: nothing saved (a discarded short walk) → the live session's activity + totals.
+    const effectiveActivityType = summaryActivity(snap?.activityType, activityType);
+    const soloWorkout = summaryWorkout(snap, { activity: effectiveActivityType, durationSec: totalDuration, distanceKm: totalDistance, routeCoords });
     if (AEROBIC_SUMMARY_V2_ENABLED) {
       return (
         <AerobicSummary
           variant="solo"
           activityType={effectiveActivityType}
-          workout={{ ...snap!, date: snap?.date ?? new Date() }}
+          workout={soloWorkout}
           currentUid={currentUser?.uid}
           streakDays={currentStreak}
           xpEarned={0}
@@ -234,7 +234,7 @@ export default function WorkoutSummaryPage({
       <AerobicSummaryShell
         variant="solo"
         activityType={effectiveActivityType}
-        workout={{ ...snap!, date: snap?.date ?? new Date() }}
+        workout={soloWorkout}
         currentUid={currentUser?.uid}
         streakDays={currentStreak}
         xpEarned={0}
