@@ -11,10 +11,13 @@ import Biometrics from '../sections/Biometrics';
 import LegalSection from '../sections/LegalSection';
 import type { UserTabData } from './types';
 
-type Props = Pick<UserTabData, 'fullProfile' | 'gearDefinitions' | 'authority' | 'programs' | 'healthDeclarationPdfUrl'>;
+type Props = Pick<UserTabData, 'fullProfile' | 'gearDefinitions' | 'authority' | 'healthDeclarationPdfUrl'>;
 
-/** שאלונים ופרופיל: everything the user entered, plus identity and legal. */
-export default function ProfileTab({ fullProfile, gearDefinitions, authority, programs, healthDeclarationPdfUrl }: Props) {
+/**
+ * שאלונים ופרופיל: everything the user entered, plus identity and legal. The levels the
+ * questionnaire assigned live only in התקדמות (owner 01.11: answers here, levels once).
+ */
+export default function ProfileTab({ fullProfile, gearDefinitions, authority, healthDeclarationPdfUrl }: Props) {
   return (
     <div className="space-y-6">
       <div>
@@ -27,37 +30,6 @@ export default function ProfileTab({ fullProfile, gearDefinitions, authority, pr
       </div>
 
       <TrainingProfile fullProfile={fullProfile} />
-
-      {/* Assigned Results (from dynamic questionnaire) */}
-      <div>
-        <h3 className="text-lg font-black text-gray-900 mb-4">תוצאות שאלון דינמי</h3>
-        {(() => {
-          const results = (fullProfile as any)?.assignedResults || (fullProfile as any)?.onboardingAnswers?.assignedResults;
-          if (!results || results.length === 0) {
-            return <p className="text-gray-500 text-sm">אין תוצאות שאלון</p>;
-          }
-          return (
-            <div className="space-y-2">
-              {results.map((r: any, i: number) => {
-                const prog = programs.find(p => p.id === r.programId);
-                return (
-                  <div key={i} className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-indigo-900">{prog?.name || r.programId}</p>
-                      {r.nextQuestionnaireId && (
-                        <p className="text-xs text-indigo-500">שאלון הבא: {r.nextQuestionnaireId}</p>
-                      )}
-                    </div>
-                    <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-bold text-sm">
-                      רמה {r.levelId}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-      </div>
 
       {/* 1. User Identity & Location */}
         <div>

@@ -5,14 +5,16 @@ import { Activity, Coins, Footprints } from 'lucide-react';
 import { bucketWorkoutsByDay } from '../../shared.utils';
 import { DailyTrendChart } from '../../charts';
 import WorkoutHistoryList from '../sections/WorkoutHistoryList';
+import ActivityComparisonChart from '../sections/ActivityComparisonChart';
 import type { UserTabData } from './types';
 
-type Props = Pick<UserTabData, 'workoutHistory' | 'stepsHistory'>;
+type Props = Pick<UserTabData, 'workoutHistory' | 'activityHistory' | 'stepsHistory'>;
 
-/** אימונים: trend charts, passive step sync, workout history. */
-export default function WorkoutsTab({ workoutHistory, stepsHistory }: Props) {
+/** אימונים: period comparison, trend charts, passive step sync, workout history. */
+export default function WorkoutsTab({ workoutHistory, activityHistory, stepsHistory }: Props) {
   return (
     <div className="space-y-6">
+      <ActivityComparisonChart history={activityHistory} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <DailyTrendChart
           title="אימונים ביום (14 הימים האחרונים)"

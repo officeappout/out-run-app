@@ -343,6 +343,7 @@ export async function getUserWorkoutHistory(userId: string, limit: number = 50):
         // never fetched it — "today it's only a total count with nothing to
         // open" was a data-plumbing gap, not a missing feature.
         segments: Array.isArray(data.segments) ? data.segments : undefined,
+        setsCompleted: typeof data.setsCompleted === 'number' ? data.setsCompleted : undefined,
       });
     });
 
