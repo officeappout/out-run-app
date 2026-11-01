@@ -24,7 +24,7 @@ async function resolveCaller(request: NextRequest) {
   const adminAuth = getAdminAuth();
   try {
     const decoded = await adminAuth.verifyIdToken(idToken, true);
-    return { uid: decoded.uid, tokenEmail: decoded.email } as const;
+    return { uid: decoded.uid, tokenEmail: decoded.email_verified === true ? decoded.email : undefined } as const;
   } catch {
     return { error: NextResponse.json({ error: 'Invalid auth token' }, { status: 401 }) } as const;
   }

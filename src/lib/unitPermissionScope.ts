@@ -86,7 +86,7 @@
  *     "you don't have access to this."
  */
 import type { Firestore } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRootAdmin } from '@/config/feature-flags';
 import { tenantTypeOf } from '@/lib/tenantType';
 
@@ -358,7 +358,10 @@ export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermi
 
     const userSnap = await db.collection('users').doc(uid).get();
     const core = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
-    const email = typeof core.email === 'string' ? core.email : null;
+    // 01.11.2026 security audit — root comes from the VERIFIED Auth email, never
+    // users/{uid}.core.email, which the client can write on its own doc.
+    const authUser = await getAdminAuth().getUser(uid).catch(() => null);
+    const email = authUser?.emailVerified ? authUser.email ?? null : null;
 
     if (isRootAdmin(email)) {
       return { kind: 'root' };

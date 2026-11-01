@@ -1254,7 +1254,7 @@ async function testPersonaGatedMembershipBlock() {
   });
 
   await it('PG5b — ROOT admin (david@) adds a member to the gated group → ALLOW (control for PG5)', async () => {
-    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(setDoc(doc(ctx.firestore(), 'community_groups', 'pg_group_public', 'members', 'some_other_uid'), {
       uid: 'some_other_uid', role: 'member', joinedAt: new Date(),
     }));
@@ -1304,7 +1304,7 @@ async function testChatLeakClosed() {
   });
 
   await it('CL3b — ROOT admin (office@) reads the same group chat → ALLOW (control for CL3, via the isRootAdmin() catch-all)', async () => {
-    const ctx = env.authenticatedContext('root_admin_office', { email: 'office@appout.co.il' });
+    const ctx = env.authenticatedContext('root_admin_office', { email: 'office@appout.co.il', email_verified: true });
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_group')));
   });
 
@@ -1347,7 +1347,7 @@ async function testChatLeakClosed() {
   });
 
   await it('CL8b — ROOT admin (david@) does the unfiltered list() → ALLOW, returns every chat including ones they are not a participant of (control for CL8)', async () => {
-    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il', email_verified: true });
     const snap = await assertSucceeds(getDocs(collection(ctx.firestore(), 'chats')));
     if (!snap.docs.some((d) => d.id === 'cl_dm') || !snap.docs.some((d) => d.id === 'group_cl_group')) {
       throw new Error(`admin unfiltered list missing expected docs, got: ${snap.docs.map((d) => d.id).join(',')}`);
@@ -1573,7 +1573,7 @@ async function testAdminInvitationsLockdown() {
   });
 
   await it('AI5b — ROOT admin (david@) GETs the same doc by id → ALLOW (control for AI5)', async () => {
-    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'admin_invitations', 'ai_test_1')));
   });
 
@@ -1583,7 +1583,7 @@ async function testAdminInvitationsLockdown() {
   });
 
   await it('AI6b — ROOT admin (office@) LISTS admin_invitations with no filter → ALLOW (admin-management pages; control for AI6)', async () => {
-    const ctx = env.authenticatedContext('root_admin_office', { email: 'office@appout.co.il' });
+    const ctx = env.authenticatedContext('root_admin_office', { email: 'office@appout.co.il', email_verified: true });
     const snap = await assertSucceeds(getDocs(collection(ctx.firestore(), 'admin_invitations')));
     if (!snap.docs.some((d) => d.id === 'ai_test_1')) {
       throw new Error('admin list is missing the fixture doc — admin read must still see real invitations');
@@ -2105,7 +2105,7 @@ async function testWaveASpec02() {
   });
 
   await it('WA10b — ROOT admin (david@) reads the same shard → ALLOW (control for WA10)', async () => {
-    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'leaderboard_shards', 'city_a_unit1_2026-09_u1_0')));
   });
 
@@ -2482,7 +2482,7 @@ async function testChatQuarantine() {
     if (inbox.size < 2) throw new Error(`inbox list should still return both chats, got ${inbox.size}`);
   });
   await it('CQ13 — ROOT admin still reads the removed chat\'s messages through rules (catch-all; the Admin-SDK moderation route bypasses rules entirely) → ALLOW', async () => {
-    const ctx = env.authenticatedContext('cq_root', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('cq_root', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(getDocs(collection(ctx.firestore(), 'chats', 'group_cq_gone', 'messages')));
   });
 }
@@ -2540,7 +2540,7 @@ async function testBookingQuarantine() {
   await it('BQ7 — CONTROL: a GROUP ADMIN and ROOT are not affected by the member-rule guard (admin paths unchanged) → ALLOW', async () => {
     const ga = env.authenticatedContext('bq_group_admin');
     await assertSucceeds(updateDoc(doc(ga.firestore(), 'community_groups', 'bq_gone', 'attendance', 's_join'), { currentCount: 0 }));
-    const root = env.authenticatedContext('bq_root', { email: 'office@appout.co.il' });
+    const root = env.authenticatedContext('bq_root', { email: 'office@appout.co.il', email_verified: true });
     await assertSucceeds(getDoc(doc(root.firestore(), 'community_groups', 'bq_gone', 'attendance', 's_join')));
   });
 }
@@ -2598,7 +2598,7 @@ async function testReportsRootOnly() {
     });
   }
 
-  const rootCtx = () => env.authenticatedContext('rp_root_david', { email: 'david@appout.co.il' });
+  const rootCtx = () => env.authenticatedContext('rp_root_david', { email: 'david@appout.co.il', email_verified: true });
   await it('RP-root — GET, LIST, update and delete → ALLOW (control for every DENY above)', async () => {
     const ctx = rootCtx();
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'reports', 'rp_r1')));

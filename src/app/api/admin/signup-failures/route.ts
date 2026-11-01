@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     let email: string | null;
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
-      email = (decoded.email as string | undefined) ?? null;
+      email = (decoded.email_verified === true ? (decoded.email as string | undefined) : undefined) ?? null;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }

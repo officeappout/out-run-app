@@ -108,7 +108,7 @@ async function testNonRootDenied() {
 async function testRootFallbackReach() {
   console.log('\ncity_inventory — ROOT still passes via the ROOT ADMIN FALLBACK (documents its reach)');
   await it('[ROOT] root (david@) GETs the summary → ALLOWED by the fallback, not by the block', async () => {
-    const ctx = env.authenticatedContext('root_uid', { email: 'david@appout.co.il' });
+    const ctx = env.authenticatedContext('root_uid', { email: 'david@appout.co.il', email_verified: true });
     await assertSucceeds(getDoc(doc(ctx.firestore(), ...SUMMARY)));
   });
 }

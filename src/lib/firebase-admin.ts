@@ -335,7 +335,9 @@ export async function resolveIdentity(idToken: string): Promise<ResolvedIdentity
   }
 
   const email: string | null = (decoded.email as string | undefined) ?? null;
-  const { admin, scope } = await computeAdminScope(decoded.uid, email, decoded.admin === true);
+  // Only a VERIFIED email may match the root-admin allowlist (01.11.2026 audit).
+  const adminEmail = decoded.email_verified === true ? email : null;
+  const { admin, scope } = await computeAdminScope(decoded.uid, adminEmail, decoded.admin === true);
 
   return { uid: decoded.uid, email, admin, scope };
 }

@@ -70,7 +70,7 @@ async function testWrite() {
     await it(`[DENY] ${label} deletes a segment`, async () => { await assertFails(deleteDoc(doc(db(), ...SEG))); });
   }
   await it('[ROOT] root (david@) can still write via the ROOT ADMIN FALLBACK (documents its reach)', async () => {
-    const root = env.authenticatedContext('root_uid', { email: 'david@appout.co.il' }).firestore();
+    const root = env.authenticatedContext('root_uid', { email: 'david@appout.co.il', email_verified: true }).firestore();
     await assertSucceeds(updateDoc(doc(root, ...SEG), { lengthM: 120 }));
   });
 }

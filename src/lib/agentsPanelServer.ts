@@ -62,7 +62,7 @@ export type GateDecision =
  * reads" guarantee is structural, not incidental.
  */
 export function decideAgentsAccess(
-  verified: { decoded: Pick<DecodedIdToken, 'uid' | 'email'> } | { error: 'missing' | 'invalid' },
+  verified: { decoded: Pick<DecodedIdToken, 'uid' | 'email' | 'email_verified'> } | { error: 'missing' | 'invalid' },
 ): GateDecision {
   if ('error' in verified) {
     return {
@@ -71,7 +71,7 @@ export function decideAgentsAccess(
       error: verified.error === 'missing' ? 'Missing auth token' : 'Invalid auth token',
     };
   }
-  const email = verified.decoded.email ?? null;
+  const email = verified.decoded.email_verified === true ? verified.decoded.email ?? null : null;
   if (!isRootAdmin(email)) {
     return { ok: false, status: 403, error: GENERIC_FORBIDDEN };
   }
@@ -85,7 +85,7 @@ export function decideAgentsAccess(
  */
 export async function gateAgentsRequest(
   authHeader: string | null,
-  verify: (idToken: string) => Promise<Pick<DecodedIdToken, 'uid' | 'email'>>,
+  verify: (idToken: string) => Promise<Pick<DecodedIdToken, 'uid' | 'email' | 'email_verified'>>,
 ): Promise<GateDecision> {
   const header = authHeader ?? '';
   const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';

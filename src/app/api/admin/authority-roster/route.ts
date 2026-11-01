@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
       uid = decoded.uid;
-      tokenEmail = (decoded.email as string | undefined) ?? null;
+      tokenEmail = (decoded.email_verified === true ? (decoded.email as string | undefined) : undefined) ?? null;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -100,7 +100,8 @@ export async function GET(request: NextRequest) {
     let isSuperAdmin = callerCore.isSuperAdmin === true;
     const isSystemAdmin = callerCore.isSystemAdmin === true || callerCore.role === 'system_admin';
 
-    const emailToCheck = tokenEmail || callerCore.email || null;
+    // 01.11.2026 security audit — verified token email only; core.email is client-writable.
+    const emailToCheck = tokenEmail;
     if (isAdminEmailAllowed(emailToCheck) && !isSuperAdmin) isSuperAdmin = true;
     if (isRootAdmin(emailToCheck)) isSuperAdmin = true;
 

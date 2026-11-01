@@ -62,7 +62,7 @@ async function setup() {
 
 const superAdmin = () => env.authenticatedContext(SUPER, { email: 'staff@example.com' }).firestore();
 const plain = () => env.authenticatedContext('plain_uid', { email: 'plain@example.com' }).firestore();
-const root = () => env.authenticatedContext('root_uid', { email: 'office@appout.co.il' }).firestore();
+const root = () => env.authenticatedContext('root_uid', { email: 'office@appout.co.il', email_verified: true }).firestore();
 
 async function testDenied() {
   console.log('\nadmin_ai_* — no client access (non-root)');

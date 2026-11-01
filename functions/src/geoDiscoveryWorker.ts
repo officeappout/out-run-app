@@ -149,7 +149,7 @@ export interface CityMappingDiscoveryRunDoc {
 async function isAuthorizedForApply(requestedByUid: string, db: admin.firestore.Firestore): Promise<boolean> {
   try {
     const userRecord = await admin.auth().getUser(requestedByUid);
-    if (userRecord.email && /^(david|office)@appout\.co\.il$/i.test(userRecord.email)) return true;
+    if (userRecord.emailVerified && userRecord.email && /^(david|office)@appout\.co\.il$/i.test(userRecord.email)) return true;
   } catch {
     // getUser throwing (unknown/deleted uid) just means the root-admin-by-email
     // check doesn't apply here — fall through to the Firestore-doc check below.

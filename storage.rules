@@ -54,6 +54,8 @@ service firebase.storage {
     function isRootAdmin() {
       return isAuthenticated()
         && request.auth.token.email != null
+        // 01.11.2026 security audit — only a VERIFIED address (mirrors firestore.rules).
+        && request.auth.token.get('email_verified', false) == true
         && request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$');
     }
 

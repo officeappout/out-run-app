@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   try {
     const decoded = await getAdminAuth().verifyIdToken(token, true);
     uid = decoded.uid;
-    email = typeof decoded.email === 'string' ? decoded.email : null;
+    email = decoded.email_verified === true && typeof decoded.email === 'string' ? decoded.email : null;
   } catch {
     return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
   }

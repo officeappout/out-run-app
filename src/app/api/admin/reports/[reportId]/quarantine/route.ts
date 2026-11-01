@@ -154,7 +154,7 @@ export async function POST(request: NextRequest, { params }: { params: { reportI
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
-      email = (decoded.email as string | undefined) ?? null;
+      email = (decoded.email_verified === true ? (decoded.email as string | undefined) : undefined) ?? null;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
