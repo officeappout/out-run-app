@@ -66,6 +66,8 @@ import { hasPersona } from '@/features/workout-engine/services/user-profile.util
 import WhereToTrainSection from '../where-to-train/WhereToTrainSection';
 import { useWhereToTrain } from '../where-to-train/useWhereToTrain';
 import { chosenParkIdForSwap } from './location-gate/chosen-park';
+import { useHybridSwapPark } from '@/features/workout-engine/hybrid/useHybridSwapPark';
+import { machineIdOf } from '@/features/workout-engine/players/strength/logic/machine-swap';
 import TrainingHereSheet from '@/features/parks/client/components/training-here/TrainingHereSheet';
 import { useFeatureInfoSheetsV1 } from '@/features/info-sheets/useFeatureInfoSheetsV1';
 import StructureInfoButton from '@/features/info-sheets/structure/StructureInfoButton';
@@ -330,6 +332,12 @@ export default function WorkoutPreviewDrawer({
     (location: ExecutionLocation) =>
       chosenParkIdForSwap({ location, pickedParkId: wherePicked, sourceParkId, suggestedParkId: whereSuggested }),
     [wherePicked, sourceParkId, whereSuggested],
+  );
+  // Pilot AJ9: a park machine swaps for THIS park's other machines, so the sheet needs the park
+  // (its gymEquipment). Loaded only while a machine is being swapped.
+  const swapMachinePark = useHybridSwapPark(
+    exerciseToReplace && machineIdOf(exerciseToReplace) ? swapParkIdFor('park') : null,
+    true,
   );
   const { swapAll, isSwapping, lastResult: swapResult, checkAvailability } = useSwapAll({
     generatedWorkout,
@@ -919,7 +927,7 @@ export default function WorkoutPreviewDrawer({
           currentExercise={exerciseToReplace}
           currentLevel={exerciseToReplaceLevel}
           location={resolvedLocation}
-          park={null}
+          park={swapMachinePark}
           userProfile={profile as any}
           onReplace={handleExerciseReplace}
           excludeExerciseIds={swapExcludeIds}

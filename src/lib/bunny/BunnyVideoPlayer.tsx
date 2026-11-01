@@ -9,12 +9,17 @@
  * `videoId`/`poster` defaults to EquipmentDetailDrawer's original,
  * unchanged behavior — its own call site is untouched.
  *
- * Safari/iOS → native HLS (autoplay). Chrome/Android → hls.js. Fallback →
- * 720p MP4. `poster` is shown until the first frame decodes.
+ * Safari/iOS → MP4 720p, 360p, then native HLS (bunny-sources.ts: the pull zone
+ * 403s AVFoundation's Referer-less HLS requests, pilot AJ8). Chrome/Android →
+ * hls.js, then the MP4s. `poster` is shown until the first frame decodes; when
+ * every source fails the poster photo (else a plain placeholder) replaces the
+ * player, never a black box.
  */
 
-import React, { useEffect, useRef } from 'react';
-import { buildBunnyHlsUrl, buildBunnyStreamUrl } from './bunny.config';
+import React, { useEffect, useRef, useState } from 'react';
+import { Dumbbell } from 'lucide-react';
+import { buildBunnyHlsUrl } from './bunny.config';
+import { bunnySourceChain, nextBunnySource } from './bunny-sources';
 
 export interface BunnyVideoPlayerProps {
   videoId: string;
@@ -53,6 +58,12 @@ export default function BunnyVideoPlayer({
   const isPausedRef = useRef(isPaused);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
 
+  // The direct-src chain for this video (bunny-sources.ts); walked by handleError.
+  const chainRef = useRef<string[]>([]);
+  // Keyed by video so a new video starts fresh (and its <video> is mounted for the effect).
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const failed = failedFor === videoId;
+
   useEffect(() => {
     const vid = ref.current;
     if (!vid) return;
@@ -60,16 +71,22 @@ export default function BunnyVideoPlayer({
     let cancelled = false;
     let hlsInstance: { destroy: () => void } | null = null;
 
-    const hlsUrl = buildBunnyHlsUrl(videoId);
-    const mp4Url = buildBunnyStreamUrl(videoId, 720);
+    const nativeHls = !!vid.canPlayType('application/vnd.apple.mpegurl');
+    chainRef.current = bunnySourceChain(videoId, nativeHls);
     const playIfNotPaused = (v: HTMLVideoElement) => {
       if (!isPausedRef.current) v.play().catch(() => {});
     };
+    const startChain = () => {
+      const v = ref.current;
+      const first = chainRef.current[0];
+      if (cancelled || !v || !first) return;
+      v.src = first;
+      v.load();
+      playIfNotPaused(v);
+    };
 
-    if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-      vid.src = hlsUrl;
-      vid.load();
-      playIfNotPaused(vid);
+    if (nativeHls) {
+      startChain();
       return () => { cancelled = true; };
     }
 
@@ -79,24 +96,25 @@ export default function BunnyVideoPlayer({
         const v = ref.current;
         if (!v) return;
         if (!Hls.isSupported()) {
-          v.src = mp4Url;
-          v.load();
-          playIfNotPaused(v);
+          startChain();
           return;
         }
         const hls = new Hls({ startLevel: 2, maxBufferLength: 20, enableWorker: true });
-        hls.loadSource(hlsUrl);
+        hls.loadSource(buildBunnyHlsUrl(videoId));
         hls.attachMedia(v);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (!cancelled) playIfNotPaused(v);
         });
+        // A fatal HLS error (403 / missing stream) falls back to the MP4 renditions.
+        hls.on(Hls.Events.ERROR, (_e, data) => {
+          if (cancelled || !data?.fatal) return;
+          hls.destroy();
+          hlsInstance = null;
+          startChain();
+        });
         hlsInstance = hls;
       })
-      .catch(() => {
-        if (cancelled) return;
-        const v = ref.current;
-        if (v) { v.src = mp4Url; v.load(); playIfNotPaused(v); }
-      });
+      .catch(() => startChain());
 
     return () => {
       cancelled = true;
@@ -160,6 +178,42 @@ export default function BunnyVideoPlayer({
     }
   };
 
+  // A direct source failed: try the next one; when none is left, show the photo instead.
+  const handleError = () => {
+    const v = ref.current;
+    if (!v) return;
+    const current = v.getAttribute('src') || v.currentSrc;
+    if (!current || current.startsWith('blob:')) return; // hls.js (MediaSource) handles its own errors
+    const next = nextBunnySource(chainRef.current, current);
+    if (next) {
+      v.src = next;
+      v.load();
+      if (!isPausedRef.current) v.play().catch(() => {});
+      return;
+    }
+    setFailedFor(videoId);
+    onError?.();
+  };
+
+  if (failed) {
+    return (
+      <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-slate-100 to-slate-200">
+        {poster ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={poster}
+            alt=""
+            className={`absolute inset-0 w-full h-full ${objectFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-slate-300" aria-hidden>
+            <Dumbbell size={40} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className="absolute inset-0 w-full h-full"
@@ -180,7 +234,7 @@ export default function BunnyVideoPlayer({
         preload="metadata"
         onLoadStart={onLoadStart}
         onLoadedData={onLoadedData}
-        onError={onError}
+        onError={handleError}
       />
     </div>
   );
