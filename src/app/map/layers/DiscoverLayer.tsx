@@ -25,6 +25,7 @@ import { useProgramMap } from '@/features/workouts/components/workout-preview-dr
 import type { ExecutionLocation } from '@/features/content/exercises';
 import type { ComposedHybridSession, HybridRoutePreview } from '@/features/workout-engine/hybrid/start-hybrid-session';
 import { scheduleIdle } from '@/lib/scheduleIdle';
+import HybridComposingSkeleton from '@/features/parks/core/components/hybrid/HybridComposingSkeleton';
 import HybridSlotCarousel, { HybridEntryButton } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
 import { composedWorkoutMin, composedCardStats, cardTotalFor, readRoundTripPref, type RoundTripLegs } from '@/features/workout-engine/hybrid/round-trip';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
@@ -1106,6 +1107,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
           userPosition: userLocation,
           cityName: userCityName,
           startRun: logic.startActiveWorkout,
+          // Pilot AJ6: parallel reads + stage timing (absent when off → unchanged).
+          ...(mapFeatureFlags.enablePilotAhV1 ? { pilotParallel: true } : {}),
         }));
     composeP.then((composed) => {
       // Dismissed / superseded while composing → drop this result silently.
@@ -1129,7 +1132,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       setFreeRunStep('overview');
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName, logic]);
+  }, [userLocation, userCityName, logic, mapFeatureFlags.enablePilotAhV1]);
 
   // Compose a slot's FULL trio, de-duped by cache key: if a compose is already
   // in-flight for this key, return THAT promise instead of starting a second one.
@@ -1141,14 +1144,17 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     const existing = hybridTrioInflight.get(key);
     if (existing) return existing;
     const p = import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ composeHybridPlan }) =>
-      composeHybridPlan(intent, { userPosition: userLocation, cityName: userCityName, startRun: () => {} }));
+      composeHybridPlan(intent, {
+        userPosition: userLocation, cityName: userCityName, startRun: () => {},
+        ...(mapFeatureFlags.enablePilotAhV1 ? { pilotParallel: true } : {}),
+      }));
     hybridTrioInflight.set(key, p);
     p.then((composed) => { if (composed) capMapInsert(hybridPlanCache, key, composed); })
       .catch(() => { /* callers treat as null */ })
       .finally(() => { if (hybridTrioInflight.get(key) === p) hybridTrioInflight.delete(key); });
     return p;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName, keyFor]);
+  }, [userLocation, userCityName, keyFor, mapFeatureFlags.enablePilotAhV1]);
 
   // enable_place_workouts_v1: a hybrid card on the park / route page hands its intent here
   // (useMapStore.pendingHybridIntent) → the SAME compose + overview the free-run drawer uses.
@@ -2646,7 +2652,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
               />
             )}
 
-            {mapMode === 'freeRun' && hybridComposing && (
+            {/* Pilot AJ6: an overview-shaped skeleton instead of the lone pill. */}
+            {mapMode === 'freeRun' && hybridComposing && mapFeatureFlags.enablePilotAhV1 && <HybridComposingSkeleton />}
+            {mapMode === 'freeRun' && hybridComposing && !mapFeatureFlags.enablePilotAhV1 && (
               <div className="absolute inset-0 z-[101] flex items-center justify-center bg-black/20 pointer-events-auto">
                 <div className="bg-white rounded-2xl px-5 py-3 text-[14px] font-black text-gray-800 shadow-xl">{t('mapLayers.discover.composing')}</div>
               </div>
