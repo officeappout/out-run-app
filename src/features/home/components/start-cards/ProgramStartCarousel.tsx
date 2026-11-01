@@ -16,11 +16,14 @@ export interface ProgramStartCarouselProps {
   onNavigate?: ProgramTrackNavigate;
   /** enable_home_two_cards_v1 — see ProgramStartSlide. */
   aerobicCopy?: boolean;
+  /** Pilot AJ13 (enable_pilot_ah_v1): the owner found the 330 px card too large. */
+  compact?: boolean;
 }
 
 /** Same card size as home's daily carousel (330 × up to 300), so nothing jumps between them. */
 export const START_SLIDE_HEIGHT = 330;
 export const START_SLIDE_MAX_W = 300;
+export const START_SLIDE_COMPACT_HEIGHT = 236;
 
 /**
  * Home v2 — a new user's carousel when there is nothing else to show (before the first
@@ -28,7 +31,7 @@ export const START_SLIDE_MAX_W = 300;
  * 20.10.2026), under "בוא נבנה לך תוכנית" with the "you can do both" hint. Once the user has
  * trained, the same slides lead the daily carousel instead (placeProgramSlides).
  */
-export default function ProgramStartCarousel({ order, profile, onNavigate, aerobicCopy }: ProgramStartCarouselProps) {
+export default function ProgramStartCarousel({ order, profile, onNavigate, aerobicCopy, compact = false }: ProgramStartCarouselProps) {
   const t = useT(home);
   return (
     <div className="mb-4" data-program-start-carousel={order.join(',')}>
@@ -45,7 +48,7 @@ export default function ProgramStartCarousel({ order, profile, onNavigate, aerob
       <SuggestionCarousel<ProgramTrack>
         items={[...order]}
         keyExtractor={(track) => track}
-        cardHeight={START_SLIDE_HEIGHT}
+        cardHeight={compact ? START_SLIDE_COMPACT_HEIGHT : START_SLIDE_HEIGHT}
         maxCardWidthPx={START_SLIDE_MAX_W}
         maxCardWidthVw={100}
         renderCard={(track) => <ProgramStartSlide track={track} profile={profile} onNavigate={onNavigate} aerobicCopy={aerobicCopy} />}
