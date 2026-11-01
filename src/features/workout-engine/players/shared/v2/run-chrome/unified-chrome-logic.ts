@@ -51,6 +51,23 @@ export const UNIFIED_BUTTONS = {
   lapIcon: '/icons/run/lap.svg',
 } as const;
 
+/**
+ * Pace colour of the unified frame: green inside the target range, orange on either side
+ * (too fast and too slow alike, no red). Recovery legs with a target pace are coloured too
+ * (canvas 9א: "rest needs a pace"); without a band → no colour.
+ */
+export const UNIFIED_PACE_TONE = { in: '#16a34a', out: '#ea580c' } as const;
+
+export function unifiedPaceTone(band: 'in' | 'fast' | 'slow' | null | undefined): string | undefined {
+  if (!band) return undefined;
+  return band === 'in' ? UNIFIED_PACE_TONE.in : UNIFIED_PACE_TONE.out;
+}
+
+/** Which live-card modes compare the pace to a band: work legs always, recovery legs only in the unified frame. */
+export function comparesPace(mode: string, unified: boolean): boolean {
+  return mode === 'pace' || (unified && mode === 'recovery');
+}
+
 export interface LapLike {
   lapNumber: number;
   distanceMeters: number;

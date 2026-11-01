@@ -30,7 +30,8 @@ import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, isShortLeg, repNumbe
 import { blockGoal, continuousMainIndex, continuousZone, goalView, heroKind, v2BlockTextColor, zoneLabel } from '../../../lib/continuous-run';
 import PlannedSessionListV2 from '../../PlannedRun/v2/PlannedSessionListV2';
 import { usePlannedChromeNodes } from '../../PlannedRun/v2/usePlannedChromeNodes';
-import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, useMeasuredHeight } from '../../../../shared/v2/run-chrome';
+import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedHeaderLayer, useMeasuredHeight } from '../../../../shared/v2/run-chrome';
+import { useUnifiedPlayerV1 } from '../../../../shared/v2/useUnifiedPlayerV1';
 import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
@@ -147,7 +148,9 @@ export default function ContinuousRunLiveV2({
         <HeaderProgressBar progress={blockProgress} color={color} />
       ),
   };
-  const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused });
+  // enable_unified_player_v1: name / bars / data on top, the new buttons, the unified pace colour.
+  const unified = useUnifiedPlayerV1() && drawerV1;
+  const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused, unified });
   const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: chromeHeaderH + 56, enabled: drawerV1 });
   const card = (
     <ContinuousRunCardV2
@@ -214,12 +217,16 @@ export default function ContinuousRunLiveV2({
               outerRef={setHeaderNodes}
               onPointerDown={startDrag}
               layers={tg.layers(
+                unified ? (
+                  <UnifiedHeaderLayer title={title} bars={headerProps.strip} label={headerProps.eyebrow} />
+                ) : (
                 <div className="px-5">
                   <div className="flex h-[46px] flex-col justify-center">
                     {headerProps.strip}
                     <div className="mt-2 text-center text-[13px] font-extrabold text-slate-600">{headerProps.eyebrow}</div>
                   </div>
-                </div>,
+                </div>
+                ),
               )}
               index={tg.layerIndex}
               onIndexChange={tg.setLayerIndex}
@@ -261,7 +268,7 @@ export default function ContinuousRunLiveV2({
               compact={chromeNodes.compact}
               large={chromeNodes.large}
               override={tg.vsPanel}
-              buttons={<RunFloatingButtons isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
+              buttons={<RunFloatingButtons unified={unified} isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
             />
           ) : (
             <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>

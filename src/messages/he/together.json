@@ -135,5 +135,6 @@
   "chrome.page.lap": "הקפה נוכחית",
   "chrome.page.rep": "החזרה הזו",
   "chrome.page.aria": "דף {n} מתוך {total}: {name}",
-  "chrome.page.lapN": "הקפה {n}"
+  "chrome.page.lapN": "הקפה {n}",
+  "chrome.page.rest": "המנוחה"
 }

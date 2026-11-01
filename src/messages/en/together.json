@@ -135,5 +135,6 @@
   "chrome.page.lap": "Current lap",
   "chrome.page.rep": "This rep",
   "chrome.page.aria": "Page {n} of {total}: {name}",
-  "chrome.page.lapN": "Lap {n}"
+  "chrome.page.lapN": "Lap {n}",
+  "chrome.page.rest": "Recovery"
 }

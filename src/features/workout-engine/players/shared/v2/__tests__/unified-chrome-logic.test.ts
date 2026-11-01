@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { UNIFIED_BUTTONS, clampPage, currentLapView, drawerPagesFor, pageAfterSwipe } from '../run-chrome/unified-chrome-logic';
+import { UNIFIED_BUTTONS, UNIFIED_PACE_TONE, clampPage, comparesPace, currentLapView, drawerPagesFor, pageAfterSwipe, unifiedPaceTone } from '../run-chrome/unified-chrome-logic';
+
+describe('pace colour', () => {
+  it('green in range, orange on both sides', () => {
+    expect(unifiedPaceTone('in')).toBe(UNIFIED_PACE_TONE.in);
+    expect(unifiedPaceTone('fast')).toBe(UNIFIED_PACE_TONE.out);
+    expect(unifiedPaceTone('slow')).toBe(UNIFIED_PACE_TONE.out);
+    expect(unifiedPaceTone(null)).toBeUndefined();
+  });
+  it('recovery legs compare the pace only in the unified frame', () => {
+    expect(comparesPace('recovery', true)).toBe(true);
+    expect(comparesPace('recovery', false)).toBe(false);
+    expect(comparesPace('pace', false)).toBe(true);
+    expect(comparesPace('effort', true)).toBe(false);
+  });
+});
 
 describe('page swipe', () => {
   it('RTL: swipe right = next page, swipe left = back', () => {

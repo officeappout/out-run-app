@@ -25,7 +25,7 @@ import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
-import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
+import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, isRestBlock, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
 import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedHeaderLayer, useMeasuredHeight, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
 import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
 import { PAGE_CAPTION_KEY, drawerPagesFor } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
@@ -104,7 +104,9 @@ export default function PlannedRunLiveV2({
     distanceKm: Number.isFinite(totalDistance) ? totalDistance : 0,
     calories: Number.isFinite(totalCalories) ? totalCalories : 0,
   };
-  const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused });
+  // enable_unified_player_v1: name / bars / data on top, drawer pages, new buttons, pace colour on recovery too.
+  const unified = useUnifiedPlayerV1() && drawerV1;
+  const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused, unified });
   const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: chromeHeaderH + 56, enabled: drawerV1 });
   const currentRemaining = !currentBlock
     ? '--'
@@ -114,8 +116,7 @@ export default function PlannedRunLiveV2({
         ? fmtDistance(blockDistanceRemaining)
         : fmtClock(blockElapsedSeconds);
 
-  // enable_unified_player_v1: name / bars / data on top; drawer pages "this rep" then "overview".
-  const unified = useUnifiedPlayerV1() && drawerV1;
+  // enable_unified_player_v1: drawer pages "this rep" (or "recovery") then "overview".
   const tt = useT(together);
   const avgPaceSec = totals.distanceKm > 0.05 ? totals.durationSec / totals.distanceKm : 0;
   const generalCells = (size: number) => (
@@ -128,7 +129,7 @@ export default function PlannedRunLiveV2({
   const drawerPages: RunDrawerPage[] | undefined = unified
     ? drawerPagesFor('planned', { lapOn: true }).map((id) => (id === 'general'
       ? { id, caption: tt(PAGE_CAPTION_KEY.general), compact: generalCells(26), large: generalCells(30) }
-      : { id, caption: tt(PAGE_CAPTION_KEY[id]), compact: chromeNodes.compact, large: chromeNodes.large }))
+      : { id, caption: isRestBlock(currentBlock) ? tt('chrome.page.rest') : tt(PAGE_CAPTION_KEY[id]), compact: chromeNodes.compact, large: chromeNodes.large }))
     : undefined;
 
   const triggerLap = useCallback(() => {

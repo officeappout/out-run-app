@@ -16,6 +16,7 @@ import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { PACE_BAND_COLORS, blockDisplayLabel, classifyPace, fmtBand, fmtClock, fmtDistance, fmtPace, isWorkBlock, liveCardMode } from '../../../lib/planned-rep-results';
+import { comparesPace, unifiedPaceTone } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
 import { useT } from '@/hooks/useT';
 import { together } from '@/messages/ns/together';
 
@@ -28,6 +29,8 @@ export function usePlannedChromeNodes(p: {
   totals: { durationSec: number; distanceKm: number };
   blockElapsedSeconds: number;
   isPaused: boolean;
+  /** enable_unified_player_v1: recovery legs compare the pace too; green in range, orange either side. */
+  unified?: boolean;
 }) {
   const t = useT(together);
   const elevationGain = useRunningPlayer((s) => s.elevationGain);
@@ -37,8 +40,8 @@ export function usePlannedChromeNodes(p: {
   return useMemo(() => {
     const hasTarget = targetMinPace > 0 && targetMaxPace > 0;
     const mode = liveCardMode(block, hasTarget);
-    const cls = mode === 'pace' ? classifyPace(currentPaceSeconds, targetMinPace, targetMaxPace) : null;
-    const tone = cls ? PACE_BAND_COLORS[cls.band].text : undefined;
+    const cls = comparesPace(mode, !!p.unified) && hasTarget ? classifyPace(currentPaceSeconds, targetMinPace, targetMaxPace) : null;
+    const tone = p.unified ? unifiedPaceTone(cls?.band) : cls ? PACE_BAND_COLORS[cls.band].text : undefined;
     const paceNow = currentPaceSeconds > 0 ? fmtPace(currentPaceSeconds) : '--:--';
     const rep = reps.byIndex.get(idx) ?? 0;
     const isRep = !!block && isWorkBlock(block) && reps.total > 1;
@@ -95,5 +98,5 @@ export function usePlannedChromeNodes(p: {
       elevGainM: elevationGain > 0 ? elevationGain : undefined,
     };
     return { caption, strip, compact, large, live };
-  }, [t, block, idx, blocks, reps, totals.durationSec, totals.distanceKm, currentPaceSeconds, targetMinPace, targetMaxPace, blockTimeRemaining, blockDistanceRemaining, p.blockElapsedSeconds, p.isPaused, elevationGain]);
+  }, [t, block, idx, blocks, reps, totals.durationSec, totals.distanceKm, currentPaceSeconds, targetMinPace, targetMaxPace, blockTimeRemaining, blockDistanceRemaining, p.blockElapsedSeconds, p.isPaused, p.unified, elevationGain]);
 }
