@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Video } from 'lucide-react';
 
 /**
@@ -16,13 +16,15 @@ export default function BrandVideoUrlEnField({
   onChange: (value: string) => void;
   preview?: ReactNode;
 }) {
+  const id = useId();
   return (
     <div>
-      <label className="block text-sm font-bold text-gray-700 mb-2">
+      <label htmlFor={id} className="block text-sm font-bold text-gray-700 mb-2">
         <Video size={16} className="inline mr-2" />
         Video URL (English) <span className="font-normal text-gray-400">(אופציונלי)</span>
       </label>
       <input
+        id={id}
         type="url"
         dir="ltr"
         value={value || ''}
