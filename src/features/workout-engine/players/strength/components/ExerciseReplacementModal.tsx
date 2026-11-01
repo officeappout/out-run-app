@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Exercise, ExecutionMethod, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { resolveSwapOptionImage } from '../logic/swap-option-media';
-import { getExerciseVariations, getAlternativeExercises, getMachineAlternatives, AlternativeExerciseOption } from '../../../generator/services/exercise-replacement.service';
+import { getExerciseVariations, getAlternativeExercises, AlternativeExerciseOption } from '../../../generator/services/exercise-replacement.service';
+import { getMachineSwapOptions } from '../../../generator/services/machine-swap.service';
+import { machineFirst, splitMachineTabs } from '../logic/machine-swap-tiers';
 import { machineIdOf } from '../logic/machine-swap';
 import {
   getMuscleGroupLabel,
@@ -206,20 +208,28 @@ export default function ExerciseReplacementModal({
     const postFilter = (list: AlternativeExerciseOption[]) =>
       fixesOn ? list : filterAlternativesByEquipment(list, allowedEquipmentIds);
 
-    // Pilot AG5: a park machine's "adaptation" = the park's other machines for the same muscle
-    // (it has no base_movement_id, so catalog variations are always empty). Built as machines,
-    // they skip the bodyweight/equipment post-filter.
+    // Pilots AG5 + AJ9: a park machine's swaps are machines first (machine-swap-tiers.ts): the
+    // same machine's catalog exercises, then other machines for the same muscle (the park's, or
+    // the catalog's while the park is unknown). The best few fill "adaptation", the rest lead
+    // "alternative" ahead of the catalog's bodyweight moves. Machines skip the post-filter.
     const isMachine = !!machineIdOf(currentExercise);
 
     (async () => {
       try {
-        const variations = isMachine
-          ? await getMachineAlternatives(currentExercise, currentLevel, park, {
-              excludeIds: new Set(excludeExerciseIds ?? []),
-            })
-          : await getExerciseVariations(
-              currentExercise, currentLevel, location, park, userProfile, activeProgramId, opts,
-            );
+        let machineRest: AlternativeExerciseOption[] = [];
+        let variations: AlternativeExerciseOption[];
+        if (isMachine) {
+          const ranked = await getMachineSwapOptions(currentExercise, currentLevel, park, {
+            excludeIds: new Set(excludeExerciseIds ?? []),
+          });
+          const split = splitMachineTabs(ranked);
+          variations = split.adaptation;
+          machineRest = split.rest;
+        } else {
+          variations = await getExerciseVariations(
+            currentExercise, currentLevel, location, park, userProfile, activeProgramId, opts,
+          );
+        }
         if (id !== fetchId.current) return;
         setAdaptationExercises(isMachine ? variations : postFilter(variations));
         setLoadingAdaptation(false);
@@ -229,7 +239,7 @@ export default function ExerciseReplacementModal({
           currentExercise, currentLevel, location, park, userProfile, activeProgramId, tab1Ids, undefined, opts,
         );
         if (id !== fetchId.current) return;
-        setAlternativeExercises(postFilter(alternatives));
+        setAlternativeExercises(isMachine ? machineFirst(machineRest, postFilter(alternatives)) : postFilter(alternatives));
         setLoadingAlternative(false);
       } catch (err) {
         console.error('[ExerciseReplacement] Error:', err);
@@ -249,8 +259,12 @@ export default function ExerciseReplacementModal({
   const handleReplace = useCallback(async () => {
     if (!selectedExercise) return;
     let method: ExecutionMethod | undefined;
-    if (machineIdOf(selectedExercise.exercise) && selectedExercise.selectedExecutionMethod) {
-      // A park machine (AG5): its own machine method (brand photo / video), built with it.
+    if (
+      selectedExercise.selectedExecutionMethod &&
+      (machineIdOf(selectedExercise.exercise) || machineIdOf(currentExercise))
+    ) {
+      // A park machine (AG5), or any pick for one (AJ9): the method it was offered with
+      // (the machine's own, or the catalog method that uses the same machine).
       method = selectedExercise.selectedExecutionMethod;
     } else if (allowedEquipmentIds) {
       // Station: the method the filter found doable with this park's equipment.
@@ -269,7 +283,7 @@ export default function ExerciseReplacementModal({
       });
       onClose();
     }
-  }, [selectedExercise, activeTab, location, park, userProfile, onReplace, onClose, allowedEquipmentIds, reason, currentLevel]);
+  }, [selectedExercise, activeTab, location, park, userProfile, onReplace, onClose, allowedEquipmentIds, reason, currentLevel, currentExercise]);
 
   // ── Helpers ──
   const getImage = (ex: Exercise, chosen?: ExecutionMethod | null): string => {
