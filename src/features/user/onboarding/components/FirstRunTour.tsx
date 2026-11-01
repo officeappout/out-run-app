@@ -23,6 +23,7 @@ import { useIsNewUserForTours } from '../hooks/useIsNewUserForTours';
 import { coachTargetVisible } from '../hooks/useCoachTargetPresent';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
+import { useUnifiedPlayerV1 } from '@/features/workout-engine/players/shared/v2/useUnifiedPlayerV1';
 import { mapTutorialDoneLabel } from '../services/map-tutorial-tour';
 import {
   firstRunTourChrome, firstRunTourSeenKey, firstRunTourSteps, presentSteps, shouldShowFirstRunTour,
@@ -61,6 +62,8 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
   const mapTutorialV1 = useMapTutorialV1();
   // enable_park_live_v2: the route-player tip becomes the live park workout tour (board Park 4).
   const parkLiveV2 = useParkLiveV2();
+  // enable_unified_player_v1: the park tour's list step points at the pull-down header (no cart icon).
+  const unifiedPlayerV1 = useUnifiedPlayerV1();
   const closedRef = useRef(false);
   // New-user check only once the screen has been calm at least once (no work for anyone else).
   const [everActive, setEverActive] = useState(false);
@@ -85,7 +88,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
       }
       timer = setTimeout(() => {
         if (!alive || !activeRef.current) return; // the screen got busy — wait for the next calm
-        const shown = presentSteps(firstRunTourSteps(tour, gender, { homeToday: homeTodayRef.current, mapTutorialV1, parkLiveV2, afterWorkout }), targetPresent);
+        const shown = presentSteps(firstRunTourSteps(tour, gender, { homeToday: homeTodayRef.current, mapTutorialV1, parkLiveV2, unifiedPlayerV1, afterWorkout }), targetPresent);
         if (shown.length === 0) {
           closedRef.current = true;
           onCloseRef.current?.('empty');
@@ -95,7 +98,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
       }, delayMs);
     });
     return () => { alive = false; if (timer) clearTimeout(timer); };
-  }, [active, steps, tour, uid, gender, delayMs, isNew, mapTutorialV1, parkLiveV2, afterWorkout]);
+  }, [active, steps, tour, uid, gender, delayMs, isNew, mapTutorialV1, parkLiveV2, unifiedPlayerV1, afterWorkout]);
 
   if (!steps || typeof document === 'undefined') return null;
 

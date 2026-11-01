@@ -161,8 +161,11 @@ export const ZONE_TRAIL_COLORS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /** Mapbox `match` on the feature's zoneType, `fallback` for anything else. */
-export function zoneTrailColorExpression(fallback: string): unknown[] {
-  return ['match', ['get', 'zoneType'], ...ZONE_TRAIL_COLORS.flat(), fallback];
+export function zoneTrailColorExpression(
+  fallback: string,
+  colors: ReadonlyArray<readonly [string, string]> = ZONE_TRAIL_COLORS,
+): unknown[] {
+  return ['match', ['get', 'zoneType'], ...colors.flat(), fallback];
 }
 
 export function getLivePathPaint(hasZones: boolean) {

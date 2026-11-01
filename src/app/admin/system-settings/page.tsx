@@ -95,6 +95,7 @@ interface FlagState {
   enable_onboarding_step_funnel: boolean;
   enable_landing_real_fallback: boolean;
   enable_run_player_drawer_v1: boolean;
+  enable_unified_player_v1: boolean;
   enable_haptics_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
@@ -774,6 +775,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'נגן ריצה/הליכה: המפה קודם',
     description: 'הרץ והמסלול תמיד גלויים מעל מגירת המדדים (קומפקטית / מלאה), קו מסלול בולט, חזרה אוטומטית למעקב, ופסי הסטורי מחוברים לראש המסך.',
   },
+  // Unified player — the final canvas frame for every live situation (01.11.2026).
+  {
+    key: 'enable_unified_player_v1',
+    icon: Footprints,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'נגן מאוחד v1',
+    description: 'מסגרת אחת לכל מצב באימון: שם האימון, פסי הסטורי והנתון שלהם בראש המסך, כפתור השהייה כחול ואייקון הקפה של האפליקציה, ובהשהייה "סיים" אדום ו"המשך" כתום. במגירה נקודות דפים וכיתוב. דורש את "נגן ריצה/הליכה: המפה קודם".',
+    parentKey: 'enable_run_player_drawer_v1',
+  },
   // Haptics v1 — one helper, a "רטט" setting, web no-op (22.10.2026).
   {
     key: 'enable_haptics_v1',
@@ -1444,7 +1455,7 @@ function FlagCard({
                 {enabled ? '● פעיל' : '○ כבוי'}
               </span>
               {parentDisabled && (
-                <span className="text-[10px] text-slate-400">לא פעיל — תלוי ב"מה עושים היום?"</span>
+                <span className="text-[10px] text-slate-400">לא פעיל — תלוי ב&quot;מה עושים היום?&quot;</span>
               )}
             </div>
           </div>

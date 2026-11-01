@@ -17,6 +17,7 @@ import type { RunBlock } from '../types/run-block.type';
 import type { ComputedPaceZone, RunZoneType } from '../../../core/types/running.types';
 import type { PlannedBlockRecord } from '../../../core/services/storage.service';
 import type { PlannedBlockResult } from '../../../core/services/pace-self-correction.service';
+import { V2_BLOCK_COLORS, zoneBlockColor } from './workout-palette';
 
 export type { PlannedBlockRecord };
 
@@ -250,47 +251,17 @@ export function paceScaleGeometry(minSec: number, maxSec: number, currentSec: nu
   return { bandLeft: (pad / total) * 100, bandWidth: (range / total) * 100, marker };
 }
 
-// ── v2 block colours (one palette for bars, cart ring, list rails) ────────
+// ── v2 block colours (one palette for bars, cart ring, list rails, map trail: workout-palette.ts) ──
 
-export const V2_BLOCK_COLORS = {
-  wrapper: '#bfe48a',
-  easy: '#84cc16',
-  fast: '#e5484d',
-  tempo: '#f97316',
-  rest: '#a9b7c2',
-  walk: '#f59e0b',
-} as const;
-
-function zoneColor(z: RunZoneType | undefined): string | null {
-  switch (z) {
-    case 'tempo':
-    case 'fartlek_medium':
-      return V2_BLOCK_COLORS.tempo;
-    case 'interval_long':
-    case 'interval_short':
-    case 'sprint':
-    case 'fartlek_fast':
-      return V2_BLOCK_COLORS.fast;
-    case 'easy':
-    case 'long_run':
-    case 'jogging':
-      return V2_BLOCK_COLORS.easy;
-    case 'recovery':
-      return V2_BLOCK_COLORS.rest;
-    case 'walk':
-      return V2_BLOCK_COLORS.walk;
-    default:
-      return null;
-  }
-}
+export { V2_BLOCK_COLORS };
 
 /** The approved flows palette (runcanvas NOTES "One palette on every board"). */
 export function v2BlockColor(b: RunBlock): string {
   if (b._isSynthesizedRest || b.type === 'recovery') return V2_BLOCK_COLORS.rest;
   if (b.type === 'warmup' || b.type === 'cooldown') return V2_BLOCK_COLORS.wrapper;
   if (b.type === 'walk') return V2_BLOCK_COLORS.walk;
-  if (b.type === 'interval') return zoneColor(b.zoneType) ?? V2_BLOCK_COLORS.fast;
-  return zoneColor(b.zoneType) ?? V2_BLOCK_COLORS.easy;
+  if (b.type === 'interval') return zoneBlockColor(b.zoneType) ?? V2_BLOCK_COLORS.fast;
+  return zoneBlockColor(b.zoneType) ?? V2_BLOCK_COLORS.easy;
 }
 
 // ── Session sections (the list layer behind the player) ──────────────────

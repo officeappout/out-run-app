@@ -4,6 +4,7 @@
  * Floating buttons above the drawer edge (board H-8): each on a different END.
  *   running: lap (blue, start end) · pause (orange, big, other end)
  *   paused:  stop (red, hold to end, start end) · resume (cyan, big, other end); lap hidden
+ * unified (enable_unified_player_v1): pause blue gradient, resume orange, lap = the app's lap.svg.
  * Captions under every button. Logical placement (justify-between), so RTL/LTR flip together.
  */
 
@@ -12,6 +13,7 @@ import { useT } from '@/hooks/useT';
 import { together } from '@/messages/ns/together';
 import { hapticTap } from '@/lib/haptics';
 import { useHoldToConfirm } from '../useHoldToConfirm';
+import { UNIFIED_BUTTONS } from './unified-chrome-logic';
 
 export interface RunFloatingButtonsProps {
   isPaused: boolean;
@@ -22,6 +24,8 @@ export interface RunFloatingButtonsProps {
   onStop: () => void;
   /** Pilot AK3: one more control on the start end (settings), within thumb reach. */
   extra?: React.ReactNode;
+  /** enable_unified_player_v1: blue pause, orange resume, the app's lap icon (no black). */
+  unified?: boolean;
 }
 
 function Caption({ children }: { children: React.ReactNode }) {
@@ -49,7 +53,7 @@ function StopHold({ onStop, label }: { onStop: () => void; label: string }) {
   );
 }
 
-export default function RunFloatingButtons({ isPaused, onPause, onResume, onLap, onStop, extra }: RunFloatingButtonsProps) {
+export default function RunFloatingButtons({ isPaused, onPause, onResume, onLap, onStop, extra, unified = false }: RunFloatingButtonsProps) {
   const t = useT(together);
   const startEnd = () => (
     isPaused ? (
@@ -61,6 +65,12 @@ export default function RunFloatingButtons({ isPaused, onPause, onResume, onLap,
       <span aria-hidden />
     ) : (
       <span className="pointer-events-auto flex flex-col items-center gap-1">
+        {unified ? (
+          <button type="button" aria-label={t('chrome.btn.lap')} onClick={onLap} className="grid h-[64px] w-[64px] place-items-center rounded-full active:scale-[0.97]" style={{ boxShadow: '0 12px 24px -10px rgba(0,186,247,0.8)' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={UNIFIED_BUTTONS.lapIcon} alt="" width={64} height={64} draggable={false} />
+          </button>
+        ) : (
         <button
           type="button"
           aria-label={t('chrome.btn.lap')}
@@ -72,6 +82,7 @@ export default function RunFloatingButtons({ isPaused, onPause, onResume, onLap,
             <path d="M4 22V4M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1" />
           </svg>
         </button>
+        )}
         <Caption>{t('chrome.btn.lap')}</Caption>
       </span>
     )
@@ -86,17 +97,21 @@ export default function RunFloatingButtons({ isPaused, onPause, onResume, onLap,
             aria-label={t('chrome.btn.resume')}
             onClick={() => { hapticTap('impact'); onResume(); }}
             className="grid h-[72px] w-[72px] place-items-center rounded-full active:scale-[0.97]"
-            style={{ background: 'linear-gradient(135deg,#00baf7,#0cf2e3)', boxShadow: '0 16px 30px -12px rgba(0,186,247,0.8)' }}
+            style={unified
+              ? { background: UNIFIED_BUTTONS.resume.background, boxShadow: UNIFIED_BUTTONS.resume.shadow }
+              : { background: 'linear-gradient(135deg,#00baf7,#0cf2e3)', boxShadow: '0 16px 30px -12px rgba(0,186,247,0.8)' }}
           >
-            <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden><path d="M7 4l13 8-13 8z" fill="#04222b" /></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden><path d="M7 4l13 8-13 8z" fill={unified ? UNIFIED_BUTTONS.resume.icon : '#04222b'} /></svg>
           </button>
         ) : (
           <button
             type="button"
             aria-label={t('chrome.btn.pause')}
             onClick={() => { hapticTap('impact'); onPause(); }}
-            className="grid h-[72px] w-[72px] place-items-center rounded-full bg-[#f97316] active:scale-[0.97]"
-            style={{ boxShadow: '0 16px 30px -12px rgba(249,115,22,0.8)' }}
+            className={`grid h-[72px] w-[72px] place-items-center rounded-full active:scale-[0.97] ${unified ? '' : 'bg-[#f97316]'}`}
+            style={unified
+              ? { background: UNIFIED_BUTTONS.pause.background, boxShadow: UNIFIED_BUTTONS.pause.shadow }
+              : { boxShadow: '0 16px 30px -12px rgba(249,115,22,0.8)' }}
           >
             <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden><rect x="6" y="4" width="4" height="16" rx="1" fill="#fff" /><rect x="14" y="4" width="4" height="16" rx="1" fill="#fff" /></svg>
           </button>

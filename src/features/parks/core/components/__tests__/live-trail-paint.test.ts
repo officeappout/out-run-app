@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hexToRgba, liveTrailKind, liveTrailPaintV1, TRAIL_ROUTE_GREEN, TRAIL_V1_RUN, TRAIL_V1_WALK } from '../live-trail-paint';
 import { getLivePathPaint, ZONE_TRAIL_COLORS } from '../mapLayersConfig';
+import { WORKOUT_ZONE_TRAIL_COLORS } from '@/features/workout-engine/players/running/lib/workout-palette';
 
 describe('live trail paint (enable_run_player_drawer_v1)', () => {
   it('kind: zones win, then route, else free', () => {
@@ -60,5 +61,41 @@ describe('pilot M23: the walked trail on a route is green', () => {
     expect(liveTrailPaintV1('route', 'walking').line['line-color']).not.toBe(TRAIL_ROUTE_GREEN);
     expect(liveTrailPaintV1('zones', 'running', true)).toEqual(liveTrailPaintV1('zones', 'running'));
     expect(liveTrailPaintV1('free', 'walking', true)).toEqual(liveTrailPaintV1('free', 'walking'));
+  });
+});
+
+describe('enable_unified_player_v1: the zone trail in the workout palette', () => {
+  const TODAY = [
+    'match', ['get', 'zoneType'],
+    'sprint', '#DC2626', 'interval_short', '#E11D48', 'interval_long', '#0D9488', 'fartlek_fast', '#0D9488',
+    'tempo', '#0891B2', 'fartlek_medium', '#F59E0B', 'long_run', '#10B981', 'easy', '#34D399',
+    'jogging', '#6EE7B7', 'recovery', '#60A5FA', 'walk', '#9CA3AF',
+    TRAIL_V1_RUN,
+  ];
+
+  it('flag off (no palette passed): exactly today\'s colours', () => {
+    expect(liveTrailPaintV1('zones', 'running')).toEqual(liveTrailPaintV1('zones', 'running', false, undefined));
+    expect(liveTrailPaintV1('zones', 'running').line['line-color']).toEqual(TODAY);
+  });
+
+  it('flag on: the bars\' colours, same brand fallback, same widths', () => {
+    const off = liveTrailPaintV1('zones', 'running');
+    const on = liveTrailPaintV1('zones', 'running', false, WORKOUT_ZONE_TRAIL_COLORS);
+    const expr = on.line['line-color'] as unknown[];
+    const pairs = new Map<unknown, unknown>();
+    for (let i = 2; i < expr.length - 1; i += 2) pairs.set(expr[i], expr[i + 1]);
+    expect(pairs.get('tempo')).toBe('#f97316');
+    expect(pairs.get('interval_short')).toBe('#e5484d');
+    expect(pairs.get('easy')).toBe('#84cc16');
+    expect(pairs.get('walk')).toBe('#f59e0b');
+    expect(expr[expr.length - 1]).toBe(TRAIL_V1_RUN);
+    expect(on.casing).toEqual(off.casing);
+    expect({ ...on.line, 'line-color': null }).toEqual({ ...off.line, 'line-color': null });
+  });
+
+  it('the palette only touches the zone trail', () => {
+    for (const kind of ['free', 'route'] as const) {
+      expect(liveTrailPaintV1(kind, 'running', false, WORKOUT_ZONE_TRAIL_COLORS)).toEqual(liveTrailPaintV1(kind, 'running'));
+    }
   });
 });

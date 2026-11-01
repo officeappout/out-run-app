@@ -25,8 +25,13 @@ import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
-import { blockDisplayLabel, fmtClock, fmtDistance, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
-import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, useMeasuredHeight } from '../../../../shared/v2/run-chrome';
+import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, isRestBlock, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
+import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer, useMeasuredHeight, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
+import { useUnifiedGps } from '../../../hooks/useUnifiedGps';
+import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
+import { PAGE_CAPTION_KEY, drawerPagesFor } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
+import { useUnifiedPlayerV1 } from '../../../../shared/v2/useUnifiedPlayerV1';
+import { together } from '@/messages/ns/together';
 import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
 import { usePlannedChromeNodes } from './usePlannedChromeNodes';
 import PlannedLiveCardV2 from './PlannedLiveCardV2';
@@ -100,7 +105,10 @@ export default function PlannedRunLiveV2({
     distanceKm: Number.isFinite(totalDistance) ? totalDistance : 0,
     calories: Number.isFinite(totalCalories) ? totalCalories : 0,
   };
-  const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused });
+  // enable_unified_player_v1: name / bars / data on top, drawer pages, new buttons, pace colour on recovery too.
+  const unified = useUnifiedPlayerV1() && drawerV1;
+  const chromeNodes = usePlannedChromeNodes({ engine, blocks, reps, totals, blockElapsedSeconds, isPaused, unified });
+  const gps = useUnifiedGps(unified);
   const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: chromeHeaderH + 56, enabled: drawerV1 });
   const currentRemaining = !currentBlock
     ? '--'
@@ -109,6 +117,22 @@ export default function PlannedRunLiveV2({
       : currentBlock.distanceMeters && currentBlock.distanceMeters > 0
         ? fmtDistance(blockDistanceRemaining)
         : fmtClock(blockElapsedSeconds);
+
+  // enable_unified_player_v1: drawer pages "this rep" (or "recovery") then "overview".
+  const tt = useT(together);
+  const avgPaceSec = totals.distanceKm > 0.05 ? totals.durationSec / totals.distanceKm : 0;
+  const generalCells = (size: number) => (
+    <Cells>
+      <Cell label={tt('chrome.label.time')} value={fmtClock(totals.durationSec)} size={size} />
+      <Cell label={tt('chrome.label.km')} value={totals.distanceKm.toFixed(2)} size={size} />
+      <Cell label={tt('chrome.label.avgPace')} value={avgPaceSec > 0 ? fmtPace(avgPaceSec) : '--:--'} size={size} />
+    </Cells>
+  );
+  const drawerPages: RunDrawerPage[] | undefined = unified
+    ? drawerPagesFor('planned', { lapOn: true }).map((id) => (id === 'general'
+      ? { id, caption: tt(PAGE_CAPTION_KEY.general), compact: generalCells(26), large: generalCells(30) }
+      : { id, caption: isRestBlock(currentBlock) ? tt('chrome.page.rest') : tt(PAGE_CAPTION_KEY[id]), compact: chromeNodes.compact, large: chromeNodes.large }))
+    : undefined;
 
   const triggerLap = useCallback(() => {
     useRunningPlayer.getState().triggerLap();
@@ -172,6 +196,15 @@ export default function PlannedRunLiveV2({
                 outerRef={setHeaderNodes}
                 onPointerDown={startDrag}
                 layers={tg.layers(
+                  unified ? (
+                    <UnifiedHeaderLayer
+                      title={title}
+                      bars={<StoryBars segments={segments} currentIndex={currentBlockIndex} progress={blockProgress} />}
+                      label={chromeNodes.caption || undefined}
+                      hint={pilotAh ? <RouteTurnRow /> : undefined}
+                      flash={gps === 'lost' ? { text: tt('chrome.gps.lostHint'), tone: 'warn' } : null}
+                    />
+                  ) : (
                   <div className="px-5">
                     <div className="flex h-[46px] flex-col justify-center">
                       <StoryBars segments={segments} currentIndex={currentBlockIndex} progress={blockProgress} />
@@ -179,12 +212,13 @@ export default function PlannedRunLiveV2({
                     </div>
                     {/* enable_pilot_ah_v1 (AH23): the next turn as one line (MapShell keeps the big card off). */}
                     {pilotAh && <RouteTurnRow />}
-                  </div>,
+                  </div>
+                  ),
                 )}
                 index={tg.layerIndex}
                 onIndexChange={tg.setLayerIndex}
                 strip={chromeNodes.strip}
-                trailing={<GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />}
+                trailing={unified ? <UnifiedGpsMark state={gps} /> : <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />}
               />
             ) : (
             <header
@@ -238,8 +272,10 @@ export default function PlannedRunLiveV2({
                 onOpenList={() => setListOpen(true)}
                 compact={chromeNodes.compact}
                 large={chromeNodes.large}
+                pages={drawerPages}
                 override={tg.vsPanel}
-                buttons={<RunFloatingButtons isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
+                overrideCaption={unified && tg.vsPanel ? tt('chrome.page.vs') : undefined}
+                buttons={<RunFloatingButtons unified={unified} isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
               />
             ) : (
               <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>

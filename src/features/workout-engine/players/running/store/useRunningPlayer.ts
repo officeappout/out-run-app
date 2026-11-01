@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import { Route } from '@/features/parks';
-import { Lap, GeoPoint } from '../../../core/types/session.types';
+import { Lap } from '../../../core/types/session.types';
 import { calculateDistance } from '@/lib/services/location.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type RunWorkout from '../types/run-workout.type';
@@ -280,6 +280,9 @@ interface RunningPlayerState {
   // Gates distance accumulation for poor-accuracy samples (avoids phantom distance
   // while still allowing warm-up phase to measure before first good lock).
   hasHadGoodFix: boolean;
+  /** Wall-clock ms of the last GPS sample (any accuracy); null until the first one. Read by the unified
+   *  frame (enable_unified_player_v1) to tell "GPS lost" from "weak". Reset with the GPS tracking. */
+  lastFixAt: number | null;
   /** Last GPS filter decision — populated on every sample; read by GpsDebugHud (?debug=gps). */
   lastFilterAction: string | null;
   // When true, real watchPosition is completely bypassed; sim positions drive the workout
@@ -372,7 +375,7 @@ interface RunningPlayerState {
   clearCommuteContext: () => void;
   setIsGroupRun: (v: boolean) => void;
   setView: (view: 'main' | 'laps') => void;
-  setLastViewport: (vp: any) => void;
+  setLastViewport: (vp: { latitude: number; longitude: number; zoom: number }) => void;
   
   triggerLap: () => void;
   addManualLap: () => void;
@@ -541,6 +544,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   gpsAccuracy: null,
   gpsStatus: 'searching',
   hasHadGoodFix: false,
+  lastFixAt: null,
   lastFilterAction: null,
   isSimulationActive: false,
 
@@ -829,8 +833,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           await KeepAwake.keepAwake();
           set({ isNativeWakeLockActive: true });
           console.log('[useRunningPlayer] ✅ Native keep-awake acquired (KeepAwake plugin)');
-        } catch (error: any) {
-          console.warn('[useRunningPlayer] Failed to acquire native keep-awake:', error?.message);
+        } catch (error) {
+          console.warn('[useRunningPlayer] Failed to acquire native keep-awake:', (error as Error)?.message);
           // Continue without wake lock - not critical
         }
         return;
@@ -844,6 +848,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     }
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const wakeLock = await (navigator as any).wakeLock.request('screen');
       set({ wakeLock });
       console.log('[useRunningPlayer] ✅ Screen wake lock acquired');
@@ -853,8 +858,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         console.log('[useRunningPlayer] Wake lock released');
         set({ wakeLock: null });
       });
-    } catch (error: any) {
-      console.warn('[useRunningPlayer] Failed to acquire wake lock:', error.message);
+    } catch (error) {
+      console.warn('[useRunningPlayer] Failed to acquire wake lock:', (error as Error)?.message);
       // Continue without wake lock - not critical
     }
   },
@@ -940,7 +945,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       }
 
       const newDuration = activeLap.durationSeconds + 1;
-      let updatedLaps = laps.map(lap =>
+      const updatedLaps = laps.map(lap =>
         lap.isActive ? { ...lap, durationSeconds: newDuration } : lap
       );
 
@@ -980,7 +985,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // on iOS Capacitor. Subscribing here instead of opening a second
     // navigator.geolocation watcher eliminates the dual-pipeline split
     // that caused distance to stay at 0 on native builds.
-    set({ gpsStatus: 'searching', gpsAccuracy: null });
+    set({ gpsStatus: 'searching', gpsAccuracy: null, lastFixAt: null });
 
     let lastPos: { lat: number; lng: number } | null = null;
     let lastTimestamp: number | null = null;
@@ -1050,6 +1055,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       set({
         gpsAccuracy: accuracy < 999 ? accuracy : null,
         gpsStatus,
+        lastFixAt: Date.now(),
         ...(isGoodNow && !wasGoodBefore ? { hasHadGoodFix: true } : {}),
       });
       if (accuracy <= WARMUP_MAX_ACCURACY_M) {
@@ -1368,6 +1374,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       gpsAccuracy: null,
       gpsStatus: 'searching',
       hasHadGoodFix: false,
+      lastFixAt: null,
     });
   },
   
@@ -1414,6 +1421,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     let userWeight = 70;
     if (typeof window !== 'undefined') {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- sync read inside the store, avoids an import cycle
         const { useUserStore } = require('@/features/user/identity/store/useUserStore');
         userWeight = useUserStore.getState().profile?.core?.weight || 70;
       } catch { /* fallback */ }
@@ -2282,7 +2290,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // When devSim enables mock: kill any live real GPS watcher + mark status as simulated.
   // When devSim disables mock: clear the flag; next startGPSTracking call uses real GPS.
   setSimulationActive: (active: boolean) => {
-    const { isSimulationActive: prev, gpsWatchId } = get();
+    const { isSimulationActive: prev } = get();
     set({ isSimulationActive: active });
     if (active && !prev) {
       // Transitioning INTO simulation — cancel the useGPSStore subscription

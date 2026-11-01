@@ -71,6 +71,9 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
   const v2 = runFlagsV2.enableHomeV2;
   // enable_run_player_drawer_v1: metrics drawer + attached header inside the v2 players.
   const drawerV1 = v2 && !runFlagsLoading && runFlagsV2.enableRunPlayerDrawerV1;
+  // enable_unified_player_v1: the floating buttons own pause / resume / finish, so the legacy
+  // full-screen pause overlay and its exit dialog no longer mount over the v2 player.
+  const unified = drawerV1 && runFlagsV2.enableUnifiedPlayerV1;
 
   const {
     currentBlock,
@@ -333,6 +336,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
           /* ──────────────────────────────────────────────────────────────────
              MINI-PLAYER BAR (72px)
              ────────────────────────────────────────────────────────────── */
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- legacy v1 mini bar (enable_home_v2 off)
           <div
             className="flex items-center bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-4 gap-3 cursor-pointer relative"
             style={{
@@ -463,7 +467,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
 
       {/* ═══ PAUSE OVERLAY — mirrors StrengthRunner ═══ */}
       <AnimatePresence>
-        {isPaused && !showExitConfirm && (
+        {isPaused && !showExitConfirm && !unified && (
           <motion.div
             key="pause-overlay"
             initial={{ opacity: 0 }}

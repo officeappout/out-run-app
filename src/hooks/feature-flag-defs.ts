@@ -483,6 +483,12 @@ export const FLAG_DEFS = [
   // planned runs) and the story bars sit in a header strip attached to the top edge instead of a
   // floating card. Fail-closed; super admins preview it. Off = byte-identical players.
   { key: 'enableRunPlayerDrawerV1', firestoreKey: 'enable_run_player_drawer_v1', defaultValue: false, superAdminValue: true },
+  // Unified player v1 (01.11.2026, canvas "עיצובים סופיים"): the one frame for every live situation on the
+  // map. Top gradient (name, story bars with their data label, transient hint), blue pause / app lap icon,
+  // paused = red finish + orange resume, drawer page dots with a caption. Rides on top of
+  // enable_run_player_drawer_v1 (needs it and enable_home_v2). Fail-closed; super admins preview it.
+  // Off = the players exactly as before.
+  { key: 'enableUnifiedPlayerV1', firestoreKey: 'enable_unified_player_v1', defaultValue: false, superAdminValue: true },
   // Haptics v1 (22.10.2026, owner — agent-briefs/strength-player-drawer-brief.md ask 4). On: a light
   // selection tick on segmented controls and the live set-logger wheel, a light impact on the live
   // players' primary buttons (start / pause / resume / done) — all via hapticTap (src/lib/haptics) —
