@@ -128,4 +128,14 @@ describe('legacy volume review fixes', () => {
     const row = w.exercises.find((e) => e.exercise.id === 'ANvq7ORET7uhLRK4XP6X')!;
     expect(row.isTimeBased).toBe(false);
   });
+  it('never fewer than 2 sets, even when a 2-set legacy row lands on the strongest axis', () => {
+    // plank to pike (real id): legacy 2 sets, -1 for the strongest axis would be 1
+    const strengthIds = ['scap_pushup', 'pike_stance', 'pike_pushup', 'wall_walk'];
+    const plankPike = ex('aSR4wleycyiszBqxDr3j', 4, 1, 3, 'shoulders', 'reps');
+    const w = generated();
+    applyTriadSkeleton(w, opts({ strength: 5, balance: 2, mobility: 1 }, { pool: [...POOL.filter((e) => !strengthIds.includes(e.id)), plankPike] }));
+    const mains = w.exercises.filter((e) => e.exerciseRole === 'main');
+    expect(mains.some((e) => e.exercise.id === 'aSR4wleycyiszBqxDr3j')).toBe(true);
+    expect(Math.min(...mains.map((e) => e.sets))).toBeGreaterThanOrEqual(2);
+  });
 });

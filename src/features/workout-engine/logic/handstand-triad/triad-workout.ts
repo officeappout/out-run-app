@@ -31,6 +31,9 @@ export const toLegacyLevel = (axisLevel: number) => Math.min(10, Math.max(1, Mat
 /** Longest legacy hold used as-is; longer rows are capped (wall/free holds stay ≤ 90 s). */
 export const LEGACY_HOLD_CAP_SECONDS = 90;
 
+/** Floor on sets per triad exercise (owner, 1.11): the strongest axis keeps 2. */
+export const MIN_TRIAD_SETS = 2;
+
 /**
  * Closest old-level row of the legacy table for this exercise, or null (not in
  * the table, or its type changed since the table was generated). Seconds are
@@ -95,7 +98,8 @@ export function applyTriadSkeleton(workout: GeneratedWorkout, opts: TriadWorkout
       // appears there (reps or seconds by its own type); generic formula otherwise.
       const legacy = legacyVolume(ex.id, levels[axis], ex.type);
       // Legacy sets, shifted by the block's emphasis (+1 weakest, -1 strongest).
-      const sets = legacy ? Math.max(1, legacy.sets + (block.sets - BASE_SETS)) : block.sets;
+      // Owner, 1.11: never fewer than MIN_TRIAD_SETS per exercise.
+      const sets = Math.max(MIN_TRIAD_SETS, legacy ? legacy.sets + (block.sets - BASE_SETS) : block.sets);
       mains.push({
         exercise: ex,
         method,
