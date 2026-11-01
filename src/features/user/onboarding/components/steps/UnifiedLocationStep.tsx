@@ -59,7 +59,7 @@ import {
   prewarmLocationLookups,
   resolveNeighborhoodIdForGps,
 } from './UnifiedLocation/location-utils';
-import { filterLocations } from './UnifiedLocation/location-search';
+import { capPerGroup, defaultLocations, filterLocations } from './UnifiedLocation/location-search';
 import {
   getFirstFix,
   shouldApplyRefinedFix,
@@ -299,7 +299,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   // Filter cities based on search query
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredCities(cities.slice(0, 15));
+      // AJ5: nearby places (or the largest cities), not the first 15 rows (= one city's neighbourhoods).
+      setFilteredCities(defaultLocations(cities, userLocation));
     } else {
       // AH4: a Latin query also matches the transliterated slugs (location-search.ts); Hebrew as before.
       const filtered = filterLocations(cities, searchQuery);
@@ -315,10 +316,12 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       // cap when matches span multiple distinct cities, so a generic word
       // shared across many places (e.g. "מרכז העיר") can't flood the list.
       const distinctCityIds = new Set(filtered.map(city => city.parentId || city.id));
-      const results = distinctCityIds.size <= 1 ? filtered : filtered.slice(0, 15);
+      // AJ5: cap neighbourhoods and cities separately, so a big city's neighbourhoods never push every
+      // other city out of the "cities" tab.
+      const results = distinctCityIds.size <= 1 ? filtered : capPerGroup(filtered, 15);
       setFilteredCities(results);
     }
-  }, [searchQuery, cities]);
+  }, [searchQuery, cities, userLocation]);
 
   // Entry globe: back on INITIAL (first load, or a denied / failed fix) the
   // Earth rests again as the half circle.

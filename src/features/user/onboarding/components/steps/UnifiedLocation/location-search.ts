@@ -66,11 +66,15 @@ export function filterLocations(cities: readonly CityData[], query: string): Cit
   const words = normalizeLatin(raw).split(/\s+/).filter((w) => w.length > 0);
   if (words.length === 0) return [];
 
+  // AJ5: each query word must START a word ("ram" finds Ramot, not every "...ram..."), so a short English
+  // query really narrows the list; a longer word (4+) may also match inside the spaceless form ("telaviv").
+  // Results whose English name starts with the query come first, then any other match, list order kept.
   const direct = cities.filter((city) => {
     const h = latinHaystack(city);
-    return words.every((w) => h.text.includes(w) || h.compact.includes(w));
+    const starts = ` ${h.text}`;
+    return words.every((w) => starts.includes(` ${w}`) || (w.length >= 4 && h.compact.includes(w)));
   });
-  if (direct.length > 0) return direct;
+  if (direct.length > 0) return rankByEnglishPrefix(direct, words.join(' '));
 
   // Skeleton fallback only when nothing matched as written. Very short skeletons ("ra" -> "r") would
   // match nearly everything, so each word needs at least 2 consonants.
@@ -81,4 +85,46 @@ export function filterLocations(cities: readonly CityData[], query: string): Cit
     const compactSkeleton = h.skeleton.replace(/\s+/g, '');
     return skeletons.every((s) => h.skeleton.includes(s) || compactSkeleton.includes(s));
   });
+}
+
+function rankByEnglishPrefix(list: CityData[], query: string): CityData[] {
+  const head: CityData[] = [];
+  const rest: CityData[] = [];
+  for (const city of list) {
+    const en = normalizeLatin(locationNameEnById(city.id) ?? '');
+    (en.startsWith(query) ? head : rest).push(city);
+  }
+  return head.concat(rest);
+}
+
+/** Show at most `perGroup` neighbourhoods (rows with a parent) and `perGroup` cities, list order kept. */
+export function capPerGroup(list: readonly CityData[], perGroup: number): CityData[] {
+  let subs = 0;
+  let tops = 0;
+  return list.filter((city) => (city.parentId ? subs++ < perGroup : tops++ < perGroup));
+}
+
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * AJ5: the list before anything is typed. With a known position (GPS fix or the place already on the map):
+ * the nearest neighbourhoods and the nearest cities. Without one: the largest cities only (`cities` arrives
+ * sorted by population), never one city's neighbourhoods filling the whole list.
+ */
+export function defaultLocations(
+  cities: readonly CityData[],
+  near: { lat: number; lng: number } | null | undefined,
+  perGroup = 10,
+): CityData[] {
+  if (near && Number.isFinite(near.lat) && Number.isFinite(near.lng)) {
+    const byDistance = [...cities].sort((a, b) => distanceKm(near, a) - distanceKm(near, b));
+    return capPerGroup(byDistance, perGroup);
+  }
+  return cities.filter((city) => !city.parentId).slice(0, perGroup + 5);
 }
