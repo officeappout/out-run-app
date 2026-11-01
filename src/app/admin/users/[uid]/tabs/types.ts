@@ -12,6 +12,8 @@ export interface UserTabData {
   user: AdminUserListItem;
   fullProfile: UserFullProfile;
   workoutHistory: WorkoutHistoryEntry[];
+  /** Workouts of the last two years, for the period-comparison chart. */
+  activityHistory: WorkoutHistoryEntry[];
   stepsHistory: DailyStepsSnapshot[];
   analyticsEvents: AnalyticsEvent[];
   pushHistory: PushHistoryEntry[];

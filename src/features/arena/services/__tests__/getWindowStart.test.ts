@@ -78,12 +78,13 @@ describe('getWindowStart — daily/weekly/monthly', () => {
     expect(start.getMilliseconds()).toBe(0);
   });
 
-  it('daily is strictly more recent than (or equal to) weekly and monthly starts', () => {
+  it('daily is more recent than (or equal to) weekly and monthly starts', () => {
     const daily = getWindowStart('daily').getTime();
     const weekly = getWindowStart('weekly').getTime();
     const monthly = getWindowStart('monthly').getTime();
     expect(daily).toBeGreaterThanOrEqual(weekly);
-    expect(weekly).toBeGreaterThanOrEqual(monthly);
+    expect(daily).toBeGreaterThanOrEqual(monthly);
+    // weekly vs monthly has no fixed order: early in a month the week began in the previous one.
   });
 
   it('early in a month the calendar week can start before the month (01.11.2026, a Sunday)', () => {
