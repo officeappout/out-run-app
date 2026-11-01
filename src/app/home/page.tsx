@@ -2001,7 +2001,6 @@ export default function HomePage() {
       onNavigate={programSlideNavigate}
       onDismissAdd={programSlide.dismissAdd}
       aerobicCopy={twoCardsOn}
-      compact={pilotAh}
     />
   );
   // enable_home_v2 new user (no strength / run / walk plan, owner 20.10.2026): the start
@@ -3333,8 +3332,7 @@ export default function HomePage() {
           // v2: the floating nav (+ raised map circle) and the "+" FAB float over the
           // page — pad the end so the last card can scroll clear of both (bottom-chrome.ts).
           paddingBottom: featureFlags.enableHomeV2
-            // Pilot AJ13: the full clearance, not net of <main>'s reserve (the nav covered the last row).
-            ? scrollEndPaddingCss({ fab: SOCIAL_COMPOSE_UI_ENABLED, reservedCss: pilotAh ? undefined : APP_MAIN_NAV_RESERVE_CSS })
+            ? scrollEndPaddingCss({ fab: SOCIAL_COMPOSE_UI_ENABLED, reservedCss: APP_MAIN_NAV_RESERVE_CSS })
             : 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)',
         }}
       >

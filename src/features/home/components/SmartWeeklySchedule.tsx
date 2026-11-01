@@ -1833,7 +1833,7 @@ export default function SmartWeeklySchedule({
           <div
             className="absolute inset-0 z-20 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/15 dark:bg-slate-900/35 backdrop-blur-[2px]"
           >
-            {overlayHint && pilotAh ? null : overlayHint ? (
+            {overlayHint ? (
               <span className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[13px] font-extrabold text-v2-deep shadow-v2-ring">
                 {overlayHint}
                 <ChevronDown size={15} strokeWidth={2.6} aria-hidden="true" />
@@ -2036,15 +2036,6 @@ export default function SmartWeeklySchedule({
         </AnimatePresence>
         </DayCellV2Context.Provider>
         </div>
-        {/* Pilot AJ11: the hint sits under the day circles, not on top of them. */}
-        {showOverlay && overlayHint && pilotAh && (
-          <div className="relative z-30 mt-2 flex justify-center">
-            <span className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[13px] font-extrabold text-v2-deep shadow-v2-ring">
-              {overlayHint}
-              <ChevronDown size={15} strokeWidth={2.6} aria-hidden="true" />
-            </span>
-          </div>
-        )}
       </motion.div>
 
       {/* ── Running Workout Cards (below strip) ── */}
