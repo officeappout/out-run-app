@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, app: {} }));
 
 import {
-  applyStationDifficulty, planStationDifficulty, stationIntroView, walkCardView, stationMessageM, isWalkingLeg,
+  applyStationDifficulty, planStationDifficulty, stationIntroView, walkCardView, stationMessageM, isWalkingLeg, legSheetCells, unifiedLegSheet,
   DEFAULT_STATION_DIFFICULTY, nextMachineIndex, stationRunPlan, stationIntroDifficulty, isMachineTabataSegment, messageRowKind,
 } from '../park-live-v2';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
@@ -119,6 +119,37 @@ describe('walk card + station message (M2, M22)', () => {
     expect(isWalkingLeg(view({}))).toBe(true);
     expect(isWalkingLeg(view({ segment: { kind: 'aerobic', aerobicType: 'running' } as never }))).toBe(false);
     expect(isWalkingLeg(null)).toBe(false);
+  });
+});
+
+describe('unified leg drawer (enable_unified_player_v1)', () => {
+  const running = { kind: 'aerobic', aerobicType: 'running' } as never;
+  const runLeg = { coveredM: 620, elapsedSec: 180, targetM: 1000, targetSec: null, remainingM: 380, remainingSec: null, showPace: true } as never;
+
+  it('routes walking and running legs to the drawer, idle / transition / station elsewhere', () => {
+    expect(unifiedLegSheet(view({}))).toBe('walk');
+    expect(unifiedLegSheet(view({ segment: running }))).toBe('run');
+    expect(unifiedLegSheet(view({ segment: running, phase: 'cooldown' }))).toBe('run');
+    expect(unifiedLegSheet(view({ phase: 'idle', segment: null, leg: null }))).toBeNull();
+    expect(unifiedLegSheet(view({ phase: 'transition', leg: null }))).toBeNull();
+    expect(unifiedLegSheet(view({ phase: 'station' }))).toBeNull();
+    expect(unifiedLegSheet(null)).toBeNull();
+  });
+
+  it('a walk: time, km, to the station; no pace even when the leg allows it', () => {
+    expect(legSheetCells(view({}), false)).toEqual(['time', 'km', 'toStation']);
+    expect(legSheetCells(view({ leg: runLeg }), false)).toEqual(['time', 'km', 'toStation']);
+  });
+
+  it('a run adds the live pace, but not on a leg planned under 400 m', () => {
+    expect(legSheetCells(view({ segment: running, leg: runLeg }), true)).toEqual(['time', 'km', 'pace', 'toStation']);
+    const short = { ...(runLeg as object), showPace: false } as never;
+    expect(legSheetCells(view({ segment: running, leg: short }), true)).toEqual(['time', 'km', 'toStation']);
+  });
+
+  it('the leg back has no station cell, and no leg = no cells', () => {
+    expect(legSheetCells(view({ segment: running, leg: runLeg, canArriveManually: false }), true)).toEqual(['time', 'km', 'pace']);
+    expect(legSheetCells(view({ leg: null }), true)).toEqual([]);
   });
 });
 

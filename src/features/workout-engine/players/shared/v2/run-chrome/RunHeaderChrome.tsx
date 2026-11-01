@@ -19,9 +19,11 @@ export interface RunHeaderChromeProps extends RunTopLayersProps {
   /** e.g. the GPS indicator, tucked at the end of the layer row. */
   trailing?: React.ReactNode;
   onPointerDown?: (e: React.PointerEvent) => void;
+  /** A first-run tour anchor (`data-coach`) on the header body. Absent = no attribute. */
+  coach?: string;
 }
 
-export default function RunHeaderChrome({ outerRef, innerRef, strip, trailing, onPointerDown, layers, index, onIndexChange }: RunHeaderChromeProps) {
+export default function RunHeaderChrome({ outerRef, innerRef, strip, trailing, onPointerDown, coach, layers, index, onIndexChange }: RunHeaderChromeProps) {
   return (
     <div
       ref={outerRef}
@@ -29,7 +31,7 @@ export default function RunHeaderChrome({ outerRef, innerRef, strip, trailing, o
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)', background: RUN_HEADER_FADE, touchAction: 'none', fontFamily: 'var(--font-simpler)' }}
       onPointerDown={onPointerDown}
     >
-      <div ref={innerRef} className="pb-5 pt-2.5">
+      <div ref={innerRef} className="pb-5 pt-2.5" data-coach={coach}>
         <div className="relative">
           <RunTopLayers layers={layers} index={index} onIndexChange={onIndexChange} />
           {trailing && <div className="pointer-events-none absolute end-3 top-0">{trailing}</div>}
