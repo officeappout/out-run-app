@@ -459,7 +459,13 @@ export async function computeReadinessTrends(
     }
 
     for (const { year, month } of months) {
-      const asOf = endOfMonth(year, month);
+      // The current month's point counts back from NOW, not from the month's
+      // last day (01.11.2026 fix): asOf = end of a month still in the future
+      // made the 30-day window cover only the days of this calendar month, so
+      // on the 1st every soldier's recent training dropped out of the latest
+      // point ("not enough data" for the whole unit). Past months unchanged.
+      const monthEnd = endOfMonth(year, month);
+      const asOf = monthEnd.getTime() > now.getTime() ? now : monthEnd;
       const [strengthByUid, runByUid] = await Promise.all([
         computeDemonstratedStrengthLevels(db, linkedUids, asOf),
         computeDemonstratedRunLevels(db, linkedUids, asOf),
