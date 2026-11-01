@@ -1,6 +1,7 @@
 // src/features/map/services/route-generator.service.ts
 
 import { collection, endAt, getDocs, limit, orderBy, query, startAt, where } from 'firebase/firestore';
+import { CLIENT_READ_CAPS, warnIfCapped } from './client-read-caps';
 import { geohashQueryBounds } from 'geofire-common';
 import { db } from '@/lib/firebase';
 import { readLiveFlag } from '@/lib/feature-flag-live';
@@ -833,10 +834,12 @@ async function fetchScoredWaypointsByProximity(
             orderBy('geohash'),
             startAt(rangeStart),
             endAt(rangeEnd),
+            limit(CLIENT_READ_CAPS.streetSegmentsPerRange),
           ),
         ),
       ),
     );
+    for (const s of snapshots) warnIfCapped(s.size, CLIENT_READ_CAPS.streetSegmentsPerRange, 'street_segments geohash range');
 
     // Merge across boxes + dedupe by doc id. geohashQueryBounds' ranges are
     // constructed not to overlap, but dedup defensively — cheap insurance.
@@ -1819,9 +1822,10 @@ export interface CorridorRecord {
 export async function fetchPublishedCorridorsForCity(cityCandidates: string[]): Promise<Map<string, CorridorRecord>> {
   const corridorDocs = await Promise.all(
     cityCandidates.map((c) =>
-      getDocs(query(collection(db, 'official_routes'), where('city', '==', c), where('published', '==', true))),
+      getDocs(query(collection(db, 'official_routes'), where('city', '==', c), where('published', '==', true), limit(CLIENT_READ_CAPS.routesPerCity))),
     ),
   );
+  for (const s of corridorDocs) warnIfCapped(s.size, CLIENT_READ_CAPS.routesPerCity, 'official_routes by city');
   const corridors = new Map<string, CorridorRecord>();
   for (const snap of corridorDocs) {
     for (const d of snap.docs) {
@@ -1912,8 +1916,9 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
   } = await import('./route-adjacency.service');
 
   const edgeDocs = await Promise.all(
-    cityCandidates.map((c) => getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', c)))),
+    cityCandidates.map((c) => getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', c), limit(CLIENT_READ_CAPS.adjacencyPerCity)))),
   );
+  for (const s of edgeDocs) warnIfCapped(s.size, CLIENT_READ_CAPS.adjacencyPerCity, 'route_adjacency by city');
   const edgesByRouteId = new Map<string, ChainAdjacencyEdge[]>();
   let edgesAvailable = 0;
   for (const snap of edgeDocs) {
@@ -2289,8 +2294,9 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
   // connector rather than a bare corridor.
   if (pathLengthMeters(flowPath) < halfTargetMeters) {
     const edgeDocs = await Promise.all(
-      cityCandidates.map((c) => getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', c)))),
+      cityCandidates.map((c) => getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', c), limit(CLIENT_READ_CAPS.adjacencyPerCity)))),
     );
+    for (const s of edgeDocs) warnIfCapped(s.size, CLIENT_READ_CAPS.adjacencyPerCity, 'route_adjacency by city');
     const edgesByRouteId = new Map<string, ChainAdjacencyEdge[]>();
     for (const snap of edgeDocs) {
       for (const d of snap.docs) {

@@ -20,6 +20,7 @@ import { Route, type RouteFeatureTag } from '../types/route.types';
 import { MapFacility } from '../types/facility.types';
 import { normalizeStoredRoutePath } from '../utils/routePath';
 import { fetchOfficialRoutesCatalog } from './routes-catalog.client';
+import { CLIENT_READ_CAPS, warnIfCapped } from './client-read-caps';
 import { getParksByAuthority } from './parks.service';
 import {
     broadcastRouteToStreetSegments,
@@ -1074,9 +1075,11 @@ export const InventoryService = {
             const q = query(
                 collection(db, 'curated_routes'),
                 where('authorityId', '==', authorityId),
-                orderBy('curatedTier')
+                orderBy('curatedTier'),
+                limit(CLIENT_READ_CAPS.routesPerCity),
             );
             const snapshot = await getDocs(q);
+            warnIfCapped(snapshot.size, CLIENT_READ_CAPS.routesPerCity, 'curated_routes by authority');
             return snapshot.docs
                 .map(docSnap => {
                     const data = docSnap.data();
@@ -1161,9 +1164,11 @@ export const InventoryService = {
             const q = query(
                 collection(db, 'official_routes'),
                 where('authorityId', '==', authorityId),
-                where('isInfrastructure', '==', true)
+                where('isInfrastructure', '==', true),
+                limit(CLIENT_READ_CAPS.routesPerCity),
             );
             const snapshot = await getDocs(q);
+            warnIfCapped(snapshot.size, CLIENT_READ_CAPS.routesPerCity, 'infrastructure routes by authority');
             return snapshot.docs
                 .map(docSnap => {
                     const data = docSnap.data();
