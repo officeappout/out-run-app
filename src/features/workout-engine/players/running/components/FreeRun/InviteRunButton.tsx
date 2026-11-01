@@ -19,7 +19,8 @@
  */
 
 import { useState } from 'react';
-import { UserPlus, Loader2 } from 'lucide-react';
+import { UserPlus, Users, Loader2 } from 'lucide-react';
+import DrawerToolButton from '../../../shared/v2/run-chrome/DrawerToolButton';
 import { createRunInvite } from '@/lib/workoutInvite';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { auth } from '@/lib/firebase';
@@ -32,9 +33,11 @@ interface InviteRunButtonProps {
   activityType?: 'running' | 'walking';
   /** Home v2: render in the caller's flow (no fixed corner position). */
   inline?: boolean;
+  /** enable_unified_player_v1: the small round tool in the drawer's corner (canvas FinalDrawerUp). */
+  variant?: 'drawer';
 }
 
-export default function InviteRunButton({ activityType = 'running', inline = false }: InviteRunButtonProps) {
+export default function InviteRunButton({ activityType = 'running', inline = false, variant }: InviteRunButtonProps) {
   const t = useT(player);
   const [busy, setBusy] = useState(false);
   const groupFixes = useGroupFixesV1();
@@ -44,7 +47,7 @@ export default function InviteRunButton({ activityType = 'running', inline = fal
     setBusy(true);
 
     try {
-      const { token: _token, shareUrl, groupId, attendanceId, isNewGroup } =
+      const { shareUrl, groupId, attendanceId, isNewGroup } =
         await createRunInvite(activityType);
 
       // If this is a fresh invite (not re-invite), wire up the host's own
@@ -83,6 +86,14 @@ export default function InviteRunButton({ activityType = 'running', inline = fal
       setBusy(false);
     }
   };
+
+  if (variant === 'drawer') {
+    return (
+      <DrawerToolButton label={t('run.invite.aria')} onClick={handleInvite} disabled={busy}>
+        {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Users size={17} strokeWidth={2.2} aria-hidden />}
+      </DrawerToolButton>
+    );
+  }
 
   return (
     <button

@@ -8,13 +8,15 @@
  * there is no station page and a finish button instead. A run's large page adds the target-zone
  * gauge the old run card showed (HybridRunLegV2).
  */
-import React from 'react';
-import { Activity, Dumbbell, Footprints } from 'lucide-react';
+import React, { useState } from 'react';
+import { Activity, Dumbbell, Footprints, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 import { together } from '@/messages/ns/together';
-import { RunDrawerSheet, RunFloatingButtons, PAGE_CAPTION_KEY, type RunDrawerPage } from '../../../players/shared/v2/run-chrome';
+import { DrawerToolButton, RunDrawerSheet, RunFloatingButtons, PAGE_CAPTION_KEY, type RunDrawerPage } from '../../../players/shared/v2/run-chrome';
+import InviteRunButton from '../../../players/running/components/FreeRun/InviteRunButton';
+import WorkoutSettingsDrawer from '../../../players/running/components/FreeRun/WorkoutSettingsDrawer';
 import { Cell, Cells, Gauge } from '../../../players/shared/v2/run-chrome/RunDrawerBlocks';
 import { useFreeRunLive } from '../../../players/running/components/FreeRun/v2/useFreeRunLive';
 import { fmtBand, fmtClock, fmtDistance, fmtPace } from '../../../players/running/lib/planned-rep-results';
@@ -34,6 +36,8 @@ export default function ParkWalkSheet({ api, onOpenList, cardRef, running = fals
   const t = useT(player);
   const tt = useT(together);
   const live = useFreeRunLive();
+  // AL1: settings + add-a-friend sit small in the drawer's corner (canvas FinalDrawerUp).
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const view = api.view;
   const card = walkCardView(view);
   if (!view || !card) return null;
@@ -115,17 +119,28 @@ export default function ParkWalkSheet({ api, onOpenList, cardRef, running = fals
   ];
 
   return (
+    <>
     <RunDrawerSheet
       cardRef={cardRef}
       onOpenList={onOpenList}
       compact={pages[0].compact}
       large={pages[0].large}
       pages={pages}
+      corner={(
+        <>
+          <InviteRunButton activityType={running ? 'running' : 'walking'} variant="drawer" />
+          <DrawerToolButton label={t('run.free.v2.settings')} onClick={() => setSettingsOpen(true)}>
+            <Settings size={17} strokeWidth={2.2} aria-hidden />
+          </DrawerToolButton>
+        </>
+      )}
       buttons={(
         <div data-coach="route-player-controls">
           <RunFloatingButtons unified isPaused={live.isPaused} onPause={live.pause} onResume={live.resume} onLap={running ? live.lap : undefined} onStop={api.finish} />
         </div>
       )}
     />
+    <WorkoutSettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} sheet />
+    </>
   );
 }
