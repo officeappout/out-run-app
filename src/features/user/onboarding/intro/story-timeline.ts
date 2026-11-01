@@ -21,10 +21,17 @@ export const EASE_CSS: Ease = [0.25, 0.1, 0.25, 1];
 export const EASE_BACK: Ease = [0.34, 1.56, 0.64, 1];
 export const EASE_STD: Ease = [0.4, 0, 0.2, 1];
 
-/** The ring hand-off before each story. */
-export const HANDOFF_S = 2.4;
-/** The badge lands slightly after the hand-off. */
-export const BADGE_S = 2.6;
+/**
+ * The ring hand-off before each story. Pilot note AJ2 (01.11): 2.4 s read as a
+ * wait before every story; 1.6 s keeps the fly-in readable and the sequence moving.
+ */
+export const HANDOFF_S = 1.6;
+/**
+ * The badge pops in on the SAME clock as the hand-off, so it is fully there the
+ * moment the flying ring fades into it (with 2.6 s vs 2.4 s the ring vanished a
+ * beat before the badge showed: AJ2 "vanishes briefly").
+ */
+export const BADGE_S = HANDOFF_S;
 
 export interface Track {
   /** 0..1, ascending, first 0 and last 1. */

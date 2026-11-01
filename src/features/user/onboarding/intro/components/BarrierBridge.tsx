@@ -16,9 +16,12 @@ const DEEP = '#007399';
 const up = (delay: number, reduce: boolean) =>
   tween({ opacity: 0, y: 12 }, { opacity: 1, y: 0 }, { duration: 0.6, ease: EASE_CSS, delay }, reduce);
 
-/** Segment i pops in at 0.5 s + 0.3 s·i (mockup `gIn`). */
+/**
+ * Segment i pops in at 0.25 s + 0.18 s·i (mockup `gIn`, tightened for pilot note
+ * AJ2: the ring used to finish 2 s in and read as arriving late).
+ */
 const pop = (i: number, reduce: boolean) =>
-  tween({ opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1 }, { duration: 0.45, ease: EASE_BACK, delay: 0.5 + 0.3 * i }, reduce);
+  tween({ opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1 }, { duration: 0.4, ease: EASE_BACK, delay: 0.25 + 0.18 * i }, reduce);
 
 export interface BarrierBridgeProps {
   reduce: boolean;
@@ -40,7 +43,7 @@ export function BarrierBridge({ reduce, onNext, onSkip }: BarrierBridgeProps) {
       <motion.div
         className="absolute inset-x-0 flex flex-col items-center gap-2.5 px-[26px] text-center"
         style={{ top: cy(56) }}
-        {...up(0.1, reduce)}
+        {...up(0, reduce)}
       >
         <span className="text-[13px] font-bold" style={{ color: DEEP }}>{copy.eyebrow}</span>
         <h1 className="m-0 text-[29px] font-bold leading-[35px] !tracking-[-0.02em]">
@@ -74,7 +77,7 @@ export function BarrierBridge({ reduce, onNext, onSkip }: BarrierBridgeProps) {
       <motion.p
         className="absolute inset-x-[30px] m-0 text-center text-[16px] leading-6 text-v2-ink-2"
         style={{ top: cy(585) }}
-        {...up(2.2, reduce)}
+        {...up(1.35, reduce)}
       >
         {copy.closingLines[0]}
         <br />

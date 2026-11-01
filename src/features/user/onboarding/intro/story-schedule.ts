@@ -49,8 +49,8 @@ export function pushHoldMs(text: string): number {
 
 /** Beat durations (seconds). UI enters/exits stay ≤ 0.3 s; the grow is a storytelling beat. */
 export const BEAT = {
-  /** pause before the bubble, so the screen settles after the hand-off */
-  lead: 0.3,
+  /** pause before the bubble, so the screen settles after the hand-off (AJ2: 0.3 → 0.15) */
+  lead: 0.15,
   bubbleIn: 0.28,
   bubbleOut: 0.24,
   phoneIn: 0.3,

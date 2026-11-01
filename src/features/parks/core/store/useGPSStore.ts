@@ -108,6 +108,13 @@ interface GPSStore {
    * before starting an animation (onboarding entry globe: ask → answer → dive).
    */
   requestLocationPermission: () => Promise<'granted' | 'denied' | 'unknown'>;
+
+  /**
+   * The current permission WITHOUT asking (pilot note AJ14): 'prompt' = the user
+   * was never asked yet. Native: Capacitor checkPermissions; web: the Permissions
+   * API; 'unknown' when the platform can't tell.
+   */
+  checkLocationPermission: () => Promise<'granted' | 'denied' | 'prompt' | 'unknown'>;
 }
 
 export const useGPSStore = create<GPSStore>((set, get) => ({
@@ -155,6 +162,22 @@ export const useGPSStore = create<GPSStore>((set, get) => ({
       }
     } catch {
       /* no Permissions API (older WebViews) */
+    }
+    return 'unknown';
+  },
+
+  checkLocationPermission: async () => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const perm = await Geolocation.checkPermissions();
+        if (perm.location === 'granted') return 'granted';
+        if (perm.location === 'denied') return 'denied';
+        return 'prompt'; // 'prompt' | 'prompt-with-rationale'
+      }
+      const status = await navigator.permissions?.query({ name: 'geolocation' as PermissionName });
+      if (status?.state === 'granted' || status?.state === 'denied' || status?.state === 'prompt') return status.state;
+    } catch {
+      /* location services off / no Permissions API */
     }
     return 'unknown';
   },

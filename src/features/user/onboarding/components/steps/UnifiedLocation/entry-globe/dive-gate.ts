@@ -24,6 +24,25 @@
 
 export type LocationAnswer = 'granted' | 'denied' | 'unknown' | 'timeout';
 export type DiveStart = 'now' | 'after-fix' | 'never';
+/**
+ * Which button the user tapped on the globe: the blue "show me what's near me"
+ * CTA, or the "choose city and neighbourhood manually" link.
+ */
+export type LocationIntent = 'locate' | 'manual';
+/** The permission as the platform reports it BEFORE asking ('prompt' = never asked). */
+export type LocationPermissionNow = 'granted' | 'denied' | 'prompt' | 'unknown';
+
+/**
+ * Pilot note AJ14 (01.11): the OS location prompt came too late; users reached
+ * the manual city search without ever being asked. The manual search is only the
+ * FALLBACK after a denial or a failed fix. So the manual link asks first when the
+ * user was never asked ('prompt'): granted → the normal locate flow (dive to the
+ * fix); anything else → the search. Already answered (granted or denied) or a
+ * platform that can't tell → the search right away, nothing to ask.
+ */
+export function manualAsksFirst(permission: LocationPermissionNow): boolean {
+  return permission === 'prompt';
+}
 
 /** How long the step waits for the OS dialog's answer before carrying on without it. */
 export const LOCATION_ANSWER_TIMEOUT_MS = 30_000;
@@ -31,9 +50,11 @@ export const LOCATION_ANSWER_TIMEOUT_MS = 30_000;
 type Timers = { set: typeof setTimeout; clear: typeof clearTimeout };
 const REAL_TIMERS: Timers = { set: setTimeout, clear: clearTimeout };
 
-export function diveStartFor(answer: LocationAnswer): DiveStart {
+export function diveStartFor(answer: LocationAnswer, intent: LocationIntent = 'locate'): DiveStart {
   if (answer === 'granted') return 'now';
   if (answer === 'denied') return 'never';
+  // The manual link asked only to offer the shortcut; an unclear answer goes to the search it asked for.
+  if (intent === 'manual') return 'never';
   return 'after-fix';
 }
 
@@ -76,12 +97,13 @@ export async function askBeforeDive(opts: {
   ask: () => Promise<'granted' | 'denied' | 'unknown'>;
   isCurrent: () => boolean;
   startDive: () => void;
+  intent?: LocationIntent;
   answerTimeoutMs?: number;
   timers?: Timers;
 }): Promise<{ answer: LocationAnswer; start: DiveStart } | null> {
   const answer = await awaitLocationAnswer(opts.ask, opts.answerTimeoutMs, opts.timers ?? REAL_TIMERS);
   if (!opts.isCurrent()) return null;
-  const start = diveStartFor(answer);
+  const start = diveStartFor(answer, opts.intent);
   if (start === 'now') opts.startDive();
   return { answer, start };
 }
