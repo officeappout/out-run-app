@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllParks } from '@/features/parks';
+import { getSafeZoneParks } from '@/features/parks/core/services/parks.service';
 import { getAuthority } from '@/features/admin/services/authority.service';
 import type { Park } from '@/features/parks/core/types/park.types';
 import type { Authority } from '@/types/admin-types';
@@ -43,7 +43,8 @@ export function useShelterProximity({
           preloadedAuthority
             ? Promise.resolve(preloadedAuthority)
             : getAuthority(park.authorityId!),
-          getAllParks(),
+          // Only safe_zone parks can ever be the nearest shelter (findNearestShelter's filter).
+          getSafeZoneParks(),
         ]);
 
         if (cancelled) return;

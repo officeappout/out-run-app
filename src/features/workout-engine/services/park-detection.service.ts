@@ -1,13 +1,14 @@
 /**
  * Park Detection Service — auto-tags workouts with the nearest park.
  *
- * Uses a cached copy of the parks collection to avoid repeated Firestore reads.
+ * Reads only the parks around the given point (getParksNear, data-exposure
+ * plan 1.1), cached per point+radius for 10 minutes.
  * Default detection radius: 200 m (used for session-tagging).
  * Equipment resolution passes 1 000 m to cover specialised parks within
  * a ~15-minute walking distance.
  */
 
-import { getAllParks } from '@/features/parks/core/services/parks.service';
+import { getParksNear } from '@/features/parks/core/services/parks.service';
 import { calculateDistance } from '@/lib/services/location.service';
 import type { Park } from '@/features/parks/core/types/park.types';
 
@@ -17,20 +18,20 @@ const DETECTION_RADIUS_M = 200;
 /** Extended radius for equipment resolution (covers parks within ~15-min walk). */
 export const EQUIPMENT_DETECTION_RADIUS_M = 1_000;
 
-let _parksCache: Park[] | null = null;
-let _cacheExpiry = 0;
+const _parksCache = new Map<string, { parks: Park[]; expiry: number }>();
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-async function getParks(): Promise<Park[]> {
-  if (_parksCache && Date.now() < _cacheExpiry) return _parksCache;
-
+async function getParks(lat: number, lng: number, radiusM: number): Promise<Park[]> {
+  const key = `${lat},${lng},${radiusM}`;
+  const hit = _parksCache.get(key);
+  if (hit && Date.now() < hit.expiry) return hit.parks;
   try {
-    _parksCache = await getAllParks();
-    _cacheExpiry = Date.now() + CACHE_TTL_MS;
-    return _parksCache;
+    const parks = await getParksNear(lat, lng, radiusM);
+    _parksCache.set(key, { parks, expiry: Date.now() + CACHE_TTL_MS });
+    return parks;
   } catch (err) {
     console.warn('[ParkDetection] Failed to fetch parks:', err);
-    return _parksCache ?? [];
+    return hit?.parks ?? [];
   }
 }
 
@@ -65,7 +66,7 @@ export async function detectNearbyPark(
 ): Promise<DetectedPark | null> {
   if (!lat || !lng) return null;
 
-  const parks = await getParks();
+  const parks = await getParks(lat, lng, radiusM);
 
   let closest: { park: Park; dist: number } | null = null;
 

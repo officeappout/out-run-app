@@ -21,7 +21,7 @@ import type {
   ContributionType,
   ContributionStatus,
 } from '@/types/contribution.types';
-import { getAllParks } from './parks.service';
+import { getParksNear } from './parks.service';
 import type { Park } from '../types/park.types';
 import type { ParkRatingSummary } from './park-rating.utils';
 import { resolveAuthorityForPoint, parseBoundaryGeoJSON, type AuthorityBoundary } from '@/lib/route-collections/authority-resolution';
@@ -247,7 +247,7 @@ export async function checkDuplicateNearby(
   lng: number,
   radiusM = 50,
 ): Promise<Park | null> {
-  const parks = await getAllParks();
+  const parks = await getParksNear(lat, lng, radiusM);
   for (const p of parks) {
     if (!p.location) continue;
     const dist = haversineM(lat, lng, p.location.lat, p.location.lng);
