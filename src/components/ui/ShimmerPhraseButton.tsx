@@ -12,7 +12,7 @@
  * Presentational only — no domain coupling.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useUiDir } from '@/lib/i18n/useUiDir';
 
@@ -26,7 +26,22 @@ interface ShimmerPhraseButtonProps {
   rotateMs?: number;
   /** Outer wrapper classes (padding/positioning). */
   className?: string;
+  /**
+   * Pilot AJ7: the next phrase fades in over the previous one, so the pill is never
+   * blank between phrases (the default fades out to empty, then in).
+   */
+  crossfade?: boolean;
 }
+
+const CROSSFADE_KEYFRAMES = `
+        @keyframes phraseIn {
+          0%   { opacity: 0; transform: translateY(5px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes phraseOut {
+          0%   { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-5px); }
+        }`;
 
 export default function ShimmerPhraseButton({
   messages,
@@ -34,15 +49,23 @@ export default function ShimmerPhraseButton({
   icon,
   rotateMs = 5000,
   className = 'px-4 pb-3',
+  crossfade = false,
 }: ShimmerPhraseButtonProps) {
   const { direction: uiDir } = useUiDir();
   const [msgIdx, setMsgIdx] = useState(0);
   const [visible, setVisible] = useState(true);
   const [pressed, setPressed] = useState(false);
   const { direction, isRtl } = useUiDir();
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (messages.length <= 1) return;
+    if (!crossfade || messages.length <= 1) return;
+    const id = setInterval(() => setTick((n) => n + 1), rotateMs);
+    return () => clearInterval(id);
+  }, [crossfade, messages.length, rotateMs]);
+
+  useEffect(() => {
+    if (crossfade || messages.length <= 1) return;
     const id = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
@@ -51,7 +74,26 @@ export default function ShimmerPhraseButton({
       }, 300);
     }, rotateMs);
     return () => clearInterval(id);
-  }, [messages.length, rotateMs]);
+  }, [crossfade, messages.length, rotateMs]);
+
+  const phraseStyle: CSSProperties = {
+    fontSize: 15,
+    fontWeight: 500,
+    color: '#007EA8',
+    textAlign: 'center',
+    ...(isRtl
+      ? { whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
+      : // Longer English phrases wrap to 2 lines instead of truncating.
+        {
+          overflow: 'hidden',
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical' as const,
+          WebkitLineClamp: 2,
+          lineHeight: 1.25,
+          textWrap: 'balance' as const,
+        }),
+  };
+  const n = messages.length;
 
   return (
     <div className={`${className} relative`} dir={direction}>
@@ -63,7 +105,7 @@ export default function ShimmerPhraseButton({
         @keyframes shimmerBorderFast {
           0%   { background-position: 0% 50%; }
           100% { background-position: 300% 50%; }
-        }
+        }${crossfade ? CROSSFADE_KEYFRAMES : ''}
       `}</style>
 
       {/* Ambient glow — brand-colored radial blur behind the button */}
@@ -125,33 +167,46 @@ export default function ShimmerPhraseButton({
           }}
         >
           {icon ?? <Sparkles size={18} color="#007EA8" strokeWidth={2} style={{ flexShrink: 0 }} />}
-          <span
-            style={{
-              flex: 1,
-              fontSize: 15,
-              fontWeight: 500,
-              color: '#007EA8',
-              textAlign: 'center',
-              opacity: visible ? 1 : 0,
-              transform: visible ? 'translateY(0)' : 'translateY(5px)',
-              transition: visible
-                ? 'opacity 0.4s ease, transform 0.4s ease'
-                : 'opacity 0.3s ease, transform 0.3s ease',
-              ...(isRtl
-                ? { whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
-                : // Longer English phrases wrap to 2 lines instead of truncating.
-                  {
-                    overflow: 'hidden',
-                    display: '-webkit-box',
-                    WebkitBoxOrient: 'vertical' as const,
-                    WebkitLineClamp: 2,
-                    lineHeight: 1.25,
-                    textWrap: 'balance' as const,
-                  }),
-            }}
-          >
-            {messages[msgIdx]}
-          </span>
+          {crossfade && n > 1 ? (
+            <span style={{ flex: 1, display: 'grid', minWidth: 0 }}>
+              {tick > 0 && (
+                <span key={`out-${tick}`} aria-hidden style={{ ...phraseStyle, gridArea: '1 / 1', animation: 'phraseOut 0.35s ease forwards' }}>
+                  {messages[(tick - 1) % n]}
+                </span>
+              )}
+              <span key={`in-${tick}`} style={{ ...phraseStyle, gridArea: '1 / 1', animation: tick > 0 ? 'phraseIn 0.4s ease both' : undefined }}>
+                {messages[tick % n]}
+              </span>
+            </span>
+          ) : (
+            <span
+              style={{
+                flex: 1,
+                fontSize: 15,
+                fontWeight: 500,
+                color: '#007EA8',
+                textAlign: 'center',
+                opacity: visible ? 1 : 0,
+                transform: visible ? 'translateY(0)' : 'translateY(5px)',
+                transition: visible
+                  ? 'opacity 0.4s ease, transform 0.4s ease'
+                  : 'opacity 0.3s ease, transform 0.3s ease',
+                ...(isRtl
+                  ? { whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
+                  : // Longer English phrases wrap to 2 lines instead of truncating.
+                    {
+                      overflow: 'hidden',
+                      display: '-webkit-box',
+                      WebkitBoxOrient: 'vertical' as const,
+                      WebkitLineClamp: 2,
+                      lineHeight: 1.25,
+                      textWrap: 'balance' as const,
+                    }),
+              }}
+            >
+              {messages[msgIdx]}
+            </span>
+          )}
         </div>
       </div>
     </div>
