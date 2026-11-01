@@ -138,9 +138,12 @@ export default function RunDrawerSheet({ compact, large, override, buttons, onOp
         >
           <span className="block h-[5px] w-10 rounded-full bg-slate-200" aria-hidden />
         </button>
-        {corner && <div className="absolute end-4 top-3 flex items-center gap-2">{corner}</div>}
+        {/* One row: page dots + caption in the middle, the corner tools at the end (no overlap with the content). */}
+        {(corner || (pages && pageCount > 1 && !override)) && (
+        <div className="relative mb-2.5 flex min-h-[34px] items-center justify-center">
+        {corner && <div className="absolute end-0 top-1/2 flex -translate-y-1/2 items-center gap-1.5">{corner}</div>}
         {pages && pageCount > 1 && !override && (
-          <div className="mb-2.5 flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1">
             <div className="flex gap-[5px]" role="tablist" aria-label={t('chrome.sheet.handle')}>
               {pages.map((pg, i) => (
                 <button
@@ -158,6 +161,8 @@ export default function RunDrawerSheet({ compact, large, override, buttons, onOp
             </div>
             <span className="text-[11.5px] font-extrabold text-slate-500">{current?.caption}</span>
           </div>
+        )}
+        </div>
         )}
         {override && overrideCaption && (
           <div className="mb-2 text-center text-[11.5px] font-extrabold text-slate-500">{overrideCaption}</div>

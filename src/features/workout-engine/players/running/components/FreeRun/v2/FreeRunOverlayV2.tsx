@@ -14,14 +14,14 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type { useDragControls } from 'framer-motion';
-import { Check, Settings2 } from 'lucide-react';
+import { Check, Settings, Settings2 } from 'lucide-react';
 import { CartProgressIcon } from '@/components/ui/v2';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 import { HeaderProgressBar, PlayerHeaderCard, usePublishedPlayerChrome } from '../../../../shared/v2';
-import { ArrivalPanel, RouteEndPanel, RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
+import { ArrivalPanel, DrawerToolButton, RouteEndPanel, RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
 import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
 import { PAGE_CAPTION_KEY, arrivalDue, currentLapView, drawerPagesFor, routeEndDue, type CurrentLapView, type UnifiedSituation } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
 import { useUnifiedGps } from '../../../hooks/useUnifiedGps';
@@ -343,7 +343,9 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
       </div>
       )}
 
-      {/* Left column under the header (the recenter pill owns the right side). */}
+      {/* Left column under the header (the recenter pill owns the right side). Unified frame:
+          settings + add-a-friend live in the drawer's corner instead (AL1), so no column. */}
+      {!unified && (
       <div
         className="pointer-events-auto absolute left-4 z-10 flex items-center gap-2"
         style={{ top: `calc(env(safe-area-inset-top, 0px) + ${headerH + navCardH + 16}px)` }}
@@ -365,6 +367,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         </div>
         )}
       </div>
+      )}
 
       {gpsToast && !unified && <Toast>{t(gpsToast)}</Toast>}
       {goalToast && !unified && (
@@ -385,6 +388,14 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           large={chromeNodes.large}
           pages={drawerPages}
           pageRequest={pageRequest}
+          corner={unified ? (
+            <>
+              <InviteRunButton activityType={activityType} variant="drawer" />
+              <DrawerToolButton label={t('run.free.v2.settings')} onClick={() => setSettingsOpen(true)}>
+                <Settings size={17} strokeWidth={2.2} aria-hidden />
+              </DrawerToolButton>
+            </>
+          ) : undefined}
           override={arrival ?? routeEnd ?? tg.vsPanel}
           overrideCaption={unified && !arrival && !routeEnd && tg.vsPanel ? tt('chrome.page.vs') : undefined}
           buttons={(
@@ -395,7 +406,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
               onResume={live.resume}
               onLap={lapOn ? live.lap : undefined}
               onStop={live.stop}
-              {...(tidy ? {
+              {...(tidy && !unified ? {
                 extra: (
                   <button
                     type="button"

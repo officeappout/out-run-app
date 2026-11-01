@@ -26,6 +26,8 @@ import { exerciseImageOf, exerciseNameOf } from './exercise-display';
 import { useComboFlow } from './combo/ComboFlowContext';
 import ComboAxisSection, { axisColor } from './combo/ComboAxisSection';
 import { comboDotIndex, comboSkippable } from './combo/combo-list';
+import HybridJourneyAxis from '@/features/parks/core/components/hybrid/HybridJourneyAxis';
+import { useUnifiedPlayerV1 } from '../../players/shared/v2/useUnifiedPlayerV1';
 
 function RunThumb() {
   return (
@@ -47,7 +49,12 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
     [api?.enabled, api?.plan, api?.legs, api?.names, t],
   );
   const combo = useComboFlow();
+  // enable_unified_player_v1 (AL2): the back layer is the route overview's own timeline
+  // (HybridJourneyAxis, the "מהלך האימון" of the route + stops overview), not a separate strip.
+  // The stage choreography (combo reveal / move / open) still runs on its axis with the moving dot.
+  const unified = useUnifiedPlayerV1();
   if (!api?.enabled || !api.view) return null;
+  const overviewAxis = unified && !combo.stage;
   const dot = combo.on ? comboDotIndex(sections.map((x) => x.status), combo.kind, combo.stage) : -1;
   const withThumb = (x: (typeof sections)[number]) => (x.kind === 'run' ? x.rows.map((r) => ({ ...r, thumb: <RunThumb /> })) : x.rows);
   const h = headerView(api.view, api.plan, api.names, api.label, t);
@@ -59,7 +66,7 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
       safeTop={false}
       totals={listTotals(sections, totals.durationSec, totals.distanceKm, t)}
     >
-      {parkLive && api.strip && (
+      {parkLive && !unified && api.strip && (
         <StoryBars
           className="mt-3"
           segments={toStorySegments(api.strip)}
@@ -70,7 +77,11 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
       {combo.on && comboSkippable(combo.stage) && (
         <button type="button" onClick={combo.skip} aria-label={t('hybrid.v2.combo.skipAria')} className="fixed inset-0 z-30 cursor-default bg-transparent" />
       )}
-      {combo.on ? (
+      {overviewAxis ? (
+        <div className="mt-4">
+          <HybridJourneyAxis v2 segments={api.plan} />
+        </div>
+      ) : combo.on ? (
         <div className="mt-4">
           {sections.map((s, i) => (
             <ComboAxisSection
