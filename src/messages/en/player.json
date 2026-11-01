@@ -1201,5 +1201,15 @@
   "parkLive.bw.streetNote": "No park on the way, so we use what the street has",
   "parkLive.bw.how": "{n, plural, one {One exercise} other {# exercises}}, {sets, plural, one {one set each} other {# sets each}}. A video before each exercise.",
   "parkLive.bw.howMixed": "{n, plural, one {One exercise} other {# exercises}}. A video before each exercise.",
-  "parkLive.bw.start": "To the first video"
+  "parkLive.bw.start": "To the first video",
+  "planVolume.reps": "{n, plural, one {# rep} other {# reps}}",
+  "planVolume.repsRange": "{max, plural, one {{min}-{max} rep} other {{min}-{max} reps}}",
+  "planVolume.secs": "{n, plural, one {# second} other {# seconds}}",
+  "planVolume.secsRange": "{max, plural, one {{min}-{max} second} other {{min}-{max} seconds}}",
+  "planVolume.perSide": " (per side)",
+  "planVolume.repsUnit": "{n, plural, one {{v} rep} other {{v} reps}}",
+  "planVolume.secsUnit": "{n, plural, one {{v} second} other {{v} seconds}}",
+  "planVolume.peakSet": "1-2 reps (peak set)",
+  "planVolume.pyramid": "{shape, select, wave {Up-and-down pyramid} other {Peak set}}",
+  "planSection.tabataFinisher": "Tabata finisher"
 }

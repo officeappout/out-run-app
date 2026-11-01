@@ -53,6 +53,7 @@ function normalizePark(docId: string, data: any): Park {
   return {
     id: docId,
     name: data?.name ?? '',
+    ...(typeof data?.nameEn === 'string' && data.nameEn.trim() ? { nameEn: data.nameEn.trim() } : {}),
     city: data?.city ?? '',
     // string | {he, en} in Firestore: callers keep reading a Hebrew string; the pair rides in descriptionLocalized.
     description: isStoredLocalized(data?.description) ? hebrewOrEmpty(data.description) : (data?.description ?? ''),
@@ -296,6 +297,7 @@ export async function fetchAllParksFullRecords(
 interface CatalogParkEntry {
   id: string;
   name: string;
+  nameEn?: string;
   lat: number;
   lng: number;
   facilityType: string;
@@ -363,6 +365,7 @@ function catalogEntryToPark(e: CatalogParkEntry): Park {
   return {
     id: e.id,
     name: e.name,
+    ...(e.nameEn ? { nameEn: e.nameEn } : {}),
     location: { lat: e.lat, lng: e.lng },
     facilityType: e.facilityType as Park['facilityType'],
     isFunctional: e.isFunctional,

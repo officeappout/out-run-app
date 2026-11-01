@@ -73,6 +73,8 @@ import { displayProgramTemplateId } from '@/features/home/utils/display-program'
 import { MASTER_PROGRAM_CHILDREN } from '@/features/home/hooks/useProgramProgress';
 import { common } from '@/messages/ns/common';
 import { unitLabel, withUnit } from '@/lib/i18n/units';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { planTabataFinisherTitle, planExerciseNames, planRepsRangeText, planRepsText, planSecsRangeText, planSecsText } from '@/features/workout-engine/shared/utils/plan-text';
 import { isPlainRunDoc, type RunCoverageDoc } from '@/lib/run-coverage';
 import TryRunningCard from '@/features/home/components/start-cards/TryRunningCard';
 import { TRY_RUNNING_CARD_ID } from '@/features/home/utils/try-running';
@@ -187,6 +189,9 @@ import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHom
 import { DEFAULT_JOIN_VERB_KEY, groupJoinVerbKey, type JoinVerbKey } from '@/features/arena/utils/join-verb';
 import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
 import { useUiDir } from '@/lib/i18n/useUiDir';
+
+/** Runner plan unit words in the app language at build time (plan-text.ts; Hebrew byte-identical). */
+const tCommonLive = makeLiveT(common);
 
 
 
@@ -2597,30 +2602,30 @@ export default function HomePage() {
         }
 
         // Hebrew grammar: '1 חזרה' not '1 חזרות'
-        const fmtReps = (n: number) => (n === 1 ? 'חזרה אחת' : `${n} חזרות`); // i18n-allow-hebrew: runner plan text (manual, PR list)
-        const fmtSecs = (n: number) => (n === 1 ? 'שנייה אחת' : `${n} שניות`); // i18n-allow-hebrew: runner plan text (manual, PR list)
+        const fmtReps = planRepsText;
+        const fmtSecs = planSecsText;
         // Follow-along VIDEO items carry their real length on the execution method
         // (media.videoDurationSeconds). Their `reps` is a placeholder — the recovery
         // trio builder hardcodes reps:1 — so deriving the duration text from reps
         // renders "שנייה אחת" for a 14-minute clip. Parity with the builder path
         // (buildRunnerWorkoutPlanFromGenerated). Rep-based exercises untouched.
-        const fmtClip = (s: number) => (s >= 60 ? `${Math.round(s / 60)} דקות` : fmtSecs(s)); // i18n-allow-hebrew: runner plan text (manual, PR list)
+        const fmtClip = (s: number) => (s >= 60 ? withUnit('minutes', Math.round(s / 60), tCommonLive) : fmtSecs(s));
         const clipSeconds = Number((ex.method as any)?.media?.videoDurationSeconds) || 0;
         const useClipDuration = Boolean(ex.exercise.isFollowAlong) && clipSeconds > 0;
 
         return {
           id: ex.exercise.id,
-          name: glt(ex.exercise.name),
+          ...planExerciseNames(ex.exercise.name),
           reps: actuallyTimeBased ? undefined : (
             ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-              ? `${ex.repsRange.min}-${ex.repsRange.max} חזרות` // i18n-allow-hebrew: runner plan text (manual, PR list)
+              ? planRepsRangeText(ex.repsRange.min, ex.repsRange.max)
               : fmtReps(ex.reps)
           ),
           duration: actuallyTimeBased ? (
             useClipDuration
               ? fmtClip(clipSeconds)
               : ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-                ? `${ex.repsRange.min}-${ex.repsRange.max} שניות` // i18n-allow-hebrew: runner plan text (manual, PR list)
+                ? planSecsRangeText(ex.repsRange.min, ex.repsRange.max)
                 : fmtSecs(ex.reps)
           ) : undefined,
           videoUrl: resolvedVideoUrl,
@@ -2730,7 +2735,7 @@ export default function HomePage() {
         segments.push({
           id: 'seg-tabata',
           type: 'station' as const,
-          title: 'טבטה — פיניש', // i18n-allow-hebrew: runner plan text (manual, PR list)
+          title: planTabataFinisherTitle(),
           icon: '🔥',
           target: { type: 'time' as const, value: (tabataCfg.workSec + tabataCfg.restSec) * tabataCfg.rounds },
           exercises: tabataExercises,

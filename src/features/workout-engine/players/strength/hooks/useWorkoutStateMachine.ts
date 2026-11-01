@@ -26,6 +26,7 @@ import {
   logStampFromPlanExercise,
   recordSetMeta,
 } from '@/features/workout-engine/adaptation/exercise-log-stamp';
+import { savedExerciseName } from '@/features/workout-engine/shared/utils/plan-text';
 export type { NextExerciseInfo } from './useExerciseDerivedValues';
 
 // ============================================================================
@@ -843,7 +844,7 @@ export function useWorkoutStateMachine(
               } else {
                 entry = {
                   exerciseId: activeExercise.id,
-                  exerciseName: activeExercise.name,
+                  exerciseName: savedExerciseName(activeExercise),
                   segmentId: segId,
                   confirmedReps: [followAlongReps],
                   targetReps: followAlongReps,
@@ -1015,7 +1016,7 @@ export function useWorkoutStateMachine(
       } else {
         savedEntry = {
           exerciseId: activeExercise.id,
-          exerciseName: activeExercise.name,
+          exerciseName: savedExerciseName(activeExercise),
           segmentId: segId,
           confirmedReps: [reps],
           targetReps: targetReps ?? reps,

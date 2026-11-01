@@ -13,6 +13,7 @@ import { useT } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
 import { formatGain } from './levelup-view-model';
 import { EASE_OUT } from './LevelRing';
+import { programLabelEn } from '@/lib/i18n/static-labels';
 
 const CHIP_KEY: Partial<Record<GainChip['kind'], PlayerKey>> = {
   completion: 'levelup.chip.completion',
@@ -39,7 +40,7 @@ export default function GainChipRow({
           const value = formatGain(chip.gain);
           if (!value) return null;
           const key = CHIP_KEY[chip.kind];
-          const label = key ? t(key) : PROGRAM_NAME_HE[chip.programId ?? ''] ?? chip.programId ?? '';
+          const label = key ? t(key) : programLabelEn(chip.programId) ?? PROGRAM_NAME_HE[chip.programId ?? ''] ?? chip.programId ?? '';
           return (
             <motion.span
               key={chip.id}

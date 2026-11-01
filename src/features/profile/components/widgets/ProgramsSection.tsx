@@ -60,6 +60,7 @@ import { useT } from '@/hooks/useT';
 import { profile as profileNs } from '@/messages/ns/profile';
 import { englishProgramName } from '@/features/content/programs/core/localized-fields';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { programLabelEn } from '@/lib/i18n/static-labels';
 // ── Types ──────────────────────────────────────────────────────────
 
 interface ChildCardData {
@@ -222,7 +223,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
   const masterLevel = progressData?.currentLevel ?? 1;
   const masterPercent = Math.min(100, progressData?.progressPercent ?? 0);
   const masterMaxLevel = progressData?.maxLevel ?? MASTER_LEVEL_CAP;
-  const masterName = progressData?.programName ?? (masterTemplateId ? PROGRAM_NAME_HE[masterTemplateId] ?? masterTemplateId : t('widgets.programs.fallbackName'));
+  const masterName = progressData?.programName ?? (masterTemplateId ? programLabelEn(masterTemplateId, contentLang) ?? PROGRAM_NAME_HE[masterTemplateId] ?? masterTemplateId : t('widgets.programs.fallbackName'));
   const masterIconKey = progressData?.iconKey;
 
   // ── Navigate to a program's detail page — shared with SkillMapCard's
@@ -247,7 +248,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
     const pct = Math.min(100, Math.round(track?.percent ?? 0));
     return {
       slug,
-      name: englishProgramName(meta, contentLang) || (meta?.name ?? PROGRAM_NAME_HE[slug] ?? slug),
+      name: englishProgramName(meta, contentLang) || (meta?.name ?? programLabelEn(slug, contentLang) ?? PROGRAM_NAME_HE[slug] ?? slug),
       currentLevel: track?.currentLevel ?? 1,
       maxLevel: meta?.maxLevels ?? track?.maxLevel ?? 25,
       percent: pct,

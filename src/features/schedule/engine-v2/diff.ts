@@ -11,6 +11,7 @@ import { makeStrengthUnit } from './units';
 import type { DayAvailability } from './availability';
 import { defaultScheduleT, type ScheduleT } from '../engine/schedule-t';
 import type { DiffEntry, ExistingWeek, PlacedSession, SessionRef } from './types';
+import { programLabelEn } from '@/lib/i18n/static-labels';
 
 export const refOf = (s: PlacedSession): SessionRef | null =>
   s.kind === 'run' && s.slot ? { kind: 'run', slot: s.slot } : s.kind === 'strength' && s.slug ? { kind: 'strength', slug: s.slug } : null;
@@ -48,7 +49,7 @@ export function becauseHe(
       if (e === day) continue;
       for (const s of days[e]) {
         if (s.kind !== 'strength' || !s.slug || s.optional) continue;
-        if (breaksH6(u, day, makeStrengthUnit(s.slug), e)) return t('engine.because.needsRest', { name: slugNameHe(s.slug) });
+        if (breaksH6(u, day, makeStrengthUnit(s.slug), e)) return t('engine.because.needsRest', { name: programLabelEn(s.slug) ?? slugNameHe(s.slug) });
       }
     }
     if (here.some((s) => s.kind === 'strength' && !s.optional)) return t('engine.because.dayTaken');

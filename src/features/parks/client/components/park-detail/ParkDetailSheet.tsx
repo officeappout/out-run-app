@@ -17,7 +17,6 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useT } from '@/hooks/useT';
-import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 import { pickText } from '@/features/content/shared/stored-text-fields';
 import { map as mapNs } from '@/messages/ns/map';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
@@ -53,6 +52,8 @@ import { parkTarget, useMapPolishV1, useNavigateTo } from '@/features/parks/core
 import dynamic from 'next/dynamic';
 import { isPlaceWorkoutsOn } from '../place-workouts/hooks/usePlaceWorkoutsFlag';
 import type { PlaceLeadCta } from '../place-workouts/ParkPlaceWorkouts';
+import { parkDisplayName } from '@/features/parks/core/utils/park-display-name';
+import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
 
 // enable_place_workouts_v1 — loaded only when the flag is on (flag off: nothing imported, nothing read).
 const ParkPlaceWorkouts = dynamic(() => import('../place-workouts/ParkPlaceWorkouts'), { ssr: false });
@@ -178,7 +179,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout: onSta
         ariaLabel={park.name}
       >
         <ParkStickyHeader
-          name={park.name}
+          name={parkDisplayName(park, contentLang)}
           onClose={onClose}
           headerOpacity={motion.headerOpacity}
           headerPointerEvents={motion.headerPointerEvents}

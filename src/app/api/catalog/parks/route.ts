@@ -127,6 +127,8 @@ const CATALOG_CLIENT_MAX_AGE_SECONDS = 60;
 interface CatalogParkEntry {
   id: string;
   name: string;
+  /** English display name, only when the doc has one (keeps the cached JSON byte-identical otherwise). */
+  nameEn?: string;
   lat: number;
   lng: number;
   facilityType: string;
@@ -218,6 +220,7 @@ async function buildCatalog(): Promise<CatalogParkEntry[]> {
     entries.push({
       id: doc.id,
       name: d.name || '',
+      ...(typeof d.nameEn === 'string' && d.nameEn.trim() ? { nameEn: d.nameEn.trim() } : {}),
       lat,
       lng,
       facilityType: d.facilityType || 'gym_park',

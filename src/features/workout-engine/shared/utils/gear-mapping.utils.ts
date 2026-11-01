@@ -17,6 +17,7 @@ import { getContentLanguage } from '@/features/content/shared/useContentLanguage
 import type { AppLanguage } from '@/features/content/shared/localized-text.types';
 import { common } from '@/messages/ns/common';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import { equipmentLabelEn } from '@/lib/i18n/static-labels';
 
 // Cache for gear data
 let gearDefinitionsCache: GearDefinition[] | null = null;
@@ -398,7 +399,8 @@ export function resolveEquipmentLabel(id: string): string {
 export function resolveEquipmentDisplayLabel(id: string, lang: AppLanguage = getContentLanguage()): string {
   const he = resolveEquipmentLabel(id);
   if (lang !== 'en') return he;
-  return englishEquipmentName(id, he) ?? he;
+  const canonical = ALIAS_TO_CANONICAL[id] ?? ALIAS_TO_CANONICAL[id.toLowerCase().replace(/-/g, '_')];
+  return englishEquipmentName(id, he) ?? equipmentLabelEn(canonical ?? id) ?? equipmentLabelEn(id) ?? he;
 }
 
 function englishEquipmentName(id: string, he: string): string | null {

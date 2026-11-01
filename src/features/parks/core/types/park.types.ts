@@ -248,6 +248,11 @@ export interface Park {
   description?: string; // Optional for MapPark compatibility
   /** The {he, en} pair when the doc stores one (the Hebrew text stays in `description`). Display: pickText(park, 'description', lang). */
   descriptionLocalized?: LocalizedText;
+  /**
+   * English display name (Firestore `nameEn`, a plain string beside the Hebrew `name`, which stays the data).
+   * Display: parkDisplayName(park, lang). Absent on every park until English names are filled in.
+   */
+  nameEn?: string;
   
   // Location (dual format for backward compatibility)
   location: { lat: number; lng: number };

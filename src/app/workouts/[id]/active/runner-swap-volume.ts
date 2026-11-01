@@ -7,6 +7,7 @@
  * duration strings are rebuilt in the same format enrichExercise writes.
  */
 import { deriveSwappedVolume } from '@/features/workouts/components/workout-preview-drawer/utils/derive-swapped-entry.util';
+import { planPerSideText, planRepsUnitText, planSecsUnitText } from '@/features/workout-engine/shared/utils/plan-text';
 
 export interface RunnerSwapSource {
   exerciseType?: 'reps' | 'time' | string;
@@ -53,8 +54,8 @@ export function deriveRunnerSwapVolume(
   const r = repsRange ?? base;
   const setsPrefix = old.sets ? `${old.sets}×` : '';
   return newIsTimeBased
-    ? { exerciseType, repsRange: r, duration: `${setsPrefix}${rangeText(r)} שניות`, reps: undefined }
-    : { exerciseType, repsRange: r, reps: `${setsPrefix}${rangeText(r)} חזרות${isUnilateral ? ' (לכל צד)' : ''}`, duration: undefined };
+    ? { exerciseType, repsRange: r, duration: planSecsUnitText(`${setsPrefix}${rangeText(r)}`), reps: undefined }
+    : { exerciseType, repsRange: r, reps: `${planRepsUnitText(`${setsPrefix}${rangeText(r)}`)}${isUnilateral ? planPerSideText() : ''}`, duration: undefined };
 }
 
 /**

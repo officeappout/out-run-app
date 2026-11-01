@@ -23,6 +23,12 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { WorkoutData } from '../types';
+import { planExerciseNames, planRepsUnitText, planSecsUnitText } from '@/features/workout-engine/shared/utils/plan-text';
+import { withUnit } from '@/lib/i18n/units';
+import { makeLiveT } from '@/lib/i18n/live-t';
+import { common } from '@/messages/ns/common';
+
+const tCommonLive = makeLiveT(common);
 
 /**
  * Convert Firestore exercises to WorkoutPlan format.
@@ -89,18 +95,18 @@ export async function convertExercisesToWorkoutPlan(
       if (ex.type === 'time') {
         targetType = 'time';
         targetValue = ex.secondsPerRep ? ex.secondsPerRep * 10 : 60;
-        duration = `${targetValue} שניות`;
+        duration = planSecsUnitText(targetValue);
       } else if (ex.type === 'reps') {
         targetType = 'reps';
         targetValue = 10;
-        reps = '10 חזרות';
+        reps = planRepsUnitText(10);
       } else {
-        duration = '5 דקות';
+        duration = withUnit('minutes', 5, tCommonLive);
       }
 
       return {
         id: ex.id,
-        name: getLocalizedText(ex.name),
+        ...planExerciseNames(ex.name),
         reps,
         duration,
         videoUrl: mainVideoUrl,
@@ -147,16 +153,16 @@ export async function convertExercisesToWorkoutPlan(
       if (ex.type === 'time') {
         targetType = 'time';
         targetValue = ex.secondsPerRep ? ex.secondsPerRep * 10 : 45;
-        duration = `${targetValue} שניות`;
+        duration = planSecsUnitText(targetValue);
       } else if (ex.type === 'reps') {
         targetType = 'reps';
         targetValue = 12;
-        reps = '12 חזרות';
+        reps = planRepsUnitText(12);
       }
 
       return {
         id: ex.id,
-        name: getLocalizedText(ex.name),
+        ...planExerciseNames(ex.name),
         reps,
         duration,
         videoUrl: mainVideoUrl,
@@ -192,8 +198,8 @@ export async function convertExercisesToWorkoutPlan(
 
       return {
         id: ex.id,
-        name: getLocalizedText(ex.name),
-        duration: '5 דקות',
+        ...planExerciseNames(ex.name),
+        duration: withUnit('minutes', 5, tCommonLive),
         videoUrl: mainVideoUrl,
         imageUrl,
         bunnyVideoId,

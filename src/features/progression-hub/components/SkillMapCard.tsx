@@ -34,6 +34,7 @@ import ParentProgramSheet from '@/features/profile/components/widgets/ParentProg
 import { createProgramMetaCache } from '../services/program-meta-cache';
 import { englishProgramName } from '@/features/content/programs/core/localized-fields';
 import { useContentLanguage } from '@/features/content/shared/useContentLanguage';
+import { programLabelEn } from '@/lib/i18n/static-labels';
 
 /** W4: one Program-doc fetch per programId per session, shared by every card. */
 const getProgramMetaCached = createProgramMetaCache(getProgramByTemplateId);
@@ -100,7 +101,7 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
   // See the file header's Phase 4b round 5 note — synchronous fallback
   // before/in case the live fetch resolves, instead of the raw id/slug.
   const slug = MASTER_PROGRAM_ID_TO_SLUG[programId] ?? resolveToSlug(programId);
-  const fallbackName = nameHe !== programId ? nameHe : resolveProgramLabel(slug);
+  const fallbackName = programLabelEn(programId, contentLang) ?? (nameHe !== programId ? nameHe : resolveProgramLabel(slug));
   const displayName = englishProgramName(programMeta, contentLang) || (programMeta?.name ?? fallbackName);
 
   // A leaf opens its own map. A parent program has no map of its own, so it
