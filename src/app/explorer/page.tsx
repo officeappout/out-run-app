@@ -25,6 +25,7 @@ import { consumeIntroArrival } from '@/features/user/onboarding/intro/intro-rout
 import { useT } from '@/hooks/useT';
 import { pages } from '@/messages/ns/pages';
 import { useMapOnlyPushAsk } from '@/features/user/onboarding/components/push-early/useMapOnlyPushAsk';
+import BrandLoader from '@/components/brand/BrandLoader';
 
 // enable_entry_intro_v1 — the ring closing into the logo, only on the hop from /intro.
 const RingCloseOverlay = lazy(() =>
@@ -39,17 +40,14 @@ const UnifiedLocationStep = lazy(
 // Runs before paint on the client (no SSR warning on the server render).
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
-function LoadingPlaceholder({ plain = false }: { plain?: boolean }) {
-  // Arriving from /intro: the ring-close overlay owns the screen — a blank frame of
-  // the overlay's own colour, never the pulsing "OUT" text flashing in between.
-  if (plain) return <div className="fixed inset-0 bg-[#f8fafc]" />;
-  return (
-    <div className="fixed inset-0 bg-[#F8FAFC] flex items-center justify-center">
-      <div className="text-4xl font-black text-[#5BC2F2] animate-pulse tracking-widest">
-        OUT
-      </div>
-    </div>
-  );
+/**
+ * The gap before the globe (auth restore, saved-answer check, the step's chunk):
+ * the shared light BrandLoader, never a bare page (pilot note AJ3). Arriving from
+ * /intro the ring-close overlay (z-100) covers it from the first frame; it only
+ * shows if the globe is still on its way when the overlay's veil lifts.
+ */
+function LoadingPlaceholder() {
+  return <BrandLoader />;
 }
 
 export default function ExplorerPage() {
@@ -141,11 +139,11 @@ export default function ExplorerPage() {
     return () => { cancelled = true; };
   }, [router]);
 
-  if (!mounted) return <><LoadingPlaceholder plain={fromIntro} />{ringCloseOverlay}</>;
+  if (!mounted) return <><LoadingPlaceholder />{ringCloseOverlay}</>;
 
   return (
     <>
-    <Suspense fallback={<LoadingPlaceholder plain={fromIntro} />}>
+    <Suspense fallback={<LoadingPlaceholder />}>
       <UnifiedLocationStep
         mode="explorer"
         entryGlobe={entryGlobe}

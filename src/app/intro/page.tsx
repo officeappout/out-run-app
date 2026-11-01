@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
+import BrandLoader from '@/components/brand/BrandLoader';
 import { IntroFlow } from '@/features/user/onboarding/intro/components/IntroFlow';
 import {
   EXPLORER_ROUTE, INTRO_SEEN_PREF, isIntroPreview, markIntroArrival,
@@ -36,12 +37,16 @@ export default function IntroPage() {
     if (preview === false && !loading && !flagOn) router.replace(EXPLORER_ROUTE);
   }, [preview, loading, flagOn, router]);
 
-  // Warm the next hop while the stories play: the /explorer route and the
-  // ring-close overlay's chunk, so the hand-off doesn't wait on the network.
+  // Warm the next hop while the stories play: the /explorer route, the
+  // ring-close overlay's chunk and the globe, so the hand-off doesn't wait on the network.
   useEffect(() => {
     if (!enabled) return;
     router.prefetch(EXPLORER_ROUTE);
     void import('@/features/user/onboarding/intro/components/RingCloseOverlay').catch(() => {});
+    // AJ3: the globe's own chunks too (the location step and mapbox-gl), so the
+    // hop lands on a painted globe instead of a blank frame while they download.
+    void import('@/features/user/onboarding/components/steps/UnifiedLocationStep').catch(() => {});
+    void import('mapbox-gl').catch(() => {});
   }, [enabled, router]);
 
   const done = useCallback(() => {
@@ -52,6 +57,7 @@ export default function IntroPage() {
     router.replace(EXPLORER_ROUTE);
   }, [router, preview]);
 
-  if (!enabled) return <div className="fixed inset-0 bg-white" />;
+  // Flag still loading (or redirecting): the shared light loader, not a bare page (AJ1).
+  if (!enabled) return <BrandLoader />;
   return <IntroFlow onDone={done} />;
 }
