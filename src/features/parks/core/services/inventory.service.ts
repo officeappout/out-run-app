@@ -40,58 +40,8 @@ import {
     type ScopeProfileCore,
 } from './official-routes-scope';
 
-// ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
-// Mirrors parks.service.ts's fetchRealParks/_inflightParksFetch pattern —
-// same shape, same TTL, for the same reason: `fetchFacilities()` with no args
-// hits the whole unscoped national `facilities` collection, and until now had
-// no cache at all (unlike parks). Facilities are deliberately NOT scoped by
-// authority (David's product call — users want to see ALL facilities on the
-// map, see map-stability-oom.md §6), so caching the whole collection is the
-// fix, not scoping it. See .claude/plans/cryptic-munching-gadget.md.
-const FACILITIES_CACHE_KEY = 'outfit_cached_facilities';
-const FACILITIES_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
-
-interface FacilitiesCacheEntry {
-    data: MapFacility[];
-    cachedAt: number;
-}
-
-function readFacilitiesFromStorage(): MapFacility[] | null {
-    if (typeof window === 'undefined') return null;
-    try {
-        const raw = localStorage.getItem(FACILITIES_CACHE_KEY);
-        if (!raw) return null;
-        const parsed: FacilitiesCacheEntry = JSON.parse(raw);
-        if (Date.now() - parsed.cachedAt > FACILITIES_CACHE_TTL_MS) return null;
-        return parsed.data;
-    } catch {
-        return null;
-    }
-}
-
-function writeFacilitiesToStorage(facilities: MapFacility[]): void {
-    if (typeof window === 'undefined') return;
-    try {
-        const entry: FacilitiesCacheEntry = { data: facilities, cachedAt: Date.now() };
-        localStorage.setItem(FACILITIES_CACHE_KEY, JSON.stringify(entry));
-    } catch {
-        // Storage quota exceeded or private browsing — non-fatal
-    }
-}
-
-let _inflightFacilitiesFetch: Promise<MapFacility[]> | null = null;
-
-function fetchAndCacheAllFacilities(): Promise<MapFacility[]> {
-    if (_inflightFacilitiesFetch) return _inflightFacilitiesFetch;
-    _inflightFacilitiesFetch = getDocs(collection(db, 'facilities'))
-        .then((snapshot) => {
-            const fresh = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as MapFacility));
-            writeFacilitiesToStorage(fresh);
-            return fresh;
-        })
-        .finally(() => { _inflightFacilitiesFetch = null; });
-    return _inflightFacilitiesFetch;
-}
+// The whole-collection facilities cache (fetchAllFacilitiesCached) was removed in data-exposure
+// plan 1.2: the map reads fetchFacilitiesInBounds, search reads fetchNearestFacilities.
 
 /** Summary of an import batch for the management UI */
 export interface ImportBatchSummary {
@@ -596,56 +546,6 @@ export const InventoryService = {
     },
 
     /**
-     * Fetch facilities from Firestore.
-     * Scoped by tenantId (preferred) or authorityId (legacy fallback).
-     * Without either, all facilities are returned (super-admin view).
-     */
-    fetchFacilities: async (authorityId?: string, tenantId?: string): Promise<MapFacility[]> => {
-        try {
-            const facilitiesRef = collection(db, 'facilities');
-            let q;
-            if (tenantId) {
-                q = query(facilitiesRef, where('tenantId', '==', tenantId));
-            } else if (authorityId) {
-                q = query(facilitiesRef, where('authorityId', '==', authorityId));
-            } else {
-                q = facilitiesRef;
-            }
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(d => ({
-                ...d.data(),
-                id: d.id
-            } as MapFacility));
-        } catch (error) {
-            console.error('❌ Error fetching facilities:', error);
-            return [];
-        }
-    },
-
-    /**
-     * Cached whole-national-collection facilities fetch — stale-while-revalidate
-     * via localStorage (6h TTL) + in-flight-dedup, same pattern as parks.service.ts's
-     * fetchRealParks(). Use this instead of `fetchFacilities()` (no args) for any
-     * caller that needs the WHOLE collection without authority scoping — that raw
-     * call has no cache and re-hits Firestore for the whole collection every time.
-     */
-    fetchAllFacilitiesCached: async (): Promise<MapFacility[]> => {
-        const cached = readFacilitiesFromStorage();
-        if (cached) {
-            // Return stale data instantly; refresh in background so concurrent
-            // warm callers don't each fire a getDocs.
-            fetchAndCacheAllFacilities().catch(() => { /* background refresh failure is non-fatal */ });
-            return cached;
-        }
-        try {
-            return await fetchAndCacheAllFacilities();
-        } catch (error) {
-            console.error('❌ Error fetching cached facilities:', error);
-            return [];
-        }
-    },
-
-    /**
      * Fetch facilities within a viewport bounding box — the LIVE MAP browse path.
      * Replaces the whole-national-collection getDocs (a dense-city OOM driver) so
      * facilities stream per-area as the user pans instead of all at once; the user
@@ -688,6 +588,43 @@ export const InventoryService = {
             console.error('❌ Error fetching facilities in bounds:', error);
             return [];
         }
+    },
+
+    /**
+     * The `count` facilities of the given types nearest to `point` (data-exposure
+     * plan 1.2) — replaces fetchAllFacilitiesCached()+sort, which downloaded the
+     * whole national collection to pick two waypoints. Searches growing boxes
+     * (2 / 10 / 50 km) and stops once `count` matches lie within the box's own
+     * radius: anything outside the box is farther than that radius, so the
+     * answer equals the old global sort. A clipped box (hit `max`) is not
+     * trusted. Falls back to one country-wide band if nothing qualified.
+     */
+    fetchNearestFacilities: async (
+        point: { lat: number; lng: number },
+        types: string[],
+        count: number,
+        max = 1000,
+    ): Promise<MapFacility[]> => {
+        const rank = (all: MapFacility[]) =>
+            all
+                .filter((f) => types.includes(f.type) && f.location?.lat)
+                .map((f) => ({ f, d: haversineKm(point.lat, point.lng, f.location.lat, f.location.lng) }))
+                .sort((a, b) => a.d - b.d);
+        for (const radiusKm of [2, 10, 50]) {
+            const dLat = radiusKm / 111.32;
+            const dLng = radiusKm / (111.32 * Math.max(Math.cos((point.lat * Math.PI) / 180), 0.01));
+            const box = await InventoryService.fetchFacilitiesInBounds(
+                { swLat: point.lat - dLat, neLat: point.lat + dLat, swLng: point.lng - dLng, neLng: point.lng + dLng },
+                max,
+            );
+            const inRadius = rank(box).filter((x) => x.d <= radiusKm);
+            if (inRadius.length >= count && box.length < max) return inRadius.slice(0, count).map((x) => x.f);
+        }
+        const wide = await InventoryService.fetchFacilitiesInBounds(
+            { swLat: point.lat - 4, neLat: point.lat + 4, swLng: point.lng - 5, neLng: point.lng + 5 },
+            max * 5,
+        );
+        return rank(wide).slice(0, count).map((x) => x.f);
     },
 
     /**

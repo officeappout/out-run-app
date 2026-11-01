@@ -232,7 +232,8 @@ export function useSearchNavigation(
 
     const [parks, facilities, official] = await Promise.all([
       fetchRealParks(),
-      InventoryService.fetchAllFacilitiesCached(),
+      // Bounded nearest search (data-exposure plan 1.2), not the whole facilities collection.
+      InventoryService.fetchNearestFacilities(mid, ['water', 'gym'], 2),
       getCachedOfficialRoutes(),
     ]);
 
