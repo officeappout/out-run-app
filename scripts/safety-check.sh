@@ -170,6 +170,10 @@ AUTHORIZED_ROUTE_WRITERS=(
   # unit-test fixture (22.10.2026) — seeds an in-memory fake store with
   # official_routes rows for the read-only "all cities" route. No Firestore.
   "src/app/api/admin/city-mapping/inventory/all/__tests__/inventory-all-route.test.ts"
+  # Data-exposure plan 1.3 (01.11.2026): READ-ONLY server builder for
+  # GET /api/catalog/routes (the app's official_routes read, moved off the
+  # browser). No write verb in the file.
+  "src/lib/route-catalog/official-routes-catalog.server.ts"
   # RC8 step 5 (22.10.2026): READ-ONLY count of published official_routes per
   # authority for the "all cities" table. No write verb in the file; also on the
   # migrated list below so any future write there must use buildValidatedDoc.
