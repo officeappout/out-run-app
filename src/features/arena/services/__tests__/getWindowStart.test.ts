@@ -60,6 +60,12 @@ beforeEach(() => {
 });
 
 describe('getWindowStart — daily/weekly/monthly', () => {
+  // Frozen to a mid-month Wednesday: on real "now" the ordering below broke on
+  // 01.11.2026 (a Sunday), when the calendar week (from Monday 26.10) started
+  // before the calendar month. That is correct behaviour, pinned separately below.
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 7, 19, 12, 0, 0)); });
+  afterEach(() => { vi.useRealTimers(); });
+
   it('daily returns the start of today (local midnight)', () => {
     const now = new Date();
     const start = getWindowStart('daily');
@@ -79,6 +85,14 @@ describe('getWindowStart — daily/weekly/monthly', () => {
     expect(daily).toBeGreaterThanOrEqual(weekly);
     expect(daily).toBeGreaterThanOrEqual(monthly);
     // weekly vs monthly has no fixed order: early in a month the week began in the previous one.
+  });
+
+  it('early in a month the calendar week can start before the month (01.11.2026, a Sunday)', () => {
+    vi.setSystemTime(new Date(2026, 10, 1, 7, 0, 0));
+    expect(getWindowStart('daily')).toEqual(new Date(2026, 10, 1));
+    expect(getWindowStart('weekly')).toEqual(new Date(2026, 9, 26)); // Monday
+    expect(getWindowStart('monthly')).toEqual(new Date(2026, 10, 1));
+    expect(getWindowStart('weekly').getTime()).toBeLessThan(getWindowStart('monthly').getTime());
   });
 });
 
