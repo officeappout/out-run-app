@@ -8,7 +8,7 @@
  * with another *.emulator.test.ts in the same vitest invocation (they
  * share one emulator database and each wipes it all).
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 
 vi.mock('@/lib/firebase-admin', () => ({
   getAdminDb: () => { throw new Error('getAdminDb should never be called from compute*() functions — db is always injected'); },
@@ -110,9 +110,21 @@ beforeAll(async () => {
   await seedThresholdsProgramsExercises();
 }, 20000);
 
+// Deterministic "now" (01.11.2026): daysAgo() and the service's own month range read
+// the clock, and on the 1st of a month real time made several blue-line cases flip.
+// Only Date is faked; timers stay real for the emulator round-trips. 15.10.2026 keeps
+// every fixed test date below (Jan to Apr 2026) in the past, as before.
+const FROZEN_NOW = new Date(2026, 9, 15, 12, 0, 0);
+
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(FROZEN_NOW);
   await clearEmulator();
   await seedThresholdsProgramsExercises();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 afterAll(async () => {
@@ -206,6 +218,20 @@ describe('computeReadinessTrends — the blue line and the third ("could lie") s
     const latest = result.body.blue[result.body.blue.length - 1];
     expect(latest.determinableCount).toBe(1);
     expect(latest.meetsCount).toBe(0);
+  });
+
+  it("on the 1st of a month, yesterday's training still counts in the latest point (month-boundary fix, 01.11.2026)", async () => {
+    vi.setSystemTime(new Date(2026, 10, 1, 6, 0, 0)); // Sunday 01.11.2026, early morning
+    await createSoldier('s1', 'חייל ז', 'male', 'uid-3');
+    await seedStrengthWorkout('w1', 'uid-3', daysAgo(1), BAND_PULLUP_L9, [20]); // 31.10
+    await seedStrengthWorkout('w2', 'uid-3', daysAgo(2), BAND_PULLUP_L9, [18]); // 30.10
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { componentFilter: 'strength' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const latest = result.body.blue[result.body.blue.length - 1];
+    expect(new Date(latest.month).getMonth()).toBe(10); // November's point
+    expect(latest.determinableCount).toBe(1); // was 0: the window ended 30.11 and began 31.10 23:59
   });
 
   it('25% determinable → no blue line point drawn (below the 30% floor)', async () => {
