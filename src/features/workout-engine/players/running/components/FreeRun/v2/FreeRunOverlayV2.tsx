@@ -21,10 +21,11 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, usePublishedPlayerChrome } from '../../../../shared/v2';
-import { RouteEndPanel, RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
+import { ArrivalPanel, RouteEndPanel, RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedGpsMark, UnifiedHeaderLayer, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
 import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
-import { PAGE_CAPTION_KEY, currentLapView, drawerPagesFor, routeEndDue, type CurrentLapView, type UnifiedSituation } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
+import { PAGE_CAPTION_KEY, arrivalDue, currentLapView, drawerPagesFor, routeEndDue, type CurrentLapView, type UnifiedSituation } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
 import { useUnifiedGps } from '../../../hooks/useUnifiedGps';
+import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { useUnifiedPlayerV1 } from '../../../../shared/v2/useUnifiedPlayerV1';
 import { together } from '@/messages/ns/together';
 import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
@@ -234,6 +235,26 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         : goalToast && gv
           ? { text: tt('chrome.hint.goal', { target: gv.targetText }), tone: 'good' as const }
           : null;
+  // Arrival at a navigation destination: start a workout here (a park) or finish and save.
+  // The park id rides on the map's commute pin (set when the destination is a park), read before
+  // finishWorkout clears it.
+  const destParkId = useMapStore((st) => st.commuteDestination?.park?.id ?? null);
+  const arrival = unified && commuteContext && arrivalDue({ situation, hasArrived: commuteEta.hasArrived, toRouteStart: !!arriveRoute || !!walkTarget, dismissed: false })
+    ? (
+      <ArrivalPanel
+        place={commuteContext.label ?? live.title}
+        km={live.totals.distanceKm.toFixed(2)}
+        time={fmtClock(live.totals.durationSec)}
+        onFinish={live.stop}
+        onStartHere={destParkId ? async () => {
+          const id = destParkId;
+          await live.stop();
+          const park = (await fetchRealParks()).find((pk) => pk.id === id);
+          if (park) useMapStore.getState().openGlobalParkSheet(park);
+        } : undefined}
+      />
+    )
+    : null;
   const routeKm = live.combo?.routeKm ?? null;
   const routeEnd = unified && situation === 'route' && !routeFree && routeEndDue(live.totals.distanceKm, routeKm, routeLoops)
     ? (
@@ -364,8 +385,8 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           large={chromeNodes.large}
           pages={drawerPages}
           pageRequest={pageRequest}
-          override={routeEnd ?? tg.vsPanel}
-          overrideCaption={unified && !routeEnd && tg.vsPanel ? tt('chrome.page.vs') : undefined}
+          override={arrival ?? routeEnd ?? tg.vsPanel}
+          overrideCaption={unified && !arrival && !routeEnd && tg.vsPanel ? tt('chrome.page.vs') : undefined}
           buttons={(
             <RunFloatingButtons
               unified={unified}

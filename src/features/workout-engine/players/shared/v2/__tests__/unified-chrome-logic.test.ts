@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   GPS_LOST_AFTER_MS, UNIFIED_BUTTONS, UNIFIED_PACE_TONE, clampPage, comparesPace, currentLapView, drawerPagesFor, pageAfterSwipe,
-  routeEndDue, unifiedGps, unifiedPaceTone,
+  arrivalDue, routeEndDue, unifiedGps, unifiedPaceTone,
 } from '../run-chrome/unified-chrome-logic';
+
+describe('arrival sheet', () => {
+  const base = { situation: 'nav' as const, hasArrived: true, toRouteStart: false, dismissed: false };
+  it('shows on arrival in navigation', () => {
+    expect(arrivalDue(base)).toBe(true);
+  });
+  it('not before arrival, not on the walk to a route start, not on other situations', () => {
+    expect(arrivalDue({ ...base, hasArrived: false })).toBe(false);
+    expect(arrivalDue({ ...base, toRouteStart: true })).toBe(false);
+    expect(arrivalDue({ ...base, situation: 'free_walk' })).toBe(false);
+    expect(arrivalDue({ ...base, dismissed: true })).toBe(false);
+  });
+});
 
 describe('gps mark', () => {
   const now = 1_000_000;

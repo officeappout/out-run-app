@@ -150,5 +150,9 @@
   "chrome.routeEnd.sub": "{name} · {km} ק״מ · {time}",
   "chrome.routeEnd.finish": "לסיים ולשמור",
   "chrome.routeEnd.again": "עוד סיבוב",
-  "chrome.routeEnd.free": "להמשיך חופשי"
+  "chrome.routeEnd.free": "להמשיך חופשי",
+  "chrome.arrive.title": "הגעת ליעד",
+  "chrome.arrive.sub": "{place} · {km} ק״מ ב־{time}",
+  "chrome.arrive.startHere": "להתחיל אימון כאן",
+  "chrome.arrive.finish": "לסיים ולשמור"
 }

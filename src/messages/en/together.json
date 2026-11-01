@@ -150,5 +150,9 @@
   "chrome.routeEnd.sub": "{name} · {km} km · {time}",
   "chrome.routeEnd.finish": "Finish and save",
   "chrome.routeEnd.again": "One more loop",
-  "chrome.routeEnd.free": "Keep going free"
+  "chrome.routeEnd.free": "Keep going free",
+  "chrome.arrive.title": "You’ve arrived",
+  "chrome.arrive.sub": "{place} · {km} km in {time}",
+  "chrome.arrive.startHere": "Start a workout here",
+  "chrome.arrive.finish": "Finish and save"
 }

@@ -99,6 +99,16 @@ export function routeEndDue(distanceKm: number, routeKm: number | null | undefin
   return distanceKm >= routeKm * loops - 0.05;
 }
 
+// ── Arrival (canvas 9ב: start a workout here, or finish and save) ──
+
+/**
+ * The arrival sheet shows on a navigation session once the destination is reached, unless the
+ * walk leads to a route's start (that one has its own card, PlayerArrive) or the user moved on.
+ */
+export function arrivalDue(input: { situation: UnifiedSituation; hasArrived: boolean; toRouteStart: boolean; dismissed: boolean }): boolean {
+  return input.situation === 'nav' && input.hasArrived && !input.toRouteStart && !input.dismissed;
+}
+
 export interface LapLike {
   lapNumber: number;
   distanceMeters: number;
