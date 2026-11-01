@@ -1,39 +1,15 @@
 /**
  * Server-side loader for shared workouts.
  *
- * Uses the Firestore REST API so it works in React Server Components
- * and `generateMetadata` without pulling in the full client SDK.
+ * Reads through the Admin SDK (data-exposure plan phase 0.2, 31.10.2026). It
+ * used to call the Firestore REST API with no token, which only worked because
+ * `sharedWorkouts` is world-readable; that dependency blocked ever tightening
+ * the rule or enforcing App Check on Firestore. Same one-hour cache as the old
+ * `fetch(..., { next: { revalidate: 3600 } })`, now via unstable_cache.
  */
-
-const PROJECT_ID = 'appout-1';
-
-interface FirestoreValue {
-  stringValue?: string;
-  integerValue?: string;
-  doubleValue?: number;
-  booleanValue?: boolean;
-  arrayValue?: { values?: FirestoreValue[] };
-  mapValue?: { fields?: Record<string, FirestoreValue> };
-  nullValue?: null;
-}
-
-function unwrap(val: FirestoreValue | undefined): any {
-  if (!val) return undefined;
-  if ('stringValue' in val) return val.stringValue;
-  if ('integerValue' in val) return Number(val.integerValue);
-  if ('doubleValue' in val) return val.doubleValue;
-  if ('booleanValue' in val) return val.booleanValue;
-  if ('nullValue' in val) return null;
-  if ('arrayValue' in val) return (val.arrayValue?.values ?? []).map(unwrap);
-  if ('mapValue' in val) {
-    const obj: Record<string, any> = {};
-    for (const [k, v] of Object.entries(val.mapValue?.fields ?? {})) {
-      obj[k] = unwrap(v);
-    }
-    return obj;
-  }
-  return undefined;
-}
+import 'server-only';
+import { unstable_cache } from 'next/cache';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export interface SharedWorkoutMeta {
   title: string;
@@ -46,29 +22,42 @@ export interface SharedWorkoutMeta {
   structure: string;
 }
 
-export async function fetchSharedWorkoutMeta(docId: string): Promise<SharedWorkoutMeta | null> {
+function str(v: unknown, fallback: string): string {
+  return typeof v === 'string' ? v : fallback;
+}
+
+function num(v: unknown, fallback: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+function strArr(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+}
+
+async function readSharedWorkoutMeta(docId: string): Promise<SharedWorkoutMeta | null> {
   try {
-    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/sharedWorkouts/${docId}?mask.fieldPaths=title&mask.fieldPaths=description&mask.fieldPaths=difficulty&mask.fieldPaths=estimatedDuration&mask.fieldPaths=exerciseCount&mask.fieldPaths=muscles&mask.fieldPaths=equipment&mask.fieldPaths=structure`;
-
-    const res = await fetch(url, { next: { revalidate: 3600 } });
-    if (!res.ok) return null;
-
-    const json = await res.json();
-    if (!json.fields) return null;
-
-    const f = json.fields;
+    const snap = await getAdminDb().collection('sharedWorkouts').doc(docId).get();
+    if (!snap.exists) return null;
+    const f = snap.data() ?? {};
     return {
-      title: unwrap(f.title) ?? '',
-      description: unwrap(f.description) ?? '',
-      difficulty: unwrap(f.difficulty) ?? 2,
-      estimatedDuration: unwrap(f.estimatedDuration) ?? 0,
-      exerciseCount: unwrap(f.exerciseCount) ?? 0,
-      muscles: unwrap(f.muscles) ?? [],
-      equipment: unwrap(f.equipment) ?? [],
-      structure: unwrap(f.structure) ?? 'standard',
+      title: str(f.title, ''),
+      description: str(f.description, ''),
+      difficulty: num(f.difficulty, 2),
+      estimatedDuration: num(f.estimatedDuration, 0),
+      exerciseCount: num(f.exerciseCount, 0),
+      muscles: strArr(f.muscles),
+      equipment: strArr(f.equipment),
+      structure: str(f.structure, 'standard'),
     };
   } catch (err) {
-    console.error('[SharedWorkoutLoader] REST fetch failed:', err);
+    console.error('[SharedWorkoutLoader] Admin read failed:', err);
     return null;
   }
+}
+
+export async function fetchSharedWorkoutMeta(docId: string): Promise<SharedWorkoutMeta | null> {
+  if (!docId || docId.includes('/')) return null;
+  return unstable_cache(() => readSharedWorkoutMeta(docId), ['shared-workout-meta', docId], {
+    revalidate: 3600,
+  })();
 }

@@ -14,6 +14,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
@@ -53,6 +54,7 @@ function normalizePark(docId: string, data: any): Park {
   return {
     id: docId,
     name: data?.name ?? '',
+    ...(typeof data?.nameEn === 'string' && data.nameEn.trim() ? { nameEn: data.nameEn.trim() } : {}),
     city: data?.city ?? '',
     // string | {he, en} in Firestore: callers keep reading a Hebrew string; the pair rides in descriptionLocalized.
     description: isStoredLocalized(data?.description) ? hebrewOrEmpty(data.description) : (data?.description ?? ''),
@@ -123,6 +125,65 @@ export async function getAllParks(): Promise<Park[]> {
     console.error('Error fetching parks:', error);
     throw error;
   }
+}
+
+// ── Bounded app reads (data-exposure plan phase 1.1, 01.11.2026) ─────────
+// The app used getAllParks() (every park, full record) for questions that
+// only ever look at a small area or a small subset. These two return exactly
+// the parks those callers' own filters could match, so the result each
+// caller computes is unchanged, while the client no longer downloads the
+// whole national collection. getAllParks() stays for the admin panel.
+
+/** Cap per bounded park query; far above any real area (≈1,160 parks nationwide). */
+export const PARKS_NEAR_MAX = 500;
+const METERS_PER_DEG_LAT = 111_320;
+
+/** Half-widths (degrees) of a box that contains every point within `radiusM` of a point at `lat`. */
+export function parkSearchBox(lat: number, radiusM: number): { dLat: number; dLng: number } {
+  const dLat = radiusM / METERS_PER_DEG_LAT + 1e-4;
+  const cosLat = Math.max(Math.cos((lat * Math.PI) / 180), 0.01);
+  return { dLat, dLng: radiusM / (METERS_PER_DEG_LAT * cosLat) + 1e-4 };
+}
+
+/**
+ * Full-record parks inside the bounding box of a circle (lat ± r, lng ± r).
+ * Callers still apply their exact distance check; the box only guarantees
+ * no park within `radiusM` is missed. Firestore ranges on one field, so lat
+ * is bounded server-side (auto single-field index, same as
+ * InventoryService.fetchFacilitiesInBounds) and lng client-side. No
+ * published filter, same as getAllParks().
+ */
+export async function getParksNear(
+  lat: number,
+  lng: number,
+  radiusM: number,
+  max: number = PARKS_NEAR_MAX,
+): Promise<Park[]> {
+  const { dLat, dLng } = parkSearchBox(lat, radiusM);
+  const q = query(
+    collection(db, PARKS_COLLECTION),
+    where('location.lat', '>=', lat - dLat),
+    where('location.lat', '<=', lat + dLat),
+    limit(max),
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs
+    .map((d) => normalizePark(d.id, d.data()))
+    .filter((p) => {
+      const pLng = Number(p.location?.lng);
+      return Number.isFinite(pLng) && Math.abs(pLng - lng) <= dLng;
+    });
+}
+
+/** Parks tagged as a shelter / safe zone (featureTags contains 'safe_zone'), full records. */
+export async function getSafeZoneParks(max: number = PARKS_NEAR_MAX): Promise<Park[]> {
+  const q = query(
+    collection(db, PARKS_COLLECTION),
+    where('featureTags', 'array-contains', 'safe_zone'),
+    limit(max),
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => normalizePark(d.id, d.data()));
 }
 
 /**
@@ -296,6 +357,7 @@ export async function fetchAllParksFullRecords(
 interface CatalogParkEntry {
   id: string;
   name: string;
+  nameEn?: string;
   lat: number;
   lng: number;
   facilityType: string;
@@ -363,6 +425,7 @@ function catalogEntryToPark(e: CatalogParkEntry): Park {
   return {
     id: e.id,
     name: e.name,
+    ...(e.nameEn ? { nameEn: e.nameEn } : {}),
     location: { lat: e.lat, lng: e.lng },
     facilityType: e.facilityType as Park['facilityType'],
     isFunctional: e.isFunctional,

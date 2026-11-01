@@ -20,6 +20,8 @@ export interface RunFloatingButtonsProps {
   /** Omitted = no lap button (walks, routes: board PlayerMetrics). */
   onLap?: () => void;
   onStop: () => void;
+  /** Pilot AK3: one more control on the start end (settings), within thumb reach. */
+  extra?: React.ReactNode;
 }
 
 function Caption({ children }: { children: React.ReactNode }) {
@@ -47,33 +49,36 @@ function StopHold({ onStop, label }: { onStop: () => void; label: string }) {
   );
 }
 
-export default function RunFloatingButtons({ isPaused, onPause, onResume, onLap, onStop }: RunFloatingButtonsProps) {
+export default function RunFloatingButtons({ isPaused, onPause, onResume, onLap, onStop, extra }: RunFloatingButtonsProps) {
   const t = useT(together);
+  const startEnd = () => (
+    isPaused ? (
+      <span className="pointer-events-auto flex flex-col items-center gap-1">
+        <StopHold onStop={onStop} label={t('chrome.btn.stopAria')} />
+        <Caption>{t('chrome.btn.stop')}</Caption>
+      </span>
+    ) : !onLap ? (
+      <span aria-hidden />
+    ) : (
+      <span className="pointer-events-auto flex flex-col items-center gap-1">
+        <button
+          type="button"
+          aria-label={t('chrome.btn.lap')}
+          onClick={onLap}
+          className="grid h-[54px] w-[54px] place-items-center rounded-full bg-[#0284c7] active:scale-[0.97]"
+          style={{ boxShadow: '0 12px 24px -10px rgba(2,132,199,0.8)' }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M4 22V4M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1" />
+          </svg>
+        </button>
+        <Caption>{t('chrome.btn.lap')}</Caption>
+      </span>
+    )
+  );
   return (
     <div className="pointer-events-none flex items-end justify-between px-6">
-      {isPaused ? (
-        <span className="pointer-events-auto flex flex-col items-center gap-1">
-          <StopHold onStop={onStop} label={t('chrome.btn.stopAria')} />
-          <Caption>{t('chrome.btn.stop')}</Caption>
-        </span>
-      ) : !onLap ? (
-        <span aria-hidden />
-      ) : (
-        <span className="pointer-events-auto flex flex-col items-center gap-1">
-          <button
-            type="button"
-            aria-label={t('chrome.btn.lap')}
-            onClick={onLap}
-            className="grid h-[54px] w-[54px] place-items-center rounded-full bg-[#0284c7] active:scale-[0.97]"
-            style={{ boxShadow: '0 12px 24px -10px rgba(2,132,199,0.8)' }}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M4 22V4M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1" />
-            </svg>
-          </button>
-          <Caption>{t('chrome.btn.lap')}</Caption>
-        </span>
-      )}
+      {extra ? <span className="flex items-end gap-4">{extra}{startEnd()}</span> : startEnd()}
       <span className="pointer-events-auto flex flex-col items-center gap-1">
         {isPaused ? (
           <button

@@ -62,6 +62,7 @@ vi.mock('../generator-elevation.service', () => ({ computeGeneratorDifficulty: a
 vi.mock('@/lib/route-quality/osm-layer-cache', () => ({ getOsmRoadLayerWithin: async () => null }));
 
 import { generateDynamicRoutes } from '../route-generator.service';
+import { CLIENT_READ_CAPS } from '../client-read-caps';
 
 const run = (routeQualityV1?: boolean) => generateDynamicRoutes({
   userLocation: U, targetDistance: 3, activity: 'running', routeGenerationIndex: 1,
@@ -76,7 +77,8 @@ describe('route generator — enable_route_quality_v1 OFF (default) is the legac
   it('uses the legacy whole-radius geohash query and the legacy Mapbox params, returns legacy attributes', async () => {
     const routes = await run();
     expect(routes.length).toBeGreaterThan(0);
-    expect(queries.every(q => !q.cons.some(c => c.kind === 'limit'))).toBe(true); // no ring sampling
+    // No ring sampling: the only limit is the data-exposure 1.4 safety cap (unchanged results).
+    expect(queries.every(q => q.cons.filter(c => c.kind === 'limit').every(c => c.v === CLIENT_READ_CAPS.streetSegmentsPerRange))).toBe(true);
     expect(mapboxCalls.length).toBeGreaterThan(0);
     for (const c of mapboxCalls) expect(c.extra).toEqual({ continue_straight: 'true', alternatives: 'false' });
     for (const r of routes) {

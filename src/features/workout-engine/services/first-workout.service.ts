@@ -15,7 +15,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
-import { getAllParks } from '@/features/parks/core/services/parks.service';
+import { getParksNear } from '@/features/parks/core/services/parks.service';
 import type { Park } from '@/features/parks/core/types/park.types';
 import {
   generateHomeWorkout,
@@ -101,7 +101,7 @@ async function findNearestEquippedPark(
   radiusMeters: number = PARK_SEARCH_RADIUS_METERS,
 ): Promise<{ park: Park; distanceMeters: number } | null> {
   try {
-    const allParks = await getAllParks();
+    const allParks = await getParksNear(userLat, userLng, radiusMeters);
 
     let best: { park: Park; distanceMeters: number } | null = null;
 

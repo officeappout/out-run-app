@@ -59,7 +59,7 @@ import {
   prewarmLocationLookups,
   resolveNeighborhoodIdForGps,
 } from './UnifiedLocation/location-utils';
-import { filterLocations } from './UnifiedLocation/location-search';
+import { capPerGroup, defaultLocations, filterLocations } from './UnifiedLocation/location-search';
 import {
   getFirstFix,
   shouldApplyRefinedFix,
@@ -77,7 +77,7 @@ import { RadarPulse } from './UnifiedLocation/sub-components/RadarPulse';
 // enable_entry_globe_v1 — the entry flow's new presentation (explorer quick-signup only)
 import { EntryGlobeLayer } from './UnifiedLocation/entry-globe/EntryGlobeLayer';
 import { DragHintChip } from './UnifiedLocation/entry-globe/DragHintChip';
-import { askBeforeDive } from './UnifiedLocation/entry-globe/dive-gate';
+import { askBeforeDive, manualAsksFirst, type LocationIntent } from './UnifiedLocation/entry-globe/dive-gate';
 import { STREET_MAP_IDLE_DELAY_MS, STREET_MAP_MAX_DEFER_MS, shouldMountStreetMap } from './UnifiedLocation/entry-globe/street-map-gate';
 import { markGlobeIntroSeen } from '@/features/parks/core/hooks/entry-camera';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
@@ -299,7 +299,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   // Filter cities based on search query
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredCities(cities.slice(0, 15));
+      // AJ5: nearby places (or the largest cities), not the first 15 rows (= one city's neighbourhoods).
+      setFilteredCities(defaultLocations(cities, userLocation));
     } else {
       // AH4: a Latin query also matches the transliterated slugs (location-search.ts); Hebrew as before.
       const filtered = filterLocations(cities, searchQuery);
@@ -315,10 +316,12 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       // cap when matches span multiple distinct cities, so a generic word
       // shared across many places (e.g. "מרכז העיר") can't flood the list.
       const distinctCityIds = new Set(filtered.map(city => city.parentId || city.id));
-      const results = distinctCityIds.size <= 1 ? filtered : filtered.slice(0, 15);
+      // AJ5: cap neighbourhoods and cities separately, so a big city's neighbourhoods never push every
+      // other city out of the "cities" tab.
+      const results = distinctCityIds.size <= 1 ? filtered : capPerGroup(filtered, 15);
       setFilteredCities(results);
     }
-  }, [searchQuery, cities]);
+  }, [searchQuery, cities, userLocation]);
 
   // Entry globe: back on INITIAL (first load, or a denied / failed fix) the
   // Earth rests again as the half circle.
@@ -607,7 +610,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     }
   };
 
-  const handleFindLocationV2 = async (opts?: { session?: number; onFirstFix?: () => void }) => {
+  const handleFindLocationV2 = async (opts?: { session?: number; onFirstFix?: () => void; onNoFix?: () => void }) => {
     const session = opts?.session ?? ++gpsSessionRef.current;
     userTookOverRef.current = false;
     setStage(LocationStage.LOCATING);
@@ -619,6 +622,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     if (gpsSessionRef.current !== session) return;
 
     if (first.status !== 'ok') {
+      // Entry globe (AJ14): a failed fix falls back to the city search, not the start drawer.
+      if (opts?.onNoFix) return opts.onNoFix();
       setLocationError(t('locationStep.error.noFix'));
       setStage(LocationStage.INITIAL);
       if (!isExplorer) {
@@ -669,7 +674,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
    * to the fix (pilot note AF4, superseding AC1's ask-after-dive). Denied → the
    * city search, never a dead end. See dive-gate.ts.
    */
-  const handleFindLocationEntryGlobe = async () => {
+  const handleFindLocationEntryGlobe = async (intent: LocationIntent = 'locate') => {
     const session = ++gpsSessionRef.current;
     userTookOverRef.current = false;
     setStage(LocationStage.LOCATING);
@@ -679,17 +684,33 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       // "search manually" while the dialog was up: drop the answer.
       isCurrent: () => gpsSessionRef.current === session,
       startDive: () => setGlobeDive('dive'),
+      intent,
     });
     if (!r) return;
     if (r.start === 'never') {
       handleSearchManually();
-      setLocationError(t('location.entry.denied'));
+      if (r.answer === 'denied') setLocationError(t('location.entry.denied'));
       return;
     }
     return handleFindLocationV2({
       session,
       onFirstFix: r.start === 'after-fix' ? () => setGlobeDive('dive') : undefined,
+      onNoFix: () => {
+        handleSearchManually();
+        setLocationError(t('locationStep.error.noFix'));
+      },
     });
+  };
+
+  /**
+   * Entry globe's "בחירת עיר ושכונה באופן ידני" (pilot note AJ14): the manual
+   * search is only the fallback, so a user who was never asked gets the OS
+   * dialog first (granted → the normal dive to their fix). See dive-gate.ts.
+   */
+  const handleSearchManuallyEntryGlobe = async () => {
+    const permission = await useGPSStore.getState().checkLocationPermission();
+    if (manualAsksFirst(permission)) return handleFindLocationEntryGlobe('manual');
+    handleSearchManually();
   };
 
   const handleFindLocation = async () => {
@@ -1437,7 +1458,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           }}
           locationError={locationError}
           onFindLocation={handleFindLocation}
-          onSearchManually={handleSearchManually}
+          onSearchManually={handleSearchManuallyEntryGlobe}
           onSearchInsteadOfLocating={handleSearchInsteadOfLocating}
           displayName={displayName}
           detectedNeighborhood={detectedNeighborhood}

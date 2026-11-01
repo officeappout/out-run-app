@@ -5,7 +5,9 @@ describe('withLayerVisibility (layers panel, enable_map_polish_v1)', () => {
   it('visible → the very same layout (default map unchanged)', () => {
     const layout = { 'icon-image': 'pin' };
     expect(withLayerVisibility(layout, true)).toBe(layout);
-    expect(withLayerVisibility(undefined, true)).toBeUndefined();
+    // AJ17: never undefined (Mapbox rejects `layout: undefined`); the same object every call.
+    expect(withLayerVisibility(undefined, true)).toEqual({});
+    expect(withLayerVisibility(undefined, true)).toBe(withLayerVisibility(undefined, true));
   });
   it('hidden → visibility none, the layer id stays (click queries keep working)', () => {
     expect(withLayerVisibility({ 'icon-image': 'pin' }, false)).toEqual({ 'icon-image': 'pin', visibility: 'none' });

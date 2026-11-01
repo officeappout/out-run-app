@@ -18,6 +18,8 @@ import { useUiDir } from '@/lib/i18n/useUiDir';
 import { formatDate } from '@/lib/i18n/core/fmt';
 import { SOURCE_LOCALE, type Locale } from '@/lib/i18n/locales';
 import { map } from '@/messages/ns/map';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 
 // How many cards on either side of the centered one get a real cover photo
 // mounted (SPEC-05 image-memory #2). This carousel is an unvirtualized
@@ -118,6 +120,9 @@ export default function BottomJourneyContainer({
   const carouselRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
   const t = useT(map);
+  // Pilot AK1 (enable_pilot_ah_v1): the route cards sit at the screen bottom, so the tab bar slides
+  // away while they are up (it covered the card's buttons).
+  useSuppressBottomNav(usePilotAhV1());
   const { direction, isRtl } = useUiDir();
 
   // Walk-time from useWalkToRoute (synced via useMapStore — no prop drilling needed).

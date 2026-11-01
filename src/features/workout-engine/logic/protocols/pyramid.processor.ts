@@ -60,6 +60,7 @@ import { resolveToSlug } from '../../services/program-hierarchy.utils';
 import { resolveExerciseMedia } from '../../shared/utils/media-resolution.utils';
 import { isTimeBasedExercise } from '../workout-budgeting.utils';
 import { MG_TO_DOMAIN } from '../../shared/constants/domain-mapping.constants';
+import { planPyramidText } from '@/features/workout-engine/shared/utils/plan-text';
 
 // ============================================================================
 // CONFIG TABLES
@@ -352,9 +353,7 @@ export function classifyPyramidShape(
 export function pyramidLabel(
   seq: ReadonlyArray<ClassifiableStep> | undefined | null,
 ): string {
-  return classifyPyramidShape(seq) === 'wave'
-    ? 'פירמידה עולה-יורדת'
-    : 'סט שיא';
+  return planPyramidText(classifyPyramidShape(seq) === 'wave' ? 'wave' : 'peak');
 }
 
 // ============================================================================

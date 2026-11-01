@@ -35,6 +35,8 @@ import QuizPromptCard from './QuizPromptCard';
 import RouteWhySheet from './RouteWhySheet';
 import { routeWhy } from './route-why';
 import { useMapTutorialV1 } from '@/hooks/useMapTutorialV1';
+import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
+import { useSuppressBottomNav } from '@/lib/bottom-nav-suppression';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import { common } from '@/messages/ns/common';
@@ -452,6 +454,9 @@ export default function HybridSlotCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   // enable_map_tutorial_v1 (boards M4/M5/M8): the tutorial's card + the "why this route" drawer.
   const tutorialV1 = useMapTutorialV1();
+  // Pilot AJ10 (enable_pilot_ah_v1): the cards sit at the screen bottom, so the tab bar slides away
+  // while they are up (the quiz card's lemur sat on top of it).
+  useSuppressBottomNav(usePilotAhV1());
   const [whySlot, setWhySlot] = useState<HybridSlot | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [cardW, setCardW] = useState(CARD_MAX_W);
@@ -703,5 +708,6 @@ export default function HybridSlotCarousel({
 export function HybridEntryButton(props: Omit<ComponentProps<typeof ShimmerPhraseButton>, 'messages'>) {
   const t = useT(map);
   const messages = useMemo(() => ENTRY_PHRASE_KEYS.map((k) => t(k)), [t]);
-  return <ShimmerPhraseButton {...props} messages={messages} />;
+  const pilotAh = usePilotAhV1();
+  return <ShimmerPhraseButton {...props} messages={messages} crossfade={pilotAh} />;
 }

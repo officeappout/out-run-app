@@ -19,6 +19,8 @@ import { geohashQueryBounds } from 'geofire-common';
 import { Route, type RouteFeatureTag } from '../types/route.types';
 import { MapFacility } from '../types/facility.types';
 import { normalizeStoredRoutePath } from '../utils/routePath';
+import { fetchOfficialRoutesCatalog } from './routes-catalog.client';
+import { CLIENT_READ_CAPS, warnIfCapped } from './client-read-caps';
 import { getParksByAuthority } from './parks.service';
 import {
     broadcastRouteToStreetSegments,
@@ -33,65 +35,12 @@ import { readLiveFlag } from '@/lib/feature-flag-live';
 import { cyclingMetersPerMin } from '@/lib/cycling-pace';
 import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 import {
-    chunkIds,
     resolveOfficialRoutesScope,
-    SCOPED_FALLBACK_CAP,
-    SCOPED_PER_QUERY_CAP,
     type ScopeProfileCore,
 } from './official-routes-scope';
 
-// ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
-// Mirrors parks.service.ts's fetchRealParks/_inflightParksFetch pattern —
-// same shape, same TTL, for the same reason: `fetchFacilities()` with no args
-// hits the whole unscoped national `facilities` collection, and until now had
-// no cache at all (unlike parks). Facilities are deliberately NOT scoped by
-// authority (David's product call — users want to see ALL facilities on the
-// map, see map-stability-oom.md §6), so caching the whole collection is the
-// fix, not scoping it. See .claude/plans/cryptic-munching-gadget.md.
-const FACILITIES_CACHE_KEY = 'outfit_cached_facilities';
-const FACILITIES_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
-
-interface FacilitiesCacheEntry {
-    data: MapFacility[];
-    cachedAt: number;
-}
-
-function readFacilitiesFromStorage(): MapFacility[] | null {
-    if (typeof window === 'undefined') return null;
-    try {
-        const raw = localStorage.getItem(FACILITIES_CACHE_KEY);
-        if (!raw) return null;
-        const parsed: FacilitiesCacheEntry = JSON.parse(raw);
-        if (Date.now() - parsed.cachedAt > FACILITIES_CACHE_TTL_MS) return null;
-        return parsed.data;
-    } catch {
-        return null;
-    }
-}
-
-function writeFacilitiesToStorage(facilities: MapFacility[]): void {
-    if (typeof window === 'undefined') return;
-    try {
-        const entry: FacilitiesCacheEntry = { data: facilities, cachedAt: Date.now() };
-        localStorage.setItem(FACILITIES_CACHE_KEY, JSON.stringify(entry));
-    } catch {
-        // Storage quota exceeded or private browsing — non-fatal
-    }
-}
-
-let _inflightFacilitiesFetch: Promise<MapFacility[]> | null = null;
-
-function fetchAndCacheAllFacilities(): Promise<MapFacility[]> {
-    if (_inflightFacilitiesFetch) return _inflightFacilitiesFetch;
-    _inflightFacilitiesFetch = getDocs(collection(db, 'facilities'))
-        .then((snapshot) => {
-            const fresh = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as MapFacility));
-            writeFacilitiesToStorage(fresh);
-            return fresh;
-        })
-        .finally(() => { _inflightFacilitiesFetch = null; });
-    return _inflightFacilitiesFetch;
-}
+// The whole-collection facilities cache (fetchAllFacilitiesCached) was removed in data-exposure
+// plan 1.2: the map reads fetchFacilitiesInBounds, search reads fetchNearestFacilities.
 
 /** Summary of an import batch for the management UI */
 export interface ImportBatchSummary {
@@ -181,7 +130,9 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export async function getCachedOfficialRoutesIncludingConnectors(): Promise<Route[]> {
     // Panel flag enable_scoped_official_routes (default OFF). Off = the exact legacy path below.
     if (readLiveFlag('enableScopedOfficialRoutes')) return getScopedCachedOfficialRoutes();
-    if (!_officialCache) _officialCache = await InventoryService.fetchOfficialRoutes(undefined, true);
+    // Data-exposure plan 1.3: the edge-cached catalog (same set as fetchOfficialRoutes(undefined, true)),
+    // not a direct browser read of official_routes.
+    if (!_officialCache) _officialCache = await fetchOfficialRoutesCatalog(null);
     return _officialCache;
 }
 
@@ -212,7 +163,7 @@ async function getScopedCachedOfficialRoutes(): Promise<Route[]> {
     const scope = resolveOfficialRoutesScope(useUserStore.getState().profile?.core as ScopeProfileCore | undefined);
     if (_scopedCache && _scopedCache.key === scope.key) return _scopedCache.routes;
     if (_scopedInflight && _scopedInflight.key === scope.key) return _scopedInflight.promise;
-    const promise = InventoryService.fetchOfficialRoutesScoped(scope.authorityIds)
+    const promise = fetchOfficialRoutesCatalog(scope.authorityIds)
         .then((routes) => {
             _scopedCache = { key: scope.key, routes };
             return routes;
@@ -596,56 +547,6 @@ export const InventoryService = {
     },
 
     /**
-     * Fetch facilities from Firestore.
-     * Scoped by tenantId (preferred) or authorityId (legacy fallback).
-     * Without either, all facilities are returned (super-admin view).
-     */
-    fetchFacilities: async (authorityId?: string, tenantId?: string): Promise<MapFacility[]> => {
-        try {
-            const facilitiesRef = collection(db, 'facilities');
-            let q;
-            if (tenantId) {
-                q = query(facilitiesRef, where('tenantId', '==', tenantId));
-            } else if (authorityId) {
-                q = query(facilitiesRef, where('authorityId', '==', authorityId));
-            } else {
-                q = facilitiesRef;
-            }
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(d => ({
-                ...d.data(),
-                id: d.id
-            } as MapFacility));
-        } catch (error) {
-            console.error('❌ Error fetching facilities:', error);
-            return [];
-        }
-    },
-
-    /**
-     * Cached whole-national-collection facilities fetch — stale-while-revalidate
-     * via localStorage (6h TTL) + in-flight-dedup, same pattern as parks.service.ts's
-     * fetchRealParks(). Use this instead of `fetchFacilities()` (no args) for any
-     * caller that needs the WHOLE collection without authority scoping — that raw
-     * call has no cache and re-hits Firestore for the whole collection every time.
-     */
-    fetchAllFacilitiesCached: async (): Promise<MapFacility[]> => {
-        const cached = readFacilitiesFromStorage();
-        if (cached) {
-            // Return stale data instantly; refresh in background so concurrent
-            // warm callers don't each fire a getDocs.
-            fetchAndCacheAllFacilities().catch(() => { /* background refresh failure is non-fatal */ });
-            return cached;
-        }
-        try {
-            return await fetchAndCacheAllFacilities();
-        } catch (error) {
-            console.error('❌ Error fetching cached facilities:', error);
-            return [];
-        }
-    },
-
-    /**
      * Fetch facilities within a viewport bounding box — the LIVE MAP browse path.
      * Replaces the whole-national-collection getDocs (a dense-city OOM driver) so
      * facilities stream per-area as the user pans instead of all at once; the user
@@ -688,6 +589,43 @@ export const InventoryService = {
             console.error('❌ Error fetching facilities in bounds:', error);
             return [];
         }
+    },
+
+    /**
+     * The `count` facilities of the given types nearest to `point` (data-exposure
+     * plan 1.2) — replaces fetchAllFacilitiesCached()+sort, which downloaded the
+     * whole national collection to pick two waypoints. Searches growing boxes
+     * (2 / 10 / 50 km) and stops once `count` matches lie within the box's own
+     * radius: anything outside the box is farther than that radius, so the
+     * answer equals the old global sort. A clipped box (hit `max`) is not
+     * trusted. Falls back to one country-wide band if nothing qualified.
+     */
+    fetchNearestFacilities: async (
+        point: { lat: number; lng: number },
+        types: string[],
+        count: number,
+        max = 1000,
+    ): Promise<MapFacility[]> => {
+        const rank = (all: MapFacility[]) =>
+            all
+                .filter((f) => types.includes(f.type) && f.location?.lat)
+                .map((f) => ({ f, d: haversineKm(point.lat, point.lng, f.location.lat, f.location.lng) }))
+                .sort((a, b) => a.d - b.d);
+        for (const radiusKm of [2, 10, 50]) {
+            const dLat = radiusKm / 111.32;
+            const dLng = radiusKm / (111.32 * Math.max(Math.cos((point.lat * Math.PI) / 180), 0.01));
+            const box = await InventoryService.fetchFacilitiesInBounds(
+                { swLat: point.lat - dLat, neLat: point.lat + dLat, swLng: point.lng - dLng, neLng: point.lng + dLng },
+                max,
+            );
+            const inRadius = rank(box).filter((x) => x.d <= radiusKm);
+            if (inRadius.length >= count && box.length < max) return inRadius.slice(0, count).map((x) => x.f);
+        }
+        const wide = await InventoryService.fetchFacilitiesInBounds(
+            { swLat: point.lat - 4, neLat: point.lat + 4, swLng: point.lng - 5, neLng: point.lng + 5 },
+            max * 5,
+        );
+        return rank(wide).slice(0, count).map((x) => x.f);
     },
 
     /**
@@ -854,58 +792,6 @@ export const InventoryService = {
             }
         } catch (error) {
             console.error('❌ Error fetching official routes:', error);
-            return [];
-        }
-    },
-
-    /**
-     * Scoped app read (panel flag enable_scoped_official_routes) — replaces the whole-collection
-     * `limit(200)` read for the app's consumers. See official-routes-scope.ts for the full why.
-     *   authorityIds non-empty → `authorityId in [chunk ≤30]` + limit(SCOPED_PER_QUERY_CAP) per
-     *     chunk (automatic single-field index, no composite index); `published === false` dropped
-     *     client-side exactly like fetchOfficialRoutes(_, true), so docs with NO published field
-     *     stay visible (axiom §33).
-     *   empty, or the scoped read found nothing → `published == true` + limit(SCOPED_FALLBACK_CAP).
-     * official_routes rule is `allow read: if true` — every shape here is admitted (axiom §25).
-     * Never throws: a failed read resolves to [] (same contract as fetchOfficialRoutes).
-     */
-    fetchOfficialRoutesScoped: async (authorityIds: string[]): Promise<Route[]> => {
-        const normalise = (docSnap: any): Route | null => {
-            const data = docSnap.data();
-            if (data.published === false) return null;
-            const path = normalizeStoredRoutePath(data.path);
-            if (path.length < 2) return null;
-            return { ...data, id: docSnap.id, path } as Route;
-        };
-        try {
-            if (authorityIds.length > 0) {
-                const snapshots = await Promise.all(
-                    chunkIds(authorityIds).map((batch) =>
-                        getDocs(
-                            query(
-                                collection(db, 'official_routes'),
-                                where('authorityId', 'in', batch),
-                                limit(SCOPED_PER_QUERY_CAP),
-                            ),
-                        ),
-                    ),
-                );
-                // Dedupe across `in` chunks (a doc can only match one authorityId, so this is
-                // belt-and-braces). Plain record, not a Map: keeps this file's diff free of `.set(`
-                // (safety-check's route-collection write-verb scan).
-                const byId: Record<string, any> = {};
-                for (const d of snapshots.flatMap((snap) => snap.docs)) byId[d.id] ??= d;
-                const routes = Object.values(byId)
-                    .map(normalise)
-                    .filter((r): r is Route => r !== null);
-                if (routes.length > 0) return routes;
-            }
-            const snap = await getDocs(
-                query(collection(db, 'official_routes'), where('published', '==', true), limit(SCOPED_FALLBACK_CAP)),
-            );
-            return snap.docs.map(normalise).filter((r): r is Route => r !== null);
-        } catch (error) {
-            console.error('❌ Error fetching scoped official routes:', error);
             return [];
         }
     },
@@ -1189,9 +1075,11 @@ export const InventoryService = {
             const q = query(
                 collection(db, 'curated_routes'),
                 where('authorityId', '==', authorityId),
-                orderBy('curatedTier')
+                orderBy('curatedTier'),
+                limit(CLIENT_READ_CAPS.routesPerCity),
             );
             const snapshot = await getDocs(q);
+            warnIfCapped(snapshot.size, CLIENT_READ_CAPS.routesPerCity, 'curated_routes by authority');
             return snapshot.docs
                 .map(docSnap => {
                     const data = docSnap.data();
@@ -1276,9 +1164,11 @@ export const InventoryService = {
             const q = query(
                 collection(db, 'official_routes'),
                 where('authorityId', '==', authorityId),
-                where('isInfrastructure', '==', true)
+                where('isInfrastructure', '==', true),
+                limit(CLIENT_READ_CAPS.routesPerCity),
             );
             const snapshot = await getDocs(q);
+            warnIfCapped(snapshot.size, CLIENT_READ_CAPS.routesPerCity, 'infrastructure routes by authority');
             return snapshot.docs
                 .map(docSnap => {
                     const data = docSnap.data();

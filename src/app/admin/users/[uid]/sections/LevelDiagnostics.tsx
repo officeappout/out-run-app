@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { buildProgramHierarchy, programDisplayName } from '../../shared.utils';
+import { buildProgramHierarchy } from '../../shared.utils';
+import { programCardInfo } from './program-card-info';
 import type { UserTabData } from '../tabs/types';
 
 type LevelMap = Record<string, { currentLevel?: number }> | undefined;
@@ -27,16 +28,16 @@ export default function LevelDiagnostics({ fullProfile, programs }: Pick<UserTab
     const isDesynced = domainLevel > 0 && trackLevel > 0 && domainLevel !== trackLevel;
     const isDomainOnly = domainLevel > 1 && trackLevel === 0 && !covered.has(key);
     if (!isDesynced && !isDomainOnly) return [];
-    return [{ key, domainLevel, trackLevel, isDesynced, name: programDisplayName(key, programs).name }];
+    return [{ key, domainLevel, trackLevel, isDesynced, name: programCardInfo(key, tracks, programs).name }];
   });
   if (rows.length === 0) return null;
   return (
     <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
-      <p className="text-xs font-bold text-amber-800 mb-2">אי התאמות בנתוני רמות (domains מול tracks)</p>
+      <p className="text-xs font-bold text-amber-800 mb-2">אי התאמות בנתוני רמות</p>
       <div className="flex flex-wrap gap-2">
         {rows.map((r) => (
           <span key={r.key} className="px-2 py-1 bg-white border border-amber-200 rounded-lg text-xs font-bold text-amber-700">
-            {r.name} · {r.isDesynced ? `⚠ domain=${r.domainLevel} track=${r.trackLevel}` : `רק ב-domains: רמה ${r.domainLevel}`}
+            {r.name} · {r.isDesynced ? `⚠ רמה ${r.trackLevel} במסלול, ${r.domainLevel} בתחום` : `רמה ${r.domainLevel} רק בתחום, בלי מסלול`}
           </span>
         ))}
       </div>

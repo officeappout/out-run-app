@@ -24,6 +24,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
+import { planRepsUnitText, planSecsUnitText } from '@/features/workout-engine/shared/utils/plan-text';
 
 /** Localized name off the content exercise (Firestore doc shape — dynamic access). */
 function exName(we: GeneratedExercise): string {
@@ -74,8 +75,8 @@ function prescriptionLabel(we: GeneratedExercise): { reps?: string; duration?: s
   const r = we.repsRange;
   const core = r ? (r.min !== r.max ? `${r.min}-${r.max}` : `${r.min}`) : `${we.reps}`;
   return we.isTimeBased
-    ? { duration: `${setsPrefix}${core} שניות` }
-    : { reps: `${setsPrefix}${core} חזרות` };
+    ? { duration: planSecsUnitText(`${setsPrefix}${core}`) }
+    : { reps: planRepsUnitText(`${setsPrefix}${core}`) };
 }
 
 /** One generator exercise → one enriched parks Exercise (conditional spread).

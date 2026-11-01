@@ -24,6 +24,7 @@ import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from '../logic/protocols/tabata.block';
 import { withTimedMainBlock } from '../logic/protocols/timed.block';
 import { inferSegmentProtocol } from '../players/strength/protocols/advance-registry';
+import { planTabataFinisherTitle, planExerciseNames, planRepsRangeText, planRepsText, planSecsRangeText, planSecsText } from '@/features/workout-engine/shared/utils/plan-text';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -67,20 +68,20 @@ export function buildWorkoutPlanFromGenerated(
     }
 
     // Hebrew grammar: '1 חזרה' not '1 חזרות'
-    const fmtReps = (n: number) => (n === 1 ? 'חזרה אחת' : `${n} חזרות`);
-    const fmtSecs = (n: number) => (n === 1 ? 'שנייה אחת' : `${n} שניות`);
+    const fmtReps = planRepsText;
+    const fmtSecs = planSecsText;
 
     return {
       id: ex.exercise.id,
-      name: glt(ex.exercise.name),
+      ...planExerciseNames(ex.exercise.name),
       reps: actuallyTimeBased ? undefined : (
         ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-          ? `${ex.repsRange.min}-${ex.repsRange.max} חזרות`
+          ? planRepsRangeText(ex.repsRange.min, ex.repsRange.max)
           : fmtReps(ex.reps)
       ),
       duration: actuallyTimeBased ? (
         ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-          ? `${ex.repsRange.min}-${ex.repsRange.max} שניות`
+          ? planSecsRangeText(ex.repsRange.min, ex.repsRange.max)
           : fmtSecs(ex.reps)
       ) : undefined,
       videoUrl: resolvedVideoUrl,
@@ -190,7 +191,7 @@ export function buildWorkoutPlanFromGenerated(
     segments.push({
       id: 'seg-tabata',
       type: 'station' as const,
-      title: 'טבטה — פיניש',
+      title: planTabataFinisherTitle(),
       icon: '🔥',
       target: { type: 'time' as const, value: (tabataCfg.workSec + tabataCfg.restSec) * tabataCfg.rounds },
       exercises: tabataExercises,

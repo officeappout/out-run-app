@@ -27,6 +27,7 @@ import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { usePilotAhV1 } from '@/hooks/usePilotAhV1';
 import { displayProgramTemplateId } from '../utils/display-program';
+import { programLabelEn } from '@/lib/i18n/static-labels';
 
 /**
  * Emergency fallback only — used if both the user's seeded `progression.domains.{id}.maxLevel`
@@ -223,7 +224,9 @@ export function useProgramProgress(): ProgramProgressData | null {
   // AI3: English shows the doc's English name; the Hebrew static alias is skipped there (skeleton until the doc
   // loads), and the last fallback comes from the catalog. Hebrew: exactly as before.
   const en = contentLang === 'en';
-  const staticAlias = !en && primaryDomainId ? PROGRAM_NAME_HE[primaryDomainId.toLowerCase()] : undefined;
+  const staticAlias = primaryDomainId
+    ? (en ? programLabelEn(primaryDomainId, 'en') : PROGRAM_NAME_HE[primaryDomainId.toLowerCase()])
+    : undefined;
   const programName = (en ? englishProgramName : null) || hebrewProgramName || staticAlias || tHome('programProgressRow.placeholderName');
   // Show a skeleton in the card only when the Firestore fetch is still pending
   // AND we have no static Hebrew alias to display — avoids a placeholder-to-name snap.

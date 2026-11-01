@@ -34,6 +34,12 @@ export interface HybridSessionContext {
   cityName?: string;
   /** logic.startActiveWorkout — transitions the map into workout mode. */
   startRun: () => void;
+  /**
+   * Pilot AJ6 (enable_pilot_ah_v1): the recommended card loads levels, weekly gaps, parks,
+   * caches and exercises in parallel with the route instead of one after another, and logs
+   * per-stage timing. Absent → the sequential path, unchanged.
+   */
+  pilotParallel?: boolean;
 }
 
 /** The composed session — the SAME object drives the overview and the run. */
@@ -1364,6 +1370,18 @@ export async function composeHybridPlan(
   ]);
 
   const profile = useUserStore.getState().profile;
+  // Pilot AJ6: start every independent read now; each await below takes its result.
+  const tm = ctx.pilotParallel ? createComposeTimer() : null;
+  const early = tm ? {
+    levels: tm.time('levels', import('./hybrid-context.util').then(({ resolveHybridUserLevels }) =>
+      resolveHybridUserLevels(profile as any, '[Hybrid]'))),
+    weeklyGaps: tm.time('weeklyGaps', safeGetWeeklyGaps()),
+    parks: tm.time('parks', safeFetchRealParks()),
+    warm: tm.time('warm', import('./hybrid-warmup').then(({ warmHybridCaches }) => warmHybridCaches())),
+    exercises: tm.time('exercises', getAllExercisesCached()),
+  } : null;
+  // A result nobody awaits (an early return) must not surface as an unhandled rejection.
+  if (early) Object.values(early).forEach((p) => { (p as Promise<unknown>).catch(() => {}); });
   // `||` (not `??`) so an unset weight of 0 falls back to 70kg — otherwise every
   // hybrid calorie term (aerobic km×w×1.036 + strength MET×w) collapses to 0.
   const userWeightKg = profile?.core?.weight || 70;
@@ -1374,9 +1392,9 @@ export async function composeHybridPlan(
   // levels (push/pull/legs/core) home-workout feeds the pipeline, fixing the "empty
   // domainLevels" bug where the user was treated as their global level for every domain.
   // Extracted so the route-stops composer reuses it instead of duplicating.
-  const { resolveHybridUserLevels } = await import('./hybrid-context.util');
-  const { userProgramLevels, baseUserLevel, resolveUserLevelForExercise } =
-    await resolveHybridUserLevels(profile as any, '[Hybrid]');
+  const { userProgramLevels, baseUserLevel, resolveUserLevelForExercise } = early
+    ? await early.levels
+    : await (await import('./hybrid-context.util')).resolveHybridUserLevels(profile as any, '[Hybrid]');
   console.log(
     `[hybrid:diag] levels: base=L${baseUserLevel} domainLevels={${
       Array.from(userProgramLevels.entries()).map(([k, v]) => `${k}:L${v}`).join(', ')
@@ -1388,7 +1406,7 @@ export async function composeHybridPlan(
     `[hybrid:diag] core-level: ${userProgramLevels.has('core') ? `L${userProgramLevels.get('core')} (real)` : `base L${baseUserLevel} (no core domain — verify buildUserProgramLevels)`}`,
   );
 
-  const weeklyGaps = await safeGetWeeklyGaps();
+  const weeklyGaps = early ? await early.weeklyGaps : await safeGetWeeklyGaps();
 
   // Aerobic target distance (shared, pure) — walking = fixed 12 min/km · running = runner pace,
   // guarded so a 0 pace never yields "Target: Infinity km" → 0 routes. Clamped [1,20].
@@ -1403,7 +1421,7 @@ export async function composeHybridPlan(
   // authority-scoped: a nearby park in another authority (or an unset authorityId)
   // must not hide the station. The whole-path search does the geo filtering.
   const authorityId = profile?.core?.authorityId ?? null; // diag/fallback only
-  const parks: any[] = await safeFetchRealParks();
+  const parks: any[] = early ? await early.parks : await safeFetchRealParks();
   // DIAG (temporary — remove once the live station is confirmed).
   console.log(
     `[hybrid:diag] source=fetchRealParks · authorityId=${authorityId ?? 'NULL'} · parksLoaded=${parks.length}` +
@@ -1415,7 +1433,7 @@ export async function composeHybridPlan(
     let chosenKm: number | undefined;
     let candidateCount = 0;
     try {
-      const routes = await generateDynamicRoutes({
+      const routesP = generateDynamicRoutes({
         userLocation: ctx.userPosition, targetDistance: targetKm, activity: intent.aerobicKind as ActivityType,
         routeGenerationIndex: 0,
         // Bias the loop THROUGH a fitness park when we have parks (findFitnessAnchor),
@@ -1438,6 +1456,7 @@ export async function composeHybridPlan(
         preferences: { includeStrength: parks.length > 0, qualityRoute: true, maxRoutes: 3 },
         parks: parks as any, cityName: ctx.cityName,
       });
+      const routes = tm ? await tm.time('routes', routesP) : await routesP;
       if (routes && routes.length > 0) {
         candidateCount = routes.length;
         const best = routes.reduce((a, b) =>
@@ -1459,13 +1478,18 @@ export async function composeHybridPlan(
       );
     }
   }
-  if (routePath.length < 2) { console.warn('[composeHybridPlan] no user position / route'); return null; }
+  if (routePath.length < 2) { console.warn('[composeHybridPlan] no user position / route'); tm?.report('hybrid'); return null; }
 
   // Warm equipment cache + program id→slug map BEFORE composing (א.1).
-  const { warmHybridCaches } = await import('./hybrid-warmup');
-  await warmHybridCaches();
+  if (early) {
+    await early.warm;
+  } else {
+    const { warmHybridCaches } = await import('./hybrid-warmup');
+    await warmHybridCaches();
+  }
   const { resolveStationSource } = await import('./station-source');
-  const source = await resolveStationSource(routePath, { parks: parks as any, authorityId });
+  const sourceP = resolveStationSource(routePath, { parks: parks as any, authorityId });
+  const source = tm ? await tm.time('stationSource', sourceP) : await sourceP;
 
   // unassessed-domain-gate: reuses the SAME hasAssessedStrengthDomain signal as the home
   // hero-gate, route_stops and full_park. Only a HYDRAULIC-equipped station (self-limiting
@@ -1543,7 +1567,7 @@ export async function composeHybridPlan(
     ...(gateHydraulicEquipment ? { parkEquipment: gateHydraulicEquipment } : {}),
   }];
 
-  const masterExercises = withoutTestExercises(await getAllExercisesCached()); // H5
+  const masterExercises = withoutTestExercises(early ? await early.exercises : await getAllExercisesCached()); // H5
   const filterContext: ContextualFilterContext = {
     location: 'park', lifestyles: [], injuryShield: [], intentMode: 'normal', availableEquipment: [],
     getUserLevelForExercise: resolveUserLevelForExercise,
@@ -1570,6 +1594,7 @@ export async function composeHybridPlan(
   const station = source.kind === 'park' && source.lat != null && source.lng != null
     ? { lat: source.lat, lng: source.lng, name: source.name, image: source.image }
     : undefined;
+  tm?.report('hybrid');
   return { plan, routePath, aerobicKind: intent.aerobicKind, fallbackHint: source.uiHint, station };
 }
 

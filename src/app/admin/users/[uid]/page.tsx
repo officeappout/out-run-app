@@ -50,6 +50,9 @@ import type { UserTabData } from './tabs/types';
  * DERIVED from fullProfile + workoutCount via useMemo, not a separate
  * fetch+state, so there is only ever one source of truth.
  */
+const ACTIVITY_HISTORY_MAX = 5000;
+const ACTIVITY_WINDOW_MS = 2 * 366 * 86_400_000;
+
 export default function UserDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -57,6 +60,8 @@ export default function UserDetailPage() {
 
   const [fullProfile, setFullProfile] = useState<UserFullProfile | null>(null);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
+  /** Two years of workouts for the period-comparison chart (the list keeps the latest 50). */
+  const [activityHistory, setActivityHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [workoutCount, setWorkoutCount] = useState<number>(0);
   const [stepsHistory, setStepsHistory] = useState<DailyStepsSnapshot[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
@@ -146,8 +151,11 @@ export default function UserDetailPage() {
       setHealthDeclarationPdfUrl(await getUserHealthDeclarationPdfUrl(forUid));
 
       // Load workout history
-      const history = await getUserWorkoutHistory(forUid, 50);
-      setWorkoutHistory(history);
+      // The query reads every workout of the user anyway (users.service slices after the
+      // read), so one call feeds both the 50-row list and the 2-year comparison chart.
+      const history = await getUserWorkoutHistory(forUid, ACTIVITY_HISTORY_MAX);
+      setWorkoutHistory(history.slice(0, 50));
+      setActivityHistory(history.filter((w) => w.date.getTime() >= Date.now() - ACTIVITY_WINDOW_MS));
 
       // Load passive step-sync history (HealthKit / Health Connect —
       // separate from workout-session distance, see getStepsTrend's doc
@@ -358,6 +366,7 @@ export default function UserDetailPage() {
         user,
         fullProfile,
         workoutHistory,
+        activityHistory,
         stepsHistory,
         analyticsEvents,
         pushHistory,

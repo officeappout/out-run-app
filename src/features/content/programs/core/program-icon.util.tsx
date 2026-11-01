@@ -12,6 +12,7 @@
 
 import React from 'react';
 import { Heart, Sparkles, Target } from 'lucide-react';
+import { programLabelEn } from '@/lib/i18n/static-labels';
 
 /** Brand cyan used throughout the schedule and completion states */
 export const BRAND_CYAN = '#00C9F2';
@@ -270,6 +271,9 @@ export function resolveIconKey(
  * to skip that tier.
  */
 export function resolveProgramLabel(id: string, docName?: string): string {
+  // English mode: the catalog label (static-labels.ts); Hebrew: the chain below, unchanged.
+  const en = programLabelEn(id);
+  if (en) return en;
   const iconMapEntry = ICON_MAP[id as keyof typeof ICON_MAP];
   return iconMapEntry?.label ?? docName ?? SLUG_HEBREW_FALLBACK[id] ?? id;
 }
