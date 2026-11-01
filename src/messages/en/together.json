@@ -130,5 +130,10 @@
   "chrome.vs.growing": "The gap is growing",
   "chrome.vs.close": "Close comparison",
   "chrome.nextKm": "Mark km {n} · automatic",
-  "chrome.nextBlock": "{name} · {meta}"
+  "chrome.nextBlock": "{name} · {meta}",
+  "chrome.page.general": "Overview",
+  "chrome.page.lap": "Current lap",
+  "chrome.page.rep": "This rep",
+  "chrome.page.aria": "Page {n} of {total}: {name}",
+  "chrome.page.lapN": "Lap {n}"
 }

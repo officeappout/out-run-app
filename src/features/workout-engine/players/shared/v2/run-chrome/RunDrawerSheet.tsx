@@ -17,6 +17,16 @@ import { motion, useDragControls, useReducedMotion, type PanInfo } from 'framer-
 import { useT } from '@/hooks/useT';
 import { together } from '@/messages/ns/together';
 import { getRememberedDrawerSnap, rememberDrawerSnap, resolveDrawerGesture, toggleDrawerSnap, type RunDrawerSnap } from '../run-drawer-logic';
+import { useTogetherLocale } from '@/features/workout-engine/together/hooks/useTogetherLocale';
+import { clampPage, pageAfterSwipe } from './unified-chrome-logic';
+
+/** enable_unified_player_v1: one drawer page (blue dots + a small caption on top). */
+export interface RunDrawerPage {
+  id: string;
+  caption: string;
+  compact: React.ReactNode;
+  large: React.ReactNode;
+}
 
 export interface RunDrawerSheetProps {
   compact: React.ReactNode;
@@ -30,10 +40,19 @@ export interface RunDrawerSheetProps {
   /** Reports the wrapper height (px) so the rail can stay above the buttons. */
   onHeight?: (h: number) => void;
   className?: string;
+  /** enable_unified_player_v1: pages replace compact / large; a sideways swipe or a dot turns them. */
+  pages?: RunDrawerPage[];
+  /** enable_unified_player_v1: small icons in the sheet's top corner (settings, partner). */
+  corner?: React.ReactNode;
 }
 
-export default function RunDrawerSheet({ compact, large, override, buttons, onOpenList, cardRef, onHeight, className = '' }: RunDrawerSheetProps) {
+export default function RunDrawerSheet({ compact, large, override, buttons, onOpenList, cardRef, onHeight, className = '', pages, corner }: RunDrawerSheetProps) {
   const t = useT(together);
+  const { isRtl } = useTogetherLocale();
+  const [pageRaw, setPage] = useState(0);
+  const pageCount = pages?.length ?? 0;
+  const page = clampPage(pageRaw, pageCount);
+  const downAt = useRef<{ x: number; y: number } | null>(null);
   const reduce = useReducedMotion();
   const controls = useDragControls();
   const [snap, setSnapState] = useState<RunDrawerSnap>(getRememberedDrawerSnap);
@@ -53,6 +72,7 @@ export default function RunDrawerSheet({ compact, large, override, buttons, onOp
 
   const startDrag = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button:not([data-drawer-handle])')) return;
+    downAt.current = { x: e.clientX, y: e.clientY };
     dragged.current = false;
     controls.start(e);
   }, [controls]);
@@ -64,6 +84,14 @@ export default function RunDrawerSheet({ compact, large, override, buttons, onOp
   }, [snap, setSnap, onOpenList]);
 
   const isLarge = snap === 'full';
+  const onPointerUp = (e: React.PointerEvent) => {
+    const d = downAt.current;
+    downAt.current = null;
+    if (!d || pageCount < 2) return;
+    setPage(pageAfterSwipe(page, pageCount, e.clientX - d.x, e.clientY - d.y, isRtl));
+  };
+  const current = pages?.[page];
+  const body = current ? (isLarge ? current.large : current.compact) : (isLarge ? large : compact);
 
   return (
     <div ref={setRefs} className={`pointer-events-none absolute inset-x-0 bottom-0 flex flex-col ${className}`} data-run-sheet={isLarge ? 'large' : 'compact'}>
@@ -79,6 +107,7 @@ export default function RunDrawerSheet({ compact, large, override, buttons, onOp
         dragSnapToOrigin
         dragMomentum={false}
         onPointerDown={startDrag}
+        onPointerUp={onPointerUp}
         onDragStart={() => { dragged.current = true; }}
         onDragEnd={onDragEnd}
         role="region"
@@ -94,8 +123,29 @@ export default function RunDrawerSheet({ compact, large, override, buttons, onOp
         >
           <span className="block h-[5px] w-10 rounded-full bg-slate-200" aria-hidden />
         </button>
-        <motion.div key={override ? 'override' : snap} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-          {override ?? (isLarge ? large : compact)}
+        {corner && <div className="absolute end-4 top-3 flex items-center gap-2">{corner}</div>}
+        {pages && pageCount > 1 && !override && (
+          <div className="mb-2.5 flex flex-col items-center gap-1">
+            <div className="flex gap-[5px]" role="tablist" aria-label={t('chrome.sheet.handle')}>
+              {pages.map((pg, i) => (
+                <button
+                  key={pg.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === page}
+                  aria-label={t('chrome.page.aria', { n: i + 1, total: pageCount, name: pg.caption })}
+                  onClick={() => setPage(i)}
+                  className="grid h-4 place-items-center"
+                >
+                  <span className="block h-1.5 rounded-full transition-all duration-200" style={{ width: i === page ? 16 : 6, background: i === page ? '#00baf7' : '#cbd5e1' }} />
+                </button>
+              ))}
+            </div>
+            <span className="text-[11.5px] font-extrabold text-slate-500">{current?.caption}</span>
+          </div>
+        )}
+        <motion.div key={override ? 'override' : `${current?.id ?? ''}-${snap}`} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+          {override ?? body}
         </motion.div>
       </motion.div>
     </div>

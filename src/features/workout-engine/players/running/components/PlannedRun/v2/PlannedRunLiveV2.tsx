@@ -25,8 +25,12 @@ import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
-import { blockDisplayLabel, fmtClock, fmtDistance, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
-import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, useMeasuredHeight } from '../../../../shared/v2/run-chrome';
+import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
+import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedHeaderLayer, useMeasuredHeight, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
+import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
+import { PAGE_CAPTION_KEY, drawerPagesFor } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
+import { useUnifiedPlayerV1 } from '../../../../shared/v2/useUnifiedPlayerV1';
+import { together } from '@/messages/ns/together';
 import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
 import { usePlannedChromeNodes } from './usePlannedChromeNodes';
 import PlannedLiveCardV2 from './PlannedLiveCardV2';
@@ -110,6 +114,23 @@ export default function PlannedRunLiveV2({
         ? fmtDistance(blockDistanceRemaining)
         : fmtClock(blockElapsedSeconds);
 
+  // enable_unified_player_v1: name / bars / data on top; drawer pages "this rep" then "overview".
+  const unified = useUnifiedPlayerV1() && drawerV1;
+  const tt = useT(together);
+  const avgPaceSec = totals.distanceKm > 0.05 ? totals.durationSec / totals.distanceKm : 0;
+  const generalCells = (size: number) => (
+    <Cells>
+      <Cell label={tt('chrome.label.time')} value={fmtClock(totals.durationSec)} size={size} />
+      <Cell label={tt('chrome.label.km')} value={totals.distanceKm.toFixed(2)} size={size} />
+      <Cell label={tt('chrome.label.avgPace')} value={avgPaceSec > 0 ? fmtPace(avgPaceSec) : '--:--'} size={size} />
+    </Cells>
+  );
+  const drawerPages: RunDrawerPage[] | undefined = unified
+    ? drawerPagesFor('planned', { lapOn: true }).map((id) => (id === 'general'
+      ? { id, caption: tt(PAGE_CAPTION_KEY.general), compact: generalCells(26), large: generalCells(30) }
+      : { id, caption: tt(PAGE_CAPTION_KEY[id]), compact: chromeNodes.compact, large: chromeNodes.large }))
+    : undefined;
+
   const triggerLap = useCallback(() => {
     useRunningPlayer.getState().triggerLap();
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(15);
@@ -172,6 +193,14 @@ export default function PlannedRunLiveV2({
                 outerRef={setHeaderNodes}
                 onPointerDown={startDrag}
                 layers={tg.layers(
+                  unified ? (
+                    <UnifiedHeaderLayer
+                      title={title}
+                      bars={<StoryBars segments={segments} currentIndex={currentBlockIndex} progress={blockProgress} />}
+                      label={chromeNodes.caption || undefined}
+                      hint={pilotAh ? <RouteTurnRow /> : undefined}
+                    />
+                  ) : (
                   <div className="px-5">
                     <div className="flex h-[46px] flex-col justify-center">
                       <StoryBars segments={segments} currentIndex={currentBlockIndex} progress={blockProgress} />
@@ -179,7 +208,8 @@ export default function PlannedRunLiveV2({
                     </div>
                     {/* enable_pilot_ah_v1 (AH23): the next turn as one line (MapShell keeps the big card off). */}
                     {pilotAh && <RouteTurnRow />}
-                  </div>,
+                  </div>
+                  ),
                 )}
                 index={tg.layerIndex}
                 onIndexChange={tg.setLayerIndex}
@@ -238,8 +268,9 @@ export default function PlannedRunLiveV2({
                 onOpenList={() => setListOpen(true)}
                 compact={chromeNodes.compact}
                 large={chromeNodes.large}
+                pages={drawerPages}
                 override={tg.vsPanel}
-                buttons={<RunFloatingButtons isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
+                buttons={<RunFloatingButtons unified={unified} isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={triggerLap} onStop={onEnd} />}
               />
             ) : (
               <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>

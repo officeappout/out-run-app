@@ -21,7 +21,11 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, usePublishedPlayerChrome } from '../../../../shared/v2';
-import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome } from '../../../../shared/v2/run-chrome';
+import { RunDrawerSheet, RunFloatingButtons, RunHeaderChrome, UnifiedHeaderLayer, type RunDrawerPage } from '../../../../shared/v2/run-chrome';
+import { Cell, Cells } from '../../../../shared/v2/run-chrome/RunDrawerBlocks';
+import { PAGE_CAPTION_KEY, currentLapView, drawerPagesFor, type UnifiedSituation } from '../../../../shared/v2/run-chrome/unified-chrome-logic';
+import { useUnifiedPlayerV1 } from '../../../../shared/v2/useUnifiedPlayerV1';
+import { together } from '@/messages/ns/together';
 import { useRunTogetherChrome } from '@/features/workout-engine/together/hooks/useRunTogetherChrome';
 import { aerobicCells, showLapButton } from '../../../lib/aerobic-player-view';
 import ArriveAtStartCard from './ArriveAtStartCard';
@@ -84,6 +88,9 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   }, []);
 
   const t = useT(player);
+  const tt = useT(together);
+  // enable_unified_player_v1: the final canvas frame (name / bars / data on top, drawer pages, new buttons).
+  const unified = useUnifiedPlayerV1() && drawerV1;
   // enable_pilot_ah_v1: AH23 turn row; AK2/AK3 (drawer layout) numbers in the drawer only, settings at
   // thumb reach, one GPS indicator.
   const pilotAh = usePilotAhV1();
@@ -176,6 +183,21 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   const lapOn = !live.combo || showLapButton(live.combo.mode, live.combo.activity);
   const chromeNodes = useFreeChromeNodes({ totals: live.totals, currentPaceSec: live.currentPaceSec, metric: live.metric, isPaused: live.isPaused, cells });
   const tg = useRunTogetherChrome({ live: chromeNodes.live, headerHeight: headerH + 56, metric: live.metric === 'speed' ? 'speed' : 'pace', enabled: drawerV1 });
+  const situation: UnifiedSituation = commuteContext ? 'nav' : live.combo?.mode === 'route' ? 'route' : activityType === 'walking' ? 'free_walk' : 'free_run';
+  const lapView = currentLapView(live.laps);
+  const drawerPages: RunDrawerPage[] | undefined = unified
+    ? drawerPagesFor(situation, { lapOn }).map((id) => {
+        if (id !== 'lap') return { id, caption: tt(PAGE_CAPTION_KEY[id]), compact: chromeNodes.compact, large: chromeNodes.large };
+        const lapCells = (size: number) => (
+          <Cells>
+            <Cell label={tt('chrome.label.time')} value={fmtClock(lapView?.durationSec ?? 0)} size={size} />
+            <Cell label={tt('chrome.label.km')} value={(lapView?.distanceKm ?? 0).toFixed(2)} size={size} />
+            <Cell label={tt('chrome.label.pace')} value={lapView && lapView.paceSec > 0 ? fmtPace(lapView.paceSec) : '--:--'} size={size} />
+          </Cells>
+        );
+        return { id, caption: lapView ? tt('chrome.page.lapN', { n: lapView.n }) : tt(PAGE_CAPTION_KEY.lap), compact: lapCells(26), large: lapCells(30) };
+      })
+    : undefined;
 
   const startShellDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
@@ -220,13 +242,22 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           innerRef={headerRef}
           onPointerDown={startShellDrag}
           layers={tg.layers(
+            unified ? (
+              <UnifiedHeaderLayer
+                title={commute ? commute.eyebrow : live.title}
+                bars={!commute && gv ? headerProps.strip : undefined}
+                label={headerProps.title}
+                hint={pilotAh ? <RouteTurnRow /> : undefined}
+              />
+            ) : (
             <div className="px-5">
               <div className="flex h-[46px] flex-col justify-center">
                 {headerProps.strip}
                 <div className="mt-2 text-center text-[13px] font-extrabold text-slate-600">{headerProps.eyebrow}</div>
               </div>
               {pilotAh && <RouteTurnRow />}
-            </div>,
+            </div>
+            ),
           )}
           index={tg.layerIndex}
           onIndexChange={tg.setLayerIndex}
@@ -278,9 +309,11 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           onOpenList={onMinimize}
           compact={chromeNodes.compact}
           large={chromeNodes.large}
+          pages={drawerPages}
           override={tg.vsPanel}
           buttons={(
             <RunFloatingButtons
+              unified={unified}
               isPaused={live.isPaused}
               onPause={live.pause}
               onResume={live.resume}
