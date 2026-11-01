@@ -30,6 +30,7 @@ import { EquipmentLocation } from '../core/gym-equipment.types';
 import { safeRenderText } from '@/lib/utils/render-helpers';
 import { getAllOutdoorBrands, OutdoorBrand } from '../../../equipment/brands';
 import EquipmentTextListEditor from './EquipmentTextListEditor';
+import BrandVideoUrlEnField from './BrandVideoUrlEnField';
 import {
   buildEquipmentTextFields,
   buildEquipmentLocalizedFields,
@@ -935,6 +936,12 @@ export default function GymEquipmentEditorForm({
                     </div>
                   )}
                 </div>
+
+                <BrandVideoUrlEnField
+                  value={brand.videoUrlEn}
+                  onChange={(v) => updateBrand(index, 'videoUrlEn', v)}
+                  preview={brand.videoUrlEn ? <VideoPreview url={brand.videoUrlEn} /> : null}
+                />
               </div>
             </div>
           ))}

@@ -10,6 +10,8 @@ export interface EquipmentBrand {
   brandId?: string; // Reference to outdoorBrands collection ID (optional for backward compatibility)
   imageUrl?: string;
   videoUrl?: string;
+  /** Optional English video (same Bunny player URL format). Played only when the video language is 'en'; empty → videoUrl. */
+  videoUrlEn?: string;
 }
 
 /**

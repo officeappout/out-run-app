@@ -78,6 +78,7 @@ import { usePlaceWorkoutsFlag } from '../place-workouts/hooks/usePlaceWorkoutsFl
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import { useVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 
 // ── Visual tokens — copied from ExerciseDetailSheet so the two
 //    drawers feel like the same product surface. Keep these in sync
@@ -274,9 +275,10 @@ export default function EquipmentDetailDrawer({
   // If the active brand has no video, fall back to the first other brand that does.
   // This makes mixed-brand parks harmless: the user sees the equipment's demo video
   // regardless of which brand was tagged, without needing a mass data audit.
+  const videoLang = useVideoLanguage();
   const effectiveVideoUrl = useMemo(
-    () => resolveBrandVideoUrl(equipment?.brands ?? [], activeBrand),
-    [activeBrand, equipment?.brands],
+    () => resolveBrandVideoUrl(equipment?.brands ?? [], activeBrand, videoLang),
+    [activeBrand, equipment?.brands, videoLang],
   );
 
   const videoEmbed = useMemo(

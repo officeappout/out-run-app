@@ -72,6 +72,7 @@ import type { TabataBlockSpec } from '../logic/workout-generator.types';
 import type { TabataProtocolConfig } from '../core/types/protocol.types';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { selectBrandByName, resolveBrandVideoUrl, resolveBrandImageUrl } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
+import { getVideoLanguage } from '@/features/content/shared/useVideoLanguage';
 import { buildEquipmentMethodText } from '@/features/content/equipment/gym/core/gym-equipment-text.utils';
 import { generateHomeWorkoutTrio, normalizeProgramId } from './home-workout.service';
 import { calculateWorkoutStats, calculateEstimatedDuration } from '../logic/workout-budgeting.utils';
@@ -762,7 +763,7 @@ export function buildMachinePseudoExercise(
       // this same slot as a last resort renders it correctly with zero
       // changes to the shared player. Still undefined (not a fake video)
       // when no brand on the doc has either asset — a real content gap.
-      mainVideoUrl: resolveBrandVideoUrl(brands, brand) ?? brand?.imageUrl ?? undefined,
+      mainVideoUrl: resolveBrandVideoUrl(brands, brand, getVideoLanguage()) ?? brand?.imageUrl ?? undefined,
       // Diagnosis item 2: without this, resolveExerciseMedia's fallback chain
       // had nothing but a Bunny-UUID regex match against mainVideoUrl (works
       // only for Bunny-iframe URLs) before falling to the video URL itself as
