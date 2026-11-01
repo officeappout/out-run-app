@@ -33,7 +33,7 @@ export default function ProgramLevels({ fullProfile, programs, actions }: Props)
       ) : (
         <>
           {(() => {
-            const tracks = (fullProfile.progression as any)?.tracks as Tracks;
+            const tracks = (fullProfile.progression as unknown as { tracks?: Tracks } | undefined)?.tracks;
             const hierarchy = buildProgramHierarchy(fullProfile, programs);
             const covered = new Set<string>();
             hierarchy.forEach((m) => {
