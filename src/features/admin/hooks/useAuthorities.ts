@@ -6,6 +6,7 @@ import {
   sortAuthoritiesByUrgency,
   groupAuthoritiesFromArray,
 } from '@/features/admin/services/authority.service';
+import { subscribeAllCrmPrivate } from '@/features/admin/services/authority-crm.client';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { initializeAuthoritiesSchema } from '@/features/admin/services/schema-initializer.service';
 import { seedIsraeliAuthorities } from '@/features/admin/services/seed-israeli-authorities';
@@ -191,22 +192,39 @@ export function useAuthorities(verticalTypes?: AuthorityType[] | null) {
       ? query(collection(db, 'authorities'), where('type', 'in', verticalTypes), orderBy('name', 'asc'))
       : query(collection(db, 'authorities'), orderBy('name', 'asc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // CRM fields (contacts, activityLog, tasks, financials, documents) live in
+    // authorities/{id}/crm_private/main — admin-only. A second listener merges
+    // them in; for non-admins it resolves to an empty map.
+    let mainDocs: Array<{ id: string; data: Record<string, unknown> }> | null = null;
+    let crmById = new Map<string, Record<string, unknown>>();
+    const publish = () => {
+      if (!mainDocs) return;
       const allData = sortAuthoritiesByUrgency(
-        snapshot.docs
-          .filter(doc => !doc.id.includes('__SCHEMA_INIT__') && doc.data()?.name !== '__SCHEMA_INIT__')
-          .map(doc => normalizeAuthorityFromSnapshot(doc.id, doc.data()))
+        mainDocs.map(d => normalizeAuthorityFromSnapshot(d.id, d.data, crmById.get(d.id)))
       );
-
       setAuthorities(allData);
       processAuthoritiesData(allData);
       setLoading(false);
+    };
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      mainDocs = snapshot.docs
+        .filter(doc => !doc.id.includes('__SCHEMA_INIT__') && doc.data()?.name !== '__SCHEMA_INIT__')
+        .map(doc => ({ id: doc.id, data: doc.data() }));
+      publish();
     }, (error) => {
       console.error('Firestore real-time listener error:', error);
       setLoading(false);
     });
+    const unsubscribeCrm = subscribeAllCrmPrivate(db, (byId) => {
+      crmById = byId;
+      publish();
+    });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeCrm();
+    };
   }, [verticalTypes, processAuthoritiesData]);
 
   // ── loadAuthorities kept ONLY for seed/repair bulk ops ────────────

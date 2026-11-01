@@ -22,6 +22,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSection } from '@/lib/api-auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { mergeCrmFields } from '@/features/admin/services/authority-crm';
+import { appendAuthorityCrmArray, readAllCrmPrivateAdmin } from '@/features/admin/services/authority-crm.server';
 import {
   getCombinedClient,
   ALL_MAILBOXES,
@@ -355,13 +357,18 @@ export async function POST(request: NextRequest) {
 
     // ── Phase 1: Load authorities ─────────────────────────────────────────────
     log('── Phase 1: Loading authorities');
-    const snap = await db.collection('authorities').get();
+    // CRM fields (contacts, activityLog) live in authorities/{id}/crm_private/main.
+    const [snap, crmById] = await Promise.all([
+      db.collection('authorities').get(),
+      readAllCrmPrivateAdmin(db),
+    ]);
+    apiCall();
     apiCall();
 
     const authorities: AuthorityRecord[] = snap.docs
       .filter(d => (d.data().pipelineStatus ?? 'lead') !== 'draft')
       .map(d => {
-        const data = d.data();
+        const data = mergeCrmFields(d.data(), crmById.get(d.id));
         return {
           id: d.id,
           name: data.name ?? d.id,
@@ -500,7 +507,6 @@ export async function POST(request: NextRequest) {
       log(`\n   ▶ [${authorityName}] thread ${threadId}`);
 
       const authority = authorities.find(a => a.id === authorityId)!;
-      const docRef    = db.collection('authorities').doc(authorityId);
       const signalText = `${subject} ${snippet}`;
 
       // 4a. activityLog entry ─────────────────────────────────────────────────
@@ -514,7 +520,7 @@ export async function POST(request: NextRequest) {
         createdBy: 'crm-agent',
       };
       if (!dryRun) {
-        await docRef.update({ activityLog: FieldValue.arrayUnion(logEntry), updatedAt: FieldValue.serverTimestamp() });
+        await appendAuthorityCrmArray(db, authorityId, 'activityLog', [logEntry]);
         apiCall();
       }
       log(`      📝 activityLog written`);
@@ -534,11 +540,7 @@ export async function POST(request: NextRequest) {
           reason: advance.reason, threadId,
         });
         if (!dryRun) {
-          await docRef.update({
-            pipelineStatus: advance.to,
-            activityLog: FieldValue.arrayUnion(statusEntry),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
+          await appendAuthorityCrmArray(db, authorityId, 'activityLog', [statusEntry], { pipelineStatus: advance.to });
           apiCall();
         }
         authority.pipelineStatus = advance.to; // update in-memory for scoring
@@ -593,7 +595,7 @@ export async function POST(request: NextRequest) {
             }
 
             if (newDocs.length) {
-              await docRef.update({ documents: FieldValue.arrayUnion(...newDocs), updatedAt: FieldValue.serverTimestamp() });
+              await appendAuthorityCrmArray(db, authorityId, 'documents', newDocs);
               apiCall();
               getAct(authorityId).hasNewDocs = true;
             }

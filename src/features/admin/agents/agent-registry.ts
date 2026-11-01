@@ -349,7 +349,7 @@ export const AUTOMATION_REGISTRY: readonly AutomationDefinition[] = [
     topic: 'crm',
     kind: 'cron',
     schedule: 'כל יום ב-05:07 UTC (08:07 בשעון קיץ), וגם ידני מהמסך',
-    writesTo: 'authorities (activityLog, pipeline), crm_runs, טיוטות Gmail, Drive',
+    writesTo: 'authorities (pipeline), authorities/*/crm_private (activityLog, documents), crm_runs, טיוטות Gmail, Drive',
     source: 'src/app/api/admin/crm-agent/run/route.ts · vercel.json',
     adminHref: '/admin/authorities',
     lifecycle: 'active',

@@ -18,6 +18,8 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { getIsraelDateKey } from '@/lib/israelTime';
 import { authorityNameOf } from './authority-names.server';
 import { metaOf, type MetricResult } from './meta';
+import { mergeCrmFields } from '@/features/admin/services/authority-crm';
+import { authorityRef, readAllCrmPrivateAdmin } from '@/features/admin/services/authority-crm.server';
 
 export const FINANCE_DEFAULT_MONTHS = 6;
 export const FINANCE_MAX_MONTHS = 24;
@@ -141,6 +143,32 @@ export const FINANCE_CAVEATS = [
   'there are no invoice / payment / subscription / contract collections — this is everything the system holds',
 ];
 
+const hasQuote = (d: Record<string, unknown> | undefined) => {
+  const q = (d?.financials as { totalQuoteAmount?: unknown } | undefined)?.totalQuoteAmount;
+  return typeof q === 'number' && q > 0;
+};
+
+/**
+ * Authorities with a quote: financials live in authorities/{id}/crm_private/main
+ * (private wins); the legacy main-doc copy covers authorities not yet migrated.
+ */
+async function loadQuotedAuthorities(db: Firestore): Promise<Array<{ id: string; data: Record<string, unknown> }>> {
+  const [legacySnap, crmById] = await Promise.all([
+    db.collection('authorities').where('financials.totalQuoteAmount', '>', 0).get(),
+    readAllCrmPrivateAdmin(db),
+  ]);
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const d of legacySnap.docs) byId.set(d.id, (d.data() ?? {}) as Record<string, unknown>);
+  const missing = Array.from(crmById.entries()).filter(([id, c]) => hasQuote(c) && !byId.has(id)).map(([id]) => id);
+  if (missing.length > 0) {
+    const mains = await db.getAll(...missing.map((id) => authorityRef(db, id)));
+    for (const m of mains) if (m.exists) byId.set(m.id, (m.data() ?? {}) as Record<string, unknown>);
+  }
+  return Array.from(byId.entries())
+    .map(([id, main]) => ({ id, data: mergeCrmFields(main, crmById.get(id)) }))
+    .filter(({ data }) => hasQuote(data));
+}
+
 export async function getFinanceOverview(db: Firestore, months: number | null, opts: { now?: Date } = {}): Promise<MetricResult<FinanceOverview>> {
   const now = opts.now ?? new Date();
   const today = getIsraelDateKey(now);
@@ -149,9 +177,9 @@ export async function getFinanceOverview(db: Firestore, months: number | null, o
   const toPeriod = today.slice(0, 7);
   const meta = (extra: Parameters<typeof metaOf>[2] = {}) => metaOf('finance_overview', { from: `${fromPeriod}-01`, to: today }, extra);
   try {
-    const [txSnap, authSnap] = await Promise.all([
+    const [txSnap, quoted] = await Promise.all([
       db.collection('transactions').where('period', '>=', fromPeriod).get(),
-      db.collection('authorities').where('financials.totalQuoteAmount', '>', 0).get(),
+      loadQuotedAuthorities(db),
     ]);
     const rows = txSnap.docs.map((d) => toRow((d.data() ?? {}) as Record<string, unknown>)).filter((r) => r.period <= toPeriod);
     const approved = rows.filter((r) => r.approval === 'approved');
@@ -163,7 +191,7 @@ export async function getFinanceOverview(db: Firestore, months: number | null, o
       income: side(approved.filter((r) => r.type === 'income')),
       pendingApproval: { count: pending.length, needsReview: pending.filter((r) => r.needsReview).length },
       rowsWithoutAmount: approved.filter((r) => r.amount === null).length,
-      receivables: summarizeReceivables(authSnap.docs.map((d) => ({ id: d.id, data: (d.data() ?? {}) as Record<string, unknown> }))),
+      receivables: summarizeReceivables(quoted),
     };
     return { value, meta: meta({ n: approved.length, caveats: FINANCE_CAVEATS }) };
   } catch (err) {

@@ -139,9 +139,6 @@ async function upsertBattalionAuthority(adminUid?: string): Promise<string> {
     status: 'active',
     isActiveClient: true,
     pipelineStatus: 'active',
-    contacts: [],
-    activityLog: [],
-    tasks: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }, { merge: true });
@@ -163,9 +160,6 @@ async function seedCompanyAuthorities(): Promise<void> {
       status: 'active',
       isActiveClient: false,
       pipelineStatus: 'active',
-      contacts: [],
-      activityLog: [],
-      tasks: [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }, { merge: true });
@@ -333,9 +327,6 @@ async function upsertSchoolAuthority(adminUid?: string): Promise<string> {
     status: 'active',
     isActiveClient: true,
     pipelineStatus: 'active',
-    contacts: [],
-    activityLog: [],
-    tasks: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }, { merge: true });

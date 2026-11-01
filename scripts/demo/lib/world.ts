@@ -48,7 +48,7 @@ export interface DemoWorld {
 
 function tenantDocs(now: Date): DocWrite[] {
   const docs: DocWrite[] = [];
-  const base = { isDemo: true, status: 'active', isActiveClient: false, pipelineStatus: 'demo', managerIds: [], contacts: [], activityLog: [], tasks: [], createdAt: now, updatedAt: now };
+  const base = { isDemo: true, status: 'active', isActiveClient: false, pipelineStatus: 'demo', managerIds: [], createdAt: now, updatedAt: now };
   for (const c of DEMO_CITIES) {
     docs.push({ path: `authorities/${c.id}`, data: { ...base, name: c.name, type: 'city', gatingMode: 'soft_launch', location: c.center, userCount: PERSONAS.filter((p) => p.tenantId === c.id).length } });
     for (const n of c.neighborhoods) {

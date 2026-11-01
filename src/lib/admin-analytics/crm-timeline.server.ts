@@ -16,6 +16,7 @@ import { PIPELINE_STATUS_LABELS, type PipelineStatus } from '@/types/admin-types
 import { getIsraelDateKey } from '@/lib/israelTime';
 import { authorityNameOf } from './authority-names.server';
 import { metaOf, type MetricResult } from './meta';
+import { readAuthorityWithCrm } from '@/features/admin/services/authority-crm.server';
 
 export const TIMELINE_ENTRIES_MAX = 8;
 export const TIMELINE_TASKS_MAX = 5;
@@ -137,9 +138,10 @@ export const CRM_TIMELINE_CAVEATS = [
 ];
 
 export async function computeCrmTimeline(db: Firestore, authorityId: string, now: Date): Promise<MetricResult<CrmTimeline> | null> {
-  const snap = await db.collection('authorities').doc(authorityId).get();
-  if (!snap.exists) return null;
-  const value = buildCrmTimeline(authorityId, (snap.data() ?? {}) as Record<string, unknown>, now);
+  // CRM arrays live in authorities/{id}/crm_private/main (legacy main-doc copy as fallback).
+  const data = await readAuthorityWithCrm(db, authorityId);
+  if (!data) return null;
+  const value = buildCrmTimeline(authorityId, data, now);
   return {
     value,
     meta: metaOf('crm_timeline', { from: null, to: getIsraelDateKey(now) }, {

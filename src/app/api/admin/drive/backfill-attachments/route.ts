@@ -15,7 +15,8 @@ import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/api-auth';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
+import { appendAuthorityCrmArray, readAuthorityWithCrm } from '@/features/admin/services/authority-crm.server';
 import {
   getCombinedClient,
   ALL_MAILBOXES,
@@ -243,13 +244,12 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getAdminDb();
-  const docRef = db.collection('authorities').doc(authorityId);
-  const docSnap = await docRef.get();
-  if (!docSnap.exists) {
+  // Main doc merged with crm_private/main (activityLog / contacts / documents live there).
+  const data = await readAuthorityWithCrm(db, authorityId) as Record<string, any> | null;
+  if (!data) {
     return NextResponse.json({ error: 'Authority not found' }, { status: 404 });
   }
 
-  const data = docSnap.data()!;
   const authorityName: string = data.name ?? authorityId;
   const activityLog: any[] = data.activityLog ?? [];
   const contacts: any[] = data.contacts ?? [];
@@ -470,10 +470,7 @@ export async function POST(request: NextRequest) {
 
     // Write new document records to Firestore (one update per authority)
     if (!dryRun && newDocuments.length > 0) {
-      await docRef.update({
-        documents: FieldValue.arrayUnion(...newDocuments),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+      await appendAuthorityCrmArray(db, authorityId, 'documents', newDocuments);
     }
 
     return NextResponse.json({

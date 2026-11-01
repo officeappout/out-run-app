@@ -164,6 +164,8 @@ export default defineConfig({
       'tests/firestore-fix-connections-selffollow.rules.test.ts',
       'tests/firestore-fix-chats-messages-fieldguard.rules.test.ts',
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
+      // authorities CRM split: crm_private admin-only, main doc public (security fix 01.11.2026) — emulator :8089.
+      'tests/firestore-fix-authorities-crm-private.rules.test.ts',
       // admin_costs / admin_cost_items server-only lockdown (/admin/costs) — emulator :8089.
       'tests/firestore-admin-costs.rules.test.ts',
       // city_inventory/** server-only lockdown (RC4 I2 map-health card) — emulator :8089.
