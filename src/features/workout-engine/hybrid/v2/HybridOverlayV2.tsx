@@ -10,6 +10,8 @@
  *            story bars from the same strip as the ring.
  *   bottom — run / cool-down: HybridRunLegV2; transition: the countdown
  *            card; station: nothing (StrengthRunner owns the screen).
+ * enable_unified_player_v1: walking AND running legs use ParkWalkSheet (the attached
+ * drawer; `running` adds pace + lap), and the header carries the tour's "pull down" anchor.
  */
 
 import React from 'react';
@@ -28,7 +30,7 @@ import { headerView } from './hybrid-v2-view';
 import HybridRunLegV2 from './HybridRunLegV2';
 import HybridTransitionCardV2 from './HybridTransitionCardV2';
 import { useParkLiveV2 } from '@/hooks/useParkLiveV2';
-import { isWalkingLeg } from '../park-live-v2';
+import { isWalkingLeg, unifiedLegSheet } from '../park-live-v2';
 import ParkWalkDrawer from './park/ParkWalkDrawer';
 import ParkMessageRow from './park/ParkMessageRow';
 import ComboStartChip from './combo/ComboStartChip';
@@ -72,7 +74,8 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   const parkWalk = parkLive && walkLeg && isWalkingLeg(view);
   // enable_combo_flow_v1: the arrival card is the attached bottom sheet too.
   const arrival = combo.on && view.phase === 'transition';
-  const unifiedWalk = unified && walkLeg && isWalkingLeg(view);
+  // Walking and running legs both get the attached drawer under the flag (running: pace + lap).
+  const unifiedLeg = unified ? unifiedLegSheet(view) : null;
 
   // The tour anchors wrap the cart and the bars only under the flag, so the flag-off DOM is unchanged.
   const cartIcon = (
@@ -89,6 +92,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
         <RunHeaderChrome
           outerRef={chrome.headerRef}
           innerRef={header.ref}
+          coach={parkLive ? 'park-live-header' : undefined}
           onPointerDown={startDrag}
           layers={[
             <UnifiedHeaderLayer
@@ -136,9 +140,9 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
       </div>
       )}
 
-      {unifiedWalk && !arrival ? (
+      {unifiedLeg && !arrival ? (
         <div className="pointer-events-none absolute inset-0 z-10" dir={direction}>
-          <ParkWalkSheet api={api} onOpenList={onMinimize} cardRef={chrome.cardRef} />
+          <ParkWalkSheet api={api} onOpenList={onMinimize} cardRef={chrome.cardRef} running={unifiedLeg === 'run'} />
         </div>
       ) : parkWalk || arrival ? (
         <div ref={chrome.cardRef} className="absolute inset-x-0 bottom-0 z-10" dir={direction}>

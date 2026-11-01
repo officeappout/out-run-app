@@ -144,6 +144,32 @@ export function walkCardView(view: SequencerView | null): WalkCardView | null {
   return { elapsedSec: view.leg.elapsedSec, km: view.leg.coveredM / 1000, toStationM };
 }
 
+/**
+ * Which unified leg drawer a hybrid view gets (enable_unified_player_v1): 'walk' / 'run' on a leg
+ * with progress (run / cool-down), null otherwise (idle keeps today's run card, transition and
+ * station have their own screens).
+ */
+export function unifiedLegSheet(view: SequencerView | null): 'walk' | 'run' | null {
+  if (!view?.leg || (view.phase !== 'run' && view.phase !== 'cooldown')) return null;
+  return isWalkingLeg(view) ? 'walk' : 'run';
+}
+
+/**
+ * The unified leg drawer's overview cells (enable_unified_player_v1, ParkWalkSheet): a walk = time ·
+ * km · to the station; a run adds the live pace after km, except on a leg planned under 400 m (owner
+ * rule, `leg.showPace`). "To the station" only while a station is ahead.
+ */
+export type LegSheetCell = 'time' | 'km' | 'pace' | 'toStation';
+
+export function legSheetCells(view: SequencerView | null, running: boolean): LegSheetCell[] {
+  const card = walkCardView(view);
+  if (!card) return [];
+  const cells: LegSheetCell[] = ['time', 'km'];
+  if (running && view?.leg?.showPace) cells.push('pace');
+  if (card.toStationM != null) cells.push('toStation');
+  return cells;
+}
+
 /** The station message (M2) once the walker is near: distance in metres, or null (no message). */
 export function stationMessageM(view: SequencerView | null): number | null {
   if (!view || (view.phase !== 'run' && view.phase !== 'cooldown') || !view.canArriveManually) return null;

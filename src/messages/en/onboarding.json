@@ -887,6 +887,8 @@
   "tour.parkLive.bars.text": "Each bar is one part of the workout: green is walking, blue is strength. It fills as you go.",
   "tour.parkLive.list.title": "The whole workout",
   "tour.parkLive.list.text": "Tap here to see every part, with the machines and rounds. Tap the small drawer to go back to the map.",
+  "tour.parkLive.pull.title": "The whole workout",
+  "tour.parkLive.pull.text": "Pull the header down to see the workout timeline: every part, with the machines and rounds.",
   "tour.parkLive.follow.title": "Start walking along the route",
   "tour.parkLive.follow.text": "The lemur on the map is you. A message shows up at the top as you near a station. Press and hold the red square to finish.",
   "tour.plan.pick.title": "Choose a plan",
