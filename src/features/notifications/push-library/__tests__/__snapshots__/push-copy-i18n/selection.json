@@ -1886,6 +1886,52 @@
       }
     ]
   },
+  "strength_quiz_reminder": {
+    "outcomes": 72,
+    "hash": "fea87501a80aa159d83dbf0c3486840be00d4c75ea522e690f9b52d685763619",
+    "unique": [
+      {
+        "pushType": "strength_quiz_reminder",
+        "title": "איתי, נשאר רק השאלון",
+        "body": "כמה שאלות קצרות על כוח, ותקבלו תוכנית שמתחילה מהמקום הנכון.",
+        "deepLink": "/home?startWorkout=true",
+        "deepLinkId": "strength_quiz",
+        "rowId": "default:strength_quiz_reminder:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "strength_quiz_reminder",
+        "title": "דנה, נשאר רק השאלון",
+        "body": "כמה שאלות קצרות על כוח, ותקבלו תוכנית שמתחילה מהמקום הנכון.",
+        "deepLink": "/home?startWorkout=true",
+        "deepLinkId": "strength_quiz",
+        "rowId": "default:strength_quiz_reminder:1",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "strength_quiz_reminder",
+        "title": "האימון שלך מחכה לשאלון",
+        "body": "בלי השאלון אנחנו מנחשים את הרמה. שתי דקות וזה מסודר.",
+        "deepLink": "/home?startWorkout=true",
+        "deepLinkId": "strength_quiz",
+        "rowId": "default:strength_quiz_reminder:2",
+        "source": "default",
+        "conditions": null
+      },
+      {
+        "pushType": "strength_quiz_reminder",
+        "title": "השלימו את שאלון הכוח (2 דק׳)",
+        "body": "שתי דקות, ונבנה לך אימון שמתאים בדיוק לרמה שלך.",
+        "deepLink": "/home?startWorkout=true",
+        "deepLinkId": "strength_quiz",
+        "rowId": "default:strength_quiz_reminder:0",
+        "source": "default",
+        "conditions": null
+      }
+    ]
+  },
   "partner_plan": {
     "outcomes": 288,
     "hash": "9f22a9d19271d1db88d848e15ed84ecdf717659fba2a517fd744b8635aff4f62",

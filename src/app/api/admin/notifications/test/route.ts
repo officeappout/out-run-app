@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       tokens,
       notification: { title: msg.title, body: msg.body },
       data: { channel, triggerType: 'AdminTest', deepLink: customDeepLink || '/' },
-      apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+      apns: { payload: { aps: { sound: 'default', badge: 0 } } },
       android: { priority: 'high', notification: { sound: 'default' } },
     });
 

@@ -2050,6 +2050,36 @@
     ]
   },
   {
+    "pushType": "strength_quiz_reminder",
+    "label": "השלמת שאלון הכוח",
+    "lever": "progress",
+    "channel": "onboarding_dropoff",
+    "sender": "strengthQuizReminderScheduler",
+    "description": "נרשמו ואישרו התראות, אבל עוד לא מילאו את שאלון הכוח. פותח את השאלון.",
+    "whenSent": "בדיקה כל שעה בין 10:00 ל-19:00. פעם אחת כ-24 שעות אחרי ההרשמה, ופעם נוספת ביום השלישי, ואז מפסיק. לא בשעות השקט ולא בשבת ובחג. רק כשהדגל enable_strength_quiz_reminder_push דולק.",
+    "vars": [
+      "@שם"
+    ],
+    "conditions": [],
+    "deepLinks": [
+      "strength_quiz"
+    ],
+    "defaults": [
+      {
+        "title": "השלימו את שאלון הכוח (2 דק׳)",
+        "body": "שתי דקות, ונבנה לך אימון שמתאים בדיוק לרמה שלך."
+      },
+      {
+        "title": "@שם, נשאר רק השאלון",
+        "body": "כמה שאלות קצרות על כוח, ותקבלו תוכנית שמתחילה מהמקום הנכון."
+      },
+      {
+        "title": "האימון שלך מחכה לשאלון",
+        "body": "בלי השאלון אנחנו מנחשים את הרמה. שתי דקות וזה מסודר."
+      }
+    ]
+  },
+  {
     "pushType": "partner_plan",
     "label": "מתאמנים לידך",
     "lever": "social",

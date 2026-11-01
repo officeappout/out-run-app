@@ -1139,6 +1139,32 @@
       }
     }
   ],
+  "strength_quiz_reminder": [
+    {
+      "id": "default:strength_quiz_reminder:0",
+      "preview": {
+        "title": "השלימו את שאלון הכוח (2 דק׳)",
+        "body": "שתי דקות, ונבנה לך אימון שמתאים בדיוק לרמה שלך.",
+        "deepLink": "/home?startWorkout=true"
+      }
+    },
+    {
+      "id": "default:strength_quiz_reminder:1",
+      "preview": {
+        "title": "דנה, נשאר רק השאלון",
+        "body": "כמה שאלות קצרות על כוח, ותקבלו תוכנית שמתחילה מהמקום הנכון.",
+        "deepLink": "/home?startWorkout=true"
+      }
+    },
+    {
+      "id": "default:strength_quiz_reminder:2",
+      "preview": {
+        "title": "האימון שלך מחכה לשאלון",
+        "body": "בלי השאלון אנחנו מנחשים את הרמה. שתי דקות וזה מסודר.",
+        "deepLink": "/home?startWorkout=true"
+      }
+    }
+  ],
   "partner_plan": [
     {
       "id": "default:partner_plan:0",

@@ -282,6 +282,7 @@ export interface PushDeepLinkRoute {
 export const PUSH_DEEP_LINK_ROUTES: ReadonlyArray<PushDeepLinkRoute> = [
   { id: 'home', label: 'בית (כרטיס האימון של היום)', paths: ['/home'] },
   { id: 'gateway', label: 'המשך הרשמה (מהשלב שבו עצרו)', paths: ['/gateway'] },
+  { id: 'strength_quiz', label: 'שאלון הכוח (דרך הבית)', paths: ['/home?startWorkout=true'] },
   { id: 'progression', label: 'מסך ההתקדמות', paths: ['/progression'] },
   {
     id: 'progression_map',
@@ -962,6 +963,24 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: T('workout_praise.0.title'), body: T('workout_praise.0.body') },
       { title: T('workout_praise.1.title'), body: T('workout_praise.1.body') },
       { title: T('workout_praise.2.title'), body: T('workout_praise.2.body') },
+    ],
+  },
+  {
+    pushType: 'strength_quiz_reminder',
+    label: 'השלמת שאלון הכוח',
+    lever: 'progress',
+    channel: 'onboarding_dropoff',
+    sender: 'strengthQuizReminderScheduler',
+    description: 'נרשמו ואישרו התראות, אבל עוד לא מילאו את שאלון הכוח. פותח את השאלון.',
+    whenSent:
+      'בדיקה כל שעה בין 10:00 ל-19:00. פעם אחת כ-24 שעות אחרי ההרשמה, ופעם נוספת ביום השלישי, ואז מפסיק. לא בשעות השקט ולא בשבת ובחג. רק כשהדגל enable_strength_quiz_reminder_push דולק.',
+    vars: ['@שם'],
+    conditions: [],
+    deepLinks: ['strength_quiz'],
+    defaults: [
+      { title: T('strength_quiz_reminder.0.title'), body: T('strength_quiz_reminder.0.body') },
+      { title: T('strength_quiz_reminder.1.title'), body: T('strength_quiz_reminder.1.body') },
+      { title: T('strength_quiz_reminder.2.title'), body: T('strength_quiz_reminder.2.body') },
     ],
   },
   {

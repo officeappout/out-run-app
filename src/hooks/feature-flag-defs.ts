@@ -867,6 +867,9 @@ export const FLAG_DEFS = [
   // when the progress screen was opened after the day's last workout (streaks/{uid}.praiseSeenAt). Server:
   // functions/workoutPraiseScheduler (reads this key directly). Fail-closed. Off = no push, no stamp.
   { key: 'enableWorkoutPraisePush', firestoreKey: 'enable_workout_praise_push', defaultValue: false, superAdminValue: false },
+  // Pilot AJ16 (01.11.2026): "השלימו את שאלון הכוח" about 24h after signup and on day 3, then stop, for users
+  // without a strength level. Server: functions/strengthQuizReminderScheduler (reads this key directly). Fail-closed.
+  { key: 'enableStrengthQuizReminderPush', firestoreKey: 'enable_strength_quiz_reminder_push', defaultValue: false, superAdminValue: false },
   // Pilot owner decisions (31.10.2026): M21 story bars across the whole combined workout (walk / run legs too, the
   // station's exercises in focus); M23 the walked trail on a route is green (zones keep their own colours); M12 a park
   // with fewer than 3 different equipment types asks for the strength questionnaire first (users without one).

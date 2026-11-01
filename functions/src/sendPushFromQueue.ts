@@ -303,7 +303,7 @@ export const sendPushFromQueue = onDocumentCreated(
         payload: {
           aps: {
             sound: 'default',
-            badge: 1,
+            badge: 0, // AJ15: never a fixed badge (it stuck at 1); 0 also clears an old one
           },
         },
       },

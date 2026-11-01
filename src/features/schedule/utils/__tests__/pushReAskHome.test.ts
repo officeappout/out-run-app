@@ -31,6 +31,13 @@ describe('homeReAskAction', () => {
     expect(homeReAskAction({ ...base, isNative: false, iosWebBlocked: true })).toBeNull();
   });
 
+  it('AJ12: waits the cooldown after an ask elsewhere (signup soft-ask, deferral, OS dialog)', () => {
+    const day = 86_400_000;
+    expect(homeReAskAction({ ...base, lastOtherAskAt: base.now - day })).toBeNull();
+    expect(homeReAskAction({ ...base, permission: 'denied', lastOtherAskAt: base.now - 2 * day })).toBeNull();
+    expect(homeReAskAction({ ...base, lastOtherAskAt: base.now - 4 * day })).toBe('prompt');
+  });
+
   it('is not a shouldShowPushReAsk moment', () => {
     expect(shouldShowPushReAsk({ moment: 'home', permission: 'prompt', shownAt: null })).toBe(false);
   });

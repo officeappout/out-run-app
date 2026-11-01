@@ -2537,6 +2537,50 @@
       "active": true
     }
   ],
+  "strength_quiz_reminder": [
+    {
+      "id": "default:strength_quiz_reminder:0",
+      "pushType": "strength_quiz_reminder",
+      "title": "השלימו את שאלון הכוח (2 דק׳)",
+      "body": "שתי דקות, ונבנה לך אימון שמתאים בדיוק לרמה שלך.",
+      "deepLink": "strength_quiz",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:strength_quiz_reminder:1",
+      "pushType": "strength_quiz_reminder",
+      "title": "@שם, נשאר רק השאלון",
+      "body": "כמה שאלות קצרות על כוח, ותקבלו תוכנית שמתחילה מהמקום הנכון.",
+      "deepLink": "strength_quiz",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    },
+    {
+      "id": "default:strength_quiz_reminder:2",
+      "pushType": "strength_quiz_reminder",
+      "title": "האימון שלך מחכה לשאלון",
+      "body": "בלי השאלון אנחנו מנחשים את הרמה. שתי דקות וזה מסודר.",
+      "deepLink": "strength_quiz",
+      "audience": null,
+      "conditions": null,
+      "fallbackOnly": false,
+      "gender": "both",
+      "subjectGender": "any",
+      "pairId": null,
+      "active": true
+    }
+  ],
   "partner_plan": [
     {
       "id": "default:partner_plan:0",
