@@ -24,7 +24,7 @@ describe('intro image warm-up (pilot note AJ2)', () => {
     warmImages(['/a.jpg', '/b.png', '/c.jpg'], cache, make);
     expect(make).toHaveBeenCalledTimes(3);
     expect(decode).toHaveBeenCalledTimes(3);
-    expect([...cache.keys()]).toEqual(['/a.jpg', '/b.png', '/c.jpg']);
+    expect(Array.from(cache.keys())).toEqual(['/a.jpg', '/b.png', '/c.jpg']);
     expect(cache.get('/a.jpg').src).toBe('/a.jpg');
   });
 });
