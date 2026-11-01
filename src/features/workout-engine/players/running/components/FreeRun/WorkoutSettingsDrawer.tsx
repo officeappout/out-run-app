@@ -35,12 +35,16 @@ import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
 import { useUiDir } from '@/lib/i18n/useUiDir';
+import Sheet from '@/components/ui/v2/Sheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 interface WorkoutSettingsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Pilot AK3: render as the v2 bottom sheet. Absent = the side drawer, unchanged. */
+  sheet?: boolean;
 }
 
-export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettingsDrawerProps) {
+export default function WorkoutSettingsDrawer({ isOpen, onClose, sheet = false }: WorkoutSettingsDrawerProps) {
   const { direction } = useUiDir();
   const t = useT(player);
   const { settings, updateSettings } = useRunningPlayer();
@@ -112,46 +116,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
   // here"); the second client render mounts the portal.
   if (!mounted) return null;
 
-  const drawerTree = (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop — z-[99999], one below the drawer itself so taps
-              outside the drawer dismiss it without bleeding through. */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] pointer-events-auto"
-            style={{ isolation: 'isolate' }}
-          />
-
-          {/* Drawer — z-[100000]. Now portalled into document.body so
-              this z-index competes against page-level overlays directly,
-              not against the metrics card's local stacking context. */}
-          <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            onClick={(e) => e.stopPropagation()}
-            className="fixed start-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[100000] overflow-y-auto pointer-events-auto"
-            style={{ fontFamily: 'var(--font-simpler)', isolation: 'isolate' }}
-            dir={direction}
-          >
-            {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="text-2xl font-black text-gray-900">{t('run.settings.title')}</h2>
-              <button
-                onClick={onClose}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px]"
-              >
-                <X size={24} className="text-gray-600" />
-              </button>
-            </div>
-
-            {/* Content */}
+  const body = (
             <div className="px-6 py-6 space-y-8">
               {/* Auto-Lap Section */}
               <div className="space-y-4">
@@ -329,9 +294,9 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                 </div>
               </div>
             </div>
+  );
 
-            {/* Footer with Save Button */}
-            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+  const saveButton = (
               <motion.button
                 onClick={handleSave}
                 whileTap={{ scale: 0.95 }}
@@ -339,6 +304,72 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
               >
                 {t('run.settings.save')}
               </motion.button>
+  );
+
+  // Pilot AK3 (enable_pilot_ah_v1): the standard v2 bottom sheet (grabber, drag to close) instead
+  // of the full-height side drawer whose X sat under the status bar.
+  if (sheet) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        title={t('run.settings.title')}
+        layout="nested"
+        zIndex={SHEET_Z.freeRunExtras}
+        dragToDismiss
+        hideClose
+        dir={direction}
+        footer={<div className="px-5 pt-3">{saveButton}</div>}
+      >
+        {body}
+      </Sheet>
+    );
+  }
+
+  const drawerTree = (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop — z-[99999], one below the drawer itself so taps
+              outside the drawer dismiss it without bleeding through. */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] pointer-events-auto"
+            style={{ isolation: 'isolate' }}
+          />
+
+          {/* Drawer — z-[100000]. Now portalled into document.body so
+              this z-index competes against page-level overlays directly,
+              not against the metrics card's local stacking context. */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            onClick={(e) => e.stopPropagation()}
+            className="fixed start-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[100000] overflow-y-auto pointer-events-auto"
+            style={{ fontFamily: 'var(--font-simpler)', isolation: 'isolate' }}
+            dir={direction}
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-2xl font-black text-gray-900">{t('run.settings.title')}</h2>
+              <button
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px]"
+              >
+                <X size={24} className="text-gray-600" />
+              </button>
+            </div>
+
+            {body}
+
+            {/* Footer with Save Button */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+              {saveButton}
             </div>
           </motion.div>
         </>

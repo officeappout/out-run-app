@@ -84,6 +84,10 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   }, []);
 
   const t = useT(player);
+  // enable_pilot_ah_v1: AH23 turn row; AK2/AK3 (drawer layout) numbers in the drawer only, settings at
+  // thumb reach, one GPS indicator.
+  const pilotAh = usePilotAhV1();
+  const tidy = pilotAh && drawerV1;
   const live = useFreeRunLive();
   const tracking = useZoneTracking(null, 0);
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
@@ -115,10 +119,11 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   useEffect(() => {
     if (gpsStatus === prevGps.current) return;
     prevGps.current = gpsStatus;
-    if (gpsStatus === 'searching') setGpsToast('run.free.v2.gps.searching');
-    else if (gpsStatus === 'poor') setGpsToast('run.free.v2.gps.poor');
+    // AK2: the chip already says searching / poor; a toast on top of it collided with it.
+    if (gpsStatus === 'searching') { if (!tidy) setGpsToast('run.free.v2.gps.searching'); }
+    else if (gpsStatus === 'poor') { if (!tidy) setGpsToast('run.free.v2.gps.poor'); }
     else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('run.free.v2.gps.good');
-  }, [gpsStatus]);
+  }, [gpsStatus, tidy]);
   useEffect(() => {
     if (!gpsToast) return;
     const timer = setTimeout(() => setGpsToast(null), 4000);
@@ -130,7 +135,6 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   // Map camera keeps the runner's marker between the header and the card
   // (the legacy framing put it right under the bottom card).
   // enable_pilot_ah_v1 (AH23): the next turn as one line here; MapShell keeps the big turn card off.
-  const pilotAh = usePilotAhV1();
   const chrome = usePublishedPlayerChrome({ bottomGapPx: drawerV1 ? 0 : 12, headerIncludesSafeTop: true, drawer: drawerV1 });
   const [headerH, setHeaderH] = useState(96);
   const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
@@ -226,7 +230,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           )}
           index={tg.layerIndex}
           onIndexChange={tg.setLayerIndex}
-          strip={chromeNodes.strip}
+          strip={tidy ? [] : chromeNodes.strip}
         />
       ) : (
       <div ref={chrome.headerRef} className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -241,6 +245,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         className="pointer-events-auto absolute left-4 z-10 flex items-center gap-2"
         style={{ top: `calc(env(safe-area-inset-top, 0px) + ${headerH + navCardH + 16}px)` }}
       >
+        {!tidy && (
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
@@ -249,6 +254,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         >
           <Settings2 size={18} strokeWidth={2.3} className="text-v2-ink" aria-hidden />
         </button>
+        )}
         <InviteRunButton activityType={activityType} inline />
         <div className="pointer-events-none">
           <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
@@ -273,7 +279,27 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
           compact={chromeNodes.compact}
           large={chromeNodes.large}
           override={tg.vsPanel}
-          buttons={<RunFloatingButtons isPaused={live.isPaused} onPause={live.pause} onResume={live.resume} onLap={lapOn ? live.lap : undefined} onStop={live.stop} />}
+          buttons={(
+            <RunFloatingButtons
+              isPaused={live.isPaused}
+              onPause={live.pause}
+              onResume={live.resume}
+              onLap={lapOn ? live.lap : undefined}
+              onStop={live.stop}
+              {...(tidy ? {
+                extra: (
+                  <button
+                    type="button"
+                    onClick={() => setSettingsOpen(true)}
+                    aria-label={t('run.free.v2.settings')}
+                    className="pointer-events-auto mb-[22px] grid h-12 w-12 place-items-center rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
+                  >
+                    <Settings2 size={20} strokeWidth={2.3} className="text-v2-ink" aria-hidden />
+                  </button>
+                ),
+              } : {})}
+            />
+          )}
         />
       ) : (
         <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
@@ -287,7 +313,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         <ArriveAtStartCard routeName={arriveRoute.name} routeKm={routeKmOf(arriveRoute)} walkedKm={live.totals.distanceKm} onContinue={onContinueRoute} />
       )}
 
-      <WorkoutSettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <WorkoutSettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} sheet={tidy} />
     </>
   );
 }

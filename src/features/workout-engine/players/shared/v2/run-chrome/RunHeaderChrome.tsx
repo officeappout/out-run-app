@@ -34,7 +34,8 @@ export default function RunHeaderChrome({ outerRef, innerRef, strip, trailing, o
           <RunTopLayers layers={layers} index={index} onIndexChange={onIndexChange} />
           {trailing && <div className="pointer-events-none absolute end-3 top-0">{trailing}</div>}
         </div>
-        <RunDataStrip items={strip} />
+        {/* Empty (pilot AK2: the numbers live in the drawer only) → no strip at all. */}
+        {strip.length > 0 && <RunDataStrip items={strip} />}
       </div>
     </div>
   );

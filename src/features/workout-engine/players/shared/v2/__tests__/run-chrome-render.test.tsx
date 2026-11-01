@@ -83,3 +83,22 @@ describe('me vs them panel', () => {
     expect(h).toContain('סגירת ההשוואה');
   });
 });
+
+describe('pilot AK2 / AK3 (enable_pilot_ah_v1)', () => {
+  it('floating buttons: an extra control sits on the start end (a walk: no lap)', () => {
+    const h = html(<RunFloatingButtons isPaused={false} onPause={noop} onResume={noop} onStop={noop} extra={<button type="button" aria-label="settings-x" />} />);
+    expect(h).toContain('aria-label="settings-x"');
+    expect(h.indexOf('settings-x')).toBeLessThan(h.indexOf('השהיה'));
+  });
+  it('floating buttons: no extra → the markup is unchanged', () => {
+    const a = html(<RunFloatingButtons isPaused={false} onPause={noop} onResume={noop} onLap={noop} onStop={noop} />);
+    expect(a).not.toContain('gap-4');
+  });
+  it('header chrome: an empty strip renders no data strip', async () => {
+    const { default: RunHeaderChrome } = await import('../run-chrome/RunHeaderChrome');
+    const withStrip = html(<RunHeaderChrome strip={[{ value: '1', label: 'x' }]} layers={[<div key="a" />]} index={0} onIndexChange={noop} />);
+    const empty = html(<RunHeaderChrome strip={[]} layers={[<div key="a" />]} index={0} onIndexChange={noop} />);
+    expect(withStrip.length).toBeGreaterThan(empty.length);
+    expect(empty).not.toContain('>x<');
+  });
+});
