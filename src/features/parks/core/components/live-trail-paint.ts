@@ -47,7 +47,16 @@ export interface LiveTrailPaint {
 /** Pilot M23 (enable_pilot_decisions_v1): the route's own green, for the walked trail on a route. */
 export const TRAIL_ROUTE_GREEN = HYBRID_AER;
 
-export function liveTrailPaintV1(kind: LiveTrailKind, activityType?: string | null, greenRoute = false): LiveTrailPaint {
+/**
+ * `zoneColors` (enable_unified_player_v1): the workout's own palette for the
+ * zone trail, so it matches the story bars. Omitted ⇒ ZONE_TRAIL_COLORS, as before.
+ */
+export function liveTrailPaintV1(
+  kind: LiveTrailKind,
+  activityType?: string | null,
+  greenRoute = false,
+  zoneColors?: ReadonlyArray<readonly [string, string]>,
+): LiveTrailPaint {
   const walking = activityType === 'walking';
   const brand = walking ? TRAIL_V1_WALK : TRAIL_V1_RUN;
   if (kind === 'route') {
@@ -60,7 +69,7 @@ export function liveTrailPaintV1(kind: LiveTrailKind, activityType?: string | nu
   if (kind === 'zones') {
     return {
       casing: { 'line-color': '#ffffff', 'line-width': 10, 'line-opacity': 0.9 },
-      line: { 'line-color': zoneTrailColorExpression(brand), 'line-width': 6, 'line-opacity': 1 },
+      line: { 'line-color': zoneTrailColorExpression(brand, zoneColors), 'line-width': 6, 'line-opacity': 1 },
     };
   }
   return {
